@@ -1,6 +1,6 @@
 # 🌸 Portfolium
 
-**Production-ready investment tracking application** with multi-asset portfolio management (stocks, ETFs, crypto), P&L calculations, CSV import, and modern UI with pink branding.
+**Production-ready investment tracking application** with multi-asset portfolio management (stocks, ETFs, crypto), P&L calculations, CSV import, real-time price updates, automatic logo fetching, ticker search, and modern UI.
 
 ## 🏗️ Architecture
 
