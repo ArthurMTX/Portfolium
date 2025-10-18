@@ -15,9 +15,9 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/transactions.png" alt="Transactions" width="49%"/>
-  <img src=".github/assets/assets.png" alt="Assets" width="49%"/>
+  <img src=".github/assets/transactions.png" alt="Transactions" width="100%"/>
   <br/>
+  <img src=".github/assets/assets.png" alt="Assets" width="100%"/>
   <em>Transaction history & Asset management with logos</em>
 </p>
 
