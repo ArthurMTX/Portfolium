@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS portfolio.assets (
   name TEXT,
   currency TEXT DEFAULT 'USD',
   class portfolio.asset_class DEFAULT 'stock',
+  country TEXT,
   sector TEXT,
   industry TEXT,
   asset_type TEXT, -- 'EQUITY', 'ETF', 'CRYPTO', etc.
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS portfolio.assets (
 
 CREATE INDEX idx_assets_symbol ON portfolio.assets(symbol);
 CREATE INDEX idx_assets_class ON portfolio.assets(class);
+CREATE INDEX idx_assets_country ON portfolio.assets(country);
 CREATE INDEX idx_assets_sector ON portfolio.assets(sector);
 CREATE INDEX idx_assets_industry ON portfolio.assets(industry);
 

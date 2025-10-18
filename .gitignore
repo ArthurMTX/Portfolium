@@ -38,5 +38,3 @@ dist/
 *.db
 *.sqlite
 postgres_data/
-start.ps1
-stop.ps1
