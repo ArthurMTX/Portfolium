@@ -1,0 +1,179 @@
+
+"""
+Portfolios router
+"""
+from typing import List, Annotated
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.schemas import Portfolio, PortfolioCreate, Position, PortfolioMetrics, PortfolioHistoryPoint
+from app.crud import portfolios as crud
+from app.services.metrics import get_metrics_service, MetricsService
+
+router = APIRouter()
+
+# Backfill price history for all held assets in a portfolio
+@router.post("/{portfolio_id}/backfill_history")
+async def backfill_portfolio_history(
+    portfolio_id: int,
+    days: int = 365,
+    db: Session = Depends(get_db)
+):
+    """
+    Backfill daily price history for all assets in a portfolio for the past N days.
+    """
+    from app.models import Transaction, Asset
+    from app.services.pricing import PricingService
+    from datetime import datetime, timedelta
+
+    # Find all unique asset_ids in this portfolio
+    asset_ids = db.query(Transaction.asset_id).filter(Transaction.portfolio_id == portfolio_id).distinct().all()
+    asset_ids = [row[0] for row in asset_ids]
+    assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+
+    pricing_service = PricingService(db)
+    start_date = datetime.utcnow() - timedelta(days=days)
+    end_date = datetime.utcnow()
+    results = {}
+    for asset in assets:
+        count = pricing_service.ensure_historical_prices(asset, start_date, end_date, interval='1d')
+        results[asset.symbol] = count
+
+    return {"portfolio_id": portfolio_id, "assets": len(assets), "history_points_saved": results}
+
+
+
+@router.get("", response_model=List[Portfolio])
+async def get_portfolios(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Get list of portfolios"""
+    return crud.get_portfolios(db, skip=skip, limit=limit)
+
+
+@router.get("/{portfolio_id}", response_model=Portfolio)
+async def get_portfolio(portfolio_id: int, db: Session = Depends(get_db)):
+    """Get portfolio by ID"""
+    portfolio = crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    return portfolio
+
+
+@router.post("", response_model=Portfolio, status_code=status.HTTP_201_CREATED)
+async def create_portfolio(
+    portfolio: PortfolioCreate,
+    db: Session = Depends(get_db)
+):
+    """Create new portfolio"""
+    # Check if name already exists
+    existing = crud.get_portfolio_by_name(db, portfolio.name)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Portfolio with name '{portfolio.name}' already exists"
+        )
+    
+    return crud.create_portfolio(db, portfolio)
+
+
+@router.put("/{portfolio_id}", response_model=Portfolio)
+async def update_portfolio(
+    portfolio_id: int,
+    portfolio: PortfolioCreate,
+    db: Session = Depends(get_db)
+):
+    """Update existing portfolio"""
+    updated = crud.update_portfolio(db, portfolio_id, portfolio)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    return updated
+
+
+@router.delete("/{portfolio_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_portfolio(portfolio_id: int, db: Session = Depends(get_db)):
+    """Delete portfolio"""
+    success = crud.delete_portfolio(db, portfolio_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+
+
+@router.get("/{portfolio_id}/positions", response_model=List[Position])
+async def get_portfolio_positions(
+    portfolio_id: int,
+    metrics_service = Depends(get_metrics_service)
+):
+    """
+    Get current positions for a portfolio
+    
+    Returns detailed position info including:
+    - Current quantity
+    - Average cost (PRU)
+    - Market value
+    - Unrealized P&L
+    """
+    # Verify portfolio exists
+    portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    
+    return metrics_service.get_positions(portfolio_id)
+
+
+@router.get("/{portfolio_id}/metrics", response_model=PortfolioMetrics)
+async def get_portfolio_metrics(
+    portfolio_id: int,
+    metrics_service = Depends(get_metrics_service)
+):
+    """
+    Get aggregated metrics for a portfolio
+    
+    Returns:
+    - Total value
+    - Total cost
+    - Unrealized P&L
+    - Realized P&L
+    - Dividends
+    - Fees
+    """
+    try:
+        return metrics_service.get_metrics(portfolio_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+# New endpoint: portfolio value history over time
+@router.get("/{portfolio_id}/history", response_model=List[PortfolioHistoryPoint])
+async def get_portfolio_history(
+    portfolio_id: int,
+    interval: str = "daily",  # daily, weekly, 6months, ytd, 1year, all
+    metrics_service = Depends(get_metrics_service)
+):
+    """
+    Get portfolio value history for charting (daily, weekly, etc.)
+    """
+    try:
+        return metrics_service.get_portfolio_history(portfolio_id, interval)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )

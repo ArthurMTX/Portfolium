@@ -1,0 +1,15 @@
+# Exemple de fichier CSV pour import de transactions
+
+# Format standard (colonnes séparées par des virgules)
+date,symbol,type,quantity,price,fees,currency,notes
+2024-01-15,AAPL,BUY,10,150.25,9.99,USD,Initial purchase
+2024-02-20,AAPL,BUY,5,165.80,9.99,USD,Adding to position
+2024-03-10,AAPL,DIVIDEND,15,0.24,0,USD,Q1 dividend
+2024-04-05,AAPL,SELL,5,180.50,9.99,USD,Taking profits
+2024-05-15,NVDA,BUY,20,520.30,15.99,USD,AI boom position
+2024-06-20,MSFT,BUY,8,375.20,9.99,USD,Cloud diversification
+
+# Exemple avec stock split
+# Pour un split 2:1, ajouter la colonne split_ratio
+# date,symbol,type,split_ratio
+# 2024-06-01,AAPL,SPLIT,2:1

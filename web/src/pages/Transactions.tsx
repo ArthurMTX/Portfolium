@@ -1,0 +1,982 @@
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import usePortfolioStore from '../store/usePortfolioStore'
+import api from '../lib/api'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+
+interface TickerInfo {
+  symbol: string
+  name: string
+}
+
+interface Transaction {
+  id: number
+  asset_id: number
+  asset: {
+    symbol: string
+    name: string | null
+    asset_type?: string
+  }
+  tx_date: string
+  type: string
+  quantity: number | string
+  price: number | string
+  fees: number | string
+  currency: string
+  notes: string | null
+}
+
+type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee'
+type ModalMode = 'add' | 'edit' | null
+type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
+type SortDir = 'asc' | 'desc'
+
+// Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
+const normalizeTickerForLogo = (symbol: string): string => {
+  return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
+}
+
+
+export default function Transactions() {
+  const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const [activeTab, setActiveTab] = useState<TabType>('all')
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modalMode, setModalMode] = useState<ModalMode>(null)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('tx_date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  // Form state
+  const [ticker, setTicker] = useState("")
+  const [searchResults, setSearchResults] = useState<TickerInfo[]>([])
+  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0])
+  const [txType, setTxType] = useState("BUY")
+  const [quantity, setQuantity] = useState("")
+  const [selectedTicker, setSelectedTicker] = useState<TickerInfo | null>(null)
+  const [price, setPrice] = useState("")
+  const [fees, setFees] = useState("0")
+  const [notes, setNotes] = useState("")
+  const [formLoading, setFormLoading] = useState(false)
+  const [formError, setFormError] = useState("")
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError] = useState("")
+  const [importSuccess, setImportSuccess] = useState("")
+
+  const fetchTransactions = useCallback(async () => {
+    if (!activePortfolioId) return
+    
+    setLoading(true)
+    try {
+      const filters = activeTab !== 'all' ? { tx_type: activeTab.toUpperCase() } : undefined
+      const data = await api.getTransactions(activePortfolioId, filters)
+      setTransactions(data)
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [activePortfolioId, activeTab])
+
+  useEffect(() => {
+    if (activePortfolioId) {
+      fetchTransactions()
+    }
+  }, [activePortfolioId, fetchTransactions])
+
+  // moved into useCallback above
+
+  // Ticker search
+  const handleTickerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTicker(e.target.value)
+    setSelectedTicker(null)
+    setPrice("")
+    if (e.target.value.length > 1) {
+      try {
+        const res = await fetch(`http://localhost:8000/assets/search_ticker?query=${e.target.value}`)
+        const data = await res.json()
+        setSearchResults(data)
+      } catch (err) {
+        console.error("Failed to search tickers:", err)
+      }
+    } else {
+      setSearchResults([])
+    }
+  }
+
+  const handleSelectTicker = (tickerInfo: TickerInfo) => {
+    setSelectedTicker(tickerInfo)
+    setTicker(tickerInfo.symbol)
+    setSearchResults([])
+    setPrice("")
+  }
+
+  const openAddModal = () => {
+    resetForm()
+    setModalMode('add')
+  }
+
+  const openEditModal = (transaction: Transaction) => {
+    setEditingTransaction(transaction)
+    setSelectedTicker({ symbol: transaction.asset.symbol, name: transaction.asset.name || '' })
+    setTicker(transaction.asset.symbol)
+    setTxDate(transaction.tx_date)
+    setTxType(transaction.type)
+    setQuantity(transaction.quantity.toString())
+    setPrice(transaction.price.toString())
+    setFees(transaction.fees.toString())
+    setNotes(transaction.notes || '')
+    setModalMode('edit')
+  }
+
+  const closeModal = () => {
+    setModalMode(null)
+    setEditingTransaction(null)
+    resetForm()
+  }
+
+  const resetForm = () => {
+    setTicker("")
+    setSelectedTicker(null)
+    setTxDate(new Date().toISOString().split('T')[0])
+    setTxType("BUY")
+    setQuantity("")
+    setPrice("")
+    setFees("0")
+    setNotes("")
+    setFormError("")
+    setSearchResults([])
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormLoading(true)
+    setFormError("")
+
+    if (!activePortfolioId) {
+      setFormError("Please select a portfolio first")
+      setFormLoading(false)
+      return
+    }
+
+    if (!selectedTicker && modalMode === 'add') {
+      setFormError("Please select a ticker")
+      setFormLoading(false)
+      return
+    }
+
+    try {
+      if (modalMode === 'add') {
+        // Add new transaction
+        if (!price) {
+          // Auto-fetch price
+          const res = await fetch(
+            `http://localhost:8000/portfolios/${activePortfolioId}/add_position_transaction?ticker=${selectedTicker!.symbol}&tx_date=${txDate}&tx_type=${txType}&quantity=${quantity}`,
+            { method: "POST" }
+          )
+          if (!res.ok) {
+            const errData = await res.json()
+            throw new Error(errData.detail || "Failed to add transaction")
+          }
+        } else {
+          // Manual price entry - ensure we have a valid asset_id
+          let assetId: number | null = null
+          const symbol = selectedTicker?.symbol || ticker
+
+          if (!symbol) {
+            throw new Error("Ticker symbol is required")
+          }
+
+          try {
+            // Try to find an existing asset by symbol
+            const assets = await api.getAssets(symbol)
+            const match = (assets as Array<{ id?: number; symbol?: string }>).find((a) => a.symbol?.toUpperCase() === symbol.toUpperCase())
+            if (match) {
+              assetId = match.id ?? null
+            }
+          } catch (lookupErr) {
+            // Non-fatal: we'll attempt to create below
+            console.warn('Asset lookup failed, will attempt to create:', lookupErr)
+          }
+
+          if (!assetId) {
+            // Create the asset if it doesn't exist
+            const created = await api.createAsset({
+              symbol,
+              name: selectedTicker?.name,
+              currency: 'USD',
+            })
+            assetId = created.id
+          }
+
+          await api.createTransaction(activePortfolioId!, {
+            asset_id: assetId,
+            tx_date: txDate,
+            type: txType,
+            quantity: parseFloat(quantity),
+            price: parseFloat(price),
+            fees: parseFloat(fees),
+            currency: "USD",
+            metadata: {},
+            notes: notes || null
+          })
+        }
+      } else if (modalMode === 'edit' && editingTransaction) {
+        // Update existing transaction
+        const res = await fetch(
+          `http://localhost:8000/portfolios/${activePortfolioId}/transactions/${editingTransaction.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              asset_id: editingTransaction.asset_id,
+              tx_date: txDate,
+              type: txType,
+              quantity: parseFloat(quantity),
+              price: parseFloat(price),
+              fees: parseFloat(fees),
+              currency: editingTransaction.currency,
+              metadata: {},
+              notes: notes || null
+            })
+          }
+        )
+        if (!res.ok) {
+          const errData = await res.json()
+          throw new Error(errData.detail || "Failed to update transaction")
+        }
+      }
+
+      await fetchTransactions()
+      closeModal()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Operation failed'
+      setFormError(message)
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleDelete = async (transactionId: number) => {
+    try {
+      const res = await fetch(
+        `http://localhost:8000/portfolios/${activePortfolioId}/transactions/${transactionId}`,
+        { method: "DELETE" }
+      )
+      if (!res.ok) {
+        throw new Error("Failed to delete transaction")
+      }
+      await fetchTransactions()
+      setDeleteConfirm(null)
+    } catch (err) {
+      console.error("Failed to delete transaction:", err)
+    }
+  }
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
+  const handleImportClick = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file || !activePortfolioId) return
+
+      setImportLoading(true)
+      setImportError("")
+      setImportSuccess("")
+
+      try {
+        const result = await api.importCsv(activePortfolioId, file)
+        
+        if (result.success) {
+          setImportSuccess(`Successfully imported ${result.imported_count} transactions!`)
+          await fetchTransactions()
+          
+          // Show warnings if any
+          if (result.warnings.length > 0) {
+            console.warn('Import warnings:', result.warnings)
+          }
+          
+          // Clear success message after 5 seconds
+          setTimeout(() => setImportSuccess(""), 5000)
+        } else {
+          setImportError(`Import failed: ${result.errors.join(', ')}`)
+        }
+      } catch (err: unknown) {
+        console.error('Import error:', err)
+        const message = err instanceof Error ? err.message : 'Failed to import CSV'
+        setImportError(message)
+      } finally {
+        setImportLoading(false)
+      }
+    }
+    input.click()
+  }
+
+  const handleExportClick = () => {
+    if (transactions.length === 0) {
+      alert('No transactions to export')
+      return
+    }
+
+    // Create CSV content
+    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'notes']
+    const rows = transactions.map(tx => [
+      tx.tx_date,
+      tx.asset.symbol,
+      tx.type,
+      tx.quantity,
+      tx.price,
+      tx.fees,
+      tx.currency,
+      tx.notes || ''
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => {
+        // Escape cells that contain commas or quotes
+        const str = String(cell)
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`
+        }
+        return str
+      }).join(','))
+    ].join('\n')
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    
+    link.setAttribute('href', url)
+    link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      let aVal: string | number
+      let bVal: string | number
+
+      switch (sortKey) {
+        case 'tx_date':
+          aVal = new Date(a.tx_date).getTime()
+          bVal = new Date(b.tx_date).getTime()
+          break
+        case 'symbol':
+          aVal = a.asset.symbol
+          bVal = b.asset.symbol
+          break
+        case 'type':
+          aVal = a.type
+          bVal = b.type
+          break
+        case 'quantity':
+          aVal = typeof a.quantity === 'string' ? parseFloat(a.quantity) : a.quantity
+          bVal = typeof b.quantity === 'string' ? parseFloat(b.quantity) : b.quantity
+          break
+        case 'price':
+          aVal = typeof a.price === 'string' ? parseFloat(a.price) : a.price
+          bVal = typeof b.price === 'string' ? parseFloat(b.price) : b.price
+          break
+        case 'fees':
+          aVal = typeof a.fees === 'string' ? parseFloat(a.fees) : a.fees
+          bVal = typeof b.fees === 'string' ? parseFloat(b.fees) : b.fees
+          break
+        case 'total': {
+          const aQty = typeof a.quantity === 'string' ? parseFloat(a.quantity) : a.quantity
+          const aPrice = typeof a.price === 'string' ? parseFloat(a.price) : a.price
+          const aFees = typeof a.fees === 'string' ? parseFloat(a.fees) : a.fees
+          aVal = aQty * aPrice + aFees
+          
+          const bQty = typeof b.quantity === 'string' ? parseFloat(b.quantity) : b.quantity
+          const bPrice = typeof b.price === 'string' ? parseFloat(b.price) : b.price
+          const bFees = typeof b.fees === 'string' ? parseFloat(b.fees) : b.fees
+          bVal = bQty * bPrice + bFees
+          break
+        }
+        default:
+          return 0
+      }
+
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+
+      return sortDir === 'asc' ? (Number(aVal) - Number(bVal)) : (Number(bVal) - Number(aVal))
+    })
+  }, [transactions, sortKey, sortDir])
+
+  const isActive = (key: SortKey) => sortKey === key
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    const active = isActive(col)
+    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
+    return sortDir === 'asc' ? (
+      <ChevronUp size={14} className="inline ml-1 opacity-80" />
+    ) : (
+      <ChevronDown size={14} className="inline ml-1 opacity-80" />
+    )
+  }
+
+  const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
+    if (value === null || value === undefined) return '-'
+    const numValue = typeof value === 'string' ? parseFloat(value) : value
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency,
+    }).format(numValue)
+  }
+
+  const formatNumber = (value: number | string | null, decimals: number = 2) => {
+    if (value === null || value === undefined) return '-'
+    const numValue = typeof value === 'string' ? parseFloat(value) : value
+    return numValue.toFixed(decimals)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  const tabs: { id: TabType; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'buy', label: 'Buy' },
+    { id: 'sell', label: 'Sell' },
+    { id: 'dividend', label: 'Dividend' },
+    { id: 'fee', label: 'Fees' },
+  ]
+
+  const getTransactionIcon = (type: string) => {
+    switch (type.toUpperCase()) {
+      case 'BUY':
+        return <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
+      case 'SELL':
+        return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
+      default:
+        return null
+    }
+  }
+
+  const getTransactionColor = (type: string) => {
+    switch (type.toUpperCase()) {
+      case 'BUY':
+        return 'text-green-600 dark:text-green-400'
+      case 'SELL':
+        return 'text-red-600 dark:text-red-400'
+      default:
+        return 'text-neutral-600 dark:text-neutral-400'
+    }
+  }
+
+  if (!activePortfolioId) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+          Transactions
+        </h1>
+        <div className="card p-12 text-center">
+          <p className="text-lg text-neutral-600 dark:text-neutral-400">
+            Please select or create a portfolio from the Dashboard to view transactions.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+          Transactions
+        </h1>
+        <div className="flex gap-3">
+          <button 
+            onClick={handleImportClick}
+            disabled={importLoading}
+            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Upload size={18} />
+            {importLoading ? 'Importing...' : 'Import CSV'}
+          </button>
+          <button 
+            onClick={handleExportClick}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Download size={18} />
+            Export
+          </button>
+          <button onClick={openAddModal} className="btn-primary flex items-center gap-2">
+            <PlusCircle size={18} />
+            Add Transaction
+          </button>
+        </div>
+      </div>
+
+      {/* Import Success/Error Messages */}
+      {importSuccess && (
+        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400">
+          {importSuccess}
+        </div>
+      )}
+      {importError && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
+          {importError}
+        </div>
+      )}
+
+      <div className="card">
+        {/* Tabs */}
+        <div className="border-b border-neutral-200 dark:border-neutral-700">
+          <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  ${
+                    activeTab === tab.id
+                      ? 'border-pink-500 text-pink-600 dark:text-pink-400'
+                      : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Transactions Table */}
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+              Loading transactions...
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+              <p>No transactions found</p>
+              <p className="text-sm mt-2">Start by adding your first transaction</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-neutral-50 dark:bg-neutral-800/50">
+                <tr>
+                  <th 
+                    onClick={() => handleSort('tx_date')}
+                    aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Date <SortIcon col="tx_date" />
+                  </th>
+                  <th 
+                    onClick={() => handleSort('symbol')}
+                    aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Asset <SortIcon col="symbol" />
+                  </th>
+                  <th 
+                    onClick={() => handleSort('type')}
+                    aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Type <SortIcon col="type" />
+                  </th>
+                  <th 
+                    onClick={() => handleSort('quantity')}
+                    aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Quantity <SortIcon col="quantity" />
+                  </th>
+                  <th 
+                    onClick={() => handleSort('price')}
+                    aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Price <SortIcon col="price" />
+                  </th>
+                  <th 
+                    onClick={() => handleSort('fees')}
+                    aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Fees <SortIcon col="fees" />
+                  </th>
+                  <th 
+                    onClick={() => handleSort('total')}
+                    aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Total <SortIcon col="total" />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                    Notes
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                {sortedTransactions.map((transaction) => {
+                  const quantity = typeof transaction.quantity === 'string' 
+                    ? parseFloat(transaction.quantity) 
+                    : transaction.quantity
+                  const price = typeof transaction.price === 'string' 
+                    ? parseFloat(transaction.price) 
+                    : transaction.price
+                  const fees = typeof transaction.fees === 'string' 
+                    ? parseFloat(transaction.fees) 
+                    : transaction.fees
+                  const total = quantity * price + fees
+
+                  return (
+                    <tr
+                      key={transaction.id}
+                      className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-neutral-100">
+                        {formatDate(transaction.tx_date)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={`/logos/${normalizeTickerForLogo(transaction.asset.symbol)}`}
+                            alt={`${transaction.asset.symbol} logo`}
+                            className="w-6 h-6 object-cover"
+                            onLoad={(e) => {
+                              const img = e.currentTarget as HTMLImageElement
+                              if (img.dataset.validated) return
+                              img.dataset.validated = 'true'
+                              try {
+                                const canvas = document.createElement('canvas')
+                                const ctx = canvas.getContext('2d')
+                                if (!ctx) return
+                                const w = Math.min(img.naturalWidth || 0, 64) || 24
+                                const h = Math.min(img.naturalHeight || 0, 64) || 24
+                                if (w === 0 || h === 0) return
+                                canvas.width = w
+                                canvas.height = h
+                                ctx.drawImage(img, 0, 0, w, h)
+                                const data = ctx.getImageData(0, 0, w, h).data
+                                let opaque = 0
+                                for (let i = 0; i < data.length; i += 4) {
+                                  const a = data[i + 3]
+                                  if (a > 8) opaque++
+                                }
+                                const total = (data.length / 4) || 1
+                                if (opaque / total < 0.01) {
+                                  img.dispatchEvent(new Event('error'))
+                                }
+                              } catch {
+                                // Ignore canvas/security errors
+                              }
+                            }}
+                            onError={(e) => {
+                              const img = e.currentTarget as HTMLImageElement
+                              if (!img.dataset.resolverTried) {
+                                img.dataset.resolverTried = 'true'
+                                const params = new URLSearchParams()
+                                if (transaction.asset.name) params.set('name', transaction.asset.name)
+                                fetch(`/api/assets/logo/${transaction.asset.symbol}?${params.toString()}`, { redirect: 'follow' })
+                                  .then((res) => {
+                                    if (res.redirected) {
+                                      img.src = res.url
+                                    } else if (res.ok) {
+                                      return res.blob().then((blob) => {
+                                        img.src = URL.createObjectURL(blob)
+                                      })
+                                    } else {
+                                      img.style.display = 'none'
+                                    }
+                                  })
+                                  .catch(() => {
+                                    img.style.display = 'none'
+                                  })
+                              } else {
+                                img.style.display = 'none'
+                              }
+                            }}
+                          />
+                          <div>
+                            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                              {transaction.asset.symbol}
+                            </div>
+                            {transaction.asset.name && (
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                                {transaction.asset.name}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`flex items-center gap-2 text-sm font-medium ${getTransactionColor(transaction.type)}`}>
+                          {getTransactionIcon(transaction.type)}
+                          {transaction.type}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
+                        {formatNumber(transaction.quantity, 4)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
+                        {formatCurrency(transaction.price, transaction.currency)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
+                        {formatCurrency(transaction.fees, transaction.currency)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        {formatCurrency(total, transaction.currency)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
+                        {transaction.notes || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEditModal(transaction)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(transaction.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Add/Edit Modal */}
+      {modalMode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+                {modalMode === 'add' ? 'Add Transaction' : 'Edit Transaction'}
+              </h2>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {modalMode === 'add' && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Ticker
+                  </label>
+                  <input
+                    type="text"
+                    value={ticker}
+                    onChange={handleTickerChange}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    placeholder="Search ticker (e.g., AAPL)..."
+                  />
+                  {searchResults.length > 0 && (
+                    <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {searchResults.map((item: TickerInfo) => (
+                        <li
+                          key={item.symbol}
+                          className="p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0"
+                          onClick={() => handleSelectTicker(item)}
+                        >
+                          <div className="font-semibold text-blue-600 dark:text-blue-400">{item.symbol}</div>
+                          <div className="text-sm text-neutral-600 dark:text-neutral-400">{item.name}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {selectedTicker && (
+                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <div className="font-semibold text-blue-700 dark:text-blue-300">{selectedTicker.symbol}</div>
+                      <div className="text-sm text-blue-600 dark:text-blue-400">{selectedTicker.name}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={txDate}
+                    onChange={(e) => setTxDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Type
+                  </label>
+                  <select
+                    value={txType}
+                    onChange={(e) => setTxType(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  >
+                    <option value="BUY">Buy</option>
+                    <option value="SELL">Sell</option>
+                    <option value="DIVIDEND">Dividend</option>
+                    <option value="FEE">Fee</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    min="0"
+                    step="any"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Price {modalMode === 'add' && '(Optional)'}
+                  </label>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    min="0"
+                    step="any"
+                    placeholder={modalMode === 'add' ? 'Auto-fetch' : '0.00'}
+                    required={modalMode === 'edit'}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Fees
+                  </label>
+                  <input
+                    type="number"
+                    value={fees}
+                    onChange={(e) => setFees(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    min="0"
+                    step="any"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  rows={3}
+                  placeholder="Optional notes..."
+                />
+              </div>
+
+              {formError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading || (modalMode === 'add' && !selectedTicker)}
+                  className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+                >
+                  {formLoading ? 'Saving...' : modalMode === 'add' ? 'Add Transaction' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
+              Delete Transaction
+            </h3>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+              Are you sure you want to delete this transaction? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+

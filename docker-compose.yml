@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: portfolium-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
+      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portfolium}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portfolium
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: portfolium-api
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
+      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: ${API_PORT:-8000}
+      PRICE_CACHE_TTL_SECONDS: ${PRICE_CACHE_TTL_SECONDS:-300}
+      API_KEY: ${API_KEY:-dev-key-12345}
+      BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - portfolium
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      target: development
+    container_name: portfolium-web
+    restart: unless-stopped
+    environment:
+      # Flag to indicate we're running in Docker for Vite proxy configuration
+      DOCKER_ENV: "true"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    networks:
+      - portfolium
+
+volumes:
+  postgres_data:
+
+networks:
+  portfolium:
+    driver: bridge
