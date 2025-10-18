@@ -70,6 +70,8 @@ docker compose down -v
 ### Frontend
 
 - ✅ Dashboard with real-time metrics
+- ✅ Logos via Brandfetch API
+- ✅ Ticker auto-completion & search via Yahoo Finance
 - ✅ Positions table (sorting, filters, pagination)
 - ✅ Transaction history
 - ✅ CSV import with drag & drop
