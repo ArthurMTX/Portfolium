@@ -1,6 +1,27 @@
+<div align="center">
+
 # 🌸 Portfolium
 
 **Production-ready investment tracking application** with multi-asset portfolio management (stocks, ETFs, crypto), P&L calculations, CSV import, real-time price updates, automatic logo fetching, ticker search, and modern UI.
+
+---
+
+### 📸 Screenshots
+
+<p align="center">
+  <img src=".github/assets/dashboard.png" alt="Dashboard" width="100%"/>
+  <br/>
+  <em>Dashboard with real-time metrics and portfolio overview</em>
+</p>
+
+<p align="center">
+  <img src=".github/assets/transactions.png" alt="Transactions" width="49%"/>
+  <img src=".github/assets/assets.png" alt="Assets" width="49%"/>
+  <br/>
+  <em>Transaction history & Asset management with logos</em>
+</p>
+
+</div>
 
 ## 🏗️ Architecture
 
