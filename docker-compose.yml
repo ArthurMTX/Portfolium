@@ -3,6 +3,8 @@ services:
     image: postgres:15-alpine
     container_name: portfolium-db
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-portfolium}
       POSTGRES_USER: ${POSTGRES_USER:-portfolium}
@@ -26,6 +28,8 @@ services:
       dockerfile: Dockerfile
     container_name: portfolium-api
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-portfolium}
       POSTGRES_USER: ${POSTGRES_USER:-portfolium}
@@ -34,9 +38,25 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       API_HOST: ${API_HOST:-0.0.0.0}
       API_PORT: ${API_PORT:-8000}
+      ADMIN_AUTO_CREATE: ${ADMIN_AUTO_CREATE:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@portfolium.local}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator}
+      ADMIN_IS_ACTIVE: ${ADMIN_IS_ACTIVE:-true}
+      ADMIN_IS_VERIFIED: ${ADMIN_IS_VERIFIED:-true}
       PRICE_CACHE_TTL_SECONDS: ${PRICE_CACHE_TTL_SECONDS:-300}
       API_KEY: ${API_KEY:-dev-key-12345}
       BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
+      ENABLE_EMAIL: ${ENABLE_EMAIL:-false}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FROM_EMAIL: ${FROM_EMAIL:-noreply@portfolium.com}
+      FROM_NAME: ${FROM_NAME:-Portfolium}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     ports:
       - "8000:8000"
     depends_on:
@@ -59,9 +79,12 @@ services:
       target: development
     container_name: portfolium-web
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       # Flag to indicate we're running in Docker for Vite proxy configuration
       DOCKER_ENV: "true"
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
       - "5173:5173"
     depends_on:

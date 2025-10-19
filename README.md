@@ -1,8 +1,12 @@
+<div class="wip" style="border: 2px solid #ffcc00; padding: 15px; margin-bottom: 25px; text-align: center; background-color: #fff8e1; border-radius: 8px;">
+  <strong style="color: #ff5722;">Work in Progress:</strong> This project is currently under active development. Features and functionality may change frequently. Please check back often for updates!
+</div>
+
 <div align="center">
 
 # 🌸 Portfolium
 
-**Production-ready investment tracking application** with multi-asset portfolio management (stocks, ETFs, crypto), P&L calculations, CSV import, real-time price updates, automatic logo fetching, ticker search, and modern UI.
+**Investment tracking application** with multi-asset portfolio management (stocks, ETFs, crypto), P&L calculations, CSV import, real-time price updates, automatic logo fetching, ticker search, and modern UI.
 
 ---
 
@@ -41,7 +45,7 @@ Monorepo with 3 services:
 ### Launch
 
 ```bash
-# Copy environment variables
+# Copy environment variables (edit as needed)
 cp .env.example .env
 
 # Start all services
@@ -111,14 +115,6 @@ docker compose down -v
 3. **transactions**: Operation history
 4. **prices**: Latest prices cache
 
-### Sample seed data
-
-The `db/init/02_seed.sql` file creates:
-
-- 1 "CTO" portfolio
-- 5 assets (AAPL, NVDA, MSFT, BTC-USD, ETH-USD)
-- 6 sample transactions
-
 ## 🔧 API Endpoints
 
 ### Health
@@ -127,31 +123,72 @@ The `db/init/02_seed.sql` file creates:
 
 ### Assets
 
-- `GET /assets?query=AAPL` → Auto-completion
+- `GET /assets` → List assets (with optional `query`, `skip`, `limit`)
+- `GET /assets/{asset_id}` → Get asset by id
 - `POST /assets` → Create an asset
+- `PUT /assets/{asset_id}` → Update an asset
+- `DELETE /assets/{asset_id}` → Delete an asset
+- `GET /assets/search_ticker?query=AAPL` → Yahoo Finance search
+- `GET /assets/held/all` → Currently held assets across portfolios
+- `GET /assets/sold/all` → Previously held (now zero) assets
+- `POST /assets/enrich/all` → Enrich metadata for all assets
+- `POST /assets/enrich/{asset_id}` → Enrich metadata for one asset
 
 ### Portfolios
 
-- `GET /portfolios` → List all
-- `POST /portfolios` → Create new
+- `GET /portfolios` → List current user's portfolios
+- `POST /portfolios` → Create new portfolio
+- `GET /portfolios/{id}` → Get a portfolio
+- `PUT /portfolios/{id}` → Update a portfolio
+- `DELETE /portfolios/{id}` → Delete a portfolio
 - `GET /portfolios/{id}/positions` → Positions with P&L
 - `GET /portfolios/{id}/metrics` → Aggregated metrics
-- `GET /portfolios/{id}/transactions` → Transaction history
+- `GET /portfolios/{id}/history` → Portfolio value history
+- `GET /portfolios/{id}/transactions` → Transaction list (filters: asset_id, type, date_from, date_to)
 
 ### Transactions
 
 - `POST /portfolios/{id}/transactions` → New transaction
-- `POST /import/csv` → CSV import
+- `GET /portfolios/{id}/transactions/{tx_id}` → Get a transaction
+- `PUT /portfolios/{id}/transactions/{tx_id}` → Update a transaction
+- `DELETE /portfolios/{id}/transactions/{tx_id}` → Delete a transaction
+- `POST /portfolios/{id}/add_position_transaction` → Add BUY/SELL with yfinance price for a date
+- `POST /import/csv?portfolio_id={id}` → CSV import
 
 ### Prices
 
 - `GET /prices?symbols=AAPL,MSFT` → Current prices
-- `POST /refresh/prices` → Force refresh
+- `POST /prices/refresh?portfolio_id={id}` → Force refresh portfolio prices
 
 ### Settings
 
 - `GET /settings` → Get settings
 - `PUT /settings` → Update settings
+
+### Authentication
+
+- `POST /auth/register` → Register
+- `POST /auth/login` → Login (OAuth2 password flow)
+- `GET /auth/me` → Current user info
+- `PUT /auth/me` → Update profile (email change triggers re-verification)
+- `POST /auth/verify-email` → Verify email with token
+- `POST /auth/resend-verification` → Resend verification email
+- `POST /auth/forgot-password` → Request password reset
+- `POST /auth/reset-password` → Reset password with token
+- `POST /auth/change-password` → Change password (auth)
+- `DELETE /auth/account` → Delete own account
+
+### Admin
+
+- `DELETE /admin/data` → Danger: delete all portfolios, assets, transactions, prices
+- `GET /admin/users` → List users
+- `POST /admin/users` → Create user
+- `PATCH /admin/users/{id}` → Update user (status/admin/email/username/password)
+- `DELETE /admin/users/{id}` → Delete user
+
+### Logs
+
+- `GET /logs` → Query API logs (filters: level, search, page, page_size)
 
 Interactive documentation: http://localhost:8000/docs
 
@@ -219,16 +256,55 @@ npm run dev
 
 ## 🔒 Security
 
-- CORS configured for `http://localhost:5173`
+- CORS configured for development origins: see `CORS_ORIGINS`
 - Pydantic validation on all inputs
-- Optional API Key (header `X-API-Key`)
+- JWT-based auth (Bearer token) for user endpoints
+- Role checks: admin endpoints require `is_admin` or `is_superuser`
+- Emails are optional; verification flow supported when SMTP configured
+- Logs accessible via `/logs` endpoint for debugging
 - Docker healthchecks
 
 ## ⚙️ Advanced Configuration
 
 ### Environment Variables
 
-See `.env.example` for the complete list.
+Environment variables (subset; see `.env.example` for full list):
+
+- Database
+  - `POSTGRES_DB` (default: portfolium)
+  - `POSTGRES_USER` (default: portfolium)
+  - `POSTGRES_PASSWORD` (default: portfolium)
+  - `POSTGRES_HOST` (default: db)
+  - `POSTGRES_PORT` (default: 5432)
+
+- API
+  - `API_HOST` (default: 0.0.0.0)
+  - `API_PORT` (default: 8000)
+  - `SECRET_KEY` (JWT signing key)
+  - `ALGORITHM` (default: HS256)
+  - `ACCESS_TOKEN_EXPIRE_MINUTES` (default: 10080 = 7 days)
+  - `CORS_ORIGINS` (comma separated; default includes http://localhost:5173)
+  - `API_KEY` (not required by default; reserved)
+
+- Pricing & Validation
+  - `PRICE_CACHE_TTL_SECONDS` (default: 300)
+  - `VALIDATE_SELL_QUANTITY` (default: true)
+
+- Admin bootstrap
+  - `ADMIN_AUTO_CREATE` (default: true)
+  - `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` (required to create)
+  - `ADMIN_FULL_NAME` (optional)
+  - `ADMIN_IS_ACTIVE` (default: true)
+  - `ADMIN_IS_VERIFIED` (default: true)
+
+- Email (optional)
+  - `ENABLE_EMAIL` (default: false)
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS`
+  - `FROM_EMAIL`, `FROM_NAME`
+  - `FRONTEND_URL` (links in emails; default: http://localhost:5173)
+
+- Logos
+  - `BRANDFETCH_API_KEY` (optional)
 
 ### Transaction Validation
 
@@ -270,6 +346,41 @@ To get an API key:
 3. Get your API key from the dashboard
 
 **Note**: Logo fetching is optional. If no API key is provided, the feature will be disabled automatically.
+
+## 👥 Multi-users & Authentication
+
+Portfolium supports multiple users with JWT authentication and optional email verification.
+
+- Registration creates an inactive/unverified user until the email is verified (when email is enabled).
+- Users manage their own profiles and portfolios; every portfolio belongs to a specific user.
+- Authorization is enforced per-portfolio: users may only access their own portfolios and transactions.
+- Admins can manage any user and perform maintenance actions.
+
+Auth details:
+- OAuth2 password flow at `/auth/login` returns a bearer token.
+- Include `Authorization: Bearer <token>` on protected endpoints.
+- Email verification and password reset flows are available when SMTP is configured.
+
+## 🧑‍💼 Administration
+
+Admin users (is_admin or is_superuser) have access to:
+
+- User management: list, create, update, delete (`/admin/users`)
+- Data maintenance: truncate all portfolio data (`DELETE /admin/data`)
+
+Bootstrap an admin on startup by setting env vars:
+
+```
+ADMIN_AUTO_CREATE=true
+ADMIN_EMAIL=admin@example.com
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change_me
+ADMIN_FULL_NAME=Site Admin
+ADMIN_IS_ACTIVE=true
+ADMIN_IS_VERIFIED=true
+```
+
+The first admin (or the account matching `ADMIN_EMAIL`) is protected from accidental deactivation, admin revocation, or deletion.
 
 ## 🐛 Troubleshooting
 

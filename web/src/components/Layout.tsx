@@ -1,10 +1,14 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart } from 'lucide-react'
-import { useState, useEffect } from 'react'
+            import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Layout() {
   const location = useLocation()
   const [darkMode, setDarkMode] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const { user, logout } = useAuth()
 
   useEffect(() => {
     // Check system preference
@@ -14,9 +18,25 @@ export default function Layout() {
     }
   }, [])
 
+  useEffect(() => {
+    // Close menu on click outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
+  }
+
+  const handleLogout = () => {
+    logout()
+    setUserMenuOpen(false)
   }
 
   const isActive = (path: string) => location.pathname === path
@@ -87,26 +107,92 @@ export default function Layout() {
               <Package size={18} />
               <span>Assets</span>
             </Link>
-            <Link
-              to="/settings"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/settings')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-            >
-              <Settings size={18} />
-              <span>Settings</span>
-            </Link>
+            {(user?.is_admin || user?.is_superuser) && (
+              <Link
+                to="/admin"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  isActive('/admin')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <ShieldCheck size={18} />
+                <span>Admin</span>
+              </Link>
+            )}
           </nav>
 
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            aria-label="Toggle dark mode"
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
+            {/* User Menu */}
+            {user && (
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  <User size={18} />
+                  <span className="hidden sm:inline text-sm font-medium">{user.username}</span>
+                  <ChevronDown size={16} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 z-50">
+                    <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                      <p className="text-sm font-medium text-neutral-900 dark:text-white">{user.username}</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{user.email}</p>
+                      {!user.is_verified && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Email not verified</p>
+                      )}
+                    </div>
+                    <div className="py-1">
+                      <Link
+                        to="/profile"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                      >
+                        <User size={16} />
+                        Profile
+                      </Link>
+                      <Link
+                        to="/settings"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                      >
+                        <Settings size={16} />
+                        Settings
+                      </Link>
+                      <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
+                    {(user?.is_admin || user?.is_superuser) && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover-bg-neutral-700 transition-colors"
+                        >
+                          <ShieldCheck size={16} />
+                          Admin Dashboard
+                        </Link>
+                    )}
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                      >
+                        <LogOut size={16} />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -125,7 +211,7 @@ export default function Layout() {
             © 2025 — Built with <span className="animate-pulse inline-block">💖</span>
           </p>
           <a
-            href="https://github.com/yourusername/portfolium"
+            href="https://github.com/ArthurMTX/Portfolium"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-pink-600 dark:hover:text-pink-400 transition-colors underline underline-offset-2"

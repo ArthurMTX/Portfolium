@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { LineChart } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import PortfolioHistoryChart from '../components/PortfolioHistoryChart'
@@ -54,7 +55,8 @@ export default function Portfolio() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <LineChart className="text-pink-600" size={32} />
             Portfolio Chart
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1">

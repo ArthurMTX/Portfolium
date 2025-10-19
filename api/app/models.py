@@ -7,7 +7,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, String, Numeric, Date, DateTime, 
-    ForeignKey, Enum, BigInteger, Text, JSON
+    ForeignKey, Enum, BigInteger, Text, JSON, Boolean
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -32,6 +32,32 @@ class TransactionType(str, enum.Enum):
     SPLIT = "SPLIT"
     TRANSFER_IN = "TRANSFER_IN"
     TRANSFER_OUT = "TRANSFER_OUT"
+
+
+class User(Base):
+    """Application user with authentication"""
+    __tablename__ = "users"
+    __table_args__ = {"schema": "portfolio"}
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    is_active = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
+    is_superuser = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
+    verification_token = Column(String, index=True)
+    verification_token_expires = Column(DateTime)
+    reset_password_token = Column(String, index=True)
+    reset_password_token_expires = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime)
+    
+    # Relationships
+    portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")
 
 
 class Asset(Base):
@@ -62,13 +88,15 @@ class Portfolio(Base):
     __table_args__ = {"schema": "portfolio"}
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("portfolio.users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False, index=True)
     base_currency = Column(String, default="EUR")
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
+    user = relationship("User", back_populates="portfolios")
     transactions = relationship("Transaction", back_populates="portfolio", cascade="all, delete-orphan")
 
 

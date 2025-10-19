@@ -5,8 +5,172 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+import re
 
 from app.models import AssetClass, TransactionType
+
+
+# ============================================================================
+# User & Authentication Schemas
+# ============================================================================
+
+class UserBase(BaseModel):
+    """Base user schema"""
+    email: str
+    username: str = Field(..., min_length=3, max_length=50)
+    full_name: Optional[str] = None
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        # Accept any TLD, just check basic email format
+        if not isinstance(v, str):
+            raise TypeError('Email must be a string')
+        # Basic regex: must have @ and at least one . after @
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError('Invalid email format')
+        return v
+
+
+class UserCreate(UserBase):
+    """Schema for user registration"""
+    password: str = Field(
+        ..., min_length=8, max_length=256,
+        description="Password (hashed with bcrypt_sha256; supports long passwords)"
+    )
+
+
+class UserLogin(BaseModel):
+    """Schema for user login"""
+    email: str
+    password: str
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if not isinstance(v, str):
+            raise TypeError('Email must be a string')
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError('Invalid email format')
+        return v
+
+
+
+class UserUpdate(BaseModel):
+    """Schema for user update"""
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    is_admin: Optional[bool] = None
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        if not isinstance(v, str):
+            raise TypeError('Email must be a string')
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError('Invalid email format')
+        return v
+
+
+class UserPasswordChange(BaseModel):
+    """Schema for password change"""
+    current_password: str
+    new_password: str = Field(
+        ..., min_length=8, max_length=256,
+        description="New password (hashed with bcrypt_sha256; supports long passwords)"
+    )
+
+
+class UserPasswordReset(BaseModel):
+    """Schema for password reset request"""
+    email: str
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if not isinstance(v, str):
+            raise TypeError('Email must be a string')
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError('Invalid email format')
+        return v
+
+
+class UserPasswordResetConfirm(BaseModel):
+    """Schema for password reset confirmation"""
+    token: str
+    new_password: str = Field(
+        ..., min_length=8, max_length=256,
+        description="New password (hashed with bcrypt_sha256; supports long passwords)"
+    )
+
+
+class User(UserBase):
+    """User response schema"""
+    id: int
+    is_active: bool
+    is_verified: bool
+    is_superuser: bool
+    is_admin: bool
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ================================
+# Admin-only user management
+# ================================
+
+class AdminUserCreate(UserBase):
+    """Admin schema for creating a user"""
+    password: str = Field(
+        ..., min_length=8, max_length=256,
+        description="Password (hashed with bcrypt_sha256; supports long passwords)"
+    )
+    is_admin: bool = False
+    is_active: bool = True
+    is_verified: bool = False
+
+
+class AdminUserUpdate(BaseModel):
+    """Admin schema for updating a user"""
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+    is_verified: Optional[bool] = None
+    password: Optional[str] = Field(
+        default=None, min_length=8, max_length=256,
+        description="Optional: update password"
+    )
+
+
+class Token(BaseModel):
+    """JWT token response"""
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+
+class TokenData(BaseModel):
+    """Token payload data"""
+    user_id: Optional[int] = None
+    email: Optional[str] = None
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        if not isinstance(v, str):
+            raise TypeError('Email must be a string')
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError('Invalid email format')
+        return v
 
 
 # ============================================================================
@@ -58,6 +222,7 @@ class PortfolioCreate(PortfolioBase):
 class Portfolio(PortfolioBase):
     """Portfolio response schema"""
     id: int
+    user_id: int
     created_at: datetime
     updated_at: datetime
     

@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.schemas import Transaction, TransactionCreate, CsvImportResult
 from app.crud import transactions as crud, portfolios as portfolio_crud
-from app.models import TransactionType
+from app.models import TransactionType, User
 from app.services.import_csv import get_csv_import_service, CsvImportService
+from app.auth import get_current_user
 
 router = APIRouter()
 import yfinance as yf
@@ -23,7 +24,8 @@ async def add_position_transaction(
     tx_date: date,
     tx_type: TransactionType,
     quantity: float,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Add a position transaction to a portfolio with price fetched from yfinance for the given date.
@@ -32,6 +34,19 @@ async def add_position_transaction(
     - **tx_type**: BUY or SELL
     - **quantity**: Number of shares/units
     """
+    # Verify portfolio exists and belongs to the current user
+    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
     # Find asset by ticker
     from app.crud.assets import get_asset_by_symbol, create_asset
     from app.schemas import AssetCreate
@@ -101,7 +116,8 @@ async def get_transactions(
     date_to: Optional[date] = None,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get transactions for a portfolio with filters
@@ -117,6 +133,11 @@ async def get_transactions(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
         )
     
     transactions = crud.get_transactions(
@@ -137,9 +158,23 @@ async def get_transactions(
 async def get_transaction(
     portfolio_id: int,
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get transaction by ID"""
+    # Verify portfolio access
+    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
     transaction = crud.get_transaction(db, transaction_id)
     if not transaction or transaction.portfolio_id != portfolio_id:
         raise HTTPException(
@@ -157,7 +192,8 @@ async def get_transaction(
 async def create_transaction(
     portfolio_id: int,
     transaction: TransactionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create new transaction
@@ -176,6 +212,11 @@ async def create_transaction(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
         )
     
     # Validate sell quantity if enabled
@@ -205,9 +246,23 @@ async def update_transaction(
     portfolio_id: int,
     transaction_id: int,
     transaction: TransactionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Update existing transaction"""
+    # Verify portfolio access
+    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
         raise HTTPException(
@@ -256,9 +311,23 @@ async def update_transaction(
 async def delete_transaction(
     portfolio_id: int,
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Delete transaction"""
+    # Verify portfolio access
+    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
         raise HTTPException(
@@ -273,7 +342,8 @@ async def delete_transaction(
 async def import_csv(
     portfolio_id: int,
     file: UploadFile = File(...),
-    csv_service = Depends(get_csv_import_service)
+    csv_service = Depends(get_csv_import_service),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Import transactions from CSV file
@@ -297,6 +367,11 @@ async def import_csv(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
         )
     
     # Read file content

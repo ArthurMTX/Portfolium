@@ -93,8 +93,7 @@ export default function Transactions() {
     setPrice("")
     if (e.target.value.length > 1) {
       try {
-        const res = await fetch(`http://localhost:8000/assets/search_ticker?query=${e.target.value}`)
-        const data = await res.json()
+        const data = await api.searchTicker(e.target.value)
         setSearchResults(data)
       } catch (err) {
         console.error("Failed to search tickers:", err)
@@ -169,15 +168,14 @@ export default function Transactions() {
       if (modalMode === 'add') {
         // Add new transaction
         if (!price) {
-          // Auto-fetch price
-          const res = await fetch(
-            `http://localhost:8000/portfolios/${activePortfolioId}/add_position_transaction?ticker=${selectedTicker!.symbol}&tx_date=${txDate}&tx_type=${txType}&quantity=${quantity}`,
-            { method: "POST" }
+          // Auto-fetch price using API client
+          await api.addPositionTransaction(
+            activePortfolioId,
+            selectedTicker!.symbol,
+            txDate,
+            txType,
+            parseFloat(quantity)
           )
-          if (!res.ok) {
-            const errData = await res.json()
-            throw new Error(errData.detail || "Failed to add transaction")
-          }
         } else {
           // Manual price entry - ensure we have a valid asset_id
           let assetId: number | null = null
@@ -223,28 +221,21 @@ export default function Transactions() {
         }
       } else if (modalMode === 'edit' && editingTransaction) {
         // Update existing transaction
-        const res = await fetch(
-          `http://localhost:8000/portfolios/${activePortfolioId}/transactions/${editingTransaction.id}`,
+        await api.updateTransaction(
+          activePortfolioId,
+          editingTransaction.id,
           {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              asset_id: editingTransaction.asset_id,
-              tx_date: txDate,
-              type: txType,
-              quantity: parseFloat(quantity),
-              price: parseFloat(price),
-              fees: parseFloat(fees),
-              currency: editingTransaction.currency,
-              metadata: {},
-              notes: notes || null
-            })
+            asset_id: editingTransaction.asset_id,
+            tx_date: txDate,
+            type: txType,
+            quantity: parseFloat(quantity),
+            price: parseFloat(price),
+            fees: parseFloat(fees),
+            currency: editingTransaction.currency,
+            metadata: {},
+            notes: notes || null
           }
         )
-        if (!res.ok) {
-          const errData = await res.json()
-          throw new Error(errData.detail || "Failed to update transaction")
-        }
       }
 
       await fetchTransactions()
@@ -259,13 +250,7 @@ export default function Transactions() {
 
   const handleDelete = async (transactionId: number) => {
     try {
-      const res = await fetch(
-        `http://localhost:8000/portfolios/${activePortfolioId}/transactions/${transactionId}`,
-        { method: "DELETE" }
-      )
-      if (!res.ok) {
-        throw new Error("Failed to delete transaction")
-      }
+      await api.deleteTransaction(activePortfolioId!, transactionId)
       await fetchTransactions()
       setDeleteConfirm(null)
     } catch (err) {
@@ -502,11 +487,18 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-          Transactions
-        </h1>
-        <div className="flex gap-3">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <TrendingUp className="text-pink-600" size={32} />
+            Transactions
+          </h1>
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+            Track all your buy, sell, and dividend transactions
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
           <button 
             onClick={handleImportClick}
             disabled={importLoading}

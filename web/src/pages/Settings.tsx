@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Zap, AlertTriangle, Shield, FileText } from 'lucide-react'
+import { Zap, AlertTriangle, Shield, FileText, Settings as SettingsIcon } from 'lucide-react'
 import api from '../lib/api'
 import axios from 'axios'
 
@@ -139,9 +139,16 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-        Settings
-      </h1>
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <SettingsIcon className="text-pink-600" size={32} />
+            Settings
+          </h1>
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+            Configure your application preferences and options
+          </p>
+        </div>
 
       {/* Tabs */}
       <div className="border-b border-neutral-200 dark:border-neutral-800">

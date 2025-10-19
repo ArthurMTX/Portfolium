@@ -11,9 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
 from app.config import settings
-from app.db import engine, Base
-from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs
+from app.db import engine, Base, SessionLocal
+from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth
 from app.tasks.scheduler import start_scheduler, stop_scheduler
+from app.services.admin import ensure_admin_user
 
 
 # Logging configuration
@@ -51,6 +52,18 @@ async def lifespan(app: FastAPI):
     # Create tables (in production, use Alembic migrations)
     # Base.metadata.create_all(bind=engine)
     
+    # Ensure admin user exists if configured
+    try:
+        db = SessionLocal()
+        ensure_admin_user(db)
+    except Exception as e:
+        logger.exception("Failed to ensure admin user: %s", e)
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
     # Start background scheduler
     start_scheduler()
     logger.info("Price refresh scheduler started")
@@ -81,6 +94,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, tags=["health"])
+app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(admin.router, tags=["admin"])
 app.include_router(settings_router.router, tags=["settings"])
 app.include_router(assets.router, prefix="/assets", tags=["assets"])

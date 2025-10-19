@@ -1,4 +1,4 @@
-.PHONY: up down logs restart seed test clean
+.PHONY: up down logs restart test clean
 
 up:
 	docker compose up -d
@@ -11,9 +11,6 @@ logs:
 
 restart:
 	docker compose restart
-
-seed:
-	docker compose exec db psql -U portfolium -d portfolium -f /docker-entrypoint-initdb.d/02_seed.sql
 
 test:
 	docker compose exec api pytest tests/ -v

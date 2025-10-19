@@ -135,13 +135,15 @@ export default function Portfolios() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Folder className="text-pink-600" size={32} />
             Portfolios
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            Manage your investment portfolios
+            Organize and manage your investment portfolios
           </p>
         </div>
         <button onClick={openAddModal} className="btn-primary flex items-center gap-2">

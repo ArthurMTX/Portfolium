@@ -23,17 +23,38 @@ def get_portfolios(db: Session, skip: int = 0, limit: int = 100) -> List[Portfol
     return db.query(Portfolio).offset(skip).limit(limit).all()
 
 
-def create_portfolio(db: Session, portfolio: PortfolioCreate) -> Portfolio:
+def get_portfolios_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Portfolio]:
+    """Get portfolios for a specific user"""
+    return db.query(Portfolio).filter(
+        Portfolio.user_id == user_id
+    ).offset(skip).limit(limit).all()
+
+
+def get_portfolio_by_name_and_user(db: Session, name: str, user_id: int) -> Optional[Portfolio]:
+    """Get portfolio by name for specific user"""
+    return db.query(Portfolio).filter(
+        Portfolio.name == name,
+        Portfolio.user_id == user_id
+    ).first()
+
+
+def create_portfolio(db: Session, portfolio: PortfolioCreate, user_id: int = None) -> Portfolio:
     """Create new portfolio"""
     db_portfolio = Portfolio(
         name=portfolio.name,
         base_currency=portfolio.base_currency,
-        description=portfolio.description
+        description=portfolio.description,
+        user_id=user_id
     )
     db.add(db_portfolio)
     db.commit()
     db.refresh(db_portfolio)
     return db_portfolio
+
+
+def create_portfolio_for_user(db: Session, portfolio: PortfolioCreate, user_id: int) -> Portfolio:
+    """Create portfolio for specific user"""
+    return create_portfolio(db, portfolio, user_id)
 
 
 def update_portfolio(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, PiggyBank, Zap, ZapOff, Clock } from 'lucide-react'
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, PiggyBank, Zap, ZapOff, Clock, LayoutDashboard } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import PositionsTable from '../components/PositionsTable'
@@ -125,7 +125,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <LayoutDashboard className="text-pink-600" size={32} />
             Dashboard
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1">

@@ -11,6 +11,26 @@ interface ApiError {
   detail: string | { errors: string[]; imported: number }
 }
 
+// Auth Types
+export interface UserDTO {
+  id: number
+  email: string
+  username: string
+  full_name: string | null
+  is_active: boolean
+  is_verified: boolean
+  is_superuser: boolean
+  is_admin: boolean
+  created_at: string
+  last_login: string | null
+}
+
+export interface LoginResponseDTO {
+  access_token: string
+  token_type: string
+  user: UserDTO
+}
+
 // Types aligning with store shapes
 export interface PortfolioDTO {
   id: number
@@ -56,10 +76,37 @@ export interface PortfolioHistoryPointDTO {
 }
 
 class ApiClient {
+  // Admin
+  async getAdminUsers() {
+    return this.request<UserDTO[]>(`/admin/users`)
+  }
+
+  async createAdminUser(payload: { email: string; username: string; password: string; full_name?: string | null; is_admin?: boolean; is_active?: boolean; is_verified?: boolean }) {
+    return this.request<UserDTO>(`/admin/users`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async updateAdminUser(userId: number, data: Partial<Pick<UserDTO, 'email' | 'username' | 'full_name' | 'is_admin' | 'is_active' | 'is_verified'>> & { password?: string }) {
+    return this.request<UserDTO>(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteAdminUser(userId: number) {
+    return this.request<void>(`/admin/users/${userId}`, { method: 'DELETE' })
+  }
   private baseUrl: string
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('auth_token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
   }
 
   private async request<T>(
@@ -69,6 +116,7 @@ class ApiClient {
     const url = `${this.baseUrl}${endpoint}`
     const headers = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
       ...options.headers,
     }
 
@@ -88,12 +136,107 @@ class ApiClient {
       )
     }
 
+    // Handle 204 No Content responses (like DELETE operations)
+    if (response.status === 204) {
+      return undefined as T
+    }
+
     return response.json()
   }
 
   // Health
   async healthCheck() {
     return this.request<{ status: string; timestamp: string }>('/health')
+  }
+
+  // Authentication
+  async login(email: string, password: string) {
+    const formData = new URLSearchParams()
+    formData.append('username', email) // API expects 'username' field but we use email
+    formData.append('password', password)
+
+    const response = await fetch(`${this.baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Login failed')
+    }
+
+    return response.json()
+  }
+
+  async register(email: string, username: string, password: string, fullName?: string) {
+    return this.request<UserDTO>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        username,
+        password,
+        full_name: fullName,
+      }),
+    })
+  }
+
+  async getCurrentUser() {
+    return this.request<UserDTO>('/auth/me')
+  }
+
+  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username'>>) {
+    return this.request<UserDTO>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  async verifyEmail(token: string) {
+    return this.request<{ message: string }>(`/auth/verify-email?token=${token}`, {
+      method: 'POST',
+    })
+  }
+
+  async resendVerification(email: string) {
+    return this.request<{ message: string }>(`/auth/resend-verification?email=${email}`, {
+      method: 'POST',
+    })
+  }
+
+  async forgotPassword(email: string) {
+    return this.request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        token,
+        new_password: newPassword,
+      }),
+    })
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    })
+  }
+
+  async deleteAccount() {
+    return this.request<{ message: string }>('/auth/account', {
+      method: 'DELETE',
+    })
   }
 
   // Assets
@@ -120,6 +263,10 @@ class ApiClient {
     return this.request<any>('/assets/enrich/all', {
       method: 'POST',
     })
+  }
+
+  async searchTicker(query: string) {
+    return this.request<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
   }
 
   async createAsset(asset: {
@@ -210,10 +357,42 @@ class ApiClient {
     )
   }
 
+  async addPositionTransaction(
+    portfolioId: number,
+    ticker: string,
+    txDate: string,
+    txType: string,
+    quantity: number
+  ) {
+    const params = new URLSearchParams({
+      ticker,
+      tx_date: txDate,
+      tx_type: txType,
+      quantity: quantity.toString(),
+    })
+    return this.request<any>(
+      `/portfolios/${portfolioId}/add_position_transaction?${params.toString()}`,
+      { method: 'POST' }
+    )
+  }
+
   async createTransaction(portfolioId: number, transaction: any) {
     return this.request<any>(`/portfolios/${portfolioId}/transactions`, {
       method: 'POST',
       body: JSON.stringify(transaction),
+    })
+  }
+
+  async updateTransaction(portfolioId: number, transactionId: number, transaction: any) {
+    return this.request<any>(`/portfolios/${portfolioId}/transactions/${transactionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(transaction),
+    })
+  }
+
+  async deleteTransaction(portfolioId: number, transactionId: number) {
+    return this.request<void>(`/portfolios/${portfolioId}/transactions/${transactionId}`, {
+      method: 'DELETE',
     })
   }
 

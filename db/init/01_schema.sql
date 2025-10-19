@@ -21,6 +21,31 @@ CREATE TYPE portfolio.tx_type AS ENUM (
   'TRANSFER_OUT'
 );
 
+-- Users table (authentication & user management)
+CREATE TABLE IF NOT EXISTS portfolio.users (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  username TEXT NOT NULL UNIQUE,
+  hashed_password TEXT NOT NULL,
+  full_name TEXT,
+  is_active BOOLEAN DEFAULT false,
+  is_verified BOOLEAN DEFAULT false,
+  is_superuser BOOLEAN DEFAULT false,
+  is_admin BOOLEAN DEFAULT false,
+  verification_token TEXT,
+  verification_token_expires TIMESTAMP,
+  reset_password_token TEXT,
+  reset_password_token_expires TIMESTAMP,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now(),
+  last_login TIMESTAMP
+);
+
+CREATE INDEX idx_users_email ON portfolio.users(email);
+CREATE INDEX idx_users_username ON portfolio.users(username);
+CREATE INDEX idx_users_verification_token ON portfolio.users(verification_token);
+CREATE INDEX idx_users_reset_token ON portfolio.users(reset_password_token);
+
 -- Assets table (unique tickers from Yahoo Finance)
 CREATE TABLE IF NOT EXISTS portfolio.assets (
   id SERIAL PRIMARY KEY,
@@ -45,13 +70,16 @@ CREATE INDEX idx_assets_industry ON portfolio.assets(industry);
 -- Portfolios table (multi-account support)
 CREATE TABLE IF NOT EXISTS portfolio.portfolios (
   id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
+  user_id INT NOT NULL REFERENCES portfolio.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
   base_currency TEXT DEFAULT 'EUR',
   description TEXT,
   created_at TIMESTAMP DEFAULT now(),
-  updated_at TIMESTAMP DEFAULT now()
+  updated_at TIMESTAMP DEFAULT now(),
+  UNIQUE(user_id, name)
 );
 
+CREATE INDEX idx_portfolios_user ON portfolio.portfolios(user_id);
 CREATE INDEX idx_portfolios_name ON portfolio.portfolios(name);
 
 -- Transactions table
@@ -101,6 +129,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON portfolio.users
+  FOR EACH ROW
+  EXECUTE FUNCTION portfolio.update_updated_at_column();
+
 CREATE TRIGGER update_assets_updated_at
   BEFORE UPDATE ON portfolio.assets
   FOR EACH ROW
@@ -118,6 +151,7 @@ CREATE TRIGGER update_transactions_updated_at
 
 -- Comments for documentation
 COMMENT ON SCHEMA portfolio IS 'Investment portfolio tracking system';
+COMMENT ON TABLE portfolio.users IS 'Application users with authentication';
 COMMENT ON TABLE portfolio.assets IS 'Financial assets with Yahoo Finance ticker symbols';
 COMMENT ON TABLE portfolio.portfolios IS 'User investment portfolios';
 COMMENT ON TABLE portfolio.transactions IS 'Portfolio transactions (buy, sell, dividends, fees, splits)';
