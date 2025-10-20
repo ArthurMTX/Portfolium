@@ -99,10 +99,12 @@ docker compose down -v
 - ✅ Ticker auto-completion & search via Yahoo Finance
 - ✅ Positions table (sorting, filters, pagination)
 - ✅ Transaction history
+- ✅ Watchlist with price alerts
 - ✅ CSV import with drag & drop
 - ✅ Dark mode
 - ✅ Price charts (Recharts)
 - ✅ Responsive UI
+- ✅ Notifications system for user actions and price alerts
 
 ## 📊 Database
 
