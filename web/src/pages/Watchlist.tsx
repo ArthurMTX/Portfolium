@@ -2,9 +2,9 @@
   const normalizeTickerForLogo = (symbol: string): string => {
     return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
   }
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
-import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 
 interface WatchlistItem {
   id: number
@@ -18,6 +18,7 @@ interface WatchlistItem {
   current_price: number | null
   daily_change_pct: number | null
   currency: string
+  asset_type: string | null
   last_updated: string | null
   created_at: string
 }
@@ -27,6 +28,16 @@ interface Portfolio {
   name: string
 }
 
+const sortableColumns = [
+  'symbol',
+  'name',
+  'current_price',
+  'daily_change_pct',
+  'alert_target_price',
+] as const
+type SortKey = typeof sortableColumns[number]
+type SortDir = 'asc' | 'desc'
+
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
@@ -34,6 +45,8 @@ export default function Watchlist() {
   const [error, setError] = useState<string | null>(null)
   const [addSymbol, setAddSymbol] = useState('')
   const [addNotes, setAddNotes] = useState('')
+  const [addFormError, setAddFormError] = useState<string | null>(null)
+  const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>([])
   const [selectedTicker, setSelectedTicker] = useState<{ symbol: string; name: string; type?: string; exchange?: string } | null>(null)
   const [editingItem, setEditingItem] = useState<number | null>(null)
@@ -48,6 +61,8 @@ export default function Watchlist() {
   const [convertQuantity, setConvertQuantity] = useState('')
   const [convertPrice, setConvertPrice] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('symbol')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const openConvertModal = (item: WatchlistItem) => {
     setConvertItem(item)
@@ -96,6 +111,18 @@ export default function Watchlist() {
     }
   }, [])
 
+  const handleRefreshPrices = async () => {
+    try {
+      setLoading(true)
+      await api.refreshWatchlistPrices()
+      await loadWatchlist()
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to refresh prices'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const loadPortfolios = useCallback(async () => {
     try {
       const data = await api.getPortfolios()
@@ -104,6 +131,60 @@ export default function Watchlist() {
       console.error('Failed to load portfolios:', err)
     }
   }, [])
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedWatchlist = useMemo(() => {
+    const keyTypes = {
+      symbol: 'string',
+      name: 'string',
+      current_price: 'number',
+      daily_change_pct: 'number',
+      alert_target_price: 'number',
+    } as const satisfies Record<SortKey, 'string' | 'number'>
+
+    const dir = sortDir === 'asc' ? 1 : -1
+
+    return [...watchlist].sort((a, b) => {
+      const aVal = a[sortKey as keyof WatchlistItem] as string | number | null | undefined
+      const bVal = b[sortKey as keyof WatchlistItem] as string | number | null | undefined
+
+      const aNull = aVal === null || aVal === undefined
+      const bNull = bVal === null || bVal === undefined
+      if (aNull && bNull) return 0
+      if (aNull) return 1
+      if (bNull) return -1
+
+      if (keyTypes[sortKey] === 'string') {
+        const sa = String(aVal).toLowerCase()
+        const sb = String(bVal).toLowerCase()
+        return sa.localeCompare(sb) * dir
+      }
+
+      const na = Number(aVal)
+      const nb = Number(bVal)
+      if (isNaN(na) && isNaN(nb)) return 0
+      if (isNaN(na)) return 1
+      if (isNaN(nb)) return -1
+      return (na - nb) * dir
+    })
+  }, [watchlist, sortKey, sortDir])
+
+  const isActive = (key: SortKey) => sortKey === key
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    const active = isActive(col)
+    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
+    return sortDir === 'asc' 
+      ? <ChevronUp size={14} className="inline ml-1 opacity-80" />
+      : <ChevronDown size={14} className="inline ml-1 opacity-80" />
+  }
 
   useEffect(() => {
     loadWatchlist()
@@ -136,18 +217,33 @@ export default function Watchlist() {
     e.preventDefault()
     if (!addSymbol.trim()) return
 
+    // Clear previous messages
+    setAddFormError(null)
+    setAddFormSuccess(null)
+
     try {
       await api.addToWatchlist({
         symbol: addSymbol.toUpperCase(),
         notes: addNotes || undefined,
       })
+      
+      // Success - show message and clear form
+      setAddFormSuccess(`Successfully added ${addSymbol.toUpperCase()} to your watchlist!`)
       setAddSymbol('')
       setAddNotes('')
       setSelectedTicker(null)
       setSearchResults([])
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setAddFormSuccess(null), 3000)
+      
       loadWatchlist()
     } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to add symbol'))
+      const errorMsg = getErrorMessage(err, 'Failed to add symbol')
+      setAddFormError(errorMsg)
+      
+      // Clear error message after 5 seconds
+      setTimeout(() => setAddFormError(null), 5000)
     }
   }
 
@@ -329,7 +425,7 @@ export default function Watchlist() {
             <Download size={18} /> Export JSON
           </button>
           <button
-            onClick={loadWatchlist}
+            onClick={handleRefreshPrices}
             className="btn-primary flex items-center gap-2"
           >
             <RefreshCw size={18} /> Refresh
@@ -397,6 +493,42 @@ export default function Watchlist() {
             </button>
           </div>
         </form>
+
+        {/* Success Message */}
+        {addFormSuccess && (
+          <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3 animate-fade-in">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+              {addFormSuccess}
+            </p>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {addFormError && (
+          <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3 animate-fade-in">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                {addFormError}
+              </p>
+            </div>
+            <button
+              onClick={() => setAddFormError(null)}
+              className="flex-shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Watchlist Table with Logo, Price, Daily Change */}
@@ -405,35 +537,115 @@ export default function Watchlist() {
           <table className="w-full">
             <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Symbol</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Daily Change %</th>
+                <th 
+                  onClick={() => handleSort('symbol')}
+                  aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  Symbol <SortIcon col="symbol" />
+                </th>
+                <th 
+                  onClick={() => handleSort('name')}
+                  aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  Name <SortIcon col="name" />
+                </th>
+                <th 
+                  onClick={() => handleSort('current_price')}
+                  aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  Price <SortIcon col="current_price" />
+                </th>
+                <th 
+                  onClick={() => handleSort('daily_change_pct')}
+                  aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  Daily Change % <SortIcon col="daily_change_pct" />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Alert</th>
+                <th 
+                  onClick={() => handleSort('alert_target_price')}
+                  aria-sort={isActive('alert_target_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  Alert <SortIcon col="alert_target_price" />
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {watchlist.length === 0 ? (
+              {sortedWatchlist.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
                     No assets in your watchlist. Add symbols above to start tracking.
                   </td>
                 </tr>
               ) : (
-                watchlist.map((item) => (
+                sortedWatchlist.map((item) => (
                   <tr key={item.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-neutral-900 dark:text-neutral-100">
                       <span className="flex items-center gap-2">
                         <img
-                          src={`/logos/${normalizeTickerForLogo(item.symbol)}`}
+                          src={`/logos/${normalizeTickerForLogo(item.symbol)}${item.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
                           alt={`${item.symbol} logo`}
                           className="w-8 h-8 object-cover"
                           style={{ borderRadius: 0 }}
+                          onLoad={(e) => {
+                            const img = e.currentTarget as HTMLImageElement
+                            if (img.dataset.validated) return
+                            img.dataset.validated = 'true'
+                            try {
+                              const canvas = document.createElement('canvas')
+                              const ctx = canvas.getContext('2d')
+                              if (!ctx) return
+                              const w = Math.min(img.naturalWidth || 0, 64) || 32
+                              const h = Math.min(img.naturalHeight || 0, 64) || 32
+                              if (w === 0 || h === 0) return
+                              canvas.width = w
+                              canvas.height = h
+                              ctx.drawImage(img, 0, 0, w, h)
+                              const data = ctx.getImageData(0, 0, w, h).data
+                              let opaque = 0
+                              for (let i = 0; i < data.length; i += 4) {
+                                const a = data[i + 3]
+                                if (a > 8) opaque++
+                              }
+                              const total = (data.length / 4) || 1
+                              if (opaque / total < 0.01) {
+                                img.dispatchEvent(new Event('error'))
+                              }
+                            } catch {
+                              // Ignore canvas/security errors
+                            }
+                          }}
                           onError={(e) => {
                             const img = e.currentTarget as HTMLImageElement
-                            img.src = '/logos/default.svg'
+                            if (!img.dataset.resolverTried) {
+                              img.dataset.resolverTried = 'true'
+                              const params = new URLSearchParams()
+                              if (item.name) params.set('name', item.name)
+                              if (item.asset_type) params.set('asset_type', item.asset_type)
+                              fetch(`/api/assets/logo/${item.symbol}?${params.toString()}`, { redirect: 'follow' })
+                                .then((res) => {
+                                  if (res.redirected) {
+                                    img.src = res.url
+                                  } else if (res.ok) {
+                                    return res.blob().then((blob) => {
+                                      img.src = URL.createObjectURL(blob)
+                                    })
+                                  } else {
+                                    img.style.display = 'none'
+                                  }
+                                })
+                                .catch(() => {
+                                  img.style.display = 'none'
+                                })
+                            } else {
+                              img.style.display = 'none'
+                            }
                           }}
                         />
                         {item.symbol}
@@ -546,7 +758,7 @@ export default function Watchlist() {
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(item.id)}
-                              className="btn-danger"
+                              className="btn"
                               title="Delete"
                             >
                               <Trash2 size={18} />
@@ -632,11 +844,64 @@ export default function Watchlist() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
                 <img
-                  src={`/logos/${normalizeTickerForLogo(convertItem.symbol)}`}
+                  src={`/logos/${normalizeTickerForLogo(convertItem.symbol)}${convertItem.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
                   alt={`${convertItem.symbol} logo`}
                   className="w-8 h-8 object-cover"
                   style={{ borderRadius: 0 }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/logos/default.svg' }}
+                  onLoad={(e) => {
+                    const img = e.currentTarget as HTMLImageElement
+                    if (img.dataset.validated) return
+                    img.dataset.validated = 'true'
+                    try {
+                      const canvas = document.createElement('canvas')
+                      const ctx = canvas.getContext('2d')
+                      if (!ctx) return
+                      const w = Math.min(img.naturalWidth || 0, 64) || 32
+                      const h = Math.min(img.naturalHeight || 0, 64) || 32
+                      if (w === 0 || h === 0) return
+                      canvas.width = w
+                      canvas.height = h
+                      ctx.drawImage(img, 0, 0, w, h)
+                      const data = ctx.getImageData(0, 0, w, h).data
+                      let opaque = 0
+                      for (let i = 0; i < data.length; i += 4) {
+                        const a = data[i + 3]
+                        if (a > 8) opaque++
+                      }
+                      const total = (data.length / 4) || 1
+                      if (opaque / total < 0.01) {
+                        img.dispatchEvent(new Event('error'))
+                      }
+                    } catch {
+                      // Ignore canvas/security errors
+                    }
+                  }}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement
+                    if (!img.dataset.resolverTried) {
+                      img.dataset.resolverTried = 'true'
+                      const params = new URLSearchParams()
+                      if (convertItem.name) params.set('name', convertItem.name)
+                      if (convertItem.asset_type) params.set('asset_type', convertItem.asset_type)
+                      fetch(`/api/assets/logo/${convertItem.symbol}?${params.toString()}`, { redirect: 'follow' })
+                        .then((res) => {
+                          if (res.redirected) {
+                            img.src = res.url
+                          } else if (res.ok) {
+                            return res.blob().then((blob) => {
+                              img.src = URL.createObjectURL(blob)
+                            })
+                          } else {
+                            img.style.display = 'none'
+                          }
+                        })
+                        .catch(() => {
+                          img.style.display = 'none'
+                        })
+                    } else {
+                      img.style.display = 'none'
+                    }
+                  }}
                 />
                 <div>
                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{convertItem.symbol}</div>

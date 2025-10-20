@@ -4,7 +4,7 @@ Authentication routes - Register, Login, Verify Email, Password Reset
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -29,6 +29,7 @@ from app.schemas import (
 )
 from app.crud import users as crud_users
 from app.services.email import email_service
+from app.services.notifications import notification_service
 
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,8 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
+    request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ):
@@ -87,6 +90,7 @@ async def login(
     
     - Returns JWT access token
     - Updates last login timestamp
+    - Creates login notification with IP tracking
     """
     # Get user by email (username field contains email)
     user = crud_users.get_user_by_email(db, form_data.username)
@@ -118,7 +122,20 @@ async def login(
     # Update last login
     crud_users.update_last_login(db, user)
     
-    logger.info(f"User logged in: {user.email}")
+    # Get IP address and user agent
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", None)
+    
+    # Create login notification in background
+    background_tasks.add_task(
+        notification_service.create_login_notification,
+        db,
+        user.id,
+        client_ip,
+        user_agent
+    )
+    
+    logger.info(f"User logged in: {user.email} from IP {client_ip}")
     
     return {
         "access_token": access_token,

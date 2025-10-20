@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     curl \
+    libwebp-dev \
+    libjpeg-dev \
+    libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements

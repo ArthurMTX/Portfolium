@@ -3,7 +3,7 @@ Assets router
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -285,34 +285,57 @@ async def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/logo/{symbol}")
-async def resolve_logo(symbol: str, name: Optional[str] = None):
+async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Optional[str] = None):
     """
-    Resolve the best available logo for a symbol and redirect to it.
+    Fetch and return the best available logo for a symbol.
 
     Tries direct ticker first; if the image is empty/invalid, use Brandfetch
-    search with the FULL company name and redirect to the first result.
+    search with the FULL company name.
+    If asset_type is 'ETF', returns a generated generic ETF logo.
     If nothing is found, return 404 (no placeholder generation).
+    
+    Returns the image data directly with aggressive caching headers to avoid
+    exposing the Brandfetch API key in redirect URLs.
 
     Query params:
     - name: Optional company name to improve search quality.
+    - asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') to determine if generic logo should be used.
     """
     # Lazy imports to avoid import-time issues
     from app.services.logos import (
         fetch_logo_direct,
         is_valid_image,
         brandfetch_search,
+        generate_etf_logo,
+        fetch_logo_by_brand_id,
     )
+    from fastapi.responses import Response
+    import hashlib
 
-    # 1) Try direct ticker logo and validate it's not transparent
-    data = fetch_logo_direct(symbol)
-    if data and is_valid_image(data):
-        response = RedirectResponse(url=f"https://cdn.brandfetch.io/{symbol}", status_code=307)
-        # Cache for 7 days (public, immutable)
+    # 1) If ETF, return SVG logo with ticker letters
+    if asset_type and asset_type.upper() == 'ETF':
+        etf_logo_svg = generate_etf_logo(symbol)
+        response = Response(content=etf_logo_svg, media_type="image/svg+xml")
+        # Cache for 7 days
         response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+        # Add ETag based on content for cache validation
+        etag = hashlib.md5(etf_logo_svg.encode()).hexdigest()
+        response.headers["ETag"] = f'"{etag}"'
         return response
 
+    # 2) Try direct ticker logo and validate it's not transparent
+    logo_data = fetch_logo_direct(symbol)
+    if logo_data and is_valid_image(logo_data):
+        # Return image directly (not redirect) to avoid exposing API key
+        response = Response(content=logo_data, media_type="image/webp")
+        # Cache for 30 days
+        response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+        # Add ETag for cache validation
+        etag = hashlib.md5(logo_data).hexdigest()
+        response.headers["ETag"] = f'"{etag}"'
+        return response
 
-    # 2) If invalid/transparent: search by normalized company name (remove suffixes) and take FIRST item
+    # 3) If invalid/transparent: search by normalized company name (remove suffixes) and take FIRST item
     def strip_company_suffix(company_name: str) -> str:
         suffixes = [
             "inc.", "inc", "corporation", "corp.", "corp", "ltd.", "ltd", "limited", "llc", "l.l.c.",
@@ -335,14 +358,60 @@ async def resolve_logo(symbol: str, name: Optional[str] = None):
             first = results[0]
             brand_id = first.get('brandId')
             if brand_id:
-                response = RedirectResponse(url=f"https://cdn.brandfetch.io/{brand_id}", status_code=307)
-                # Cache for 7 days (public, immutable)
-                response.headers["Cache-Control"] = "public, max-age=604800, immutable"
-                return response
+                # Fetch the logo by brand ID and return image directly
+                logo_data = fetch_logo_by_brand_id(brand_id)
+                if logo_data:
+                    response = Response(content=logo_data, media_type="image/webp")
+                    # Cache for 30 days
+                    response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+                    # Add ETag for cache validation
+                    etag = hashlib.md5(logo_data).hexdigest()
+                    response.headers["ETag"] = f'"{etag}"'
+                    return response
 
-    # 3) Nothing found: return 404 (no generated placeholders)
+    # 4) Nothing found: return 404 (no generated placeholders)
     from fastapi.responses import JSONResponse
     response = JSONResponse(status_code=404, content={"detail": "Logo not found"})
     # Cache 404s for 1 minute to avoid hammering
     response.headers["Cache-Control"] = "public, max-age=60"
     return response
+
+
+@router.get("/{asset_id}/splits")
+async def get_asset_split_history(asset_id: int, db: Session = Depends(get_db)):
+    """
+    Get split history for a specific asset
+    
+    Returns all SPLIT transactions for the given asset, ordered by date (newest first).
+    """
+    from app.models import Transaction, TransactionType
+    
+    # Verify asset exists
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Asset {asset_id} not found"
+        )
+    
+    # Get all SPLIT transactions for this asset
+    splits = (
+        db.query(Transaction)
+        .filter(
+            Transaction.asset_id == asset_id,
+            Transaction.type == TransactionType.SPLIT
+        )
+        .order_by(Transaction.tx_date.desc())
+        .all()
+    )
+    
+    return [
+        {
+            "id": split.id,
+            "tx_date": split.tx_date.isoformat(),
+            "metadata": split.meta_data or {},
+            "notes": split.notes
+        }
+        for split in splits
+    ]
+

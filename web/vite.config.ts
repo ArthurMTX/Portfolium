@@ -18,12 +18,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
-      // Dev proxy for logo requests to avoid CORS and mimic prod path
+      // Dev proxy for logo requests - route through our API for ETF SVG support
       '/logos': {
-        target: 'https://cdn.brandfetch.io',
+        target: 'http://api:8000',
         changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/logos/, ''),
+        rewrite: (path) => path.replace(/^\/logos/, '/assets/logo'),
       },
     },
   },

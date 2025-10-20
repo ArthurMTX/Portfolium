@@ -281,6 +281,15 @@ class ApiClient {
     })
   }
 
+  async getAssetSplitHistory(assetId: number) {
+    return this.request<Array<{
+      id: number
+      tx_date: string
+      metadata: { split?: string; [key: string]: unknown }
+      notes: string | null
+    }>>(`/assets/${assetId}/splits`)
+  }
+
   // Portfolios
   async getPortfolios() {
     return this.request<PortfolioDTO[]>('/portfolios')
@@ -581,6 +590,54 @@ class ApiClient {
       alert_enabled: boolean
       created_at: string
     }>>('/watchlist/export/json')
+  }
+
+  async refreshWatchlistPrices() {
+    return this.request<{ refreshed_count: number }>(
+      '/watchlist/refresh-prices',
+      { method: 'POST' }
+    )
+  }
+
+  // Notifications
+  async getNotifications(skip: number = 0, limit: number = 50, unreadOnly: boolean = false) {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+      unread_only: unreadOnly.toString()
+    })
+    return this.request<Array<{
+      id: number
+      user_id: number
+      type: string
+      title: string
+      message: string
+      metadata: Record<string, any>
+      is_read: boolean
+      created_at: string
+    }>>(`/notifications?${params.toString()}`)
+  }
+
+  async getUnreadCount() {
+    return this.request<{ unread_count: number }>('/notifications/unread-count')
+  }
+
+  async markNotificationAsRead(notificationId: number) {
+    return this.request<any>(`/notifications/${notificationId}/read`, {
+      method: 'PUT'
+    })
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request<{ marked_read: number }>('/notifications/mark-all-read', {
+      method: 'PUT'
+    })
+  }
+
+  async deleteNotification(notificationId: number) {
+    return this.request<void>(`/notifications/${notificationId}`, {
+      method: 'DELETE'
+    })
   }
 }
 

@@ -172,6 +172,33 @@ CREATE TRIGGER update_watchlist_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION portfolio.update_updated_at_column();
 
+-- Notification types enum
+CREATE TYPE portfolio.notification_type AS ENUM (
+  'TRANSACTION_CREATED',
+  'TRANSACTION_UPDATED',
+  'TRANSACTION_DELETED',
+  'LOGIN',
+  'PRICE_ALERT',
+  'SYSTEM'
+);
+
+-- Notifications table (user notifications for events)
+CREATE TABLE IF NOT EXISTS portfolio.notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES portfolio.users(id) ON DELETE CASCADE,
+  type portfolio.notification_type NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_notifications_user ON portfolio.notifications(user_id);
+CREATE INDEX idx_notifications_is_read ON portfolio.notifications(is_read);
+CREATE INDEX idx_notifications_created_at ON portfolio.notifications(created_at DESC);
+CREATE INDEX idx_notifications_user_read ON portfolio.notifications(user_id, is_read);
+
 -- Comments for documentation
 COMMENT ON SCHEMA portfolio IS 'Investment portfolio tracking system';
 COMMENT ON TABLE portfolio.users IS 'Application users with authentication';
@@ -187,3 +214,5 @@ COMMENT ON COLUMN portfolio.transactions.price IS 'Price per unit in asset curre
 COMMENT ON COLUMN portfolio.transactions.fees IS 'Transaction fees/commissions';
 COMMENT ON COLUMN portfolio.watchlist.alert_target_price IS 'Optional price alert threshold';
 COMMENT ON COLUMN portfolio.watchlist.alert_enabled IS 'Whether price alerts are enabled for this watchlist item';
+COMMENT ON TABLE portfolio.notifications IS 'User notifications for transaction, login, and price alert events';
+COMMENT ON COLUMN portfolio.notifications.metadata IS 'Additional notification data (e.g., IP address for login, asset info for transactions)';

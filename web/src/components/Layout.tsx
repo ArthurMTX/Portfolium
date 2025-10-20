@@ -2,6 +2,7 @@
 import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import NotificationBell from './NotificationBell'
 
 export default function Layout() {
   const location = useLocation()
@@ -141,6 +142,9 @@ export default function Layout() {
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
+
+            {/* Notification Bell */}
+            {user && <NotificationBell />}
 
             {/* User Menu */}
             {user && (

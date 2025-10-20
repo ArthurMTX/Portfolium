@@ -212,7 +212,7 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={`/logos/${normalizeTickerForLogo(position.symbol)}`}
+                        src={`/logos/${normalizeTickerForLogo(position.symbol)}${position.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
                         alt={`${position.symbol} logo`}
                         className="w-8 h-8 object-cover"
                         style={{ borderRadius: 0 }}
@@ -250,6 +250,7 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
                             img.dataset.resolverTried = 'true'
                             const params = new URLSearchParams()
                             if (position.name) params.set('name', position.name)
+                            if (position.asset_type) params.set('asset_type', position.asset_type)
                             fetch(`/api/assets/logo/${position.symbol}?${params.toString()}`, { redirect: 'follow' })
                               .then((res) => {
                                 if (res.redirected) {

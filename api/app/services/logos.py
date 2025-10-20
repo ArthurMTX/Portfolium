@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 BRANDFETCH_SEARCH_URL = "https://api.brandfetch.io/v2/search/{identifier}"
 BRANDFETCH_CDN_URL = "https://cdn.brandfetch.io/{brand_id}"
 
+# Request headers for CDN requests (Brandfetch requires browser-like User-Agent)
+CDN_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+}
+
 # Minimum size in bytes for a valid PNG (empty PNGs are typically very small)
 MIN_VALID_IMAGE_SIZE = 200  # bytes
 
@@ -176,7 +181,7 @@ def fetch_logo_direct(ticker: str) -> Optional[bytes]:
     """
     Fetch logo directly from Brandfetch CDN using ticker as brand ID.
     
-    This uses the direct CDN URL: https://cdn.brandfetch.io/{ticker}
+    This uses the direct CDN URL: https://cdn.brandfetch.io/{ticker}?c={api_key}
     Sometimes this works even when the API search doesn't return results.
     
     Args:
@@ -185,11 +190,24 @@ def fetch_logo_direct(ticker: str) -> Optional[bytes]:
     Returns:
         Logo image bytes if valid logo found, None otherwise
     """
+    # Skip if no API key configured
+    if not settings.BRANDFETCH_API_KEY:
+        logger.warning("BRANDFETCH_API_KEY not configured, skipping direct fetch")
+        return None
+    
     try:
         url = BRANDFETCH_CDN_URL.format(brand_id=ticker)
-        response = requests.get(url, timeout=5)
+        # Add API key parameter
+        params = {"c": settings.BRANDFETCH_API_KEY}
+        response = requests.get(url, params=params, headers=CDN_HEADERS, timeout=5)
         
         if response.status_code == 200:
+            # Check if response is actually an image (Brandfetch returns HTML for invalid brand IDs)
+            content_type = response.headers.get('Content-Type', '').lower()
+            if not content_type.startswith('image/'):
+                logger.debug(f"Brandfetch returned non-image content type for {ticker}: {content_type}")
+                return None
+            
             # Check if it's a valid image
             if is_valid_image(response.content):
                 logger.info(f"Successfully fetched logo for {ticker} via direct CDN")
@@ -324,11 +342,24 @@ def fetch_logo_by_brand_id(brand_id: str) -> Optional[bytes]:
     Returns:
         Valid logo image bytes or None
     """
+    # Skip if no API key configured
+    if not settings.BRANDFETCH_API_KEY:
+        logger.warning("BRANDFETCH_API_KEY not configured, skipping fetch")
+        return None
+    
     try:
         url = BRANDFETCH_CDN_URL.format(brand_id=brand_id)
-        response = requests.get(url, timeout=5)
+        # Add API key parameter
+        params = {"c": settings.BRANDFETCH_API_KEY}
+        response = requests.get(url, params=params, headers=CDN_HEADERS, timeout=5)
         
         if response.status_code == 200:
+            # Check if response is actually an image (Brandfetch returns HTML for invalid brand IDs)
+            content_type = response.headers.get('Content-Type', '').lower()
+            if not content_type.startswith('image/'):
+                logger.debug(f"Brandfetch returned non-image content type for brand ID {brand_id}: {content_type}")
+                return None
+            
             if is_valid_image(response.content):
                 logger.info(f"Successfully fetched logo for brand ID {brand_id}")
                 return response.content
@@ -344,7 +375,35 @@ def fetch_logo_by_brand_id(brand_id: str) -> Optional[bytes]:
         return None
 
 
-def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None) -> Optional[bytes]:
+def generate_etf_logo(ticker: str) -> str:
+    """
+    Generate an SVG logo with pink gradient background and ticker letters.
+    
+    Args:
+        ticker: Stock ticker symbol (first 3 letters will be used)
+    
+    Returns:
+        SVG string with gradient background and ticker text
+    """
+    text = ticker[:3].upper()
+    
+    svg = f'''<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f472b6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#db2777;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#grad)" />
+  <text x="100" y="100" text-anchor="middle" dominant-baseline="central" 
+        font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="bold" 
+        fill="white">{text}</text>
+</svg>'''
+    
+    return svg
+
+
+def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, asset_type: Optional[str] = None) -> Optional[bytes]:
     """
     Fetch and validate a logo for a ticker.
     
@@ -354,9 +413,12 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None) 
     3. If that fails, try searching by company name
     4. Validate all fetched images to ensure they're not empty
     
+    Note: ETF logos are handled separately in the API endpoint (returns SVG directly)
+    
     Args:
         ticker: Stock ticker symbol
         company_name: Optional company name for fallback search
+        asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') - currently unused
         
     Returns:
         Valid logo image bytes or None

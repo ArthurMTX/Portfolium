@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle } from 'lucide-react'
+import SplitHistory from '../components/SplitHistory'
 
 interface TickerInfo {
   symbol: string
@@ -23,9 +24,13 @@ interface Transaction {
   fees: number | string
   currency: string
   notes: string | null
+  metadata?: {
+    split?: string
+    [key: string]: unknown
+  }
 }
 
-type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee'
+type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split'
 type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
@@ -57,11 +62,13 @@ export default function Transactions() {
   const [price, setPrice] = useState("")
   const [fees, setFees] = useState("0")
   const [notes, setNotes] = useState("")
+  const [splitRatio, setSplitRatio] = useState("")
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState("")
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
+  const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
 
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolioId) return
@@ -125,6 +132,15 @@ export default function Transactions() {
     setPrice(transaction.price.toString())
     setFees(transaction.fees.toString())
     setNotes(transaction.notes || '')
+    // Extract split ratio from metadata if it's a SPLIT transaction
+    // Handle both 'metadata' and 'meta_data' for backwards compatibility
+    const transactionData = transaction as unknown as Record<string, unknown>
+    const metadata = transaction.metadata || transactionData.meta_data as { split?: string } | undefined
+    if (transaction.type === 'SPLIT' && metadata?.split) {
+      setSplitRatio(metadata.split)
+    } else {
+      setSplitRatio('')
+    }
     setModalMode('edit')
   }
 
@@ -143,6 +159,7 @@ export default function Transactions() {
     setPrice("")
     setFees("0")
     setNotes("")
+    setSplitRatio("")
     setFormError("")
     setSearchResults([])
   }
@@ -167,8 +184,8 @@ export default function Transactions() {
     try {
       if (modalMode === 'add') {
         // Add new transaction
-        if (!price) {
-          // Auto-fetch price using API client
+        if (!price && txType !== 'SPLIT') {
+          // Auto-fetch price using API client (for BUY/SELL)
           await api.addPositionTransaction(
             activePortfolioId,
             selectedTicker!.symbol,
@@ -177,7 +194,7 @@ export default function Transactions() {
             parseFloat(quantity)
           )
         } else {
-          // Manual price entry - ensure we have a valid asset_id
+          // Manual price entry or SPLIT transaction - ensure we have a valid asset_id
           let assetId: number | null = null
           const symbol = selectedTicker?.symbol || ticker
 
@@ -207,20 +224,25 @@ export default function Transactions() {
             assetId = created.id
           }
 
+          // Prepare metadata for SPLIT transactions
+          const metadata = txType === 'SPLIT' ? { split: splitRatio } : {}
+
           await api.createTransaction(activePortfolioId!, {
             asset_id: assetId,
             tx_date: txDate,
             type: txType,
-            quantity: parseFloat(quantity),
-            price: parseFloat(price),
-            fees: parseFloat(fees),
+            quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
+            price: txType === 'SPLIT' ? 0 : parseFloat(price),
+            fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
             currency: "USD",
-            metadata: {},
+            metadata: metadata,
             notes: notes || null
           })
         }
       } else if (modalMode === 'edit' && editingTransaction) {
         // Update existing transaction
+        const metadata = txType === 'SPLIT' ? { split: splitRatio } : editingTransaction.metadata || {}
+        
         await api.updateTransaction(
           activePortfolioId,
           editingTransaction.id,
@@ -228,11 +250,11 @@ export default function Transactions() {
             asset_id: editingTransaction.asset_id,
             tx_date: txDate,
             type: txType,
-            quantity: parseFloat(quantity),
-            price: parseFloat(price),
-            fees: parseFloat(fees),
+            quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
+            price: txType === 'SPLIT' ? 0 : parseFloat(price),
+            fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
             currency: editingTransaction.currency,
-            metadata: {},
+            metadata: metadata,
             notes: notes || null
           }
         )
@@ -352,6 +374,11 @@ export default function Transactions() {
     document.body.removeChild(link)
   }
 
+  // Check if an asset has any split transactions
+  const assetHasSplits = useCallback((assetId: number) => {
+    return transactions.some(tx => tx.asset_id === assetId && tx.type === 'SPLIT')
+  }, [transactions])
+
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => {
       let aVal: string | number
@@ -446,6 +473,7 @@ export default function Transactions() {
     { id: 'sell', label: 'Sell' },
     { id: 'dividend', label: 'Dividend' },
     { id: 'fee', label: 'Fees' },
+    { id: 'split', label: 'Split' },
   ]
 
   const getTransactionIcon = (type: string) => {
@@ -454,6 +482,8 @@ export default function Transactions() {
         return <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
       case 'SELL':
         return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
+      case 'SPLIT':
+        return <Shuffle size={16} className="text-purple-600 dark:text-purple-400" />
       default:
         return null
     }
@@ -465,6 +495,8 @@ export default function Transactions() {
         return 'text-green-600 dark:text-green-400'
       case 'SELL':
         return 'text-red-600 dark:text-red-400'
+      case 'SPLIT':
+        return 'text-purple-600 dark:text-purple-400'
       default:
         return 'text-neutral-600 dark:text-neutral-400'
     }
@@ -652,7 +684,7 @@ export default function Transactions() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={`/logos/${normalizeTickerForLogo(transaction.asset.symbol)}`}
+                            src={`/logos/${normalizeTickerForLogo(transaction.asset.symbol)}${transaction.asset.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
                             alt={`${transaction.asset.symbol} logo`}
                             className="w-6 h-6 object-cover"
                             onLoad={(e) => {
@@ -689,6 +721,7 @@ export default function Transactions() {
                                 img.dataset.resolverTried = 'true'
                                 const params = new URLSearchParams()
                                 if (transaction.asset.name) params.set('name', transaction.asset.name)
+                                if (transaction.asset.asset_type) params.set('asset_type', transaction.asset.asset_type)
                                 fetch(`/api/assets/logo/${transaction.asset.symbol}?${params.toString()}`, { redirect: 'follow' })
                                   .then((res) => {
                                     if (res.redirected) {
@@ -728,22 +761,43 @@ export default function Transactions() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {formatNumber(transaction.quantity, 4)}
+                        {transaction.type === 'SPLIT' ? '-' : formatNumber(transaction.quantity, 4)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {formatCurrency(transaction.price, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {formatCurrency(transaction.fees, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        {formatCurrency(total, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
-                        {transaction.notes || '-'}
+                        {(() => {
+                          const txData = transaction as unknown as Record<string, unknown>
+                          const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
+                          return transaction.type === 'SPLIT' && metadata?.split ? (
+                            <span className="inline-flex items-center gap-1">
+                              <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} split</span>
+                              {transaction.notes && <span className="text-neutral-400">•</span>}
+                              {transaction.notes}
+                            </span>
+                          ) : (
+                            transaction.notes || '-'
+                          )
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {assetHasSplits(transaction.asset_id) && (
+                            <button
+                              onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
+                              className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors"
+                              title="View Split History"
+                            >
+                              <Shuffle size={16} />
+                            </button>
+                          )}
                           <button
                             onClick={() => openEditModal(transaction)}
                             className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
@@ -848,58 +902,84 @@ export default function Transactions() {
                     <option value="SELL">Sell</option>
                     <option value="DIVIDEND">Dividend</option>
                     <option value="FEE">Fee</option>
+                    <option value="SPLIT">Split</option>
+                    <option value="TRANSFER_IN">Transfer In</option>
+                    <option value="TRANSFER_OUT">Transfer Out</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              {/* Split Ratio Field - Only shown for SPLIT transactions */}
+              {txType === 'SPLIT' && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Quantity
+                    Split Ratio
                   </label>
                   <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
+                    type="text"
+                    value={splitRatio}
+                    onChange={(e) => setSplitRatio(e.target.value)}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    min="0"
-                    step="any"
-                    placeholder="0.00"
+                    placeholder="e.g., 2:1 (2-for-1 split) or 1:2 (reverse split)"
                     required
                   />
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    Format: "N:M" where N is new shares and M is old shares. Examples: "2:1" (doubles shares), "3:1" (triples), "1:2" (reverse split halves shares)
+                  </p>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Price {modalMode === 'add' && '(Optional)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    min="0"
-                    step="any"
-                    placeholder={modalMode === 'add' ? 'Auto-fetch' : '0.00'}
-                    required={modalMode === 'edit'}
-                  />
-                </div>
+              {/* Quantity, Price, Fees - Hidden for SPLIT transactions */}
+              {txType !== 'SPLIT' && (
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                      min="0"
+                      step="any"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Fees
-                  </label>
-                  <input
-                    type="number"
-                    value={fees}
-                    onChange={(e) => setFees(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    min="0"
-                    step="any"
-                    placeholder="0.00"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      Price {modalMode === 'add' && '(Optional)'}
+                    </label>
+                    <input
+                      type="number"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                      min="0"
+                      step="any"
+                      placeholder={modalMode === 'add' ? 'Auto-fetch' : '0.00'}
+                      required={modalMode === 'edit'}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                      Fees
+                    </label>
+                    <input
+                      type="number"
+                      value={fees}
+                      onChange={(e) => setFees(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                      min="0"
+                      step="any"
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -967,6 +1047,15 @@ export default function Transactions() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Split History Modal */}
+      {splitHistoryAsset && (
+        <SplitHistory
+          assetId={splitHistoryAsset.id}
+          assetSymbol={splitHistoryAsset.symbol}
+          onClose={() => setSplitHistoryAsset(null)}
+        />
       )}
     </div>
   )

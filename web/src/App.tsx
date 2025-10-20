@@ -7,6 +7,7 @@ import Portfolio from './pages/Portfolio'
 import Transactions from './pages/Transactions'
 import Assets from './pages/Assets'
 import Watchlist from './pages/Watchlist'
+import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
 import Login from './pages/Login'
@@ -45,6 +46,7 @@ function App() {
             <Route path="transactions" element={<Transactions />} />
             <Route path="assets" element={<Assets />} />
             <Route path="watchlist" element={<Watchlist />} />
+            <Route path="notifications" element={<Notifications />} />
             <Route path="settings" element={<Settings />} />
             <Route path="profile" element={<Profile />} />
             <Route

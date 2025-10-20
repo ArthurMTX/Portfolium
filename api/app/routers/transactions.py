@@ -11,6 +11,7 @@ from app.schemas import Transaction, TransactionCreate, CsvImportResult
 from app.crud import transactions as crud, portfolios as portfolio_crud
 from app.models import TransactionType, User
 from app.services.import_csv import get_csv_import_service, CsvImportService
+from app.services.notifications import notification_service
 from app.auth import get_current_user
 
 router = APIRouter()
@@ -104,6 +105,15 @@ async def add_position_transaction(
     )
     from app.crud.transactions import create_transaction
     transaction = create_transaction(db, portfolio_id, tx_data)
+    
+    # Create notification for transaction
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=transaction,
+        action="created"
+    )
+    
     return transaction
 
 
@@ -219,6 +229,28 @@ async def create_transaction(
             detail="Not authorized to access this portfolio"
         )
     
+    # Validate SPLIT transactions - must have existing position transactions
+    if transaction.type == TransactionType.SPLIT:
+        # Check if there are any BUY/SELL transactions for this asset in this portfolio
+        existing_txs = crud.get_transactions(
+            db,
+            portfolio_id=portfolio_id,
+            asset_id=transaction.asset_id
+        )
+        has_position_txs = any(
+            tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT]
+            for tx in existing_txs
+        )
+        if not has_position_txs:
+            from app.crud.assets import get_asset
+            asset = get_asset(db, transaction.asset_id)
+            symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot record a split for {symbol} without any existing position transactions. "
+                       f"Please add at least one BUY transaction before recording a split."
+            )
+    
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
@@ -238,7 +270,17 @@ async def create_transaction(
                            f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
                 )
     
-    return crud.create_transaction(db, portfolio_id, transaction)
+    created = crud.create_transaction(db, portfolio_id, transaction)
+    
+    # Create notification for transaction
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=created,
+        action="created"
+    )
+    
+    return created
 
 
 @router.put("/{portfolio_id}/transactions/{transaction_id}", response_model=Transaction)
@@ -269,6 +311,27 @@ async def update_transaction(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
         )
+    
+    # Validate SPLIT transactions - must have existing position transactions (excluding the current one being updated)
+    if transaction.type == TransactionType.SPLIT:
+        existing_txs = crud.get_transactions(
+            db,
+            portfolio_id=portfolio_id,
+            asset_id=transaction.asset_id
+        )
+        has_position_txs = any(
+            tx.id != transaction_id and tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT]
+            for tx in existing_txs
+        )
+        if not has_position_txs:
+            from app.crud.assets import get_asset
+            asset = get_asset(db, transaction.asset_id)
+            symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot record a split for {symbol} without any existing position transactions. "
+                       f"Please add at least one BUY transaction before recording a split."
+            )
     
     # Validate sell quantity if enabled
     from app.config import settings
@@ -301,6 +364,15 @@ async def update_transaction(
                 )
     
     updated = crud.update_transaction(db, transaction_id, transaction)
+    
+    # Create notification for transaction update
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=updated,
+        action="updated"
+    )
+    
     return updated
 
 
@@ -334,6 +406,14 @@ async def delete_transaction(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
         )
+    
+    # Create notification for transaction deletion (before deleting)
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=existing,
+        action="deleted"
+    )
     
     crud.delete_transaction(db, transaction_id)
 

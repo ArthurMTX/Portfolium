@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 import re
 
-from app.models import AssetClass, TransactionType
+from app.models import AssetClass, TransactionType, NotificationType
 
 
 # ============================================================================
@@ -242,13 +242,50 @@ class TransactionBase(BaseModel):
     price: Decimal = Field(ge=0, decimal_places=8)
     fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=8)
     currency: str = "USD"
-    meta_data: Dict[str, Any] = Field(default={}, alias="metadata")
     notes: Optional[str] = None
 
 
 class TransactionCreate(TransactionBase):
     """Schema for creating a transaction"""
-    pass
+    # Accept 'metadata' in JSON input, store as 'meta_data' in Python
+    meta_data: Dict[str, Any] = Field(default={}, alias="metadata")
+    
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_validator('meta_data')
+    @classmethod
+    def validate_split_ratio(cls, v: Dict[str, Any], info) -> Dict[str, Any]:
+        """Validate split ratio format if transaction is a SPLIT"""
+        # Access the transaction type from the model being validated
+        if hasattr(info, 'data') and info.data.get('type') == TransactionType.SPLIT:
+            split_ratio = v.get('split', '')
+            if not split_ratio:
+                raise ValueError('SPLIT transactions must include a "split" ratio in metadata (e.g., {"split": "2:1"})')
+            
+            # Validate format: must be "N:M" where N and M are positive numbers
+            if not isinstance(split_ratio, str):
+                raise ValueError('Split ratio must be a string in format "N:M" (e.g., "2:1")')
+            
+            if ':' not in split_ratio:
+                raise ValueError('Split ratio must be in format "N:M" (e.g., "2:1", "3:2", "1:10")')
+            
+            parts = split_ratio.split(':')
+            if len(parts) != 2:
+                raise ValueError('Split ratio must contain exactly one colon (e.g., "2:1")')
+            
+            try:
+                numerator = float(parts[0].strip())
+                denominator = float(parts[1].strip())
+            except ValueError:
+                raise ValueError('Split ratio parts must be valid numbers (e.g., "2:1", not "abc:def")')
+            
+            if numerator <= 0 or denominator <= 0:
+                raise ValueError('Split ratio parts must be positive numbers (e.g., "2:1", not "0:1" or "-2:1")')
+            
+            if numerator == 0 and denominator == 0:
+                raise ValueError('Split ratio cannot be "0:0"')
+        
+        return v
 
 
 class Transaction(TransactionBase):
@@ -257,20 +294,11 @@ class Transaction(TransactionBase):
     portfolio_id: int
     created_at: datetime
     updated_at: datetime
+    # Read from meta_data attribute, serialize as 'metadata' in JSON
+    meta_data: Dict[str, Any] = Field(default={}, serialization_alias="metadata")
     
     # Include asset details
     asset: Optional[Asset] = None
-    
-    @field_validator('meta_data', mode='before')
-    @classmethod
-    def validate_metadata(cls, v: Any) -> Dict[str, Any]:
-        """Ensure metadata is always a dict"""
-        if v is None:
-            return {}
-        if isinstance(v, dict):
-            return v
-        # Handle special JSON objects
-        return {}
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -440,6 +468,7 @@ class WatchlistItemWithPrice(BaseModel):
     current_price: Optional[Decimal]
     daily_change_pct: Optional[Decimal]
     currency: str
+    asset_type: Optional[str]
     last_updated: Optional[datetime]
     created_at: datetime
 
@@ -471,3 +500,35 @@ class WatchlistConvertToBuy(BaseModel):
     price: Decimal
     tx_date: Optional[str] = None
     fees: Decimal = Field(default=Decimal(0))
+
+
+# ============================================================================
+# Notification Schemas
+# ============================================================================
+
+class NotificationBase(BaseModel):
+    """Base notification schema"""
+    type: NotificationType
+    title: str
+    message: str
+    meta_data: Dict[str, Any] = Field(default={}, alias="metadata")
+
+
+class NotificationCreate(NotificationBase):
+    """Schema for creating a notification"""
+    user_id: int
+
+
+class Notification(NotificationBase):
+    """Notification response schema"""
+    id: int
+    user_id: int
+    is_read: bool
+    created_at: datetime
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class NotificationUpdate(BaseModel):
+    """Schema for updating a notification"""
+    is_read: Optional[bool] = None

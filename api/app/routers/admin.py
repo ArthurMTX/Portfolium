@@ -11,6 +11,7 @@ from app.auth import get_current_admin_user
 from app.models import User
 from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
+from app.tasks.scheduler import check_price_alerts, refresh_all_prices
 
 router = APIRouter(prefix="/admin")
 
@@ -174,6 +175,52 @@ def delete_user_admin(
     db.delete(user)
     db.commit()
     return
+
+
+@router.post("/trigger/price-alerts")
+def trigger_price_alerts(
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Manually trigger the price alert check task
+    
+    This runs the scheduled price alert check immediately without waiting
+    for the scheduled interval. Useful for testing and debugging.
+    """
+    try:
+        check_price_alerts()
+        return {
+            "success": True,
+            "message": "Price alert check triggered successfully"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to trigger price alerts: {str(e)}"
+        )
+
+
+@router.post("/trigger/refresh-prices")
+def trigger_refresh_prices(
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Manually trigger the price refresh task
+    
+    This runs the scheduled price refresh immediately without waiting
+    for the scheduled interval. Useful for testing and debugging.
+    """
+    try:
+        refresh_all_prices()
+        return {
+            "success": True,
+            "message": "Price refresh triggered successfully"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to trigger price refresh: {str(e)}"
+        )
 
 
 # Removed raw environment management endpoints for security

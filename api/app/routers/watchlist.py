@@ -72,6 +72,7 @@ async def get_watchlist(
             current_price=current_price,
             daily_change_pct=daily_change_pct,
             currency=asset.currency,
+            asset_type=asset.asset_type,
             last_updated=last_updated,
             created_at=item.created_at
         ))
@@ -498,3 +499,34 @@ async def export_watchlist_json(
         })
     
     return export_data
+
+
+@router.post("/refresh-prices")
+async def refresh_watchlist_prices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Force refresh prices for all watchlist items
+    Returns the number of prices refreshed
+    """
+    items = crud.get_watchlist_items_by_user(db, current_user.id)
+    
+    if not items:
+        return {"refreshed_count": 0}
+    
+    # Get pricing service
+    pricing_service = PricingService(db)
+    
+    # Force refresh prices for all watchlist assets
+    count = 0
+    for item in items:
+        try:
+            # Force refresh to get fresh data from Yahoo Finance
+            price = pricing_service.get_price(item.asset.symbol, force_refresh=True)
+            if price:
+                count += 1
+        except Exception:
+            pass  # Continue with other assets
+    
+    return {"refreshed_count": count}
