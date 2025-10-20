@@ -1,5 +1,5 @@
             import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck } from 'lucide-react'
+import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -106,6 +106,17 @@ export default function Layout() {
             >
               <Package size={18} />
               <span>Assets</span>
+            </Link>
+            <Link
+              to="/watchlist"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                isActive('/watchlist')
+                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+            >
+              <Eye size={18} />
+              <span>Watchlist</span>
             </Link>
             {(user?.is_admin || user?.is_superuser) && (
               <Link

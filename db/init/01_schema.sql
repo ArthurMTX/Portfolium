@@ -149,6 +149,29 @@ CREATE TRIGGER update_transactions_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION portfolio.update_updated_at_column();
 
+-- Watchlist table (track assets without owning them)
+CREATE TABLE IF NOT EXISTS portfolio.watchlist (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES portfolio.users(id) ON DELETE CASCADE,
+  asset_id INT NOT NULL REFERENCES portfolio.assets(id) ON DELETE CASCADE,
+  notes TEXT,
+  alert_target_price NUMERIC(20,8),
+  alert_enabled BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now(),
+  UNIQUE(user_id, asset_id)
+);
+
+CREATE INDEX idx_watchlist_user ON portfolio.watchlist(user_id);
+CREATE INDEX idx_watchlist_asset ON portfolio.watchlist(asset_id);
+CREATE INDEX idx_watchlist_alert_enabled ON portfolio.watchlist(alert_enabled);
+
+-- Trigger for watchlist updated_at
+CREATE TRIGGER update_watchlist_updated_at
+  BEFORE UPDATE ON portfolio.watchlist
+  FOR EACH ROW
+  EXECUTE FUNCTION portfolio.update_updated_at_column();
+
 -- Comments for documentation
 COMMENT ON SCHEMA portfolio IS 'Investment portfolio tracking system';
 COMMENT ON TABLE portfolio.users IS 'Application users with authentication';
@@ -156,8 +179,11 @@ COMMENT ON TABLE portfolio.assets IS 'Financial assets with Yahoo Finance ticker
 COMMENT ON TABLE portfolio.portfolios IS 'User investment portfolios';
 COMMENT ON TABLE portfolio.transactions IS 'Portfolio transactions (buy, sell, dividends, fees, splits)';
 COMMENT ON TABLE portfolio.prices IS 'Cached price history from Yahoo Finance';
+COMMENT ON TABLE portfolio.watchlist IS 'User watchlist for tracking assets without owning them';
 
 COMMENT ON COLUMN portfolio.transactions.metadata IS 'Additional data (e.g., split ratio: {"split": "2:1"})';
 COMMENT ON COLUMN portfolio.transactions.quantity IS 'Number of shares/units (0 for DIVIDEND/FEE, ratio for SPLIT)';
 COMMENT ON COLUMN portfolio.transactions.price IS 'Price per unit in asset currency';
 COMMENT ON COLUMN portfolio.transactions.fees IS 'Transaction fees/commissions';
+COMMENT ON COLUMN portfolio.watchlist.alert_target_price IS 'Optional price alert threshold';
+COMMENT ON COLUMN portfolio.watchlist.alert_enabled IS 'Whether price alerts are enabled for this watchlist item';

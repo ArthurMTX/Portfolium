@@ -388,3 +388,86 @@ class HealthCheck(BaseModel):
 class PortfolioHistoryPoint(BaseModel):
     date: str  # ISO date string
     value: float
+
+
+# ============================================================================
+# Watchlist Schemas
+# ============================================================================
+
+class WatchlistItemBase(BaseModel):
+    """Base watchlist item schema"""
+    asset_id: int
+    notes: Optional[str] = None
+    alert_target_price: Optional[Decimal] = None
+    alert_enabled: bool = False
+
+
+class WatchlistItemCreate(WatchlistItemBase):
+    """Schema for creating a watchlist item"""
+    pass
+
+
+class WatchlistItemUpdate(BaseModel):
+    """Schema for updating a watchlist item"""
+    notes: Optional[str] = None
+    alert_target_price: Optional[Decimal] = None
+    alert_enabled: Optional[bool] = None
+
+
+class WatchlistItem(WatchlistItemBase):
+    """Watchlist item response schema"""
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    # Include asset details
+    asset: Optional[Asset] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WatchlistItemWithPrice(BaseModel):
+    """Watchlist item with current price data"""
+    id: int
+    user_id: int
+    asset_id: int
+    symbol: str
+    name: Optional[str]
+    notes: Optional[str]
+    alert_target_price: Optional[Decimal]
+    alert_enabled: bool
+    current_price: Optional[Decimal]
+    daily_change_pct: Optional[Decimal]
+    currency: str
+    last_updated: Optional[datetime]
+    created_at: datetime
+
+
+class WatchlistImportItem(BaseModel):
+    """Single item for watchlist import"""
+    symbol: str
+    notes: Optional[str] = None
+    alert_target_price: Optional[Decimal] = None
+    alert_enabled: bool = False
+
+
+class WatchlistImportResult(BaseModel):
+    """Result of watchlist import"""
+    success: bool
+    imported_count: int
+    errors: List[str] = []
+    warnings: List[str] = []
+
+
+# ============================================================================
+# Watchlist Convert Payload
+# ============================================================================
+
+class WatchlistConvertToBuy(BaseModel):
+    """Request body for converting a watchlist item into a BUY transaction"""
+    portfolio_id: int
+    quantity: Decimal
+    price: Decimal
+    tx_date: Optional[str] = None
+    fees: Decimal = Field(default=Decimal(0))

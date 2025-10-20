@@ -454,6 +454,134 @@ class ApiClient {
       body: JSON.stringify(settings),
     })
   }
+
+  // Watchlist
+  async getWatchlist() {
+    return this.request<Array<{
+      id: number
+      user_id: number
+      asset_id: number
+      symbol: string
+      name: string | null
+      notes: string | null
+      alert_target_price: number | string | null
+      alert_enabled: boolean
+      current_price: number | string | null
+      daily_change_pct: number | string | null
+      currency: string
+      last_updated: string | null
+      created_at: string
+    }>>('/watchlist')
+  }
+
+  async addToWatchlist(data: {
+    symbol: string
+    notes?: string
+    alert_target_price?: number
+    alert_enabled?: boolean
+  }) {
+    const { symbol, ...rest } = data;
+    const params = new URLSearchParams({ symbol });
+    return this.request<any>(`/watchlist/by-symbol?${params.toString()}`, {
+      method: 'POST',
+      body: JSON.stringify(rest),
+    });
+  }
+
+  async updateWatchlistItem(itemId: number, data: {
+    notes?: string
+    alert_target_price?: number
+    alert_enabled?: boolean
+  }) {
+    return this.request<any>(`/watchlist/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteWatchlistItem(itemId: number) {
+    return this.request<void>(`/watchlist/${itemId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async convertWatchlistToBuy(itemId: number, data: {
+    portfolio_id: number
+    quantity: number
+    price: number
+    fees?: number
+    tx_date?: string
+  }) {
+    return this.request<{ success: boolean; transaction_id: number; message: string }>(
+      `/watchlist/${itemId}/convert-to-buy`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    )
+  }
+
+  async importWatchlistCSV(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`${this.baseUrl}/watchlist/import/csv`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(JSON.stringify(error))
+    }
+
+    return response.json()
+  }
+
+  async importWatchlistJSON(items: Array<{
+    symbol: string
+    notes?: string
+    alert_target_price?: number
+    alert_enabled?: boolean
+  }>) {
+    return this.request<{
+      success: boolean
+      imported_count: number
+      errors: string[]
+      warnings: string[]
+    }>('/watchlist/import/json', {
+      method: 'POST',
+      body: JSON.stringify(items),
+    })
+  }
+
+  async exportWatchlistCSV() {
+    const response = await fetch(`${this.baseUrl}/watchlist/export/csv`, {
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Export failed')
+    }
+
+    return response.blob()
+  }
+
+  async exportWatchlistJSON() {
+    return this.request<Array<{
+      symbol: string
+      name: string | null
+      notes: string | null
+      alert_target_price: number | null
+      alert_enabled: boolean
+      created_at: string
+    }>>('/watchlist/export/json')
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)
