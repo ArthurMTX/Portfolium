@@ -29,6 +29,7 @@ const sortableColumns = [
   'current_price',
   'daily_change_pct',
   'market_value',
+  'wallet_pct',
   'unrealized_pnl',
   'unrealized_pnl_pct',
 ] as const
@@ -38,6 +39,16 @@ type SortDir = 'asc' | 'desc'
 export default function PositionsTable({ positions }: PositionsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('market_value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  // Calculate total portfolio value for % of wallet
+  const totalPortfolioValue = useMemo(() => {
+    return positions.reduce((sum, pos) => {
+      const value = pos.market_value !== null && pos.market_value !== undefined 
+        ? Number(pos.market_value) 
+        : 0
+      return sum + value
+    }, 0)
+  }, [positions])
 
   const isActive = (key: SortKey) => sortKey === key
 
@@ -60,6 +71,7 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
       current_price: 'number',
       daily_change_pct: 'number',
       market_value: 'number',
+      wallet_pct: 'number',
       unrealized_pnl: 'number',
       unrealized_pnl_pct: 'number',
     } satisfies Record<SortKey, 'string' | 'number'>
@@ -67,6 +79,15 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
     const dir = sortDir === 'asc' ? 1 : -1
 
     return [...positions].sort((a, b) => {
+      // Special handling for wallet_pct since it's calculated
+      if (sortKey === 'wallet_pct') {
+        const aMarketValue = a.market_value !== null && a.market_value !== undefined ? Number(a.market_value) : 0
+        const bMarketValue = b.market_value !== null && b.market_value !== undefined ? Number(b.market_value) : 0
+        const aWalletPct = totalPortfolioValue > 0 ? (aMarketValue / totalPortfolioValue) * 100 : 0
+        const bWalletPct = totalPortfolioValue > 0 ? (bMarketValue / totalPortfolioValue) * 100 : 0
+        return (aWalletPct - bWalletPct) * dir
+      }
+
       const aVal = a[sortKey as keyof Position] as string | number | null | undefined
       const bVal = b[sortKey as keyof Position] as string | number | null | undefined
 
@@ -90,7 +111,7 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
       if (isNaN(nb)) return -1
       return (na - nb) * dir
     })
-  }, [positions, sortKey, sortDir])
+  }, [positions, sortKey, sortDir, totalPortfolioValue])
 
   const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
     if (value === null || value === undefined) return '-'
@@ -112,7 +133,7 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
     return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
   }
 
-
+  
   const SortIcon = ({ col }: { col: SortKey }) => {
     const active = sortKey === col
     if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
@@ -177,6 +198,13 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
                 className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 Market Value <SortIcon col="market_value" />
+              </th>
+              <th
+                onClick={() => handleSort('wallet_pct')}
+                aria-sort={sortKey === 'wallet_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                % of Wallet <SortIcon col="wallet_pct" />
               </th>
               <th
                 onClick={() => handleSort('unrealized_pnl')}
@@ -312,6 +340,13 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.market_value, position.currency)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {position.market_value !== null && position.market_value !== undefined && totalPortfolioValue > 0
+                        ? `${((Number(position.market_value) / totalPortfolioValue) * 100).toFixed(2)}%`
+                        : '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
