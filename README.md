@@ -84,6 +84,7 @@ docker compose down -v
 - ✅ Multi-portfolio management
 - ✅ Support for stocks, ETFs, crypto (via Yahoo Finance tickers)
 - ✅ Transactions: BUY, SELL, DIVIDEND, FEE, SPLIT
+- ✅ Automatic FX & currencies conversion
 - ✅ Automatic average cost calculation (weighted average)
 - ✅ Realized and unrealized P&L
 - ✅ CSV import
