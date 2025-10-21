@@ -103,7 +103,7 @@ docker compose down -v
 - ✅ Watchlist with price alerts
 - ✅ CSV import with drag & drop
 - ✅ Dark mode
-- ✅ Price charts (Recharts)
+- ✅ Price charts (Recharts) & heatmaps
 - ✅ Responsive UI
 - ✅ Notifications system for user actions and price alerts
 
