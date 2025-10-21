@@ -238,9 +238,9 @@ class TransactionBase(BaseModel):
     asset_id: int
     tx_date: date
     type: TransactionType
-    quantity: Decimal = Field(ge=0, decimal_places=8)
-    price: Decimal = Field(ge=0, decimal_places=8)
-    fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=8)
+    quantity: Decimal = Field(ge=0, decimal_places=12)
+    price: Decimal = Field(ge=0, decimal_places=12)
+    fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=12)
     currency: str = "USD"
     notes: Optional[str] = None
 

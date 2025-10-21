@@ -128,6 +128,18 @@ export default function Transactions() {
     setPrice("")
   }
 
+  // Helper function to format decimal numbers, removing trailing zeros after decimal point only
+  const formatDecimalForInput = (value: number | string): string => {
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return ''
+    const str = num.toString()
+    // Only remove trailing zeros if there's a decimal point
+    if (str.includes('.')) {
+      return str.replace(/\.?0+$/, '')
+    }
+    return str
+  }
+
   const openAddModal = () => {
     resetForm()
     setModalMode('add')
@@ -139,9 +151,9 @@ export default function Transactions() {
     setTicker(transaction.asset.symbol)
     setTxDate(transaction.tx_date)
     setTxType(transaction.type)
-    setQuantity(transaction.quantity.toString())
-    setPrice(transaction.price.toString())
-    setFees(transaction.fees.toString())
+    setQuantity(formatDecimalForInput(transaction.quantity))
+    setPrice(formatDecimalForInput(transaction.price))
+    setFees(formatDecimalForInput(transaction.fees))
     setNotes(transaction.notes || '')
     // Extract split ratio from metadata if it's a SPLIT transaction
     // Handle both 'metadata' and 'meta_data' for backwards compatibility

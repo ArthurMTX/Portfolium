@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle } from 'lucide-react';
+import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp } from 'lucide-react';
 import api from '../lib/api';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
+import TransactionHistory from '../components/TransactionHistory';
 
 interface HeldAsset {
   id: number;
@@ -45,7 +46,9 @@ export default function Assets() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [showSold, setShowSold] = useState(true);
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
+  const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [assetSplitCounts, setAssetSplitCounts] = useState<Record<number, number>>({});
+  const [assetTransactionCounts, setAssetTransactionCounts] = useState<Record<number, number>>({});
 
   const loadAssets = useCallback(async () => {
     try {
@@ -57,20 +60,27 @@ export default function Assets() {
       setHeldAssets(held);
       setSoldAssets(sold);
       
-      // Load split counts for all assets
+      // Load split counts and transaction counts for all assets
       const allAssets = [...held, ...sold];
       const splitCounts: Record<number, number> = {};
+      const transactionCounts: Record<number, number> = {};
       await Promise.all(
         allAssets.map(async (asset) => {
           try {
-            const splits = await api.getAssetSplitHistory(asset.id);
+            const [splits, transactions] = await Promise.all([
+              api.getAssetSplitHistory(asset.id),
+              api.getAssetTransactionHistory(asset.id)
+            ]);
             splitCounts[asset.id] = splits.length;
+            transactionCounts[asset.id] = transactions.length;
           } catch {
             splitCounts[asset.id] = 0;
+            transactionCounts[asset.id] = 0;
           }
         })
       );
       setAssetSplitCounts(splitCounts);
+      setAssetTransactionCounts(transactionCounts);
       
       setError(null);
     } catch (err) {
@@ -602,16 +612,28 @@ export default function Assets() {
                       <div className="text-sm">{asset.portfolio_count}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {assetSplitCounts[asset.id] > 0 && (
-                        <button
-                          onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
-                          className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors inline-flex items-center gap-1"
-                          title={`View Split History (${assetSplitCounts[asset.id]} split${assetSplitCounts[asset.id] > 1 ? 's' : ''})`}
-                        >
-                          <Shuffle size={16} />
-                          <span className="text-xs">{assetSplitCounts[asset.id]}</span>
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {assetTransactionCounts[asset.id] > 0 && (
+                          <button
+                            onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors inline-flex items-center gap-1"
+                            title={`View Transaction History (${assetTransactionCounts[asset.id]} transaction${assetTransactionCounts[asset.id] > 1 ? 's' : ''})`}
+                          >
+                            <TrendingUp size={16} />
+                            <span className="text-xs">{assetTransactionCounts[asset.id]}</span>
+                          </button>
+                        )}
+                        {assetSplitCounts[asset.id] > 0 && (
+                          <button
+                            onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
+                            className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors inline-flex items-center gap-1"
+                            title={`View Split History (${assetSplitCounts[asset.id]} split${assetSplitCounts[asset.id] > 1 ? 's' : ''})`}
+                          >
+                            <Shuffle size={16} />
+                            <span className="text-xs">{assetSplitCounts[asset.id]}</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -637,6 +659,15 @@ export default function Assets() {
           assetId={splitHistoryAsset.id}
           assetSymbol={splitHistoryAsset.symbol}
           onClose={() => setSplitHistoryAsset(null)}
+        />
+      )}
+
+      {/* Transaction History Modal */}
+      {transactionHistoryAsset && (
+        <TransactionHistory
+          assetId={transactionHistoryAsset.id}
+          assetSymbol={transactionHistoryAsset.symbol}
+          onClose={() => setTransactionHistoryAsset(null)}
         />
       )}
     </div>

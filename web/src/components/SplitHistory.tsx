@@ -44,15 +44,29 @@ export default function SplitHistory({ assetId, assetSymbol, onClose }: SplitHis
       const denominator = parseFloat(parts[1])
       const ratio = numerator / denominator
       
+      // Format ratio intelligently based on size
+      const formatRatio = (r: number): string => {
+        if (r >= 1) {
+          // For normal splits (2:1, 3:1, etc.), use 2 decimals
+          return r.toFixed(2)
+        } else if (r >= 0.01) {
+          // For moderate reverse splits, use 2-4 decimals
+          return r.toFixed(4).replace(/\.?0+$/, '')
+        } else {
+          // For extreme reverse splits (1:10000), show in scientific notation or more decimals
+          return r < 0.001 ? r.toExponential(2) : r.toFixed(6).replace(/\.?0+$/, '')
+        }
+      }
+      
       if (ratio > 1) {
         return {
           ratio,
-          description: `${parts[0]}-for-${parts[1]} split (${ratio.toFixed(2)}x shares)`
+          description: `${parts[0]}-for-${parts[1]} split (${formatRatio(ratio)}x shares)`
         }
       } else if (ratio < 1) {
         return {
           ratio,
-          description: `${parts[0]}-for-${parts[1]} reverse split (${ratio.toFixed(2)}x shares)`
+          description: `${parts[0]}-for-${parts[1]} reverse split (${formatRatio(ratio)}x shares)`
         }
       }
     }

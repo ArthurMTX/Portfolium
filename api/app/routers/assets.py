@@ -435,3 +435,47 @@ async def get_asset_split_history(asset_id: int, db: Session = Depends(get_db)):
         for split in splits
     ]
 
+
+@router.get("/{asset_id}/transactions")
+async def get_asset_transaction_history(asset_id: int, db: Session = Depends(get_db)):
+    """
+    Get buy/sell transaction history for a specific asset across all portfolios
+    
+    Returns all BUY and SELL transactions for the given asset, ordered by date (newest first).
+    """
+    from app.models import Transaction, TransactionType, Portfolio
+    
+    # Verify asset exists
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Asset {asset_id} not found"
+        )
+    
+    # Get all BUY and SELL transactions for this asset
+    transactions = (
+        db.query(Transaction, Portfolio.name)
+        .join(Portfolio, Transaction.portfolio_id == Portfolio.id)
+        .filter(
+            Transaction.asset_id == asset_id,
+            Transaction.type.in_([TransactionType.BUY, TransactionType.SELL])
+        )
+        .order_by(Transaction.tx_date.desc())
+        .all()
+    )
+    
+    return [
+        {
+            "id": tx.id,
+            "tx_date": tx.tx_date.isoformat(),
+            "type": tx.type.value,
+            "quantity": float(tx.quantity),
+            "price": float(tx.price) if tx.price else None,
+            "fees": float(tx.fees) if tx.fees else None,
+            "portfolio_name": portfolio_name,
+            "notes": tx.notes
+        }
+        for tx, portfolio_name in transactions
+    ]
+

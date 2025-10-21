@@ -290,6 +290,19 @@ class ApiClient {
     }>>(`/assets/${assetId}/splits`)
   }
 
+  async getAssetTransactionHistory(assetId: number) {
+    return this.request<Array<{
+      id: number
+      tx_date: string
+      type: string
+      quantity: number
+      price: number | null
+      fees: number | null
+      portfolio_name: string
+      notes: string | null
+    }>>(`/assets/${assetId}/transactions`)
+  }
+
   // Portfolios
   async getPortfolios() {
     return this.request<PortfolioDTO[]>('/portfolios')
