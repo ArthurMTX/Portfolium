@@ -43,6 +43,10 @@ const normalizeTickerForLogo = (symbol: string): string => {
 
 export default function Transactions() {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const portfolios = usePortfolioStore((state) => state.portfolios)
+  const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
+  const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
+  const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,6 +73,13 @@ export default function Transactions() {
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
+
+  // Load portfolios if not already loaded
+  useEffect(() => {
+    if (portfolios.length === 0) {
+      api.getPortfolios().then(setPortfolios).catch(console.error)
+    }
+  }, [portfolios.length, setPortfolios])
 
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolioId) return
@@ -219,7 +230,7 @@ export default function Transactions() {
             const created = await api.createAsset({
               symbol,
               name: selectedTicker?.name,
-              currency: 'USD',
+              currency: portfolioCurrency,
             })
             assetId = created.id
           }
@@ -234,7 +245,7 @@ export default function Transactions() {
             quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
             price: txType === 'SPLIT' ? 0 : parseFloat(price),
             fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
-            currency: "USD",
+            currency: portfolioCurrency,
             metadata: metadata,
             notes: notes || null
           })
@@ -950,7 +961,7 @@ export default function Transactions() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Price {modalMode === 'add' && '(Optional)'}
+                      Price ({portfolioCurrency}) {modalMode === 'add' && '(Optional)'}
                     </label>
                     <input
                       type="number"
@@ -962,11 +973,16 @@ export default function Transactions() {
                       placeholder={modalMode === 'add' ? 'Auto-fetch' : '0.00'}
                       required={modalMode === 'edit'}
                     />
+                    {modalMode === 'add' && (
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                        Leave empty to auto-fetch price in USD, or enter price in {portfolioCurrency}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Fees
+                      Fees ({portfolioCurrency})
                     </label>
                     <input
                       type="number"

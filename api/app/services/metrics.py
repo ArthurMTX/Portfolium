@@ -115,9 +115,14 @@ class MetricsService:
         quantity = Decimal(0)
         total_cost = Decimal(0)
         total_shares_for_cost = Decimal(0)
+        # Use the currency from the first BUY transaction (most common currency for this position)
+        position_currency = None
         
         for tx in transactions:
             if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                # Set position currency from first BUY transaction
+                if position_currency is None:
+                    position_currency = tx.currency
                 quantity += tx.quantity
                 cost = (tx.quantity * tx.price) + tx.fees
                 total_cost += cost
@@ -147,12 +152,35 @@ class MetricsService:
         
         # Get current price and daily change from pricing service
         from app.services.pricing import PricingService
+        from app.services.currency import CurrencyService
         pricing_service = PricingService(self.db)
         
         price_quote = pricing_service.get_price(asset.symbol)
         current_price = price_quote.price if price_quote else None
         daily_change_pct = price_quote.daily_change_pct if price_quote else None
         last_updated = price_quote.asof if price_quote else None
+        
+        # Convert current price to position currency if needed
+        if current_price and position_currency and position_currency != asset.currency:
+            logger.info(
+                f"Converting {asset.symbol} price from {asset.currency} to {position_currency}"
+            )
+            converted_price = CurrencyService.convert(
+                current_price,
+                from_currency=asset.currency,
+                to_currency=position_currency
+            )
+            if converted_price:
+                current_price = converted_price
+                logger.info(
+                    f"Converted price for {asset.symbol}: "
+                    f"{price_quote.price} {asset.currency} -> {current_price} {position_currency}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to convert price for {asset.symbol} from "
+                    f"{asset.currency} to {position_currency}. Using original price."
+                )
         
         # Calculate market value and P&L
         market_value = quantity * current_price if current_price else None
@@ -177,7 +205,7 @@ class MetricsService:
             unrealized_pnl=unrealized_pnl,
             unrealized_pnl_pct=unrealized_pnl_pct,
             daily_change_pct=daily_change_pct,
-            currency=asset.currency,
+            currency=position_currency or asset.currency,  # Use transaction currency if available, fallback to asset currency
             last_updated=last_updated,
             asset_type=asset.asset_type
         )
