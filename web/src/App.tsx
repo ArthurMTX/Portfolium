@@ -3,7 +3,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
 import Portfolios from './pages/Portfolios'
-import Portfolio from './pages/Portfolio'
+import Charts from './pages/Charts'
 import Transactions from './pages/Transactions'
 import Assets from './pages/Assets'
 import Watchlist from './pages/Watchlist'
@@ -42,7 +42,7 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="portfolios" element={<Portfolios />} />
-            <Route path="portfolio" element={<Portfolio />} />
+            <Route path="charts" element={<Charts />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="assets" element={<Assets />} />
             <Route path="watchlist" element={<Watchlist />} />

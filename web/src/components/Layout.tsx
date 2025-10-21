@@ -65,17 +65,6 @@ export default function Layout() {
               <span>Dashboard</span>
             </Link>
             <Link
-              to="/portfolio"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/portfolio')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-            >
-              <LineChart size={18} />
-              <span>Chart</span>
-            </Link>
-            <Link
               to="/portfolios"
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                 isActive('/portfolios')
@@ -85,6 +74,17 @@ export default function Layout() {
             >
               <Briefcase size={18} />
               <span>Portfolios</span>
+            </Link>
+            <Link
+              to="/charts"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                isActive('/charts')
+                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+            >
+              <LineChart size={18} />
+              <span>Charts</span>
             </Link>
             <Link
               to="/transactions"

@@ -5,7 +5,7 @@ import api from '../lib/api'
 import PortfolioHistoryChart from '../components/PortfolioHistoryChart'
 import PortfolioHeatmap from '../components/PortfolioHeatmap'
 
-export default function Portfolio() {
+export default function Charts() {
   const {
     portfolios,
     activePortfolioId,
