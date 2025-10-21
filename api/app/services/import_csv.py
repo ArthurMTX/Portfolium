@@ -58,6 +58,10 @@ class CsvImportService:
                     # Parse row
                     import_row = self._parse_row(row)
                     
+                    # Validate SPLIT transactions
+                    if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
+                        raise ValueError(f'SPLIT transactions must include a split_ratio (e.g., "2:1")')
+                    
                     # Get or create asset
                     asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
                     if not asset:

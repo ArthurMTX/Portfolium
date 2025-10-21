@@ -413,6 +413,9 @@ class ApiClient {
       `${this.baseUrl}/portfolios/import/csv?portfolio_id=${portfolioId}`,
       {
         method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
         body: formData,
       }
     )

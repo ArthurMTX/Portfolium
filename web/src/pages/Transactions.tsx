@@ -347,7 +347,7 @@ export default function Transactions() {
     }
 
     // Create CSV content
-    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'notes']
+    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'split_ratio', 'notes']
     const rows = transactions.map(tx => [
       tx.tx_date,
       tx.asset.symbol,
@@ -356,6 +356,7 @@ export default function Transactions() {
       tx.price,
       tx.fees,
       tx.currency,
+      tx.metadata?.split || '',
       tx.notes || ''
     ])
 
