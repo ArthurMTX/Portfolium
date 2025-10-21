@@ -240,7 +240,11 @@ export default function Dashboard() {
                   {Number(metrics.total_unrealized_pnl_pct).toFixed(2)}%
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                metrics.total_unrealized_pnl >= 0
+                  ? 'bg-green-100 dark:bg-green-900/30'
+                  : 'bg-red-100 dark:bg-red-900/30'
+              }`}>
                 {metrics.total_unrealized_pnl >= 0 ? (
                   <TrendingUp className="text-green-600 dark:text-green-400" size={24} />
                 ) : (
