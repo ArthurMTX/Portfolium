@@ -599,7 +599,7 @@ export default function Assets() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm font-medium flex items-center gap-2">
+                      <div className="text-sm font-medium">
                         {asset.total_quantity.toFixed(4)}
                         {asset.total_quantity === 0 && (
                           <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 ml-2">
