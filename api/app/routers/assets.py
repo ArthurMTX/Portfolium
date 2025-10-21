@@ -2,6 +2,7 @@
 Assets router
 """
 from typing import List, Optional
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -12,6 +13,21 @@ from app.crud import assets as crud
 import yfinance as yf
 
 router = APIRouter()
+
+
+def _parse_split_ratio(split_str: str) -> Decimal:
+    """
+    Parse split ratio string (e.g., "2:1" -> 2.0, "1:2" -> 0.5, "10:1" -> 10.0)
+    """
+    try:
+        parts = split_str.split(":")
+        if len(parts) == 2:
+            numerator = Decimal(parts[0])
+            denominator = Decimal(parts[1])
+            return numerator / denominator
+    except:
+        pass
+    return Decimal(1)
 
 # Live ticker search endpoint
 @router.get("/search_ticker")
@@ -125,64 +141,66 @@ async def get_held_assets(db: Session = Depends(get_db)):
     
     Returns assets that have non-zero positions with:
     - Asset details (symbol, name, sector, industry, asset_type)
-    - Total quantity held across all portfolios
+    - Total quantity held across all portfolios (adjusted for splits)
     - Number of portfolios holding this asset
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
+    from decimal import Decimal
     
-    # Calculate total quantity per asset
-    from sqlalchemy import case
+    # Get all assets that have transactions
+    asset_ids = db.query(Transaction.asset_id.distinct()).all()
+    asset_ids = [aid[0] for aid in asset_ids]
     
-    subquery = (
-        db.query(
-            Transaction.asset_id,
-            func.sum(
-                case(
-                    (Transaction.type == TransactionType.BUY, Transaction.quantity),
-                    (Transaction.type == TransactionType.SELL, -Transaction.quantity),
-                    (Transaction.type == TransactionType.TRANSFER_IN, Transaction.quantity),
-                    (Transaction.type == TransactionType.TRANSFER_OUT, -Transaction.quantity),
-                    else_=0
-                )
-            ).label("total_quantity"),
-            func.count(func.distinct(Transaction.portfolio_id)).label("portfolio_count")
+    results = []
+    for asset_id in asset_ids:
+        # Get all transactions for this asset across all portfolios
+        transactions = (
+            db.query(Transaction)
+            .filter(Transaction.asset_id == asset_id)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
         )
-        .group_by(Transaction.asset_id)
-        .subquery()
-    )
+        
+        # Calculate total quantity with split adjustments
+        total_quantity = Decimal(0)
+        portfolio_ids = set()
+        
+        for tx in transactions:
+            portfolio_ids.add(tx.portfolio_id)
+            
+            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                total_quantity += tx.quantity
+            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                total_quantity -= tx.quantity
+            elif tx.type == TransactionType.SPLIT:
+                # Apply split ratio to current quantity
+                split_ratio = _parse_split_ratio(tx.meta_data.get("split", "1:1") if tx.meta_data else "1:1")
+                total_quantity *= split_ratio
+        
+        # Only include assets with positive quantity
+        if total_quantity > 0:
+            asset = db.query(Asset).filter(Asset.id == asset_id).first()
+            if asset:
+                results.append({
+                    "id": asset.id,
+                    "symbol": asset.symbol,
+                    "name": asset.name,
+                    "currency": asset.currency,
+                    "class": asset.class_.value if asset.class_ else None,
+                    "sector": asset.sector,
+                    "industry": asset.industry,
+                    "asset_type": asset.asset_type,
+                    "country": asset.country,
+                    "total_quantity": float(total_quantity),
+                    "portfolio_count": len(portfolio_ids),
+                    "created_at": asset.created_at,
+                    "updated_at": asset.updated_at
+                })
     
-    # Join with assets table to get asset details
-    results = (
-        db.query(
-            Asset,
-            subquery.c.total_quantity,
-            subquery.c.portfolio_count
-        )
-        .join(subquery, Asset.id == subquery.c.asset_id)
-        .filter(subquery.c.total_quantity > 0)
-        .order_by(Asset.symbol)
-        .all()
-    )
-    
-    return [
-        {
-            "id": asset.id,
-            "symbol": asset.symbol,
-            "name": asset.name,
-            "currency": asset.currency,
-            "class": asset.class_.value if asset.class_ else None,
-            "sector": asset.sector,
-            "industry": asset.industry,
-            "asset_type": asset.asset_type,
-            "country": asset.country,
-            "total_quantity": float(total_quantity),
-            "portfolio_count": portfolio_count,
-            "created_at": asset.created_at,
-            "updated_at": asset.updated_at
-        }
-        for asset, total_quantity, portfolio_count in results
-    ]
+    # Sort by symbol
+    results.sort(key=lambda x: x["symbol"])
+    return results
 
 
 @router.get("/sold/all")
@@ -197,59 +215,61 @@ async def get_sold_assets(db: Session = Depends(get_db)):
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
+    from decimal import Decimal
     
-    # Calculate total quantity per asset
-    from sqlalchemy import case
+    # Get all assets that have transactions
+    asset_ids = db.query(Transaction.asset_id.distinct()).all()
+    asset_ids = [aid[0] for aid in asset_ids]
     
-    subquery = (
-        db.query(
-            Transaction.asset_id,
-            func.sum(
-                case(
-                    (Transaction.type == TransactionType.BUY, Transaction.quantity),
-                    (Transaction.type == TransactionType.SELL, -Transaction.quantity),
-                    (Transaction.type == TransactionType.TRANSFER_IN, Transaction.quantity),
-                    (Transaction.type == TransactionType.TRANSFER_OUT, -Transaction.quantity),
-                    else_=0
-                )
-            ).label("total_quantity"),
-            func.count(func.distinct(Transaction.portfolio_id)).label("portfolio_count")
+    results = []
+    for asset_id in asset_ids:
+        # Get all transactions for this asset across all portfolios
+        transactions = (
+            db.query(Transaction)
+            .filter(Transaction.asset_id == asset_id)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
         )
-        .group_by(Transaction.asset_id)
-        .subquery()
-    )
+        
+        # Calculate total quantity with split adjustments
+        total_quantity = Decimal(0)
+        portfolio_ids = set()
+        
+        for tx in transactions:
+            portfolio_ids.add(tx.portfolio_id)
+            
+            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                total_quantity += tx.quantity
+            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                total_quantity -= tx.quantity
+            elif tx.type == TransactionType.SPLIT:
+                # Apply split ratio to current quantity
+                split_ratio = _parse_split_ratio(tx.meta_data.get("split", "1:1") if tx.meta_data else "1:1")
+                total_quantity *= split_ratio
+        
+        # Only include assets with zero or negative quantity (sold)
+        if total_quantity <= 0:
+            asset = db.query(Asset).filter(Asset.id == asset_id).first()
+            if asset:
+                results.append({
+                    "id": asset.id,
+                    "symbol": asset.symbol,
+                    "name": asset.name,
+                    "currency": asset.currency,
+                    "class": asset.class_.value if asset.class_ else None,
+                    "sector": asset.sector,
+                    "industry": asset.industry,
+                    "asset_type": asset.asset_type,
+                    "country": asset.country,
+                    "total_quantity": float(total_quantity),
+                    "portfolio_count": len(portfolio_ids),
+                    "created_at": asset.created_at,
+                    "updated_at": asset.updated_at
+                })
     
-    # Join with assets table to get asset details
-    results = (
-        db.query(
-            Asset,
-            subquery.c.total_quantity,
-            subquery.c.portfolio_count
-        )
-        .join(subquery, Asset.id == subquery.c.asset_id)
-        .filter(subquery.c.total_quantity == 0)
-        .order_by(Asset.symbol)
-        .all()
-    )
-    
-    return [
-        {
-            "id": asset.id,
-            "symbol": asset.symbol,
-            "name": asset.name,
-            "currency": asset.currency,
-            "class": asset.class_.value if asset.class_ else None,
-            "sector": asset.sector,
-            "industry": asset.industry,
-            "asset_type": asset.asset_type,
-            "country": asset.country,
-            "total_quantity": float(total_quantity),
-            "portfolio_count": portfolio_count,
-            "created_at": asset.created_at,
-            "updated_at": asset.updated_at
-        }
-        for asset, total_quantity, portfolio_count in results
-    ]
+    # Sort by symbol
+    results.sort(key=lambda x: x["symbol"])
+    return results
 
 
 @router.post("/enrich/all")
