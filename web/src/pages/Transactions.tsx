@@ -471,16 +471,24 @@ export default function Transactions() {
   const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
     if (value === null || value === undefined) return '-'
     const numValue = typeof value === 'string' ? parseFloat(value) : value
-    return new Intl.NumberFormat('fr-FR', {
+    
+    // Format with up to 2 decimals, removing trailing zeros
+    const formatted = new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(numValue)
+    
+    return formatted
   }
 
-  const formatNumber = (value: number | string | null, decimals: number = 2) => {
+  const formatQuantity = (value: number | string | null) => {
     if (value === null || value === undefined) return '-'
     const numValue = typeof value === 'string' ? parseFloat(value) : value
-    return numValue.toFixed(decimals)
+    // Format with up to 8 decimals, then remove trailing zeros
+    const formatted = numValue.toFixed(8)
+    return formatted.replace(/\.?0+$/, '')
   }
 
   const formatDate = (dateString: string) => {
@@ -785,7 +793,7 @@ export default function Transactions() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatNumber(transaction.quantity, 4)}
+                        {transaction.type === 'SPLIT' ? '-' : formatQuantity(transaction.quantity)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
                         {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}

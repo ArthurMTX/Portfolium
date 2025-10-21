@@ -116,10 +116,16 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
   const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
     if (value === null || value === undefined) return '-'
     const numValue = typeof value === 'string' ? parseFloat(value) : value
-    return new Intl.NumberFormat('fr-FR', {
+    
+    // Format with up to 2 decimals, removing trailing zeros
+    const formatted = new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(numValue)
+    
+    return formatted
   }
 
   const formatNumber = (value: number | string | null, decimals: number = 2) => {
@@ -128,12 +134,20 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
     return numValue.toFixed(decimals)
   }
 
+  const formatQuantity = (value: number | string | null) => {
+    if (value === null || value === undefined) return '-'
+    const numValue = typeof value === 'string' ? parseFloat(value) : value
+    // Format with up to 8 decimals, then remove trailing zeros
+    const formatted = numValue.toFixed(8)
+    return formatted.replace(/\.?0+$/, '')
+  }
+
   // Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
   const normalizeTickerForLogo = (symbol: string): string => {
     return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
   }
 
-  
+
   const SortIcon = ({ col }: { col: SortKey }) => {
     const active = sortKey === col
     if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
@@ -311,7 +325,7 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {formatNumber(position.quantity, 4)}
+                      {formatQuantity(position.quantity)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">

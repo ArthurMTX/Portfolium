@@ -218,6 +218,12 @@ export default function Assets() {
       .join(' ');
   };
 
+  const formatQuantity = (value: number) => {
+    // Format with up to 8 decimals, then remove trailing zeros
+    const formatted = value.toFixed(8);
+    return formatted.replace(/\.?0+$/, '');
+  };
+
   const getCountryCode = (country: string | null | undefined): string | null => {
     if (!country) return null;
     
@@ -600,7 +606,7 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="text-sm font-medium">
-                        {asset.total_quantity.toFixed(4)}
+                        {formatQuantity(asset.total_quantity)}
                         {asset.total_quantity === 0 && (
                           <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 ml-2">
                             Sold
