@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 
 interface WatchlistItem {
   id: number
@@ -390,6 +391,10 @@ export default function Watchlist() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
       </div>
     )
+  }
+
+  if (portfolios.length === 0) {
+    return <EmptyPortfolioPrompt pageType="watchlist" />
   }
 
   return (

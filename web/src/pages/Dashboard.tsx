@@ -4,6 +4,7 @@ import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import PositionsTable from '../components/PositionsTable'
 import { usePriceUpdates } from '../hooks/usePriceUpdates'
+import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 
 export default function Dashboard() {
   const {
@@ -155,6 +156,11 @@ export default function Dashboard() {
     const interval = setInterval(checkMarketStatus, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Show empty portfolio prompt if no portfolios exist
+  if (portfolios.length === 0) {
+    return <EmptyPortfolioPrompt pageType="dashboard" />
+  }
 
   return (
     <div className="space-y-6">

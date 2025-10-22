@@ -68,6 +68,14 @@ body {
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
   }
+  
+  .delay-75 {
+    animation-delay: 75ms;
+  }
+  
+  .delay-150 {
+    animation-delay: 150ms;
+  }
 }
 
 @keyframes fadeIn {

@@ -3,6 +3,8 @@ import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, Alert
 import { api } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
+import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
+import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -287,14 +289,7 @@ export default function Insights() {
   }, [loadInsights])
 
   if (!activePortfolioId) {
-    return (
-      <div className="text-center py-12">
-        <PieChart className="mx-auto h-12 w-12 text-neutral-400" />
-        <p className="mt-4 text-neutral-600 dark:text-neutral-400">
-          Please select a portfolio to view insights
-        </p>
-      </div>
-    )
+    return <EmptyPortfolioPrompt pageType="insights" />
   }
 
   if (loading) {
@@ -307,28 +302,17 @@ export default function Insights() {
   }
 
   if (error) {
+    // Check if error is about no transactions/data
+    if (error.includes('No portfolio data available') || error.includes('No transactions') || error.includes('No positions found')) {
+      return <EmptyTransactionsPrompt pageType="insights" portfolioName={insights?.portfolio_name} />
+    }
+    
     return (
       <div className="space-y-4">
         <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">Unable to Load Insights</h3>
           <p className="text-red-800 dark:text-red-200">{error}</p>
         </div>
-        
-        {error.includes('No portfolio data available') && (
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">💡 Need More Data</h3>
-            <p className="text-blue-800 dark:text-blue-200 mb-3">
-              Historical price data is required to generate insights. When you add transactions, 
-              historical prices are automatically fetched from the transaction date to today.
-            </p>
-            <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300 space-y-1">
-              <li>Make sure you have at least one transaction added</li>
-              <li>Historical data is automatically backfilled when adding new transactions</li>
-              <li>It may take a few moments for data to populate after adding transactions</li>
-              <li>Try refreshing the page if you just added a transaction</li>
-            </ul>
-          </div>
-        )}
         
         <button
           onClick={loadInsights}

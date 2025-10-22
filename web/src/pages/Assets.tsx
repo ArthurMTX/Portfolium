@@ -4,6 +4,9 @@ import api from '../lib/api';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
+import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
+import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
+import usePortfolioStore from '../store/usePortfolioStore';
 
 interface HeldAsset {
   id: number;
@@ -37,6 +40,7 @@ type SortDir = 'asc' | 'desc';
 
 export default function Assets() {
 
+  const { portfolios } = usePortfolioStore()
   const [heldAssets, setHeldAssets] = useState<HeldAsset[]>([]);
   const [soldAssets, setSoldAssets] = useState<HeldAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -501,6 +505,10 @@ export default function Assets() {
     );
   }
 
+  if (portfolios.length === 0) {
+    return <EmptyPortfolioPrompt pageType="assets" />
+  }
+
   if (error) {
     return (
       <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -517,53 +525,52 @@ export default function Assets() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Package className="text-pink-600" size={32} />
-            Assets
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            {showSold
-              ? 'Held and sold assets across all portfolios'
-              : 'Currently held assets across all portfolios'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowSold(!showSold)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              showSold 
-                ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-800' 
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-            }`}
-          >
-            <Archive size={18} />
-            {showSold ? 'Hide Sold' : 'Show Sold'}
-          </button>
-          <button
-            onClick={handleEnrichAll}
-            disabled={enriching}
-            className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw size={18} className={enriching ? 'animate-spin' : ''} />
-            {enriching ? 'Enriching...' : 'Enrich Metadata'}
-          </button>
-        </div>
-      </div>
-
-      {/* Assets Table */}
-      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-  {heldAssets.length === 0 && (!showSold || soldAssets.length === 0) ? (
-          <div className="p-8 text-center text-neutral-600 dark:text-neutral-400">
-            <Package size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No assets found</p>
+      {/* Check for empty state before rendering anything */}
+      {heldAssets.length === 0 && (!showSold || soldAssets.length === 0) ? (
+        <EmptyTransactionsPrompt pageType="assets" />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <Package className="text-pink-600" size={32} />
+                Assets
+              </h1>
+              <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+                {showSold
+                  ? 'Held and sold assets across all portfolios'
+                  : 'Currently held assets across all portfolios'}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowSold(!showSold)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  showSold 
+                    ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-800' 
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                }`}
+              >
+                <Archive size={18} />
+                {showSold ? 'Hide Sold' : 'Show Sold'}
+              </button>
+              <button
+                onClick={handleEnrichAll}
+                disabled={enriching}
+                className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={18} className={enriching ? 'animate-spin' : ''} />
+                {enriching ? 'Enriching...' : 'Enrich Metadata'}
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+
+          {/* Assets Table */}
+          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                 <tr>
                   <th 
                     onClick={() => handleSort('symbol')}
@@ -820,17 +827,16 @@ export default function Assets() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+          </div>
 
-      {/* Charts - Bottom Section - Only show for held assets */}
-      {(heldAssets.length > 0 || soldAssets.length > 0) && (
-        <div className="pt-4">
-          <h2 className="text-xl font-semibold mb-4 text-neutral-900 dark:text-neutral-100">
-            Asset Distribution
-          </h2>
-          <AssetsCharts assets={sortedAssets} />
-        </div>
+          {/* Charts - Bottom Section - Only show for held assets */}
+          <div className="pt-4">
+            <h2 className="text-xl font-semibold mb-4 text-neutral-900 dark:text-neutral-100">
+              Asset Distribution
+            </h2>
+            <AssetsCharts assets={sortedAssets} />
+          </div>
+        </>
       )}
 
       {/* Split History Modal */}

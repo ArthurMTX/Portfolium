@@ -3,6 +3,7 @@ import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
+import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 
 interface TickerInfo {
   symbol: string
@@ -535,18 +536,7 @@ export default function Transactions() {
   }
 
   if (!activePortfolioId) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-          Transactions
-        </h1>
-        <div className="card p-12 text-center">
-          <p className="text-lg text-neutral-600 dark:text-neutral-400">
-            Please select or create a portfolio from the Dashboard to view transactions.
-          </p>
-        </div>
-      </div>
-    )
+    return <EmptyPortfolioPrompt pageType="transactions" />
   }
 
   return (
