@@ -60,6 +60,8 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
         industry = info.get('industry')
         asset_type = info.get('quoteType')  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
         country = info.get('country')
+        # Get currency from yfinance if available
+        currency = info.get('currency') or asset.currency
         # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
         if not asset.name or asset.name == asset.symbol:
             name = info.get('longName') or info.get('shortName') or asset.symbol
@@ -71,12 +73,13 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
         industry = None
         asset_type = None
         country = None
+        currency = asset.currency
         name = asset.name or asset.symbol
     
     db_asset = Asset(
         symbol=asset.symbol.upper(),
         name=name,
-        currency=asset.currency,
+        currency=currency,
         class_=asset.class_,
         sector=sector,
         industry=industry,
@@ -139,6 +142,10 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
             db_asset.asset_type = info.get('quoteType')
         if not db_asset.country:
             db_asset.country = info.get('country')
+        # Update currency from yfinance if available (always update to correct currency from source)
+        yf_currency = info.get('currency')
+        if yf_currency:
+            db_asset.currency = yf_currency
         # Always update name if it's missing or just the symbol
         if not db_asset.name or db_asset.name == db_asset.symbol or db_asset.name.upper() == db_asset.symbol.upper():
             yf_name = info.get('longName') or info.get('shortName')
@@ -188,6 +195,11 @@ def enrich_all_assets(db: Session) -> dict:
                 updated = True
             if not asset.country and info.get('country'):
                 asset.country = info.get('country')
+                updated = True
+            # Update currency from yfinance if available (always update to correct currency from source)
+            yf_currency = info.get('currency')
+            if yf_currency and asset.currency != yf_currency:
+                asset.currency = yf_currency
                 updated = True
             # Always update name if it's missing or just the symbol
             if needs_name_update:

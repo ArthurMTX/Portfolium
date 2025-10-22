@@ -33,6 +33,11 @@ class MetricsService:
         - Current market value
         - Unrealized P&L
         """
+        # Get portfolio to access base currency
+        from app.models import Portfolio as PortfolioModel
+        portfolio = self.db.query(PortfolioModel).filter_by(id=portfolio_id).first()
+        portfolio_base_currency = portfolio.base_currency if portfolio else None
+        
         # Get all transactions for portfolio, ordered by date
         transactions = (
             self.db.query(Transaction)
@@ -50,7 +55,7 @@ class MetricsService:
         
         positions = []
         for asset_id, txs in asset_txs.items():
-            position = self._calculate_position(asset_id, txs)
+            position = self._calculate_position(asset_id, txs, portfolio_base_currency)
             if position and position.quantity > 0:
                 positions.append(position)
         
@@ -105,7 +110,8 @@ class MetricsService:
     def _calculate_position(
         self, 
         asset_id: int, 
-        transactions: List[Transaction]
+        transactions: List[Transaction],
+        portfolio_base_currency: Optional[str] = None
     ) -> Optional[Position]:
         """Calculate position for a single asset"""
         asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
@@ -147,39 +153,59 @@ class MetricsService:
         if quantity <= 0:
             return None
         
-        # Calculate average cost (PRU)
-        avg_cost = total_cost / quantity if quantity > 0 else Decimal(0)
-        
-        # Get current price and daily change from pricing service
+        # Get pricing and currency services
         from app.services.pricing import PricingService
         from app.services.currency import CurrencyService
         pricing_service = PricingService(self.db)
         
+        # Determine target currency: prefer portfolio base currency, fallback to position currency
+        target_currency = portfolio_base_currency or position_currency or asset.currency
+        
+        # Convert cost basis to target currency if needed
+        if position_currency and position_currency != target_currency:
+            logger.info(
+                f"Converting {asset.symbol} cost basis from {position_currency} to {target_currency}"
+            )
+            converted_cost = CurrencyService.convert(
+                total_cost,
+                from_currency=position_currency,
+                to_currency=target_currency
+            )
+            if converted_cost:
+                total_cost = converted_cost
+                logger.info(
+                    f"Converted cost basis for {asset.symbol} to {target_currency}"
+                )
+        
+        # Calculate average cost (PRU) in target currency
+        avg_cost = total_cost / quantity if quantity > 0 else Decimal(0)
+        
+        # Get current price and daily change from pricing service
         price_quote = pricing_service.get_price(asset.symbol)
         current_price = price_quote.price if price_quote else None
         daily_change_pct = price_quote.daily_change_pct if price_quote else None
         last_updated = price_quote.asof if price_quote else None
         
-        # Convert current price to position currency if needed
-        if current_price and position_currency and position_currency != asset.currency:
+        # Convert current price to target currency if needed
+        if current_price and asset.currency != target_currency:
             logger.info(
-                f"Converting {asset.symbol} price from {asset.currency} to {position_currency}"
+                f"Converting {asset.symbol} price from {asset.currency} to {target_currency}"
             )
             converted_price = CurrencyService.convert(
                 current_price,
                 from_currency=asset.currency,
-                to_currency=position_currency
+                to_currency=target_currency
             )
             if converted_price:
                 current_price = converted_price
                 logger.info(
                     f"Converted price for {asset.symbol}: "
-                    f"{price_quote.price} {asset.currency} -> {current_price} {position_currency}"
+                    f"{price_quote.price} {asset.currency} -> {current_price} {target_currency}"
                 )
             else:
                 logger.warning(
                     f"Failed to convert price for {asset.symbol} from "
-                    f"{asset.currency} to {position_currency}. Using original price."
+                    f"{asset.currency} to {target_currency}. Using original price."
                 )
         
         # Calculate market value and P&L
@@ -205,7 +231,7 @@ class MetricsService:
             unrealized_pnl=unrealized_pnl,
             unrealized_pnl_pct=unrealized_pnl_pct,
             daily_change_pct=daily_change_pct,
-            currency=position_currency or asset.currency,  # Use transaction currency if available, fallback to asset currency
+            currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,
             asset_type=asset.asset_type
         )
