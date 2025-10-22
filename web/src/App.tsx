@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPassword'
 import VerifyEmail from './pages/VerifyEmail'
 import Layout from './components/Layout'
 import Admin from './pages/Admin'
+import Insights from './pages/Insights'
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="portfolios" element={<Portfolios />} />
             <Route path="charts" element={<Charts />} />
+            <Route path="insights" element={<Insights />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="assets" element={<Assets />} />
             <Route path="watchlist" element={<Watchlist />} />

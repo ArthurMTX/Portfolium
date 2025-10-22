@@ -1,8 +1,9 @@
 """
 Transactions router
 """
+import logging
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,7 @@ from app.services.import_csv import get_csv_import_service, CsvImportService
 from app.services.notifications import notification_service
 from app.auth import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 import yfinance as yf
 
@@ -105,6 +107,18 @@ async def add_position_transaction(
     )
     from app.crud.transactions import create_transaction
     transaction = create_transaction(db, portfolio_id, tx_data)
+    
+    # Auto-backfill historical prices from transaction date to today
+    from app.services.pricing import PricingService
+    pricing_service = PricingService(db)
+    start_date = datetime.combine(tx_date, datetime.min.time())
+    end_date = datetime.utcnow()
+    
+    try:
+        count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+        logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {tx_date} to today")
+    except Exception as e:
+        logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
     # Create notification for transaction
     notification_service.create_transaction_notification(
@@ -271,6 +285,24 @@ async def create_transaction(
                 )
     
     created = crud.create_transaction(db, portfolio_id, transaction)
+    
+    # Auto-backfill historical prices from transaction date to today
+    if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+        from app.services.pricing import PricingService
+        from app.crud.assets import get_asset
+        from datetime import datetime
+        
+        asset = get_asset(db, transaction.asset_id)
+        if asset:
+            pricing_service = PricingService(db)
+            start_date = datetime.combine(transaction.tx_date, datetime.min.time())
+            end_date = datetime.utcnow()
+            
+            try:
+                count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+                logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {transaction.tx_date} to today")
+            except Exception as e:
+                logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
     # Create notification for transaction
     notification_service.create_transaction_notification(

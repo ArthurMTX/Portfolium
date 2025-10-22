@@ -664,6 +664,11 @@ class ApiClient {
       method: 'DELETE'
     })
   }
+
+  // Insights
+  async getPortfolioInsights(portfolioId: number, period: string = '1y', benchmark: string = 'SPY') {
+    return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`)
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)

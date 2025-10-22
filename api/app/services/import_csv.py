@@ -102,6 +102,20 @@ class CsvImportService:
                     crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
                     imported_count += 1
                     
+                    # Auto-backfill historical prices for BUY/TRANSFER_IN transactions
+                    if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                        from app.services.pricing import PricingService
+                        pricing_service = PricingService(self.db)
+                        start_date = datetime.combine(import_row.date, datetime.min.time())
+                        end_date = datetime.utcnow()
+                        
+                        try:
+                            count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+                            if count > 0:
+                                logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol}")
+                        except Exception as e:
+                            logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
+                    
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)}")
                     logger.error(f"Error importing row {row_num}: {e}")

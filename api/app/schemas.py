@@ -539,3 +539,128 @@ class Notification(NotificationBase):
 class NotificationUpdate(BaseModel):
     """Schema for updating a notification"""
     is_read: Optional[bool] = None
+
+
+# ============================================================================
+# Insights & Analytics Schemas
+# ============================================================================
+
+class AssetAllocation(BaseModel):
+    """Asset allocation breakdown"""
+    symbol: str
+    name: Optional[str]
+    percentage: Decimal
+    value: Decimal
+    quantity: Decimal
+    asset_type: Optional[str]
+
+
+class SectorAllocation(BaseModel):
+    """Sector allocation breakdown"""
+    sector: str
+    percentage: Decimal
+    value: Decimal
+    count: int
+
+
+class GeographicAllocation(BaseModel):
+    """Geographic allocation breakdown"""
+    country: str
+    percentage: Decimal
+    value: Decimal
+    count: int
+
+
+class TimeSeriesPoint(BaseModel):
+    """Time series data point"""
+    date: str
+    value: Decimal
+
+
+class PerformanceMetrics(BaseModel):
+    """Performance analysis metrics"""
+    period: str
+    total_return: Decimal
+    total_return_pct: Decimal
+    annualized_return: Decimal
+    start_value: Decimal
+    end_value: Decimal
+    total_invested: Decimal
+    total_withdrawn: Decimal
+    best_day: Optional[Decimal]
+    best_day_date: Optional[str]
+    worst_day: Optional[Decimal]
+    worst_day_date: Optional[str]
+    positive_days: int
+    negative_days: int
+    win_rate: Decimal
+
+
+class RiskMetrics(BaseModel):
+    """Risk analysis metrics"""
+    period: str
+    volatility: Decimal  # Standard deviation of returns
+    sharpe_ratio: Optional[Decimal]  # Risk-adjusted return
+    max_drawdown: Decimal  # Maximum peak-to-trough decline
+    max_drawdown_date: Optional[str]
+    beta: Optional[Decimal]  # Sensitivity to market
+    var_95: Optional[Decimal]  # Value at Risk (95% confidence)
+    downside_deviation: Decimal
+
+
+class BenchmarkComparison(BaseModel):
+    """Benchmark comparison data"""
+    benchmark_symbol: str
+    benchmark_name: str
+    period: str
+    portfolio_return: Decimal
+    benchmark_return: Decimal
+    alpha: Decimal  # Excess return over benchmark
+    portfolio_series: List[TimeSeriesPoint]
+    benchmark_series: List[TimeSeriesPoint]
+    correlation: Optional[Decimal]
+
+
+class TopPerformer(BaseModel):
+    """Top performing asset"""
+    symbol: str
+    name: Optional[str]
+    return_pct: Decimal
+    value: Decimal
+    unrealized_pnl: Decimal
+    period: str
+    logo_url: Optional[str] = None
+    asset_type: Optional[str] = None
+
+
+class PortfolioInsights(BaseModel):
+    """Comprehensive portfolio insights"""
+    portfolio_id: int
+    portfolio_name: str
+    as_of_date: datetime
+    period: str
+    
+    # Allocation
+    asset_allocation: List[AssetAllocation]
+    sector_allocation: List[SectorAllocation]
+    geographic_allocation: List[GeographicAllocation]
+    
+    # Performance
+    performance: PerformanceMetrics
+    
+    # Risk
+    risk: RiskMetrics
+    
+    # Benchmark
+    benchmark_comparison: BenchmarkComparison
+    
+    # Top performers
+    top_performers: List[TopPerformer]
+    worst_performers: List[TopPerformer]
+    
+    # Summary metrics
+    total_value: Decimal
+    total_cost: Decimal
+    total_return: Decimal
+    total_return_pct: Decimal
+    diversification_score: Optional[Decimal]  # 0-100, higher is more diversified

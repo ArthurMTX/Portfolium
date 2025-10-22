@@ -12,7 +12,7 @@ from scalar_fastapi import get_scalar_api_reference
 
 from app.config import settings
 from app.db import engine, Base, SessionLocal
-from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications
+from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 from app.services.admin import ensure_admin_user
 
@@ -103,6 +103,7 @@ app.include_router(transactions.router, prefix="/portfolios", tags=["transaction
 app.include_router(prices.router, prefix="/prices", tags=["prices"])
 app.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 app.include_router(notifications.router, tags=["notifications"])
+app.include_router(insights.router, prefix="/insights", tags=["insights"])
 app.include_router(logs.router, prefix="/logs", tags=["logs"])
 
 
