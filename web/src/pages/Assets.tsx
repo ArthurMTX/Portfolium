@@ -508,37 +508,39 @@ export default function Assets() {
       ) : (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Package className="text-pink-600" size={32} />
+              <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+                <Package className="text-pink-600" size={28} />
                 Assets
               </h1>
-              <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+              <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
                 {showSold
                   ? 'Held and sold assets across all portfolios'
                   : 'Currently held assets across all portfolios'}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setShowSold(!showSold)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
                   showSold 
                     ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-800' 
                     : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                 }`}
               >
-                <Archive size={18} />
-                {showSold ? 'Hide Sold' : 'Show Sold'}
+                <Archive size={16} />
+                <span className="hidden sm:inline">{showSold ? 'Hide Sold' : 'Show Sold'}</span>
+                <span className="sm:hidden">{showSold ? 'Hide' : 'Show'}</span>
               </button>
               <button
                 onClick={handleEnrichAll}
                 disabled={enriching}
-                className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-3 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
-                <RefreshCw size={18} className={enriching ? 'animate-spin' : ''} />
-                {enriching ? 'Enriching...' : 'Enrich Metadata'}
+                <RefreshCw size={16} className={enriching ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">{enriching ? 'Enriching...' : 'Enrich Metadata'}</span>
+                <span className="sm:hidden">{enriching ? 'Enrich...' : 'Enrich'}</span>
               </button>
             </div>
           </div>

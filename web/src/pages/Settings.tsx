@@ -184,72 +184,72 @@ export default function Settings() {
     <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <SettingsIcon className="text-pink-600" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <SettingsIcon className="text-pink-600" size={28} />
             Settings
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
             Configure your application preferences and options
           </p>
         </div>
 
       {/* Tabs */}
-      <div className="border-b border-neutral-200 dark:border-neutral-800">
-        <nav className="flex gap-4">
+      <div className="border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-2 sm:gap-4 min-w-max">
           <button
             onClick={() => setActiveTab('general')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'general'
                 ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            <Zap size={16} className="inline mr-1" />
+            <Zap size={14} className="inline mr-1" />
             General
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'notifications'
                 ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            <Bell size={16} className="inline mr-1" />
+            <Bell size={14} className="inline mr-1" />
             Notifications
           </button>
           <button
             onClick={() => setActiveTab('validation')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'validation'
                 ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            <Shield size={16} className="inline mr-1" />
+            <Shield size={14} className="inline mr-1" />
             Validation
           </button>
           <button
             onClick={() => setActiveTab('logs')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'logs'
                 ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            <FileText size={16} className="inline mr-1" />
+            <FileText size={14} className="inline mr-1" />
             Logs
           </button>
           <button
             onClick={() => setActiveTab('danger')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'danger'
                 ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            <AlertTriangle size={16} className="inline mr-1" />
-            Danger Zone
+            <AlertTriangle size={14} className="inline mr-1" />
+            Danger
           </button>
         </nav>
       </div>

@@ -542,35 +542,37 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <TrendingUp className="text-pink-600" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <TrendingUp className="text-pink-600" size={28} />
             Transactions
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
             Track all your buy, sell, and dividend transactions
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button 
             onClick={handleImportClick}
             disabled={importLoading}
-            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm px-3 py-2"
           >
-            <Upload size={18} />
-            {importLoading ? 'Importing...' : 'Import CSV'}
+            <Upload size={16} />
+            <span className="hidden sm:inline">{importLoading ? 'Importing...' : 'Import CSV'}</span>
+            <span className="sm:hidden">Import</span>
           </button>
           <button 
             onClick={handleExportClick}
-            className="btn-secondary flex items-center gap-2"
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
-            <Download size={18} />
-            Export
+            <Download size={16} />
+            <span className="hidden sm:inline">Export</span>
           </button>
-          <button onClick={openAddModal} className="btn-primary flex items-center gap-2">
-            <PlusCircle size={18} />
-            Add Transaction
+          <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm px-3 py-2">
+            <PlusCircle size={16} />
+            <span className="hidden sm:inline">Add Transaction</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
@@ -587,16 +589,16 @@ export default function Transactions() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card overflow-hidden">
         {/* Tabs */}
-        <div className="border-b border-neutral-200 dark:border-neutral-700">
-          <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+        <div className="border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto scrollbar-hide">
+          <nav className="-mb-px flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max" aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap
                   ${
                     activeTab === tab.id
                       ? 'border-pink-500 text-pink-600 dark:text-pink-400'

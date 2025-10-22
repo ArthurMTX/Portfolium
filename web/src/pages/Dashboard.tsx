@@ -165,19 +165,19 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <LayoutDashboard className="text-pink-600" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <LayoutDashboard className="text-pink-600" size={28} />
             Dashboard
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
             Track your investments in real-time
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {lastUpdate > 0 && (
-            <div className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
+            <div className="flex items-center gap-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
               <Clock size={14} />
               {formatLastUpdate(lastUpdate)}
             </div>
@@ -209,23 +209,23 @@ export default function Dashboard() {
           )}
           <button
             onClick={() => setAutoRefreshEnabled(!isAutoRefreshEnabled)}
-            className={`btn ${
+            className={`btn text-sm sm:text-base ${
               isAutoRefreshEnabled
                 ? 'bg-green-600 hover:bg-green-700 text-white'
                 : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
-            } flex items-center gap-2`}
+            } flex items-center gap-2 px-3 py-2`}
             title={isAutoRefreshEnabled ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
           >
-            {isAutoRefreshEnabled ? <Zap size={18} /> : <ZapOff size={18} />}
-            Auto
+            {isAutoRefreshEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
+            <span className="hidden sm:inline">Auto</span>
           </button>
           <button
             onClick={handleRefresh}
             disabled={isAnyRefreshing}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2"
           >
-            <RefreshCw size={18} className={isAnyRefreshing ? 'animate-spin' : ''} />
-            Refresh
+            <RefreshCw size={16} className={isAnyRefreshing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
@@ -259,27 +259,27 @@ export default function Dashboard() {
 
       {/* Metrics Cards */}
       {metrics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">Total Value</p>
-                <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Total Value</p>
+                <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 truncate">
                   {formatCurrency(metrics.total_value)}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">
-                <DollarSign className="text-pink-600 dark:text-pink-400" size={24} />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <DollarSign className="text-pink-600 dark:text-pink-400" size={20} />
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">Unrealized P&L</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Unrealized P&L</p>
                 <p
-                  className={`text-2xl font-bold mt-1 ${
+                  className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
                     metrics.total_unrealized_pnl >= 0
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
@@ -292,26 +292,26 @@ export default function Dashboard() {
                   {Number(metrics.total_unrealized_pnl_pct).toFixed(2)}%
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
                 metrics.total_unrealized_pnl >= 0
                   ? 'bg-green-100 dark:bg-green-900/30'
                   : 'bg-red-100 dark:bg-red-900/30'
               }`}>
                 {metrics.total_unrealized_pnl >= 0 ? (
-                  <TrendingUp className="text-green-600 dark:text-green-400" size={24} />
+                  <TrendingUp className="text-green-600 dark:text-green-400" size={20} />
                 ) : (
-                  <TrendingDown className="text-red-600 dark:text-red-400" size={24} />
+                  <TrendingDown className="text-red-600 dark:text-red-400" size={20} />
                 )}
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">Realized P&L</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Realized P&L</p>
                 <p
-                  className={`text-2xl font-bold mt-1 ${
+                  className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
                     metrics.total_realized_pnl >= 0
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
@@ -320,25 +320,25 @@ export default function Dashboard() {
                   {formatCurrency(metrics.total_realized_pnl)}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                <PiggyBank className="text-blue-600 dark:text-blue-400" size={24} />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <PiggyBank className="text-blue-600 dark:text-blue-400" size={20} />
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">Dividends</p>
-                <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Dividends</p>
+                <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 truncate">
                   {formatCurrency(metrics.total_dividends)}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">
                   Fees: {formatCurrency(metrics.total_fees)}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                <TrendingUp className="text-purple-600 dark:text-purple-400" size={24} />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="text-purple-600 dark:text-purple-400" size={20} />
               </div>
             </div>
           </div>

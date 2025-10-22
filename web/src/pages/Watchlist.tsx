@@ -400,28 +400,28 @@ export default function Watchlist() {
   return (
     <div className="space-y-8">
       {/* Header & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Eye className="text-pink-600" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <Eye className="text-pink-600" size={28} />
             Watchlist
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
             Track assets you don't own yet, set alerts, and convert to investments.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowImportModal(true)}
-            className="btn flex items-center gap-2"
+            className="btn flex items-center gap-2 text-sm px-3 py-2"
           >
-            <Upload size={18} /> Import
+            <Upload size={16} /> <span className="hidden sm:inline">Import</span>
           </button>
           <button
             onClick={() => handleExport('csv')}
-            className="btn flex items-center gap-2"
+            className="btn flex items-center gap-2 text-sm px-3 py-2"
           >
-            <Download size={18} /> Export CSV
+            <Download size={16} /> <span className="hidden sm:inline">Export CSV</span>
           </button>
           <button
             onClick={() => handleExport('json')}

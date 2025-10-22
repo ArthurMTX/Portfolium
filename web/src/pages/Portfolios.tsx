@@ -136,19 +136,20 @@ export default function Portfolios() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Folder className="text-pink-600" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <Folder className="text-pink-600" size={28} />
             Portfolios
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
             Organize and manage your investment portfolios
           </p>
         </div>
-        <button onClick={openAddModal} className="btn-primary flex items-center gap-2">
-          <PlusCircle size={18} />
-          Create Portfolio
+        <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2 self-start sm:self-auto">
+          <PlusCircle size={16} />
+          <span className="hidden sm:inline">Create Portfolio</span>
+          <span className="sm:hidden">Create</span>
         </button>
       </div>
 

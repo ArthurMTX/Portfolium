@@ -1,5 +1,5 @@
             import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp } from 'lucide-react'
+import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import NotificationBell from './NotificationBell'
@@ -8,7 +8,9 @@ export default function Layout() {
   const location = useLocation()
   const [darkMode, setDarkMode] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
 
   useEffect(() => {
@@ -20,15 +22,27 @@ export default function Layout() {
   }, [])
 
   useEffect(() => {
-    // Close menu on click outside
+    // Close menus on click outside
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false)
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        const target = event.target as HTMLElement
+        // Don't close if clicking the hamburger button
+        if (!target.closest('[data-mobile-menu-button]')) {
+          setMobileMenuOpen(false)
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -52,7 +66,8 @@ export default function Layout() {
             <h1 className="text-xl font-bold">Portfolium</h1>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6">
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-6">
             <Link
               to="/dashboard"
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
@@ -133,6 +148,16 @@ export default function Layout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Mobile menu button */}
+            <button
+              data-mobile-menu-button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+
             <button
               onClick={toggleDarkMode}
               className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
@@ -207,10 +232,95 @@ export default function Layout() {
             )}
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {mobileMenuOpen && (
+          <div ref={mobileMenuRef} className="lg:hidden border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
+              <Link
+                to="/dashboard"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/dashboard')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Home size={20} />
+                <span className="font-medium">Dashboard</span>
+              </Link>
+              <Link
+                to="/portfolios"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/portfolios')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Briefcase size={20} />
+                <span className="font-medium">Portfolios</span>
+              </Link>
+              <Link
+                to="/charts"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/charts')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <LineChart size={20} />
+                <span className="font-medium">Charts</span>
+              </Link>
+              <Link
+                to="/insights"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/insights')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <TrendingUp size={20} />
+                <span className="font-medium">Insights</span>
+              </Link>
+              <Link
+                to="/transactions"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/transactions')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <ArrowLeftRight size={20} />
+                <span className="font-medium">Transactions</span>
+              </Link>
+              <Link
+                to="/assets"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/assets')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Package size={20} />
+                <span className="font-medium">Assets</span>
+              </Link>
+              <Link
+                to="/watchlist"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/watchlist')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Eye size={20} />
+                <span className="font-medium">Watchlist</span>
+              </Link>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Main content */}
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Outlet />
       </main>
 

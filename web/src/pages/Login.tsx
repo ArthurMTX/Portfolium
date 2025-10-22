@@ -38,8 +38,8 @@ export default function Login() {
           <div className="inline-block p-3 bg-indigo-600 rounded-2xl mb-4">
             <LogIn className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-gray-600 mt-2">Sign in to your Portfolium account</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome back</h1>
+          <p className="text-gray-600 mt-2 text-sm sm:text-base">Sign in to your Portfolium account</p>
         </div>
 
         {/* Login Form */}

@@ -131,11 +131,11 @@ export default function Profile() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <UserIcon className="text-pink-600" size={32} />
+        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+          <UserIcon className="text-pink-600" size={28} />
           Profile
         </h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+        <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
           Manage your account settings and preferences
         </p>
       </div>

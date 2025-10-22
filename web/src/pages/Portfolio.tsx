@@ -97,18 +97,18 @@ export default function Portfolio() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <LineChart className="text-pink-600" size={32} />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <LineChart className="text-pink-600" size={28} />
             Portfolio Charts
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
             Visualize your portfolio performance over time
           </p>
         </div>
         <button
-          className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed text-sm sm:text-base px-3 py-2 self-start sm:self-auto"
           onClick={handleBackfill}
           disabled={backfilling}
         >
