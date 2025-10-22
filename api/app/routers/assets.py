@@ -182,6 +182,10 @@ async def get_held_assets(db: Session = Depends(get_db)):
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
+                # Count splits and total transactions for this asset
+                split_count = sum(1 for tx in transactions if tx.type == TransactionType.SPLIT)
+                transaction_count = len(transactions)
+                
                 results.append({
                     "id": asset.id,
                     "symbol": asset.symbol,
@@ -194,6 +198,8 @@ async def get_held_assets(db: Session = Depends(get_db)):
                     "country": asset.country,
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
+                    "split_count": split_count,
+                    "transaction_count": transaction_count,
                     "created_at": asset.created_at,
                     "updated_at": asset.updated_at
                 })
@@ -251,6 +257,10 @@ async def get_sold_assets(db: Session = Depends(get_db)):
         if total_quantity <= 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
+                # Count splits and total transactions for this asset
+                split_count = sum(1 for tx in transactions if tx.type == TransactionType.SPLIT)
+                transaction_count = len(transactions)
+                
                 results.append({
                     "id": asset.id,
                     "symbol": asset.symbol,
@@ -263,6 +273,8 @@ async def get_sold_assets(db: Session = Depends(get_db)):
                     "country": asset.country,
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
+                    "split_count": split_count,
+                    "transaction_count": transaction_count,
                     "created_at": asset.created_at,
                     "updated_at": asset.updated_at
                 })

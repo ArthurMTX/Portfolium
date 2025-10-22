@@ -19,6 +19,8 @@ interface HeldAsset {
   asset_type: string | null;
   total_quantity: number;
   portfolio_count: number;
+  split_count?: number;
+  transaction_count?: number;
   country?: string | null;
   created_at: string;
   updated_at: string;
@@ -51,8 +53,6 @@ export default function Assets() {
   const [showSold, setShowSold] = useState(true);
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
-  const [assetSplitCounts, setAssetSplitCounts] = useState<Record<number, number>>({});
-  const [assetTransactionCounts, setAssetTransactionCounts] = useState<Record<number, number>>({});
 
   const loadAssets = useCallback(async () => {
     try {
@@ -63,29 +63,6 @@ export default function Assets() {
       ]);
       setHeldAssets(held);
       setSoldAssets(sold);
-      
-      // Load split counts and transaction counts for all assets
-      const allAssets = [...held, ...sold];
-      const splitCounts: Record<number, number> = {};
-      const transactionCounts: Record<number, number> = {};
-      await Promise.all(
-        allAssets.map(async (asset) => {
-          try {
-            const [splits, transactions] = await Promise.all([
-              api.getAssetSplitHistory(asset.id),
-              api.getAssetTransactionHistory(asset.id)
-            ]);
-            splitCounts[asset.id] = splits.length;
-            transactionCounts[asset.id] = transactions.length;
-          } catch {
-            splitCounts[asset.id] = 0;
-            transactionCounts[asset.id] = 0;
-          }
-        })
-      );
-      setAssetSplitCounts(splitCounts);
-      setAssetTransactionCounts(transactionCounts);
-      
       setError(null);
     } catch (err) {
       setError('Failed to load assets');
@@ -649,40 +626,8 @@ export default function Assets() {
                           <img
                             src={getAssetLogoUrl(asset)}
                             alt={asset.symbol}
+                            loading="lazy"
                             className="w-8 h-8 object-contain"
-                            onLoad={(e) => {
-                              const img = e.currentTarget as HTMLImageElement
-                              // Skip if we've already validated this src
-                              if (img.dataset.validated) return
-                              img.dataset.validated = 'true'
-
-                              // Draw to canvas and check opacity ratio
-                              try {
-                                const canvas = document.createElement('canvas')
-                                const ctx = canvas.getContext('2d')
-                                if (!ctx) return
-                                const w = Math.min(img.naturalWidth || 0, 64) || 32
-                                const h = Math.min(img.naturalHeight || 0, 64) || 32
-                                if (w === 0 || h === 0) return
-                                canvas.width = w
-                                canvas.height = h
-                                ctx.drawImage(img, 0, 0, w, h)
-                                const data = ctx.getImageData(0, 0, w, h).data
-                                let opaque = 0
-                                for (let i = 0; i < data.length; i += 4) {
-                                  const a = data[i + 3] // 0..255
-                                  if (a > 8) opaque++
-                                }
-                                const total = (data.length / 4) || 1
-                                const ratio = opaque / total
-                                if (ratio < 0.01) {
-                                  // Treat as error and trigger existing fallback chain
-                                  img.dispatchEvent(new Event('error'))
-                                }
-                              } catch {
-                                // Ignore canvas/security errors silently
-                              }
-                            }}
                             onError={(e) => {
                               const img = e.currentTarget as HTMLImageElement
                               if (!img.dataset.resolverTried) {
@@ -745,6 +690,7 @@ export default function Assets() {
                             <img
                               src={`https://flagcdn.com/w40/${getCountryCode(asset.country)}.png`}
                               alt={`${asset.country} flag`}
+                              loading="lazy"
                               className="w-6 h-4 object-cover rounded shadow-sm"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
@@ -800,24 +746,24 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {assetTransactionCounts[asset.id] > 0 && (
+                        {(asset.transaction_count ?? 0) > 0 && (
                           <button
                             onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
                             className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors inline-flex items-center gap-1"
-                            title={`View Transaction History (${assetTransactionCounts[asset.id]} transaction${assetTransactionCounts[asset.id] > 1 ? 's' : ''})`}
+                            title={`View Transaction History (${asset.transaction_count} transaction${asset.transaction_count! > 1 ? 's' : ''})`}
                           >
                             <TrendingUp size={16} />
-                            <span className="text-xs">{assetTransactionCounts[asset.id]}</span>
+                            <span className="text-xs">{asset.transaction_count}</span>
                           </button>
                         )}
-                        {assetSplitCounts[asset.id] > 0 && (
+                        {(asset.split_count ?? 0) > 0 && (
                           <button
                             onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
                             className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors inline-flex items-center gap-1"
-                            title={`View Split History (${assetSplitCounts[asset.id]} split${assetSplitCounts[asset.id] > 1 ? 's' : ''})`}
+                            title={`View Split History (${asset.split_count} split${asset.split_count! > 1 ? 's' : ''})`}
                           >
                             <Shuffle size={16} />
-                            <span className="text-xs">{assetSplitCounts[asset.id]}</span>
+                            <span className="text-xs">{asset.split_count}</span>
                           </button>
                         )}
                       </div>

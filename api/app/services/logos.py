@@ -177,6 +177,49 @@ def is_valid_image(image_data: bytes) -> bool:
         return False
 
 
+def resize_and_optimize_image(image_data: bytes, max_size: int = 64) -> Optional[bytes]:
+    """
+    Resize and optimize an image to reduce file size while maintaining quality.
+    
+    Args:
+        image_data: Raw image bytes
+        max_size: Maximum width/height in pixels (default 64px)
+        
+    Returns:
+        Optimized image bytes in WebP format, or None if processing fails
+    """
+    try:
+        img = Image.open(io.BytesIO(image_data))
+        
+        # Convert RGBA to RGB if needed (WebP handles transparency well)
+        if img.mode in ('RGBA', 'LA'):
+            # Keep transparency
+            pass
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Resize if larger than max_size
+        if img.width > max_size or img.height > max_size:
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        # Save as WebP with high quality but good compression
+        output = io.BytesIO()
+        img.save(output, format='WEBP', quality=85, method=6)
+        optimized_data = output.getvalue()
+        
+        # Log size reduction
+        original_size = len(image_data)
+        optimized_size = len(optimized_data)
+        reduction = ((original_size - optimized_size) / original_size) * 100
+        logger.debug(f"Image optimized: {original_size} -> {optimized_size} bytes ({reduction:.1f}% reduction)")
+        
+        return optimized_data
+        
+    except Exception as e:
+        logger.warning(f"Failed to optimize image: {e}")
+        return None
+
+
 def fetch_logo_direct(ticker: str) -> Optional[bytes]:
     """
     Fetch logo directly from Brandfetch CDN using ticker as brand ID.
@@ -188,7 +231,7 @@ def fetch_logo_direct(ticker: str) -> Optional[bytes]:
         ticker: Stock ticker symbol
         
     Returns:
-        Logo image bytes if valid logo found, None otherwise
+        Optimized logo image bytes if valid logo found, None otherwise
     """
     # Skip if no API key configured
     if not settings.BRANDFETCH_API_KEY:
@@ -196,6 +239,8 @@ def fetch_logo_direct(ticker: str) -> Optional[bytes]:
         return None
     
     try:
+        if ticker == "AMD":
+            ticker = "amd.com"
         url = BRANDFETCH_CDN_URL.format(brand_id=ticker)
         # Add API key parameter
         params = {"c": settings.BRANDFETCH_API_KEY}
@@ -210,8 +255,15 @@ def fetch_logo_direct(ticker: str) -> Optional[bytes]:
             
             # Check if it's a valid image
             if is_valid_image(response.content):
-                logger.info(f"Successfully fetched logo for {ticker} via direct CDN")
-                return response.content
+                # Optimize the image before returning
+                optimized = resize_and_optimize_image(response.content)
+                if optimized:
+                    logger.info(f"Successfully fetched and optimized logo for {ticker} via direct CDN")
+                    return optimized
+                else:
+                    # Fallback to original if optimization fails
+                    logger.info(f"Successfully fetched logo for {ticker} via direct CDN (optimization failed)")
+                    return response.content
             else:
                 logger.warning(f"Brandfetch returned empty/invalid image for ticker {ticker}")
                 return None
@@ -340,7 +392,7 @@ def fetch_logo_by_brand_id(brand_id: str) -> Optional[bytes]:
         brand_id: Brandfetch brand ID
         
     Returns:
-        Valid logo image bytes or None
+        Valid, optimized logo image bytes or None
     """
     # Skip if no API key configured
     if not settings.BRANDFETCH_API_KEY:
@@ -361,8 +413,15 @@ def fetch_logo_by_brand_id(brand_id: str) -> Optional[bytes]:
                 return None
             
             if is_valid_image(response.content):
-                logger.info(f"Successfully fetched logo for brand ID {brand_id}")
-                return response.content
+                # Optimize the image before returning
+                optimized = resize_and_optimize_image(response.content)
+                if optimized:
+                    logger.info(f"Successfully fetched and optimized logo for brand ID {brand_id}")
+                    return optimized
+                else:
+                    # Fallback to original if optimization fails
+                    logger.info(f"Successfully fetched logo for brand ID {brand_id} (optimization failed)")
+                    return response.content
             else:
                 logger.warning(f"Brand ID {brand_id} returned empty/invalid image")
                 return None

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface Position {
   asset_id: number
@@ -40,9 +41,9 @@ interface Transaction {
   price: number
   fees: number
   currency: string
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   notes: string | null
-  asset?: any
+  asset?: unknown
 }
 
 interface Portfolio {
@@ -74,32 +75,43 @@ interface PortfolioStore {
   reset: () => void
 }
 
-const usePortfolioStore = create<PortfolioStore>((set) => ({
-  // Initial state
-  portfolios: [],
-  activePortfolioId: null,
-  positions: [],
-  metrics: null,
-  transactions: [],
-  loading: false,
-  error: null,
-
-  // Actions
-  setPortfolios: (portfolios) => set({ portfolios }),
-  setActivePortfolio: (id) => set({ activePortfolioId: id }),
-  setPositions: (positions) => set({ positions }),
-  setMetrics: (metrics) => set({ metrics }),
-  setTransactions: (transactions) => set({ transactions }),
-  setLoading: (loading) => set({ loading }),
-  setError: (error) => set({ error }),
-  reset: () =>
-    set({
+const usePortfolioStore = create<PortfolioStore>()(
+  persist(
+    (set) => ({
+      // Initial state
+      portfolios: [],
+      activePortfolioId: null,
       positions: [],
       metrics: null,
       transactions: [],
       loading: false,
       error: null,
+
+      // Actions
+      setPortfolios: (portfolios) => set({ portfolios }),
+      setActivePortfolio: (id) => set({ activePortfolioId: id }),
+      setPositions: (positions) => set({ positions }),
+      setMetrics: (metrics) => set({ metrics }),
+      setTransactions: (transactions) => set({ transactions }),
+      setLoading: (loading) => set({ loading }),
+      setError: (error) => set({ error }),
+      reset: () =>
+        set({
+          positions: [],
+          metrics: null,
+          transactions: [],
+          loading: false,
+          error: null,
+        }),
     }),
-}))
+    {
+      name: 'portfolio-storage', // localStorage key
+      partialize: (state) => ({ 
+        activePortfolioId: state.activePortfolioId,
+        portfolios: state.portfolios 
+      }), // Only persist these fields
+    }
+  )
+)
 
 export default usePortfolioStore
