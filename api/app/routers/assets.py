@@ -317,17 +317,18 @@ async def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/logo/{symbol}")
-async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Optional[str] = None):
+async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Fetch and return the best available logo for a symbol.
 
-    Tries direct ticker first; if the image is empty/invalid, use Brandfetch
-    search with the FULL company name.
-    If asset_type is 'ETF', returns a generated generic ETF logo.
-    If nothing is found, return 404 (no placeholder generation).
+    Strategy:
+    1. Check database cache first for previously fetched logos
+    2. If asset_type is 'ETF', generate and cache generic ETF logo
+    3. Try direct ticker fetch and cache result
+    4. Try API search with company name and cache result
+    5. Cache 404 results to avoid repeated failed lookups
     
-    Returns the image data directly with aggressive caching headers to avoid
-    exposing the Brandfetch API key in redirect URLs.
+    Returns the image data directly with aggressive caching headers.
 
     Query params:
     - name: Optional company name to improve search quality.
@@ -341,12 +342,33 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         generate_etf_logo,
         fetch_logo_by_brand_id,
     )
+    from app.crud import assets as crud_assets
     from fastapi.responses import Response
     import hashlib
+
+    # Get or create asset in database
+    db_asset = crud_assets.get_asset_by_symbol(db, symbol.upper())
+    
+    # Check database cache first
+    if db_asset:
+        cached = crud_assets.get_cached_logo(db, db_asset.id)
+        if cached:
+            logo_data, content_type = cached
+            response = Response(content=logo_data, media_type=content_type)
+            # Cache for 30 days
+            response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+            # Add ETag for cache validation
+            etag = hashlib.md5(logo_data).hexdigest()
+            response.headers["ETag"] = f'"{etag}"'
+            return response
 
     # 1) If ETF, return SVG logo with ticker letters
     if asset_type and asset_type.upper() == 'ETF':
         etf_logo_svg = generate_etf_logo(symbol)
+        # Cache in database if asset exists
+        if db_asset:
+            crud_assets.cache_logo(db, db_asset.id, etf_logo_svg.encode('utf-8'), 'image/svg+xml')
+        
         response = Response(content=etf_logo_svg, media_type="image/svg+xml")
         # Cache for 7 days
         response.headers["Cache-Control"] = "public, max-age=604800, immutable"
@@ -358,6 +380,10 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     # 2) Try direct ticker logo and validate it's not transparent
     logo_data = fetch_logo_direct(symbol)
     if logo_data and is_valid_image(logo_data):
+        # Cache in database if asset exists
+        if db_asset:
+            crud_assets.cache_logo(db, db_asset.id, logo_data, 'image/webp')
+        
         # Return image directly (not redirect) to avoid exposing API key
         response = Response(content=logo_data, media_type="image/webp")
         # Cache for 30 days
@@ -393,6 +419,10 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
                 # Fetch the logo by brand ID and return image directly
                 logo_data = fetch_logo_by_brand_id(brand_id)
                 if logo_data:
+                    # Cache in database if asset exists
+                    if db_asset:
+                        crud_assets.cache_logo(db, db_asset.id, logo_data, 'image/webp')
+                    
                     response = Response(content=logo_data, media_type="image/webp")
                     # Cache for 30 days
                     response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
@@ -404,9 +434,10 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     # 4) Nothing found: return 404 (no generated placeholders)
     from fastapi.responses import JSONResponse
     response = JSONResponse(status_code=404, content={"detail": "Logo not found"})
-    # Cache 404s for 1 minute to avoid hammering
-    response.headers["Cache-Control"] = "public, max-age=60"
+    # Cache 404s for 1 hour to avoid hammering the API
+    response.headers["Cache-Control"] = "public, max-age=3600"
     return response
+
 
 
 @router.get("/{asset_id}/splits")

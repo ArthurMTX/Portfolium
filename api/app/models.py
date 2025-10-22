@@ -7,7 +7,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, String, Numeric, Date, DateTime, 
-    ForeignKey, Enum, BigInteger, Text, JSON, Boolean
+    ForeignKey, Enum, BigInteger, Text, JSON, Boolean, LargeBinary
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -93,6 +93,11 @@ class Asset(Base):
     country = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Logo caching
+    logo_data = Column(LargeBinary)  # Binary logo data (WebP or SVG)
+    logo_content_type = Column(String)  # MIME type (image/webp, image/svg+xml)
+    logo_fetched_at = Column(DateTime)  # When logo was last fetched
     
     # Relationships
     transactions = relationship("Transaction", back_populates="asset")

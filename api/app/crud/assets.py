@@ -2,6 +2,7 @@
 CRUD operations for assets
 """
 from typing import List, Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -219,3 +220,53 @@ def enrich_all_assets(db: Session) -> dict:
         "enriched": enriched,
         "failed": failed
     }
+
+
+def cache_logo(
+    db: Session, 
+    asset_id: int, 
+    logo_data: bytes, 
+    content_type: str
+) -> Optional[Asset]:
+    """
+    Cache logo data in the database for an asset
+    
+    Args:
+        db: Database session
+        asset_id: Asset ID
+        logo_data: Logo image bytes
+        content_type: MIME type (e.g., 'image/webp', 'image/svg+xml')
+        
+    Returns:
+        Updated asset or None if not found
+    """
+    db_asset = get_asset(db, asset_id)
+    if not db_asset:
+        return None
+    
+    # Store binary data directly
+    db_asset.logo_data = logo_data
+    db_asset.logo_content_type = content_type
+    db_asset.logo_fetched_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(db_asset)
+    return db_asset
+
+
+def get_cached_logo(db: Session, asset_id: int) -> Optional[tuple[bytes, str]]:
+    """
+    Get cached logo data for an asset
+    
+    Args:
+        db: Database session
+        asset_id: Asset ID
+        
+    Returns:
+        Tuple of (logo_data, content_type) or None if not cached
+    """
+    db_asset = get_asset(db, asset_id)
+    if not db_asset or not db_asset.logo_data:
+        return None
+    
+    return (db_asset.logo_data, db_asset.logo_content_type or 'image/webp')

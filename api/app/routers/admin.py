@@ -223,40 +223,120 @@ def trigger_refresh_prices(
         )
 
 
-# Removed raw environment management endpoints for security
+@router.get("/logo-cache/stats")
+def get_logo_cache_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
     """
-    Danger: Delete all user data (transactions, prices, portfolios, assets)
-
-    Returns counts of deleted rows. This operation is irreversible.
+    Get statistics about the logo cache
+    
+    Returns information about cached logos, total size, and cache hit rate.
     """
     try:
-        # Count existing rows before deletion
-        counts = {}
-        for table in ["transactions", "prices", "portfolios", "assets"]:
-            result = db.execute(text(f"SELECT COUNT(*) FROM portfolio.{table}"))
-            counts[table] = int(result.scalar() or 0)
-
-        # Truncate all tables, reset identities, and cascade
-        db.execute(
-            text(
-                "TRUNCATE TABLE \n"
-                "  portfolio.transactions,\n"
-                "  portfolio.prices,\n"
-                "  portfolio.portfolios,\n"
-                "  portfolio.assets\n"
-                "RESTART IDENTITY CASCADE"
-            )
-        )
-        db.commit()
-
+        # Count total assets
+        total_assets = db.execute(text("SELECT COUNT(*) FROM portfolio.assets")).scalar()
+        
+        # Count cached logos
+        cached_logos = db.execute(
+            text("SELECT COUNT(*) FROM portfolio.assets WHERE logo_data IS NOT NULL")
+        ).scalar()
+        
+        # Calculate total cache size
+        total_size = db.execute(
+            text("SELECT COALESCE(SUM(LENGTH(logo_data)), 0) FROM portfolio.assets WHERE logo_data IS NOT NULL")
+        ).scalar()
+        
+        # Get breakdown by content type
+        breakdown = db.execute(
+            text("""
+                SELECT 
+                    logo_content_type,
+                    COUNT(*) as count,
+                    SUM(LENGTH(logo_data)) as total_size
+                FROM portfolio.assets 
+                WHERE logo_data IS NOT NULL
+                GROUP BY logo_content_type
+            """)
+        ).fetchall()
+        
         return {
-            "success": True,
-            "message": "All data deleted successfully",
-            "deleted": counts,
+            "total_assets": int(total_assets or 0),
+            "cached_logos": int(cached_logos or 0),
+            "cache_percentage": round((cached_logos / total_assets * 100) if total_assets > 0 else 0, 2),
+            "total_size_bytes": int(total_size or 0),
+            "total_size_mb": round((total_size or 0) / (1024 * 1024), 2),
+            "breakdown": [
+                {
+                    "content_type": row[0],
+                    "count": int(row[1]),
+                    "size_bytes": int(row[2])
+                }
+                for row in breakdown
+            ]
         }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get logo cache stats: {str(e)}"
+        )
+
+
+@router.delete("/logo-cache")
+def clear_logo_cache(
+    symbol: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Clear logo cache for a specific symbol or all symbols
+    
+    Query params:
+    - symbol: Optional ticker symbol. If not provided, clears all cached logos.
+    """
+    try:
+        if symbol:
+            # Clear specific symbol
+            result = db.execute(
+                text("""
+                    UPDATE portfolio.assets 
+                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
+                    WHERE symbol = :symbol
+                """),
+                {"symbol": symbol.upper()}
+            )
+            db.commit()
+            
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail=f"Asset '{symbol}' not found")
+            
+            return {
+                "success": True,
+                "message": f"Logo cache cleared for {symbol}",
+                "cleared_count": result.rowcount
+            }
+        else:
+            # Clear all logos
+            result = db.execute(
+                text("""
+                    UPDATE portfolio.assets 
+                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
+                    WHERE logo_data IS NOT NULL
+                """)
+            )
+            db.commit()
+            
+            return {
+                "success": True,
+                "message": "All logo cache cleared",
+                "cleared_count": result.rowcount
+            }
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete data: {str(e)}",
+            detail=f"Failed to clear logo cache: {str(e)}"
         )
+
