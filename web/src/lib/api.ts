@@ -146,7 +146,13 @@ class ApiClient {
 
   // Health
   async healthCheck() {
-    return this.request<{ status: string; timestamp: string }>('/health')
+    return this.request<{ 
+      status: string
+      timestamp: string
+      database: string
+      version: string
+      market_status: string  // 'premarket', 'open', 'afterhours', or 'closed'
+    }>('/health')
   }
 
   // Authentication

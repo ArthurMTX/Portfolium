@@ -410,6 +410,7 @@ class HealthCheck(BaseModel):
     timestamp: datetime
     database: str
     version: str
+    market_status: str  # 'premarket', 'open', 'afterhours', or 'closed'
 
 
 # Portfolio value history point for charting

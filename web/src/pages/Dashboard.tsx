@@ -107,19 +107,21 @@ export default function Dashboard() {
   }
 
   const isAnyRefreshing = refreshing || isAutoPriceRefreshing;
-  const [marketStatus, setMarketStatus] = useState<'open' | 'closed' | 'unknown'>('unknown');
+  const [marketStatus, setMarketStatus] = useState<'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown'>('unknown');
 
   useEffect(() => {
     const checkMarketStatus = async () => {
       try {
         const health = await api.healthCheck();
-        // Assume backend returns status: 'open' | 'closed' (adjust if needed)
-        setMarketStatus(health.status === 'open' ? 'open' : 'closed');
+        setMarketStatus(health.market_status as 'premarket' | 'open' | 'afterhours' | 'closed');
       } catch {
         setMarketStatus('unknown');
       }
     };
     checkMarketStatus();
+    // Refresh market status every 5 minutes
+    const interval = setInterval(checkMarketStatus, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -142,19 +144,29 @@ export default function Dashboard() {
               {formatLastUpdate(lastUpdate)}
             </div>
           )}
+          {marketStatus === 'premarket' && (
+            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">
+              ● Pre-Market
+            </span>
+          )}
           {marketStatus === 'open' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">
               ● Market Open
             </span>
           )}
+          {marketStatus === 'afterhours' && (
+            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">
+              ● After Hours
+            </span>
+          )}
           {marketStatus === 'closed' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full">
               ● Market Closed
             </span>
           )}
           {marketStatus === 'unknown' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">
-              ● Market Status Unknown
+            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 rounded-full">
+              ● Status Unknown
             </span>
           )}
           <button
