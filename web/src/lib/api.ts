@@ -666,8 +666,8 @@ class ApiClient {
   }
 
   // Insights
-  async getPortfolioInsights(portfolioId: number, period: string = '1y', benchmark: string = 'SPY') {
-    return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`)
+  async getPortfolioInsights(portfolioId: number, period: string = '1y', benchmark: string = 'SPY', signal?: AbortSignal) {
+    return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`, { signal })
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
@@ -190,14 +190,15 @@ export default function Insights() {
   const [error, setError] = useState('')
   const [period, setPeriod] = useState('1y')
   const [benchmark, setBenchmark] = useState('SPY')
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const loadInsights = useCallback(async () => {
+  const loadInsights = useCallback(async (signal?: AbortSignal) => {
     if (!activePortfolioId) return
 
     setLoading(true)
     setError('')
     try {
-      const data = await api.getPortfolioInsights(activePortfolioId, period, benchmark)
+      const data = await api.getPortfolioInsights(activePortfolioId, period, benchmark, signal)
       
       // Convert string decimals to numbers (Python Decimal serializes as strings)
       const normalizedData: PortfolioInsights = {
@@ -276,6 +277,11 @@ export default function Insights() {
       
       setInsights(normalizedData)
     } catch (err) {
+      // Ignore abort errors (user navigated away)
+      if (err instanceof Error && err.name === 'AbortError') {
+        return
+      }
+      
       console.error('Failed to load insights:', err)
       const error = err as Error
       setError(error.message || 'Failed to load insights')
@@ -285,7 +291,24 @@ export default function Insights() {
   }, [activePortfolioId, period, benchmark])
 
   useEffect(() => {
-    loadInsights()
+    const abortController = new AbortController()
+    
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // Debounce the load to prevent rapid-fire requests when changing filters
+    debounceTimerRef.current = setTimeout(() => {
+      loadInsights(abortController.signal)
+    }, 300)
+    
+    return () => {
+      abortController.abort()
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
   }, [loadInsights])
 
   if (!activePortfolioId) {
@@ -315,7 +338,7 @@ export default function Insights() {
         </div>
         
         <button
-          onClick={loadInsights}
+          onClick={() => loadInsights()}
           className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
         >
           Retry

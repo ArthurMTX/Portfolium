@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, date
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import math
+import hashlib
+import json
 
 from app.models import Transaction, Asset, TransactionType, Price
 from app.schemas import (
@@ -28,6 +30,10 @@ from app.crud import prices as crud_prices
 
 logger = logging.getLogger(__name__)
 
+# Simple in-memory cache for insights
+_insights_cache: Dict[str, Tuple[PortfolioInsights, datetime]] = {}
+_CACHE_DURATION = timedelta(minutes=5)  # Cache insights for 5 minutes
+
 
 class InsightsService:
     """Service for portfolio insights and analytics"""
@@ -37,6 +43,32 @@ class InsightsService:
         self.metrics_service = MetricsService(db)
         self.pricing_service = PricingService(db)
     
+    def _get_cache_key(self, portfolio_id: int, period: str, benchmark_symbol: str) -> str:
+        """Generate cache key for insights"""
+        key_data = f"{portfolio_id}:{period}:{benchmark_symbol}"
+        return hashlib.md5(key_data.encode()).hexdigest()
+    
+    def _get_cached_insights(self, cache_key: str) -> Optional[PortfolioInsights]:
+        """Get insights from cache if available and not expired"""
+        if cache_key in _insights_cache:
+            insights, timestamp = _insights_cache[cache_key]
+            if datetime.utcnow() - timestamp < _CACHE_DURATION:
+                logger.info(f"Returning cached insights (age: {datetime.utcnow() - timestamp})")
+                return insights
+            else:
+                # Cache expired, remove it
+                del _insights_cache[cache_key]
+        return None
+    
+    def _cache_insights(self, cache_key: str, insights: PortfolioInsights) -> None:
+        """Store insights in cache"""
+        _insights_cache[cache_key] = (insights, datetime.utcnow())
+        # Keep cache size reasonable (max 100 entries)
+        if len(_insights_cache) > 100:
+            # Remove oldest entry
+            oldest_key = min(_insights_cache.keys(), key=lambda k: _insights_cache[k][1])
+            del _insights_cache[oldest_key]
+    
     def get_portfolio_insights(
         self,
         portfolio_id: int,
@@ -44,6 +76,14 @@ class InsightsService:
         benchmark_symbol: str = "SPY"
     ) -> PortfolioInsights:
         """Get comprehensive portfolio insights"""
+        # Check cache first
+        cache_key = self._get_cache_key(portfolio_id, period, benchmark_symbol)
+        cached_insights = self._get_cached_insights(cache_key)
+        if cached_insights:
+            return cached_insights
+        
+        logger.info(f"Computing fresh insights for portfolio {portfolio_id}, period {period}, benchmark {benchmark_symbol}")
+        
         portfolio = crud_portfolios.get_portfolio(self.db, portfolio_id)
         if not portfolio:
             raise ValueError(f"Portfolio {portfolio_id} not found")
@@ -110,7 +150,7 @@ class InsightsService:
         # Diversification score (based on number of positions and allocation spread)
         diversification_score = self._calculate_diversification_score(asset_allocation)
         
-        return PortfolioInsights(
+        insights = PortfolioInsights(
             portfolio_id=portfolio_id,
             portfolio_name=portfolio.name,
             as_of_date=datetime.utcnow(),
@@ -129,6 +169,11 @@ class InsightsService:
             total_return_pct=total_return_pct,
             diversification_score=diversification_score
         )
+        
+        # Cache the result
+        self._cache_insights(cache_key, insights)
+        
+        return insights
     
     def get_asset_allocation(self, portfolio_id: int) -> List[AssetAllocation]:
         """Get current asset allocation breakdown"""
