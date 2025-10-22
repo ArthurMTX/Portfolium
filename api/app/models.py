@@ -41,6 +41,8 @@ class NotificationType(str, enum.Enum):
     TRANSACTION_DELETED = "TRANSACTION_DELETED"
     LOGIN = "LOGIN"
     PRICE_ALERT = "PRICE_ALERT"
+    DAILY_CHANGE_UP = "DAILY_CHANGE_UP"
+    DAILY_CHANGE_DOWN = "DAILY_CHANGE_DOWN"
     SYSTEM = "SYSTEM"
 
 
@@ -65,6 +67,11 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime)
+    
+    # Notification settings
+    daily_change_notifications_enabled = Column(Boolean, default=True)
+    daily_change_threshold_pct = Column(Numeric(5, 2), default=5.0)  # Default 5% threshold
+    transaction_notifications_enabled = Column(Boolean, default=True)  # Enable/disable transaction notifications
     
     # Relationships
     portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")

@@ -62,6 +62,9 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     is_admin: Optional[bool] = None
+    daily_change_notifications_enabled: Optional[bool] = None
+    daily_change_threshold_pct: Optional[Decimal] = Field(None, ge=0, le=100)
+    transaction_notifications_enabled: Optional[bool] = None
 
     @field_validator('email')
     @classmethod
@@ -116,6 +119,9 @@ class User(UserBase):
     is_admin: bool
     created_at: datetime
     last_login: Optional[datetime] = None
+    daily_change_notifications_enabled: bool = True
+    daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
+    transaction_notifications_enabled: bool = True
     
     model_config = ConfigDict(from_attributes=True)
 

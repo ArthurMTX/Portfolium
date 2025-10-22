@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Zap, AlertTriangle, Shield, FileText, Settings as SettingsIcon } from 'lucide-react'
+import { Zap, AlertTriangle, Shield, FileText, Settings as SettingsIcon, Bell } from 'lucide-react'
 import api from '../lib/api'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 
 interface LogEntry {
   logs: string[];
@@ -12,9 +13,10 @@ interface LogEntry {
 
 const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 
-type SettingsTab = 'general' | 'validation' | 'logs' | 'danger';
+type SettingsTab = 'general' | 'notifications' | 'validation' | 'logs' | 'danger';
 
 export default function Settings() {
+  const { user, refreshUser } = useAuth()
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [confirmText, setConfirmText] = useState('')
   const [loading, setLoading] = useState(false)
@@ -44,6 +46,13 @@ export default function Settings() {
   const [logsSearch, setLogsSearch] = useState("")
   const [logsLoading, setLogsLoading] = useState(false)
 
+  // Notification settings
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [notificationThreshold, setNotificationThreshold] = useState('5.0')
+  const [transactionNotificationsEnabled, setTransactionNotificationsEnabled] = useState(true)
+  const [savingNotifications, setSavingNotifications] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   const handleAutoRefreshSettingsChange = (interval: string, enabled: boolean) => {
     setAutoRefreshInterval(interval)
     setAutoRefreshEnabled(enabled)
@@ -64,7 +73,14 @@ export default function Settings() {
       }
     }
     loadSettings()
-  }, [])
+
+    // Load notification settings from user
+    if (user) {
+      setNotificationsEnabled(user.daily_change_notifications_enabled ?? true)
+      setNotificationThreshold(String(user.daily_change_threshold_pct ?? 5.0))
+      setTransactionNotificationsEnabled(user.transaction_notifications_enabled ?? true)
+    }
+  }, [user])
 
   const handleValidateSellQuantityChange = async (enabled: boolean) => {
     setSettingsSaving(true)
@@ -85,6 +101,33 @@ export default function Settings() {
       setSettingsSaving(false)
       // Clear message after 3 seconds
       setTimeout(() => setSettingsMessage(null), 3000)
+    }
+  }
+
+  const handleUpdateNotificationSettings = async () => {
+    if (!user) return
+    setSavingNotifications(true)
+    setNotificationMessage(null)
+    try {
+      const threshold = parseFloat(notificationThreshold)
+      if (isNaN(threshold) || threshold < 0 || threshold > 100) {
+        setNotificationMessage({ type: 'error', text: 'Threshold must be between 0 and 100' })
+        return
+      }
+
+      await api.updateCurrentUser({
+        daily_change_notifications_enabled: notificationsEnabled,
+        daily_change_threshold_pct: threshold,
+        transaction_notifications_enabled: transactionNotificationsEnabled
+      })
+      await refreshUser()
+      setNotificationMessage({ type: 'success', text: 'Notification settings updated successfully' })
+    } catch (err: unknown) {
+      const text = err instanceof Error ? err.message : 'Failed to update notification settings'
+      setNotificationMessage({ type: 'error', text })
+    } finally {
+      setSavingNotifications(false)
+      setTimeout(() => setNotificationMessage(null), 4000)
     }
   }
 
@@ -163,6 +206,17 @@ export default function Settings() {
           >
             <Zap size={16} className="inline mr-1" />
             General
+          </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'notifications'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <Bell size={16} className="inline mr-1" />
+            Notifications
           </button>
           <button
             onClick={() => setActiveTab('validation')}
@@ -262,6 +316,130 @@ export default function Settings() {
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {/* Notifications Tab */}
+      {activeTab === 'notifications' && (
+        <>
+          {/* Daily Change Notifications */}
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
+              Daily Change Notifications
+            </h2>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              Get notified when your holdings experience significant daily price movements
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                    disabled={savingNotifications}
+                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                  />
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Enable daily change notifications
+                  </span>
+                </label>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
+                  Receive notifications when any of your holdings moves up or down significantly
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Notification Threshold
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={notificationThreshold}
+                    onChange={(e) => setNotificationThreshold(e.target.value)}
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    disabled={!notificationsEnabled || savingNotifications}
+                    className="input w-32"
+                  />
+                  <span className="text-sm text-neutral-600 dark:text-neutral-400">%</span>
+                </div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  Get notified when a holding's daily change exceeds this percentage (positive or negative)
+                </p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <strong>How it works:</strong> Every day at 9:00 AM, the system checks your holdings for significant price changes. 
+                  You'll receive notifications for both upside movements 📈 (gains) and downside movements 📉 (losses) that exceed your threshold.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Transaction Notifications */}
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
+              Transaction Notifications
+            </h2>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              Get notified about transaction activity in your portfolios
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={transactionNotificationsEnabled}
+                    onChange={(e) => setTransactionNotificationsEnabled(e.target.checked)}
+                    disabled={savingNotifications}
+                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                  />
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Enable transaction notifications
+                  </span>
+                </label>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
+                  Receive notifications when you create, update, or delete transactions
+                </p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <strong>Note:</strong> Transaction notifications help you track all portfolio activity, 
+                  including new purchases, sales, dividends, and any modifications to existing transactions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button and Messages */}
+          {notificationMessage && (
+            <div className={`p-3 rounded-lg ${
+              notificationMessage.type === 'error'
+                ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+                : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+            }`}>
+              <p className="text-sm">{notificationMessage.text}</p>
+            </div>
+          )}
+
+          <div className="flex justify-start">
+            <button
+              onClick={handleUpdateNotificationSettings}
+              disabled={savingNotifications}
+              className="btn-primary"
+            >
+              {savingNotifications ? 'Saving...' : 'Save Notification Settings'}
+            </button>
+          </div>
         </>
       )}
 

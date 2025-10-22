@@ -32,6 +32,12 @@ class NotificationService:
             action: Action performed (created, updated, deleted)
         """
         try:
+            # Check if user has transaction notifications enabled
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.transaction_notifications_enabled:
+                logger.debug(f"Transaction notifications disabled for user {user_id}, skipping")
+                return
+            
             # Get asset information
             asset = db.query(Asset).filter(Asset.id == transaction.asset_id).first()
             symbol = asset.symbol if asset else f"Asset #{transaction.asset_id}"
@@ -225,6 +231,92 @@ class NotificationService:
         
         except Exception as e:
             logger.exception(f"Failed to create system notification: {e}")
+    
+    @staticmethod
+    def create_daily_change_notification(
+        db: Session,
+        user_id: int,
+        symbol: str,
+        asset_name: str,
+        asset_id: int,
+        portfolio_id: int,
+        current_price: Decimal,
+        daily_change_pct: Decimal,
+        quantity: Decimal,
+        session_id: str = None
+    ) -> None:
+        """
+        Create notification for significant daily price changes in holdings
+        
+        Args:
+            db: Database session
+            user_id: User ID to notify
+            symbol: Asset symbol
+            asset_name: Asset name
+            asset_id: Asset ID
+            portfolio_id: Portfolio ID
+            current_price: Current asset price
+            daily_change_pct: Daily change percentage
+            quantity: Quantity held by user
+            session_id: Market session identifier to prevent duplicate notifications
+        """
+        try:
+            # Determine if upside or downside
+            is_upside = daily_change_pct > 0
+            notification_type = (
+                NotificationType.DAILY_CHANGE_UP if is_upside 
+                else NotificationType.DAILY_CHANGE_DOWN
+            )
+            
+            # Format the change with appropriate sign and emoji
+            direction = "up" if is_upside else "down"
+            emoji = "📈" if is_upside else "📉"
+            sign = "+" if is_upside else ""
+            
+            title = f"{emoji} {symbol} {direction.capitalize()} {sign}{float(daily_change_pct):.2f}%"
+            
+            # Calculate the value change for user's position
+            position_value = current_price * quantity
+            change_amount = position_value * (daily_change_pct / 100)
+            
+            message = (
+                f"{asset_name or symbol} is {direction} {sign}{float(daily_change_pct):.2f}% today. "
+                f"Your {float(quantity):.4f} shares at ${float(current_price):.2f} "
+                f"({sign}${float(change_amount):.2f})"
+            )
+            
+            metadata = {
+                "asset_id": asset_id,
+                "portfolio_id": portfolio_id,
+                "symbol": symbol,
+                "current_price": float(current_price),
+                "daily_change_pct": float(daily_change_pct),
+                "quantity": float(quantity),
+                "position_value": float(position_value),
+                "change_amount": float(change_amount),
+                "direction": direction
+            }
+            
+            # Add session_id to prevent duplicate notifications
+            if session_id:
+                metadata["session_id"] = session_id
+            
+            crud_notifications.create_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                metadata=metadata
+            )
+            
+            logger.info(
+                f"Created daily change notification for user {user_id}, "
+                f"{symbol} {sign}{daily_change_pct:.2f}% (session: {session_id})"
+            )
+        
+        except Exception as e:
+            logger.exception(f"Failed to create daily change notification: {e}")
 
 
 # Singleton instance

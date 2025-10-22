@@ -38,7 +38,10 @@ CREATE TABLE IF NOT EXISTS portfolio.users (
   reset_password_token_expires TIMESTAMP,
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now(),
-  last_login TIMESTAMP
+  last_login TIMESTAMP,
+  daily_change_notifications_enabled BOOLEAN DEFAULT true,
+  daily_change_threshold_pct NUMERIC(5,2) DEFAULT 5.0,
+  transaction_notifications_enabled BOOLEAN DEFAULT true
 );
 
 CREATE INDEX idx_users_email ON portfolio.users(email);

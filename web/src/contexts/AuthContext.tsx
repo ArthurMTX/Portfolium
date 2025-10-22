@@ -12,6 +12,9 @@ export interface User {
   is_admin: boolean
   created_at: string
   last_login: string | null
+  daily_change_notifications_enabled: boolean
+  daily_change_threshold_pct: number
+  transaction_notifications_enabled: boolean
 }
 
 interface AuthContextType {

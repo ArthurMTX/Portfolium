@@ -23,6 +23,9 @@ export interface UserDTO {
   is_admin: boolean
   created_at: string
   last_login: string | null
+  daily_change_notifications_enabled: boolean
+  daily_change_threshold_pct: number
+  transaction_notifications_enabled: boolean
 }
 
 export interface LoginResponseDTO {
@@ -193,7 +196,7 @@ class ApiClient {
     return this.request<UserDTO>('/auth/me')
   }
 
-  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username'>>) {
+  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username' | 'daily_change_notifications_enabled' | 'daily_change_threshold_pct' | 'transaction_notifications_enabled'>>) {
     return this.request<UserDTO>('/auth/me', {
       method: 'PUT',
       body: JSON.stringify(update),

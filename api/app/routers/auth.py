@@ -202,6 +202,16 @@ async def update_current_user(
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
 
+    # Apply notification settings if provided
+    if user_update.daily_change_notifications_enabled is not None:
+        current_user.daily_change_notifications_enabled = user_update.daily_change_notifications_enabled
+    
+    if user_update.daily_change_threshold_pct is not None:
+        current_user.daily_change_threshold_pct = user_update.daily_change_threshold_pct
+    
+    if user_update.transaction_notifications_enabled is not None:
+        current_user.transaction_notifications_enabled = user_update.transaction_notifications_enabled
+
     # Persist changes
     db.commit()
     db.refresh(current_user)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, DollarSign, PiggyBank, Zap, ZapOff, Clock, LayoutDashboard } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
@@ -20,6 +20,38 @@ export default function Dashboard() {
 
   const [refreshing, setRefreshing] = useState(false)
 
+
+  // Auto-refresh settings from localStorage
+  const getAutoRefreshSettings = useCallback(() => {
+    const intervalStr = localStorage.getItem('autoRefreshInterval') || '60';
+    const enabledStr = localStorage.getItem('autoRefreshEnabled');
+    return {
+      interval: Math.max(5, parseInt(intervalStr, 10)) * 1000, // fallback to 60s, min 5s
+      enabled: enabledStr === 'true',
+    };
+  }, []);
+
+  const [autoRefreshSettings, setAutoRefreshSettings] = useState(getAutoRefreshSettings());
+
+  // Listen for localStorage changes (cross-tab)
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'autoRefreshInterval' || e.key === 'autoRefreshEnabled') {
+        setAutoRefreshSettings(getAutoRefreshSettings());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [getAutoRefreshSettings]);
+
+  // Also update settings if user changes them in this tab
+  useEffect(() => {
+    const id = setInterval(() => {
+      setAutoRefreshSettings(getAutoRefreshSettings());
+    }, 2000);
+    return () => clearInterval(id);
+  }, [getAutoRefreshSettings]);
+
   // Auto price updates hook
   const {
     isRefreshing: isAutoPriceRefreshing,
@@ -27,12 +59,12 @@ export default function Dashboard() {
     lastUpdate,
     error: priceError,
     refreshPrices,
-    toggleAutoRefresh,
+    setAutoRefreshEnabled,
   } = usePriceUpdates({
-    interval: 60000, // 1 minute
-    enabled: false, // Disabled by default, user can toggle
+    interval: autoRefreshSettings.interval,
+    enabled: autoRefreshSettings.enabled,
     refreshOnFocus: true,
-  })
+  });
 
   useEffect(() => {
     loadData()
@@ -170,7 +202,7 @@ export default function Dashboard() {
             </span>
           )}
           <button
-            onClick={toggleAutoRefresh}
+            onClick={() => setAutoRefreshEnabled(!isAutoRefreshEnabled)}
             className={`btn ${
               isAutoRefreshEnabled
                 ? 'bg-green-600 hover:bg-green-700 text-white'

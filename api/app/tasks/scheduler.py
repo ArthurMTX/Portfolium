@@ -159,6 +159,176 @@ def check_price_alerts():
         db.close()
 
 
+def get_market_session_id() -> str:
+    """
+    Get a unique identifier for the current market session.
+    Returns date in format YYYY-MM-DD for US Eastern Time.
+    This ensures we only send one notification per asset per user per trading day.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+        ny_tz = ZoneInfo("America/New_York")
+    except Exception:
+        from datetime import timezone, timedelta
+        ny_tz = timezone(timedelta(hours=-5))
+    
+    now = datetime.now(ny_tz)
+    return now.strftime("%Y-%m-%d")
+
+
+def is_notification_sent_this_session(
+    db, user_id: int, asset_id: int, session_id: str
+) -> bool:
+    """
+    Check if a daily change notification has already been sent for this 
+    asset/user combination during the current market session.
+    """
+    from app.models import Notification, NotificationType
+    
+    # Look for any daily change notification (up or down) created today
+    existing = (
+        db.query(Notification)
+        .filter(Notification.user_id == user_id)
+        .filter(
+            Notification.type.in_([
+                NotificationType.DAILY_CHANGE_UP,
+                NotificationType.DAILY_CHANGE_DOWN
+            ])
+        )
+        .filter(Notification.meta_data["asset_id"].astext == str(asset_id))
+        .filter(Notification.meta_data["session_id"].astext == session_id)
+        .first()
+    )
+    
+    return existing is not None
+
+
+def should_check_daily_changes() -> bool:
+    """
+    Determine if we should check for daily changes based on market status.
+    Only check during market hours (open + afterhours).
+    """
+    from app.routers.health import get_market_status
+    
+    market_status = get_market_status()
+    # Check during market open and afterhours (when most trading happens)
+    return market_status in ["open", "afterhours"]
+
+
+def check_daily_changes():
+    """
+    Background job to check for significant daily price changes in user holdings
+    
+    This runs periodically (every 10-15 minutes during market hours) to notify 
+    users about significant price movements in their portfolio positions.
+    Only sends ONE notification per asset per user per market session, even if 
+    price oscillates around the threshold.
+    """
+    # Skip if market is not open or in afterhours
+    if not should_check_daily_changes():
+        logger.debug("Market closed, skipping daily change check")
+        return
+    
+    logger.info("Starting scheduled daily change check...")
+    
+    db = SessionLocal()
+    try:
+        from app.models import User, Portfolio
+        from app.services.metrics import MetricsService
+        from decimal import Decimal
+        
+        # Get current market session identifier
+        session_id = get_market_session_id()
+        
+        # Get all active users with notifications enabled
+        users = (
+            db.query(User)
+            .filter(User.is_active == True)
+            .filter(User.daily_change_notifications_enabled == True)
+            .all()
+        )
+        
+        if not users:
+            logger.info("No users with daily change notifications enabled")
+            return
+        
+        total_notifications = 0
+        total_skipped = 0
+        
+        for user in users:
+            try:
+                threshold = Decimal(str(user.daily_change_threshold_pct or 5.0))
+                logger.debug(f"Checking daily changes for user {user.id} (threshold: {threshold}%)")
+                
+                # Get all user portfolios
+                portfolios = db.query(Portfolio).filter(Portfolio.user_id == user.id).all()
+                
+                for portfolio in portfolios:
+                    try:
+                        # Get positions for this portfolio
+                        metrics_service = MetricsService(db)
+                        positions = metrics_service.get_positions(portfolio.id)
+                        
+                        for position in positions:
+                            # Check if daily change exceeds threshold
+                            if position.daily_change_pct is None:
+                                continue
+                            
+                            daily_change = abs(position.daily_change_pct)
+                            
+                            if daily_change >= threshold:
+                                # Check if we already sent a notification this session
+                                if is_notification_sent_this_session(
+                                    db, user.id, position.asset_id, session_id
+                                ):
+                                    total_skipped += 1
+                                    logger.debug(
+                                        f"Skipping duplicate notification for {position.symbol} "
+                                        f"(user {user.id}, session {session_id})"
+                                    )
+                                    continue
+                                
+                                # Create notification with session tracking
+                                notification_service.create_daily_change_notification(
+                                    db=db,
+                                    user_id=user.id,
+                                    symbol=position.symbol,
+                                    asset_name=position.name or position.symbol,
+                                    asset_id=position.asset_id,
+                                    portfolio_id=portfolio.id,
+                                    current_price=position.current_price,
+                                    daily_change_pct=position.daily_change_pct,
+                                    quantity=position.quantity,
+                                    session_id=session_id
+                                )
+                                
+                                total_notifications += 1
+                                logger.info(
+                                    f"Daily change notification created: {position.symbol} "
+                                    f"{position.daily_change_pct:+.2f}% for user {user.id}"
+                                )
+                    
+                    except Exception as e:
+                        logger.error(
+                            f"Error checking positions for portfolio {portfolio.id}: {e}"
+                        )
+                        continue
+            
+            except Exception as e:
+                logger.error(f"Error checking daily changes for user {user.id}: {e}")
+                continue
+        
+        logger.info(
+            f"Daily change check completed. Notifications created: {total_notifications}, "
+            f"Skipped (already notified): {total_skipped}, Users checked: {len(users)}"
+        )
+        
+    except Exception as e:
+        logger.error(f"Scheduled daily change check failed: {e}")
+    finally:
+        db.close()
+
+
 def start_scheduler():
     """Start the background scheduler"""
     # Schedule price refresh every 15 minutes
@@ -181,8 +351,23 @@ def start_scheduler():
         max_instances=1
     )
     
+    # Schedule daily change check every 10 minutes during market hours
+    # This will check for significant price movements and send notifications
+    # Only one notification per asset per user per market session
+    scheduler.add_job(
+        check_daily_changes,
+        trigger=IntervalTrigger(minutes=10),
+        id="check_daily_changes",
+        name="Check daily price changes",
+        replace_existing=True,
+        max_instances=1
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started - price refresh every 15 minutes, alerts check every 5 minutes")
+    logger.info(
+        "Scheduler started - price refresh every 15 minutes, "
+        "alerts check every 5 minutes, daily changes check every 10 minutes"
+    )
 
 
 def stop_scheduler():

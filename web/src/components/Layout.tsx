@@ -119,19 +119,6 @@ export default function Layout() {
               <Eye size={18} />
               <span>Watchlist</span>
             </Link>
-            {(user?.is_admin || user?.is_superuser) && (
-              <Link
-                to="/admin"
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  isActive('/admin')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <ShieldCheck size={18} />
-                <span>Admin</span>
-              </Link>
-            )}
           </nav>
 
           <div className="flex items-center gap-2">
