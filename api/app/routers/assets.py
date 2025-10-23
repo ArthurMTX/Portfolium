@@ -335,13 +335,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     - asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') to determine if generic logo should be used.
     """
     # Lazy imports to avoid import-time issues
-    from app.services.logos import (
-        fetch_logo_direct,
-        is_valid_image,
-        brandfetch_search,
-        generate_etf_logo,
-        fetch_logo_by_brand_id,
-    )
+    from app.services.logos import fetch_logo_with_validation
     from app.crud import assets as crud_assets
     from fastapi.responses import Response
     import hashlib
@@ -362,80 +356,28 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
             response.headers["ETag"] = f'"{etag}"'
             return response
 
-    # 1) If ETF, return SVG logo with ticker letters
-    if asset_type and asset_type.upper() == 'ETF':
-        etf_logo_svg = generate_etf_logo(symbol)
-        # Cache in database if asset exists
-        if db_asset:
-            crud_assets.cache_logo(db, db_asset.id, etf_logo_svg.encode('utf-8'), 'image/svg+xml')
-        
-        response = Response(content=etf_logo_svg, media_type="image/svg+xml")
-        # Cache for 7 days
-        response.headers["Cache-Control"] = "public, max-age=604800, immutable"
-        # Add ETag based on content for cache validation
-        etag = hashlib.md5(etf_logo_svg.encode()).hexdigest()
-        response.headers["ETag"] = f'"{etag}"'
-        return response
-
-    # 2) Try direct ticker logo and validate it's not transparent
-    logo_data = fetch_logo_direct(symbol)
-    if logo_data and is_valid_image(logo_data):
-        # Cache in database if asset exists
-        if db_asset:
-            crud_assets.cache_logo(db, db_asset.id, logo_data, 'image/webp')
-        
-        # Return image directly (not redirect) to avoid exposing API key
-        response = Response(content=logo_data, media_type="image/webp")
-        # Cache for 30 days
-        response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
-        # Add ETag for cache validation
-        etag = hashlib.md5(logo_data).hexdigest()
-        response.headers["ETag"] = f'"{etag}"'
-        return response
-
-    # 3) If invalid/transparent: search by normalized company name (remove suffixes) and take FIRST item
-    def strip_company_suffix(company_name: str) -> str:
-        suffixes = [
-            "inc.", "inc", "corporation", "corp.", "corp", "ltd.", "ltd", "limited", "llc", "l.l.c.",
-            "plc", "p.l.c.", "ag", "s.a.", "s.a", "n.v.", "nv", "gmbh", "co.", "and company", "& co.",
-            "asa", "a.s.a.", "as", "ab", "oyj", "s.p.a.", "spa", "sa", "se", "usd", "us dollar", "eur", "gbp", "jpy"
-        ]
-        name = company_name.strip()
-        lowered = name.lower()
-        for suffix in suffixes:
-            if lowered.endswith(" " + suffix):
-                return name[:-(len(suffix)+1)].strip()
-            if lowered.endswith(suffix):  # also match if no space (rare)
-                return name[: -len(suffix)].strip()
-        return name
-
-    if name:
-        normalized_name = strip_company_suffix(name)
-        results = brandfetch_search(normalized_name)
-        if results and isinstance(results, list) and len(results) > 0:
-            first = results[0]
-            brand_id = first.get('brandId')
-            if brand_id:
-                # Fetch the logo by brand ID and return image directly
-                logo_data = fetch_logo_by_brand_id(brand_id)
-                if logo_data:
-                    # Cache in database if asset exists
-                    if db_asset:
-                        crud_assets.cache_logo(db, db_asset.id, logo_data, 'image/webp')
-                    
-                    response = Response(content=logo_data, media_type="image/webp")
-                    # Cache for 30 days
-                    response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
-                    # Add ETag for cache validation
-                    etag = hashlib.md5(logo_data).hexdigest()
-                    response.headers["ETag"] = f'"{etag}"'
-                    return response
-
-    # 4) Nothing found: return 404 (no generated placeholders)
-    from fastapi.responses import JSONResponse
-    response = JSONResponse(status_code=404, content={"detail": "Logo not found"})
-    # Cache 404s for 1 hour to avoid hammering the API
-    response.headers["Cache-Control"] = "public, max-age=3600"
+    # Fetch logo using the consolidated validation function
+    # This tries: 1) direct ticker, 2) ticker search, 3) company name search, 4) SVG fallback
+    logo_data = fetch_logo_with_validation(symbol, company_name=name, asset_type=asset_type)
+    
+    # Determine content type based on data
+    if logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml'):
+        content_type = 'image/svg+xml'
+        cache_time = 604800  # 7 days for SVG
+    else:
+        content_type = 'image/webp'
+        cache_time = 2592000  # 30 days for real logos
+    
+    # Cache in database if asset exists
+    if db_asset:
+        crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
+    
+    # Return the logo
+    response = Response(content=logo_data, media_type=content_type)
+    response.headers["Cache-Control"] = f"public, max-age={cache_time}, immutable"
+    # Add ETag for cache validation
+    etag = hashlib.md5(logo_data).hexdigest()
+    response.headers["ETag"] = f'"{etag}"'
     return response
 
 

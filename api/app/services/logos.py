@@ -470,9 +470,8 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
     1. Try direct CDN fetch using ticker as brand ID
     2. If direct ticker returns empty/invalid, try searching by ticker (API search)
     3. If that fails, try searching by company name
-    4. Validate all fetched images to ensure they're not empty
-    
-    Note: ETF logos are handled separately in the API endpoint (returns SVG directly)
+    4. If all else fails, generate an SVG logo with the ticker
+    5. Validate all fetched images to ensure they're not empty
     
     Args:
         ticker: Stock ticker symbol
@@ -480,7 +479,7 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
         asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') - currently unused
         
     Returns:
-        Valid logo image bytes or None
+        Valid logo image bytes (or SVG string as bytes)
     """
     # Strategy 1: Direct fetch by ticker
     logo_data = fetch_logo_direct(ticker)
@@ -510,8 +509,10 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
                 logger.info(f"Successfully fetched logo via company name search for {ticker}")
                 return logo_data
     
-    logger.info(f"No valid logo found for {ticker}")
-    return None
+    # Strategy 4: Generate SVG logo as final fallback
+    logger.info(f"No logo found for {ticker}, generating SVG fallback")
+    svg_logo = generate_etf_logo(ticker)
+    return svg_logo.encode('utf-8')
 
 
 # Note: placeholder generation and brand ID-only helpers were removed.
