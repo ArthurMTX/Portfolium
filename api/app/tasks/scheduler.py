@@ -184,8 +184,10 @@ def is_notification_sent_this_session(
     asset/user combination during the current market session.
     """
     from app.models import Notification, NotificationType
+    from sqlalchemy import text
     
     # Look for any daily change notification (up or down) created today
+    # Using raw SQL for JSON field comparison to ensure it works correctly
     existing = (
         db.query(Notification)
         .filter(Notification.user_id == user_id)
@@ -195,8 +197,9 @@ def is_notification_sent_this_session(
                 NotificationType.DAILY_CHANGE_DOWN
             ])
         )
-        .filter(Notification.meta_data["asset_id"].astext == str(asset_id))
-        .filter(Notification.meta_data["session_id"].astext == session_id)
+        .filter(text("metadata->>'asset_id' = :asset_id"))
+        .filter(text("metadata->>'session_id' = :session_id"))
+        .params(asset_id=str(asset_id), session_id=session_id)
         .first()
     )
     

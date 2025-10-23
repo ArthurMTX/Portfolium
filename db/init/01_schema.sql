@@ -182,7 +182,9 @@ CREATE TYPE portfolio.notification_type AS ENUM (
   'TRANSACTION_DELETED',
   'LOGIN',
   'PRICE_ALERT',
-  'SYSTEM'
+  'SYSTEM',
+  'DAILY_CHANGE_UP',
+  'DAILY_CHANGE_DOWN'
 );
 
 -- Notifications table (user notifications for events)
