@@ -193,7 +193,7 @@ async def get_portfolio_positions(
             detail="Not authorized to access this portfolio"
         )
     
-    return metrics_service.get_positions(portfolio_id)
+    return await metrics_service.get_positions(portfolio_id)
 
 
 @router.get("/{portfolio_id}/sold-positions", response_model=List[Position])
@@ -224,7 +224,7 @@ async def get_sold_positions(
         )
     
     # Get all positions including sold ones
-    all_positions = metrics_service.get_positions(portfolio_id, include_sold=True)
+    all_positions = await metrics_service.get_positions(portfolio_id, include_sold=True)
     
     # Filter to only sold positions (quantity = 0)
     sold_positions = [pos for pos in all_positions if pos.quantity == 0]
@@ -263,7 +263,7 @@ async def get_portfolio_metrics(
         )
     
     try:
-        return metrics_service.get_metrics(portfolio_id)
+        return await metrics_service.get_metrics(portfolio_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

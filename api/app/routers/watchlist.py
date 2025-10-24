@@ -1,6 +1,7 @@
 """
 Watchlist router - Track assets without owning them
 """
+import logging
 from typing import List
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -19,6 +20,8 @@ from app.schemas import (
 )
 from app.crud import watchlist as crud
 from app.crud import assets as assets_crud
+
+logger = logging.getLogger(__name__)
 from app.auth import get_current_user
 from app.models import User, Asset
 from app.services.pricing import PricingService
@@ -40,25 +43,31 @@ async def get_watchlist(
     # Get pricing service
     pricing_service = PricingService(db)
     
+    # Get all symbols to fetch prices in batch
+    symbols = [item.asset.symbol for item in items]
+    
+    # Fetch all prices concurrently
+    try:
+        prices_map = await pricing_service.get_multiple_prices(symbols)
+    except Exception as e:
+        logger.warning(f"Failed to fetch prices: {e}")
+        prices_map = {}
+    
     # Build response with current prices
     result = []
     for item in items:
         asset = item.asset
         
-        # Get current price and daily change
+        # Get current price and daily change from batch results
         current_price = None
         daily_change_pct = None
         last_updated = None
         
-        try:
-            # Use the correct PricingService API
-            quote = pricing_service.get_price(asset.symbol)
-            if quote:
-                current_price = quote.price
-                daily_change_pct = quote.daily_change_pct
-                last_updated = quote.asof
-        except Exception:
-            pass  # Continue without price data
+        quote = prices_map.get(asset.symbol)
+        if quote:
+            current_price = quote.price
+            daily_change_pct = quote.daily_change_pct
+            last_updated = quote.asof
         
         result.append(WatchlistItemWithPrice(
             id=item.id,

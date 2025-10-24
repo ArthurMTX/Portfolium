@@ -1,6 +1,7 @@
 """
 Pricing service using yfinance with caching
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -25,9 +26,9 @@ class PricingService:
         self.db = db
         self.cache_ttl = timedelta(seconds=settings.PRICE_CACHE_TTL_SECONDS)
     
-    def get_price(self, symbol: str, force_refresh: bool = False) -> Optional[PriceQuote]:
+    async def get_price(self, symbol: str, force_refresh: bool = False) -> Optional[PriceQuote]:
         """
-        Get current price for a symbol
+        Get current price for a symbol (async to avoid blocking)
         
         1. Check cache (DB) with TTL
         2. If stale/missing or force_refresh, fetch from yfinance
@@ -55,9 +56,9 @@ class PricingService:
                 daily_change_pct=daily_change_pct
             )
         
-        # Fetch from yfinance
+        # Fetch from yfinance (in thread pool to avoid blocking event loop)
         logger.info(f"Fetching fresh price for {symbol} from yfinance")
-        price = self._fetch_from_yfinance(symbol)
+        price = await asyncio.to_thread(self._fetch_from_yfinance, symbol)
         
         if price:
             # Calculate daily change percentage
@@ -124,20 +125,24 @@ class PricingService:
         
         return None
     
-    def get_multiple_prices(self, symbols: List[str]) -> Dict[str, PriceQuote]:
-        """Get prices for multiple symbols"""
-        results = {}
+    async def get_multiple_prices(self, symbols: List[str]) -> Dict[str, PriceQuote]:
+        """Get prices for multiple symbols concurrently"""
+        # Fetch all prices in parallel using asyncio.gather
+        tasks = [self.get_price(symbol) for symbol in symbols]
+        prices = await asyncio.gather(*tasks, return_exceptions=True)
         
-        for symbol in symbols:
-            price = self.get_price(symbol)
-            if price:
+        results = {}
+        for symbol, price in zip(symbols, prices):
+            if isinstance(price, Exception):
+                logger.error(f"Error fetching price for {symbol}: {price}")
+            elif price:
                 results[symbol] = price
         
         return results
     
-    def refresh_all_portfolio_prices(self, portfolio_id: int) -> int:
+    async def refresh_all_portfolio_prices(self, portfolio_id: int) -> int:
         """
-        Refresh prices for all assets in a portfolio
+        Refresh prices for all assets in a portfolio concurrently
         Returns number of prices updated
         """
         from app.models import Transaction
@@ -151,12 +156,12 @@ class PricingService:
             .all()
         )
         
-        count = 0
-        for asset in assets:
-            # Force refresh to get fresh data with previous_close from Yahoo Finance
-            price = self.get_price(asset.symbol, force_refresh=True)
-            if price:
-                count += 1
+        # Force refresh all prices concurrently
+        symbols = [asset.symbol for asset in assets]
+        tasks = [self.get_price(symbol, force_refresh=True) for symbol in symbols]
+        prices = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        count = sum(1 for price in prices if not isinstance(price, Exception) and price)
         
         logger.info(f"Refreshed {count} prices for portfolio {portfolio_id}")
         return count

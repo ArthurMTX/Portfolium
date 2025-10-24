@@ -42,7 +42,7 @@ async def get_prices(
             detail="Maximum 50 symbols per request"
         )
     
-    prices = pricing_service.get_multiple_prices(symbol_list)
+    prices = await pricing_service.get_multiple_prices(symbol_list)
     
     return prices
 
@@ -67,7 +67,7 @@ async def refresh_prices(
         )
     
     # Clear cache and refresh
-    count = pricing_service.refresh_all_portfolio_prices(portfolio_id)
+    count = await pricing_service.refresh_all_portfolio_prices(portfolio_id)
     
     return {
         "portfolio_id": portfolio_id,

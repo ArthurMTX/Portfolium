@@ -1,6 +1,7 @@
 """
 Portfolio metrics calculation service (PRU, P&L, positions)
 """
+import asyncio
 import logging
 from decimal import Decimal
 from typing import List, Dict, Optional
@@ -23,9 +24,9 @@ class MetricsService:
     def __init__(self, db: Session):
         self.db = db
     
-    def get_positions(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
+    async def get_positions(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
         """
-        Calculate current positions for a portfolio
+        Calculate current positions for a portfolio (async to avoid blocking)
         
         For each asset:
         - Net quantity (BUY/TRANSFER_IN - SELL/TRANSFER_OUT, adjusted for SPLIT)
@@ -57,9 +58,18 @@ class MetricsService:
                 asset_txs[tx.asset_id] = []
             asset_txs[tx.asset_id].append(tx)
         
+        # Calculate positions concurrently
+        tasks = [
+            self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
+            for asset_id, txs in asset_txs.items()
+        ]
+        all_positions = await asyncio.gather(*tasks, return_exceptions=True)
+        
         positions = []
-        for asset_id, txs in asset_txs.items():
-            position = self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
+        for position in all_positions:
+            if isinstance(position, Exception):
+                logger.error(f"Error calculating position: {position}")
+                continue
             if position:
                 if include_sold:
                     # Include all positions (sold and held)
@@ -70,15 +80,15 @@ class MetricsService:
         
         return positions
     
-    def get_metrics(self, portfolio_id: int) -> PortfolioMetrics:
-        """Calculate portfolio-level metrics"""
+    async def get_metrics(self, portfolio_id: int) -> PortfolioMetrics:
+        """Calculate portfolio-level metrics (async to avoid blocking)"""
         from app.crud.portfolios import get_portfolio
         
         portfolio = get_portfolio(self.db, portfolio_id)
         if not portfolio:
             raise ValueError(f"Portfolio {portfolio_id} not found")
         
-        positions = self.get_positions(portfolio_id)
+        positions = await self.get_positions(portfolio_id)
         
         # Aggregate metrics
         total_value = Decimal(0)
@@ -94,7 +104,7 @@ class MetricsService:
         
         # Calculate realized P&L and dividends
         # Calculate realized P&L by summing up all sold positions
-        sold_positions = self.get_positions(portfolio_id, include_sold=True)
+        sold_positions = await self.get_positions(portfolio_id, include_sold=True)
         realized_pnl = sum(
             pos.unrealized_pnl for pos in sold_positions 
             if pos.quantity == 0 and pos.unrealized_pnl
@@ -122,7 +132,7 @@ class MetricsService:
             last_updated=datetime.utcnow()
         )
     
-    def _calculate_position(
+    async def _calculate_position(
         self, 
         asset_id: int, 
         transactions: List[Transaction],
@@ -130,7 +140,7 @@ class MetricsService:
         include_sold: bool = False
     ) -> Optional[Position]:
         """
-        Calculate position for a single asset
+        Calculate position for a single asset (async to fetch prices without blocking)
         
         Args:
             asset_id: Asset ID
@@ -276,8 +286,8 @@ class MetricsService:
         # Calculate average cost (PRU) in target currency
         avg_cost = total_cost / quantity if quantity > 0 else Decimal(0)
         
-        # Get current price and daily change from pricing service
-        price_quote = pricing_service.get_price(asset.symbol)
+        # Get current price and daily change from pricing service (async)
+        price_quote = await pricing_service.get_price(asset.symbol)
         current_price = price_quote.price if price_quote else None
         daily_change_pct = price_quote.daily_change_pct if price_quote else None
         last_updated = price_quote.asof if price_quote else None
