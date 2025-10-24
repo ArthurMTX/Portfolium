@@ -139,7 +139,7 @@ async def get_transactions(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -150,6 +150,7 @@ async def get_transactions(
     - **tx_type**: Filter by transaction type (BUY, SELL, etc.)
     - **date_from**: Start date (inclusive)
     - **date_to**: End date (inclusive)
+    - **limit**: Maximum number of records to return (None for all)
     """
     # Verify portfolio exists
     portfolio = portfolio_crud.get_portfolio(db, portfolio_id)

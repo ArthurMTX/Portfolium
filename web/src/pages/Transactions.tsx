@@ -56,6 +56,8 @@ export default function Transactions() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('tx_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [showAllTransactions, setShowAllTransactions] = useState(false)
+  const [displayLimit] = useState(100)
 
   // Form state
   const [ticker, setTicker] = useState("")
@@ -405,7 +407,7 @@ export default function Transactions() {
   }, [transactions])
 
   const sortedTransactions = useMemo(() => {
-    return [...transactions].sort((a, b) => {
+    const sorted = [...transactions].sort((a, b) => {
       let aVal: string | number
       let bVal: string | number
 
@@ -456,7 +458,10 @@ export default function Transactions() {
 
       return sortDir === 'asc' ? (Number(aVal) - Number(bVal)) : (Number(bVal) - Number(aVal))
     })
-  }, [transactions, sortKey, sortDir])
+    
+    // Apply limit if showAllTransactions is false
+    return showAllTransactions ? sorted : sorted.slice(0, displayLimit)
+  }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit])
 
   const isActive = (key: SortKey) => sortKey === key
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -611,6 +616,24 @@ export default function Transactions() {
             ))}
           </nav>
         </div>
+
+        {/* Transaction Count and Limit Toggle */}
+        {transactions.length > 0 && (
+          <div className="px-4 sm:px-6 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">
+              Showing <span className="font-semibold text-neutral-900 dark:text-neutral-100">{sortedTransactions.length}</span> of{' '}
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{transactions.length}</span> transactions
+            </div>
+            {transactions.length > displayLimit && (
+              <button
+                onClick={() => setShowAllTransactions(!showAllTransactions)}
+                className="text-sm px-3 py-1 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors text-neutral-700 dark:text-neutral-300 font-medium"
+              >
+                {showAllTransactions ? `Show Last ${displayLimit}` : 'Show All'}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Transactions Table */}
         <div className="overflow-x-auto">

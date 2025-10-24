@@ -23,7 +23,7 @@ def get_transactions(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     skip: int = 0,
-    limit: int = 100
+    limit: Optional[int] = None
 ) -> List[Transaction]:
     """
     Get transactions with filters
@@ -36,7 +36,7 @@ def get_transactions(
         date_from: Start date (inclusive)
         date_to: End date (inclusive)
         skip: Number of records to skip
-        limit: Maximum number of records to return
+        limit: Maximum number of records to return (None for all)
     """
     q = db.query(Transaction)
     
@@ -52,7 +52,12 @@ def get_transactions(
         q = q.filter(Transaction.tx_date <= date_to)
     
     # Sort by date descending, then by created_at descending for transactions on the same date
-    return q.order_by(Transaction.tx_date.desc(), Transaction.created_at.desc()).offset(skip).limit(limit).all()
+    q = q.order_by(Transaction.tx_date.desc(), Transaction.created_at.desc()).offset(skip)
+    
+    if limit is not None:
+        q = q.limit(limit)
+    
+    return q.all()
 
 
 def create_transaction(
