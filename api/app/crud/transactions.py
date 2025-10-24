@@ -51,7 +51,8 @@ def get_transactions(
     if date_to:
         q = q.filter(Transaction.tx_date <= date_to)
     
-    return q.order_by(Transaction.tx_date.desc()).offset(skip).limit(limit).all()
+    # Sort by date descending, then by created_at descending for transactions on the same date
+    return q.order_by(Transaction.tx_date.desc(), Transaction.created_at.desc()).offset(skip).limit(limit).all()
 
 
 def create_transaction(
