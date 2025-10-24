@@ -23,7 +23,7 @@ class MetricsService:
     def __init__(self, db: Session):
         self.db = db
     
-    def get_positions(self, portfolio_id: int) -> List[Position]:
+    def get_positions(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
         """
         Calculate current positions for a portfolio
         
@@ -31,7 +31,11 @@ class MetricsService:
         - Net quantity (BUY/TRANSFER_IN - SELL/TRANSFER_OUT, adjusted for SPLIT)
         - Average cost (PRU - Prix de Revient Unitaire)
         - Current market value
-        - Unrealized P&L
+        - Unrealized P&L (or Realized P&L for sold positions)
+        
+        Args:
+            portfolio_id: Portfolio ID
+            include_sold: If True, also return sold positions with realized P&L
         """
         # Get portfolio to access base currency
         from app.models import Portfolio as PortfolioModel
@@ -55,9 +59,14 @@ class MetricsService:
         
         positions = []
         for asset_id, txs in asset_txs.items():
-            position = self._calculate_position(asset_id, txs, portfolio_base_currency)
-            if position and position.quantity > 0:
-                positions.append(position)
+            position = self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
+            if position:
+                if include_sold:
+                    # Include all positions (sold and held)
+                    positions.append(position)
+                elif position.quantity > 0:
+                    # Only include held positions
+                    positions.append(position)
         
         return positions
     
@@ -84,7 +93,13 @@ class MetricsService:
                     total_unrealized += pos.unrealized_pnl
         
         # Calculate realized P&L and dividends
-        realized_pnl = self._calculate_realized_pnl(portfolio_id)
+        # Calculate realized P&L by summing up all sold positions
+        sold_positions = self.get_positions(portfolio_id, include_sold=True)
+        realized_pnl = sum(
+            pos.unrealized_pnl for pos in sold_positions 
+            if pos.quantity == 0 and pos.unrealized_pnl
+        ) or Decimal(0)
+        
         total_dividends = self._calculate_total_dividends(portfolio_id)
         total_fees = self._calculate_total_fees(portfolio_id)
         
@@ -111,9 +126,18 @@ class MetricsService:
         self, 
         asset_id: int, 
         transactions: List[Transaction],
-        portfolio_base_currency: Optional[str] = None
+        portfolio_base_currency: Optional[str] = None,
+        include_sold: bool = False
     ) -> Optional[Position]:
-        """Calculate position for a single asset"""
+        """
+        Calculate position for a single asset
+        
+        Args:
+            asset_id: Asset ID
+            transactions: List of transactions for this asset
+            portfolio_base_currency: Portfolio base currency
+            include_sold: If True, calculate realized P&L for sold positions
+        """
         asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
         if not asset:
             return None
@@ -121,6 +145,12 @@ class MetricsService:
         quantity = Decimal(0)
         total_cost = Decimal(0)
         total_shares_for_cost = Decimal(0)
+        realized_pnl = Decimal(0)  # Track realized P&L for sold positions
+        # Track totals for sold position statistics
+        total_buy_cost = Decimal(0)  # Total cost of all buys
+        total_buy_shares = Decimal(0)  # Total shares bought
+        total_sell_proceeds = Decimal(0)  # Total proceeds from all sells
+        total_sell_shares = Decimal(0)  # Total shares sold
         # Use the currency from the first BUY transaction (most common currency for this position)
         position_currency = None
         
@@ -133,15 +163,24 @@ class MetricsService:
                 cost = (tx.quantity * tx.price) + tx.fees
                 total_cost += cost
                 total_shares_for_cost += tx.quantity
+                # Track for sold position stats
+                total_buy_cost += cost
+                total_buy_shares += tx.quantity
                 
             elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
                 quantity -= tx.quantity
-                # Reduce cost basis proportionally (FIFO simplification)
+                # Calculate realized P&L and reduce cost basis proportionally (FIFO simplification)
                 if total_shares_for_cost > 0:
                     avg_cost = total_cost / total_shares_for_cost
                     cost_reduction = tx.quantity * avg_cost
+                    # Realized P&L = proceeds - cost basis
+                    proceeds = (tx.quantity * tx.price) - tx.fees
+                    realized_pnl += proceeds - cost_reduction
                     total_cost -= cost_reduction
                     total_shares_for_cost -= tx.quantity
+                # Track for sold position stats
+                total_sell_proceeds += (tx.quantity * tx.price) - tx.fees
+                total_sell_shares += tx.quantity
                 
             elif tx.type == TransactionType.SPLIT:
                 # Handle stock split (e.g., 2:1 means double shares, half price)
@@ -149,6 +188,63 @@ class MetricsService:
                 quantity *= split_ratio
                 total_shares_for_cost *= split_ratio
                 # Cost basis stays the same, just spread over more shares
+                # Adjust buy shares for split
+                total_buy_shares *= split_ratio
+                total_sell_shares *= split_ratio
+        
+        # For sold positions, return with realized P&L and statistics
+        if include_sold and quantity <= 0:
+            # Calculate average buy and sell prices
+            avg_buy_price = total_buy_cost / total_buy_shares if total_buy_shares > 0 else Decimal(0)
+            avg_sell_price = total_sell_proceeds / total_sell_shares if total_sell_shares > 0 else Decimal(0)
+            
+            # Calculate realized P&L percentage
+            realized_pnl_pct = None
+            if total_buy_cost > 0:
+                realized_pnl_pct = (realized_pnl / total_buy_cost * 100)
+            
+            # Convert values to target currency if needed
+            target_currency = portfolio_base_currency or position_currency or asset.currency
+            if position_currency and position_currency != target_currency:
+                from app.services.currency import CurrencyService
+                converted_pnl = CurrencyService.convert(
+                    realized_pnl,
+                    from_currency=position_currency,
+                    to_currency=target_currency
+                )
+                converted_buy_price = CurrencyService.convert(
+                    avg_buy_price,
+                    from_currency=position_currency,
+                    to_currency=target_currency
+                )
+                converted_sell_price = CurrencyService.convert(
+                    avg_sell_price,
+                    from_currency=position_currency,
+                    to_currency=target_currency
+                )
+                if converted_pnl:
+                    realized_pnl = converted_pnl
+                if converted_buy_price:
+                    avg_buy_price = converted_buy_price
+                if converted_sell_price:
+                    avg_sell_price = converted_sell_price
+            
+            return Position(
+                asset_id=asset_id,
+                symbol=asset.symbol,
+                name=asset.name,
+                quantity=Decimal(0),  # Sold, so quantity is 0
+                avg_cost=avg_buy_price,  # Average buy price
+                current_price=avg_sell_price,  # Repurpose as average sell price
+                market_value=Decimal(0),
+                cost_basis=total_buy_cost if position_currency == target_currency else Decimal(0),
+                unrealized_pnl=realized_pnl,  # Use unrealized_pnl field for realized P&L
+                unrealized_pnl_pct=realized_pnl_pct,
+                daily_change_pct=None,
+                currency=target_currency,
+                last_updated=None,
+                asset_type=asset.asset_type
+            )
         
         if quantity <= 0:
             return None
@@ -237,9 +333,15 @@ class MetricsService:
         )
     
     def _calculate_realized_pnl(self, portfolio_id: int) -> Decimal:
-        """Calculate realized P&L from SELL transactions"""
-        # Simplified: sum of (sell_price - avg_cost) * quantity for all sells
-        # In production, use proper FIFO/LIFO lot tracking
+        """
+        DEPRECATED: This method doesn't account for splits properly.
+        Use get_positions(portfolio_id, include_sold=True) instead.
+        
+        Calculate realized P&L from SELL transactions
+        """
+        # NOTE: This simplified calculation doesn't handle splits correctly
+        # The metrics now use the accurate calculation from get_positions()
+        # which properly tracks all transactions chronologically including splits
         
         sells = (
             self.db.query(Transaction)

@@ -182,9 +182,9 @@ async def get_held_assets(db: Session = Depends(get_db)):
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
-                # Count splits and total transactions for this asset
+                # Count splits and buy/sell transactions for this asset
                 split_count = sum(1 for tx in transactions if tx.type == TransactionType.SPLIT)
-                transaction_count = len(transactions)
+                transaction_count = sum(1 for tx in transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
                 results.append({
                     "id": asset.id,
@@ -257,9 +257,9 @@ async def get_sold_assets(db: Session = Depends(get_db)):
         if total_quantity <= 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
-                # Count splits and total transactions for this asset
+                # Count splits and buy/sell transactions for this asset
                 split_count = sum(1 for tx in transactions if tx.type == TransactionType.SPLIT)
-                transaction_count = len(transactions)
+                transaction_count = sum(1 for tx in transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
                 results.append({
                     "id": asset.id,
@@ -427,8 +427,10 @@ async def get_asset_transaction_history(asset_id: int, db: Session = Depends(get
     Get buy/sell transaction history for a specific asset across all portfolios
     
     Returns all BUY and SELL transactions for the given asset, ordered by date (newest first).
+    Includes split-adjusted quantities to show the current equivalent quantity.
     """
     from app.models import Transaction, TransactionType, Portfolio
+    from decimal import Decimal
     
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)
@@ -438,7 +440,15 @@ async def get_asset_transaction_history(asset_id: int, db: Session = Depends(get
             detail=f"Asset {asset_id} not found"
         )
     
-    # Get all BUY and SELL transactions for this asset
+    # Get all transactions (BUY, SELL, and SPLIT) ordered chronologically
+    all_transactions = (
+        db.query(Transaction)
+        .filter(Transaction.asset_id == asset_id)
+        .order_by(Transaction.tx_date, Transaction.created_at)
+        .all()
+    )
+    
+    # Get all BUY and SELL transactions with portfolio names
     transactions = (
         db.query(Transaction, Portfolio.name)
         .join(Portfolio, Transaction.portfolio_id == Portfolio.id)
@@ -450,17 +460,35 @@ async def get_asset_transaction_history(asset_id: int, db: Session = Depends(get
         .all()
     )
     
-    return [
-        {
+    # Calculate split-adjusted quantities for each transaction
+    result = []
+    for tx, portfolio_name in transactions:
+        # Find all splits that occurred after this transaction
+        splits_after = [
+            t for t in all_transactions
+            if t.type == TransactionType.SPLIT and 
+            (t.tx_date > tx.tx_date or (t.tx_date == tx.tx_date and t.created_at > tx.created_at))
+        ]
+        
+        # Apply split adjustments
+        adjusted_quantity = Decimal(str(tx.quantity))
+        for split_tx in splits_after:
+            split_ratio = _parse_split_ratio(
+                split_tx.meta_data.get("split", "1:1") if split_tx.meta_data else "1:1"
+            )
+            adjusted_quantity *= split_ratio
+        
+        result.append({
             "id": tx.id,
             "tx_date": tx.tx_date.isoformat(),
             "type": tx.type.value,
             "quantity": float(tx.quantity),
+            "adjusted_quantity": float(adjusted_quantity),
             "price": float(tx.price) if tx.price else None,
             "fees": float(tx.fees) if tx.fees else None,
             "portfolio_name": portfolio_name,
             "notes": tx.notes
-        }
-        for tx, portfolio_name in transactions
-    ]
+        })
+    
+    return result
 

@@ -19,6 +19,7 @@ interface Position {
 
 interface PositionsTableProps {
   positions: Position[]
+  isSold?: boolean  // If true, shows realized P&L and hides market data
 }
 
 const sortableColumns = [
@@ -36,8 +37,8 @@ const sortableColumns = [
 type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
 
-export default function PositionsTable({ positions }: PositionsTableProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('market_value')
+export default function PositionsTable({ positions, isSold = false }: PositionsTableProps) {
+  const [sortKey, setSortKey] = useState<SortKey>(isSold ? 'unrealized_pnl' : 'market_value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   // Calculate total portfolio value for % of wallet
@@ -178,62 +179,97 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
               >
                 Name <SortIcon col={"name"} />
               </th>
-              <th
-                onClick={() => handleSort('quantity')}
-                aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Quantity <SortIcon col="quantity" />
-              </th>
-              <th
-                onClick={() => handleSort('avg_cost')}
-                aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Avg Cost <SortIcon col={"avg_cost"} />
-              </th>
-              <th
-                onClick={() => handleSort('current_price')}
-                aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Current Price <SortIcon col={"current_price"} />
-              </th>
-              <th
-                onClick={() => handleSort('daily_change_pct')}
-                aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Daily Change % <SortIcon col={"daily_change_pct"} />
-              </th>
-              <th
-                onClick={() => handleSort('market_value')}
-                aria-sort={sortKey === 'market_value' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Market Value <SortIcon col="market_value" />
-              </th>
-              <th
-                onClick={() => handleSort('wallet_pct')}
-                aria-sort={sortKey === 'wallet_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                % of Wallet <SortIcon col="wallet_pct" />
-              </th>
-              <th
-                onClick={() => handleSort('unrealized_pnl')}
-                aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                P&L <SortIcon col="unrealized_pnl" />
-              </th>
-              <th
-                onClick={() => handleSort('unrealized_pnl_pct')}
-                aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                P&L % <SortIcon col="unrealized_pnl_pct" />
-              </th>
+              {isSold ? (
+                <>
+                  <th
+                    onClick={() => handleSort('avg_cost')}
+                    aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Avg Buy Price <SortIcon col={"avg_cost"} />
+                  </th>
+                  <th
+                    onClick={() => handleSort('current_price')}
+                    aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Avg Sell Price <SortIcon col={"current_price"} />
+                  </th>
+                  <th
+                    onClick={() => handleSort('unrealized_pnl')}
+                    aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Realized P&L <SortIcon col="unrealized_pnl" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('unrealized_pnl_pct')}
+                    aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Realized P&L % <SortIcon col="unrealized_pnl_pct" />
+                  </th>
+                </>
+              ) : (
+                <>
+                  <th
+                    onClick={() => handleSort('quantity')}
+                    aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Quantity <SortIcon col="quantity" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('avg_cost')}
+                    aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Avg Cost <SortIcon col={"avg_cost"} />
+                  </th>
+                  <th
+                    onClick={() => handleSort('current_price')}
+                    aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Current Price <SortIcon col={"current_price"} />
+                  </th>
+                  <th
+                    onClick={() => handleSort('daily_change_pct')}
+                    aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Daily Change % <SortIcon col={"daily_change_pct"} />
+                  </th>
+                  <th
+                    onClick={() => handleSort('market_value')}
+                    aria-sort={sortKey === 'market_value' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Market Value <SortIcon col="market_value" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('wallet_pct')}
+                    aria-sort={sortKey === 'wallet_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    % of Wallet <SortIcon col="wallet_pct" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('unrealized_pnl')}
+                    aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    P&L <SortIcon col="unrealized_pnl" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('unrealized_pnl_pct')}
+                    aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    P&L % <SortIcon col="unrealized_pnl_pct" />
+                  </th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -323,59 +359,89 @@ export default function PositionsTable({ positions }: PositionsTableProps) {
                       {position.name || '-'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {formatQuantity(position.quantity)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm text-neutral-900 dark:text-neutral-100">
-                      {formatCurrency(position.avg_cost, position.currency)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm text-neutral-900 dark:text-neutral-100">
-                      {formatCurrency(position.current_price, position.currency)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className={`text-sm font-medium ${
-                      position.daily_change_pct !== null && position.daily_change_pct !== undefined
-                        ? (Number(position.daily_change_pct) >= 0
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-600 dark:text-red-400')
-                        : 'text-neutral-500 dark:text-neutral-400'
-                    }`}>
-                      {position.daily_change_pct !== null && position.daily_change_pct !== undefined
-                        ? `${Number(position.daily_change_pct) >= 0 ? '+' : ''}${formatNumber(position.daily_change_pct, 2)}%`
-                        : '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      {formatCurrency(position.market_value, position.currency)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {position.market_value !== null && position.market_value !== undefined && totalPortfolioValue > 0
-                        ? `${((Number(position.market_value) / totalPortfolioValue) * 100).toFixed(2)}%`
-                        : '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className={`text-sm font-semibold flex items-center justify-end gap-1 ${pnlColor}`}>
-                      {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      {formatCurrency(position.unrealized_pnl, position.currency)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className={`text-sm font-semibold ${pnlColor}`}>
-                      {position.unrealized_pnl_pct !== null
-                        ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
-                        : '-'}
-                    </div>
-                  </td>
+                  {isSold ? (
+                    <>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-neutral-900 dark:text-neutral-100">
+                          {formatCurrency(position.avg_cost, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-neutral-900 dark:text-neutral-100">
+                          {formatCurrency(position.current_price, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className={`text-sm font-semibold flex items-center justify-end gap-1 ${pnlColor}`}>
+                          {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                          {formatCurrency(position.unrealized_pnl, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className={`text-sm font-semibold ${pnlColor}`}>
+                          {position.unrealized_pnl_pct !== null
+                            ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
+                            : '-'}
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {formatQuantity(position.quantity)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-neutral-900 dark:text-neutral-100">
+                          {formatCurrency(position.avg_cost, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-neutral-900 dark:text-neutral-100">
+                          {formatCurrency(position.current_price, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className={`text-sm font-medium ${
+                          position.daily_change_pct !== null && position.daily_change_pct !== undefined
+                            ? (Number(position.daily_change_pct) >= 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400')
+                            : 'text-neutral-500 dark:text-neutral-400'
+                        }`}>
+                          {position.daily_change_pct !== null && position.daily_change_pct !== undefined
+                            ? `${Number(position.daily_change_pct) >= 0 ? '+' : ''}${formatNumber(position.daily_change_pct, 2)}%`
+                            : '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                          {formatCurrency(position.market_value, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {position.market_value !== null && position.market_value !== undefined && totalPortfolioValue > 0
+                            ? `${((Number(position.market_value) / totalPortfolioValue) * 100).toFixed(2)}%`
+                            : '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className={`text-sm font-semibold flex items-center justify-end gap-1 ${pnlColor}`}>
+                          {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                          {formatCurrency(position.unrealized_pnl, position.currency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className={`text-sm font-semibold ${pnlColor}`}>
+                          {position.unrealized_pnl_pct !== null
+                            ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
+                            : '-'}
+                        </div>
+                      </td>
+                    </>
+                  )}
                 </tr>
               )
             })}

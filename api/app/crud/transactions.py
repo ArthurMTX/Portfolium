@@ -150,7 +150,7 @@ def get_current_position_quantity(
         elif tx.type == TransactionType.SPLIT:
             # Handle stock split (e.g., 2:1 means double shares)
             split_ratio = _parse_split_ratio(tx.meta_data.get("split", "1:1"))
-            quantity *= split_ratio
+            quantity *= Decimal(str(split_ratio))
     
     return float(quantity)
 

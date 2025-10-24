@@ -305,6 +305,7 @@ class ApiClient {
       tx_date: string
       type: string
       quantity: number
+      adjusted_quantity: number
       price: number | null
       fees: number | null
       portfolio_name: string
@@ -349,6 +350,9 @@ class ApiClient {
     return this.request<PositionDTO[]>(`/portfolios/${portfolioId}/positions`)
   }
 
+  async getSoldPositions(portfolioId: number) {
+    return this.request<PositionDTO[]>(`/portfolios/${portfolioId}/sold-positions`)
+  }
 
   async getPortfolioHistory(portfolioId: number, interval: string = "daily") {
     return this.request<PortfolioHistoryPointDTO[]>(`/portfolios/${portfolioId}/history?interval=${interval}`)

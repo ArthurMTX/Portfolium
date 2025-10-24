@@ -196,6 +196,42 @@ async def get_portfolio_positions(
     return metrics_service.get_positions(portfolio_id)
 
 
+@router.get("/{portfolio_id}/sold-positions", response_model=List[Position])
+async def get_sold_positions(
+    portfolio_id: int,
+    metrics_service = Depends(get_metrics_service),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get sold positions for a portfolio with realized P&L
+    
+    Returns assets that were fully sold with their:
+    - Symbol and name
+    - Realized P&L from the sales
+    """
+    # Verify portfolio exists
+    portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    # Verify the portfolio belongs to the current user
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
+    # Get all positions including sold ones
+    all_positions = metrics_service.get_positions(portfolio_id, include_sold=True)
+    
+    # Filter to only sold positions (quantity = 0)
+    sold_positions = [pos for pos in all_positions if pos.quantity == 0]
+    
+    return sold_positions
+
+
 @router.get("/{portfolio_id}/metrics", response_model=PortfolioMetrics)
 async def get_portfolio_metrics(
     portfolio_id: int,

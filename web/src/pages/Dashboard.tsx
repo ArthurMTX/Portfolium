@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, DollarSign, PiggyBank, Zap, ZapOff, Clock, LayoutDashboard } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
-import api from '../lib/api'
+import api, { PositionDTO } from '../lib/api'
 import PositionsTable from '../components/PositionsTable'
 import { usePriceUpdates } from '../hooks/usePriceUpdates'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -20,6 +20,7 @@ export default function Dashboard() {
   } = usePortfolioStore()
 
   const [refreshing, setRefreshing] = useState(false)
+  const [soldPositions, setSoldPositions] = useState<PositionDTO[]>([])
 
 
   // Auto-refresh settings from localStorage
@@ -94,12 +95,14 @@ export default function Dashboard() {
   const loadPortfolioData = async (portfolioId: number) => {
     setLoading(true)
     try {
-      const [positionsData, metricsData] = await Promise.all([
+      const [positionsData, metricsData, soldPositionsData] = await Promise.all([
         api.getPortfolioPositions(portfolioId),
         api.getPortfolioMetrics(portfolioId),
+        api.getSoldPositions(portfolioId),
       ])
       setPositions(positionsData)
       setMetrics(metricsData)
+      setSoldPositions(soldPositionsData)
     } catch (error) {
       console.error('Failed to load portfolio data:', error)
     } finally {
@@ -352,6 +355,16 @@ export default function Dashboard() {
         </h2>
         <PositionsTable positions={positions} />
       </div>
+
+      {/* Sold Positions Table */}
+      {soldPositions.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+            Sold Positions (Realized P&L)
+          </h2>
+          <PositionsTable positions={soldPositions} isSold={true} />
+        </div>
+      )}
     </div>
   )
 }

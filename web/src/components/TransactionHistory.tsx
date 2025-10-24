@@ -7,6 +7,7 @@ interface AssetTransaction {
   tx_date: string
   type: string
   quantity: number
+  adjusted_quantity: number
   price: number | null
   fees: number | null
   portfolio_name: string
@@ -59,6 +60,9 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
 
   const buyTransactions = transactions.filter(tx => tx.type === 'BUY')
   const sellTransactions = transactions.filter(tx => tx.type === 'SELL')
+  
+  // Check if any transactions have been split-adjusted
+  const hasSplitAdjustments = transactions.some(tx => Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001)
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -111,7 +115,8 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
                     {buyTransactions.length}
                   </div>
                   <div className="text-xs text-green-700 dark:text-green-400 mt-1">
-                    Total quantity: {buyTransactions.reduce((sum, tx) => sum + tx.quantity, 0).toFixed(4)}
+                    {hasSplitAdjustments ? 'Split-adjusted quantity: ' : 'Total quantity: '}
+                    {buyTransactions.reduce((sum, tx) => sum + tx.adjusted_quantity, 0).toFixed(4)}
                   </div>
                 </div>
 
@@ -124,7 +129,8 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
                     {sellTransactions.length}
                   </div>
                   <div className="text-xs text-red-700 dark:text-red-400 mt-1">
-                    Total quantity: {sellTransactions.reduce((sum, tx) => sum + tx.quantity, 0).toFixed(4)}
+                    {hasSplitAdjustments ? 'Split-adjusted quantity: ' : 'Total quantity: '}
+                    {sellTransactions.reduce((sum, tx) => sum + tx.adjusted_quantity, 0).toFixed(4)}
                   </div>
                 </div>
               </div>
@@ -134,6 +140,7 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
                 {transactions.map((tx) => {
                   const isBuy = tx.type === 'BUY'
                   const totalValue = tx.price && tx.quantity ? tx.price * tx.quantity : null
+                  const isSplitAdjusted = Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001
                   
                   return (
                     <div
@@ -156,6 +163,11 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
                                   {tx.type}
                                 </span>
                                 <span>{tx.quantity.toFixed(4)} shares</span>
+                                {isSplitAdjusted && (
+                                  <span className="text-xs text-purple-600 dark:text-purple-400">
+                                    → {tx.adjusted_quantity.toFixed(4)} (split-adjusted)
+                                  </span>
+                                )}
                               </div>
                               <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
                                 Portfolio: <span className="font-medium">{tx.portfolio_name}</span>
@@ -212,7 +224,7 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
                   <strong>Total transactions:</strong> {transactions.length} ({buyTransactions.length} buys, {sellTransactions.length} sells)
                 </div>
                 <div className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-                  Net position change: {(buyTransactions.reduce((sum, tx) => sum + tx.quantity, 0) - sellTransactions.reduce((sum, tx) => sum + tx.quantity, 0)).toFixed(4)} shares
+                  Net position change{hasSplitAdjustments ? ' (split-adjusted)' : ''}: {(buyTransactions.reduce((sum, tx) => sum + tx.adjusted_quantity, 0) - sellTransactions.reduce((sum, tx) => sum + tx.adjusted_quantity, 0)).toFixed(4)} shares
                 </div>
               </div>
             </div>
