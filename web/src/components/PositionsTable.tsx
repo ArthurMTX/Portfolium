@@ -185,15 +185,17 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     onClick={() => handleSort('avg_cost')}
                     aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    title="Average cost per share including fees"
                   >
-                    Avg Buy Price <SortIcon col={"avg_cost"} />
+                    Avg Cost Basis <SortIcon col={"avg_cost"} />
                   </th>
                   <th
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    title="Average proceeds per share after fees"
                   >
-                    Avg Sell Price <SortIcon col={"current_price"} />
+                    Avg Proceeds <SortIcon col={"current_price"} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl')}

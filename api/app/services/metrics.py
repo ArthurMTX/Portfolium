@@ -79,6 +79,51 @@ class MetricsService:
                     positions.append(position)
         
         return positions
+
+    async def get_sold_positions_only(self, portfolio_id: int) -> List[Position]:
+        """
+        Get only sold positions for a portfolio (optimized - doesn't calculate active positions)
+        
+        Returns assets that were fully sold with their realized P&L.
+        This is more efficient than get_positions(include_sold=True) when you only need sold positions.
+        """
+        # Get portfolio to access base currency
+        from app.models import Portfolio as PortfolioModel
+        portfolio = self.db.query(PortfolioModel).filter_by(id=portfolio_id).first()
+        portfolio_base_currency = portfolio.base_currency if portfolio else None
+        
+        # Get all transactions for portfolio, ordered by date
+        transactions = (
+            self.db.query(Transaction)
+            .filter(Transaction.portfolio_id == portfolio_id)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
+        )
+        
+        # Group by asset
+        asset_txs: Dict[int, List[Transaction]] = {}
+        for tx in transactions:
+            if tx.asset_id not in asset_txs:
+                asset_txs[tx.asset_id] = []
+            asset_txs[tx.asset_id].append(tx)
+        
+        # Calculate positions concurrently, but only for sold positions
+        tasks = [
+            self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold=True)
+            for asset_id, txs in asset_txs.items()
+        ]
+        all_positions = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Filter to only sold positions (quantity = 0)
+        sold_positions = []
+        for position in all_positions:
+            if isinstance(position, Exception):
+                logger.error(f"Error calculating position: {position}")
+                continue
+            if position and position.quantity == 0:
+                sold_positions.append(position)
+        
+        return sold_positions
     
     async def get_metrics(self, portfolio_id: int) -> PortfolioMetrics:
         """Calculate portfolio-level metrics (async to avoid blocking)"""

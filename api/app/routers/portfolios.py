@@ -223,11 +223,8 @@ async def get_sold_positions(
             detail="Not authorized to access this portfolio"
         )
     
-    # Get all positions including sold ones
-    all_positions = await metrics_service.get_positions(portfolio_id, include_sold=True)
-    
-    # Filter to only sold positions (quantity = 0)
-    sold_positions = [pos for pos in all_positions if pos.quantity == 0]
+    # Get only sold positions (optimized)
+    sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
     
     return sold_positions
 

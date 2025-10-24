@@ -6,6 +6,8 @@ import PositionsTable from '../components/PositionsTable'
 import { usePriceUpdates } from '../hooks/usePriceUpdates'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 
+type PositionsTab = 'current' | 'sold'
+
 export default function Dashboard() {
   const {
     portfolios,
@@ -21,6 +23,7 @@ export default function Dashboard() {
 
   const [refreshing, setRefreshing] = useState(false)
   const [soldPositions, setSoldPositions] = useState<PositionDTO[]>([])
+  const [activeTab, setActiveTab] = useState<PositionsTab>('current')
 
 
   // Auto-refresh settings from localStorage
@@ -350,21 +353,59 @@ export default function Dashboard() {
 
       {/* Positions Table */}
       <div>
-        <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
-          Current Positions
-        </h2>
-        <PositionsTable positions={positions} />
-      </div>
-
-      {/* Sold Positions Table */}
-      {soldPositions.length > 0 && (
-        <div>
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-4 mb-4 border-b border-neutral-200 dark:border-neutral-700">
+          <button
+            onClick={() => setActiveTab('current')}
+            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'current'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+            }`}
+          >
+            Current Positions (Unrealized P&L)
+            {positions.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                {positions.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('sold')}
+            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'sold'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+            }`}
+          >
             Sold Positions (Realized P&L)
-          </h2>
-          <PositionsTable positions={soldPositions} isSold={true} />
+            {soldPositions.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                {soldPositions.length}
+              </span>
+            )}
+          </button>
         </div>
-      )}
+
+        {/* Tab Content */}
+        {activeTab === 'current' ? (
+          <PositionsTable positions={positions} />
+        ) : soldPositions.length > 0 ? (
+          <PositionsTable positions={soldPositions} isSold={true} />
+        ) : (
+          <div className="card p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <PiggyBank className="mx-auto h-12 w-12 text-neutral-400 dark:text-neutral-600 mb-4" />
+              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
+                No sold positions yet
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                When you sell all shares of an asset, it will appear here with its realized P&L.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
