@@ -69,7 +69,7 @@ class InsightsService:
             oldest_key = min(_insights_cache.keys(), key=lambda k: _insights_cache[k][1])
             del _insights_cache[oldest_key]
     
-    def get_portfolio_insights(
+    async def get_portfolio_insights(
         self,
         portfolio_id: int,
         period: str = "1y",
@@ -88,16 +88,16 @@ class InsightsService:
         if not portfolio:
             raise ValueError(f"Portfolio {portfolio_id} not found")
         
-        # Get current positions
-        positions = self.metrics_service.get_positions(portfolio_id)
+        # Get current positions (async)
+        positions = await self.metrics_service.get_positions(portfolio_id)
         
         if not positions:
             raise ValueError("No positions found in portfolio. Please add transactions to see insights.")
         
-        # Calculate allocations
-        asset_allocation = self.get_asset_allocation(portfolio_id)
-        sector_allocation = self.get_sector_allocation(portfolio_id)
-        geographic_allocation = self.get_geographic_allocation(portfolio_id)
+        # Calculate allocations (now async)
+        asset_allocation = await self.get_asset_allocation(portfolio_id)
+        sector_allocation = await self.get_sector_allocation(portfolio_id)
+        geographic_allocation = await self.get_geographic_allocation(portfolio_id)
         
         # Calculate performance metrics
         try:
@@ -134,8 +134,8 @@ class InsightsService:
             )
         
         # Top and worst performers
-        top_performers = self.get_top_performers(portfolio_id, period, limit=5)
-        worst_performers = self.get_top_performers(
+        top_performers = await self.get_top_performers(portfolio_id, period, limit=5)
+        worst_performers = await self.get_top_performers(
             portfolio_id, period, limit=5, ascending=True
         )
         
@@ -175,9 +175,9 @@ class InsightsService:
         
         return insights
     
-    def get_asset_allocation(self, portfolio_id: int) -> List[AssetAllocation]:
+    async def get_asset_allocation(self, portfolio_id: int) -> List[AssetAllocation]:
         """Get current asset allocation breakdown"""
-        positions = self.metrics_service.get_positions(portfolio_id)
+        positions = await self.metrics_service.get_positions(portfolio_id)
         
         total_value = sum(
             p.market_value for p in positions if p.market_value
@@ -200,9 +200,9 @@ class InsightsService:
         allocations.sort(key=lambda x: x.value, reverse=True)
         return allocations
     
-    def get_sector_allocation(self, portfolio_id: int) -> List[SectorAllocation]:
+    async def get_sector_allocation(self, portfolio_id: int) -> List[SectorAllocation]:
         """Get sector allocation breakdown"""
-        positions = self.metrics_service.get_positions(portfolio_id)
+        positions = await self.metrics_service.get_positions(portfolio_id)
         
         sector_data: Dict[str, Dict] = {}
         total_value = Decimal(0)
@@ -237,9 +237,9 @@ class InsightsService:
         allocations.sort(key=lambda x: x.value, reverse=True)
         return allocations
     
-    def get_geographic_allocation(self, portfolio_id: int) -> List[GeographicAllocation]:
+    async def get_geographic_allocation(self, portfolio_id: int) -> List[GeographicAllocation]:
         """Get geographic allocation breakdown"""
-        positions = self.metrics_service.get_positions(portfolio_id)
+        positions = await self.metrics_service.get_positions(portfolio_id)
         
         country_data: Dict[str, Dict] = {}
         total_value = Decimal(0)
@@ -553,7 +553,7 @@ class InsightsService:
             correlation=correlation
         )
     
-    def get_top_performers(
+    async def get_top_performers(
         self, 
         portfolio_id: int, 
         period: str,
@@ -561,7 +561,7 @@ class InsightsService:
         ascending: bool = False
     ) -> List[TopPerformer]:
         """Get top (or worst) performing assets"""
-        positions = self.metrics_service.get_positions(portfolio_id)
+        positions = await self.metrics_service.get_positions(portfolio_id)
         
         performers = []
         for pos in positions:

@@ -59,7 +59,7 @@ async def get_portfolio_insights(
     insights_service = InsightsService(db)
     
     try:
-        return insights_service.get_portfolio_insights(
+        return await insights_service.get_portfolio_insights(
             portfolio_id=portfolio_id,
             period=period,
             benchmark_symbol=benchmark
