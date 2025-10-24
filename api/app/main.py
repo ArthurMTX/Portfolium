@@ -104,7 +104,7 @@ app.include_router(prices.router, prefix="/prices", tags=["prices"])
 app.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 app.include_router(notifications.router, tags=["notifications"])
 app.include_router(insights.router, prefix="/insights", tags=["insights"])
-app.include_router(logs.router, prefix="/logs", tags=["logs"])
+app.include_router(logs.router, prefix="/admin", tags=["admin"])
 
 
 @app.get("/")

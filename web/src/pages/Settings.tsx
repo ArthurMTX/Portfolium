@@ -1,19 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Zap, AlertTriangle, Shield, FileText, Settings as SettingsIcon, Bell } from 'lucide-react'
+import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell } from 'lucide-react'
 import api from '../lib/api'
-import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 
-interface LogEntry {
-  logs: string[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
-
-type SettingsTab = 'general' | 'notifications' | 'validation' | 'logs' | 'danger';
+type SettingsTab = 'general' | 'notifications' | 'validation' | 'danger';
 
 export default function Settings() {
   const { user, refreshUser } = useAuth()
@@ -36,15 +26,6 @@ export default function Settings() {
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
-  // Logs state
-  const [logs, setLogs] = useState<string[]>([])
-  const [logsTotal, setLogsTotal] = useState(0)
-  const [logsPage, setLogsPage] = useState(1)
-  const [logsPageSize, setLogsPageSize] = useState(50)
-  const [logsLevel, setLogsLevel] = useState<string>("")
-  const [logsSearch, setLogsSearch] = useState("")
-  const [logsLoading, setLogsLoading] = useState(false)
 
   // Notification settings
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
@@ -131,34 +112,6 @@ export default function Settings() {
     }
   }
 
-  // Logs functions
-  const fetchLogs = async () => {
-    setLogsLoading(true)
-    try {
-      const params: Record<string, string | number> = { page: logsPage, page_size: logsPageSize }
-      if (logsLevel) params.level = logsLevel
-      if (logsSearch) params.search = logsSearch
-      const res = await axios.get<LogEntry>(`/api/logs/logs`, { params })
-      console.log('Logs response:', res.data) // Debug log
-      const logsArr = Array.isArray(res.data.logs) ? res.data.logs : []
-      setLogs(logsArr)
-      setLogsTotal(typeof res.data.total === 'number' ? res.data.total : 0)
-    } catch (err) {
-      console.error('Failed to fetch logs:', err) // Debug log
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch logs.'
-      setLogs([`Error: ${errorMessage}`])
-      setLogsTotal(0)
-    }
-    setLogsLoading(false)
-  }
-
-  useEffect(() => {
-    if (activeTab === 'logs') {
-      fetchLogs()
-    }
-    // eslint-disable-next-line
-  }, [logsPage, logsPageSize, logsLevel, activeTab])
-
   const handleDeleteAll = async () => {
     setError(null)
     setResult(null)
@@ -178,7 +131,6 @@ export default function Settings() {
   }
 
   const canDelete = confirmText.toLowerCase().trim() === 'delete'
-  const logsTotalPages = Math.ceil(logsTotal / logsPageSize)
 
   return (
     <div className="space-y-6">
@@ -228,17 +180,6 @@ export default function Settings() {
           >
             <Shield size={14} className="inline mr-1" />
             Validation
-          </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'logs'
-                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
-          >
-            <FileText size={14} className="inline mr-1" />
-            Logs
           </button>
           <button
             onClick={() => setActiveTab('danger')}
@@ -495,96 +436,6 @@ export default function Settings() {
             </div>
           </div>
         )}
-        </div>
-      )}
-
-      {/* Logs Tab */}
-      {activeTab === 'logs' && (
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-              <FileText size={20} className="text-pink-600 dark:text-pink-400" />
-              API Logs
-            </h2>
-            <button
-              className="btn btn-secondary text-sm"
-              onClick={() => fetchLogs()}
-              disabled={logsLoading}
-            >
-              {logsLoading ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mb-4">
-            <select
-              className="input text-sm"
-              value={logsLevel}
-              onChange={e => { setLogsLevel(e.target.value); setLogsPage(1); }}
-            >
-              <option value="">All Levels</option>
-              {LOG_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <input
-              className="input text-sm"
-              placeholder="Search logs..."
-              value={logsSearch}
-              onChange={e => setLogsSearch(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") fetchLogs(); }}
-            />
-            <button
-              className="btn btn-primary text-sm"
-              onClick={() => { setLogsPage(1); fetchLogs(); }}
-            >
-              Search
-            </button>
-            <select
-              className="input text-sm"
-              value={logsPageSize}
-              onChange={e => { setLogsPageSize(Number(e.target.value)); setLogsPage(1); }}
-            >
-              {[25, 50, 100, 200, 500].map(size => (
-                <option key={size} value={size}>{size} per page</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="bg-black text-green-200 font-mono text-xs rounded p-2 h-[600px] overflow-auto border border-neutral-700">
-            {logsLoading ? (
-              <div className="text-yellow-300">Loading logs...</div>
-            ) : !Array.isArray(logs) || logs.length === 0 ? (
-              <div>
-                <div className="text-yellow-300">No logs found.</div>
-                <div className="text-neutral-400 mt-2">
-                  {logsTotal === 0 && 'The log file may be empty or does not exist yet.'}
-                </div>
-                <div className="text-neutral-400 mt-1">
-                  Check the browser console for any errors.
-                </div>
-              </div>
-            ) : (
-              logs.map((log, idx) => <div key={idx}>{log}</div>)
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2 mt-4">
-            <button
-              className="btn btn-secondary text-sm disabled:opacity-50"
-              onClick={() => setLogsPage(p => Math.max(1, p - 1))}
-              disabled={logsPage === 1}
-            >
-              Prev
-            </button>
-            <span className="text-sm text-neutral-600 dark:text-neutral-400">
-              Page {logsPage} of {logsTotalPages || 1}
-            </span>
-            <button
-              className="btn btn-secondary text-sm disabled:opacity-50"
-              onClick={() => setLogsPage(p => Math.min(logsTotalPages, p + 1))}
-              disabled={logsPage === logsTotalPages || logsTotalPages === 0}
-            >
-              Next
-            </button>
-          </div>
         </div>
       )}
 

@@ -2,7 +2,16 @@ import React, { useEffect, useState } from "react";
 import { useAuth, User } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import api from "../lib/api";
-import { PlusCircle, Users as UsersIcon, X } from 'lucide-react'
+import { PlusCircle, Users as UsersIcon, X, FileText } from 'lucide-react'
+
+interface LogEntry {
+  logs: string[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 
 type NewUser = {
   email: string;
@@ -16,6 +25,7 @@ type NewUser = {
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +48,18 @@ const AdminDashboard: React.FC = () => {
   type SortKey = 'id' | 'email' | 'username' | 'created_at';
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Logs state
+  const [logs, setLogs] = useState<string[]>([])
+  const [logsTotal, setLogsTotal] = useState(0)
+  const [logsPage, setLogsPage] = useState(1)
+  const [logsPageSize, setLogsPageSize] = useState(50)
+  const [logsLevel, setLogsLevel] = useState<string>("")
+  const [logsSearch, setLogsSearch] = useState("")
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [logsAutoRefresh, setLogsAutoRefresh] = useState(false)
+  const [logsRefreshInterval, setLogsRefreshInterval] = useState(5) // seconds
+  const [logsManualRefresh, setLogsManualRefresh] = useState(false) // Track manual refresh only
 
   const loadUsers = async () => {
     setLoading(true);
@@ -137,7 +159,7 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setCreating(false);
     }
-  };
+  }
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -147,6 +169,66 @@ const AdminDashboard: React.FC = () => {
       setSortDir('asc');
     }
   }
+
+  // Logs functions
+  const fetchLogs = async (isManual: boolean = false) => {
+    setLogsLoading(true)
+    if (isManual) setLogsManualRefresh(true)
+    try {
+      const params: Record<string, string | number> = { page: logsPage, page_size: logsPageSize }
+      if (logsLevel) params.level = logsLevel
+      if (logsSearch) params.search = logsSearch
+      
+      // Build query string manually
+      const queryParams = new URLSearchParams()
+      Object.entries(params).forEach(([key, value]) => {
+        queryParams.append(key, String(value))
+      })
+      
+      const url = `/api/admin/logs?${queryParams.toString()}`
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch logs: ${response.statusText}`)
+      }
+      
+      const res: LogEntry = await response.json()
+      const logsArr = Array.isArray(res.logs) ? res.logs : []
+      setLogs(logsArr)
+      setLogsTotal(typeof res.total === 'number' ? res.total : 0)
+    } catch (err) {
+      console.error('Failed to fetch logs:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch logs.'
+      setLogs([`Error: ${errorMessage}`])
+      setLogsTotal(0)
+    }
+    setLogsLoading(false)
+    if (isManual) setLogsManualRefresh(false)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      fetchLogs()
+    }
+    // eslint-disable-next-line
+  }, [logsPage, logsPageSize, logsLevel, activeTab])
+
+  // Auto-refresh logs
+  useEffect(() => {
+    if (activeTab === 'logs' && logsAutoRefresh) {
+      const interval = setInterval(() => {
+        fetchLogs()
+      }, logsRefreshInterval * 1000)
+      
+      return () => clearInterval(interval)
+    }
+    // eslint-disable-next-line
+  }, [logsAutoRefresh, logsRefreshInterval, activeTab])
 
   if (!(user?.is_admin || user?.is_superuser)) return <Navigate to="/" />;
   
@@ -172,6 +254,8 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
+  const logsTotalPages = Math.ceil(logsTotal / logsPageSize)
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -182,28 +266,59 @@ const AdminDashboard: React.FC = () => {
             Admin
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Manage users and permissions
+            Manage users, permissions, and view system logs
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button
-            onClick={loadUsers}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-          >
-            Refresh
-          </button>
-          <button
-            onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
-          >
-            <PlusCircle size={18} />
-            New User
-          </button>
-        </div>
+        {activeTab === 'users' && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button
+              onClick={loadUsers}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+            >
+              <PlusCircle size={18} />
+              New User
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Users Table */}
-      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+      {/* Tabs */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-2 sm:gap-4 min-w-max">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'users'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <UsersIcon size={14} className="inline mr-1" />
+            Users
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'logs'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <FileText size={14} className="inline mr-1" />
+            Logs
+          </button>
+        </nav>
+      </div>
+
+      {/* Users Tab */}
+      {activeTab === 'users' && (
+        <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
           {/* Search / Filters */}
           <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex flex-wrap gap-3 items-center">
             <input
@@ -366,6 +481,124 @@ const AdminDashboard: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Logs Tab */}
+      {activeTab === 'logs' && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+              <FileText size={20} className="text-pink-600 dark:text-pink-400" />
+              API Logs
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn btn-secondary text-sm"
+                onClick={() => fetchLogs(true)}
+                disabled={logsManualRefresh}
+              >
+                {logsManualRefresh ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 mb-4 items-center">
+            <select
+              className="input text-sm"
+              value={logsLevel}
+              onChange={e => { setLogsLevel(e.target.value); setLogsPage(1); }}
+            >
+              <option value="">All Levels</option>
+              {LOG_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <input
+              className="input text-sm"
+              placeholder="Search logs..."
+              value={logsSearch}
+              onChange={e => setLogsSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") fetchLogs(); }}
+            />
+            <button
+              className="btn btn-primary text-sm"
+              onClick={() => { setLogsPage(1); fetchLogs(true); }}
+            >
+              Search
+            </button>
+            <select
+              className="input text-sm"
+              value={logsPageSize}
+              onChange={e => { setLogsPageSize(Number(e.target.value)); setLogsPage(1); }}
+            >
+              {[25, 50, 100, 200, 500].map(size => (
+                <option key={size} value={size}>{size} per page</option>
+              ))}
+            </select>
+            
+            {/* Auto-refresh controls */}
+            <div className="flex items-center gap-2 ml-auto">
+              <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={logsAutoRefresh}
+                  onChange={(e) => setLogsAutoRefresh(e.target.checked)}
+                  className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                />
+                Auto-refresh
+              </label>
+              <select
+                className="input text-sm w-24"
+                value={logsRefreshInterval}
+                onChange={(e) => setLogsRefreshInterval(Number(e.target.value))}
+                disabled={!logsAutoRefresh}
+              >
+                <option value="2">2s</option>
+                <option value="5">5s</option>
+                <option value="10">10s</option>
+                <option value="30">30s</option>
+                <option value="60">1m</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="bg-black text-green-200 font-mono text-xs rounded p-2 h-[600px] overflow-auto border border-neutral-700">
+            {logsLoading && logs.length === 0 ? (
+              <div className="text-yellow-300">Loading logs...</div>
+            ) : !Array.isArray(logs) || logs.length === 0 ? (
+              <div>
+                <div className="text-yellow-300">No logs found.</div>
+                <div className="text-neutral-400 mt-2">
+                  {logsTotal === 0 && 'The log file may be empty or does not exist yet.'}
+                </div>
+                <div className="text-neutral-400 mt-1">
+                  Check the browser console for any errors.
+                </div>
+              </div>
+            ) : (
+              logs.map((log, idx) => <div key={idx}>{log}</div>)
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2 mt-4">
+            <button
+              className="btn btn-secondary text-sm disabled:opacity-50"
+              onClick={() => setLogsPage(p => Math.max(1, p - 1))}
+              disabled={logsPage === 1}
+            >
+              Prev
+            </button>
+            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+              Page {logsPage} of {logsTotalPages || 1}
+            </span>
+            <button
+              className="btn btn-secondary text-sm disabled:opacity-50"
+              onClick={() => setLogsPage(p => Math.min(logsTotalPages, p + 1))}
+              disabled={logsPage === logsTotalPages || logsTotalPages === 0}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create User Modal */}
       {isCreateOpen && (

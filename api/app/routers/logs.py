@@ -1,11 +1,16 @@
 """
 Logs API router for Portfolium
 """
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 import os
 import re
 from typing import List, Optional
+
+from app.auth import get_current_admin_user
+from app.models import User
+from app.db import get_db
 
 # Go up from app/routers/logs.py -> app/routers -> app -> api (project root), then to logs/app.log
 LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs', 'app.log')
@@ -17,9 +22,11 @@ def get_logs(
     level: Optional[str] = Query(None, description="Log level to filter (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
     search: Optional[str] = Query(None, description="Search string in log messages"),
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=500, description="Logs per page")
+    page_size: int = Query(50, ge=1, le=500, description="Logs per page"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
 ):
-    """Fetch logs from the log file with optional filtering and pagination."""
+    """Fetch logs from the log file with optional filtering and pagination (admin only)."""
     if not os.path.exists(LOG_FILE):
         raise HTTPException(status_code=404, detail="Log file not found.")
     
