@@ -52,6 +52,60 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     })
   }, [positions])
 
+  // Grid-based treemap layout algorithm
+  const layoutTiles = useMemo(() => {
+    if (positions.length === 0) return []
+    
+    const tiles = sortedPositions.map(p => ({
+      ...p,
+      value: Number(p.market_value) || 0,
+      percentage: totalValue > 0 ? ((Number(p.market_value) || 0) / totalValue) * 100 : 0
+    }))
+
+    // Calculate grid spans based on percentage (12-column grid)
+    return tiles.map(tile => {
+      const pct = tile.percentage
+      
+      let colSpan: number
+      let rowSpan: number
+      let minHeight: string
+      
+      // Map percentage to grid spans (total 12 columns)
+      if (pct >= 20) {
+        colSpan = 6  // 50% width
+        rowSpan = 2
+        minHeight = '180px'
+      } else if (pct >= 12) {
+        colSpan = 4  // 33% width
+        rowSpan = 2
+        minHeight = '160px'
+      } else if (pct >= 8) {
+        colSpan = 3  // 25% width
+        rowSpan = 2
+        minHeight = '140px'
+      } else if (pct >= 5) {
+        colSpan = 3  // 25% width
+        rowSpan = 1
+        minHeight = '110px'
+      } else if (pct >= 2.5) {
+        colSpan = 2  // 16.6% width
+        rowSpan = 1
+        minHeight = '90px'
+      } else {
+        colSpan = 2  // 16.6% width
+        rowSpan = 1
+        minHeight = '80px'
+      }
+
+      return {
+        ...tile,
+        colSpan,
+        rowSpan,
+        minHeight
+      }
+    })
+  }, [sortedPositions, totalValue, positions.length])
+
   const getColorByPerformance = (pnlPct: number | null): string => {
     if (pnlPct === null || pnlPct === undefined) return 'bg-neutral-200 dark:bg-neutral-700'
     
@@ -110,18 +164,36 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
         </div>
 
         {/* Heatmap Grid Skeleton */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+        <div className="grid grid-cols-12 gap-2 auto-rows-auto">
+          {[
+            { colSpan: 6, rowSpan: 2, height: '180px' },
+            { colSpan: 4, rowSpan: 2, height: '160px' },
+            { colSpan: 3, rowSpan: 2, height: '140px' },
+            { colSpan: 3, rowSpan: 1, height: '110px' },
+            { colSpan: 3, rowSpan: 1, height: '110px' },
+            { colSpan: 3, rowSpan: 1, height: '110px' },
+            { colSpan: 2, rowSpan: 1, height: '90px' },
+            { colSpan: 2, rowSpan: 1, height: '90px' },
+            { colSpan: 2, rowSpan: 1, height: '90px' },
+            { colSpan: 2, rowSpan: 1, height: '90px' },
+            { colSpan: 2, rowSpan: 1, height: '90px' },
+            { colSpan: 2, rowSpan: 1, height: '90px' },
+          ].map((skeleton, i) => (
             <div
               key={i}
-              className={`${i === 1 ? 'col-span-2 row-span-2 min-h-[160px]' : i === 2 ? 'col-span-2 min-h-[100px]' : 'min-h-[80px]'} bg-neutral-100 dark:bg-neutral-800 rounded-lg p-3 animate-pulse`}
+              style={{ 
+                gridColumn: `span ${skeleton.colSpan}`,
+                gridRow: `span ${skeleton.rowSpan}`,
+                minHeight: skeleton.height 
+              }}
+              className="bg-neutral-100 dark:bg-neutral-800 rounded-lg p-3 animate-pulse"
             >
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className={`${i === 1 ? 'w-10 h-10' : i === 2 ? 'w-8 h-8' : 'w-6 h-6'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
-                  <div className={`${i === 1 ? 'h-5 w-16' : i === 2 ? 'h-4 w-14' : 'h-3 w-12'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                  <div className={`${i === 0 ? 'w-12 h-12' : i <= 2 ? 'w-10 h-10' : i <= 5 ? 'w-8 h-8' : 'w-6 h-6'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                  <div className={`${i === 0 ? 'h-6 w-20' : i <= 2 ? 'h-5 w-16' : i <= 5 ? 'h-4 w-14' : 'h-3 w-12'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
                 </div>
-                <div className={`${i === 1 ? 'h-3 w-24' : 'h-3 w-20'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                <div className={`${i === 0 ? 'h-4 w-32' : i <= 2 ? 'h-3 w-24' : 'h-3 w-20'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
               </div>
             </div>
           ))}
@@ -165,38 +237,37 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
         </div>
       </div>
 
-      {/* Heatmap Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-        {sortedPositions.map((position) => {
-          const marketValue = Number(position.market_value) || 0
-          const percentage = totalValue > 0 ? (marketValue / totalValue) * 100 : 0
-          const dailyPct = position.daily_change_pct !== null ? Number(position.daily_change_pct) : null
+      {/* Heatmap Grid Layout */}
+      <div className="grid grid-cols-12 gap-2 auto-rows-auto">
+        {layoutTiles.map((tile) => {
+          const dailyPct = tile.daily_change_pct !== null ? Number(tile.daily_change_pct) : null
           
-          // Calculate relative size for the cell (min size + proportional)
-          const isLarge = percentage > 15
-          const isMedium = percentage > 8 && percentage <= 15
-          const sizeClass = isLarge ? 'col-span-2 row-span-2' : 
-                           isMedium ? 'col-span-2' : ''
+          // Scale text and logo based on span size
+          const isXL = tile.colSpan >= 6 || tile.rowSpan >= 2
+          const isLarge = tile.colSpan >= 4 || (tile.colSpan >= 3 && tile.rowSpan >= 2)
+          const isMedium = tile.colSpan >= 3
           
-          // Scale text and logo based on cell size
-          const logoSize = isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-6 h-6'
-          const symbolSize = isLarge ? 'text-lg' : isMedium ? 'text-base' : 'text-sm'
-          const nameSize = isLarge ? 'text-xs' : isMedium ? 'text-[11px]' : 'text-[10px]'
-          const percentageSize = isLarge ? 'text-sm' : isMedium ? 'text-xs' : 'text-xs'
-          const dailySize = isLarge ? 'text-sm' : isMedium ? 'text-xs' : 'text-xs'
-          const minHeight = isLarge ? 'min-h-[160px]' : isMedium ? 'min-h-[100px]' : 'min-h-[80px]'
-          const padding = isLarge ? 'p-4' : isMedium ? 'p-3' : 'p-3'
+          const logoSize = isXL ? 'w-12 h-12' : isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-6 h-6'
+          const symbolSize = isXL ? 'text-xl' : isLarge ? 'text-lg' : isMedium ? 'text-base' : 'text-sm'
+          const nameSize = isXL ? 'text-sm' : isLarge ? 'text-xs' : isMedium ? 'text-[11px]' : 'text-[10px]'
+          const valueSize = isXL ? 'text-base' : isLarge ? 'text-sm' : 'text-xs'
+          const padding = isXL ? 'p-4' : isLarge ? 'p-3.5' : isMedium ? 'p-3' : 'p-2.5'
 
           return (
             <div
-              key={position.symbol}
-              className={`${sizeClass} ${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg ${padding} transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between ${minHeight}`}
-              title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% of portfolio, Daily: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
+              key={tile.symbol}
+              style={{
+                gridColumn: `span ${tile.colSpan}`,
+                gridRow: `span ${tile.rowSpan}`,
+                minHeight: tile.minHeight,
+              }}
+              className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg ${padding} transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
+              title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% of portfolio, Daily: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
             >
               <div className="flex items-center gap-2">
                 <img 
-                  src={getAssetLogoUrl(position)}
-                  alt={`${position.symbol} logo`}
+                  src={getAssetLogoUrl(tile)}
+                  alt={`${tile.symbol} logo`}
                   className={`${logoSize} object-contain flex-shrink-0`}
                   onLoad={(e) => {
                     const img = e.currentTarget as HTMLImageElement
@@ -231,9 +302,9 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                     if (!img.dataset.resolverTried) {
                       img.dataset.resolverTried = 'true'
                       const params = new URLSearchParams()
-                      if (position.name) params.set('name', position.name)
-                      if (position.asset_type) params.set('asset_type', position.asset_type)
-                      fetch(`/api/assets/logo/${position.symbol}?${params.toString()}`, { redirect: 'follow' })
+                      if (tile.name) params.set('name', tile.name)
+                      if (tile.asset_type) params.set('asset_type', tile.asset_type)
+                      fetch(`/api/assets/logo/${tile.symbol}?${params.toString()}`, { redirect: 'follow' })
                         .then((res) => {
                           if (res.redirected) {
                             img.src = res.url
@@ -253,17 +324,17 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                     }
                   }}
                 />
-                <div className={`font-bold ${symbolSize} truncate`}>{position.symbol}</div>
+                <div className={`font-bold ${symbolSize} truncate`}>{tile.symbol}</div>
               </div>
-              {position.name && (
-                <div className={`${nameSize} opacity-75 truncate mt-1`}>{position.name}</div>
+              {tile.name && (
+                <div className={`${nameSize} opacity-75 truncate mt-1`}>{tile.name}</div>
               )}
               <div className="mt-auto">
-                <div className={`${percentageSize} opacity-90`}>
-                  <span className="opacity-60">Weight: </span>{percentage.toFixed(1)}%
+                <div className={`${valueSize} opacity-90`}>
+                  <span className="opacity-60">Weight: </span>{tile.percentage.toFixed(1)}%
                 </div>
                 {dailyPct !== null && (
-                  <div className={`${dailySize} font-semibold`}>
+                  <div className={`${valueSize} font-semibold`}>
                     <span className="opacity-60">Daily: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
                   </div>
                 )}
