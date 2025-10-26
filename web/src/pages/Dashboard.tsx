@@ -14,6 +14,7 @@ export default function Dashboard() {
     activePortfolioId,
     positions,
     metrics,
+    loading,
     setPortfolios,
     setActivePortfolio,
     setPositions,
@@ -23,6 +24,8 @@ export default function Dashboard() {
 
   const [refreshing, setRefreshing] = useState(false)
   const [soldPositions, setSoldPositions] = useState<PositionDTO[]>([])
+  const [soldPositionsLoading, setSoldPositionsLoading] = useState(false)
+  const [soldPositionsLoaded, setSoldPositionsLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState<PositionsTab>('current')
 
 
@@ -83,6 +86,14 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePortfolioId])
 
+  // Load sold positions when user switches to the sold tab
+  useEffect(() => {
+    if (activeTab === 'sold' && activePortfolioId && !soldPositionsLoaded) {
+      loadSoldPositions(activePortfolioId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activePortfolioId])
+
   const loadData = async () => {
     try {
       const portfoliosData = await api.getPortfolios()
@@ -98,18 +109,34 @@ export default function Dashboard() {
   const loadPortfolioData = async (portfolioId: number) => {
     setLoading(true)
     try {
-      const [positionsData, metricsData, soldPositionsData] = await Promise.all([
+      const [positionsData, metricsData] = await Promise.all([
         api.getPortfolioPositions(portfolioId),
         api.getPortfolioMetrics(portfolioId),
-        api.getSoldPositions(portfolioId),
       ])
       setPositions(positionsData)
       setMetrics(metricsData)
-      setSoldPositions(soldPositionsData)
+      // Reset sold positions when switching portfolios
+      setSoldPositions([])
+      setSoldPositionsLoaded(false)
     } catch (error) {
       console.error('Failed to load portfolio data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSoldPositions = async (portfolioId: number) => {
+    if (soldPositionsLoaded) return // Already loaded
+    
+    setSoldPositionsLoading(true)
+    try {
+      const soldPositionsData = await api.getSoldPositions(portfolioId)
+      setSoldPositions(soldPositionsData)
+      setSoldPositionsLoaded(true)
+    } catch (error) {
+      console.error('Failed to load sold positions:', error)
+    } finally {
+      setSoldPositionsLoading(false)
     }
   }
 
@@ -166,6 +193,99 @@ export default function Dashboard() {
   // Show empty portfolio prompt if no portfolios exist
   if (portfolios.length === 0) {
     return <EmptyPortfolioPrompt pageType="dashboard" />
+  }
+
+  // Show loading skeleton for initial portfolio data load
+  if (loading && !metrics) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+              <LayoutDashboard className="text-pink-600" size={28} />
+              Dashboard
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
+              Loading your portfolio data...
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="h-8 w-20 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+            <div className="h-10 w-20 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+            <div className="h-10 w-24 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Portfolio Selector Skeleton */}
+        <div className="card p-4">
+          <div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-700 rounded mb-2 animate-pulse"></div>
+          <div className="h-10 w-full max-w-md bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
+        </div>
+
+        {/* Metrics Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card p-4 sm:p-6 animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                  <div className="h-8 w-28 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                  <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-neutral-200 dark:bg-neutral-700 rounded-full"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Positions Table Skeleton */}
+        <div>
+          <div className="flex items-center gap-4 mb-4 border-b border-neutral-200 dark:border-neutral-700">
+            <div className="h-10 w-48 bg-neutral-200 dark:bg-neutral-700 rounded-t animate-pulse"></div>
+            <div className="h-10 w-48 bg-neutral-200 dark:bg-neutral-700 rounded-t animate-pulse"></div>
+          </div>
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Asset</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Quantity</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Avg Cost</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Price</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Value</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">P&L</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">P&L %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          <div className="space-y-2">
+                            <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                            <div className="h-3 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -390,6 +510,18 @@ export default function Dashboard() {
         {/* Tab Content */}
         {activeTab === 'current' ? (
           <PositionsTable positions={positions} />
+        ) : soldPositionsLoading ? (
+          <div className="card p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <RefreshCw className="mx-auto h-12 w-12 text-pink-600 animate-spin mb-4" />
+              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
+                Loading sold positions...
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Calculating realized P&L for your historical trades
+              </p>
+            </div>
+          </div>
         ) : soldPositions.length > 0 ? (
           <PositionsTable positions={soldPositions} isSold={true} />
         ) : (

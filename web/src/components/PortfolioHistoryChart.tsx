@@ -115,8 +115,9 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
       </div>
       <div style={{ minHeight: 320 }} className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-4">
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <span className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></span>
+          <div className="space-y-4 animate-pulse">
+            <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+            <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded"></div>
           </div>
         ) : history.length === 0 ? (
           <div className="text-neutral-400 text-center py-12">No data to display.</div>

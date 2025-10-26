@@ -317,9 +317,84 @@ export default function Insights() {
 
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
-        <p className="mt-4 text-neutral-600 dark:text-neutral-400">Loading insights...</p>
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+              <TrendingUp className="text-pink-600" size={28} />
+              Portfolio Insights
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
+              Analyzing your portfolio performance...
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <div className="h-10 w-28 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+            <div className="h-10 w-32 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* KPI Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card p-6 animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="space-y-3 flex-1">
+                  <div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                  <div className="h-8 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                  <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                </div>
+                <div className="w-12 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-full"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Benchmark Chart Skeleton */}
+        <div className="card p-6">
+          <div className="h-6 w-64 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
+          <div className="h-80 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+        </div>
+
+        {/* Risk Metrics Skeleton */}
+        <div className="card p-6">
+          <div className="h-6 w-40 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2 animate-pulse">
+                <div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                <div className="h-6 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Performers Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2].map((i) => (
+            <div key={i} className="card p-6">
+              <div className="h-6 w-40 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                        <div className="h-3 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div>
+                      <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

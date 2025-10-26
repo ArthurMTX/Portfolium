@@ -82,9 +82,32 @@ export default function Charts() {
 
   if (checkingTransactions) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
-        <p className="mt-4 text-neutral-600 dark:text-neutral-400">Loading...</p>
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <LineChart className="text-pink-600" size={32} />
+              Portfolio Charts
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+              Loading your portfolio data...
+            </p>
+          </div>
+          <div className="h-10 w-36 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+        </div>
+
+        {/* Heatmap Skeleton */}
+        <div className="card p-6">
+          <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
+          <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+        </div>
+
+        {/* Chart Skeleton */}
+        <div className="card p-6">
+          <div className="h-6 w-56 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
+          <div className="h-96 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+        </div>
       </div>
     )
   }
@@ -104,7 +127,7 @@ export default function Charts() {
             Portfolio Charts
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            Visualize your portfolio performance over time
+            Track your portfolio value and visualize asset allocation
           </p>
         </div>
         <button

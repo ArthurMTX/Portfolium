@@ -50,7 +50,10 @@ export default function Assets() {
   const [enriching, setEnriching] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('symbol');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [showSold, setShowSold] = useState(true);
+  const [showSold, setShowSold] = useState(() => {
+    const saved = localStorage.getItem('assets-show-sold');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
 
@@ -75,6 +78,10 @@ export default function Assets() {
   useEffect(() => {
     loadAssets();
   }, [loadAssets]);
+
+  useEffect(() => {
+    localStorage.setItem('assets-show-sold', JSON.stringify(showSold));
+  }, [showSold]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -476,8 +483,84 @@ export default function Assets() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+              <Package className="text-pink-600" size={28} />
+              Assets
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
+              Loading your assets...
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="h-10 w-32 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+            <div className="h-10 w-40 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Table Skeleton */}
+        <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Symbol</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Class</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Country</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Sector</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Industry</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Quantity</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Portfolios</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                        <div className="space-y-2">
+                          <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          <div className="h-3 w-12 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4"><div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-6 w-20 bg-neutral-200 dark:bg-neutral-700 rounded-full"></div></td>
+                    <td className="px-6 py-4"><div className="h-6 w-24 bg-neutral-200 dark:bg-neutral-700 rounded-full"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 w-28 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                    <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                    <td className="px-6 py-4 text-right"><div className="h-4 w-8 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                    <td className="px-6 py-4 text-right"><div className="h-4 w-12 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Charts Skeleton */}
+        <div className="pt-4">
+          <h2 className="text-xl font-semibold mb-4 text-neutral-900 dark:text-neutral-100">
+            Asset Distribution
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+              <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+            </div>
+            <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+              <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

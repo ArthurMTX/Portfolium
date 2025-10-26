@@ -87,9 +87,44 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-8">
-        <div className="flex justify-center items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-6">
+        <div className="mb-4 space-y-2 animate-pulse">
+          <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+          <div className="h-4 w-72 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+        </div>
+        
+        {/* Legend Skeleton */}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 animate-pulse">
+            <div className="w-4 h-4 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+            <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+          </div>
+          <div className="flex items-center gap-2 animate-pulse">
+            <div className="w-4 h-4 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+            <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+          </div>
+          <div className="flex items-center gap-2 animate-pulse">
+            <div className="w-4 h-4 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+            <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+          </div>
+        </div>
+
+        {/* Heatmap Grid Skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+            <div
+              key={i}
+              className={`${i === 1 ? 'col-span-2 row-span-2 min-h-[160px]' : i === 2 ? 'col-span-2 min-h-[100px]' : 'min-h-[80px]'} bg-neutral-100 dark:bg-neutral-800 rounded-lg p-3 animate-pulse`}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className={`${i === 1 ? 'w-10 h-10' : i === 2 ? 'w-8 h-8' : 'w-6 h-6'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                  <div className={`${i === 1 ? 'h-5 w-16' : i === 2 ? 'h-4 w-14' : 'h-3 w-12'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                </div>
+                <div className={`${i === 1 ? 'h-3 w-24' : 'h-3 w-20'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
