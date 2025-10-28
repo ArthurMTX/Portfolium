@@ -330,9 +330,6 @@ export default function Layout() {
           <div className="flex items-center gap-1 text-base font-semibold text-pink-600 dark:text-pink-400">
             Portfolium
           </div>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400">
-            © 2025 — Built with <span className="animate-pulse inline-block">💖</span>
-          </p>
           <a
             href="https://github.com/ArthurMTX/Portfolium"
             target="_blank"

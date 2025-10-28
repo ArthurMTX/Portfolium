@@ -798,7 +798,7 @@ export default function Watchlist() {
                           <>
                             <button
                               onClick={() => handleUpdate(item.id)}
-                              className="btn-success"
+                              className="btn-primary"
                             >
                               Save
                             </button>
@@ -813,24 +813,24 @@ export default function Watchlist() {
                           <>
                             <button
                               onClick={() => startEdit(item)}
-                              className="btn"
+                              className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
                               title="Edit"
                             >
-                              <Pencil size={18} />
+                              <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
                             </button>
                             <button
                               onClick={() => openConvertModal(item)}
-                              className="btn"
+                              className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
                               title="Convert to BUY"
                             >
-                              <ShoppingCart size={18} />
+                              <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(item.id)}
-                              className="btn"
+                              className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
                               title="Delete"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={18} className="text-red-600 dark:text-red-400" />
                             </button>
                           </>
                         )}
