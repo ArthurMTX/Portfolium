@@ -52,7 +52,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     })
   }, [positions])
 
-  // Grid-based treemap layout algorithm
+  // Improved treemap layout with better bin-packing
   const layoutTiles = useMemo(() => {
     if (positions.length === 0) return []
     
@@ -62,48 +62,145 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
       percentage: totalValue > 0 ? ((Number(p.market_value) || 0) / totalValue) * 100 : 0
     }))
 
-    // Calculate grid spans based on percentage (12-column grid)
-    return tiles.map(tile => {
+    // Calculate base spans based on percentage
+    type TileWithSpan = typeof tiles[0] & {
+      colSpan: number
+      rowSpan: number
+      minHeight: string
+      originalColSpan: number
+      placed: boolean
+    }
+
+    const tilesWithSpans: TileWithSpan[] = tiles.map(tile => {
       const pct = tile.percentage
       
       let colSpan: number
       let rowSpan: number
       let minHeight: string
       
-      // Map percentage to grid spans (total 12 columns)
-      if (pct >= 20) {
+      // Stricter size mapping to prevent oversizing
+      if (pct >= 25) {
         colSpan = 6  // 50% width
         rowSpan = 2
         minHeight = '180px'
-      } else if (pct >= 12) {
+      } else if (pct >= 15) {
         colSpan = 4  // 33% width
         rowSpan = 2
         minHeight = '160px'
-      } else if (pct >= 8) {
-        colSpan = 3  // 25% width
-        rowSpan = 2
-        minHeight = '140px'
-      } else if (pct >= 5) {
+      } else if (pct >= 10) {
+        colSpan = 4  // 33% width
+        rowSpan = 1
+        minHeight = '120px'
+      } else if (pct >= 6) {
         colSpan = 3  // 25% width
         rowSpan = 1
         minHeight = '110px'
-      } else if (pct >= 2.5) {
+      } else if (pct >= 3) {
         colSpan = 2  // 16.6% width
         rowSpan = 1
         minHeight = '90px'
-      } else {
+      } else if (pct >= 1.5) {
         colSpan = 2  // 16.6% width
         rowSpan = 1
         minHeight = '80px'
+      } else {
+        colSpan = 1  // 8.3% width - very small positions
+        rowSpan = 1
+        minHeight = '70px'
       }
 
       return {
         ...tile,
         colSpan,
         rowSpan,
-        minHeight
+        minHeight,
+        originalColSpan: colSpan,
+        placed: false
       }
     })
+
+    // Bin-packing algorithm to fill rows
+    const GRID_COLS = 12
+    const rows: TileWithSpan[][] = []
+    let currentRow: TileWithSpan[] = []
+    let currentRowCols = 0
+
+    // Sort by colSpan descending for better packing
+    const sortedForPacking = [...tilesWithSpans].sort((a, b) => b.colSpan - a.colSpan)
+
+    for (const tile of sortedForPacking) {
+      if (tile.placed) continue
+
+      const space = GRID_COLS - currentRowCols
+
+      if (tile.colSpan <= space) {
+        // Fits in current row
+        currentRow.push(tile)
+        currentRowCols += tile.colSpan
+        tile.placed = true
+
+        // Row is complete
+        if (currentRowCols === GRID_COLS) {
+          rows.push(currentRow)
+          currentRow = []
+          currentRowCols = 0
+        }
+      } else if (space > 0) {
+        // Try to find smaller tile that fits
+        const smallerTile = sortedForPacking.find(t => !t.placed && t.colSpan <= space)
+        if (smallerTile) {
+          currentRow.push(smallerTile)
+          currentRowCols += smallerTile.colSpan
+          smallerTile.placed = true
+
+          if (currentRowCols === GRID_COLS) {
+            rows.push(currentRow)
+            currentRow = []
+            currentRowCols = 0
+          }
+        } else {
+          // Expand last tile in row to fill gap, but only if it's not too small
+          if (currentRow.length > 0 && space <= 3) {
+            const lastTile = currentRow[currentRow.length - 1]
+            // Don't expand tiles that started very small (< 2% weight)
+            if (lastTile.percentage >= 2) {
+              lastTile.colSpan += space
+            }
+          }
+          rows.push(currentRow)
+          currentRow = []
+          currentRowCols = 0
+        }
+      } else {
+        // Start new row
+        if (currentRow.length > 0) {
+          rows.push(currentRow)
+        }
+        currentRow = [tile]
+        currentRowCols = tile.colSpan
+        tile.placed = true
+      }
+    }
+
+    // Add any remaining tiles
+    if (currentRow.length > 0) {
+      const remainingSpace = GRID_COLS - currentRowCols
+      if (remainingSpace > 0 && remainingSpace <= 4 && currentRow.length > 0) {
+        const lastTile = currentRow[currentRow.length - 1]
+        // Only expand if the tile has significant weight (>= 2%)
+        if (lastTile.percentage >= 2) {
+          lastTile.colSpan += remainingSpace
+        }
+      }
+      rows.push(currentRow)
+    }
+
+    // Flatten rows into final layout with row tracking
+    const layoutedTiles = rows.flatMap((row, rowIndex) =>
+      row.map(tile => ({ ...tile, row: rowIndex }))
+    )
+
+    return layoutedTiles
   }, [sortedPositions, totalValue, positions.length])
 
   const getColorByPerformance = (pnlPct: number | null): string => {
@@ -166,34 +263,46 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
         {/* Heatmap Grid Skeleton */}
         <div className="grid grid-cols-12 gap-2 auto-rows-auto">
           {[
-            { colSpan: 6, rowSpan: 2, height: '180px' },
-            { colSpan: 4, rowSpan: 2, height: '160px' },
-            { colSpan: 3, rowSpan: 2, height: '140px' },
-            { colSpan: 3, rowSpan: 1, height: '110px' },
-            { colSpan: 3, rowSpan: 1, height: '110px' },
-            { colSpan: 3, rowSpan: 1, height: '110px' },
-            { colSpan: 2, rowSpan: 1, height: '90px' },
-            { colSpan: 2, rowSpan: 1, height: '90px' },
-            { colSpan: 2, rowSpan: 1, height: '90px' },
-            { colSpan: 2, rowSpan: 1, height: '90px' },
-            { colSpan: 2, rowSpan: 1, height: '90px' },
-            { colSpan: 2, rowSpan: 1, height: '90px' },
+            { colSpan: 6, height: '180px' },
+            { colSpan: 4, height: '160px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 3, height: '110px' },
+            { colSpan: 3, height: '110px' },
+            { colSpan: 3, height: '110px' },
+            { colSpan: 3, height: '110px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 2, height: '90px' },
+            { colSpan: 1, height: '70px' },
+            { colSpan: 1, height: '70px' },
           ].map((skeleton, i) => (
             <div
               key={i}
               style={{ 
                 gridColumn: `span ${skeleton.colSpan}`,
-                gridRow: `span ${skeleton.rowSpan}`,
                 minHeight: skeleton.height 
               }}
-              className="bg-neutral-100 dark:bg-neutral-800 rounded-lg p-3 animate-pulse"
+              className="bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse overflow-hidden"
             >
-              <div className="space-y-2">
+              <div className={`${skeleton.colSpan >= 6 ? 'p-4' : skeleton.colSpan >= 4 ? 'p-3.5' : skeleton.colSpan >= 3 ? 'p-3' : skeleton.colSpan >= 2 ? 'p-2' : 'p-1.5'} h-full flex flex-col justify-between`}>
                 <div className="flex items-center gap-2">
-                  <div className={`${i === 0 ? 'w-12 h-12' : i <= 2 ? 'w-10 h-10' : i <= 5 ? 'w-8 h-8' : 'w-6 h-6'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
-                  <div className={`${i === 0 ? 'h-6 w-20' : i <= 2 ? 'h-5 w-16' : i <= 5 ? 'h-4 w-14' : 'h-3 w-12'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                  <div className={`${skeleton.colSpan >= 6 ? 'w-12 h-12' : skeleton.colSpan >= 4 ? 'w-10 h-10' : skeleton.colSpan >= 3 ? 'w-7 h-7' : skeleton.colSpan >= 2 ? 'w-5 h-5' : 'w-4 h-4'} bg-neutral-200 dark:bg-neutral-700 rounded flex-shrink-0`}></div>
+                  <div className={`${skeleton.colSpan >= 6 ? 'h-6 w-20' : skeleton.colSpan >= 4 ? 'h-5 w-16' : skeleton.colSpan >= 3 ? 'h-4 w-14' : skeleton.colSpan >= 2 ? 'h-3 w-12' : 'h-3 w-10'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
                 </div>
-                <div className={`${i === 0 ? 'h-4 w-32' : i <= 2 ? 'h-3 w-24' : 'h-3 w-20'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                {skeleton.colSpan >= 3 && (
+                  <div className={`${skeleton.colSpan >= 6 ? 'h-4 w-32' : skeleton.colSpan >= 4 ? 'h-3 w-24' : 'h-3 w-20'} bg-neutral-200 dark:bg-neutral-700 rounded mt-1`}></div>
+                )}
+                <div className="mt-auto space-y-1">
+                  <div className={`${skeleton.colSpan >= 4 ? 'h-3 w-20' : skeleton.colSpan >= 2 ? 'h-2 w-16' : 'h-2 w-12'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                  <div className={`${skeleton.colSpan >= 4 ? 'h-3 w-24' : skeleton.colSpan >= 2 ? 'h-2 w-18' : 'h-2 w-14'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
+                </div>
               </div>
             </div>
           ))}
