@@ -36,6 +36,7 @@ Receive notifications when watchlist assets reach target prices:
 Important system messages:
 
 - **Login**: New login to your account detected
+- **Daily Report Sent** 📊: Confirmation that your daily portfolio report was emailed
 - **System**: Important system updates or announcements
 
 ## Viewing Notifications
@@ -156,6 +157,32 @@ Each notification includes:
     - Quantity and price
     - Transaction date
 
+### Daily Portfolio Reports
+
+Receive comprehensive PDF reports via email with delivery confirmation:
+
+**Enable/Disable**
+
+- Toggle daily portfolio reports on or off
+- When enabled, receive PDF reports weekdays at 4:00 PM ET
+- When disabled, no reports are sent
+
+**What You'll Receive**
+
+- Beautiful PDF report emailed to your address
+- In-app notification confirming successful delivery
+- Report includes portfolio metrics, heatmap, holdings, and transactions
+
+**Report Details**
+
+- Sent Monday-Friday at 4:00 PM Eastern Time (market close)
+- No weekend reports (markets closed)
+- Notification includes report date and portfolio count
+- Email contains PDF attachment with comprehensive data
+
+!!! note "Confirmation Notifications"
+    When a daily report is successfully sent, you'll receive a system notification titled "📊 Daily Portfolio Report Sent" with details about the report date and delivery.
+
 ### Saving Settings
 
 After adjusting notification preferences:
@@ -202,6 +229,13 @@ Each notification displays:
 - Time of login
 - User agent (device/browser)
 
+### Daily Report Notification Details
+
+- Report date (e.g., "October 29, 2025")
+- Email address where report was sent
+- Number of portfolios included in the report
+- Confirmation of successful delivery
+
 ## Understanding Notification Behavior
 
 ### When Notifications Are Created
@@ -211,6 +245,14 @@ Each notification displays:
 - Created immediately when you add, edit, or delete transactions
 - One notification per transaction action
 - Requires transaction notifications to be enabled
+
+**Daily Report Notifications**
+
+- Created when daily portfolio report is successfully emailed
+- Sent weekdays at 4:00 PM ET (after market close)
+- Confirms report generation and email delivery
+- Includes report date and portfolio count metadata
+- Only if you have daily reports enabled in Settings
 
 **Daily Change Notifications**
 

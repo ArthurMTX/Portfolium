@@ -212,7 +212,7 @@ export default function Layout() {
                         <Link
                           to="/admin"
                           onClick={() => setUserMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover-bg-neutral-700 transition-colors"
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                         >
                           <ShieldCheck size={16} />
                           Admin Dashboard

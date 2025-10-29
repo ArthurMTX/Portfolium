@@ -211,6 +211,9 @@ async def update_current_user(
     
     if user_update.transaction_notifications_enabled is not None:
         current_user.transaction_notifications_enabled = user_update.transaction_notifications_enabled
+    
+    if user_update.daily_report_enabled is not None:
+        current_user.daily_report_enabled = user_update.daily_report_enabled
 
     # Persist changes
     db.commit()

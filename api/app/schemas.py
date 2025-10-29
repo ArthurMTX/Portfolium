@@ -65,6 +65,7 @@ class UserUpdate(BaseModel):
     daily_change_notifications_enabled: Optional[bool] = None
     daily_change_threshold_pct: Optional[Decimal] = Field(None, ge=0, le=100)
     transaction_notifications_enabled: Optional[bool] = None
+    daily_report_enabled: Optional[bool] = None
 
     @field_validator('email')
     @classmethod
@@ -122,6 +123,7 @@ class User(UserBase):
     daily_change_notifications_enabled: bool = True
     daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
     transaction_notifications_enabled: bool = True
+    daily_report_enabled: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -378,6 +380,8 @@ class PortfolioMetrics(BaseModel):
     total_dividends: Decimal
     total_fees: Decimal
     positions_count: int
+    daily_change_value: Optional[Decimal] = None
+    daily_change_pct: Optional[Decimal] = None
     last_updated: datetime
 
 

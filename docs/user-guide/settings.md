@@ -102,6 +102,36 @@ Get notified about transaction activity:
 - Transaction deletion notifications
 - Each includes asset symbol, quantity, price, and date
 
+### Daily Portfolio Reports
+
+Receive comprehensive PDF reports via email:
+
+**Enable Daily Portfolio Reports**
+
+- Toggle daily portfolio reports on or off
+- Reports sent weekdays at **4:00 PM ET** (after market close)
+- Receive a beautiful PDF with portfolio metrics, heatmap, and activity
+- Get an in-app notification confirming successful delivery
+
+**What's Included**
+
+- Portfolio summary with total value, cost, and P&L
+- Visual heatmap of daily performance (all positions)
+- Holdings table with daily changes and logos
+- Recent transaction activity with icons
+- Sent Monday-Friday, no weekend emails
+
+**Report Features**
+
+- Beautiful HTML-based PDF with pink gradient theme
+- Asset logos throughout (heatmap, holdings, transactions)
+- Color-coded P&L (green for gains, red for losses)
+- Grid-based heatmap matching web dashboard
+- Comprehensive metrics cards
+
+!!! tip "Email Required"
+    Daily reports require email configuration. Check your email inbox and spam folder. Reports are sent only on weekdays when markets are open.
+
 ### Saving Notification Settings
 
 After adjusting notification preferences:

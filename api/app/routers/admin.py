@@ -1,9 +1,11 @@
 """
 Admin and maintenance endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from pydantic import BaseModel, EmailStr
 
 from app.db import get_db
 from app.auth import get_password_hash
@@ -339,4 +341,431 @@ def clear_logo_cache(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to clear logo cache: {str(e)}"
         )
+
+
+# ================================
+# Email Configuration & Testing
+# ================================
+
+class EmailConfig(BaseModel):
+    """Email configuration schema"""
+    enable_email: bool
+    smtp_host: str
+    smtp_port: int
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None  # Optional for security (won't return in GET)
+    smtp_tls: bool
+    from_email: EmailStr
+    from_name: str
+    frontend_url: str
+
+
+class EmailConfigUpdate(BaseModel):
+    """Email configuration update schema"""
+    enable_email: Optional[bool] = None
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_tls: Optional[bool] = None
+    from_email: Optional[EmailStr] = None
+    from_name: Optional[str] = None
+    frontend_url: Optional[str] = None
+
+
+class EmailTestRequest(BaseModel):
+    """Email test request schema"""
+    to_email: EmailStr
+    test_type: str = "simple"  # simple, verification, password_reset, daily_report
+
+
+@router.get("/email/config", response_model=EmailConfig)
+def get_email_config(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Get current email configuration
+    
+    Returns the current SMTP settings from database. Password is masked for security.
+    """
+    # Get config from database
+    config = db.execute(text("SELECT * FROM config WHERE id = 1")).first()
+    
+    if config:
+        return EmailConfig(
+            enable_email=config.enable_email,
+            smtp_host=config.smtp_host,
+            smtp_port=config.smtp_port,
+            smtp_user=config.smtp_user,
+            smtp_password="********" if config.smtp_password else None,
+            smtp_tls=config.smtp_tls,
+            from_email=config.from_email,
+            from_name=config.from_name,
+            frontend_url=config.frontend_url
+        )
+    else:
+        # Fallback to settings if no config in database
+        return EmailConfig(
+            enable_email=settings.ENABLE_EMAIL,
+            smtp_host=settings.SMTP_HOST,
+            smtp_port=settings.SMTP_PORT,
+            smtp_user=settings.SMTP_USER,
+            smtp_password="********" if settings.SMTP_PASSWORD else None,
+            smtp_tls=settings.SMTP_TLS,
+            from_email=settings.FROM_EMAIL,
+            from_name=settings.FROM_NAME,
+            frontend_url=settings.FRONTEND_URL
+        )
+
+
+@router.patch("/email/config", response_model=EmailConfig)
+def update_email_config(
+    config_update: EmailConfigUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Update email configuration
+    
+    Updates SMTP settings in database and runtime settings.
+    """
+    # Build update query dynamically
+    update_fields = []
+    update_values = {}
+    
+    if config_update.enable_email is not None:
+        update_fields.append("enable_email = :enable_email")
+        update_values["enable_email"] = config_update.enable_email
+        settings.ENABLE_EMAIL = config_update.enable_email
+    
+    if config_update.smtp_host is not None:
+        update_fields.append("smtp_host = :smtp_host")
+        update_values["smtp_host"] = config_update.smtp_host
+        settings.SMTP_HOST = config_update.smtp_host
+    
+    if config_update.smtp_port is not None:
+        update_fields.append("smtp_port = :smtp_port")
+        update_values["smtp_port"] = config_update.smtp_port
+        settings.SMTP_PORT = config_update.smtp_port
+    
+    if config_update.smtp_user is not None:
+        update_fields.append("smtp_user = :smtp_user")
+        update_values["smtp_user"] = config_update.smtp_user
+        settings.SMTP_USER = config_update.smtp_user
+    
+    if config_update.smtp_password is not None:
+        update_fields.append("smtp_password = :smtp_password")
+        update_values["smtp_password"] = config_update.smtp_password
+        settings.SMTP_PASSWORD = config_update.smtp_password
+    
+    if config_update.smtp_tls is not None:
+        update_fields.append("smtp_tls = :smtp_tls")
+        update_values["smtp_tls"] = config_update.smtp_tls
+        settings.SMTP_TLS = config_update.smtp_tls
+    
+    if config_update.from_email is not None:
+        update_fields.append("from_email = :from_email")
+        update_values["from_email"] = config_update.from_email
+        settings.FROM_EMAIL = config_update.from_email
+    
+    if config_update.from_name is not None:
+        update_fields.append("from_name = :from_name")
+        update_values["from_name"] = config_update.from_name
+        settings.FROM_NAME = config_update.from_name
+    
+    if config_update.frontend_url is not None:
+        update_fields.append("frontend_url = :frontend_url")
+        update_values["frontend_url"] = config_update.frontend_url
+        settings.FRONTEND_URL = config_update.frontend_url
+    
+    # Update timestamp
+    update_fields.append("updated_at = CURRENT_TIMESTAMP")
+    
+    # Execute update if there are fields to update
+    if update_fields:
+        query = text(f"UPDATE config SET {', '.join(update_fields)} WHERE id = 1")
+        db.execute(query, update_values)
+        db.commit()
+    
+    # Reload email service settings after updating config
+    from app.services.email import email_service
+    email_service.reload_settings()
+    
+    # Get updated config from database
+    config = db.execute(text("SELECT * FROM config WHERE id = 1")).first()
+    
+    return EmailConfig(
+        enable_email=config.enable_email,
+        smtp_host=config.smtp_host,
+        smtp_port=config.smtp_port,
+        smtp_user=config.smtp_user,
+        smtp_password="********" if config.smtp_password else None,
+        smtp_tls=config.smtp_tls,
+        from_email=config.from_email,
+        from_name=config.from_name,
+        frontend_url=config.frontend_url
+    )
+
+
+@router.post("/email/test")
+async def test_email_connection(
+    test_request: EmailTestRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Test email configuration by sending a test email
+    
+    Supports different test types:
+    - simple: Basic test email
+    - verification: Email verification template
+    - password_reset: Password reset template
+    - daily_report: Daily report with PDF (requires portfolio data)
+    """
+    from app.services.email import email_service
+    
+    # Reload settings before sending test email
+    email_service.reload_settings()
+    
+    try:
+        if test_request.test_type == "simple":
+            # Send simple test email
+            subject = "Portfolium Email Test"
+            
+            # Use inline styles for better email client compatibility
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                        <h1 style="margin: 0; font-size: 28px; font-weight: 600;">Email Configuration Test</h1>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="background-color: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                        <!-- Success Message -->
+                        <div style="background-color: #d1fae5; border-left: 4px solid #10b981; padding: 16px; margin: 0 0 20px 0; border-radius: 4px;">
+                            <p style="margin: 0; color: #065f46; font-weight: 500;">🎉 Congratulations! Your email configuration is working correctly.</p>
+                        </div>
+                        
+                        <p style="margin: 0 0 20px 0; color: #4b5563;">Your SMTP settings have been successfully validated and you can now send emails from Portfolium.</p>
+                        
+                        <!-- Configuration Box -->
+                        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                            <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 16px; font-weight: 600;">📋 Current Configuration</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr style="border-bottom: 1px solid #e5e7eb;">
+                                    <td style="padding: 8px 0; color: #374151; font-weight: 600;">SMTP Host:</td>
+                                    <td style="padding: 8px 0; color: #ec4899; font-family: 'Courier New', monospace; text-align: right;">{settings.SMTP_HOST}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e5e7eb;">
+                                    <td style="padding: 8px 0; color: #374151; font-weight: 600;">SMTP Port:</td>
+                                    <td style="padding: 8px 0; color: #ec4899; font-family: 'Courier New', monospace; text-align: right;">{settings.SMTP_PORT}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e5e7eb;">
+                                    <td style="padding: 8px 0; color: #374151; font-weight: 600;">Encryption:</td>
+                                    <td style="padding: 8px 0; color: #ec4899; font-family: 'Courier New', monospace; text-align: right;">{'SSL' if settings.SMTP_PORT == 465 else 'TLS (STARTTLS)' if settings.SMTP_TLS else 'None'}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e5e7eb;">
+                                    <td style="padding: 8px 0; color: #374151; font-weight: 600;">From Address:</td>
+                                    <td style="padding: 8px 0; color: #ec4899; font-family: 'Courier New', monospace; text-align: right;">{settings.FROM_EMAIL}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #374151; font-weight: 600;">From Name:</td>
+                                    <td style="padding: 8px 0; color: #ec4899; font-family: 'Courier New', monospace; text-align: right;">{settings.FROM_NAME}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <p style="margin: 20px 0 0 0; color: #4b5563;">This is a test email sent from the Portfolium admin panel to verify your email configuration.</p>
+                        
+                        <!-- Footer -->
+                        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
+                            <p style="margin: 0;">Portfolium - Portfolio Management Platform</p>
+                            <p style="margin: 5px 0 0 0;">© 2025 All rights reserved</p>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_content = f"""
+            ✅ Email Configuration Test
+            
+            Congratulations! Your email configuration is working correctly.
+            
+            Current Configuration:
+            - SMTP Host: {settings.SMTP_HOST}
+            - SMTP Port: {settings.SMTP_PORT}
+            - Encryption: {'SSL' if settings.SMTP_PORT == 465 else 'TLS (STARTTLS)' if settings.SMTP_TLS else 'None'}
+            - From Address: {settings.FROM_EMAIL}
+            - From Name: {settings.FROM_NAME}
+            
+            This is a test email sent from the Portfolium admin panel to verify your email configuration.
+            
+            ---
+            Portfolium - Portfolio Management Platform
+            © 2025 All rights reserved
+            """
+            
+            success = email_service._send_email(
+                test_request.to_email,
+                subject,
+                html_content,
+                text_content
+            )
+            
+        elif test_request.test_type == "verification":
+            # Test verification email template
+            success = email_service.send_verification_email(
+                test_request.to_email,
+                "TestUser",
+                "test-token-12345"
+            )
+            
+        elif test_request.test_type == "password_reset":
+            # Test password reset email template
+            success = email_service.send_password_reset_email(
+                test_request.to_email,
+                "TestUser",
+                "reset-token-12345"
+            )
+            
+        elif test_request.test_type == "daily_report":
+            # Test daily report email with PDF
+            # Try to find the user by email, otherwise use current admin user for testing
+            user = db.query(User).filter(User.email == test_request.to_email).first()
+            
+            if not user:
+                # Use current admin user as fallback for generating test report
+                user = current_user
+            
+            from app.services.pdf_reports import PDFReportService
+            from datetime import datetime, timedelta
+            
+            # Generate test report
+            pdf_service = PDFReportService(db)
+            report_date = (datetime.utcnow() - timedelta(days=1)).date()
+            
+            try:
+                pdf_bytes = await pdf_service.generate_daily_report(
+                    user_id=user.id,
+                    report_date=report_date
+                )
+                
+                # Extract username from test email if user not found
+                username = user.username if user.email == test_request.to_email else test_request.to_email.split('@')[0]
+                
+                success = email_service.send_daily_report_email(
+                    test_request.to_email,
+                    username,
+                    report_date.strftime('%B %d, %Y'),
+                    pdf_bytes
+                )
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot generate report: {str(e)}"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid test_type: {test_request.test_type}. Use: simple, verification, password_reset, or daily_report"
+            )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Test email sent successfully to {test_request.to_email}",
+                "test_type": test_request.test_type,
+                "smtp_host": settings.SMTP_HOST,
+                "smtp_port": settings.SMTP_PORT,
+                "from_email": settings.FROM_EMAIL
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send test email. Check logs for details."
+            )
+            
+    except ValueError as e:
+        # SMTP configuration error
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        # Provide more helpful error messages for common issues
+        if "timed out" in error_msg.lower():
+            detail = "SMTP connection timed out. Please verify your SMTP host and port settings."
+        elif "authentication" in error_msg.lower() or "login" in error_msg.lower():
+            detail = "SMTP authentication failed. Please check your SMTP username and password."
+        elif "connection" in error_msg.lower():
+            detail = f"Failed to connect to SMTP server. {error_msg}"
+        else:
+            detail = f"Email test failed: {error_msg}"
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail
+        )
+
+
+@router.get("/email/stats")
+def get_email_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Get email-related statistics
+    
+    Returns counts of users with various email notification settings enabled.
+    """
+    try:
+        total_users = db.execute(
+            text("SELECT COUNT(*) FROM portfolio.users WHERE is_active = true")
+        ).scalar()
+        
+        verified_users = db.execute(
+            text("SELECT COUNT(*) FROM portfolio.users WHERE is_verified = true AND is_active = true")
+        ).scalar()
+        
+        daily_reports_enabled = db.execute(
+            text("SELECT COUNT(*) FROM portfolio.users WHERE daily_report_enabled = true AND is_active = true")
+        ).scalar()
+        
+        daily_changes_enabled = db.execute(
+            text("SELECT COUNT(*) FROM portfolio.users WHERE daily_change_notifications_enabled = true AND is_active = true")
+        ).scalar()
+        
+        transaction_notifications_enabled = db.execute(
+            text("SELECT COUNT(*) FROM portfolio.users WHERE transaction_notifications_enabled = true AND is_active = true")
+        ).scalar()
+        
+        return {
+            "total_active_users": int(total_users or 0),
+            "verified_users": int(verified_users or 0),
+            "email_enabled": settings.ENABLE_EMAIL,
+            "notifications": {
+                "daily_reports_enabled": int(daily_reports_enabled or 0),
+                "daily_changes_enabled": int(daily_changes_enabled or 0),
+                "transaction_notifications_enabled": int(transaction_notifications_enabled or 0)
+            },
+            "smtp_configured": bool(settings.SMTP_HOST and settings.SMTP_USER)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get email stats: {str(e)}"
+        )
+
 

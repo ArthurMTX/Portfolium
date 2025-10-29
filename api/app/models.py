@@ -72,6 +72,7 @@ class User(Base):
     daily_change_notifications_enabled = Column(Boolean, default=True)
     daily_change_threshold_pct = Column(Numeric(5, 2), default=5.0)  # Default 5% threshold
     transaction_notifications_enabled = Column(Boolean, default=True)  # Enable/disable transaction notifications
+    daily_report_enabled = Column(Boolean, default=False)  # Enable/disable daily PDF report emails
     
     # Relationships
     portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")

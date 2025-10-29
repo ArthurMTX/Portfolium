@@ -31,6 +31,7 @@ export default function Settings() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [notificationThreshold, setNotificationThreshold] = useState('5.0')
   const [transactionNotificationsEnabled, setTransactionNotificationsEnabled] = useState(true)
+  const [dailyReportsEnabled, setDailyReportsEnabled] = useState(false)
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -60,6 +61,7 @@ export default function Settings() {
       setNotificationsEnabled(user.daily_change_notifications_enabled ?? true)
       setNotificationThreshold(String(user.daily_change_threshold_pct ?? 5.0))
       setTransactionNotificationsEnabled(user.transaction_notifications_enabled ?? true)
+      setDailyReportsEnabled(user.daily_report_enabled ?? false)
     }
   }, [user])
 
@@ -99,7 +101,8 @@ export default function Settings() {
       await api.updateCurrentUser({
         daily_change_notifications_enabled: notificationsEnabled,
         daily_change_threshold_pct: threshold,
-        transaction_notifications_enabled: transactionNotificationsEnabled
+        transaction_notifications_enabled: transactionNotificationsEnabled,
+        daily_report_enabled: dailyReportsEnabled
       })
       await refreshUser()
       setNotificationMessage({ type: 'success', text: 'Notification settings updated successfully' })
@@ -356,6 +359,45 @@ export default function Settings() {
                 <p className="text-xs text-blue-800 dark:text-blue-200">
                   <strong>Note:</strong> Transaction notifications help you track all portfolio activity, 
                   including new purchases, sales, dividends, and any modifications to existing transactions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Reports */}
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
+              Daily Portfolio Reports
+            </h2>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              Receive a comprehensive daily PDF report of your portfolio performance
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={dailyReportsEnabled}
+                    onChange={(e) => setDailyReportsEnabled(e.target.checked)}
+                    disabled={savingNotifications}
+                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                  />
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Enable daily portfolio reports
+                  </span>
+                </label>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
+                  Get a beautiful PDF report emailed to you every weekday at 4 PM ET (after market close)
+                </p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <strong>What's included:</strong> Your daily report contains portfolio metrics, 
+                  a visual heatmap of all positions, holdings with P&L, and transaction activity. 
+                  Reports are sent Monday-Friday at 4:00 PM Eastern Time when markets close.
                 </p>
               </div>
             </div>

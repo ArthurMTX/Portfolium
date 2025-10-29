@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""  # Your SMTP username (email address)
     SMTP_PASSWORD: str = ""  # Your SMTP password or app password
     SMTP_TLS: bool = True
-    FROM_EMAIL: str = "noreply@portfolium.com"
+    FROM_EMAIL: str = "noreply@example.com"
     FROM_NAME: str = "Portfolium"
     
     # Frontend URL (for email links)

@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS portfolio.users (
   last_login TIMESTAMP,
   daily_change_notifications_enabled BOOLEAN DEFAULT true,
   daily_change_threshold_pct NUMERIC(5,2) DEFAULT 5.0,
-  transaction_notifications_enabled BOOLEAN DEFAULT true
+  transaction_notifications_enabled BOOLEAN DEFAULT true,
+  daily_report_enabled BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX idx_users_email ON portfolio.users(email);
@@ -221,3 +222,4 @@ COMMENT ON COLUMN portfolio.watchlist.alert_target_price IS 'Optional price aler
 COMMENT ON COLUMN portfolio.watchlist.alert_enabled IS 'Whether price alerts are enabled for this watchlist item';
 COMMENT ON TABLE portfolio.notifications IS 'User notifications for transaction, login, and price alert events';
 COMMENT ON COLUMN portfolio.notifications.metadata IS 'Additional notification data (e.g., IP address for login, asset info for transactions)';
+COMMENT ON COLUMN portfolio.users.daily_report_enabled IS 'Enable/disable daily PDF report emails';

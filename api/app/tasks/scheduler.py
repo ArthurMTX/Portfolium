@@ -5,7 +5,8 @@ import asyncio
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from datetime import datetime
+from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime, timedelta
 
 from app.db import SessionLocal
 from app.services.pricing import PricingService
@@ -288,7 +289,15 @@ async def check_daily_changes():
                         try:
                             # Get positions for this portfolio
                             metrics_service = MetricsService(db)
-                            positions = metrics_service.get_positions(portfolio.id)
+                            # Run async method in event loop
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                positions = loop.run_until_complete(
+                                    metrics_service.get_positions(portfolio.id)
+                                )
+                            finally:
+                                loop.close()
                             
                             for position in positions:
                                 # Check if daily change exceeds threshold
@@ -354,6 +363,120 @@ async def check_daily_changes():
     await loop.run_in_executor(None, _check_changes)
 
 
+async def send_daily_reports():
+    """
+    Background job to generate and send daily portfolio reports
+    
+    This runs once per day (typically end of day) to send PDF reports to all users
+    who have daily reports enabled. Reports include portfolio summary, heatmap,
+    daily changes, transactions, and asset allocation.
+    Runs asynchronously to avoid blocking the main event loop
+    """
+    logger.info("Starting daily report generation and distribution...")
+    
+    # Run database operations in a thread pool to avoid blocking
+    def _send_reports():
+        db = SessionLocal()
+        try:
+            from app.models import User, Portfolio
+            from app.services.pdf_reports import PDFReportService
+            from app.services.email import email_service
+            from app.services.notifications import notification_service
+            
+            # Get yesterday's date (report for previous day)
+            report_date = (datetime.utcnow() - timedelta(days=1)).date()
+            
+            # Get all active users with daily reports enabled
+            users = (
+                db.query(User)
+                .filter(User.is_active == True)
+                .filter(User.is_verified == True)
+                .filter(User.daily_report_enabled == True)
+                .all()
+            )
+            
+            if not users:
+                logger.info("No users with daily reports enabled")
+                return
+            
+            pdf_service = PDFReportService(db)
+            total_reports = 0
+            total_failed = 0
+            
+            for user in users:
+                try:
+                    logger.info(f"Generating daily report for user {user.id} ({user.email})")
+                    
+                    # Get user's portfolios
+                    portfolios = db.query(Portfolio).filter(Portfolio.user_id == user.id).all()
+                    
+                    if not portfolios:
+                        logger.info(f"User {user.id} has no portfolios, skipping")
+                        continue
+                    
+                    # Generate PDF report (async method called in sync context via run_coroutine_threadsafe)
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
+                    try:
+                        pdf_data = loop.run_until_complete(
+                            pdf_service.generate_daily_report(
+                                user_id=user.id,
+                                report_date=report_date
+                            )
+                        )
+                    finally:
+                        loop.close()
+                    
+                    # Send email with PDF attachment
+                    success = email_service.send_daily_report_email(
+                        to_email=user.email,
+                        username=user.username,
+                        report_date=report_date.strftime('%B %d, %Y'),
+                        pdf_data=pdf_data
+                    )
+                    
+                    if success:
+                        total_reports += 1
+                        logger.info(f"Daily report sent successfully to {user.email}")
+                        
+                        # Create notification for successful report delivery
+                        notification_service.create_system_notification(
+                            db=db,
+                            user_id=user.id,
+                            title="📊 Daily Portfolio Report Sent",
+                            message=f"Your daily portfolio report for {report_date.strftime('%B %d, %Y')} has been sent to {user.email}",
+                            metadata={
+                                "report_date": report_date.isoformat(),
+                                "portfolios_count": len(portfolios)
+                            }
+                        )
+                    else:
+                        total_failed += 1
+                        logger.error(f"Failed to send daily report to {user.email}")
+                
+                except Exception as e:
+                    total_failed += 1
+                    logger.error(f"Error generating/sending report for user {user.id}: {e}", exc_info=True)
+                    continue
+            
+            logger.info(
+                f"Daily report distribution completed. "
+                f"Reports sent: {total_reports}, Failed: {total_failed}, "
+                f"Users checked: {len(users)}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Daily report job failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    # Run in thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _send_reports)
+
+
 def start_scheduler():
     """Start the background scheduler"""
     # Schedule price refresh every 15 minutes
@@ -391,10 +514,25 @@ def start_scheduler():
         coalesce=True
     )
     
+    # Schedule daily report generation and distribution
+    # Run at 4:00 PM EST (16:00) when after-hours trading starts
+    # Only run on weekdays (Monday-Friday) when markets are open
+    # This is right after US markets close at 4:00 PM EST
+    scheduler.add_job(
+        send_daily_reports,
+        trigger=CronTrigger(hour=16, minute=0, day_of_week='mon-fri', timezone='America/New_York'),
+        id="send_daily_reports",
+        name="Send daily portfolio reports",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     scheduler.start()
     logger.info(
         "AsyncIO Scheduler started - price refresh every 15 minutes, "
-        "alerts check every 5 minutes, daily changes check every 10 minutes. "
+        "alerts check every 5 minutes, daily changes check every 10 minutes, "
+        "daily reports at 4:00 PM EST (weekdays only). "
         "All jobs run asynchronously to prevent blocking."
     )
 

@@ -79,6 +79,7 @@ nav:
       - Watchlist: user-guide/watchlist.md
       - Insights: user-guide/insights.md
       - Notifications: user-guide/notifications.md
+      - Daily Reports: user-guide/daily-reports.md
       - Settings: user-guide/settings.md
   - API Reference:
       - Overview: api/overview.md

@@ -80,7 +80,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your_email@gmail.com
 SMTP_PASSWORD=your_app_password
-FROM_EMAIL=noreply@portfolium.com
+FROM_EMAIL=noreply@example.com
 FROM_NAME=Portfolium
 ```
 
@@ -91,7 +91,7 @@ FROM_NAME=Portfolium
 | `SMTP_PORT` | SMTP server port | `587` |
 | `SMTP_USER` | SMTP username | - |
 | `SMTP_PASSWORD` | SMTP password/app password | - |
-| `FROM_EMAIL` | Sender email address | `noreply@portfolium.com` |
+| `FROM_EMAIL` | Sender email address | `noreply@example.com` |
 | `FROM_NAME` | Sender name | `Portfolium` |
 
 !!! tip "Gmail App Passwords"

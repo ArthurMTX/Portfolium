@@ -26,6 +26,7 @@ export interface UserDTO {
   daily_change_notifications_enabled: boolean
   daily_change_threshold_pct: number
   transaction_notifications_enabled: boolean
+  daily_report_enabled: boolean
 }
 
 export interface LoginResponseDTO {
@@ -70,6 +71,8 @@ export interface PortfolioMetricsDTO {
   total_dividends: number
   total_fees: number
   positions_count: number
+  daily_change_value?: number | null
+  daily_change_pct?: number | null
   last_updated: string
 }
 
@@ -196,7 +199,7 @@ class ApiClient {
     return this.request<UserDTO>('/auth/me')
   }
 
-  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username' | 'daily_change_notifications_enabled' | 'daily_change_threshold_pct' | 'transaction_notifications_enabled'>>) {
+  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username' | 'daily_change_notifications_enabled' | 'daily_change_threshold_pct' | 'transaction_notifications_enabled' | 'daily_report_enabled'>>) {
     return this.request<UserDTO>('/auth/me', {
       method: 'PUT',
       body: JSON.stringify(update),
@@ -672,6 +675,76 @@ class ApiClient {
   // Insights
   async getPortfolioInsights(portfolioId: number, period: string = '1y', benchmark: string = 'SPY', signal?: AbortSignal) {
     return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`, { signal })
+  }
+
+  // Admin Email Configuration
+  async getEmailConfig() {
+    return this.request<{
+      enable_email: boolean
+      smtp_host: string
+      smtp_port: number
+      smtp_user: string
+      smtp_password: string | null
+      smtp_tls: boolean
+      from_email: string
+      from_name: string
+      frontend_url: string
+    }>('/admin/email/config')
+  }
+
+  async updateEmailConfig(config: {
+    enable_email?: boolean
+    smtp_host?: string
+    smtp_port?: number
+    smtp_user?: string
+    smtp_password?: string | null
+    smtp_tls?: boolean
+    from_email?: string
+    from_name?: string
+    frontend_url?: string
+  }) {
+    return this.request<{
+      enable_email: boolean
+      smtp_host: string
+      smtp_port: number
+      smtp_user: string
+      smtp_password: string | null
+      smtp_tls: boolean
+      from_email: string
+      from_name: string
+      frontend_url: string
+    }>('/admin/email/config', {
+      method: 'PATCH',
+      body: JSON.stringify(config)
+    })
+  }
+
+  async testEmail(toEmail: string, testType: 'simple' | 'verification' | 'password_reset' | 'daily_report') {
+    return this.request<{
+      success: boolean
+      message: string
+      test_type: string
+      smtp_host: string
+      smtp_port: number
+      from_email: string
+    }>('/admin/email/test', {
+      method: 'POST',
+      body: JSON.stringify({ to_email: toEmail, test_type: testType })
+    })
+  }
+
+  async getEmailStats() {
+    return this.request<{
+      total_active_users: number
+      verified_users: number
+      email_enabled: boolean
+      notifications: {
+        daily_reports_enabled: number
+        daily_changes_enabled: number
+        transaction_notifications_enabled: number
+      }
+      smtp_configured: boolean
+    }>('/admin/email/stats')
   }
 }
 

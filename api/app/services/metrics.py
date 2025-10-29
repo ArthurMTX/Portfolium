@@ -139,6 +139,8 @@ class MetricsService:
         total_value = Decimal(0)
         total_cost = Decimal(0)
         total_unrealized = Decimal(0)
+        total_daily_change = Decimal(0)
+        has_daily_data = False
         
         for pos in positions:
             total_cost += pos.cost_basis
@@ -146,6 +148,24 @@ class MetricsService:
                 total_value += pos.market_value
                 if pos.unrealized_pnl:
                     total_unrealized += pos.unrealized_pnl
+                # Calculate daily change in value
+                if pos.daily_change_pct is not None and pos.market_value:
+                    has_daily_data = True
+                    # daily_change_value = market_value * (daily_change_pct / 100)
+                    daily_change = pos.market_value * (pos.daily_change_pct / Decimal(100))
+                    total_daily_change += daily_change
+        
+        # Calculate daily change percentage
+        if has_daily_data and total_value > 0:
+            # yesterday_value = total_value - total_daily_change
+            yesterday_value = total_value - total_daily_change
+            if yesterday_value > 0:
+                daily_change_pct = (total_daily_change / yesterday_value) * Decimal(100)
+            else:
+                daily_change_pct = Decimal(0)
+        else:
+            daily_change_pct = None
+            total_daily_change = None
         
         # Calculate realized P&L and dividends
         # Calculate realized P&L by summing up all sold positions
@@ -174,6 +194,8 @@ class MetricsService:
             total_dividends=total_dividends,
             total_fees=total_fees,
             positions_count=len(positions),
+            daily_change_value=total_daily_change,
+            daily_change_pct=daily_change_pct,
             last_updated=datetime.utcnow()
         )
     

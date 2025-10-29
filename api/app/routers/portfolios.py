@@ -299,3 +299,60 @@ async def get_portfolio_history(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+
+
+@router.post("/{portfolio_id}/generate-report")
+async def generate_portfolio_report(
+    portfolio_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate a daily PDF report for a specific portfolio (for testing/preview)
+    
+    This endpoint allows users to generate a test report on-demand to preview
+    what their daily email report will look like.
+    """
+    from fastapi.responses import Response
+    from app.services.pdf_reports import PDFReportService
+    from datetime import datetime, timedelta
+    
+    # Verify the portfolio belongs to the current user
+    portfolio = crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
+    try:
+        # Generate report for yesterday (or today if you prefer)
+        report_date = (datetime.utcnow() - timedelta(days=1)).date()
+        
+        pdf_service = PDFReportService(db)
+        pdf_bytes = await pdf_service.generate_daily_report(
+            user_id=current_user.id,
+            portfolio_id=portfolio_id,
+            report_date=report_date
+        )
+        
+        # Return PDF as response
+        filename = f"portfolio_report_{portfolio.name}_{report_date}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate report: {str(e)}"
+        )

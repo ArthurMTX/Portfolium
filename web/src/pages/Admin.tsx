@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth, User } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import api from "../lib/api";
-import { PlusCircle, Users as UsersIcon, X, FileText } from 'lucide-react'
+import { PlusCircle, Users as UsersIcon, X, FileText, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface LogEntry {
   logs: string[];
@@ -25,7 +25,7 @@ type NewUser = {
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'email'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +60,36 @@ const AdminDashboard: React.FC = () => {
   const [logsAutoRefresh, setLogsAutoRefresh] = useState(false)
   const [logsRefreshInterval, setLogsRefreshInterval] = useState(5) // seconds
   const [logsManualRefresh, setLogsManualRefresh] = useState(false) // Track manual refresh only
+
+  // Email state
+  const [emailConfig, setEmailConfig] = useState({
+    enable_email: false,
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '' as string | null,
+    smtp_tls: true,
+    from_email: '',
+    from_name: '',
+    frontend_url: ''
+  })
+  const [emailStats, setEmailStats] = useState({
+    total_active_users: 0,
+    verified_users: 0,
+    email_enabled: false,
+    notifications: {
+      daily_reports_enabled: 0,
+      daily_changes_enabled: 0,
+      transaction_notifications_enabled: 0
+    },
+    smtp_configured: false
+  })
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailTestResult, setEmailTestResult] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [testEmailAddress, setTestEmailAddress] = useState('')
+  const [testEmailType, setTestEmailType] = useState<'simple' | 'verification' | 'password_reset' | 'daily_report'>('simple')
+  const [emailTesting, setEmailTesting] = useState(false)
 
   const loadUsers = async () => {
     setLoading(true);
@@ -230,6 +260,60 @@ const AdminDashboard: React.FC = () => {
     // eslint-disable-next-line
   }, [logsAutoRefresh, logsRefreshInterval, activeTab])
 
+  // Email functions
+  const loadEmailConfig = async () => {
+    setEmailLoading(true)
+    try {
+      const config = await api.getEmailConfig()
+      setEmailConfig(config)
+      const stats = await api.getEmailStats()
+      setEmailStats(stats)
+    } catch (err) {
+      console.error('Failed to load email config:', err)
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  const saveEmailConfig = async () => {
+    setEmailSaving(true)
+    setEmailTestResult(null)
+    try {
+      const updated = await api.updateEmailConfig(emailConfig)
+      setEmailConfig(updated)
+      setEmailTestResult({ type: 'success', message: 'Email configuration updated successfully!' })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update email configuration'
+      setEmailTestResult({ type: 'error', message })
+    } finally {
+      setEmailSaving(false)
+    }
+  }
+
+  const testEmail = async () => {
+    if (!testEmailAddress) {
+      setEmailTestResult({ type: 'error', message: 'Please enter an email address' })
+      return
+    }
+    setEmailTesting(true)
+    setEmailTestResult(null)
+    try {
+      const result = await api.testEmail(testEmailAddress, testEmailType)
+      setEmailTestResult({ type: 'success', message: result.message })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to send test email'
+      setEmailTestResult({ type: 'error', message })
+    } finally {
+      setEmailTesting(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'email') {
+      loadEmailConfig()
+    }
+  }, [activeTab])
+
   if (!(user?.is_admin || user?.is_superuser)) return <Navigate to="/" />;
   
   if (loading) {
@@ -312,6 +396,17 @@ const AdminDashboard: React.FC = () => {
           >
             <FileText size={14} className="inline mr-1" />
             Logs
+          </button>
+          <button
+            onClick={() => setActiveTab('email')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'email'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <Mail size={14} className="inline mr-1" />
+            Email
           </button>
         </nav>
       </div>
@@ -597,6 +692,277 @@ const AdminDashboard: React.FC = () => {
               Next
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Email Tab */}
+      {activeTab === 'email' && (
+        <div className="space-y-6">
+          {/* Email Configuration */}
+          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Mail size={20} className="text-pink-600" />
+              Email Configuration
+            </h2>
+            
+            {emailLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Enable Email */}
+                <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-neutral-900 dark:text-neutral-100">Enable Email System</h3>
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Allow the application to send emails</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={emailConfig.enable_email}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, enable_email: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-neutral-300 dark:bg-neutral-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-pink-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                  </label>
+                </div>
+
+                {/* SMTP Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={emailConfig.smtp_host}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="smtp.gmail.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Port</label>
+                    <input
+                      type="number"
+                      value={emailConfig.smtp_port}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: parseInt(e.target.value) || 587 })}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="587"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Username</label>
+                    <input
+                      type="text"
+                      value={emailConfig.smtp_user}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="your-email@gmail.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Password</label>
+                    <input
+                      type="password"
+                      value={emailConfig.smtp_password || ''}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, smtp_password: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+
+                {/* SMTP TLS */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="smtp_tls"
+                    checked={emailConfig.smtp_tls}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_tls: e.target.checked })}
+                    className="rounded border-neutral-300 dark:border-neutral-700"
+                  />
+                  <label htmlFor="smtp_tls" className="text-sm text-neutral-700 dark:text-neutral-300">Use TLS encryption</label>
+                </div>
+
+                {/* From Email Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">From Email</label>
+                    <input
+                      type="email"
+                      value={emailConfig.from_email}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, from_email: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="noreply@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">From Name</label>
+                    <input
+                      type="text"
+                      value={emailConfig.from_name}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="Portfolium"
+                    />
+                  </div>
+                </div>
+
+                {/* Frontend URL */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Frontend URL</label>
+                  <input
+                    type="url"
+                    value={emailConfig.frontend_url}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, frontend_url: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                    placeholder="https://example.com"
+                  />
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Used in email links and templates</p>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={saveEmailConfig}
+                  disabled={emailSaving}
+                  className="w-full px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {emailSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={16} />
+                      Save Configuration
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Test Email */}
+          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Send size={20} className="text-pink-600" />
+              Test Email
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Recipient Email</label>
+                  <input
+                    type="email"
+                    value={testEmailAddress}
+                    onChange={(e) => setTestEmailAddress(e.target.value)}
+                    className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                    placeholder="test@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Email Type</label>
+                  <select
+                    value={testEmailType}
+                    onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'daily_report')}
+                    className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                  >
+                    <option value="simple">Simple Test</option>
+                    <option value="verification">Verification Email</option>
+                    <option value="password_reset">Password Reset</option>
+                    <option value="daily_report">Daily Report</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={testEmail}
+                disabled={emailTesting || !testEmailAddress}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {emailTesting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    Send Test Email
+                  </>
+                )}
+              </button>
+
+              {/* Test Result */}
+              {emailTestResult && (
+                <div className={`p-4 rounded-lg flex items-start gap-3 ${
+                  emailTestResult.type === 'success' 
+                    ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' 
+                    : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800'
+                }`}>
+                  {emailTestResult.type === 'success' ? (
+                    <CheckCircle size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  )}
+                  <p className={emailTestResult.type === 'success' 
+                    ? 'text-green-800 dark:text-green-200 text-sm' 
+                    : 'text-red-800 dark:text-red-200 text-sm'
+                  }>
+                    {emailTestResult.message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Email Statistics */}
+          {emailStats && (
+            <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+              <h2 className="text-xl font-semibold mb-4">Email Statistics</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Active Users</p>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{emailStats.total_active_users}</p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                  <p className="text-sm text-green-600 dark:text-green-400 font-medium">Verified Users</p>
+                  <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{emailStats.verified_users}</p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Email System</p>
+                  <p className="text-lg font-bold text-purple-900 dark:text-purple-100 mt-1">
+                    {emailStats.email_enabled ? '✓ Enabled' : '✗ Disabled'}
+                  </p>
+                </div>
+                <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                  <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">SMTP Configuration</p>
+                  <p className="text-lg font-bold text-orange-900 dark:text-orange-100 mt-1">
+                    {emailStats.smtp_configured ? '✓ Configured' : '✗ Not Configured'}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">Notification Preferences</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className="text-neutral-600 dark:text-neutral-400">Daily Reports:</span>{' '}
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{emailStats.notifications.daily_reports_enabled}</span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-600 dark:text-neutral-400">Daily Changes:</span>{' '}
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{emailStats.notifications.daily_changes_enabled}</span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-600 dark:text-neutral-400">Transactions:</span>{' '}
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{emailStats.notifications.transaction_notifications_enabled}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
