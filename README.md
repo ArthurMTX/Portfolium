@@ -82,23 +82,16 @@ Monorepo with 3 services:
 
 ---
 
-##  Features
+## ✨ Features
 
-<table>
-<tr>
-<td width="50%">
-
-###  Portfolio Management
+### 📈 Portfolio Management
 - Multi-portfolio support with user isolation
 - Stocks, ETFs, crypto (Yahoo Finance)
 - Automatic cost basis & P&L calculations
 - Realized/unrealized gains tracking
 - CSV import with drag & drop
 
-</td>
-<td width="50%">
-
-###  Modern UI
+### 🎨 Modern UI
 - Clean, responsive design
 - Dark mode
 - Real-time charts & heatmaps
@@ -106,32 +99,20 @@ Monorepo with 3 services:
 - Ticker search & autocomplete
 - Price alerts & notifications
 
-</td>
-</tr>
-<tr>
-<td>
-
-###  Developer Experience
+### 🔧 Developer Experience
 - FastAPI with auto-generated docs
 - JWT authentication
 - Role-based access control
 - Comprehensive test coverage
 - Hot reload for development
 
-</td>
-<td>
-
-###  Production Ready
+### 🌐 Production Ready
 - Docker containerized
 - PostgreSQL backend
 - Automatic price updates
 - Currency conversion
 - Email notifications (optional)
 - Admin dashboard
-
-</td>
-</tr>
-</table>
 
 ---
 
