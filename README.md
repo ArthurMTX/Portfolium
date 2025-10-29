@@ -32,7 +32,7 @@
 
 ---
 
-##  Quick Start
+## 🚀 Quick Start
 
 **Prerequisites:** Docker & Docker Compose
 
@@ -72,13 +72,14 @@ npm run dev
 
 ---
 
-##  Architecture
+## 🏗️ Architecture & Tech Stack
 
-Monorepo with 3 services:
-
+**Monorepo Structure:**
 - **db**: PostgreSQL 15
-- **api**: FastAPI + yfinance
-- **web**: React + Vite + TypeScript + TailwindCSS
+- **api**: FastAPI (Python 3.11) + yfinance + SQLAlchemy
+- **web**: React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui
+
+**DevOps:** Docker • Docker Compose
 
 ---
 
@@ -116,15 +117,7 @@ Monorepo with 3 services:
 
 ---
 
-##  Tech Stack
-
-**Backend:** FastAPI  Python 3.11  PostgreSQL 15  SQLAlchemy  yfinance  
-**Frontend:** React 18  TypeScript  Vite  TailwindCSS  shadcn/ui  Recharts  
-**DevOps:** Docker  Docker Compose
-
----
-
-##  Documentation
+## 📚 Documentation
 
 Comprehensive documentation is available in the [`docs/`](docs/) folder:
 
@@ -136,7 +129,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) folder:
 
 ---
 
-##  Common Tasks
+## 🎯 Common Tasks
 
 ```bash
 # View logs
@@ -154,7 +147,7 @@ docker compose exec db psql -U portfolium
 
 ---
 
-##  Security
+## 🔐 Security
 
 - JWT-based authentication with bcrypt password hashing
 - Role-based authorization (user/admin)
@@ -165,13 +158,13 @@ docker compose exec db psql -U portfolium
 
 ---
 
-##  Contributing
+## 🤝 Contributing
 
 Contributions welcome! See [`docs/development/contributing.md`](docs/development/contributing.md) for guidelines.
 
 ---
 
-##  License
+## 📄 License
 
 MIT  [Arthur MTX](https://github.com/ArthurMTX)
 
