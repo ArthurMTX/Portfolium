@@ -1,21 +1,24 @@
-<div class="wip" style="border: 2px solid #ffcc00; padding: 15px; margin-bottom: 25px; text-align: center; background-color: #fff8e1; border-radius: 8px;">
-  <strong style="color: #ff5722;">Work in Progress:</strong> This project is currently under active development. Features and functionality may change frequently. Please check back often for updates!
-</div>
-
 <div align="center">
 
-# 🌸 Portfolium
+#  Portfolium
 
-**Investment tracking application** with multi-asset portfolio management (stocks, ETFs, crypto), P&L calculations, CSV import, real-time price updates, automatic logo fetching, ticker search, and modern UI.
+**Modern investment portfolio tracker**  Manage stocks, ETFs, and crypto with real-time pricing, P&L analytics, and beautiful charts.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18.0+-61DAFB.svg)](https://react.dev/)
+
+[Quick Start](#-quick-start)  [Features](#-features)  [Documentation](docs/)  [API Docs](http://localhost:8000/docs)
 
 ---
 
-### 📸 Screenshots
+###  Screenshots
 
 <p align="center">
   <img src=".github/assets/dashboard.png" alt="Dashboard" width="100%"/>
   <br/>
-  <em>Dashboard with real-time metrics and portfolio overview</em>
+  <em>Real-time dashboard with portfolio metrics and performance tracking</em>
 </p>
 
 <p align="center">
@@ -27,385 +30,176 @@
 
 </div>
 
-## 🏗️ Architecture
+---
 
-Monorepo with 3 services:
+##  Quick Start
 
-- **db**: PostgreSQL 15
-- **api**: FastAPI (Python 3.11) + yfinance
-- **web**: React + Vite + TypeScript + TailwindCSS + shadcn/ui
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose
-- (Optional) Node.js 18+ and Python 3.11+ for local development
-
-### Launch
+**Prerequisites:** Docker & Docker Compose
 
 ```bash
-# Copy environment variables (edit as needed)
+# 1. Clone and configure
+git clone https://github.com/ArthurMTX/Portfolium.git
+cd Portfolium
 cp .env.example .env
 
-# Start all services
+# 2. Launch
 docker compose up -d
 
-# View logs
-docker compose logs -f
-
-# Check API health
-curl http://localhost:8000/health
-
-# Access the frontend
-# Open http://localhost:5173
+# 3. Access
+# Frontend: http://localhost:5173
+# API Docs: http://localhost:8000/docs
 ```
 
-Services are available at:
+That's it!  Default admin credentials are in your `.env` file.
 
-- **Frontend**: http://localhost:5173
-- **API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-- **PostgreSQL**: localhost:5432
-
-### Shutdown
+<details>
+<summary> <strong>Manual setup without Docker</strong></summary>
 
 ```bash
-docker compose down
-
-# With volume removal (⚠️ deletes all data)
-docker compose down -v
-```
-
-## 🎯 Features
-
-### Backend API
-
-- ✅ Multi-portfolio management
-- ✅ Support for stocks, ETFs, crypto (via Yahoo Finance tickers)
-- ✅ Transactions: BUY, SELL, DIVIDEND, FEE, SPLIT
-- ✅ Automatic FX & currencies conversion
-- ✅ Automatic average cost calculation (weighted average)
-- ✅ Realized and unrealized P&L
-- ✅ CSV import
-- ✅ Price refresh via yfinance (on-demand + scheduler)
-- ✅ Price caching (configurable TTL)
-- ✅ Sell validation (prevents selling more shares than owned - configurable)
-- ✅ Unit tests (pytest)
-
-### Frontend
-
-- ✅ Dashboard with real-time metrics
-- ✅ Logos via Brandfetch API
-- ✅ Ticker auto-completion & search via Yahoo Finance
-- ✅ Positions table (sorting, filters, pagination)
-- ✅ Transaction history
-- ✅ Watchlist with price alerts
-- ✅ CSV import with drag & drop
-- ✅ Dark mode
-- ✅ Price charts (Recharts) & heatmaps
-- ✅ Responsive UI
-- ✅ Notifications system for user actions and price alerts
-
-## 📊 Database
-
-### Schema
-
-**4 main tables** in the `portfolio` schema:
-
-1. **assets**: List of assets (unique Yahoo ticker)
-2. **portfolios**: User portfolios
-3. **transactions**: Operation history
-4. **prices**: Latest prices cache
-
-## 🔧 API Endpoints
-
-### Health
-
-- `GET /health` → API status
-
-### Assets
-
-- `GET /assets` → List assets (with optional `query`, `skip`, `limit`)
-- `GET /assets/{asset_id}` → Get asset by id
-- `POST /assets` → Create an asset
-- `PUT /assets/{asset_id}` → Update an asset
-- `DELETE /assets/{asset_id}` → Delete an asset
-- `GET /assets/search_ticker?query=AAPL` → Yahoo Finance search
-- `GET /assets/held/all` → Currently held assets across portfolios
-- `GET /assets/sold/all` → Previously held (now zero) assets
-- `POST /assets/enrich/all` → Enrich metadata for all assets
-- `POST /assets/enrich/{asset_id}` → Enrich metadata for one asset
-
-### Portfolios
-
-- `GET /portfolios` → List current user's portfolios
-- `POST /portfolios` → Create new portfolio
-- `GET /portfolios/{id}` → Get a portfolio
-- `PUT /portfolios/{id}` → Update a portfolio
-- `DELETE /portfolios/{id}` → Delete a portfolio
-- `GET /portfolios/{id}/positions` → Positions with P&L
-- `GET /portfolios/{id}/metrics` → Aggregated metrics
-- `GET /portfolios/{id}/history` → Portfolio value history
-- `GET /portfolios/{id}/transactions` → Transaction list (filters: asset_id, type, date_from, date_to)
-
-### Transactions
-
-- `POST /portfolios/{id}/transactions` → New transaction
-- `GET /portfolios/{id}/transactions/{tx_id}` → Get a transaction
-- `PUT /portfolios/{id}/transactions/{tx_id}` → Update a transaction
-- `DELETE /portfolios/{id}/transactions/{tx_id}` → Delete a transaction
-- `POST /portfolios/{id}/add_position_transaction` → Add BUY/SELL with yfinance price for a date
-- `POST /import/csv?portfolio_id={id}` → CSV import
-
-### Prices
-
-- `GET /prices?symbols=AAPL,MSFT` → Current prices
-- `POST /prices/refresh?portfolio_id={id}` → Force refresh portfolio prices
-
-### Settings
-
-- `GET /settings` → Get settings
-- `PUT /settings` → Update settings
-
-### Authentication
-
-- `POST /auth/register` → Register
-- `POST /auth/login` → Login (OAuth2 password flow)
-- `GET /auth/me` → Current user info
-- `PUT /auth/me` → Update profile (email change triggers re-verification)
-- `POST /auth/verify-email` → Verify email with token
-- `POST /auth/resend-verification` → Resend verification email
-- `POST /auth/forgot-password` → Request password reset
-- `POST /auth/reset-password` → Reset password with token
-- `POST /auth/change-password` → Change password (auth)
-- `DELETE /auth/account` → Delete own account
-
-### Admin
-
-- `DELETE /admin/data` → Danger: delete all portfolios, assets, transactions, prices
-- `GET /admin/users` → List users
-- `POST /admin/users` → Create user
-- `PATCH /admin/users/{id}` → Update user (status/admin/email/username/password)
-- `DELETE /admin/users/{id}` → Delete user
-
-### Logs
-
-- `GET /logs` → Query API logs (filters: level, search, page, page_size)
-
-Interactive documentation: http://localhost:8000/docs
-
-## 📥 CSV Import Format
-
-Supported columns:
-
-```csv
-date,symbol,type,quantity,price,fees,currency,notes
-2024-01-15,AAPL,BUY,10,150.25,9.99,USD,Initial purchase
-2024-02-20,AAPL,BUY,5,165.80,9.99,USD,Adding to position
-2024-03-10,AAPL,DIVIDEND,15,0.24,0,USD,Q1 dividend
-2024-04-05,AAPL,SELL,5,180.50,9.99,USD,Taking profits
-2024-05-15,NVDA,BUY,20,520.30,15.99,USD,AI boom position
-2024-06-20,MSFT,BUY,8,375.20,9.99,USD,Cloud diversification
-```
-
-Accepted types: `BUY`, `SELL`, `DIVIDEND`, `FEE`, `SPLIT`
-
-For a **split** (e.g., 2:1), add a `split_ratio` column:
-
-```csv
-date,symbol,type,split_ratio
-2024-06-01,AAPL,SPLIT,2:1
-```
-
-## 🧪 Tests
-
-### Backend
-
-```bash
-# Inside the container
-docker compose exec api pytest
-
-# Locally
-cd api
-python -m pytest tests/ -v
-```
-
-### Coverage
-
-- Tests for average cost and P&L calculations
-- Tests for pricing service (with yfinance mocking)
-- CSV import tests
-
-## 🛠️ Local Development
-
-### API (without Docker)
-
-```bash
+# Backend
 cd api
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -e .
-uvicorn app.main:app --reload --port 8000
-```
+uvicorn app.main:app --reload
 
-### Frontend (without Docker)
-
-```bash
+# Frontend
 cd web
 npm install
 npm run dev
 ```
-
-## 🔒 Security
-
-- CORS configured for development origins: see `CORS_ORIGINS`
-- Pydantic validation on all inputs
-- JWT-based auth (Bearer token) for user endpoints
-- Role checks: admin endpoints require `is_admin` or `is_superuser`
-- Emails are optional; verification flow supported when SMTP configured
-- Logs accessible via `/logs` endpoint for debugging
-- Docker healthchecks
-
-## ⚙️ Advanced Configuration
-
-### Environment Variables
-
-Environment variables (subset; see `.env.example` for full list):
-
-- Database
-  - `POSTGRES_DB` (default: portfolium)
-  - `POSTGRES_USER` (default: portfolium)
-  - `POSTGRES_PASSWORD` (default: portfolium)
-  - `POSTGRES_HOST` (default: db)
-  - `POSTGRES_PORT` (default: 5432)
-
-- API
-  - `API_HOST` (default: 0.0.0.0)
-  - `API_PORT` (default: 8000)
-  - `SECRET_KEY` (JWT signing key)
-  - `ALGORITHM` (default: HS256)
-  - `ACCESS_TOKEN_EXPIRE_MINUTES` (default: 10080 = 7 days)
-  - `CORS_ORIGINS` (comma separated; default includes http://localhost:5173)
-  - `API_KEY` (not required by default; reserved)
-
-- Pricing & Validation
-  - `PRICE_CACHE_TTL_SECONDS` (default: 300)
-  - `VALIDATE_SELL_QUANTITY` (default: true)
-
-- Admin bootstrap
-  - `ADMIN_AUTO_CREATE` (default: true)
-  - `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` (required to create)
-  - `ADMIN_FULL_NAME` (optional)
-  - `ADMIN_IS_ACTIVE` (default: true)
-  - `ADMIN_IS_VERIFIED` (default: true)
-
-- Email (optional)
-  - `ENABLE_EMAIL` (default: false)
-  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS`
-  - `FROM_EMAIL`, `FROM_NAME`
-  - `FRONTEND_URL` (links in emails; default: http://localhost:5173)
-
-- Logos
-  - `BRANDFETCH_API_KEY` (optional)
-
-### Transaction Validation
-
-Automatic validation that prevents selling more shares than owned.
-
-```bash
-# In .env
-VALIDATE_SELL_QUANTITY=true  # Default: true
-```
-
-To disable (useful for importing historical data or short selling):
-
-```bash
-VALIDATE_SELL_QUANTITY=false
-```
-
-### Price Scheduler
-
-By default, automatic refresh every **15 minutes** for portfolio assets.
-
-Configurable in `api/app/tasks/scheduler.py`.
-
-### Cache TTL
-
-`PRICE_CACHE_TTL_SECONDS=300` (5 minutes by default)
-
-### Brandfetch API (Logo Fetching)
-
-The application can automatically fetch company logos using the Brandfetch API.
-
-```bash
-# In .env
-BRANDFETCH_API_KEY=your_api_key_here
-```
-
-To get an API key:
-1. Visit [Brandfetch](https://brandfetch.com/)
-2. Sign up for a free account
-3. Get your API key from the dashboard
-
-**Note**: Logo fetching is optional. If no API key is provided, the feature will be disabled automatically.
-
-## 👥 Multi-users & Authentication
-
-Portfolium supports multiple users with JWT authentication and optional email verification.
-
-- Registration creates an inactive/unverified user until the email is verified (when email is enabled).
-- Users manage their own profiles and portfolios; every portfolio belongs to a specific user.
-- Authorization is enforced per-portfolio: users may only access their own portfolios and transactions.
-- Admins can manage any user and perform maintenance actions.
-
-Auth details:
-- OAuth2 password flow at `/auth/login` returns a bearer token.
-- Include `Authorization: Bearer <token>` on protected endpoints.
-- Email verification and password reset flows are available when SMTP is configured.
-
-## 🧑‍💼 Administration
-
-Admin users (is_admin or is_superuser) have access to:
-
-- User management: list, create, update, delete (`/admin/users`)
-- Data maintenance: truncate all portfolio data (`DELETE /admin/data`)
-
-Bootstrap an admin on startup by setting env vars:
-
-```
-ADMIN_AUTO_CREATE=true
-ADMIN_EMAIL=admin@example.com
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change_me
-ADMIN_FULL_NAME=Site Admin
-ADMIN_IS_ACTIVE=true
-ADMIN_IS_VERIFIED=true
-```
-
-The first admin (or the account matching `ADMIN_EMAIL`) is protected from accidental deactivation, admin revocation, or deletion.
-
-## 🐛 Troubleshooting
-
-### API won't start
-
-```bash
-docker compose logs api
-# Check that PostgreSQL is ready
-docker compose ps
-```
-
-### Prices not refreshing
-
-- Check scheduler logs: `docker compose logs api | grep scheduler`
-- Yahoo Finance may rate-limit: the service uses a fallback to the last prices in DB
-
-### CORS Error
-
-Verify that `VITE_API_URL` points to `http://localhost:8000` in `.env`.
-
-## 📄 License
-
-MIT
+</details>
 
 ---
+
+##  Architecture
+
+Monorepo with 3 services:
+
+- **db**: PostgreSQL 15
+- **api**: FastAPI + yfinance
+- **web**: React + Vite + TypeScript + TailwindCSS
+
+---
+
+##  Features
+
+<table>
+<tr>
+<td width="50%">
+
+###  Portfolio Management
+- Multi-portfolio support with user isolation
+- Stocks, ETFs, crypto (Yahoo Finance)
+- Automatic cost basis & P&L calculations
+- Realized/unrealized gains tracking
+- CSV import with drag & drop
+
+</td>
+<td width="50%">
+
+###  Modern UI
+- Clean, responsive design
+- Dark mode
+- Real-time charts & heatmaps
+- Company logo integration
+- Ticker search & autocomplete
+- Price alerts & notifications
+
+</td>
+</tr>
+<tr>
+<td>
+
+###  Developer Experience
+- FastAPI with auto-generated docs
+- JWT authentication
+- Role-based access control
+- Comprehensive test coverage
+- Hot reload for development
+
+</td>
+<td>
+
+###  Production Ready
+- Docker containerized
+- PostgreSQL backend
+- Automatic price updates
+- Currency conversion
+- Email notifications (optional)
+- Admin dashboard
+
+</td>
+</tr>
+</table>
+
+---
+
+##  Tech Stack
+
+**Backend:** FastAPI  Python 3.11  PostgreSQL 15  SQLAlchemy  yfinance  
+**Frontend:** React 18  TypeScript  Vite  TailwindCSS  shadcn/ui  Recharts  
+**DevOps:** Docker  Docker Compose
+
+---
+
+##  Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) folder:
+
+- **[Quick Start Guide](docs/getting-started/quick-start.md)**  Get up and running
+- **[API Reference](docs/api/overview.md)**  Complete endpoint documentation
+- **[User Guide](docs/user-guide/dashboard.md)**  Feature walkthrough
+- **[Technical Docs](docs/technical/overview.md)**  Architecture & internals
+- **[Configuration](docs/getting-started/configuration.md)**  Environment variables & settings
+
+---
+
+##  Common Tasks
+
+```bash
+# View logs
+docker compose logs -f api
+
+# Run tests
+docker compose exec api pytest -v
+
+# Reset database ( deletes all data)
+docker compose down -v && docker compose up -d
+
+# Access PostgreSQL
+docker compose exec db psql -U portfolium
+```
+
+---
+
+##  Security
+
+- JWT-based authentication with bcrypt password hashing
+- Role-based authorization (user/admin)
+- CORS configuration for trusted origins
+- SQL injection prevention via SQLAlchemy ORM
+- Input validation with Pydantic
+- Optional email verification flow
+
+---
+
+##  Contributing
+
+Contributions welcome! See [`docs/development/contributing.md`](docs/development/contributing.md) for guidelines.
+
+---
+
+##  License
+
+MIT  [Arthur MTX](https://github.com/ArthurMTX)
+
+---
+
+<div align="center">
+
+**Built with  using FastAPI and React**
+
+[Report Bug](https://github.com/ArthurMTX/Portfolium/issues)  [Request Feature](https://github.com/ArthurMTX/Portfolium/issues)
+
+</div>
