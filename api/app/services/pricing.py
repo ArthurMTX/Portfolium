@@ -45,8 +45,17 @@ class PricingService:
         
         if not force_refresh and latest_price and self._is_price_fresh(latest_price.asof):
             logger.info(f"Using cached price for {symbol}")
-            # Even with cached price, try to calculate daily change from historical data
-            daily_change_pct = self._calculate_daily_change_from_db(asset.id, latest_price.price)
+            # Try to get the official previous close price from DB first
+            daily_change_pct = self._calculate_daily_change_with_official_close(asset.id, latest_price.price)
+            
+            # If we don't have a daily change (no historical data), try to fetch just the previous close from yfinance
+            if daily_change_pct is None:
+                logger.info(f"No historical data for {symbol}, fetching previous close from yfinance")
+                prev_close_data = await asyncio.to_thread(self._fetch_previous_close_only, symbol, asset.id)
+                if prev_close_data:
+                    daily_change_pct = (
+                        (latest_price.price - prev_close_data) / prev_close_data * 100
+                    )
             
             return PriceQuote(
                 symbol=symbol,
@@ -68,17 +77,20 @@ class PricingService:
                     (price["price"] - price["previous_close"]) / price["previous_close"] * 100
                 )
                 
-                # Also save the previous close as a historical price point (if not already in DB)
-                # This helps future calculations
+                # Save the official previous close as a historical price point
+                # Use a special source tag to distinguish it from intraday prices
                 yesterday = datetime.utcnow() - timedelta(days=1)
+                # Check if we already have an official previous close stored
                 existing_prev = crud_prices.get_prices(
                     self.db, 
                     asset.id, 
                     date_from=yesterday - timedelta(hours=12),
                     date_to=yesterday + timedelta(hours=12),
-                    limit=1
+                    limit=10  # Get more to check for official close
                 )
-                if not existing_prev or len(existing_prev) == 0:
+                # Only save if we don't have a yfinance_prev_close for this time period
+                has_official_close = any(p.source == "yfinance_prev_close" for p in existing_prev)
+                if not has_official_close:
                     try:
                         prev_price_create = PriceCreate(
                             asset_id=asset.id,
@@ -88,7 +100,7 @@ class PricingService:
                             source="yfinance_prev_close"
                         )
                         crud_prices.create_price(self.db, prev_price_create)
-                        logger.info(f"Saved previous close price for {symbol}")
+                        logger.info(f"Saved previous close price for {symbol}: {price['previous_close']}")
                     except Exception as e:
                         logger.warning(f"Failed to save previous close for {symbol}: {e}")
             
@@ -113,7 +125,7 @@ class PricingService:
         # Fallback to last known price
         if latest_price:
             logger.warning(f"yfinance failed, using last known price for {symbol}")
-            daily_change_pct = self._calculate_daily_change_from_db(asset.id, latest_price.price)
+            daily_change_pct = self._calculate_daily_change_with_official_close(asset.id, latest_price.price)
             
             return PriceQuote(
                 symbol=symbol,
@@ -270,22 +282,132 @@ class PricingService:
         age = datetime.utcnow() - asof
         return age < self.cache_ttl
     
-    def _calculate_daily_change_from_db(self, asset_id: int, current_price: Decimal) -> Optional[Decimal]:
-        """Calculate daily change percentage from database historical prices"""
+    def _fetch_previous_close_only(self, symbol: str, asset_id: int) -> Optional[Decimal]:
+        """
+        Fetch only the previous close from yfinance and save it to DB.
+        This is used when we have a cached price but no historical data for daily change calculation.
+        Returns the previous close price if found, None otherwise.
+        """
         try:
-            # Get price from approximately 1 day ago
-            yesterday = datetime.utcnow() - timedelta(days=1)
+            ticker = yf.Ticker(symbol)
+            
+            # Try fast_info first
+            try:
+                info = ticker.fast_info
+                prev_close = float(info.get('previous_close', 0))
+                
+                if prev_close > 0:
+                    prev_close_decimal = Decimal(str(prev_close))
+                    
+                    # Save to DB if not already saved
+                    yesterday = datetime.utcnow() - timedelta(days=1)
+                    existing_prev = crud_prices.get_prices(
+                        self.db, 
+                        asset_id, 
+                        date_from=yesterday - timedelta(hours=12),
+                        date_to=yesterday + timedelta(hours=12),
+                        limit=10
+                    )
+                    has_official_close = any(p.source == "yfinance_prev_close" for p in existing_prev)
+                    if not has_official_close:
+                        prev_price_create = PriceCreate(
+                            asset_id=asset_id,
+                            asof=yesterday,
+                            price=prev_close_decimal,
+                            volume=None,
+                            source="yfinance_prev_close"
+                        )
+                        crud_prices.create_price(self.db, prev_price_create)
+                        logger.info(f"Saved previous close for {symbol}: {prev_close_decimal}")
+                    
+                    return prev_close_decimal
+            except Exception as e:
+                logger.warning(f"fast_info failed for {symbol} when fetching prev close: {e}")
+            
+            # Fallback to history
+            hist = ticker.history(period="5d")
+            if not hist.empty and len(hist) > 1:
+                prev_row = hist.iloc[-2]
+                prev_close_decimal = Decimal(str(float(prev_row["Close"])))
+                
+                # Save to DB
+                yesterday = datetime.utcnow() - timedelta(days=1)
+                existing_prev = crud_prices.get_prices(
+                    self.db, 
+                    asset_id, 
+                    date_from=yesterday - timedelta(hours=12),
+                    date_to=yesterday + timedelta(hours=12),
+                    limit=10
+                )
+                has_official_close = any(p.source == "yfinance_prev_close" for p in existing_prev)
+                if not has_official_close:
+                    prev_price_create = PriceCreate(
+                        asset_id=asset_id,
+                        asof=yesterday,
+                        price=prev_close_decimal,
+                        volume=None,
+                        source="yfinance_prev_close"
+                    )
+                    crud_prices.create_price(self.db, prev_price_create)
+                    logger.info(f"Saved previous close from history for {symbol}: {prev_close_decimal}")
+                
+                return prev_close_decimal
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching previous close for {symbol}: {e}")
+            return None
+    
+    def _calculate_daily_change_with_official_close(self, asset_id: int, current_price: Decimal) -> Optional[Decimal]:
+        """
+        Calculate daily change percentage using the official previous close price.
+        Prioritizes yfinance_prev_close entries over regular intraday prices.
+        """
+        try:
+            # Look for the official previous close in the last 5 days (to handle weekends)
+            lookback = datetime.utcnow() - timedelta(days=5)
             previous_prices = crud_prices.get_prices(
                 self.db, 
                 asset_id, 
-                date_to=yesterday, 
-                limit=1
+                date_from=lookback,
+                limit=100  # Get enough to find official close or good approximation
             )
             
-            if previous_prices and len(previous_prices) > 0:
-                prev_price = previous_prices[0].price
-                if prev_price and prev_price > 0:
-                    return ((current_price - prev_price) / prev_price * 100)
+            if previous_prices:
+                # First, try to find an official previous close (source = yfinance_prev_close)
+                official_closes = [p for p in previous_prices if p.source == "yfinance_prev_close"]
+                if official_closes:
+                    # Use the most recent official close
+                    prev_price = official_closes[0].price
+                    if prev_price and prev_price > 0:
+                        return ((current_price - prev_price) / prev_price * 100)
+                
+                # Fallback: get a price from approximately 1 day ago
+                # Look for prices between 18-30 hours ago (to approximate previous day's close)
+                target_time = datetime.utcnow() - timedelta(hours=24)
+                min_time = datetime.utcnow() - timedelta(hours=30)
+                max_time = datetime.utcnow() - timedelta(hours=18)
+                
+                approximate_prices = [
+                    p for p in previous_prices 
+                    if min_time <= p.asof <= max_time
+                ]
+                
+                if approximate_prices:
+                    # Use the closest price to 24 hours ago
+                    closest_price = min(approximate_prices, key=lambda p: abs((p.asof - target_time).total_seconds()))
+                    prev_price = closest_price.price
+                    if prev_price and prev_price > 0:
+                        return ((current_price - prev_price) / prev_price * 100)
+                
+                # Last fallback: use any price from at least 12 hours ago
+                old_cutoff = datetime.utcnow() - timedelta(hours=12)
+                old_prices = [p for p in previous_prices if p.asof < old_cutoff]
+                if old_prices:
+                    # Get the most recent of the old prices (first in list since ordered DESC)
+                    prev_price = old_prices[0].price
+                    if prev_price and prev_price > 0:
+                        return ((current_price - prev_price) / prev_price * 100)
             
             return None
         except Exception as e:
