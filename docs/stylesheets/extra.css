@@ -1,0 +1,92 @@
+/* Custom pink theme enhancements */
+:root {
+  --md-primary-fg-color: #ec4899;
+  --md-primary-fg-color--light: #f9a8d4;
+  --md-primary-fg-color--dark: #db2777;
+  --md-accent-fg-color: #ec4899;
+}
+
+/* Pink gradient for headers */
+.md-typeset h1 {
+  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  font-size: 2.5em;
+  margin-bottom: 0.8em;
+}
+
+/* H2 headers with darker pink and bottom border */
+.md-typeset h2 {
+  color: #db2777;
+  font-weight: 600;
+  font-size: 1.8em;
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid rgba(236, 72, 153, 0.3);
+}
+
+/* H3 headers with lighter pink */
+.md-typeset h3 {
+  color: #ec4899;
+  font-weight: 600;
+  font-size: 1.4em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+/* H4 headers with subtle styling */
+.md-typeset h4 {
+  color: #f472b6;
+  font-weight: 500;
+  font-size: 1.15em;
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+}
+
+/* H5 and H6 headers */
+.md-typeset h5 {
+  color: #f9a8d4;
+  font-weight: 500;
+  font-size: 1em;
+  margin-top: 0.6em;
+  margin-bottom: 0.3em;
+}
+
+.md-typeset h6 {
+  color: #fbbf24;
+  font-weight: 500;
+  font-size: 0.9em;
+  margin-top: 0.5em;
+  margin-bottom: 0.3em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Custom admonition colors */
+.md-typeset .admonition.tip {
+  border-color: #ec4899;
+}
+
+.md-typeset .admonition.tip > .admonition-title {
+  background-color: rgba(236, 72, 153, 0.1);
+  border-color: #ec4899;
+}
+
+/* Code block styling */
+.md-typeset code {
+  background-color: rgba(236, 72, 153, 0.05);
+  border: 1px solid rgba(236, 72, 153, 0.15);
+}
+
+/* Link hover effects */
+.md-typeset a:hover {
+  color: #db2777;
+}
+
+/* Search highlight */
+.md-search-result__article--document:hover {
+  background-color: rgba(236, 72, 153, 0.05);
+}

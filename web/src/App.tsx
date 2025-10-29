@@ -18,6 +18,7 @@ import VerifyEmail from './pages/VerifyEmail'
 import Layout from './components/Layout'
 import Admin from './pages/Admin'
 import Insights from './pages/Insights'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -59,6 +60,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* 404 catch-all route */}
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>

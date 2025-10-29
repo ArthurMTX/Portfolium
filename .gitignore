@@ -38,3 +38,8 @@ dist/
 *.db
 *.sqlite
 postgres_data/
+
+# MkDocs
+site/
+.mkdocs_cache/
+web/public/docs/

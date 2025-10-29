@@ -1,0 +1,106 @@
+site_name: Portfolium Documentation
+site_description: Documentation for Portfolium - Portfolio Management Platform
+site_author: ArthurMTX
+repo_url: https://github.com/ArthurMTX/Portfolium
+repo_name: ArthurMTX/Portfolium
+
+# Build directory (can be overridden with -d flag)
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: pink
+      accent: pink
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: pink
+      accent: pink
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Configuration: getting-started/configuration.md
+  - User Guide:
+      - Portfolios: user-guide/portfolios.md
+      - Dashboard: user-guide/dashboard.md
+      - Charts: user-guide/charts.md
+      - Transactions: user-guide/transactions.md
+      - Assets: user-guide/assets.md
+      - Watchlist: user-guide/watchlist.md
+      - Insights: user-guide/insights.md
+      - Notifications: user-guide/notifications.md
+      - Settings: user-guide/settings.md
+  - API Reference:
+      - Overview: api/overview.md
+      - Authentication: api/authentication.md
+      - Endpoints: api/endpoints.md
+  - Technical Reference:
+      - Overview: technical/overview.md
+      - Stock Splits: technical/stock-splits.md
+      - Logo Fetching: technical/logo-fetching.md
+      - Price Fetching: technical/price-fetching.md
+      - Currency Conversion: technical/currency-conversion.md
+      - Data Models: technical/data-models.md
+      - Pricing Service: technical/pricing-service.md
+  - Development:
+      - Architecture: development/architecture.md
+      - Contributing: development/contributing.md
+      - Testing: development/testing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ArthurMTX/Portfolium
+  
+extra_css:
+  - stylesheets/extra.css

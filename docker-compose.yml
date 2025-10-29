@@ -74,8 +74,8 @@ services:
 
   web:
     build:
-      context: ./web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./web/Dockerfile
       target: development
     container_name: portfolium-web
     restart: unless-stopped
@@ -92,6 +92,7 @@ services:
     volumes:
       - ./web:/app
       - /app/node_modules
+      - /app/public/docs
     networks:
       - portfolium
 
