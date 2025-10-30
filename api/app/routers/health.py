@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from app.db import get_db
 from app.schemas import HealthCheck
+from app.version import __version__
 
 router = APIRouter()
 
@@ -74,6 +75,6 @@ async def health_check(db: Session = Depends(get_db)):
         status="ok" if db_status == "healthy" else "degraded",
         timestamp=datetime.utcnow(),
         database=db_status,
-        version="1.0.0",
+        version=__version__,
         market_status=market_status
     )

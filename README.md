@@ -79,9 +79,7 @@ npm run dev
 - **api**: FastAPI (Python 3.11) + yfinance + SQLAlchemy
 - **web**: React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui
 
-**DevOps:** Docker • Docker Compose
-
----
+**DevOps:** Docker • Docker Compose • GitHub Actions • Docker Hub
 
 ## ✨ Features
 
@@ -126,24 +124,6 @@ Comprehensive documentation is available in the [`docs/`](docs/) folder:
 - **[User Guide](docs/user-guide/dashboard.md)**  Feature walkthrough
 - **[Technical Docs](docs/technical/overview.md)**  Architecture & internals
 - **[Configuration](docs/getting-started/configuration.md)**  Environment variables & settings
-
----
-
-## 🎯 Common Tasks
-
-```bash
-# View logs
-docker compose logs -f api
-
-# Run tests
-docker compose exec api pytest -v
-
-# Reset database ( deletes all data)
-docker compose down -v && docker compose up -d
-
-# Access PostgreSQL
-docker compose exec db psql -U portfolium
-```
 
 ---
 

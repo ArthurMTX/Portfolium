@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell } from 'lucide-react'
+import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell, Info } from 'lucide-react'
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
+import VersionInfo from '../components/VersionInfo'
 
-type SettingsTab = 'general' | 'notifications' | 'validation' | 'danger';
+type SettingsTab = 'general' | 'notifications' | 'validation' | 'danger' | 'about';
 
 export default function Settings() {
   const { user, refreshUser } = useAuth()
@@ -194,6 +195,17 @@ export default function Settings() {
           >
             <AlertTriangle size={14} className="inline mr-1" />
             Danger
+          </button>
+          <button
+            onClick={() => setActiveTab('about')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'about'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <Info size={14} className="inline mr-1" />
+            About
           </button>
         </nav>
       </div>
@@ -522,6 +534,43 @@ export default function Settings() {
             {error}
           </div>
         )}
+        </div>
+      )}
+
+      {/* About Tab */}
+      {activeTab === 'about' && (
+        <div className="space-y-4">
+          <VersionInfo />
+          
+          <div className="card p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">About Portfolium</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              A modern investment portfolio tracker built with FastAPI and React. 
+              Track your stocks, ETFs, and crypto with real-time pricing, P&L analytics, and beautiful charts.
+            </p>
+            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <p><strong>Features:</strong></p>
+              <ul className="list-disc list-inside ml-2 space-y-1">
+                <li>Multi-portfolio support</li>
+                <li>Real-time price tracking via Yahoo Finance</li>
+                <li>Automatic P&L calculations</li>
+                <li>Portfolio performance charts</li>
+                <li>Transaction history & CSV import</li>
+                <li>Daily change notifications</li>
+                <li>Company logo integration</li>
+              </ul>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <a 
+                href="https://github.com/ArthurMTX/Portfolium" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View on GitHub →
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>

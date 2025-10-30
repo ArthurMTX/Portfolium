@@ -163,6 +163,15 @@ class ApiClient {
     }>('/health')
   }
 
+  // Version
+  async getVersion() {
+    return this.request<{
+      version: string
+      build_date: string
+      git_commit: string
+    }>('/version')
+  }
+
   // Authentication
   async login(email: string, password: string) {
     const formData = new URLSearchParams()
