@@ -17,6 +17,9 @@ from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
+# Lock to prevent concurrent database access in async position calculations
+_db_lock = asyncio.Lock()
+
 
 class MetricsService:
     """Service for calculating portfolio metrics"""
@@ -58,12 +61,18 @@ class MetricsService:
                 asset_txs[tx.asset_id] = []
             asset_txs[tx.asset_id].append(tx)
         
-        # Calculate positions concurrently
-        tasks = [
-            self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
-            for asset_id, txs in asset_txs.items()
-        ]
-        all_positions = await asyncio.gather(*tasks, return_exceptions=True)
+        # Calculate positions sequentially to avoid database session concurrency issues
+        all_positions = []
+        logger.info(f"Calculating positions for {len(asset_txs)} assets in portfolio {portfolio_id}")
+        for asset_id, txs in asset_txs.items():
+            try:
+                position = await self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
+                if position:
+                    logger.info(f"Calculated position for asset {asset_id}: {position.symbol}, qty={position.quantity}")
+                all_positions.append(position)
+            except Exception as e:
+                logger.error(f"Error calculating position for asset {asset_id}: {e}", exc_info=True)
+                all_positions.append(e)
         
         positions = []
         for position in all_positions:
@@ -107,12 +116,16 @@ class MetricsService:
                 asset_txs[tx.asset_id] = []
             asset_txs[tx.asset_id].append(tx)
         
-        # Calculate positions concurrently, but only for sold positions
-        tasks = [
-            self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold=True)
-            for asset_id, txs in asset_txs.items()
-        ]
-        all_positions = await asyncio.gather(*tasks, return_exceptions=True)
+        # Calculate positions sequentially to avoid database session concurrency issues
+        all_positions = []
+        logger.info(f"Calculating sold positions for {len(asset_txs)} assets in portfolio {portfolio_id}")
+        for asset_id, txs in asset_txs.items():
+            try:
+                position = await self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold=True)
+                all_positions.append(position)
+            except Exception as e:
+                logger.error(f"Error calculating sold position for asset {asset_id}: {e}", exc_info=True)
+                all_positions.append(e)
         
         # Filter to only sold positions (quantity = 0)
         sold_positions = []
