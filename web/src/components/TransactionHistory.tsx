@@ -17,10 +17,11 @@ interface AssetTransaction {
 interface TransactionHistoryProps {
   assetId: number
   assetSymbol: string
+  portfolioId?: number
   onClose: () => void
 }
 
-export default function TransactionHistory({ assetId, assetSymbol, onClose }: TransactionHistoryProps) {
+export default function TransactionHistory({ assetId, assetSymbol, portfolioId, onClose }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<AssetTransaction[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -28,7 +29,7 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
     const fetchTransactions = async () => {
       try {
         setLoading(true)
-        const data = await api.getAssetTransactionHistory(assetId)
+        const data = await api.getAssetTransactionHistory(assetId, portfolioId)
         setTransactions(data)
       } catch (error) {
         console.error('Failed to fetch transaction history:', error)
@@ -38,7 +39,7 @@ export default function TransactionHistory({ assetId, assetSymbol, onClose }: Tr
     }
 
     fetchTransactions()
-  }, [assetId])
+  }, [assetId, portfolioId])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

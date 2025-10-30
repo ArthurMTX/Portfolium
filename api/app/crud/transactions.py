@@ -161,6 +161,62 @@ def get_current_position_quantity(
     return float(quantity)
 
 
+def get_position_quantity_at_date(
+    db: Session,
+    portfolio_id: int,
+    asset_id: int,
+    as_of_date: date,
+    exclude_transaction_id: int | None = None
+) -> float:
+    """
+    Calculate the quantity held for an asset in a portfolio at a specific date.
+    Only considers transactions up to (but NOT including) the as_of_date.
+    This is used for validation - to check if you have enough shares to sell on a given date.
+    
+    Args:
+        db: Database session
+        portfolio_id: Portfolio ID
+        asset_id: Asset ID
+        as_of_date: Calculate position up to this date (exclusive)
+        exclude_transaction_id: Optional transaction ID to exclude (for update validation)
+    
+    Returns:
+        Quantity held just before the as_of_date
+    """
+    from decimal import Decimal
+    
+    query = (
+        db.query(Transaction)
+        .filter(
+            and_(
+                Transaction.portfolio_id == portfolio_id,
+                Transaction.asset_id == asset_id,
+                Transaction.tx_date < as_of_date
+            )
+        )
+    )
+    
+    if exclude_transaction_id is not None:
+        query = query.filter(Transaction.id != exclude_transaction_id)
+    
+    transactions = query.order_by(Transaction.tx_date, Transaction.created_at).all()
+    
+    quantity = Decimal(0)
+    
+    for tx in transactions:
+        if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+            quantity += tx.quantity
+        elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            quantity -= tx.quantity
+        elif tx.type == TransactionType.SPLIT:
+            # Handle stock split (e.g., 2:1 means double shares)
+            split_ratio = _parse_split_ratio(tx.meta_data.get("split", "1:1"))
+            quantity *= Decimal(str(split_ratio))
+    
+    return float(quantity)
+
+
+
 def _parse_split_ratio(split_str: str) -> float:
     """Parse split ratio string like '2:1' into multiplier (2.0)"""
     try:

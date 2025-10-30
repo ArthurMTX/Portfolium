@@ -257,12 +257,14 @@ class ApiClient {
     return this.request<any[]>(`/assets${params}`)
   }
 
-  async getHeldAssets() {
-    return this.request<any[]>('/assets/held/all')
+  async getHeldAssets(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<any[]>(`/assets/held/all${params}`)
   }
 
-  async getSoldAssets() {
-    return this.request<any[]>('/assets/sold/all')
+  async getSoldAssets(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<any[]>(`/assets/sold/all${params}`)
   }
 
   async enrichAsset(assetId: number) {
@@ -293,16 +295,18 @@ class ApiClient {
     })
   }
 
-  async getAssetSplitHistory(assetId: number) {
+  async getAssetSplitHistory(assetId: number, portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
     return this.request<Array<{
       id: number
       tx_date: string
       metadata: { split?: string; [key: string]: unknown }
       notes: string | null
-    }>>(`/assets/${assetId}/splits`)
+    }>>(`/assets/${assetId}/splits${params}`)
   }
 
-  async getAssetTransactionHistory(assetId: number) {
+  async getAssetTransactionHistory(assetId: number, portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
     return this.request<Array<{
       id: number
       tx_date: string
@@ -313,7 +317,53 @@ class ApiClient {
       fees: number | null
       portfolio_name: string
       notes: string | null
-    }>>(`/assets/${assetId}/transactions`)
+    }>>(`/assets/${assetId}/transactions${params}`)
+  }
+
+  async getAssetPriceHistory(assetId: number, period: string = '1M') {
+    return this.request<{
+      asset_id: number
+      symbol: string
+      name: string | null
+      currency: string
+      period: string
+      start_date: string
+      end_date: string
+      data_points: number
+      prices: Array<{
+        date: string
+        price: number
+        volume: number | null
+        source: string
+      }>
+    }>(`/assets/${assetId}/prices?period=${encodeURIComponent(period)}`)
+  }
+
+  async getAssetHealth(assetId: number) {
+    return this.request<{
+      asset_id: number
+      symbol: string
+      name: string | null
+      status: string
+      total_price_records: number
+      first_transaction_date: string | null
+      first_transaction_actual: string | null
+      data_range: {
+        start: string
+        end: string
+        days: number
+      } | null
+      coverage: {
+        expected_trading_days: number
+        actual_data_points: number
+        coverage_pct: number
+        missing_days: number
+        gap_count: number
+      }
+      sources: Record<string, number>
+      gaps: string[] | { total: number; sample: string[]; message: string }
+      recommendations: string[]
+    }>(`/assets/${assetId}/health`)
   }
 
   // Portfolios

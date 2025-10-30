@@ -363,6 +363,135 @@ async def check_daily_changes():
     await loop.run_in_executor(None, _check_changes)
 
 
+async def fetch_daily_closing_prices():
+    """
+    Background job to fetch daily closing prices for all held assets
+    
+    This runs once per day (typically after market close) to ensure we have
+    complete historical price data for portfolio value calculation and charting.
+    Fetches closing prices for the previous trading day for all assets with positions.
+    Runs asynchronously to avoid blocking the main event loop.
+    """
+    logger.info("Starting daily closing price fetch for all held assets...")
+    
+    def _fetch_closing_prices():
+        db = SessionLocal()
+        try:
+            from app.models import Asset, Transaction, TransactionType
+            from sqlalchemy import distinct
+            from datetime import datetime, timedelta
+            
+            # Get all unique assets that have current holdings (BUY - SELL > 0)
+            # We need to calculate which assets are currently held
+            from app.routers.assets import _parse_split_ratio
+            from decimal import Decimal
+            
+            # Get all assets that have transactions
+            asset_ids = db.query(Transaction.asset_id.distinct()).all()
+            asset_ids = [aid[0] for aid in asset_ids]
+            
+            held_assets = []
+            for asset_id in asset_ids:
+                # Get all transactions for this asset across all portfolios
+                transactions = (
+                    db.query(Transaction)
+                    .filter(Transaction.asset_id == asset_id)
+                    .order_by(Transaction.tx_date, Transaction.created_at)
+                    .all()
+                )
+                
+                # Calculate total quantity with split adjustments
+                total_quantity = Decimal(0)
+                
+                for tx in transactions:
+                    if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                        total_quantity += tx.quantity
+                    elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                        total_quantity -= tx.quantity
+                    elif tx.type == TransactionType.SPLIT:
+                        # Apply split ratio to current quantity
+                        split_ratio = _parse_split_ratio(tx.meta_data.get("split", "1:1") if tx.meta_data else "1:1")
+                        total_quantity *= split_ratio
+                
+                # Only include assets with positive quantity
+                if total_quantity > 0:
+                    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+                    if asset:
+                        held_assets.append(asset)
+            
+            if not held_assets:
+                logger.info("No held assets found, skipping daily price fetch")
+                return
+            
+            logger.info(f"Fetching daily closing prices for {len(held_assets)} held assets")
+            
+            pricing_service = PricingService(db)
+            
+            # Fetch closing price for yesterday (last complete trading day)
+            # We use yesterday because today's closing price might not be available yet
+            yesterday = datetime.utcnow() - timedelta(days=1)
+            yesterday_start = datetime.combine(yesterday.date(), datetime.min.time())
+            yesterday_end = datetime.combine(yesterday.date(), datetime.max.time())
+            
+            successful = 0
+            failed = 0
+            skipped = 0
+            
+            for asset in held_assets:
+                try:
+                    # Check if we already have a price for yesterday
+                    from app.crud import prices as crud_prices
+                    existing_prices = crud_prices.get_prices(
+                        db,
+                        asset.id,
+                        date_from=yesterday_start,
+                        date_to=yesterday_end,
+                        limit=10
+                    )
+                    
+                    # Skip if we already have prices for this day
+                    if existing_prices:
+                        skipped += 1
+                        logger.debug(f"Skipping {asset.symbol}, already have price for yesterday")
+                        continue
+                    
+                    # Fetch historical prices for yesterday
+                    # This will get the closing price from yfinance
+                    count = pricing_service.ensure_historical_prices(
+                        asset,
+                        yesterday_start,
+                        yesterday_end,
+                        interval='1d'
+                    )
+                    
+                    if count > 0:
+                        successful += 1
+                        logger.debug(f"Fetched closing price for {asset.symbol}")
+                    else:
+                        # No data available (might be weekend, holiday, or delisted stock)
+                        skipped += 1
+                        logger.debug(f"No closing price available for {asset.symbol} (possibly market closed)")
+                    
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"Error fetching closing price for {asset.symbol}: {e}")
+            
+            logger.info(
+                f"Daily closing price fetch completed. "
+                f"Successful: {successful}, Skipped: {skipped}, Failed: {failed}, "
+                f"Total assets: {len(held_assets)}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Daily closing price fetch failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    # Run in thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _fetch_closing_prices)
+
+
 async def send_daily_reports():
     """
     Background job to generate and send daily portfolio reports
@@ -528,11 +657,26 @@ def start_scheduler():
         coalesce=True
     )
     
+    # Schedule daily closing price fetch
+    # Run at 5:00 PM EST (17:00) after markets close and after-hours trading is done
+    # Only run on weekdays (Monday-Friday)
+    # This ensures we capture the final closing prices for the day
+    scheduler.add_job(
+        fetch_daily_closing_prices,
+        trigger=CronTrigger(hour=17, minute=0, day_of_week='mon-fri', timezone='America/New_York'),
+        id="fetch_daily_closing_prices",
+        name="Fetch daily closing prices for all held assets",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     scheduler.start()
     logger.info(
         "AsyncIO Scheduler started - price refresh every 15 minutes, "
         "alerts check every 5 minutes, daily changes check every 10 minutes, "
-        "daily reports at 4:00 PM EST (weekdays only). "
+        "daily reports at 4:00 PM EST (weekdays only), "
+        "daily closing prices at 5:00 PM EST (weekdays only). "
         "All jobs run asynchronously to prevent blocking."
     )
 

@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp } from 'lucide-react';
+import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity } from 'lucide-react';
 import api from '../lib/api';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
+import AssetPriceChart from '../components/AssetPriceChart';
+import AssetPriceDebug from '../components/AssetPriceDebug';
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
 import usePortfolioStore from '../store/usePortfolioStore';
@@ -42,9 +44,10 @@ type SortDir = 'asc' | 'desc';
 
 export default function Assets() {
 
-  const { portfolios } = usePortfolioStore()
+  const { portfolios, activePortfolioId } = usePortfolioStore()
   const [heldAssets, setHeldAssets] = useState<HeldAsset[]>([]);
   const [soldAssets, setSoldAssets] = useState<HeldAsset[]>([]);
+  const [portfolioAssetIds, setPortfolioAssetIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enriching, setEnriching] = useState(false);
@@ -56,13 +59,36 @@ export default function Assets() {
   });
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
+  const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string } | null>(null);
+  const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
+
+  // Load portfolio positions when active portfolio changes
+  useEffect(() => {
+    const loadPortfolioPositions = async () => {
+      if (!activePortfolioId) {
+        setPortfolioAssetIds(new Set());
+        return;
+      }
+
+      try {
+        const positions = await api.getPortfolioPositions(activePortfolioId);
+        const assetIds = new Set(positions.map(p => p.asset_id));
+        setPortfolioAssetIds(assetIds);
+      } catch (err) {
+        console.error('Error loading portfolio positions:', err);
+        setPortfolioAssetIds(new Set());
+      }
+    };
+
+    loadPortfolioPositions();
+  }, [activePortfolioId]);
 
   const loadAssets = useCallback(async () => {
     try {
       setLoading(true);
       const [held, sold] = await Promise.all([
-        api.getHeldAssets(),
-        api.getSoldAssets()
+        api.getHeldAssets(activePortfolioId || undefined),
+        api.getSoldAssets(activePortfolioId || undefined)
       ]);
       setHeldAssets(held);
       setSoldAssets(sold);
@@ -73,7 +99,7 @@ export default function Assets() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activePortfolioId]);
 
   useEffect(() => {
     loadAssets();
@@ -97,6 +123,12 @@ export default function Assets() {
     if (showSold) {
       combined = [...heldAssets, ...soldAssets];
     }
+    
+    // Filter by active portfolio if one is selected
+    if (activePortfolioId && portfolioAssetIds.size > 0) {
+      combined = combined.filter(asset => portfolioAssetIds.has(asset.id));
+    }
+    
     const keyTypes = {
       symbol: 'string',
       name: 'string',
@@ -134,7 +166,7 @@ export default function Assets() {
       if (isNaN(nb)) return -1
       return (na - nb) * dir
     });
-  }, [heldAssets, soldAssets, showSold, sortKey, sortDir]);
+  }, [heldAssets, soldAssets, showSold, sortKey, sortDir, activePortfolioId, portfolioAssetIds]);
 
   const handleEnrichAll = async () => {
     try {
@@ -595,12 +627,24 @@ export default function Assets() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
                 <Package className="text-pink-600" size={28} />
-                Assets
+                {activePortfolioId ? (
+                  <>
+                    {portfolios.find(p => p.id === activePortfolioId)?.name || 'Portfolio'} Assets
+                  </>
+                ) : (
+                  'Assets'
+                )}
               </h1>
               <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-                {showSold
-                  ? 'Held and sold assets across all portfolios'
-                  : 'Currently held assets across all portfolios'}
+                {activePortfolioId ? (
+                  showSold
+                    ? `Held and sold assets in ${portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio'}`
+                    : `Currently held assets in ${portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio'}`
+                ) : (
+                  showSold
+                    ? 'Held and sold assets across all portfolios'
+                    : 'Currently held assets across all portfolios'
+                )}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -689,13 +733,6 @@ export default function Assets() {
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
                     Quantity <SortIcon col="total_quantity" />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('portfolio_count')}
-                    aria-sort={isActive('portfolio_count') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                  >
-                    Portfolios <SortIcon col="portfolio_count" />
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                     Actions
@@ -827,10 +864,17 @@ export default function Assets() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm">{asset.portfolio_count}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Price Chart Button - Show for all assets with transactions */}
+                        {(asset.transaction_count ?? 0) > 0 && (
+                          <button
+                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD' })}
+                            className="p-2 text-pink-600 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-900/20 rounded transition-colors"
+                            title="View Price Chart"
+                          >
+                            <LineChart size={16} />
+                          </button>
+                        )}
                         {(asset.transaction_count ?? 0) > 0 && (
                           <button
                             onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
@@ -875,6 +919,7 @@ export default function Assets() {
         <SplitHistory
           assetId={splitHistoryAsset.id}
           assetSymbol={splitHistoryAsset.symbol}
+          portfolioId={activePortfolioId || undefined}
           onClose={() => setSplitHistoryAsset(null)}
         />
       )}
@@ -884,7 +929,68 @@ export default function Assets() {
         <TransactionHistory
           assetId={transactionHistoryAsset.id}
           assetSymbol={transactionHistoryAsset.symbol}
+          portfolioId={activePortfolioId || undefined}
           onClose={() => setTransactionHistoryAsset(null)}
+        />
+      )}
+
+      {/* Price Chart Modal */}
+      {priceChartAsset && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between sticky top-0 bg-white dark:bg-neutral-900 z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
+                  <LineChart className="text-pink-600 dark:text-pink-400" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+                    {priceChartAsset.symbol} Price Chart
+                  </h2>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    Historical price data
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Debug Button */}
+                <button
+                  onClick={() => {
+                    setDebugAsset({ id: priceChartAsset.id, symbol: priceChartAsset.symbol });
+                  }}
+                  className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                  title="Debug Price Data Health"
+                >
+                  <Activity size={20} />
+                </button>
+                {/* Close Button */}
+                <button
+                  onClick={() => setPriceChartAsset(null)}
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <AssetPriceChart 
+                assetId={priceChartAsset.id} 
+                symbol={priceChartAsset.symbol}
+                currency={priceChartAsset.currency}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug Price Data Modal */}
+      {debugAsset && (
+        <AssetPriceDebug
+          assetId={debugAsset.id}
+          symbol={debugAsset.symbol}
+          onClose={() => setDebugAsset(null)}
         />
       )}
     </div>

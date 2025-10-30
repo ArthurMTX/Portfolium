@@ -14,10 +14,11 @@ interface SplitTransaction {
 interface SplitHistoryProps {
   assetId: number
   assetSymbol: string
+  portfolioId?: number
   onClose: () => void
 }
 
-export default function SplitHistory({ assetId, assetSymbol, onClose }: SplitHistoryProps) {
+export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClose }: SplitHistoryProps) {
   const [splits, setSplits] = useState<SplitTransaction[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -25,7 +26,7 @@ export default function SplitHistory({ assetId, assetSymbol, onClose }: SplitHis
     const fetchSplits = async () => {
       try {
         setLoading(true)
-        const data = await api.getAssetSplitHistory(assetId)
+        const data = await api.getAssetSplitHistory(assetId, portfolioId)
         setSplits(data)
       } catch (error) {
         console.error('Failed to fetch split history:', error)
@@ -35,7 +36,7 @@ export default function SplitHistory({ assetId, assetSymbol, onClose }: SplitHis
     }
 
     fetchSplits()
-  }, [assetId])
+  }, [assetId, portfolioId])
 
   const parseSplitRatio = (splitStr: string): { ratio: number; description: string } => {
     const parts = splitStr.split(':')

@@ -100,6 +100,9 @@ class Asset(Base):
     logo_content_type = Column(String)  # MIME type (image/webp, image/svg+xml)
     logo_fetched_at = Column(DateTime)  # When logo was last fetched
     
+    # Price history tracking
+    first_transaction_date = Column(Date)  # Date of first transaction, used for historical price backfill
+    
     # Relationships
     transactions = relationship("Transaction", back_populates="asset")
     prices = relationship("Price", back_populates="asset", cascade="all, delete-orphan")

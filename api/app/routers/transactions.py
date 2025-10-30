@@ -82,13 +82,13 @@ async def add_position_transaction(
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
         if tx_type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
-            from app.crud.transactions import get_current_position_quantity
-            current_qty = get_current_position_quantity(db, portfolio_id, asset.id)
-            if quantity > current_qty:
+            from app.crud.transactions import get_position_quantity_at_date
+            position_before_sell = get_position_quantity_at_date(db, portfolio_id, asset.id, tx_date)
+            if quantity > position_before_sell:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {quantity} shares of {ticker}. "
-                           f"Current position: {current_qty} shares. "
+                    detail=f"Cannot sell {quantity} shares of {ticker} on {tx_date}. "
+                           f"Position at that date: {position_before_sell} shares. "
                            f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
                 )
     
@@ -108,15 +108,22 @@ async def add_position_transaction(
     from app.crud.transactions import create_transaction
     transaction = create_transaction(db, portfolio_id, tx_data)
     
-    # Auto-backfill historical prices from transaction date to today
+    # Update first_transaction_date if this is earlier than the current value
+    if asset.first_transaction_date is None or tx_date < asset.first_transaction_date:
+        asset.first_transaction_date = tx_date
+        db.commit()
+        db.refresh(asset)
+        logger.info(f"Updated first_transaction_date for {asset.symbol} to {tx_date}")
+    
+    # Auto-backfill historical prices from first transaction date to today
     from app.services.pricing import PricingService
     pricing_service = PricingService(db)
-    start_date = datetime.combine(tx_date, datetime.min.time())
+    start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
     end_date = datetime.utcnow()
     
     try:
         count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
-        logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {tx_date} to today")
+        logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {asset.first_transaction_date} to today")
     except Exception as e:
         logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
@@ -270,18 +277,18 @@ async def create_transaction(
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
         if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
-            current_qty = crud.get_current_position_quantity(
-                db, portfolio_id, transaction.asset_id
+            position_before_sell = crud.get_position_quantity_at_date(
+                db, portfolio_id, transaction.asset_id, transaction.tx_date
             )
-            if float(transaction.quantity) > current_qty:
+            if float(transaction.quantity) > position_before_sell:
                 # Get asset symbol for better error message
                 from app.crud.assets import get_asset
                 asset = get_asset(db, transaction.asset_id)
                 symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {transaction.quantity} shares of {symbol}. "
-                           f"Current position: {current_qty} shares. "
+                    detail=f"Cannot sell {transaction.quantity} shares of {symbol} on {transaction.tx_date}. "
+                           f"Position at that date: {position_before_sell} shares. "
                            f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
                 )
     
@@ -295,13 +302,21 @@ async def create_transaction(
         
         asset = get_asset(db, transaction.asset_id)
         if asset:
+            # Update first_transaction_date if this is earlier than the current value
+            if asset.first_transaction_date is None or transaction.tx_date < asset.first_transaction_date:
+                asset.first_transaction_date = transaction.tx_date
+                db.commit()
+                db.refresh(asset)
+                logger.info(f"Updated first_transaction_date for {asset.symbol} to {transaction.tx_date}")
+            
+            # Backfill historical prices from first transaction date to today
             pricing_service = PricingService(db)
-            start_date = datetime.combine(transaction.tx_date, datetime.min.time())
+            start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
             end_date = datetime.utcnow()
             
             try:
                 count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
-                logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {transaction.tx_date} to today")
+                logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {asset.first_transaction_date} to today")
             except Exception as e:
                 logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
@@ -370,29 +385,20 @@ async def update_transaction(
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
         if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
-            # Calculate position as if the existing transaction doesn't exist
-            current_qty = crud.get_current_position_quantity(
-                db, portfolio_id, transaction.asset_id
+            # Calculate position at the transaction date, excluding the transaction being updated
+            position_before_sell = crud.get_position_quantity_at_date(
+                db, portfolio_id, transaction.asset_id, transaction.tx_date,
+                exclude_transaction_id=transaction_id
             )
-            # Add back the existing transaction if it was a sell
-            if existing.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
-                current_qty += float(existing.quantity)
-            # Subtract if existing was a buy (in case asset changed)
-            elif existing.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
-                if existing.asset_id != transaction.asset_id:
-                    # Asset changed, recalculate for new asset
-                    current_qty = crud.get_current_position_quantity(
-                        db, portfolio_id, transaction.asset_id
-                    )
             
-            if float(transaction.quantity) > current_qty:
+            if float(transaction.quantity) > position_before_sell:
                 from app.crud.assets import get_asset
                 asset = get_asset(db, transaction.asset_id)
                 symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {transaction.quantity} shares of {symbol}. "
-                           f"Current position: {current_qty} shares. "
+                    detail=f"Cannot sell {transaction.quantity} shares of {symbol} on {transaction.tx_date}. "
+                           f"Position at that date: {position_before_sell} shares. "
                            f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
                 )
     
