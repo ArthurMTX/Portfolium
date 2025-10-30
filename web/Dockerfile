@@ -52,7 +52,7 @@ COPY docs /build/docs
 RUN cd /build && mkdocs build -d /app/public/docs
 
 # Build the web app (skip docs build since we just built it above)
-RUN tsc && npx vite build
+RUN npx tsc && npx vite build
 
 # Production serve stage
 FROM nginx:alpine AS production
