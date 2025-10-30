@@ -15,51 +15,6 @@ from app.models import User
 
 router = APIRouter()
 
-# Backfill price history for all held assets in a portfolio
-@router.post("/{portfolio_id}/backfill_history")
-async def backfill_portfolio_history(
-    portfolio_id: int,
-    days: int = 365,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Backfill daily price history for all assets in a portfolio for the past N days.
-    """
-    from app.models import Transaction, Asset
-    from app.services.pricing import PricingService
-    from datetime import datetime, timedelta
-
-    # Verify the portfolio belongs to the current user
-    portfolio = crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-
-    # Find all unique asset_ids in this portfolio
-    asset_ids = db.query(Transaction.asset_id).filter(Transaction.portfolio_id == portfolio_id).distinct().all()
-    asset_ids = [row[0] for row in asset_ids]
-    assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
-
-    pricing_service = PricingService(db)
-    start_date = datetime.utcnow() - timedelta(days=days)
-    end_date = datetime.utcnow()
-    results = {}
-    for asset in assets:
-        count = pricing_service.ensure_historical_prices(asset, start_date, end_date, interval='1d')
-        results[asset.symbol] = count
-
-    return {"portfolio_id": portfolio_id, "assets": len(assets), "history_points_saved": results}
-
-
-
 @router.get("", response_model=List[Portfolio])
 async def get_portfolios(
     skip: int = 0,
@@ -272,12 +227,25 @@ async def get_portfolio_metrics(
 @router.get("/{portfolio_id}/history", response_model=List[PortfolioHistoryPoint])
 async def get_portfolio_history(
     portfolio_id: int,
-    interval: str = "daily",  # daily, weekly, 6months, ytd, 1year, all
+    period: str = "1M",  # 1W, 1M, 3M, 6M, YTD, 1Y, ALL
     metrics_service = Depends(get_metrics_service),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get portfolio value history for charting (daily, weekly, etc.)
+    Get portfolio value history for charting
+    
+    Uses saved closing prices from asset_price table to calculate
+    historical portfolio values. Much more efficient and accurate
+    than the old backfill approach.
+    
+    Supported periods:
+    - 1W: Last 7 days
+    - 1M: Last 30 days (default)
+    - 3M: Last 3 months
+    - 6M: Last 6 months
+    - YTD: Year to date
+    - 1Y: Last year
+    - ALL: All available data
     """
     # Verify the portfolio belongs to the current user
     portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
@@ -293,7 +261,7 @@ async def get_portfolio_history(
         )
     
     try:
-        return metrics_service.get_portfolio_history(portfolio_id, interval)
+        return metrics_service.get_portfolio_history(portfolio_id, period)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

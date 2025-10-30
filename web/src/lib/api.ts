@@ -79,6 +79,8 @@ export interface PortfolioMetricsDTO {
 export interface PortfolioHistoryPointDTO {
   date: string
   value: number
+  invested?: number  // Total amount invested (deposits - withdrawals)
+  gain_pct?: number  // Percentage gain/loss (excluding deposits/withdrawals)
 }
 
 class ApiClient {
@@ -407,20 +409,13 @@ class ApiClient {
     return this.request<PositionDTO[]>(`/portfolios/${portfolioId}/sold-positions`)
   }
 
-  async getPortfolioHistory(portfolioId: number, interval: string = "daily") {
-    return this.request<PortfolioHistoryPointDTO[]>(`/portfolios/${portfolioId}/history?interval=${interval}`)
+  async getPortfolioHistory(portfolioId: number, period: string = "1M") {
+    return this.request<PortfolioHistoryPointDTO[]>(`/portfolios/${portfolioId}/history?period=${period}`)
   }
 
 
   async getPortfolioMetrics(portfolioId: number) {
     return this.request<PortfolioMetricsDTO>(`/portfolios/${portfolioId}/metrics`)
-  }
-
-  async backfillPortfolioHistory(portfolioId: number, days = 365) {
-    return this.request<{ portfolio_id: number; assets: number; history_points_saved: Record<string, number> }>(
-      `/portfolios/${portfolioId}/backfill_history`,
-      { method: 'POST', body: JSON.stringify({ days }) }
-    )
   }
 
   // Transactions

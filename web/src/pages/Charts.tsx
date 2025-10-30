@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { LineChart } from 'lucide-react'
+import { LineChart, TrendingUp, Grid3x3, TrendingDown } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import PortfolioHistoryChart from '../components/PortfolioHistoryChart'
+import InvestmentPerformanceChart from '../components/InvestmentPerformanceChart'
 import PortfolioHeatmap from '../components/PortfolioHeatmap'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
+
+type ChartTab = 'heatmap' | 'history' | 'performance'
 
 export default function Charts() {
   const {
@@ -15,8 +18,7 @@ export default function Charts() {
     setActivePortfolio,
   } = usePortfolioStore()
 
-  const [backfillStatus, setBackfillStatus] = useState<string | null>(null)
-  const [backfilling, setBackfilling] = useState(false)
+  const [activeTab, setActiveTab] = useState<ChartTab>('heatmap')
   const [hasTransactions, setHasTransactions] = useState<boolean | null>(null)
   const [checkingTransactions, setCheckingTransactions] = useState(false)
 
@@ -61,21 +63,6 @@ export default function Charts() {
     return () => { canceled = true }
   }, [activePortfolioId])
 
-  const handleBackfill = async () => {
-    if (!activePortfolioId) return
-    setBackfilling(true)
-    setBackfillStatus(null)
-    try {
-      const res = await api.backfillPortfolioHistory(activePortfolioId, 365)
-      setBackfillStatus(`Backfilled ${res.assets} assets. Saved: ` + Object.entries(res.history_points_saved).map(([sym, n]) => `${sym}: ${n}`).join(', '))
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e)
-      setBackfillStatus('Backfill failed: ' + message)
-    } finally {
-      setBackfilling(false)
-    }
-  }
-
   if (!activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="charts" />
   }
@@ -97,16 +84,13 @@ export default function Charts() {
           <div className="h-10 w-36 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
         </div>
 
-        {/* Heatmap Skeleton */}
-        <div className="card p-6">
-          <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
-          <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
-        </div>
-
-        {/* Chart Skeleton */}
-        <div className="card p-6">
-          <div className="h-6 w-56 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
-          <div className="h-96 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+        {/* Tab Skeleton */}
+        <div className="card">
+          <div className="h-12 bg-neutral-200 dark:bg-neutral-700 rounded-t-lg mb-4 animate-pulse"></div>
+          <div className="p-6">
+            <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
+            <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
+          </div>
         </div>
       </div>
     )
@@ -130,27 +114,61 @@ export default function Charts() {
             Track your portfolio value and visualize asset allocation
           </p>
         </div>
-        <button
-          className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          onClick={handleBackfill}
-          disabled={backfilling}
-        >
-          {backfilling ? 'Backfilling…' : 'Backfill History'}
-        </button>
       </div>
 
-      {/* Status message */}
-      {backfillStatus && (
-        <div className="card p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-blue-800 dark:text-blue-200">{backfillStatus}</p>
+      {/* Tabs */}
+      <div className="card">
+        <div className="border-b border-neutral-200 dark:border-neutral-700">
+          <div className="flex gap-1 px-2 pt-2">
+            <button
+              onClick={() => setActiveTab('heatmap')}
+              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg transition-colors font-medium ${
+                activeTab === 'heatmap'
+                  ? 'bg-white dark:bg-neutral-800 text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
+              }`}
+            >
+              <Grid3x3 size={18} />
+              Heatmap
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg transition-colors font-medium ${
+                activeTab === 'history'
+                  ? 'bg-white dark:bg-neutral-800 text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
+              }`}
+            >
+              <TrendingUp size={18} />
+              Portfolio Value
+            </button>
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg transition-colors font-medium ${
+                activeTab === 'performance'
+                  ? 'bg-white dark:bg-neutral-800 text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
+              }`}
+            >
+              <TrendingDown size={18} />
+              Performance
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Heatmap */}
-      <PortfolioHeatmap portfolioId={activePortfolioId} />
-
-      {/* Chart */}
-      <PortfolioHistoryChart portfolioId={activePortfolioId} />
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === 'heatmap' && (
+            <PortfolioHeatmap portfolioId={activePortfolioId} />
+          )}
+          {activeTab === 'history' && (
+            <PortfolioHistoryChart portfolioId={activePortfolioId} />
+          )}
+          {activeTab === 'performance' && (
+            <InvestmentPerformanceChart portfolioId={activePortfolioId} />
+          )}
+        </div>
+      </div>
     </div>
   )
 }

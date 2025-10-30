@@ -238,7 +238,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-6">
+      <div>
         <div className="mb-4 space-y-2 animate-pulse">
           <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
           <div className="h-4 w-72 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
@@ -313,14 +313,14 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
 
   if (positions.length === 0) {
     return (
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-8">
+      <div className="p-8">
         <p className="text-center text-neutral-500 dark:text-neutral-400">No positions to display</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-6">
+    <div>
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           Portfolio Heatmap

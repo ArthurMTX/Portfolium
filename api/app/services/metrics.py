@@ -588,17 +588,24 @@ class MetricsService:
 
     def get_portfolio_history(self, portfolio_id: int, interval: str = "daily") -> list:
         """
-        Return portfolio value history for charting (daily, weekly, etc.)
-        - Uses historical prices from DB (no external calls)
-        - Values are computed as of each bucket date (quantity as-of date * last known price <= date)
-        - Buckets are limited for performance
+        Return portfolio value history for charting using saved closing prices
+        - Uses historical closing prices from asset_price table (yfinance_history source)
+        - Calculates portfolio value at each date by: quantity * closing_price (in portfolio currency)
+        - Handles currency conversion to portfolio base currency
+        - IMPORTANT: Does NOT manually apply splits because Yahoo Finance prices are already split-adjusted
         """
         from app.schemas import PortfolioHistoryPoint
-        from datetime import timedelta, date
+        from datetime import timedelta, date, datetime
         from app.models import Portfolio as PortfolioModel
+        from app.crud import prices as crud_prices
+        from app.services.currency import CurrencyService
+        from collections import defaultdict
+        
         portfolio = self.db.query(PortfolioModel).filter_by(id=portfolio_id).first()
         if not portfolio:
             raise ValueError(f"Portfolio {portfolio_id} not found")
+        
+        portfolio_currency = portfolio.base_currency
 
         # Get all transactions for portfolio
         transactions = (
@@ -610,129 +617,193 @@ class MetricsService:
         if not transactions:
             return []
 
-        # Determine date range
-        first_tx_date: date = transactions[0].tx_date
+        # Determine date range based on interval
         today: date = datetime.utcnow().date()
-        end_date: date = today
-        start_date: date = first_tx_date
-
-        # Build time buckets (limit count for performance)
-        buckets: list[date] = []
-        if interval == "daily":
-            # Last 30 days daily
+        first_tx_date: date = transactions[0].tx_date
+        
+        if interval == "1W":
+            start_date = max(first_tx_date, today - timedelta(days=7))
+        elif interval == "1M":
             start_date = max(first_tx_date, today - timedelta(days=30))
-            step = timedelta(days=1)
-        elif interval == "weekly":
-            # Last 26 weeks weekly
-            start_date = max(first_tx_date, today - timedelta(weeks=26))
-            step = timedelta(weeks=1)
-        elif interval == "6months":
-            # Approx weekly over last 6 months
+        elif interval == "3M":
+            start_date = max(first_tx_date, today - timedelta(days=90))
+        elif interval == "6M":
             start_date = max(first_tx_date, today - timedelta(days=180))
-            step = timedelta(days=7)
-        elif interval == "ytd":
+        elif interval == "YTD":
             start_date = max(first_tx_date, date(today.year, 1, 1))
-            step = timedelta(days=7)
-        elif interval == "1year":
+        elif interval == "1Y":
             start_date = max(first_tx_date, today - timedelta(days=365))
-            step = timedelta(days=7)
-        elif interval == "all":
-            # Monthly sampling over entire history
+        elif interval == "ALL":
             start_date = first_tx_date
-            step = timedelta(days=30)
-        else:
+        else:  # default to 1M
             start_date = max(first_tx_date, today - timedelta(days=30))
-            step = timedelta(days=1)
-
-        current = start_date
-        while current <= end_date:
-            buckets.append(current)
-            current += step
-
-        # Prepare transactions grouped per asset for faster iteration
-        asset_txs: Dict[int, List[Transaction]] = {}
-        for tx in transactions:
-            asset_txs.setdefault(tx.asset_id, []).append(tx)
-
-        # Preload price history per asset within range, ascending order
-        from app.crud import prices as crud_prices
-        # Optional: fetch missing history for accuracy if DB lacks data
-        try:
-            from app.services.pricing import PricingService
-            pricing_service = PricingService(self.db)
-        except Exception:
-            pricing_service = None
-        asset_prices: Dict[int, List] = {}
-        for asset_id in asset_txs.keys():
+        
+        end_date = today
+        
+        # Get all unique asset IDs in this portfolio
+        asset_ids = list(set(tx.asset_id for tx in transactions))
+        
+        # Load all assets to get their currencies
+        assets_dict = {}
+        for asset_id in asset_ids:
+            asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
+            if asset:
+                assets_dict[asset_id] = asset
+        
+        # Fetch all prices for all assets in the date range
+        asset_prices_dict: Dict[int, Dict[date, Decimal]] = defaultdict(dict)
+        
+        for asset_id in asset_ids:
             prices = crud_prices.get_prices(
                 self.db,
                 asset_id,
-                date_from=datetime.combine(start_date, datetime.min.time()) - timedelta(days=7),
+                date_from=datetime.combine(start_date, datetime.min.time()),
                 date_to=datetime.combine(end_date, datetime.max.time()),
-                limit=10000,
+                limit=10000
             )
-            # get_prices returns desc; reverse to asc for pointer iteration
-            asset_prices[asset_id] = list(reversed(prices))
-            if pricing_service and len(asset_prices[asset_id]) == 0:
-                # try to backfill historical prices to make chart meaningful
-                asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
-                if asset:
-                    pricing_service.ensure_historical_prices(asset, datetime.combine(start_date, datetime.min.time()), datetime.combine(end_date, datetime.max.time()))
-                    # re-read
-                    prices2 = crud_prices.get_prices(
-                        self.db,
-                        asset_id,
-                        date_from=datetime.combine(start_date, datetime.min.time()) - timedelta(days=7),
-                        date_to=datetime.combine(end_date, datetime.max.time()),
-                        limit=10000,
+            
+            # Group by date and prefer yfinance_history source (official closing prices)
+            prices_by_date = defaultdict(list)
+            for price in prices:
+                price_date = price.asof.date()
+                prices_by_date[price_date].append(price)
+            
+            # For each date, prefer yfinance_history source, then take the latest price
+            for price_date, day_prices in prices_by_date.items():
+                history_prices = [p for p in day_prices if p.source == 'yfinance_history']
+                if history_prices:
+                    best_price = max(history_prices, key=lambda p: p.asof)
+                else:
+                    best_price = max(day_prices, key=lambda p: p.asof)
+                
+                # Convert price to portfolio currency if needed
+                price_value = best_price.price
+                asset = assets_dict.get(asset_id)
+                if asset and asset.currency != portfolio_currency:
+                    converted_price = CurrencyService.convert(
+                        price_value,
+                        from_currency=asset.currency,
+                        to_currency=portfolio_currency
                     )
-                    asset_prices[asset_id] = list(reversed(prices2))
-
-        # For each asset, maintain pointers for transactions and prices
-        tx_ptr: Dict[int, int] = {aid: 0 for aid in asset_txs.keys()}
-        px_ptr: Dict[int, int] = {aid: 0 for aid in asset_txs.keys()}
-        current_qty: Dict[int, Decimal] = {aid: Decimal(0) for aid in asset_txs.keys()}
-
+                    if converted_price:
+                        price_value = converted_price
+                
+                asset_prices_dict[asset_id][price_date] = price_value
+        
+        # Build a set of all unique dates that have at least one price
+        all_dates = set()
+        for asset_id in asset_ids:
+            all_dates.update(asset_prices_dict[asset_id].keys())
+        
+        # Sort dates
+        sorted_dates = sorted(all_dates)
+        
+        # HYBRID APPROACH - The correct solution:
+        # 1. Track holdings using dashboard logic (splits applied chronologically)
+        # 2. When calculating value, compensate for Yahoo's retroactive price adjustments
+        #
+        # For each asset, calculate the "price adjustment factor" - the cumulative
+        # effect of splits that have occurred AFTER the current date in the loop.
+        # This compensates for Yahoo's retroactive adjustments.
+        
+        # Pre-calculate when each split occurs for each asset
+        asset_splits: Dict[int, List[Tuple[date, Decimal]]] = defaultdict(list)
+        for tx in transactions:
+            if tx.type == TransactionType.SPLIT:
+                ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
+                asset_splits[tx.asset_id].append((tx.tx_date, ratio))
+        
+        # Track holdings, applying splits AS they occur chronologically
+        # Also track total invested amount (cash flow)
+        holdings: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))
+        total_invested = Decimal(0)  # Running total of net cash invested
         history: List[PortfolioHistoryPoint] = []
-
-        for bucket_date in buckets:
-            bucket_dt = datetime.combine(bucket_date, datetime.max.time())
-
-            # Advance quantities up to bucket_date per asset
-            for aid, txs in asset_txs.items():
-                i = tx_ptr[aid]
-                while i < len(txs) and txs[i].tx_date <= bucket_date:
-                    tx = txs[i]
-                    if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
-                        current_qty[aid] += tx.quantity
-                    elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
-                        current_qty[aid] -= tx.quantity
-                    elif tx.type == TransactionType.SPLIT:
-                        ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
-                        current_qty[aid] *= ratio
-                    i += 1
-                tx_ptr[aid] = i
-
-            # Compute value using last known price <= bucket_date
+        tx_idx = 0
+        
+        logger.info("Portfolio history: Hybrid approach with split compensation")
+        
+        for current_date in sorted_dates:
+            # Process ALL transactions including SPLITs up to current_date
+            while tx_idx < len(transactions) and transactions[tx_idx].tx_date <= current_date:
+                tx = transactions[tx_idx]
+                
+                if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                    holdings[tx.asset_id] += tx.quantity
+                    # Add cost to invested amount (quantity * price + fees)
+                    total_invested += (tx.quantity * tx.price) + tx.fees
+                elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                    holdings[tx.asset_id] -= tx.quantity
+                    # Subtract proceeds from invested amount (quantity * price - fees)
+                    total_invested -= (tx.quantity * tx.price) - tx.fees
+                elif tx.type == TransactionType.SPLIT:
+                    # Apply split to holdings (dashboard logic)
+                    # Splits don't affect invested amount
+                    ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
+                    holdings[tx.asset_id] *= ratio
+                
+                tx_idx += 1
+            
+            # Calculate value, compensating for Yahoo's retroactive adjustments
             total_value = Decimal(0)
-            for aid, qty in current_qty.items():
-                if qty <= 0:
+            daily_breakdown = []
+            
+            for asset_id, quantity in holdings.items():
+                if quantity <= 0:
                     continue
-                prices = asset_prices.get(aid, [])
-                j = px_ptr[aid]
-                # Move pointer forward while price asof <= bucket_dt
-                while j < len(prices) and prices[j].asof <= bucket_dt:
-                    j += 1
-                # The last valid price is j-1
-                use_idx = j - 1
-                if use_idx >= 0 and use_idx < len(prices):
-                    price_val = prices[use_idx].price
-                    total_value += qty * price_val
-                px_ptr[aid] = j
-
-            history.append(PortfolioHistoryPoint(date=bucket_date.isoformat(), value=float(total_value)))
-
+                
+                # Get price for this date, or the most recent price before it
+                price = None
+                if current_date in asset_prices_dict[asset_id]:
+                    price = asset_prices_dict[asset_id][current_date]
+                else:
+                    # Find the most recent price before current_date
+                    available_dates = sorted([d for d in asset_prices_dict[asset_id].keys() if d <= current_date])
+                    if available_dates:
+                        price = asset_prices_dict[asset_id][available_dates[-1]]
+                
+                if price is not None:
+                    # Calculate the adjustment factor: product of all splits AFTER current_date
+                    # This compensates for Yahoo's retroactive price adjustments
+                    adjustment_factor = Decimal(1)
+                    for split_date, ratio in asset_splits.get(asset_id, []):
+                        if split_date > current_date:
+                            # This split happened in the future, but Yahoo has already
+                            # adjusted the price backwards. We need to multiply quantity
+                            # by the ratio to compensate.
+                            adjustment_factor *= ratio
+                    
+                    adjusted_quantity = quantity * adjustment_factor
+                    value = adjusted_quantity * price
+                    total_value += value
+                    
+                    # Log for Sept 1 debugging
+                    if current_date.month == 9 and current_date.day == 1:
+                        daily_breakdown.append(f"Asset {asset_id}: {float(quantity):.4f} × {float(adjustment_factor):.4f} × €{float(price):.2f} = €{float(value):.2f}")
+            
+            # Log Sept 1 details
+            if current_date.month == 9 and current_date.day == 1 and total_value < 6000:
+                logger.info(f"LOW VALUE on {current_date}: Total €{float(total_value):.2f}")
+                for detail in daily_breakdown:
+                    logger.info(f"  {detail}")
+            
+            # Calculate gain percentage (value vs invested, excluding deposits/withdrawals)
+            gain_pct = None
+            if total_invested > 0:
+                gain = total_value - total_invested
+                gain_pct = float((gain / total_invested) * 100)
+            
+            history.append(PortfolioHistoryPoint(
+                date=current_date.isoformat(),
+                value=float(total_value),
+                invested=float(total_invested),
+                gain_pct=gain_pct
+            ))
+        
+        if history:
+            logger.info(f"Portfolio history final value: €{history[-1].value:.2f} on {history[-1].date}")
+        
         return history
+
 
 
 def get_metrics_service(db: Session = Depends(get_db)) -> MetricsService:

@@ -427,6 +427,8 @@ class HealthCheck(BaseModel):
 class PortfolioHistoryPoint(BaseModel):
     date: str  # ISO date string
     value: float
+    invested: Optional[float] = None  # Total amount invested (deposits - withdrawals)
+    gain_pct: Optional[float] = None  # Percentage gain/loss (excluding deposits/withdrawals)
 
 
 # ============================================================================
