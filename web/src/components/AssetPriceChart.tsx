@@ -89,6 +89,33 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
     return symbols[curr] || curr + ' '
   }
 
+  // Determine optimal decimal places based on price range
+  const getDecimalPlaces = (prices: number[]): number => {
+    if (!prices || prices.length === 0) return 2
+    
+    const maxPrice = Math.max(...prices)
+    const minPrice = Math.min(...prices.filter(p => p > 0))
+    
+    // For very small prices (< 0.01), use more decimal places
+    if (maxPrice < 0.01) return 6
+    if (maxPrice < 0.1) return 4
+    if (maxPrice < 1) return 3
+    
+    // For larger prices but with small variations, increase precision
+    const range = maxPrice - minPrice
+    if (range < 0.01 && maxPrice < 10) return 4
+    if (range < 0.1 && maxPrice < 100) return 3
+    
+    // Default to 2 decimal places
+    return 2
+  }
+
+  // Format price with appropriate decimal places
+  const formatPrice = (value: number, decimalPlaces?: number): string => {
+    const places = decimalPlaces ?? getDecimalPlaces(history?.prices.map(p => p.price) || [])
+    return value.toFixed(places)
+  }
+
   // Parse split ratio from string like "2:1" to multiplier (2.0)
   const parseSplitRatio = (splitStr: string): number => {
     const parts = splitStr.split(':')
@@ -333,7 +360,8 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             const value = context.parsed.y
             if (value === null) return ''
             const currSymbol = getCurrencySymbol(currency)
-            return `Price: ${currSymbol}${value.toFixed(2)}`
+            const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
+            return `Price: ${currSymbol}${formatPrice(value, decimalPlaces)}`
           },
           afterLabel: (context: { dataIndex: number }) => {
             const labels: string[] = []
@@ -357,8 +385,9 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             })
             
             if (txsOnThisDate.length > 0) {
+              const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
               txsOnThisDate.forEach(tx => {
-                labels.push(`\n${tx.type}: ${tx.quantity.toFixed(2)} @ ${tx.price ? getCurrencySymbol(currency) + tx.price.toFixed(2) : 'N/A'}`)
+                labels.push(`\n${tx.type}: ${tx.quantity.toFixed(2)} @ ${tx.price ? getCurrencySymbol(currency) + formatPrice(tx.price, decimalPlaces) : 'N/A'}`)
               })
             }
             
@@ -425,7 +454,8 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
           font: { size: 11 },
           callback: (value: string | number) => {
             const currSymbol = getCurrencySymbol(currency)
-            return `${currSymbol}${Number(value).toFixed(2)}`
+            const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
+            return `${currSymbol}${formatPrice(Number(value), decimalPlaces)}`
           }
         },
       },
@@ -515,11 +545,12 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                   const lastPrice = history.prices[history.prices.length - 1].price
                   const percentChange = ((lastPrice - firstPrice) / firstPrice) * 100
                   const isPositive = percentChange >= 0
+                  const decimalPlaces = getDecimalPlaces(history.prices.map(p => p.price))
                   
                   return (
                     <div className="flex items-center justify-end gap-2">
                       <p className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
-                        {getCurrencySymbol(currency)}{lastPrice.toFixed(2)}
+                        {getCurrencySymbol(currency)}{formatPrice(lastPrice, decimalPlaces)}
                       </p>
                       <p className={`text-sm font-semibold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {isPositive ? '+' : ''}{percentChange.toFixed(2)}%
