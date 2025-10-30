@@ -15,8 +15,6 @@ export default function Portfolio() {
     setActivePortfolio,
   } = usePortfolioStore()
 
-  const [backfillStatus, setBackfillStatus] = useState<string | null>(null)
-  const [backfilling, setBackfilling] = useState(false)
   const [hasTransactions, setHasTransactions] = useState<boolean | null>(null)
   const [checkingTransactions, setCheckingTransactions] = useState(false)
 
@@ -61,21 +59,6 @@ export default function Portfolio() {
     return () => { canceled = true }
   }, [activePortfolioId])
 
-  const handleBackfill = async () => {
-    if (!activePortfolioId) return
-    setBackfilling(true)
-    setBackfillStatus(null)
-    try {
-      const res = await api.backfillPortfolioHistory(activePortfolioId, 365)
-      setBackfillStatus(`Backfilled ${res.assets} assets. Saved: ` + Object.entries(res.history_points_saved).map(([sym, n]) => `${sym}: ${n}`).join(', '))
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e)
-      setBackfillStatus('Backfill failed: ' + message)
-    } finally {
-      setBackfilling(false)
-    }
-  }
-
   if (!activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="charts" />
   }
@@ -107,21 +90,7 @@ export default function Portfolio() {
             Visualize your portfolio performance over time
           </p>
         </div>
-        <button
-          className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed text-sm sm:text-base px-3 py-2 self-start sm:self-auto"
-          onClick={handleBackfill}
-          disabled={backfilling}
-        >
-          {backfilling ? 'Backfilling…' : 'Backfill History'}
-        </button>
       </div>
-
-      {/* Status message */}
-      {backfillStatus && (
-        <div className="card p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-blue-800 dark:text-blue-200">{backfillStatus}</p>
-        </div>
-      )}
 
       {/* Heatmap */}
       <PortfolioHeatmap portfolioId={activePortfolioId} />

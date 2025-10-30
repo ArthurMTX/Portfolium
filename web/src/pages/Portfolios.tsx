@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PlusCircle, Edit2, Trash2, Folder, TrendingUp, DollarSign, PieChart, X } from 'lucide-react'
+import { PlusCircle, Edit2, Trash2, Folder, TrendingUp, X } from 'lucide-react'
 import api from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
 
@@ -83,7 +83,7 @@ export default function Portfolios() {
       const portfolioData = {
         name,
         base_currency: baseCurrency,
-        description: description || null
+        description: description || undefined
       }
 
       if (editingPortfolio) {

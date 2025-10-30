@@ -28,6 +28,8 @@ interface PortfolioMetrics {
   total_dividends: number
   total_fees: number
   positions_count: number
+  daily_change_value?: number | null
+  daily_change_pct?: number | null
   last_updated: string
 }
 

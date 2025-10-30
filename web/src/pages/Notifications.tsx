@@ -57,6 +57,11 @@ export default function Notifications() {
     return type.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')
   }
 
+  // Helper to safely convert unknown metadata values to strings for display
+  const toDisplayString = (value: unknown): string => {
+    return String(value)
+  }
+
   const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
@@ -173,26 +178,26 @@ export default function Notifications() {
                   {/* Metadata */}
                   {notification.metadata && Object.keys(notification.metadata).length > 0 && (
                     <div className="bg-neutral-50 dark:bg-neutral-900 rounded p-2 mb-3 text-xs">
-                      {notification.type === 'LOGIN' && notification.metadata.ip_address && (
+                      {(notification.type === 'LOGIN' && notification.metadata.ip_address) ? (
                         <div className="text-neutral-600 dark:text-neutral-400">
-                          <span className="font-medium">IP Address:</span> {String(notification.metadata.ip_address)}
+                          <span className="font-medium">IP Address:</span> {toDisplayString(notification.metadata.ip_address)}
                         </div>
-                      )}
+                      ) : null}
                       {notification.type.startsWith('TRANSACTION') && (
                         <div className="text-neutral-600 dark:text-neutral-400 space-y-0.5">
-                          {notification.metadata.symbol && (
-                            <div><span className="font-medium">Asset:</span> {String(notification.metadata.symbol)}</div>
-                          )}
-                          {notification.metadata.tx_date && (
-                            <div><span className="font-medium">Date:</span> {String(notification.metadata.tx_date)}</div>
-                          )}
+                          {notification.metadata.symbol ? (
+                            <div><span className="font-medium">Asset:</span> {toDisplayString(notification.metadata.symbol)}</div>
+                          ) : null}
+                          {notification.metadata.tx_date ? (
+                            <div><span className="font-medium">Date:</span> {toDisplayString(notification.metadata.tx_date)}</div>
+                          ) : null}
                         </div>
                       )}
-                      {notification.type === 'PRICE_ALERT' && (
+                      {(notification.type === 'PRICE_ALERT' && notification.metadata.target_price) ? (
                         <div className="text-neutral-600 dark:text-neutral-400">
-                          <span className="font-medium">Target:</span> ${Number(notification.metadata.target_price)}
+                          <span className="font-medium">Target:</span> ${toDisplayString(notification.metadata.target_price)}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
 

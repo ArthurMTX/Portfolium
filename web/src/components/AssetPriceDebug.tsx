@@ -66,12 +66,6 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
     loadData();
   }, [assetId]);
 
-  const getHealthColor = (percentage: number) => {
-    if (percentage >= 90) return 'text-green-600 dark:text-green-400';
-    if (percentage >= 70) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  };
-
   const getHealthBadge = (percentage: number) => {
     if (percentage >= 90) {
       return (
