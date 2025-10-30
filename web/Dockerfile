@@ -51,8 +51,8 @@ COPY docs /build/docs
 # Build documentation into public/docs
 RUN cd /build && mkdocs build -d /app/public/docs
 
-# Build the web app (now includes docs in public/docs)
-RUN npm run build
+# Build the web app (skip docs build since we just built it above)
+RUN tsc && npx vite build
 
 # Production serve stage
 FROM nginx:alpine AS production
