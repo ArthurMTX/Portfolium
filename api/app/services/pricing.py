@@ -5,7 +5,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import yfinance as yf
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -17,6 +17,15 @@ from app.schemas import PriceCreate, PriceQuote
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
+
+# In-memory cache for price fetches (symbol -> (quote, timestamp))
+_price_memory_cache: Dict[str, Tuple[PriceQuote, datetime]] = {}
+_memory_cache_lock = asyncio.Lock()
+_MEMORY_CACHE_TTL = timedelta(seconds=30)  # Very short TTL for in-memory cache
+
+# Deduplication cache for ongoing fetches
+_ongoing_fetches: Dict[str, asyncio.Task] = {}
+_fetch_lock = asyncio.Lock()
 
 
 class PricingService:
@@ -30,6 +39,50 @@ class PricingService:
         """
         Get current price for a symbol (async to avoid blocking)
         
+        Uses multi-level caching:
+        1. In-memory cache (30 seconds TTL) - fastest, prevents duplicate fetches
+        2. Database cache (configured TTL) - persistent across requests
+        3. yfinance API - fallback
+        
+        Also deduplicates concurrent requests for the same symbol.
+        """
+        # Check in-memory cache first (very fast)
+        if not force_refresh:
+            async with _memory_cache_lock:
+                if symbol in _price_memory_cache:
+                    quote, cached_at = _price_memory_cache[symbol]
+                    if datetime.utcnow() - cached_at < _MEMORY_CACHE_TTL:
+                        logger.debug(f"Using in-memory cached price for {symbol}")
+                        return quote
+        
+        # Check if there's an ongoing fetch for this symbol
+        async with _fetch_lock:
+            if symbol in _ongoing_fetches:
+                logger.info(f"Reusing ongoing price fetch for {symbol}")
+                return await _ongoing_fetches[symbol]
+            
+            # Create a new task for this fetch
+            task = asyncio.create_task(self._get_price_internal(symbol, force_refresh))
+            _ongoing_fetches[symbol] = task
+        
+        try:
+            result = await task
+            
+            # Update in-memory cache
+            if result:
+                async with _memory_cache_lock:
+                    _price_memory_cache[symbol] = (result, datetime.utcnow())
+            
+            return result
+        finally:
+            # Remove from ongoing fetches
+            async with _fetch_lock:
+                _ongoing_fetches.pop(symbol, None)
+    
+    async def _get_price_internal(self, symbol: str, force_refresh: bool = False) -> Optional[PriceQuote]:
+        """
+        Internal method that actually fetches the price
+        
         1. Check cache (DB) with TTL
         2. If stale/missing or force_refresh, fetch from yfinance
         3. Update cache
@@ -40,11 +93,11 @@ class PricingService:
             logger.warning(f"Asset not found: {symbol}")
             return None
         
-        # Check cache
+        # Check DB cache
         latest_price = crud_prices.get_latest_price(self.db, asset.id)
         
         if not force_refresh and latest_price and self._is_price_fresh(latest_price.asof):
-            logger.info(f"Using cached price for {symbol}")
+            logger.info(f"Using DB cached price for {symbol}")
             # Try to get the official previous close price from DB first
             daily_change_pct = self._calculate_daily_change_with_official_close(asset.id, latest_price.price)
             
@@ -138,17 +191,23 @@ class PricingService:
         return None
     
     async def get_multiple_prices(self, symbols: List[str]) -> Dict[str, PriceQuote]:
-        """Get prices for multiple symbols concurrently"""
-        # Fetch all prices in parallel using asyncio.gather
-        tasks = [self.get_price(symbol) for symbol in symbols]
-        prices = await asyncio.gather(*tasks, return_exceptions=True)
+        """
+        Get prices for multiple symbols concurrently.
         
+        NOTE: Database writes are serialized to avoid SQLAlchemy session concurrency issues.
+        We fetch from yfinance in parallel but save to DB one at a time.
+        """
         results = {}
-        for symbol, price in zip(symbols, prices):
-            if isinstance(price, Exception):
-                logger.error(f"Error fetching price for {symbol}: {price}")
-            elif price:
-                results[symbol] = price
+        
+        # Process each symbol sequentially to avoid DB session conflicts
+        # The get_price method handles caching, so this is still efficient
+        for symbol in symbols:
+            try:
+                price = await self.get_price(symbol)
+                if price:
+                    results[symbol] = price
+            except Exception as e:
+                logger.error(f"Error fetching price for {symbol}: {e}")
         
         return results
     

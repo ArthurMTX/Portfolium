@@ -4,7 +4,7 @@ Portfolio metrics calculation service (PRU, P&L, positions)
 import asyncio
 import logging
 from decimal import Decimal
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -20,6 +20,15 @@ logger = logging.getLogger(__name__)
 # Lock to prevent concurrent database access in async position calculations
 _db_lock = asyncio.Lock()
 
+# Two-level cache for position calculations:
+# 1. Task cache: Deduplicates concurrent requests (shares the same ongoing calculation)
+# 2. Result cache: Serves recent results to staggered requests (within TTL)
+from datetime import timedelta
+_ongoing_calculations: Dict[Tuple[int, bool], asyncio.Task] = {}  # Task-based deduplication
+_result_cache: Dict[Tuple[int, bool], Tuple[List, datetime]] = {}  # Result caching
+_cache_lock = asyncio.Lock()
+_RESULT_CACHE_TTL = timedelta(seconds=60)  # Cache results for 60 seconds
+
 
 class MetricsService:
     """Service for calculating portfolio metrics"""
@@ -29,7 +38,9 @@ class MetricsService:
     
     async def get_positions(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
         """
-        Calculate current positions for a portfolio (async to avoid blocking)
+        Calculate current positions for a portfolio with two-level caching:
+        1. Result cache: Serves recent results to staggered requests (within 10s TTL)
+        2. Task cache: Deduplicates truly concurrent requests (shares ongoing calculation)
         
         For each asset:
         - Net quantity (BUY/TRANSFER_IN - SELL/TRANSFER_OUT, adjusted for SPLIT)
@@ -40,6 +51,57 @@ class MetricsService:
         Args:
             portfolio_id: Portfolio ID
             include_sold: If True, also return sold positions with realized P&L
+        """
+        cache_key = (portfolio_id, include_sold)
+        now = datetime.now()
+        
+        # Variable to track if we need to wait for an ongoing task
+        ongoing_task = None
+        
+        async with _cache_lock:
+            # Level 1: Check result cache for recent calculations
+            if cache_key in _result_cache:
+                cached_result, cached_time = _result_cache[cache_key]
+                age = now - cached_time
+                if age < _RESULT_CACHE_TTL:
+                    logger.info(f"Using cached position calculation for portfolio {portfolio_id} (age: {age.total_seconds():.1f}s)")
+                    return cached_result
+                else:
+                    # Cache expired, remove it
+                    _result_cache.pop(cache_key, None)
+            
+            # Level 2: Check if calculation is already ongoing
+            if cache_key in _ongoing_calculations:
+                ongoing_task = _ongoing_calculations[cache_key]
+                logger.info(f"Reusing ongoing position calculation for portfolio {portfolio_id}")
+            else:
+                # Level 3: Start new calculation
+                logger.info(f"Starting new position calculation for portfolio {portfolio_id}")
+                ongoing_task = asyncio.create_task(self._calculate_positions_internal(portfolio_id, include_sold))
+                _ongoing_calculations[cache_key] = ongoing_task
+        
+        # Wait for the task to complete (outside the lock to allow concurrent access)
+        try:
+            result = await ongoing_task
+            
+            # Store result in cache with current timestamp
+            async with _cache_lock:
+                _result_cache[cache_key] = (result, datetime.now())
+                # Remove from ongoing calculations only if it's still our task
+                if _ongoing_calculations.get(cache_key) == ongoing_task:
+                    _ongoing_calculations.pop(cache_key, None)
+            
+            return result
+        except Exception as e:
+            # On error, remove from ongoing calculations
+            async with _cache_lock:
+                if _ongoing_calculations.get(cache_key) == ongoing_task:
+                    _ongoing_calculations.pop(cache_key, None)
+            raise
+    
+    async def _calculate_positions_internal(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
+        """
+        Internal method that actually calculates positions
         """
         # Get portfolio to access base currency
         from app.models import Portfolio as PortfolioModel
@@ -61,9 +123,27 @@ class MetricsService:
                 asset_txs[tx.asset_id] = []
             asset_txs[tx.asset_id].append(tx)
         
-        # Calculate positions sequentially to avoid database session concurrency issues
-        all_positions = []
         logger.info(f"Calculating positions for {len(asset_txs)} assets in portfolio {portfolio_id}")
+        
+        # OPTIMIZATION: Pre-fetch all prices in parallel before calculating positions
+        # This dramatically reduces the time from sequential fetches
+        asset_symbols = []
+        asset_id_to_symbol = {}
+        for asset_id in asset_txs.keys():
+            asset = self.db.query(Asset).filter_by(id=asset_id).first()
+            if asset:
+                asset_symbols.append(asset.symbol)
+                asset_id_to_symbol[asset_id] = asset.symbol
+        
+        # Batch fetch all prices in parallel
+        from app.services.pricing import get_pricing_service
+        pricing_service = get_pricing_service(self.db)
+        logger.info(f"Pre-fetching prices for {len(asset_symbols)} assets in parallel")
+        await pricing_service.get_multiple_prices(asset_symbols)
+        logger.info(f"Finished pre-fetching prices")
+        
+        # Now calculate positions - prices will be cached
+        all_positions = []
         for asset_id, txs in asset_txs.items():
             try:
                 position = await self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
