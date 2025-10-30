@@ -134,7 +134,8 @@ class EmailService:
         verification_token: str
     ) -> bool:
         """Send email verification email"""
-        verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        verification_url = f"{frontend_url}/verify-email?token={verification_token}"
         
         subject = "Verify your Portfolium account"
         
@@ -209,7 +210,8 @@ class EmailService:
         reset_token: str
     ) -> bool:
         """Send password reset email"""
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        reset_url = f"{frontend_url}/reset-password?token={reset_token}"
         
         subject = "Reset your Portfolium password"
         
@@ -325,7 +327,7 @@ class EmailService:
                     
                     <!-- CTA Button -->
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="{settings.FRONTEND_URL}/dashboard" style="display: inline-block; padding: 14px 40px; background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(236, 72, 153, 0.3);">Go to Dashboard</a>
+                        <a href="{settings.FRONTEND_URL.rstrip('/')}/dashboard" style="display: inline-block; padding: 14px 40px; background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(236, 72, 153, 0.3);">Go to Dashboard</a>
                     </div>
                     
                     <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px; text-align: center;">If you have any questions or need help getting started, feel free to reach out!</p>
@@ -354,7 +356,7 @@ class EmailService:
         - Monitor real-time prices and performance
         - Analyze your investment returns
         
-        Visit your dashboard: {settings.FRONTEND_URL}/dashboard
+        Visit your dashboard: {settings.FRONTEND_URL.rstrip('/')}/dashboard
         
         If you have any questions or need help getting started, feel free to reach out!
         
@@ -421,7 +423,7 @@ class EmailService:
                     <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: center;">
                         <p style="margin: 0; color: #6b7280; font-size: 14px;">
                             To manage your email preferences, visit your 
-                            <a href="{settings.FRONTEND_URL}/settings" style="color: #ec4899; text-decoration: none; font-weight: 600;">account settings</a>
+                            <a href="{settings.FRONTEND_URL.rstrip('/')}/settings" style="color: #ec4899; text-decoration: none; font-weight: 600;">account settings</a>
                         </p>
                     </div>
                     
@@ -430,7 +432,7 @@ class EmailService:
                         <p style="margin: 0;">Portfolium - Portfolio Management Platform</p>
                         <p style="margin: 5px 0 0 0;">© 2025 All rights reserved</p>
                         <p style="margin: 10px 0 0 0;">
-                            <a href="{settings.FRONTEND_URL}" style="color: #ec4899; text-decoration: none;">Visit Dashboard</a>
+                            <a href="{settings.FRONTEND_URL.rstrip('/')}" style="color: #ec4899; text-decoration: none;">Visit Dashboard</a>
                         </p>
                     </div>
                 </div>
@@ -455,7 +457,7 @@ class EmailService:
         
         Please find your detailed report attached as a PDF document.
         
-        To manage your email preferences, visit: {settings.FRONTEND_URL}/settings
+        To manage your email preferences, visit: {settings.FRONTEND_URL.rstrip('/')}/settings
         
         © 2025 Portfolium. All rights reserved.
         """

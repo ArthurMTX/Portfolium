@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS portfolio.users (
   username TEXT NOT NULL UNIQUE,
   hashed_password TEXT NOT NULL,
   full_name TEXT,
-  is_active BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
   is_verified BOOLEAN DEFAULT false,
   is_superuser BOOLEAN DEFAULT false,
   is_admin BOOLEAN DEFAULT false,
