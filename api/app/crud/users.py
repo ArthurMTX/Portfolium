@@ -44,20 +44,25 @@ def get_user_by_reset_token(db: Session, token: str) -> Optional[User]:
 
 def create_user(db: Session, user: UserCreate) -> User:
     """Create a new user"""
+    from app.config import settings
+    
     # Generate verification token
     verification_token = generate_verification_token()
     verification_expires = datetime.utcnow() + timedelta(hours=24)
+    
+    # If email is disabled, auto-verify the user
+    is_verified = not settings.ENABLE_EMAIL
     
     db_user = User(
         email=user.email,
         username=user.username,
         full_name=user.full_name,
         hashed_password=get_password_hash(user.password),
-        is_active=True,  # Active but not verified
-        is_verified=False,
+        is_active=True,  # Active but not verified (unless email is disabled)
+        is_verified=is_verified,
         # is_admin must not be set via public registration
-        verification_token=verification_token,
-        verification_token_expires=verification_expires
+        verification_token=verification_token if settings.ENABLE_EMAIL else None,
+        verification_token_expires=verification_expires if settings.ENABLE_EMAIL else None
     )
     
     db.add(db_user)

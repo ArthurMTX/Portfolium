@@ -14,7 +14,7 @@ from app.config import settings
 from app.db import engine, Base, SessionLocal
 from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version
 from app.tasks.scheduler import start_scheduler, stop_scheduler
-from app.services.admin import ensure_admin_user
+from app.services.admin import ensure_admin_user, ensure_email_config
 from app.version import __version__, get_version_info
 
 
@@ -52,6 +52,18 @@ async def lifespan(app: FastAPI):
     
     # Create tables (in production, use Alembic migrations)
     # Base.metadata.create_all(bind=engine)
+    
+    # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
+    try:
+        db = SessionLocal()
+        ensure_email_config(db)
+    except Exception as e:
+        logger.exception("Failed to initialize email config: %s", e)
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
     
     # Ensure admin user exists if configured
     try:

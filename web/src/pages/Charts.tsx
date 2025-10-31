@@ -63,7 +63,7 @@ export default function Charts() {
     return () => { canceled = true }
   }, [activePortfolioId])
 
-  if (!activePortfolioId) {
+  if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="charts" />
   }
 

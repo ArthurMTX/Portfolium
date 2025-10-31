@@ -843,80 +843,82 @@ const AdminDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Test Email */}
-          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Send size={20} className="text-pink-600" />
-              Test Email
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Recipient Email</label>
-                  <input
-                    type="email"
-                    value={testEmailAddress}
-                    onChange={(e) => setTestEmailAddress(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
-                    placeholder="test@example.com"
-                  />
+          {/* Test Email - Only show when email system is enabled */}
+          {emailConfig.enable_email && (
+            <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Send size={20} className="text-pink-600" />
+                Test Email
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Recipient Email</label>
+                    <input
+                      type="email"
+                      value={testEmailAddress}
+                      onChange={(e) => setTestEmailAddress(e.target.value)}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      placeholder="test@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Email Type</label>
+                    <select
+                      value={testEmailType}
+                      onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'daily_report')}
+                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                    >
+                      <option value="simple">Simple Test</option>
+                      <option value="verification">Verification Email</option>
+                      <option value="password_reset">Password Reset</option>
+                      <option value="daily_report">Daily Report</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Email Type</label>
-                  <select
-                    value={testEmailType}
-                    onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'daily_report')}
-                    className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
-                  >
-                    <option value="simple">Simple Test</option>
-                    <option value="verification">Verification Email</option>
-                    <option value="password_reset">Password Reset</option>
-                    <option value="daily_report">Daily Report</option>
-                  </select>
-                </div>
-              </div>
 
-              <button
-                onClick={testEmail}
-                disabled={emailTesting || !testEmailAddress}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {emailTesting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Send Test Email
-                  </>
-                )}
-              </button>
-
-              {/* Test Result */}
-              {emailTestResult && (
-                <div className={`p-4 rounded-lg flex items-start gap-3 ${
-                  emailTestResult.type === 'success' 
-                    ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' 
-                    : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800'
-                }`}>
-                  {emailTestResult.type === 'success' ? (
-                    <CheckCircle size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <button
+                  onClick={testEmail}
+                  disabled={emailTesting || !testEmailAddress}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {emailTesting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Sending...
+                    </>
                   ) : (
-                    <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <>
+                      <Send size={16} />
+                      Send Test Email
+                    </>
                   )}
-                  <p className={emailTestResult.type === 'success' 
-                    ? 'text-green-800 dark:text-green-200 text-sm' 
-                    : 'text-red-800 dark:text-red-200 text-sm'
-                  }>
-                    {emailTestResult.message}
-                  </p>
-                </div>
-              )}
+                </button>
+
+                {/* Test Result */}
+                {emailTestResult && (
+                  <div className={`p-4 rounded-lg flex items-start gap-3 ${
+                    emailTestResult.type === 'success' 
+                      ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' 
+                      : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800'
+                  }`}>
+                    {emailTestResult.type === 'success' ? (
+                      <CheckCircle size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    <p className={emailTestResult.type === 'success' 
+                      ? 'text-green-800 dark:text-green-200 text-sm' 
+                      : 'text-red-800 dark:text-red-200 text-sm'
+                    }>
+                      {emailTestResult.message}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Email Statistics */}
           {emailStats && (

@@ -8,12 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Docker Hub auto-build workflow
-- Automated version management with Release Please
-- Multi-platform Docker images (amd64, arm64)
-
-## [0.1.0] - 2025-10-30
+## [0.1.0] - 2025-10-31
 
 ### Added
 - Initial release
@@ -25,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Email notifications
 - CSV import functionality
 - Dark mode UI
+- Docker Hub auto-build workflow
+- Multi-platform Docker images (amd64, arm64)
 
 [Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/ArthurMTX/Portfolium/releases/tag/v0.1.0

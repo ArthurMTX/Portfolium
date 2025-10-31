@@ -150,7 +150,7 @@ Click any column header to sort by that field:
 
 Import multiple transactions at once:
 
-1. Click the **Import CSV** button
+1. Click the **Import** button
 2. Select a CSV file with the following format:
 
 ```csv

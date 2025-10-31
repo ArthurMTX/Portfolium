@@ -10,6 +10,7 @@ from sqlalchemy import text
 from app.db import get_db
 from app.schemas import HealthCheck
 from app.version import __version__
+from app.config import settings
 
 router = APIRouter()
 
@@ -76,5 +77,6 @@ async def health_check(db: Session = Depends(get_db)):
         timestamp=datetime.utcnow(),
         database=db_status,
         version=__version__,
-        market_status=market_status
+        market_status=market_status,
+        email_enabled=settings.ENABLE_EMAIL
     )

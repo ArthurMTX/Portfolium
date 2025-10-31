@@ -66,13 +66,14 @@ async def register(
     # Create user
     user = crud_users.create_user(db, user_create)
     
-    # Send verification email in background
-    background_tasks.add_task(
-        email_service.send_verification_email,
-        user.email,
-        user.username,
-        user.verification_token
-    )
+    # Send verification email in background only if email is enabled
+    if settings.ENABLE_EMAIL:
+        background_tasks.add_task(
+            email_service.send_verification_email,
+            user.email,
+            user.username,
+            user.verification_token
+        )
     
     logger.info(f"New user registered: {user.email}")
     return user
@@ -108,7 +109,8 @@ async def login(
             detail="Account is inactive"
         )
     
-    if not user.is_verified:
+    # Only check email verification if email is enabled
+    if settings.ENABLE_EMAIL and not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not verified. Please check your email and verify your account before logging in."

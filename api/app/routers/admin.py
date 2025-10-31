@@ -524,6 +524,13 @@ async def test_email_connection(
     - password_reset: Password reset template
     - daily_report: Daily report with PDF (requires portfolio data)
     """
+    # Check if email system is enabled
+    if not settings.ENABLE_EMAIL:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email system is disabled. Please enable it in the email configuration before testing."
+        )
+    
     from app.services.email import email_service
     
     # Reload settings before sending test email

@@ -160,6 +160,7 @@ class ApiClient {
       database: string
       version: string
       market_status: string  // 'premarket', 'open', 'afterhours', or 'closed'
+      email_enabled: boolean
     }>('/health')
   }
 
@@ -636,23 +637,6 @@ class ApiClient {
     return response.json()
   }
 
-  async importWatchlistJSON(items: Array<{
-    symbol: string
-    notes?: string
-    alert_target_price?: number
-    alert_enabled?: boolean
-  }>) {
-    return this.request<{
-      success: boolean
-      imported_count: number
-      errors: string[]
-      warnings: string[]
-    }>('/watchlist/import/json', {
-      method: 'POST',
-      body: JSON.stringify(items),
-    })
-  }
-
   async exportWatchlistCSV() {
     const response = await fetch(`${this.baseUrl}/watchlist/export/csv`, {
       headers: {
@@ -665,17 +649,6 @@ class ApiClient {
     }
 
     return response.blob()
-  }
-
-  async exportWatchlistJSON() {
-    return this.request<Array<{
-      symbol: string
-      name: string | null
-      notes: string | null
-      alert_target_price: number | null
-      alert_enabled: boolean
-      created_at: string
-    }>>('/watchlist/export/json')
   }
 
   async refreshWatchlistPrices() {

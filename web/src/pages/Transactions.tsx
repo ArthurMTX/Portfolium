@@ -4,6 +4,7 @@ import api from '../lib/api'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
+import ImportProgressModal from '../components/ImportProgressModal'
 
 interface TickerInfo {
   symbol: string
@@ -76,6 +77,8 @@ export default function Transactions() {
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
+  const [showImportProgress, setShowImportProgress] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
 
   // Load portfolios if not already loaded
   useEffect(() => {
@@ -323,37 +326,35 @@ export default function Transactions() {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file || !activePortfolioId) return
 
+      // Show progress modal
+      setImportFile(file)
+      setShowImportProgress(true)
       setImportLoading(true)
       setImportError("")
       setImportSuccess("")
-
-      try {
-        const result = await api.importCsv(activePortfolioId, file)
-        
-        if (result.success) {
-          setImportSuccess(`Successfully imported ${result.imported_count} transactions!`)
-          await fetchTransactions()
-          
-          // Show warnings if any
-          if (result.warnings.length > 0) {
-            console.warn('Import warnings:', result.warnings)
-          }
-          
-          // Clear success message after 5 seconds
-          setTimeout(() => setImportSuccess(""), 5000)
-        } else {
-          setImportError(`Import failed: ${result.errors.join(', ')}`)
-        }
-      } catch (err: unknown) {
-        console.error('Import error:', err)
-        const message = err instanceof Error ? err.message : 'Failed to import CSV'
-        setImportError(message)
-      } finally {
-        setImportLoading(false)
-      }
     }
     input.click()
   }
+
+  const handleImportComplete = useCallback(async (success: boolean) => {
+    setImportLoading(false)
+    
+    if (success) {
+      setImportSuccess(`Successfully imported transactions!`)
+      await fetchTransactions()
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setImportSuccess(""), 5000)
+    } else {
+      setImportError('Import failed. Check the log for details.')
+    }
+  }, [fetchTransactions])
+
+  const handleImportClose = useCallback(() => {
+    setShowImportProgress(false)
+    setImportFile(null)
+    setImportLoading(false)
+  }, [])
 
   const handleExportClick = () => {
     if (transactions.length === 0) {
@@ -540,7 +541,7 @@ export default function Transactions() {
     }
   }
 
-  if (!activePortfolioId) {
+  if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="transactions" />
   }
 
@@ -564,7 +565,7 @@ export default function Transactions() {
             className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm px-3 py-2"
           >
             <Upload size={16} />
-            <span className="hidden sm:inline">{importLoading ? 'Importing...' : 'Import CSV'}</span>
+            <span className="hidden sm:inline">{importLoading ? 'Importing...' : 'Import'}</span>
             <span className="sm:hidden">Import</span>
           </button>
           <button 
@@ -1144,6 +1145,15 @@ export default function Transactions() {
           onClose={() => setSplitHistoryAsset(null)}
         />
       )}
+
+      {/* Import Progress Modal */}
+      <ImportProgressModal
+        isOpen={showImportProgress}
+        onClose={handleImportClose}
+        onComplete={handleImportComplete}
+        portfolioId={activePortfolioId || 0}
+        file={importFile}
+      />
     </div>
   )
 }

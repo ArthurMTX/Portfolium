@@ -6,7 +6,7 @@ import csv
 from io import StringIO
 from datetime import datetime
 from decimal import Decimal
-from typing import List
+from typing import List, Optional, Callable, Dict, Any, Generator
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -23,6 +23,224 @@ class CsvImportService:
     
     def __init__(self, db: Session):
         self.db = db
+    
+    def import_csv_with_progress(
+        self, 
+        portfolio_id: int,
+        csv_content: str,
+        delimiter: str = ","
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Import transactions from CSV content with progress updates
+        
+        Yields progress updates as dictionaries with:
+        - type: 'progress' | 'log' | 'complete' | 'error'
+        - message: str (for logs)
+        - current: int (for progress)
+        - total: int (for progress)
+        - row_num: int (current row being processed)
+        - result: CsvImportResult (final result on complete)
+        """
+        errors = []
+        warnings = []
+        imported_count = 0
+        total_rows = 0
+        
+        try:
+            # First pass: count total rows
+            csv_file = StringIO(csv_content)
+            reader = csv.DictReader(csv_file, delimiter=delimiter)
+            rows = list(reader)
+            total_rows = len(rows)
+            
+            yield {
+                "type": "log",
+                "message": f"Starting import of {total_rows} rows",
+                "current": 0,
+                "total": total_rows
+            }
+            
+            # Second pass: process rows
+            for row_num, row in enumerate(rows, start=2):  # Start at 2 (header is 1)
+                try:
+                    yield {
+                        "type": "log",
+                        "message": f"Processing row {row_num - 1}/{total_rows}...",
+                        "current": row_num - 2,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }
+                    
+                    # Parse row
+                    import_row = self._parse_row(row)
+                    
+                    yield {
+                        "type": "log",
+                        "message": f"Row {row_num - 1}: {import_row.type.value} {import_row.quantity} {import_row.symbol}",
+                        "current": row_num - 2,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }
+                    
+                    # Validate SPLIT transactions
+                    if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
+                        raise ValueError(f'SPLIT transactions must include a split_ratio (e.g., "2:1")')
+                    
+                    # Get or create asset
+                    asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
+                    if not asset:
+                        # Auto-create asset
+                        from app.schemas import AssetCreate
+                        from app.models import AssetClass
+                        
+                        yield {
+                            "type": "log",
+                            "message": f"Creating new asset: {import_row.symbol}",
+                            "current": row_num - 2,
+                            "total": total_rows,
+                            "row_num": row_num
+                        }
+                        
+                        # Guess asset class from symbol
+                        asset_class = AssetClass.CRYPTO if "-USD" in import_row.symbol else AssetClass.STOCK
+                        
+                        asset_create = AssetCreate(
+                            symbol=import_row.symbol,
+                            name=import_row.symbol,
+                            currency=import_row.currency,
+                            class_=asset_class
+                        )
+                        asset = crud_assets.create_asset(self.db, asset_create)
+                        warning_msg = f"Row {row_num}: Auto-created asset {import_row.symbol}"
+                        warnings.append(warning_msg)
+                        
+                        yield {
+                            "type": "log",
+                            "message": warning_msg,
+                            "current": row_num - 2,
+                            "total": total_rows,
+                            "row_num": row_num
+                        }
+                    
+                    # Handle SPLIT metadata
+                    meta_data = {}
+                    if import_row.type == TransactionType.SPLIT and import_row.split_ratio:
+                        meta_data["split"] = import_row.split_ratio
+                    
+                    # Create transaction
+                    tx_create = TransactionCreate(
+                        asset_id=asset.id,
+                        tx_date=import_row.date,
+                        type=import_row.type,
+                        quantity=import_row.quantity,
+                        price=import_row.price,
+                        fees=import_row.fees,
+                        currency=import_row.currency,
+                        notes=import_row.notes,
+                        meta_data=meta_data
+                    )
+                    
+                    crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
+                    imported_count += 1
+                    
+                    yield {
+                        "type": "progress",
+                        "message": f"Created transaction {imported_count}/{total_rows}",
+                        "current": row_num - 1,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }
+                    
+                    # Update first_transaction_date if this is earlier than the current value
+                    if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                        if asset.first_transaction_date is None or import_row.date < asset.first_transaction_date:
+                            asset.first_transaction_date = import_row.date
+                            self.db.commit()
+                            self.db.refresh(asset)
+                            logger.info(f"Updated first_transaction_date for {asset.symbol} to {import_row.date}")
+                    
+                    # Auto-backfill historical prices for BUY/TRANSFER_IN transactions
+                    if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                        from app.services.pricing import PricingService
+                        pricing_service = PricingService(self.db)
+                        start_date = datetime.combine(import_row.date, datetime.min.time())
+                        end_date = datetime.utcnow()
+                        
+                        try:
+                            yield {
+                                "type": "log",
+                                "message": f"Backfilling prices for {asset.symbol}...",
+                                "current": row_num - 1,
+                                "total": total_rows,
+                                "row_num": row_num
+                            }
+                            
+                            count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+                            if count > 0:
+                                logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol}")
+                                yield {
+                                    "type": "log",
+                                    "message": f"Backfilled {count} prices for {asset.symbol}",
+                                    "current": row_num - 1,
+                                    "total": total_rows,
+                                    "row_num": row_num
+                                }
+                        except Exception as e:
+                            logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
+                            yield {
+                                "type": "log",
+                                "message": f"Warning: Failed to backfill prices for {asset.symbol}",
+                                "current": row_num - 1,
+                                "total": total_rows,
+                                "row_num": row_num
+                            }
+                    
+                except Exception as e:
+                    error_msg = f"Row {row_num}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(f"Error importing row {row_num}: {e}")
+                    
+                    yield {
+                        "type": "error",
+                        "message": error_msg,
+                        "current": row_num - 1,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }
+            
+            success = len(errors) == 0
+            result = CsvImportResult(
+                success=success,
+                imported_count=imported_count,
+                errors=errors,
+                warnings=warnings
+            )
+            
+            yield {
+                "type": "complete",
+                "message": f"Import complete: {imported_count} transactions imported",
+                "current": total_rows,
+                "total": total_rows,
+                "result": result.model_dump()
+            }
+            
+        except Exception as e:
+            logger.error(f"CSV import failed: {e}")
+            result = CsvImportResult(
+                success=False,
+                imported_count=0,
+                errors=[f"CSV parsing failed: {str(e)}"],
+                warnings=[]
+            )
+            
+            yield {
+                "type": "error",
+                "message": f"CSV parsing failed: {str(e)}",
+                "current": 0,
+                "total": total_rows,
+                "result": result.model_dump()
+            }
+
     
     def import_csv(
         self, 
@@ -101,6 +319,14 @@ class CsvImportService:
                     
                     crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
                     imported_count += 1
+                    
+                    # Update first_transaction_date if this is earlier than the current value
+                    if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                        if asset.first_transaction_date is None or import_row.date < asset.first_transaction_date:
+                            asset.first_transaction_date = import_row.date
+                            self.db.commit()
+                            self.db.refresh(asset)
+                            logger.info(f"Updated first_transaction_date for {asset.symbol} to {import_row.date}")
                     
                     # Auto-backfill historical prices for BUY/TRANSFER_IN transactions
                     if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:

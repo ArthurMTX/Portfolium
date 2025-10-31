@@ -421,6 +421,7 @@ class HealthCheck(BaseModel):
     database: str
     version: str
     market_status: str  # 'premarket', 'open', 'afterhours', or 'closed'
+    email_enabled: bool  # Whether email system is enabled
 
 
 # Portfolio value history point for charting

@@ -3,12 +3,63 @@ Admin bootstrap utilities: create or update the administrator account from env
 """
 import logging
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.config import settings
 from app.models import User
 from app.auth import get_password_hash
 
 logger = logging.getLogger(__name__)
+
+
+def ensure_email_config(db: Session) -> None:
+    """Initialize email configuration from environment variables if not exists.
+    
+    If config already exists in database, load it into runtime settings.
+    Database is the source of truth after initial setup.
+    """
+    try:
+        # Check if config record exists
+        config = db.execute(text("SELECT * FROM config WHERE id = 1")).first()
+        
+        if config:
+            # Database config exists - load it into runtime settings
+            settings.ENABLE_EMAIL = bool(config.enable_email)
+            settings.SMTP_HOST = config.smtp_host
+            settings.SMTP_PORT = config.smtp_port
+            settings.SMTP_USER = config.smtp_user or ""
+            settings.SMTP_PASSWORD = config.smtp_password or ""
+            settings.SMTP_TLS = bool(config.smtp_tls)
+            settings.FROM_EMAIL = config.from_email
+            settings.FROM_NAME = config.from_name
+            settings.FRONTEND_URL = config.frontend_url
+            logger.info("Email configuration loaded from database")
+        else:
+            # Create config record with env values (initial setup only)
+            db.execute(text("""
+                INSERT INTO config (
+                    id, enable_email, smtp_host, smtp_port, smtp_user, smtp_password,
+                    smtp_tls, from_email, from_name, frontend_url
+                ) VALUES (
+                    1, :enable_email, :smtp_host, :smtp_port, :smtp_user, :smtp_password,
+                    :smtp_tls, :from_email, :from_name, :frontend_url
+                )
+            """), {
+                "enable_email": bool(settings.ENABLE_EMAIL),
+                "smtp_host": settings.SMTP_HOST,
+                "smtp_port": settings.SMTP_PORT,
+                "smtp_user": settings.SMTP_USER,
+                "smtp_password": settings.SMTP_PASSWORD,
+                "smtp_tls": bool(settings.SMTP_TLS),
+                "from_email": settings.FROM_EMAIL,
+                "from_name": settings.FROM_NAME,
+                "frontend_url": settings.FRONTEND_URL,
+            })
+            db.commit()
+            logger.info("Email configuration initialized from environment variables")
+    except Exception as e:
+        logger.error(f"Failed to initialize email config: {e}")
+        db.rollback()
 
 
 def ensure_admin_user(db: Session) -> None:

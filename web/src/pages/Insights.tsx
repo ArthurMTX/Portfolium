@@ -184,7 +184,7 @@ const getCountryCode = (country: string | null | undefined): string | null => {
 };
 
 export default function Insights() {
-  const { activePortfolioId } = usePortfolioStore()
+  const { activePortfolioId, portfolios } = usePortfolioStore()
   const [insights, setInsights] = useState<PortfolioInsights | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -311,7 +311,7 @@ export default function Insights() {
     }
   }, [loadInsights])
 
-  if (!activePortfolioId) {
+  if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="insights" />
   }
 

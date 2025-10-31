@@ -1,6 +1,3 @@
-# Production Docker Compose Configuration
-# Uses pre-built images from Docker Hub instead of building locally
-
 services:
   db:
     image: postgres:15-alpine
@@ -26,7 +23,9 @@ services:
       - portfolium
 
   api:
-    image: arthurmtx/portfolium-api:latest
+    build:
+      context: ./api
+      dockerfile: Dockerfile
     container_name: portfolium-api
     restart: unless-stopped
     env_file:
@@ -63,6 +62,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./api:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -72,17 +73,26 @@ services:
       - portfolium
 
   web:
-    image: arthurmtx/portfolium-web:latest
+    build:
+      context: .
+      dockerfile: ./web/Dockerfile
+      target: development
     container_name: portfolium-web
     restart: unless-stopped
     env_file:
       - .env
     environment:
+      # Flag to indicate we're running in Docker for Vite proxy configuration
+      DOCKER_ENV: "true"
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
-      - "80:80"
+      - "5173:5173"
     depends_on:
       - api
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/public/docs
     networks:
       - portfolium
 

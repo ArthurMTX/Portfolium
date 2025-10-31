@@ -190,8 +190,8 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Show empty portfolio prompt if no portfolios exist
-  if (portfolios.length === 0) {
+  // Show empty portfolio prompt if no portfolios exist or no active portfolio
+  if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="dashboard" />
   }
 

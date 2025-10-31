@@ -1,11 +1,13 @@
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { api } from '../lib/api'
+import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
+import ImportProgressModal from '../components/ImportProgressModal'
+
   // Normalize ticker by removing currency suffixes like -USD, -EUR, etc.
   const normalizeTickerForLogo = (symbol: string): string => {
     return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
   }
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { api } from '../lib/api'
-import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
-import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 
 interface WatchlistItem {
   id: number
@@ -44,6 +46,7 @@ export default function Watchlist() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
   const [addSymbol, setAddSymbol] = useState('')
   const [addNotes, setAddNotes] = useState('')
   const [addFormError, setAddFormError] = useState<string | null>(null)
@@ -55,8 +58,8 @@ export default function Watchlist() {
   const [editAlertPrice, setEditAlertPrice] = useState('')
   const [editAlertEnabled, setEditAlertEnabled] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importType, setImportType] = useState<'csv' | 'json'>('csv')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showImportProgress, setShowImportProgress] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
   const [convertItem, setConvertItem] = useState<WatchlistItem | null>(null)
   const [convertPortfolioId, setConvertPortfolioId] = useState<number | null>(null)
   const [convertQuantity, setConvertQuantity] = useState('')
@@ -228,16 +231,14 @@ export default function Watchlist() {
         notes: addNotes || undefined,
       })
       
-      // Success - show message and clear form
-      setAddFormSuccess(`Successfully added ${addSymbol.toUpperCase()} to your watchlist!`)
+      // Success - close modal and clear form
+      setShowAddModal(false)
       setAddSymbol('')
       setAddNotes('')
       setSelectedTicker(null)
       setSearchResults([])
       
-      // Clear success message after 3 seconds
-      setTimeout(() => setAddFormSuccess(null), 3000)
-      
+      // Reload watchlist
       loadWatchlist()
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err, 'Failed to add symbol')
@@ -279,74 +280,41 @@ export default function Watchlist() {
     }
   }
 
-  const handleImportCSV = async (file: File) => {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
+  const handleImportClick = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
 
-      const response = await fetch('/api/watchlist/import/csv', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error('Import failed')
-      }
-
-      const result = await response.json()
-      alert(`Imported ${result.imported_count} items${result.warnings.length > 0 ? `\n\nWarnings:\n${result.warnings.join('\n')}` : ''}`)
-      loadWatchlist()
+      setImportFile(file)
+      setShowImportProgress(true)
       setShowImportModal(false)
-    } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to import CSV'))
     }
+    input.click()
   }
 
-  const handleImportJSON = async (file: File) => {
+  const handleImportComplete = useCallback(() => {
+    // Don't reload here - just mark as complete
+    // The watchlist will be reloaded when the modal closes
+  }, [])
+
+  const handleImportClose = useCallback(() => {
+    setShowImportProgress(false)
+    setImportFile(null)
+    // Reload watchlist after modal closes
+    loadWatchlist()
+  }, [loadWatchlist])
+
+  const handleExportClick = async () => {
     try {
-      const text = await file.text()
-      const data = JSON.parse(text)
-      const result = await api.importWatchlistJSON(data)
-      alert(`Imported ${result.imported_count} items${result.warnings.length > 0 ? `\n\nWarnings:\n${result.warnings.join('\n')}` : ''}`)
-      loadWatchlist()
-      setShowImportModal(false)
-    } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to import JSON'))
-    }
-  }
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (importType === 'csv') {
-      handleImportCSV(file)
-    } else {
-      handleImportJSON(file)
-    }
-  }
-
-  const handleExport = async (format: 'csv' | 'json') => {
-    try {
-      if (format === 'csv') {
-        const blob = await api.exportWatchlistCSV()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `watchlist_${new Date().toISOString().split('T')[0]}.csv`
-        a.click()
-      } else {
-        const data = await api.exportWatchlistJSON()
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `watchlist_${new Date().toISOString().split('T')[0]}.json`
-        a.click()
-      }
+      const blob = await api.exportWatchlistCSV()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `watchlist_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
     } catch (err: unknown) {
       alert(getErrorMessage(err, 'Failed to export'))
     }
@@ -474,30 +442,35 @@ export default function Watchlist() {
             Track assets you don't own yet, set alerts, and convert to investments.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="btn flex items-center gap-2 text-sm px-3 py-2"
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button 
+            onClick={handleImportClick}
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
-            <Upload size={16} /> <span className="hidden sm:inline">Import</span>
+            <Upload size={16} />
+            <span className="hidden sm:inline">Import</span>
           </button>
-          <button
-            onClick={() => handleExport('csv')}
-            className="btn flex items-center gap-2 text-sm px-3 py-2"
+          <button 
+            onClick={handleExportClick}
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
-            <Download size={16} /> <span className="hidden sm:inline">Export CSV</span>
-          </button>
-          <button
-            onClick={() => handleExport('json')}
-            className="btn flex items-center gap-2"
-          >
-            <Download size={18} /> Export JSON
+            <Download size={16} />
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button
             onClick={handleRefreshPrices}
-            className="btn-primary flex items-center gap-2"
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
-            <RefreshCw size={18} /> Refresh
+            <RefreshCw size={16} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)} 
+            className="btn-primary flex items-center gap-2 text-sm px-3 py-2"
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">Add to Watchlist</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
@@ -509,96 +482,6 @@ export default function Watchlist() {
           </p>
         </div>
       )}
-
-      {/* Add Symbol Form with Ticker Search */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold mb-4">Add to Watchlist</h2>
-        <form onSubmit={handleAddSymbol} className="flex gap-4 items-start">
-          <div className="w-[40%] relative">
-            <input
-              type="text"
-              placeholder="Search ticker (e.g., AAPL)..."
-              value={addSymbol}
-              onChange={handleTickerChange}
-              className="input w-full"
-              required
-            />
-            {searchResults.length > 0 && (
-              <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto absolute z-10 w-full">
-                {searchResults.map((item) => (
-                  <li
-                    key={item.symbol}
-                    className="p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0"
-                    onClick={() => handleSelectTicker(item)}
-                  >
-                    <div className="font-semibold text-blue-600 dark:text-blue-400">{item.symbol}</div>
-                    <div className="text-sm text-neutral-600 dark:text-neutral-400">{item.name}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {selectedTicker && (
-              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="font-semibold text-blue-700 dark:text-blue-300">{selectedTicker.symbol}</div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">{selectedTicker.name}</div>
-              </div>
-            )}
-          </div>
-          <div className="w-[50%]">
-            <input
-              type="text"
-              placeholder="Notes (optional)"
-              value={addNotes}
-              onChange={(e) => setAddNotes(e.target.value)}
-              className="input w-full"
-            />
-          </div>
-          <div className="w-[10%]">
-            <button
-              type="submit"
-              className="btn-primary flex items-center justify-center gap-2 w-full"
-            >
-              <Plus size={18} /> Add
-            </button>
-          </div>
-        </form>
-
-        {/* Success Message */}
-        {addFormSuccess && (
-          <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3 animate-fade-in">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <p className="text-sm text-green-800 dark:text-green-200 font-medium">
-              {addFormSuccess}
-            </p>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {addFormError && (
-          <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3 animate-fade-in">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                {addFormError}
-              </p>
-            </div>
-            <button
-              onClick={() => setAddFormError(null)}
-              className="flex-shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Watchlist Table with Logo, Price, Daily Change */}
       <div className="card overflow-hidden">
@@ -850,33 +733,15 @@ export default function Watchlist() {
           <div className="card p-6 max-w-md w-full">
             <h2 className="text-xl font-bold mb-4">Import Watchlist</h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Import Format</label>
-                <select
-                  value={importType}
-                  onChange={(e) => setImportType(e.target.value as 'csv' | 'json')}
-                  className="input w-full"
-                >
-                  <option value="csv">CSV</option>
-                  <option value="json">JSON</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Select File</label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept={importType === 'csv' ? '.csv' : '.json'}
-                  onChange={handleFileUpload}
-                  className="input w-full"
-                />
-              </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                {importType === 'csv' ? (
-                  <p>CSV format: symbol,notes,alert_target_price,alert_enabled</p>
-                ) : (
-                  <p>JSON format: Array of objects with symbol, notes, alert_target_price, alert_enabled</p>
-                )}
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                Import your watchlist from a CSV file. Click the button below to select a file.
+              </p>
+              <div className="text-xs bg-neutral-100 dark:bg-neutral-800 p-3 rounded">
+                <strong>CSV format:</strong>
+                <br />
+                <code className="text-xs">symbol,notes,alert_target_price,alert_enabled</code>
+                <br />
+                <code className="text-xs">AAPL,Watch for earnings,150.00,true</code>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
@@ -886,10 +751,28 @@ export default function Watchlist() {
               >
                 Cancel
               </button>
+              <button
+                onClick={() => {
+                  handleImportClick()
+                  setShowImportModal(false)
+                }}
+                className="btn-primary"
+              >
+                Select CSV File
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Import Progress Modal */}
+      <ImportProgressModal
+        isOpen={showImportProgress}
+        onClose={handleImportClose}
+        onComplete={handleImportComplete}
+        file={importFile}
+        apiEndpoint="/api/watchlist/import/csv/stream"
+      />
 
       {/* Convert to BUY Modal (styled like Transactions modal) */}
       {convertItem && (
@@ -1076,6 +959,128 @@ export default function Watchlist() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Watchlist Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+                Add to Watchlist
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddModal(false)
+                  setAddSymbol('')
+                  setAddNotes('')
+                  setSearchResults([])
+                  setSelectedTicker(null)
+                  setAddFormError(null)
+                  setAddFormSuccess(null)
+                }}
+                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSymbol} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  Ticker Symbol
+                </label>
+                <input
+                  type="text"
+                  value={addSymbol}
+                  onChange={handleTickerChange}
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  placeholder="Search ticker (e.g., AAPL)..."
+                  required
+                />
+                {searchResults.length > 0 && (
+                  <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {searchResults.map((item) => (
+                      <li
+                        key={item.symbol}
+                        className="p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0"
+                        onClick={() => handleSelectTicker(item)}
+                      >
+                        <div className="font-semibold text-blue-600 dark:text-blue-400">{item.symbol}</div>
+                        <div className="text-sm text-neutral-600 dark:text-neutral-400">{item.name}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {selectedTicker && (
+                  <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="font-semibold text-blue-700 dark:text-blue-300">{selectedTicker.symbol}</div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400">{selectedTicker.name}</div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={addNotes}
+                  onChange={(e) => setAddNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  placeholder="Add any notes..."
+                />
+              </div>
+
+              {addFormError && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-amber-800 dark:text-amber-200">{addFormError}</p>
+                </div>
+              )}
+
+              {addFormSuccess && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-green-800 dark:text-green-200">{addFormSuccess}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setAddSymbol('')
+                    setAddNotes('')
+                    setSearchResults([])
+                    setSelectedTicker(null)
+                    setAddFormError(null)
+                    setAddFormSuccess(null)
+                  }}
+                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors"
+                >
+                  Add to Watchlist
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

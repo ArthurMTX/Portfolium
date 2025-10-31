@@ -2,9 +2,11 @@
 Transactions router
 """
 import logging
+import json
 from typing import List, Optional
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -455,6 +457,55 @@ async def delete_transaction(
     )
     
     crud.delete_transaction(db, transaction_id)
+
+
+@router.post("/import/csv/stream")
+async def import_csv_stream(
+    portfolio_id: int,
+    file: UploadFile = File(...),
+    csv_service = Depends(get_csv_import_service),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Import transactions from CSV file with streaming progress updates
+    
+    Returns a stream of JSON objects with progress updates:
+    - type: 'progress' | 'log' | 'complete' | 'error'
+    - message: str (description of current operation)
+    - current: int (current row number)
+    - total: int (total number of rows)
+    - result: CsvImportResult (on completion)
+    """
+    # Verify portfolio exists
+    portfolio = portfolio_crud.get_portfolio(csv_service.db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
+    # Read file content
+    content = await file.read()
+    csv_content = content.decode("utf-8")
+    
+    # Generator function to yield progress updates as JSON
+    def generate_progress():
+        for update in csv_service.import_csv_with_progress(portfolio_id, csv_content):
+            yield json.dumps(update) + "\n"
+    
+    return StreamingResponse(
+        generate_progress(),
+        media_type="application/x-ndjson",  # Newline-delimited JSON
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 @router.post("/import/csv", response_model=CsvImportResult)

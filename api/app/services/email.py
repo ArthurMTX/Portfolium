@@ -18,11 +18,19 @@ class EmailService:
     """Email service for authentication emails"""
     
     def __init__(self):
-        self._load_settings()
+        # Don't load settings from database during init - let ensure_email_config() handle syncing
+        # Just use the current settings values
+        self.smtp_host = settings.SMTP_HOST
+        self.smtp_port = settings.SMTP_PORT
+        self.smtp_user = settings.SMTP_USER
+        self.smtp_password = settings.SMTP_PASSWORD
+        self.from_email = settings.FROM_EMAIL
+        self.from_name = settings.FROM_NAME
+        self.use_tls = settings.SMTP_TLS
     
     def _load_settings(self):
-        """Load or reload settings from database or config"""
-        # Try to load from database first
+        """Load or reload settings from database"""
+        # Load from database (used when reloading after config updates)
         try:
             from app.db import SessionLocal
             from sqlalchemy import text
@@ -31,30 +39,19 @@ class EmailService:
             try:
                 config = db.execute(text("SELECT * FROM config WHERE id = 1")).first()
                 if config:
-                    # Load from database
-                    settings.ENABLE_EMAIL = config.enable_email
-                    settings.SMTP_HOST = config.smtp_host
-                    settings.SMTP_PORT = config.smtp_port
-                    settings.SMTP_USER = config.smtp_user or settings.SMTP_USER
-                    settings.SMTP_PASSWORD = config.smtp_password or settings.SMTP_PASSWORD
-                    settings.SMTP_TLS = config.smtp_tls
-                    settings.FROM_EMAIL = config.from_email
-                    settings.FROM_NAME = config.from_name
-                    settings.FRONTEND_URL = config.frontend_url
+                    # Update instance variables from database
+                    self.smtp_host = config.smtp_host
+                    self.smtp_port = config.smtp_port
+                    self.smtp_user = config.smtp_user or self.smtp_user
+                    self.smtp_password = config.smtp_password or self.smtp_password
+                    self.use_tls = config.smtp_tls
+                    self.from_email = config.from_email
+                    self.from_name = config.from_name
             finally:
                 db.close()
         except Exception as e:
-            # If database not available or table doesn't exist, use env settings
+            # If database not available or table doesn't exist, keep current settings
             logger.debug(f"Could not load email config from database: {e}")
-        
-        # Set instance variables from settings
-        self.smtp_host = settings.SMTP_HOST
-        self.smtp_port = settings.SMTP_PORT
-        self.smtp_user = settings.SMTP_USER
-        self.smtp_password = settings.SMTP_PASSWORD
-        self.from_email = settings.FROM_EMAIL
-        self.from_name = settings.FROM_NAME
-        self.use_tls = settings.SMTP_TLS
     
     def reload_settings(self):
         """Reload settings from database - call after updating settings"""

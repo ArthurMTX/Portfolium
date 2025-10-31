@@ -1,6 +1,7 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { api } from '../lib/api'
 import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
 
 export default function Register() {
@@ -12,9 +13,25 @@ export default function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [emailEnabled, setEmailEnabled] = useState(true) // Default to true
 
   const { register } = useAuth()
   const navigate = useNavigate()
+
+  // Check if email system is enabled
+  useEffect(() => {
+    const checkEmailStatus = async () => {
+      try {
+        const health = await api.healthCheck()
+        setEmailEnabled(health.email_enabled)
+      } catch (error) {
+        console.error('Failed to check email status:', error)
+        // Default to true if we can't check
+        setEmailEnabled(true)
+      }
+    }
+    checkEmailStatus()
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -61,10 +78,16 @@ export default function Register() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Registration Successful!
             </h2>
-            <p className="text-gray-600 mb-6">
-              We've sent a verification email to <strong>{email}</strong>.
-              Please check your inbox and click the verification link to activate your account.
-            </p>
+            {emailEnabled ? (
+              <p className="text-gray-600 mb-6">
+                We've sent a verification email to <strong>{email}</strong>.
+                Please check your inbox and click the verification link to activate your account.
+              </p>
+            ) : (
+              <p className="text-gray-600 mb-6">
+                Your account has been created successfully! You can now log in with your credentials.
+              </p>
+            )}
             <p className="text-sm text-gray-500 mb-6">
               Redirecting to login page...
             </p>

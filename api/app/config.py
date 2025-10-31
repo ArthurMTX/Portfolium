@@ -1,6 +1,7 @@
 """
 Application configuration
 """
+import os
 from typing import List, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
@@ -9,7 +10,8 @@ from pydantic import Field, field_validator
 class Settings(BaseSettings):
     """Application settings from environment variables"""
     model_config = SettingsConfigDict(
-        env_file="../.env",  # .env file is at project root
+        # Don't specify env_file when running in Docker - environment variables are injected by docker-compose
+        # For local development outside Docker, you can set environment variables or use python-dotenv
         case_sensitive=True,
         extra='ignore',  # Ignore unrelated env vars (e.g., frontend VITE_* keys)
     )

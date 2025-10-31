@@ -2,7 +2,7 @@
 Watchlist router - Track assets without owning them
 """
 import logging
-from typing import List
+from typing import List, Dict, Any, Generator
 from decimal import Decimal
 from datetime import datetime, timedelta
 import json
@@ -309,6 +309,211 @@ async def convert_to_buy(
     }
 
 
+@router.post("/import/csv/stream")
+async def import_watchlist_csv_stream(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Import watchlist from CSV file with streaming progress updates
+    
+    Returns a stream of JSON objects with progress updates
+    """
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be a CSV"
+        )
+    
+    # Read file content
+    content = await file.read()
+    csv_content = content.decode('utf-8')
+    
+    def generate_progress() -> Generator[str, None, None]:
+        """Generate progress updates as JSON lines"""
+        imported_count = 0
+        errors = []
+        warnings = []
+        
+        try:
+            # Parse CSV and count rows
+            csv_reader = csv.DictReader(StringIO(csv_content))
+            rows = list(csv_reader)
+            total_rows = len(rows)
+            
+            yield json.dumps({
+                "type": "log",
+                "message": f"Starting import of {total_rows} rows",
+                "current": 0,
+                "total": total_rows
+            }) + "\n"
+            
+            for row_num, row in enumerate(rows, start=2):  # Start at 2 (header is row 1)
+                try:
+                    yield json.dumps({
+                        "type": "log",
+                        "message": f"Processing row {row_num - 1}/{total_rows}...",
+                        "current": row_num - 2,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }) + "\n"
+                    
+                    symbol = row.get('symbol', '').strip().upper()
+                    if not symbol:
+                        warning_msg = f"Row {row_num}: Missing symbol, skipped"
+                        warnings.append(warning_msg)
+                        yield json.dumps({
+                            "type": "log",
+                            "message": warning_msg,
+                            "current": row_num - 1,
+                            "total": total_rows,
+                            "row_num": row_num
+                        }) + "\n"
+                        continue
+                    
+                    yield json.dumps({
+                        "type": "log",
+                        "message": f"Row {row_num - 1}: Adding {symbol} to watchlist",
+                        "current": row_num - 2,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }) + "\n"
+                    
+                    notes = row.get('notes', '').strip() or None
+                    alert_target_price = None
+                    alert_enabled = row.get('alert_enabled', '').lower() in ('true', '1', 'yes')
+                    
+                    # Parse alert_target_price
+                    price_str = row.get('alert_target_price', '').strip()
+                    if price_str:
+                        try:
+                            alert_target_price = Decimal(price_str)
+                        except Exception:
+                            warning_msg = f"Row {row_num}: Invalid alert price '{price_str}', skipped alert"
+                            warnings.append(warning_msg)
+                            yield json.dumps({
+                                "type": "log",
+                                "message": warning_msg,
+                                "current": row_num - 1,
+                                "total": total_rows,
+                                "row_num": row_num
+                            }) + "\n"
+                    
+                    # Find or create asset
+                    asset = assets_crud.get_asset_by_symbol(db, symbol)
+                    if not asset:
+                        yield json.dumps({
+                            "type": "log",
+                            "message": f"Creating new asset: {symbol}",
+                            "current": row_num - 2,
+                            "total": total_rows,
+                            "row_num": row_num
+                        }) + "\n"
+                        
+                        from app.schemas import AssetCreate
+                        asset = assets_crud.create_asset(db, AssetCreate(symbol=symbol))
+                        
+                        warning_msg = f"Row {row_num}: Auto-created asset {symbol}"
+                        warnings.append(warning_msg)
+                        yield json.dumps({
+                            "type": "log",
+                            "message": warning_msg,
+                            "current": row_num - 1,
+                            "total": total_rows,
+                            "row_num": row_num
+                        }) + "\n"
+                    
+                    # Check if already in watchlist
+                    existing = crud.get_watchlist_item_by_user_and_asset(
+                        db, current_user.id, asset.id
+                    )
+                    if existing:
+                        warning_msg = f"Row {row_num}: {symbol} already in watchlist, skipped"
+                        warnings.append(warning_msg)
+                        yield json.dumps({
+                            "type": "log",
+                            "message": warning_msg,
+                            "current": row_num - 1,
+                            "total": total_rows,
+                            "row_num": row_num
+                        }) + "\n"
+                        continue
+                    
+                    # Create watchlist item
+                    item = WatchlistItemCreate(
+                        asset_id=asset.id,
+                        notes=notes,
+                        alert_target_price=alert_target_price,
+                        alert_enabled=alert_enabled
+                    )
+                    crud.create_watchlist_item(db, item, current_user.id)
+                    imported_count += 1
+                    
+                    yield json.dumps({
+                        "type": "progress",
+                        "message": f"Added {symbol} to watchlist ({imported_count}/{total_rows})",
+                        "current": row_num - 1,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }) + "\n"
+                    
+                except Exception as e:
+                    error_msg = f"Row {row_num}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+                    
+                    yield json.dumps({
+                        "type": "error",
+                        "message": error_msg,
+                        "current": row_num - 1,
+                        "total": total_rows,
+                        "row_num": row_num
+                    }) + "\n"
+            
+            success = len(errors) == 0
+            result = {
+                "success": success,
+                "imported_count": imported_count,
+                "errors": errors,
+                "warnings": warnings
+            }
+            
+            yield json.dumps({
+                "type": "complete",
+                "message": f"Import complete: {imported_count} items added to watchlist",
+                "current": total_rows,
+                "total": total_rows,
+                "result": result
+            }) + "\n"
+            
+        except Exception as e:
+            logger.error(f"Watchlist CSV import failed: {e}")
+            result = {
+                "success": False,
+                "imported_count": 0,
+                "errors": [f"CSV parsing failed: {str(e)}"],
+                "warnings": []
+            }
+            
+            yield json.dumps({
+                "type": "error",
+                "message": f"CSV parsing failed: {str(e)}",
+                "current": 0,
+                "total": 0,
+                "result": result
+            }) + "\n"
+    
+    return StreamingResponse(
+        generate_progress(),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @router.post("/import/csv", response_model=WatchlistImportResult)
 async def import_watchlist_csv(
     file: UploadFile = File(...),
@@ -398,59 +603,6 @@ async def import_watchlist_csv(
         )
 
 
-@router.post("/import/json", response_model=WatchlistImportResult)
-async def import_watchlist_json(
-    items: List[WatchlistImportItem],
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Import watchlist from JSON array"""
-    imported_count = 0
-    errors = []
-    warnings = []
-    
-    for idx, import_item in enumerate(items):
-        try:
-            symbol = import_item.symbol.strip().upper()
-            if not symbol:
-                warnings.append(f"Item {idx}: Missing symbol, skipped")
-                continue
-            
-            # Find or create asset
-            asset = assets_crud.get_asset_by_symbol(db, symbol)
-            if not asset:
-                from app.schemas import AssetCreate
-                asset = assets_crud.create_asset(db, AssetCreate(symbol=symbol))
-            
-            # Check if already in watchlist
-            existing = crud.get_watchlist_item_by_user_and_asset(
-                db, current_user.id, asset.id
-            )
-            if existing:
-                warnings.append(f"Item {idx}: {symbol} already in watchlist, skipped")
-                continue
-            
-            # Create watchlist item
-            item = WatchlistItemCreate(
-                asset_id=asset.id,
-                notes=import_item.notes,
-                alert_target_price=import_item.alert_target_price,
-                alert_enabled=import_item.alert_enabled
-            )
-            crud.create_watchlist_item(db, item, current_user.id)
-            imported_count += 1
-            
-        except Exception as e:
-            errors.append(f"Item {idx}: {str(e)}")
-    
-    return WatchlistImportResult(
-        success=len(errors) == 0,
-        imported_count=imported_count,
-        errors=errors,
-        warnings=warnings
-    )
-
-
 @router.get("/export/csv")
 async def export_watchlist_csv(
     db: Session = Depends(get_db),
@@ -486,28 +638,6 @@ async def export_watchlist_csv(
             "Content-Disposition": f"attachment; filename=watchlist_{datetime.now().strftime('%Y%m%d')}.csv"
         }
     )
-
-
-@router.get("/export/json")
-async def export_watchlist_json(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Export watchlist as JSON"""
-    items = crud.get_watchlist_items_by_user(db, current_user.id)
-    
-    export_data = []
-    for item in items:
-        export_data.append({
-            "symbol": item.asset.symbol,
-            "name": item.asset.name,
-            "notes": item.notes,
-            "alert_target_price": float(item.alert_target_price) if item.alert_target_price else None,
-            "alert_enabled": item.alert_enabled,
-            "created_at": item.created_at.isoformat()
-        })
-    
-    return export_data
 
 
 @router.post("/refresh-prices")
