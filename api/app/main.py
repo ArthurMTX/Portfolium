@@ -50,6 +50,14 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     logger.info("Starting Portfolium API...")
     
+    # Run database migrations
+    try:
+        from app.services.migrations import run_migrations
+        run_migrations()
+    except Exception as e:
+        logger.exception("Failed to run database migrations: %s", e)
+        # Don't fail startup, but log the error
+    
     # Create tables (in production, use Alembic migrations)
     # Base.metadata.create_all(bind=engine)
     

@@ -26,6 +26,7 @@ dependencies = [
     "reportlab>=4.0.0",
     "matplotlib>=3.8.0",
     "weasyprint>=66.0",
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]
