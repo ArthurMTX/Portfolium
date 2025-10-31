@@ -34,6 +34,31 @@
 
 ## 🚀 Quick Start
 
+### Production Deployment
+
+Just download the docker-compose file and deploy:
+
+```bash
+# 1. Download files
+mkdir portfolium && cd portfolium
+curl -O https://raw.githubusercontent.com/ArthurMTX/Portfolium/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/ArthurMTX/Portfolium/main/.env.example
+cp .env.example .env
+
+# 2. Configure (edit .env with your settings)
+nano .env
+
+# 3. Deploy
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d
+
+# 4. Update anytime
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d --force-recreate
+```
+
+### Development Setup
+
 **Prerequisites:** Docker & Docker Compose
 
 ```bash
