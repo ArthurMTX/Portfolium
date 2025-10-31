@@ -36,7 +36,9 @@ def upgrade() -> None:
     inspector = inspect(conn)
     
     # Check if tables already exist in portfolio schema
-    existing_tables = inspector.get_table_names(schema='portfolio')
+    # (Exclude alembic_version which is created automatically by Alembic)
+    existing_tables = [t for t in inspector.get_table_names(schema='portfolio') 
+                      if t != 'alembic_version']
     
     # If tables already exist, this database was initialized via SQL scripts
     # Just stamp it and return

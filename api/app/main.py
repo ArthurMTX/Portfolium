@@ -56,17 +56,18 @@ async def lifespan(app: FastAPI):
         run_migrations()
     except Exception as e:
         logger.exception("Failed to run database migrations: %s", e)
-        # Don't fail startup, but log the error
+        raise  # Fail startup if migrations fail
     
-    # Create tables (in production, use Alembic migrations)
-    # Base.metadata.create_all(bind=engine)
+    # Small delay to ensure migration transaction is fully committed
+    import time
+    time.sleep(0.5)
     
     # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
     try:
         db = SessionLocal()
         ensure_email_config(db)
     except Exception as e:
-        logger.exception("Failed to initialize email config: %s", e)
+        logger.warning("Could not initialize email config (will retry later): %s", e)
     finally:
         try:
             db.close()
@@ -78,7 +79,7 @@ async def lifespan(app: FastAPI):
         db = SessionLocal()
         ensure_admin_user(db)
     except Exception as e:
-        logger.exception("Failed to ensure admin user: %s", e)
+        logger.warning("Could not ensure admin user (will retry on first request): %s", e)
     finally:
         try:
             db.close()
