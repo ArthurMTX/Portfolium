@@ -138,6 +138,24 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_assets_id'), 'assets', ['id'], unique=False, schema='portfolio')
     op.create_index(op.f('ix_portfolio_assets_symbol'), 'assets', ['symbol'], unique=True, schema='portfolio')
     
+    # Create prices table (price cache)
+    op.create_table(
+        'prices',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('asset_id', sa.Integer(), nullable=False),
+        sa.Column('asof', sa.DateTime(), nullable=False),
+        sa.Column('price', sa.Numeric(precision=20, scale=8), nullable=False),
+        sa.Column('volume', sa.BigInteger(), nullable=True),
+        sa.Column('source', sa.String(), server_default='yfinance', nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['asset_id'], ['portfolio.assets.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        schema='portfolio'
+    )
+    op.create_index('idx_prices_asset', 'prices', ['asset_id'], unique=False, schema='portfolio')
+    op.create_index('idx_prices_asof', 'prices', ['asof'], unique=False, schema='portfolio')
+    op.create_index(op.f('ix_portfolio_prices_id'), 'prices', ['id'], unique=False, schema='portfolio')
+    
     # Create portfolios table
     op.create_table(
         'portfolios',
@@ -190,8 +208,11 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), nullable=False),
         sa.Column('asset_id', sa.Integer(), nullable=False),
-        sa.Column('added_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('notes', sa.String(), nullable=True),
+        sa.Column('notes', sa.Text(), nullable=True),
+        sa.Column('alert_target_price', sa.Numeric(precision=20, scale=8), nullable=True),
+        sa.Column('alert_enabled', sa.Boolean(), server_default='false', nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
         sa.ForeignKeyConstraint(['asset_id'], ['portfolio.assets.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['user_id'], ['portfolio.users.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
@@ -209,8 +230,8 @@ def upgrade() -> None:
         sa.Column('user_id', sa.Integer(), nullable=False),
         sa.Column('type', postgresql.ENUM('TRANSACTION_CREATED', 'TRANSACTION_UPDATED', 'TRANSACTION_DELETED', 'LOGIN', 'PRICE_ALERT', 'DAILY_CHANGE_UP', 'DAILY_CHANGE_DOWN', 'SYSTEM', name='notification_type', schema='portfolio', create_type=False), nullable=False),
         sa.Column('title', sa.String(), nullable=False),
-        sa.Column('message', sa.String(), nullable=False),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('message', sa.Text(), nullable=False),
+        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), server_default='{}', nullable=True),
         sa.Column('is_read', sa.Boolean(), server_default='false', nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
         sa.ForeignKeyConstraint(['user_id'], ['portfolio.users.id'], ondelete='CASCADE'),
@@ -298,6 +319,11 @@ def downgrade() -> None:
     op.drop_index('idx_portfolios_name', table_name='portfolios', schema='portfolio')
     op.drop_index('idx_portfolios_user', table_name='portfolios', schema='portfolio')
     op.drop_table('portfolios', schema='portfolio')
+    
+    op.drop_index(op.f('ix_portfolio_prices_id'), table_name='prices', schema='portfolio')
+    op.drop_index('idx_prices_asof', table_name='prices', schema='portfolio')
+    op.drop_index('idx_prices_asset', table_name='prices', schema='portfolio')
+    op.drop_table('prices', schema='portfolio')
     
     op.drop_index(op.f('ix_portfolio_assets_symbol'), table_name='assets', schema='portfolio')
     op.drop_index(op.f('ix_portfolio_assets_id'), table_name='assets', schema='portfolio')
