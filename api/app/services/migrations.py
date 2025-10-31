@@ -33,36 +33,58 @@ def run_migrations():
         config = get_alembic_config()
         
         # Check if schema already exists (created by init SQL scripts)
-        from sqlalchemy import create_engine, inspect
+        from sqlalchemy import create_engine, inspect, text
         from app.config import settings
         
         engine = create_engine(settings.database_url)
         inspector = inspect(engine)
         
+        # Check if portfolio schema exists
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'portfolio'"))
+            schema_exists = result.fetchone() is not None
+        
+        logger.info(f"Portfolio schema exists: {schema_exists}")
+        
         # Check if tables exist in portfolio schema
-        tables_exist = len(inspector.get_table_names(schema='portfolio')) > 0
+        tables_exist = False
+        if schema_exists:
+            portfolio_tables = inspector.get_table_names(schema='portfolio')
+            tables_exist = len(portfolio_tables) > 0
+            logger.info(f"Found {len(portfolio_tables)} tables in portfolio schema")
         
         # Get current migration version
+        current_version = None
         try:
             with engine.connect() as conn:
-                result = conn.execute("SELECT version_num FROM portfolio.alembic_version")
+                result = conn.execute(text("SELECT version_num FROM portfolio.alembic_version"))
                 current_version = result.scalar()
-        except:
-            current_version = None
+                logger.info(f"Current migration version: {current_version}")
+        except Exception as e:
+            logger.debug(f"No migration version found (this is normal for fresh DB): {e}")
         
         # If tables exist but no alembic version, stamp as current
         # (This means schema was created by SQL init scripts)
         if tables_exist and not current_version:
-            logger.info("Database schema exists (created by SQL init scripts). Marking as migrated...")
+            logger.info("✓ Database schema exists but not tracked by migrations")
+            logger.info("  This indicates initialization via SQL scripts (db/init/*.sql)")
+            logger.info("  Marking database as migrated to current version...")
             command.stamp(config, "head")
-            logger.info("Database marked as up-to-date")
-        else:
-            # Run migrations to head (latest version)
+            logger.info("✓ Database successfully marked as up-to-date")
+        elif not schema_exists:
+            logger.info("✓ Fresh database detected - no schema exists yet")
+            logger.info("  Running migrations to create schema...")
             command.upgrade(config, "head")
-            logger.info("Database migrations completed successfully")
+            logger.info("✓ Database migrations completed successfully")
+        else:
+            # Schema exists and has version, run normal migration
+            logger.info("✓ Running database migrations...")
+            command.upgrade(config, "head")
+            logger.info("✓ Database migrations completed successfully")
             
     except Exception as e:
-        logger.error(f"Error running database migrations: {e}")
+        logger.error(f"✗ Error running database migrations: {e}")
+        logger.error("  See docs/deployment/database-initialization.md for troubleshooting")
         raise
 
 

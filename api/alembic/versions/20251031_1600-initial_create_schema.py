@@ -6,11 +6,15 @@ Create Date: 2025-10-31 16:00:00.000000
 
 This is a proper initial migration that creates the entire schema from scratch.
 Use this for fresh database deployments.
+
+This migration is idempotent - it checks if tables exist before creating them,
+making it safe to run on databases that were initialized via SQL scripts.
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -21,9 +25,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create the entire database schema from scratch."""
+    """Create the entire database schema from scratch.
     
-    # Create schema
+    This migration is idempotent and will skip creating objects that already exist.
+    This handles cases where the database was initialized via SQL init scripts.
+    """
+    
+    # Get connection and inspector
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    
+    # Check if tables already exist in portfolio schema
+    existing_tables = inspector.get_table_names(schema='portfolio')
+    
+    # If tables already exist, this database was initialized via SQL scripts
+    # Just stamp it and return
+    if len(existing_tables) > 0:
+        print(f"Found {len(existing_tables)} existing tables in portfolio schema.")
+        print("Database appears to be already initialized. Skipping table creation.")
+        return
+    
+    # Create schema if it doesn't exist
     op.execute('CREATE SCHEMA IF NOT EXISTS portfolio')
     
     # Create ENUM types
