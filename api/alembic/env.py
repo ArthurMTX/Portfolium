@@ -3,8 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool, text
 
 from alembic import context
 
@@ -77,6 +76,10 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Ensure the portfolio schema exists before Alembic tries to create version table
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS portfolio"))
+        connection.commit()
+        
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
