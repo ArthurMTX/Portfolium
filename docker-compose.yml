@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: arthurmtx/portfolium-db:latest
     container_name: portfolium-db
     restart: unless-stopped
     env_file:
