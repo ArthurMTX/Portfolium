@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 def get_alembic_config() -> Config:
     """Get Alembic configuration"""
-    # Path to alembic.ini
-    api_dir = Path(__file__).resolve().parent.parent
-    alembic_ini = api_dir / "alembic.ini"
+    # Path to alembic.ini (in Docker: /app/alembic.ini, locally: api/alembic.ini)
+    api_dir = Path(__file__).resolve().parent.parent  # app/ directory
+    project_root = api_dir.parent  # Parent of app/ (contains alembic.ini)
+    alembic_ini = project_root / "alembic.ini"
     
     if not alembic_ini.exists():
         raise FileNotFoundError(f"Alembic configuration not found: {alembic_ini}")
