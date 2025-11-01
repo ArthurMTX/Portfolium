@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Wrench, 
   Bell, 
@@ -10,11 +11,14 @@ import {
   Clock,
   ArrowUp,
   ArrowDown,
-  Settings
+  Settings,
+  Palette,
+  Flag
 } from 'lucide-react'
 import { api } from '../lib/api'
 
 export default function DevTools() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -147,6 +151,58 @@ export default function DevTools() {
           </div>
         </div>
       )}
+
+      {/* Icon Preview Link */}
+      <div className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20 rounded-lg shadow-sm border border-pink-200 dark:border-pink-900 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
+              <Palette className="text-pink-600" size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                Icon Preview Tool
+              </h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
+                Preview all sector and industry icons without needing asset data
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/icon-preview')}
+            className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors font-medium"
+          >
+            <Palette size={16} />
+            View Icons
+          </button>
+        </div>
+      </div>
+
+      {/* Flag Preview Link */}
+      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg shadow-sm border border-blue-200 dark:border-blue-900 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
+              <Flag className="text-blue-600" size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                Country Flag Preview
+              </h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
+                Test all country flags displayed on Assets and Insights pages
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/flag-preview')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <Flag size={16} />
+            View Flags
+          </button>
+        </div>
+      </div>
 
       {/* Notification Testing Section */}
       <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">

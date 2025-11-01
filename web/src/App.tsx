@@ -18,6 +18,8 @@ import VerifyEmail from './pages/VerifyEmail'
 import Layout from './components/Layout'
 import Admin from './pages/Admin'
 import DevTools from './pages/DevTools'
+import IconPreview from './pages/IconPreview'
+import FlagPreview from './pages/FlagPreview'
 import Insights from './pages/Insights'
 import NotFound from './pages/NotFound'
 
@@ -66,6 +68,22 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin>
                   <DevTools />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="icon-preview"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <IconPreview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="flag-preview"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <FlagPreview />
                 </ProtectedRoute>
               }
             />

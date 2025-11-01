@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X } from 'lucide-react';
+import { Package, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X } from 'lucide-react';
 import api from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
+import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIcons';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
@@ -862,7 +863,10 @@ export default function Assets() {
                       <div className="text-sm flex items-center gap-2">
                         {asset.sector ? (
                           <>
-                            <Building2 size={14} className="text-neutral-400" />
+                            {(() => {
+                              const SectorIcon = getSectorIcon(asset.sector);
+                              return <SectorIcon size={14} className={getSectorColor(asset.sector)} />;
+                            })()}
                             {asset.sector}
                           </>
                         ) : (
@@ -874,7 +878,10 @@ export default function Assets() {
                       <div className="text-sm flex items-center gap-2">
                         {asset.industry ? (
                           <>
-                            <Briefcase size={14} className="text-neutral-400" />
+                            {(() => {
+                              const IndustryIcon = getIndustryIcon(asset.industry);
+                              return <IndustryIcon size={14} className={getIndustryColor(asset.industry)} />;
+                            })()}
                             {asset.industry}
                           </>
                         ) : (

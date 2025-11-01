@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
+import { getSectorIcon, getSectorColor } from '../lib/sectorIcons'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -1012,7 +1013,13 @@ export default function Insights() {
             {insights.sector_allocation.map((sector, idx) => (
               <div key={idx}>
                 <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium">{sector.sector}</span>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const SectorIcon = getSectorIcon(sector.sector);
+                      return <SectorIcon size={16} className={getSectorColor(sector.sector)} />;
+                    })()}
+                    <span className="text-sm font-medium">{sector.sector}</span>
+                  </div>
                   <span className="text-sm text-neutral-600 dark:text-neutral-400">
                     {sector.percentage.toFixed(1)}%
                   </span>
@@ -1042,12 +1049,16 @@ export default function Insights() {
               <div key={idx}>
                 <div className="flex justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    {getCountryCode(geo.country) && (
+                    {geo.country === 'Unknown' ? (
+                      <span className="text-lg">🌍</span>
+                    ) : getCountryCode(geo.country) ? (
                       <img
                         src={`https://flagcdn.com/w40/${getCountryCode(geo.country)}.png`}
                         alt={`${geo.country} flag`}
                         className="w-5 h-4 object-cover rounded"
                       />
+                    ) : (
+                      <span className="text-lg">🌍</span>
                     )}
                     <span className="text-sm font-medium">{geo.country}</span>
                   </div>
