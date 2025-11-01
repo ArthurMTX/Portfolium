@@ -269,8 +269,8 @@ export default function Watchlist() {
   const handleUpdate = async (id: number) => {
     try {
       await api.updateWatchlistItem(id, {
-        notes: editNotes || undefined,
-        alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : undefined,
+        notes: editNotes || null,  // Send null to clear, or the note text
+        alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : null,  // Send null to clear
         alert_enabled: editAlertEnabled,
       })
       setEditingItem(null)

@@ -585,8 +585,8 @@ class ApiClient {
   }
 
   async updateWatchlistItem(itemId: number, data: {
-    notes?: string
-    alert_target_price?: number
+    notes?: string | null
+    alert_target_price?: number | null
     alert_enabled?: boolean
   }) {
     return this.request<any>(`/watchlist/${itemId}`, {

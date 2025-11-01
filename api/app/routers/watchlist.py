@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas import (
-    WatchlistItem, WatchlistItemCreate, WatchlistItemUpdate,
+    WatchlistItem, WatchlistItemCreate, WatchlistItemCreateBySymbol, WatchlistItemUpdate,
     WatchlistItemWithPrice, WatchlistImportItem, WatchlistImportResult,
     WatchlistConvertToBuy
 )
@@ -120,9 +120,7 @@ async def create_watchlist_item(
 @router.post("/by-symbol", response_model=WatchlistItem, status_code=status.HTTP_201_CREATED)
 async def create_watchlist_item_by_symbol(
     symbol: str,
-    notes: str = None,
-    alert_target_price: Decimal = None,
-    alert_enabled: bool = False,
+    item_data: WatchlistItemCreateBySymbol,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -154,12 +152,12 @@ async def create_watchlist_item_by_symbol(
             detail=f"Asset {asset.symbol} is already in your watchlist"
         )
     
-    # Create watchlist item
+    # Create watchlist item with data from request body
     item = WatchlistItemCreate(
         asset_id=asset.id,
-        notes=notes,
-        alert_target_price=alert_target_price,
-        alert_enabled=alert_enabled
+        notes=item_data.notes,
+        alert_target_price=item_data.alert_target_price,
+        alert_enabled=item_data.alert_enabled
     )
     
     return crud.create_watchlist_item(db, item, current_user.id)

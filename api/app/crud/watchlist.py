@@ -71,12 +71,12 @@ def update_watchlist_item(
     if not db_item:
         return None
     
-    if item.notes is not None:
-        db_item.notes = item.notes
-    if item.alert_target_price is not None:
-        db_item.alert_target_price = item.alert_target_price
-    if item.alert_enabled is not None:
-        db_item.alert_enabled = item.alert_enabled
+    # Use model_fields_set to check which fields were explicitly provided
+    # This allows us to distinguish between "not provided" and "set to None"
+    update_data = item.model_dump(exclude_unset=True)
+    
+    for field, value in update_data.items():
+        setattr(db_item, field, value)
     
     db.commit()
     db.refresh(db_item)

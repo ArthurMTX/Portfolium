@@ -449,6 +449,13 @@ class WatchlistItemCreate(WatchlistItemBase):
     pass
 
 
+class WatchlistItemCreateBySymbol(BaseModel):
+    """Schema for creating a watchlist item by symbol (without asset_id)"""
+    notes: Optional[str] = None
+    alert_target_price: Optional[Decimal] = None
+    alert_enabled: bool = False
+
+
 class WatchlistItemUpdate(BaseModel):
     """Schema for updating a watchlist item"""
     notes: Optional[str] = None
