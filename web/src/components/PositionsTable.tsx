@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { ArrowUpDown, TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 
 interface Position {
   asset_id: number
@@ -142,12 +143,6 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
     const formatted = numValue.toFixed(8)
     return formatted.replace(/\.?0+$/, '')
   }
-
-  // Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
-  const normalizeTickerForLogo = (symbol: string): string => {
-    return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-  }
-
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     const active = sortKey === col
@@ -292,7 +287,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={`/logos/${normalizeTickerForLogo(position.symbol)}${position.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
+                        src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
                         alt={`${position.symbol} logo`}
                         className="w-8 h-8 object-cover"
                         style={{ borderRadius: 0 }}
@@ -324,32 +319,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                             // Ignore canvas/security errors
                           }
                         }}
-                        onError={(e) => {
-                          const img = e.currentTarget as HTMLImageElement
-                          if (!img.dataset.resolverTried) {
-                            img.dataset.resolverTried = 'true'
-                            const params = new URLSearchParams()
-                            if (position.name) params.set('name', position.name)
-                            if (position.asset_type) params.set('asset_type', position.asset_type)
-                            fetch(`/api/assets/logo/${position.symbol}?${params.toString()}`, { redirect: 'follow' })
-                              .then((res) => {
-                                if (res.redirected) {
-                                  img.src = res.url
-                                } else if (res.ok) {
-                                  return res.blob().then((blob) => {
-                                    img.src = URL.createObjectURL(blob)
-                                  })
-                                } else {
-                                  img.style.display = 'none'
-                                }
-                              })
-                              .catch(() => {
-                                img.style.display = 'none'
-                              })
-                          } else {
-                            img.style.display = 'none'
-                          }
-                        }}
+                        onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
                       />
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                         {position.symbol}

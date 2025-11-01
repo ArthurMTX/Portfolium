@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -36,12 +37,6 @@ type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split'
 type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
-
-// Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
-const normalizeTickerForLogo = (symbol: string): string => {
-  return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-}
-
 
 export default function Transactions() {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
@@ -825,7 +820,7 @@ export default function Transactions() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={`/logos/${normalizeTickerForLogo(transaction.asset.symbol)}${transaction.asset.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
+                            src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
                             alt={`${transaction.asset.symbol} logo`}
                             className="w-6 h-6 object-cover"
                             onLoad={(e) => {
@@ -856,32 +851,7 @@ export default function Transactions() {
                                 // Ignore canvas/security errors
                               }
                             }}
-                            onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement
-                              if (!img.dataset.resolverTried) {
-                                img.dataset.resolverTried = 'true'
-                                const params = new URLSearchParams()
-                                if (transaction.asset.name) params.set('name', transaction.asset.name)
-                                if (transaction.asset.asset_type) params.set('asset_type', transaction.asset.asset_type)
-                                fetch(`/api/assets/logo/${transaction.asset.symbol}?${params.toString()}`, { redirect: 'follow' })
-                                  .then((res) => {
-                                    if (res.redirected) {
-                                      img.src = res.url
-                                    } else if (res.ok) {
-                                      return res.blob().then((blob) => {
-                                        img.src = URL.createObjectURL(blob)
-                                      })
-                                    } else {
-                                      img.style.display = 'none'
-                                    }
-                                  })
-                                  .catch(() => {
-                                    img.style.display = 'none'
-                                  })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            }}
+                            onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
                           />
                           <div>
                             <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

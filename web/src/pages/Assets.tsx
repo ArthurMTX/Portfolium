@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X } from 'lucide-react';
 import api from '../lib/api';
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
@@ -207,17 +208,6 @@ export default function Assets() {
     } finally {
       setEnriching(false);
     }
-  };
-
-  // Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
-  const normalizeTickerForLogo = (symbol: string): string => {
-    return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-  }
-
-  const getAssetLogoUrl = (asset: HeldAsset) => {
-    const normalizedSymbol = normalizeTickerForLogo(asset.symbol)
-    const params = asset.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''
-    return `/logos/${normalizedSymbol}${params}`
   };
 
   const getAssetClassColor = (assetClass: string) => {
@@ -812,38 +802,11 @@ export default function Assets() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                           <img
-                            src={getAssetLogoUrl(asset)}
+                            src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
                             alt={asset.symbol}
                             loading="lazy"
                             className="w-8 h-8 object-contain"
-                            onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement
-                              if (!img.dataset.resolverTried) {
-                                // Final fallback: ask backend to resolve best brand logo
-                                img.dataset.resolverTried = 'true'
-                                const params = new URLSearchParams()
-                                if (asset.name) params.set('name', asset.name)
-                                if (asset.asset_type) params.set('asset_type', asset.asset_type)
-                                fetch(`/api/assets/logo/${asset.symbol}?${params.toString()}`, { redirect: 'follow' })
-                                  .then((res) => {
-                                    if (res.redirected) {
-                                      img.src = res.url
-                                    } else if (res.ok) {
-                                      // Some environments may not expose redirected flag; try blob
-                                      return res.blob().then((blob) => {
-                                        img.src = URL.createObjectURL(blob)
-                                      })
-                                    } else {
-                                      img.style.display = 'none'
-                                    }
-                                  })
-                                  .catch(() => {
-                                    img.style.display = 'none'
-                                  })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            }}
+                            onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
                           />
                         </div>
                         <div>

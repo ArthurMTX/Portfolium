@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
-
-  // Normalize ticker by removing currency suffixes like -USD, -EUR, etc.
-  const normalizeTickerForLogo = (symbol: string): string => {
-    return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-  }
 
 interface WatchlistItem {
   id: number
@@ -553,7 +549,7 @@ export default function Watchlist() {
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-neutral-900 dark:text-neutral-100">
                       <span className="flex items-center gap-2">
                         <img
-                          src={`/logos/${normalizeTickerForLogo(item.symbol)}${item.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
+                          src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
                           alt={`${item.symbol} logo`}
                           className="w-8 h-8 object-cover"
                           style={{ borderRadius: 0 }}
@@ -585,32 +581,7 @@ export default function Watchlist() {
                               // Ignore canvas/security errors
                             }
                           }}
-                          onError={(e) => {
-                            const img = e.currentTarget as HTMLImageElement
-                            if (!img.dataset.resolverTried) {
-                              img.dataset.resolverTried = 'true'
-                              const params = new URLSearchParams()
-                              if (item.name) params.set('name', item.name)
-                              if (item.asset_type) params.set('asset_type', item.asset_type)
-                              fetch(`/api/assets/logo/${item.symbol}?${params.toString()}`, { redirect: 'follow' })
-                                .then((res) => {
-                                  if (res.redirected) {
-                                    img.src = res.url
-                                  } else if (res.ok) {
-                                    return res.blob().then((blob) => {
-                                      img.src = URL.createObjectURL(blob)
-                                    })
-                                  } else {
-                                    img.style.display = 'none'
-                                  }
-                                })
-                                .catch(() => {
-                                  img.style.display = 'none'
-                                })
-                            } else {
-                              img.style.display = 'none'
-                            }
-                          }}
+                          onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                         />
                         {item.symbol}
                       </span>
@@ -812,7 +783,7 @@ export default function Watchlist() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
                 <img
-                  src={`/logos/${normalizeTickerForLogo(convertItem.symbol)}${convertItem.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
+                  src={getAssetLogoUrl(convertItem.symbol, convertItem.asset_type, convertItem.name)}
                   alt={`${convertItem.symbol} logo`}
                   className="w-8 h-8 object-cover"
                   style={{ borderRadius: 0 }}
@@ -844,32 +815,7 @@ export default function Watchlist() {
                       // Ignore canvas/security errors
                     }
                   }}
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement
-                    if (!img.dataset.resolverTried) {
-                      img.dataset.resolverTried = 'true'
-                      const params = new URLSearchParams()
-                      if (convertItem.name) params.set('name', convertItem.name)
-                      if (convertItem.asset_type) params.set('asset_type', convertItem.asset_type)
-                      fetch(`/api/assets/logo/${convertItem.symbol}?${params.toString()}`, { redirect: 'follow' })
-                        .then((res) => {
-                          if (res.redirected) {
-                            img.src = res.url
-                          } else if (res.ok) {
-                            return res.blob().then((blob) => {
-                              img.src = URL.createObjectURL(blob)
-                            })
-                          } else {
-                            img.style.display = 'none'
-                          }
-                        })
-                        .catch(() => {
-                          img.style.display = 'none'
-                        })
-                    } else {
-                      img.style.display = 'none'
-                    }
-                  }}
+                  onError={(e) => handleLogoError(e, convertItem.symbol, convertItem.name, convertItem.asset_type)}
                 />
                 <div>
                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{convertItem.symbol}</div>
