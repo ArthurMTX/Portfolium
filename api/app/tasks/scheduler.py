@@ -46,18 +46,26 @@ async def refresh_all_prices():
             refreshed = 0
             failed = 0
             
-            for asset in active_assets:
-                try:
-                    price = pricing_service.get_price(asset.symbol)
-                    if price:
-                        refreshed += 1
-                        logger.debug(f"Refreshed {asset.symbol}: {price.price}")
-                    else:
+            # Create event loop for async operations
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                for asset in active_assets:
+                    try:
+                        # Run async get_price in the event loop
+                        price = loop.run_until_complete(pricing_service.get_price(asset.symbol))
+                        if price:
+                            refreshed += 1
+                            logger.debug(f"Refreshed {asset.symbol}: {price.price}")
+                        else:
+                            failed += 1
+                            logger.warning(f"Failed to refresh {asset.symbol}")
+                    except Exception as e:
                         failed += 1
-                        logger.warning(f"Failed to refresh {asset.symbol}")
-                except Exception as e:
-                    failed += 1
-                    logger.error(f"Error refreshing {asset.symbol}: {e}")
+                        logger.error(f"Error refreshing {asset.symbol}: {e}")
+            finally:
+                loop.close()
             
             logger.info(
                 f"Price refresh completed. Refreshed: {refreshed}, Failed: {failed}, "
@@ -107,58 +115,65 @@ async def check_price_alerts():
             
             alerts_triggered = 0
             
-            for item in watchlist_items:
-                try:
-                    asset = db.query(Asset).filter(Asset.id == item.asset_id).first()
-                    if not asset:
-                        continue
-                    
-                    # Get current price
-                    price_data = pricing_service.get_price(asset.symbol)
-                    if not price_data:
-                        continue
-                    
-                    current_price = Decimal(str(price_data.price))
-                    target_price = Decimal(str(item.alert_target_price))
-                    
-                    # Check if alert should be triggered
-                    # Alert triggers if price crosses the target (either above or below)
-                    # For simplicity, we'll trigger if current price >= target for upward alerts
-                    # or current price <= target for downward alerts
-                    should_alert = False
-                    
-                    # Determine alert direction based on whether price is close to target
-                    # If target is above current, we want to alert when price reaches or exceeds target
-                    # If target is below current, we want to alert when price reaches or falls below target
-                    
-                    # Simple approach: alert if price is within 1% of target or has crossed it
-                    price_diff_pct = abs((current_price - target_price) / target_price * 100)
-                    
-                    if price_diff_pct <= 1.0:  # Within 1% of target
-                        should_alert = True
-                    
-                    if should_alert:
-                        # Create notification
-                        notification_service.create_price_alert_notification(
-                            db=db,
-                            user_id=item.user_id,
-                            watchlist_item=item,
-                            current_price=current_price,
-                            target_price=target_price
-                        )
+            # Create event loop for async operations
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                for item in watchlist_items:
+                    try:
+                        asset = db.query(Asset).filter(Asset.id == item.asset_id).first()
+                        if not asset:
+                            continue
                         
-                        # Disable alert to prevent repeated notifications
-                        item.alert_enabled = False
-                        db.commit()
+                        # Get current price (async call)
+                        price_data = loop.run_until_complete(pricing_service.get_price(asset.symbol))
+                        if not price_data:
+                            continue
                         
-                        alerts_triggered += 1
-                        logger.info(
-                            f"Price alert triggered for {asset.symbol}: "
-                            f"current=${current_price}, target=${target_price}"
-                        )
+                        current_price = Decimal(str(price_data.price))
+                        target_price = Decimal(str(item.alert_target_price))
                         
-                except Exception as e:
-                    logger.error(f"Error checking price alert for watchlist item {item.id}: {e}")
+                        # Check if alert should be triggered
+                        # Alert triggers if price crosses the target (either above or below)
+                        # For simplicity, we'll trigger if current price >= target for upward alerts
+                        # or current price <= target for downward alerts
+                        should_alert = False
+                        
+                        # Determine alert direction based on whether price is close to target
+                        # If target is above current, we want to alert when price reaches or exceeds target
+                        # If target is below current, we want to alert when price reaches or falls below target
+                        
+                        # Simple approach: alert if price is within 1% of target or has crossed it
+                        price_diff_pct = abs((current_price - target_price) / target_price * 100)
+                        
+                        if price_diff_pct <= 1.0:  # Within 1% of target
+                            should_alert = True
+                        
+                        if should_alert:
+                            # Create notification
+                            notification_service.create_price_alert_notification(
+                                db=db,
+                                user_id=item.user_id,
+                                watchlist_item=item,
+                                current_price=current_price,
+                                target_price=target_price
+                            )
+                            
+                            # Disable alert to prevent repeated notifications
+                            item.alert_enabled = False
+                            db.commit()
+                            
+                            alerts_triggered += 1
+                            logger.info(
+                                f"Price alert triggered for {asset.symbol}: "
+                                f"current=${current_price}, target=${target_price}"
+                            )
+                            
+                    except Exception as e:
+                        logger.error(f"Error checking price alert for watchlist item {item.id}: {e}")
+            finally:
+                loop.close()
             
             logger.info(
                 f"Price alert check completed. Alerts triggered: {alerts_triggered}, "
