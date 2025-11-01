@@ -18,9 +18,16 @@ def ensure_email_config(db: Session) -> None:
     If config already exists in database, load it into runtime settings.
     Database is the source of truth after initial setup.
     """
+    import sys
     try:
+        logger.info("  Checking for existing email config in database...")
+        sys.stdout.flush()
+        
         # Check if config record exists
         config = db.execute(text("SELECT * FROM config WHERE id = 1")).first()
+        
+        logger.info(f"  Config found: {config is not None}")
+        sys.stdout.flush()
         
         if config:
             # Database config exists - load it into runtime settings
@@ -35,6 +42,8 @@ def ensure_email_config(db: Session) -> None:
             settings.FRONTEND_URL = config.frontend_url
             logger.info("Email configuration loaded from database")
         else:
+            logger.info("  Creating new email config from environment...")
+            sys.stdout.flush()
             # Create config record with env values (initial setup only)
             db.execute(text("""
                 INSERT INTO config (
@@ -55,10 +64,15 @@ def ensure_email_config(db: Session) -> None:
                 "from_name": settings.FROM_NAME,
                 "frontend_url": settings.FRONTEND_URL,
             })
+            logger.info("  Committing config...")
+            sys.stdout.flush()
             db.commit()
             logger.info("Email configuration initialized from environment variables")
+        sys.stdout.flush()
     except Exception as e:
         logger.error(f"Failed to initialize email config: {e}")
+        logger.exception("Email config exception:")
+        sys.stdout.flush()
         db.rollback()
 
 
@@ -71,18 +85,33 @@ def ensure_admin_user(db: Session) -> None:
       Password is only updated when ADMIN_PASSWORD is set (prevents accidental resets).
     - If not exists and required fields are provided, create the admin user.
     """
+    import sys
+    
+    logger.info("  Checking ADMIN_AUTO_CREATE setting...")
+    sys.stdout.flush()
+    
     if not settings.ADMIN_AUTO_CREATE:
         logger.info("ADMIN_AUTO_CREATE disabled; skipping admin bootstrap")
+        sys.stdout.flush()
         return
 
+    logger.info("  Validating admin settings...")
+    sys.stdout.flush()
+    
     # Validate required values
     if not settings.ADMIN_EMAIL or not settings.ADMIN_USERNAME:
         logger.warning("ADMIN_AUTO_CREATE enabled but ADMIN_EMAIL/ADMIN_USERNAME not set; skipping admin bootstrap")
+        sys.stdout.flush()
         return
 
+    logger.info(f"  Looking for existing admin user: {settings.ADMIN_EMAIL}")
+    sys.stdout.flush()
+    
     admin = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
 
     if admin:
+        logger.info("  Admin user found, checking for updates...")
+        sys.stdout.flush()
         # Update fields as needed
         changed = False
         if admin.username != settings.ADMIN_USERNAME:
@@ -109,17 +138,27 @@ def ensure_admin_user(db: Session) -> None:
             changed = True
 
         if changed:
+            logger.info("  Committing admin user updates...")
+            sys.stdout.flush()
             db.commit()
             logger.info("Admin user updated: %s", settings.ADMIN_EMAIL)
         else:
             logger.info("Admin user already up-to-date: %s", settings.ADMIN_EMAIL)
+        sys.stdout.flush()
         return
 
+    logger.info("  Admin user not found, checking if we can create...")
+    sys.stdout.flush()
+    
     # Create admin if not exists and password is provided
     if not settings.ADMIN_PASSWORD:
         logger.warning("ADMIN_PASSWORD not set; cannot create admin user")
+        sys.stdout.flush()
         return
 
+    logger.info("  Creating new admin user...")
+    sys.stdout.flush()
+    
     admin = User(
         email=settings.ADMIN_EMAIL,
         username=settings.ADMIN_USERNAME,
@@ -132,5 +171,8 @@ def ensure_admin_user(db: Session) -> None:
     )
 
     db.add(admin)
+    logger.info("  Committing admin user...")
+    sys.stdout.flush()
     db.commit()
     logger.info("Admin user created: %s", settings.ADMIN_EMAIL)
+    sys.stdout.flush()

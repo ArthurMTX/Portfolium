@@ -48,52 +48,96 @@ logger = logging.getLogger("portfolium")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    logger.info("Starting Portfolium API...")
+    import asyncio
+    import sys
     
-    # Run database migrations
+    logger.info("Starting Portfolium API...")
+    sys.stdout.flush()
+    
+    # Run database migrations synchronously
+    # Migrations are fast (<1s typically) and running in separate thread causes hanging issues
     try:
         from app.services.migrations import run_migrations
+        
+        logger.info("Running database migrations...")
+        sys.stdout.flush()
+        
+        # Run synchronously - it's fast enough and avoids thread issues
         run_migrations()
+        
+        logger.info("✓ Migration process completed")
+        sys.stdout.flush()
+        
     except Exception as e:
         logger.exception("Failed to run database migrations: %s", e)
+        sys.stdout.flush()
         raise  # Fail startup if migrations fail
     
     # Small delay to ensure migration transaction is fully committed
-    import time
-    time.sleep(0.5)
+    await asyncio.sleep(0.5)
+    
+    logger.info("Initializing email configuration...")
+    sys.stdout.flush()
     
     # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
     try:
         db = SessionLocal()
         ensure_email_config(db)
+        logger.info("✓ Email configuration initialized")
+        sys.stdout.flush()
     except Exception as e:
         logger.warning("Could not initialize email config (will retry later): %s", e)
+        logger.exception("Email config error details:")
+        sys.stdout.flush()
     finally:
         try:
             db.close()
         except Exception:
             pass
     
+    logger.info("Checking admin user...")
+    sys.stdout.flush()
+    
     # Ensure admin user exists if configured
     try:
         db = SessionLocal()
         ensure_admin_user(db)
+        logger.info("✓ Admin user check completed")
+        sys.stdout.flush()
     except Exception as e:
         logger.warning("Could not ensure admin user (will retry on first request): %s", e)
+        logger.exception("Admin user error details:")
+        sys.stdout.flush()
     finally:
         try:
             db.close()
         except Exception:
             pass
 
+    logger.info("Starting background scheduler...")
+    sys.stdout.flush()
+    
     # Start background scheduler
     start_scheduler()
-    logger.info("Price refresh scheduler started")
+    logger.info("✓ Price refresh scheduler started")
+    logger.info("=" * 80)
+    logger.info("✓✓✓ Portfolium API startup complete - ready to serve requests ✓✓✓")
+    logger.info("=" * 80)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    # Force logger flush for all handlers
+    for handler in logger.handlers:
+        handler.flush()
+    for handler in root_logger.handlers:
+        handler.flush()
     
     yield
     
     # Cleanup
     logger.info("Shutting down...")
+    sys.stdout.flush()
+    sys.stderr.flush()
     stop_scheduler()
 
 

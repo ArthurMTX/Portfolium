@@ -69,26 +69,42 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    import sys
+    
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        # Ensure the portfolio schema exists before Alembic tries to create version table
-        connection.execute(text("CREATE SCHEMA IF NOT EXISTS portfolio"))
-        connection.commit()
-        
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            include_schemas=True,  # Include portfolio schema
-            version_table_schema="portfolio",  # Store alembic_version in portfolio schema
-        )
+    try:
+        with connectable.connect() as connection:
+            # Ensure the portfolio schema exists before Alembic tries to create version table
+            print("Creating portfolio schema if not exists...", flush=True)
+            sys.stdout.flush()
+            connection.execute(text("CREATE SCHEMA IF NOT EXISTS portfolio"))
+            connection.commit()
+            print("Portfolio schema ready", flush=True)
+            sys.stdout.flush()
+            
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                include_schemas=True,  # Include portfolio schema
+                version_table_schema="portfolio",  # Store alembic_version in portfolio schema
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            print("Running migration transaction...", flush=True)
+            sys.stdout.flush()
+            with context.begin_transaction():
+                context.run_migrations()
+            print("Migration transaction complete", flush=True)
+            sys.stdout.flush()
+    finally:
+        # Explicitly dispose of the engine
+        connectable.dispose()
+        print("Alembic engine disposed", flush=True)
+        sys.stdout.flush()
 
 
 if context.is_offline_mode():
