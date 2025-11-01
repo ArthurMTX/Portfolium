@@ -27,6 +27,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   const [period, setPeriod] = useState<PeriodOption>('1M')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PortfolioHistoryPointDTO[]>([])
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   
   // Get portfolio currency
   const portfolio = portfolios.find(p => p.id === portfolioId)
@@ -36,6 +37,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     let canceled = false
     const load = async () => {
       setLoading(true)
+      setHoveredIndex(null) // Reset hover state when changing period
       try {
         const data = await api.getPortfolioHistory(portfolioId, period)
         if (!canceled) setHistory(data)
@@ -50,10 +52,38 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   }, [portfolioId, period])
 
   // Calculate performance percentages
-  const performanceData = history.map(point => {
-    if (!point.invested || point.invested === 0) return 0
-    // Performance = (Value - Invested) / Invested * 100
-    return ((point.value - point.invested) / point.invested) * 100
+  // For ALL: show absolute performance at each point
+  // For specific periods: show relative performance from the start of the period (normalized to 0%)
+  const performanceData = history.map((point, index) => {
+    // Get absolute performance at this point
+    let absolutePerf = 0
+    if (point.gain_pct !== undefined && point.gain_pct !== null) {
+      absolutePerf = point.gain_pct
+    } else if (point.invested && point.invested > 0) {
+      absolutePerf = ((point.value - point.invested) / point.invested) * 100
+    }
+    
+    // For ALL period, show absolute performance
+    if (period === 'ALL') {
+      return absolutePerf
+    }
+    
+    // For specific periods, normalize to show change from start
+    // Calculate baseline from first point
+    if (index === 0 || history.length === 0) {
+      return 0 // First point is always 0 for period views
+    }
+    
+    const firstPoint = history[0]
+    let baselinePerf = 0
+    if (firstPoint.gain_pct !== undefined && firstPoint.gain_pct !== null) {
+      baselinePerf = firstPoint.gain_pct
+    } else if (firstPoint.invested && firstPoint.invested > 0) {
+      baselinePerf = ((firstPoint.value - firstPoint.invested) / firstPoint.invested) * 100
+    }
+    
+    // Return the change from baseline
+    return absolutePerf - baselinePerf
   })
 
   const chartData = {
@@ -161,14 +191,31 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             if (value === null || !point) return ''
             
             const lines = []
-            lines.push(`Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+            
+            // For period views, show the relative change
+            if (period === 'ALL') {
+              lines.push(`Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+            } else {
+              // Show period performance (relative to start)
+              lines.push(`Period Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+              
+              // Also show absolute all-time performance
+              let absolutePerf = 0
+              if (point.gain_pct !== undefined && point.gain_pct !== null) {
+                absolutePerf = point.gain_pct
+              } else if (point.invested && point.invested > 0) {
+                absolutePerf = ((point.value - point.invested) / point.invested) * 100
+              }
+              lines.push(`All-Time: ${absolutePerf >= 0 ? '+' : ''}${absolutePerf.toFixed(2)}%`)
+            }
+            
             if (point.invested) {
               const gain = point.value - point.invested
               const currencySymbols: Record<string, string> = {
                 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
               }
               const symbol = currencySymbols[currency] || currency + ' '
-              lines.push(`Gain: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+              lines.push(`Total Gain: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
             }
             return lines
           }
@@ -222,10 +269,74 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       duration: 400,
       easing: 'easeInOutQuart' as const,
     },
+    onHover: (_event: unknown, activeElements: { index: number }[]) => {
+      if (activeElements && activeElements.length > 0) {
+        setHoveredIndex(activeElements[0].index)
+      } else {
+        setHoveredIndex(null)
+      }
+    },
+  }
+
+  // Determine which data point to display (hovered or last)
+  const displayIndex = hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < history.length 
+    ? hoveredIndex 
+    : history.length - 1
+  const displayPoint = history[displayIndex]
+  const displayPerformance = displayIndex >= 0 && displayIndex < performanceData.length 
+    ? performanceData[displayIndex] 
+    : 0
+
+  // Calculate gain amount for display
+  let displayGainAmount = 0
+  if (displayPoint) {
+    if (period === 'ALL') {
+      displayGainAmount = displayPoint.value - (displayPoint.invested || 0)
+    } else if (history.length > 0) {
+      const firstPoint = history[0]
+      const startGain = firstPoint.value - (firstPoint.invested || 0)
+      const currentGain = displayPoint.value - (displayPoint.invested || 0)
+      displayGainAmount = currentGain - startGain
+    }
   }
 
   return (
     <div>
+      {/* Title and performance display */}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Investment Performance</h3>
+        {history.length > 0 && displayPoint && (() => {
+          const isPositive = displayPerformance > 0
+          const isZero = displayPerformance === 0
+          
+          const currencySymbols: Record<string, string> = {
+            'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
+          }
+          const symbol = currencySymbols[currency] || currency + ' '
+          
+          // Determine color class based on value
+          const colorClass = isZero 
+            ? 'text-neutral-500 dark:text-neutral-400'
+            : isPositive 
+            ? 'text-green-600 dark:text-green-400' 
+            : 'text-red-600 dark:text-red-400'
+          
+          return (
+            <div className="flex items-center gap-3">
+              <p className={`text-2xl font-bold ${colorClass}`}>
+                {isPositive ? '+' : ''}{displayPerformance.toFixed(2)}%
+              </p>
+              <div className="flex flex-col items-end gap-0.5">
+                <p className={`text-sm font-medium ${colorClass}`}>
+                  {displayGainAmount > 0 ? '+' : ''}{symbol}{Math.abs(displayGainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+      
+      {/* Time period buttons */}
       <div className="flex gap-2 mb-4 flex-wrap justify-center">
         {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
           <button
@@ -287,42 +398,11 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             <p className="text-sm">Historical data will be calculated from your saved price records and transactions.</p>
           </div>
         ) : (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Investment Performance</h3>
-              {performanceData.length > 0 && (() => {
-                const lastPoint = history[history.length - 1]
-                const currentPerformance = performanceData[performanceData.length - 1]
-                const isPositive = currentPerformance >= 0
-                
-                // Calculate actual gain amount
-                let gainAmount = 0
-                if (lastPoint.invested) {
-                  gainAmount = lastPoint.value - lastPoint.invested
-                }
-                
-                const currencySymbols: Record<string, string> = {
-                  'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
-                }
-                const symbol = currencySymbols[currency] || currency + ' '
-                
-                return (
-                  <div className="flex items-center gap-3">
-                    <p className={`text-2xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {isPositive ? '+' : ''}{currentPerformance.toFixed(2)}%
-                    </p>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <p className={`text-sm font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {isPositive ? '+' : ''}{symbol}{Math.abs(gainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-            <div style={{ height: '320px' }}>
-              <Line data={chartData} options={chartOptions} />
-            </div>
+          <div 
+            style={{ height: '320px' }}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            <Line data={chartData} options={chartOptions} />
           </div>
         )}
       </div>
