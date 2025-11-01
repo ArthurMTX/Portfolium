@@ -3,8 +3,8 @@ Version information for Portfolium API
 This file can be updated automatically by CI/CD
 """
 
-__version__ = "0.1.0"
-__build_date__ = "2025-10-30"
+__version__ = "0.1.1"
+__build_date__ = "2025-11-01"
 __git_commit__ = "local"
 
 def get_version_info() -> dict:
