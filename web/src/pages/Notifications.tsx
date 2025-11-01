@@ -35,6 +35,10 @@ export default function Notifications() {
         return <LogIn size={20} className="text-green-500" />
       case 'PRICE_ALERT':
         return <DollarSign size={20} className="text-amber-500" />
+      case 'DAILY_CHANGE_UP':
+        return <Activity size={20} className="text-green-500" />
+      case 'DAILY_CHANGE_DOWN':
+        return <Activity size={20} className="text-red-500" />
       default:
         return <Clock size={20} className="text-neutral-500" />
     }
@@ -47,6 +51,8 @@ export default function Notifications() {
       'TRANSACTION_DELETED': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
       'LOGIN': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       'PRICE_ALERT': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+      'DAILY_CHANGE_UP': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      'DAILY_CHANGE_DOWN': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
       'SYSTEM': 'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200'
     }
     
@@ -176,30 +182,66 @@ export default function Notifications() {
                   </p>
 
                   {/* Metadata */}
-                  {notification.metadata && Object.keys(notification.metadata).length > 0 && (
-                    <div className="bg-neutral-50 dark:bg-neutral-900 rounded p-2 mb-3 text-xs">
-                      {(notification.type === 'LOGIN' && notification.metadata.ip_address) ? (
-                        <div className="text-neutral-600 dark:text-neutral-400">
-                          <span className="font-medium">IP Address:</span> {toDisplayString(notification.metadata.ip_address)}
-                        </div>
-                      ) : null}
-                      {notification.type.startsWith('TRANSACTION') && (
-                        <div className="text-neutral-600 dark:text-neutral-400 space-y-0.5">
-                          {notification.metadata.symbol ? (
-                            <div><span className="font-medium">Asset:</span> {toDisplayString(notification.metadata.symbol)}</div>
-                          ) : null}
-                          {notification.metadata.tx_date ? (
-                            <div><span className="font-medium">Date:</span> {toDisplayString(notification.metadata.tx_date)}</div>
-                          ) : null}
-                        </div>
-                      )}
-                      {(notification.type === 'PRICE_ALERT' && notification.metadata.target_price) ? (
-                        <div className="text-neutral-600 dark:text-neutral-400">
-                          <span className="font-medium">Target:</span> ${toDisplayString(notification.metadata.target_price)}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
+                  {notification.metadata && Object.keys(notification.metadata).length > 0 && (() => {
+                    const metadata = notification.metadata
+                    
+                    // Helper to safely get metadata values
+                    const getMetadata = (key: string) => metadata[key]
+                    const hasValue = (key: string) => Boolean(getMetadata(key))
+                    
+                    // Check if there's any displayable content before rendering the container
+                    const hasLoginInfo = notification.type === 'LOGIN' && hasValue('ip_address')
+                    const hasTransactionInfo = notification.type.startsWith('TRANSACTION') && 
+                      (hasValue('symbol') || hasValue('tx_date'))
+                    const hasPriceAlert = notification.type === 'PRICE_ALERT' && hasValue('target_price')
+                    const hasDailyChangeInfo = (notification.type === 'DAILY_CHANGE_UP' || notification.type === 'DAILY_CHANGE_DOWN') &&
+                      (hasValue('symbol') || hasValue('current_price') || hasValue('daily_change_pct'))
+                    
+                    if (!hasLoginInfo && !hasTransactionInfo && !hasPriceAlert && !hasDailyChangeInfo) {
+                      return null
+                    }
+                    
+                    return (
+                      <div className="bg-neutral-50 dark:bg-neutral-900 rounded p-2 mb-3 text-xs">
+                        {hasLoginInfo && (
+                          <div className="text-neutral-600 dark:text-neutral-400">
+                            <span className="font-medium">IP Address:</span> {toDisplayString(getMetadata('ip_address'))}
+                          </div>
+                        )}
+                        {hasTransactionInfo && (
+                          <div className="text-neutral-600 dark:text-neutral-400 space-y-0.5">
+                            {hasValue('symbol') && (
+                              <div><span className="font-medium">Asset:</span> {toDisplayString(getMetadata('symbol'))}</div>
+                            )}
+                            {hasValue('tx_date') && (
+                              <div><span className="font-medium">Date:</span> {toDisplayString(getMetadata('tx_date'))}</div>
+                            )}
+                          </div>
+                        )}
+                        {hasPriceAlert && (
+                          <div className="text-neutral-600 dark:text-neutral-400">
+                            <span className="font-medium">Target:</span> ${toDisplayString(getMetadata('target_price'))}
+                          </div>
+                        )}
+                        {hasDailyChangeInfo && (
+                          <div className="text-neutral-600 dark:text-neutral-400 space-y-0.5">
+                            {hasValue('symbol') && (
+                              <div><span className="font-medium">Asset:</span> {toDisplayString(getMetadata('symbol'))}</div>
+                            )}
+                            {hasValue('current_price') && (
+                              <div><span className="font-medium">Current Price:</span> ${toDisplayString(getMetadata('current_price'))}</div>
+                            )}
+                            {hasValue('daily_change_pct') && (
+                              <div><span className="font-medium">Change:</span> {toDisplayString(getMetadata('daily_change_pct'))}%</div>
+                            )}
+                            {hasValue('quantity') && (
+                              <div><span className="font-medium">Quantity:</span> {toDisplayString(getMetadata('quantity'))}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Actions */}
                   <div className="flex items-center gap-3">

@@ -48,6 +48,10 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
         return <LogIn size={16} className="text-green-500" />
       case 'PRICE_ALERT':
         return <DollarSign size={16} className="text-amber-500" />
+      case 'DAILY_CHANGE_UP':
+        return <Activity size={16} className="text-green-500" />
+      case 'DAILY_CHANGE_DOWN':
+        return <Activity size={16} className="text-red-500" />
       default:
         return <Clock size={16} className="text-neutral-500" />
     }

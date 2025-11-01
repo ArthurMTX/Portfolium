@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPassword'
 import VerifyEmail from './pages/VerifyEmail'
 import Layout from './components/Layout'
 import Admin from './pages/Admin'
+import DevTools from './pages/DevTools'
 import Insights from './pages/Insights'
 import NotFound from './pages/NotFound'
 
@@ -57,6 +58,14 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin>
                   <Admin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="dev"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <DevTools />
                 </ProtectedRoute>
               }
             />

@@ -10,10 +10,11 @@ from pydantic import BaseModel, EmailStr
 from app.db import get_db
 from app.auth import get_password_hash
 from app.auth import get_current_admin_user
-from app.models import User
+from app.models import User, NotificationType
 from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
 from app.tasks.scheduler import check_price_alerts, refresh_all_prices
+from app.crud import notifications as crud_notifications
 
 router = APIRouter(prefix="/admin")
 
@@ -776,3 +777,204 @@ def get_email_stats(
         )
 
 
+# ================================
+# Test Notifications
+# ================================
+
+class CreateTestNotificationsRequest(BaseModel):
+    """Request schema for creating test notifications"""
+    notification_types: Optional[list[str]] = None  # If None, creates all types
+
+
+@router.post("/notifications/test")
+def create_test_notifications(
+    request: CreateTestNotificationsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Create test notifications for each notification type
+    
+    This endpoint creates sample notifications for testing the UI.
+    You can specify which notification types to create, or leave empty to create all types.
+    
+    Available notification types:
+    - TRANSACTION_CREATED
+    - TRANSACTION_UPDATED
+    - TRANSACTION_DELETED
+    - LOGIN
+    - PRICE_ALERT
+    - DAILY_CHANGE_UP
+    - DAILY_CHANGE_DOWN
+    - SYSTEM
+    """
+    try:
+        # Determine which notification types to create
+        if request.notification_types:
+            types_to_create = [NotificationType(t) for t in request.notification_types]
+        else:
+            # Create all notification types
+            types_to_create = [
+                NotificationType.TRANSACTION_CREATED,
+                NotificationType.TRANSACTION_UPDATED,
+                NotificationType.TRANSACTION_DELETED,
+                NotificationType.LOGIN,
+                NotificationType.PRICE_ALERT,
+                NotificationType.DAILY_CHANGE_UP,
+                NotificationType.DAILY_CHANGE_DOWN,
+                NotificationType.SYSTEM
+            ]
+        
+        created_notifications = []
+        
+        for notification_type in types_to_create:
+            if notification_type == NotificationType.TRANSACTION_CREATED:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="Transaction Created",
+                    message="You bought 10 shares of AAPL at $175.25",
+                    metadata={
+                        "symbol": "AAPL",
+                        "tx_date": "2025-11-01",
+                        "quantity": 10,
+                        "price": 175.25,
+                        "type": "BUY"
+                    }
+                )
+            
+            elif notification_type == NotificationType.TRANSACTION_UPDATED:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="Transaction Updated",
+                    message="Updated your TSLA transaction from 2025-10-15",
+                    metadata={
+                        "symbol": "TSLA",
+                        "tx_date": "2025-10-15",
+                        "quantity": 5,
+                        "price": 242.50
+                    }
+                )
+            
+            elif notification_type == NotificationType.TRANSACTION_DELETED:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="Transaction Deleted",
+                    message="Deleted your MSFT sell transaction from 2025-10-20",
+                    metadata={
+                        "symbol": "MSFT",
+                        "tx_date": "2025-10-20"
+                    }
+                )
+            
+            elif notification_type == NotificationType.LOGIN:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="New Login Detected",
+                    message="A new login to your account was detected from a new device or location.",
+                    metadata={
+                        "ip_address": "192.168.1.100",
+                        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                        "location": "New York, USA"
+                    }
+                )
+            
+            elif notification_type == NotificationType.PRICE_ALERT:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="🎯 Price Alert: NVDA",
+                    message="NVDA has reached your target price of $500.00",
+                    metadata={
+                        "symbol": "NVDA",
+                        "target_price": 500.00,
+                        "current_price": 501.25,
+                        "alert_type": "above"
+                    }
+                )
+            
+            elif notification_type == NotificationType.DAILY_CHANGE_UP:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="📈 AAPL Up +5.25%",
+                    message="Apple Inc is up +5.25% today. Your 50 shares at $180.50 (+$472.06)",
+                    metadata={
+                        "asset_id": 1,
+                        "portfolio_id": 1,
+                        "symbol": "AAPL",
+                        "current_price": 180.50,
+                        "daily_change_pct": 5.25,
+                        "quantity": 50.0,
+                        "position_value": 9025.00,
+                        "change_amount": 472.06,
+                        "direction": "up"
+                    }
+                )
+            
+            elif notification_type == NotificationType.DAILY_CHANGE_DOWN:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="📉 TSLA Down -3.15%",
+                    message="Tesla Inc is down -3.15% today. Your 25 shares at $235.40 (-$191.33)",
+                    metadata={
+                        "asset_id": 2,
+                        "portfolio_id": 1,
+                        "symbol": "TSLA",
+                        "current_price": 235.40,
+                        "daily_change_pct": -3.15,
+                        "quantity": 25.0,
+                        "position_value": 5885.00,
+                        "change_amount": -191.33,
+                        "direction": "down"
+                    }
+                )
+            
+            elif notification_type == NotificationType.SYSTEM:
+                notification = crud_notifications.create_notification(
+                    db=db,
+                    user_id=current_user.id,
+                    notification_type=notification_type,
+                    title="System Maintenance Scheduled",
+                    message="Portfolium will be undergoing scheduled maintenance on November 5th, 2025 from 2:00 AM to 4:00 AM EST. During this time, the service may be temporarily unavailable.",
+                    metadata={
+                        "maintenance_date": "2025-11-05",
+                        "start_time": "02:00",
+                        "end_time": "04:00",
+                        "timezone": "EST"
+                    }
+                )
+            
+            created_notifications.append({
+                "id": notification.id,
+                "type": notification.type.value,
+                "title": notification.title
+            })
+        
+        return {
+            "success": True,
+            "message": f"Created {len(created_notifications)} test notification(s)",
+            "notifications": created_notifications
+        }
+    
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid notification type: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create test notifications: {str(e)}"
+        )
