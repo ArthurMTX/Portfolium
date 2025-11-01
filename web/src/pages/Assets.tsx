@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity } from 'lucide-react';
+import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X } from 'lucide-react';
 import api from '../lib/api';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
@@ -61,6 +61,7 @@ export default function Assets() {
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string } | null>(null);
   const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load portfolio positions when active portfolio changes
   useEffect(() => {
@@ -129,6 +130,17 @@ export default function Assets() {
       combined = combined.filter(asset => portfolioAssetIds.has(asset.id));
     }
     
+    // Filter by search query (symbol and name only)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      combined = combined.filter(asset => {
+        const symbol = asset.symbol.toLowerCase();
+        const name = (asset.name || '').toLowerCase();
+        
+        return symbol.includes(query) || name.includes(query);
+      });
+    }
+    
     const keyTypes = {
       symbol: 'string',
       name: 'string',
@@ -166,7 +178,7 @@ export default function Assets() {
       if (isNaN(nb)) return -1
       return (na - nb) * dir
     });
-  }, [heldAssets, soldAssets, showSold, sortKey, sortDir, activePortfolioId, portfolioAssetIds]);
+  }, [heldAssets, soldAssets, showSold, sortKey, sortDir, activePortfolioId, portfolioAssetIds, searchQuery]);
 
   const handleEnrichAll = async () => {
     try {
@@ -648,6 +660,25 @@ export default function Assets() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Search Bar */}
+              <div className="relative w-full sm:w-auto sm:min-w-[250px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={16} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search symbol or name..."
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setShowSold(!showSold)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
@@ -740,7 +771,25 @@ export default function Assets() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {sortedAssets.map((asset) => (
+                {sortedAssets.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-12">
+                      <div className="text-center text-neutral-500 dark:text-neutral-400">
+                        <p>No assets match your search</p>
+                        <p className="text-sm mt-2">
+                          Try searching for a different symbol or name, or{' '}
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
+                          >
+                            clear the search
+                          </button>
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  sortedAssets.map((asset) => (
                   <tr key={asset.id} className={`hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${asset.total_quantity === 0 ? 'opacity-60 bg-neutral-50 dark:bg-neutral-900' : ''}`}> 
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -898,7 +947,8 @@ export default function Assets() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

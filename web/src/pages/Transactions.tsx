@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
@@ -59,6 +59,7 @@ export default function Transactions() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [displayLimit] = useState(100)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Form state
   const [ticker, setTicker] = useState("")
@@ -408,7 +409,19 @@ export default function Transactions() {
   }, [transactions])
 
   const sortedTransactions = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) => {
+    // Filter by search query
+    let filtered = transactions
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = transactions.filter(tx => {
+        const symbol = tx.asset.symbol.toLowerCase()
+        const name = (tx.asset.name || '').toLowerCase()
+        
+        return symbol.includes(query) || name.includes(query)
+      })
+    }
+    
+    const sorted = [...filtered].sort((a, b) => {
       let aVal: string | number
       let bVal: string | number
 
@@ -462,7 +475,7 @@ export default function Transactions() {
     
     // Apply limit if showAllTransactions is false
     return showAllTransactions ? sorted : sorted.slice(0, displayLimit)
-  }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit])
+  }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery])
 
   const isActive = (key: SortKey) => sortKey === key
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -596,9 +609,9 @@ export default function Transactions() {
       )}
 
       <div className="card overflow-hidden">
-        {/* Tabs */}
-        <div className="border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto scrollbar-hide">
-          <nav className="-mb-px flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max" aria-label="Tabs">
+        {/* Tabs with Search Bar */}
+        <div className="border-b border-neutral-200 dark:border-neutral-700 flex items-center gap-4 px-4 sm:px-6">
+          <nav className="-mb-px flex space-x-4 sm:space-x-8 flex-1 overflow-x-auto scrollbar-hide" aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -616,6 +629,26 @@ export default function Transactions() {
               </button>
             ))}
           </nav>
+          
+          {/* Search Bar */}
+          <div className="relative min-w-[200px] sm:min-w-[300px] py-2">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={16} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search symbol or name..."
+              className="w-full pl-9 pr-8 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Transaction Count and Limit Toggle */}
@@ -681,6 +714,19 @@ export default function Transactions() {
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
               <p>No transactions found</p>
               <p className="text-sm mt-2">Start by adding your first transaction</p>
+            </div>
+          ) : sortedTransactions.length === 0 ? (
+            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+              <p>No transactions match your search</p>
+              <p className="text-sm mt-2">
+                Try searching for a different symbol or name, or{' '}
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
+                >
+                  clear the search
+                </button>
+              </p>
             </div>
           ) : (
             <table className="w-full">
