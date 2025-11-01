@@ -997,6 +997,7 @@ export default function Assets() {
           assetId={transactionHistoryAsset.id}
           assetSymbol={transactionHistoryAsset.symbol}
           portfolioId={activePortfolioId || undefined}
+          portfolioCurrency={portfolios.find(p => p.id === activePortfolioId)?.base_currency}
           onClose={() => setTransactionHistoryAsset(null)}
         />
       )}
