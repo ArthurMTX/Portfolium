@@ -72,9 +72,14 @@ export default function Assets() {
       }
 
       try {
-        const positions = await api.getPortfolioPositions(activePortfolioId);
-        const assetIds = new Set(positions.map(p => p.asset_id));
-        setPortfolioAssetIds(assetIds);
+        const [positions, soldPositions] = await Promise.all([
+          api.getPortfolioPositions(activePortfolioId),
+          api.getSoldPositions(activePortfolioId)
+        ]);
+        const currentAssetIds = positions.map(p => p.asset_id);
+        const soldAssetIds = soldPositions.map(p => p.asset_id);
+        const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
+        setPortfolioAssetIds(allAssetIds);
       } catch (err) {
         console.error('Error loading portfolio positions:', err);
         setPortfolioAssetIds(new Set());
