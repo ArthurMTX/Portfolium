@@ -190,7 +190,42 @@ export default function Insights() {
   const [error, setError] = useState('')
   const [period, setPeriod] = useState('1y')
   const [benchmark, setBenchmark] = useState('SPY')
+  const [performersSortBy, setPerformersSortBy] = useState<'percentage' | 'currency'>('percentage')
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Get portfolio currency
+  const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
+  const currency = activePortfolio?.base_currency || 'EUR'
+  
+  // Get currency symbol
+  const getCurrencySymbol = (currencyCode: string) => {
+    const symbols: Record<string, string> = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'JPY': '¥',
+      'CNY': '¥',
+      'CHF': 'CHF',
+      'CAD': 'C$',
+      'AUD': 'A$',
+      'NZD': 'NZ$',
+      'INR': '₹',
+      'BRL': 'R$',
+      'ZAR': 'R',
+      'RUB': '₽',
+      'KRW': '₩',
+      'SGD': 'S$',
+      'HKD': 'HK$',
+      'SEK': 'kr',
+      'NOK': 'kr',
+      'DKK': 'kr',
+      'PLN': 'zł',
+      'MXN': 'MX$',
+      'TRY': '₺',
+    }
+    return symbols[currencyCode] || currencyCode
+  }
+  const currencySymbol = getCurrencySymbol(currency)
 
   const loadInsights = useCallback(async (signal?: AbortSignal) => {
     if (!activePortfolioId) return
@@ -427,26 +462,36 @@ export default function Insights() {
   }
 
   // Prepare benchmark comparison chart data
+  // Backend now returns performance percentages directly, no need to normalize
+  const portfolioSeries = insights.benchmark_comparison.portfolio_series
+  const benchmarkSeries = insights.benchmark_comparison.benchmark_series
+  
   const benchmarkChartData = {
-    labels: insights.benchmark_comparison.portfolio_series.map(p => 
+    labels: portfolioSeries.map(p => 
       new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     ),
     datasets: [
       {
         label: insights.portfolio_name,
-        data: insights.benchmark_comparison.portfolio_series.map(p => p.value),
+        data: portfolioSeries.map(p => p.value),
         borderColor: 'rgb(236, 72, 153)',
         backgroundColor: 'rgba(236, 72, 153, 0.1)',
         fill: true,
-        tension: 0.4
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 2
       },
       {
         label: insights.benchmark_comparison.benchmark_name,
-        data: insights.benchmark_comparison.benchmark_series.map(p => p.value),
+        data: benchmarkSeries.map(b => b.value),
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         fill: true,
-        tension: 0.4
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 2
       }
     ]
   }
@@ -471,10 +516,7 @@ export default function Insights() {
               label += ': '
             }
             if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'EUR'
-              }).format(context.parsed.y)
+              label += `${context.parsed.y >= 0 ? '+' : ''}${context.parsed.y.toFixed(2)}%`
             }
             return label
           }
@@ -491,18 +533,28 @@ export default function Insights() {
         }
       },
       y: {
+        title: {
+          display: true,
+          text: 'Performance (%)',
+          color: document.documentElement.classList.contains('dark') ? '#a3a3a3' : '#525252',
+          font: { size: 12 }
+        },
         ticks: {
           color: document.documentElement.classList.contains('dark') ? '#a3a3a3' : '#525252',
           callback: function(value: string | number) {
-            return new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: 'EUR',
-              notation: 'compact'
-            }).format(Number(value))
+            return `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(0)}%`
           }
         },
         grid: {
-          color: document.documentElement.classList.contains('dark') ? '#262626' : '#f5f5f5'
+          color: (context: { tick: { value: number } }) => {
+            // Highlight the zero line
+            return context.tick.value === 0 
+              ? document.documentElement.classList.contains('dark') ? 'rgba(163,163,163,0.3)' : 'rgba(82,82,82,0.3)'
+              : document.documentElement.classList.contains('dark') ? '#262626' : '#f5f5f5'
+          },
+          lineWidth: (context: { tick: { value: number } }) => {
+            return context.tick.value === 0 ? 2 : 1
+          }
         }
       }
     }
@@ -567,7 +619,7 @@ export default function Insights() {
                 {insights.total_return_pct.toFixed(2)}%
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                €{insights.total_return.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {currencySymbol}{insights.total_return.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </p>
             </div>
             <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">
@@ -647,7 +699,7 @@ export default function Insights() {
           Performance vs Benchmark
         </h2>
         <div className="h-80">
-          <Line data={benchmarkChartData} options={chartOptions} />
+          <Line key={`${period}-${benchmark}`} data={benchmarkChartData} options={chartOptions} />
         </div>
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
@@ -767,126 +819,183 @@ export default function Insights() {
       </div>
 
       {/* Top & Worst Performers */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Performers */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Award className="h-5 w-5 text-green-600" />
-            Top Performers
-          </h2>
-          <div className="space-y-3">
-            {insights.top_performers.map((performer, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <img
-                    src="/placeholder-logo.png"
-                    alt={`${performer.symbol} logo`}
-                    className="w-10 h-10 rounded object-contain"
-                    onError={(e) => {
-                      const img = e.currentTarget as HTMLImageElement
-                      if (!img.dataset.resolverTried) {
-                        img.dataset.resolverTried = 'true'
-                        const params = new URLSearchParams()
-                        if (performer.name) params.set('name', performer.name)
-                        if (performer.asset_type) params.set('asset_type', performer.asset_type)
-                        fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
-                          .then((res) => {
-                            if (res.redirected) {
-                              img.src = res.url
-                            } else if (res.ok) {
-                              return res.blob().then((blob) => {
-                                img.src = URL.createObjectURL(blob)
-                              })
-                            } else {
-                              img.style.display = 'none'
-                            }
-                          })
-                          .catch(() => {
-                            img.style.display = 'none'
-                          })
-                      } else {
-                        img.style.display = 'none'
-                      }
-                    }}
-                  />
-                  <div>
-                    <p className="font-semibold">{performer.symbol}</p>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {performer.name}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-green-600">
-                    +{performer.return_pct.toFixed(2)}%
-                  </p>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    €{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-              </div>
-            ))}
+      <div className="space-y-4">
+        {/* Toggle for sorting method */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Top & Worst Performers</h2>
+          <div className="flex gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
+            <button
+              onClick={() => setPerformersSortBy('percentage')}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                performersSortBy === 'percentage'
+                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-medium shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              By %
+            </button>
+            <button
+              onClick={() => setPerformersSortBy('currency')}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                performersSortBy === 'currency'
+                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-medium shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              By {currencySymbol}
+            </button>
           </div>
         </div>
 
-        {/* Worst Performers */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            Worst Performers
-          </h2>
-          <div className="space-y-3">
-            {insights.worst_performers.map((performer, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <img
-                    src="/placeholder-logo.png"
-                    alt={`${performer.symbol} logo`}
-                    className="w-10 h-10 rounded object-contain"
-                    onError={(e) => {
-                      const img = e.currentTarget as HTMLImageElement
-                      if (!img.dataset.resolverTried) {
-                        img.dataset.resolverTried = 'true'
-                        const params = new URLSearchParams()
-                        if (performer.name) params.set('name', performer.name)
-                        if (performer.asset_type) params.set('asset_type', performer.asset_type)
-                        fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
-                          .then((res) => {
-                            if (res.redirected) {
-                              img.src = res.url
-                            } else if (res.ok) {
-                              return res.blob().then((blob) => {
-                                img.src = URL.createObjectURL(blob)
-                              })
-                            } else {
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Top Performers */}
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Award className="h-5 w-5 text-green-600" />
+              Top Performers
+            </h2>
+            <div className="space-y-3">
+              {[...insights.top_performers]
+                .sort((a, b) => 
+                  performersSortBy === 'percentage' 
+                    ? b.return_pct - a.return_pct 
+                    : b.unrealized_pnl - a.unrealized_pnl
+                )
+                .map((performer) => (
+                <div key={`top-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/placeholder-logo.png"
+                      alt={`${performer.symbol} logo`}
+                      className="w-10 h-10 rounded object-contain"
+                      onError={(e) => {
+                        const img = e.currentTarget as HTMLImageElement
+                        if (!img.dataset.resolverTried) {
+                          img.dataset.resolverTried = 'true'
+                          const params = new URLSearchParams()
+                          if (performer.name) params.set('name', performer.name)
+                          if (performer.asset_type) params.set('asset_type', performer.asset_type)
+                          fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
+                            .then((res) => {
+                              if (res.redirected) {
+                                img.src = res.url
+                              } else if (res.ok) {
+                                return res.blob().then((blob) => {
+                                  img.src = URL.createObjectURL(blob)
+                                })
+                              } else {
+                                img.style.display = 'none'
+                              }
+                            })
+                            .catch(() => {
                               img.style.display = 'none'
-                            }
-                          })
-                          .catch(() => {
-                            img.style.display = 'none'
-                          })
-                      } else {
-                        img.style.display = 'none'
-                      }
-                    }}
-                  />
-                  <div>
-                    <p className="font-semibold">{performer.symbol}</p>
+                            })
+                        } else {
+                          img.style.display = 'none'
+                        }
+                      }}
+                    />
+                    <div>
+                      <p className="font-semibold">{performer.symbol}</p>
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {performer.name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">
+                      {performersSortBy === 'percentage' ? (
+                        <>+{performer.return_pct.toFixed(2)}%</>
+                      ) : (
+                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                      )}
+                    </p>
                     <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {performer.name}
+                      {performersSortBy === 'percentage' ? (
+                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                      ) : (
+                        <>+{performer.return_pct.toFixed(2)}%</>
+                      )}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-red-600">
-                    {performer.return_pct.toFixed(2)}%
-                  </p>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    €{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Worst Performers */}
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Worst Performers
+            </h2>
+            <div className="space-y-3">
+              {[...insights.worst_performers]
+                .sort((a, b) => 
+                  performersSortBy === 'percentage' 
+                    ? a.return_pct - b.return_pct 
+                    : a.unrealized_pnl - b.unrealized_pnl
+                )
+                .map((performer) => (
+                <div key={`worst-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/placeholder-logo.png"
+                      alt={`${performer.symbol} logo`}
+                      className="w-10 h-10 rounded object-contain"
+                      onError={(e) => {
+                        const img = e.currentTarget as HTMLImageElement
+                        if (!img.dataset.resolverTried) {
+                          img.dataset.resolverTried = 'true'
+                          const params = new URLSearchParams()
+                          if (performer.name) params.set('name', performer.name)
+                          if (performer.asset_type) params.set('asset_type', performer.asset_type)
+                          fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
+                            .then((res) => {
+                              if (res.redirected) {
+                                img.src = res.url
+                              } else if (res.ok) {
+                                return res.blob().then((blob) => {
+                                  img.src = URL.createObjectURL(blob)
+                                })
+                              } else {
+                                img.style.display = 'none'
+                              }
+                            })
+                            .catch(() => {
+                              img.style.display = 'none'
+                            })
+                        } else {
+                          img.style.display = 'none'
+                        }
+                      }}
+                    />
+                    <div>
+                      <p className="font-semibold">{performer.symbol}</p>
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {performer.name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-red-600">
+                      {performersSortBy === 'percentage' ? (
+                        <>{performer.return_pct.toFixed(2)}%</>
+                      ) : (
+                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                      )}
+                    </p>
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {performersSortBy === 'percentage' ? (
+                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                      ) : (
+                        <>{performer.return_pct.toFixed(2)}%</>
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -915,7 +1024,7 @@ export default function Insights() {
                   />
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  €{sector.value.toLocaleString()} • {sector.count} assets
+                  {currencySymbol}{sector.value.toLocaleString()} • {sector.count} assets
                 </p>
               </div>
             ))}
@@ -953,7 +1062,7 @@ export default function Insights() {
                   />
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  €{geo.value.toLocaleString()} • {geo.count} assets
+                  {currencySymbol}{geo.value.toLocaleString()} • {geo.count} assets
                 </p>
               </div>
             ))}
