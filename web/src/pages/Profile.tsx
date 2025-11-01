@@ -3,9 +3,12 @@ import { MailCheck, Shield, Trash2, User as UserIcon, RefreshCw } from 'lucide-r
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 
+type ProfileTab = 'profile' | 'security' | 'danger';
+
 export default function Profile() {
   const { user, refreshUser, logout } = useAuth()
 
+  const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
   const [fullName, setFullName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -140,8 +143,48 @@ export default function Profile() {
         </p>
       </div>
 
-      {/* Profile information */}
-      <div className="card p-6">
+      {/* Tabs */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-2 sm:gap-4 min-w-max">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'profile'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <UserIcon size={14} className="inline mr-1" />
+            Profile
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'security'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <Shield size={14} className="inline mr-1" />
+            Security
+          </button>
+          <button
+            onClick={() => setActiveTab('danger')}
+            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'danger'
+                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
+                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+            }`}
+          >
+            <Trash2 size={14} className="inline mr-1" />
+            Danger
+          </button>
+        </nav>
+      </div>
+
+      {/* Profile Tab */}
+      {activeTab === 'profile' && (
+        <div className="card p-6">
         <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
           <UserIcon size={20} className="text-pink-600 dark:text-pink-400" />
           Profile Information
@@ -211,9 +254,11 @@ export default function Profile() {
           </div>
         </form>
       </div>
+      )}
 
-      {/* Security settings */}
-      <div className="card p-6">
+      {/* Security Tab */}
+      {activeTab === 'security' && (
+        <div className="card p-6">
         <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
           <Shield size={20} className="text-pink-600 dark:text-pink-400" />
           Security
@@ -273,9 +318,11 @@ export default function Profile() {
           </div>
         </form>
       </div>
+      )}
 
-      {/* Danger zone */}
-      <div className="card p-6 border border-red-300/40 bg-red-50 dark:bg-red-950/30">
+      {/* Danger Zone Tab */}
+      {activeTab === 'danger' && (
+        <div className="card p-6 border border-red-300/40 bg-red-50 dark:bg-red-950/30">
         <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
           <Trash2 size={20} />
           Delete account
@@ -300,6 +347,7 @@ export default function Profile() {
           </button>
         </div>
       </div>
+      )}
     </div>
   )
 }
