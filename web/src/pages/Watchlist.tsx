@@ -68,6 +68,18 @@ export default function Watchlist() {
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showAddModal, showImportModal, showImportProgress, convertItem, deleteConfirm])
+
   const openConvertModal = (item: WatchlistItem) => {
     setConvertItem(item)
     // Preselect first portfolio if not set
@@ -733,7 +745,7 @@ export default function Watchlist() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="modal-overlay bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full">
             <h2 className="text-xl font-bold mb-4">Import Watchlist</h2>
             <div className="space-y-4">
@@ -780,7 +792,7 @@ export default function Watchlist() {
 
       {/* Convert to BUY Modal (styled like Transactions modal) */}
       {convertItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Convert to BUY</h2>
@@ -941,7 +953,7 @@ export default function Watchlist() {
 
       {/* Delete Confirmation Modal (matches Transactions style) */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
               Delete Watchlist Item
@@ -969,7 +981,7 @@ export default function Watchlist() {
 
       {/* Add to Watchlist Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">

@@ -110,6 +110,18 @@ const AdminDashboard: React.FC = () => {
     }
   }, [user]);
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (isCreateOpen || isEditOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isCreateOpen, isEditOpen])
+
   const toggleActive = async (u: User) => {
     try {
       const updated = await api.updateAdminUser(u.id, { is_active: !u.is_active });
@@ -970,7 +982,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* Create User Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Create User</h2>
@@ -1014,7 +1026,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* Edit User Modal */}
       {isEditOpen && editingUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Edit User</h2>

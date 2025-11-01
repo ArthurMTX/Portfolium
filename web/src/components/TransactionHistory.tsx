@@ -25,6 +25,14 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
   const [transactions, setTransactions] = useState<AssetTransaction[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
@@ -66,7 +74,7 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
   const hasSplitAdjustments = transactions.some(tx => Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001)
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">

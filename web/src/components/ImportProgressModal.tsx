@@ -44,6 +44,18 @@ export default function ImportProgressModal({
     onCompleteRef.current = onComplete
   }, [onComplete])
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
   useEffect(() => {
     if (!isOpen || !file || hasStartedRef.current) return
 
@@ -166,7 +178,7 @@ export default function ImportProgressModal({
   const progressPercent = total > 0 ? (progress / total) * 100 : 0
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="card p-6 max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0">

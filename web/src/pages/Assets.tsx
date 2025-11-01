@@ -115,6 +115,18 @@ export default function Assets() {
     localStorage.setItem('assets-show-sold', JSON.stringify(showSold));
   }, [showSold]);
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset])
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -991,7 +1003,7 @@ export default function Assets() {
 
       {/* Price Chart Modal */}
       {priceChartAsset && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <div className="modal-overlay bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between sticky top-0 bg-white dark:bg-neutral-900 z-10">
               <div className="flex items-center gap-3">

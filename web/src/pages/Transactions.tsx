@@ -88,6 +88,18 @@ export default function Transactions() {
     }
   }, [portfolios.length, setPortfolios])
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (modalMode || deleteConfirm || showImportProgress) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [modalMode, deleteConfirm, showImportProgress])
+
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolioId) return
     
@@ -954,7 +966,7 @@ export default function Transactions() {
 
       {/* Add/Edit Modal */}
       {modalMode && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -1157,7 +1169,7 @@ export default function Transactions() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
               Delete Transaction
