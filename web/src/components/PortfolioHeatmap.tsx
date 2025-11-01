@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 
 interface Position {
   symbol: string
@@ -225,17 +226,6 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     return 'text-white'
   }
 
-  // Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
-  const normalizeTickerForLogo = (symbol: string): string => {
-    return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-  }
-
-  const getAssetLogoUrl = (position: Position) => {
-    const normalizedSymbol = normalizeTickerForLogo(position.symbol)
-    const params = position.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''
-    return `/logos/${normalizedSymbol}${params}`
-  }
-
   if (loading) {
     return (
       <div>
@@ -375,7 +365,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
             >
               <div className="flex items-center gap-2">
                 <img 
-                  src={getAssetLogoUrl(tile)}
+                  src={getAssetLogoUrl(tile.symbol, tile.asset_type, tile.name)}
                   alt={`${tile.symbol} logo`}
                   className={`${logoSize} object-contain flex-shrink-0`}
                   onLoad={(e) => {
@@ -406,32 +396,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                       // Ignore canvas/security errors
                     }
                   }}
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement
-                    if (!img.dataset.resolverTried) {
-                      img.dataset.resolverTried = 'true'
-                      const params = new URLSearchParams()
-                      if (tile.name) params.set('name', tile.name)
-                      if (tile.asset_type) params.set('asset_type', tile.asset_type)
-                      fetch(`/api/assets/logo/${tile.symbol}?${params.toString()}`, { redirect: 'follow' })
-                        .then((res) => {
-                          if (res.redirected) {
-                            img.src = res.url
-                          } else if (res.ok) {
-                            return res.blob().then((blob) => {
-                              img.src = URL.createObjectURL(blob)
-                            })
-                          } else {
-                            img.style.display = 'none'
-                          }
-                        })
-                        .catch(() => {
-                          img.style.display = 'none'
-                        })
-                    } else {
-                      img.style.display = 'none'
-                    }
-                  }}
+                  onError={(e) => handleLogoError(e, tile.symbol, tile.name, tile.asset_type)}
                 />
                 <div className={`font-bold ${symbolSize} truncate`}>{tile.symbol}</div>
               </div>

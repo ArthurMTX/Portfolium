@@ -31,6 +31,18 @@ export default function Portfolios() {
     fetchPortfolios()
   }, [])
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (showModal || deleteConfirm) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showModal, deleteConfirm])
+
   const fetchPortfolios = async () => {
     setLoading(true)
     try {
@@ -253,7 +265,7 @@ export default function Portfolios() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -341,7 +353,7 @@ export default function Portfolios() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
               Delete Portfolio

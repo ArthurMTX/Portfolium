@@ -106,6 +106,22 @@ class ApiClient {
   async deleteAdminUser(userId: number) {
     return this.request<void>(`/admin/users/${userId}`, { method: 'DELETE' })
   }
+
+  async createTestNotifications(payload: { notification_types?: string[] }) {
+    return this.request<{
+      success: boolean
+      message: string
+      notifications: Array<{
+        id: number
+        type: string
+        title: string
+      }>
+    }>(`/admin/notifications/test`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
   private baseUrl: string
 
   constructor(baseUrl: string) {
@@ -585,8 +601,8 @@ class ApiClient {
   }
 
   async updateWatchlistItem(itemId: number, data: {
-    notes?: string
-    alert_target_price?: number
+    notes?: string | null
+    alert_target_price?: number | null
     alert_enabled?: boolean
   }) {
     return this.request<any>(`/watchlist/${itemId}`, {

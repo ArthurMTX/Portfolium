@@ -3,6 +3,7 @@ Database migration utilities using Alembic
 """
 import logging
 import os
+import subprocess
 from pathlib import Path
 
 from alembic import command
@@ -27,64 +28,70 @@ def get_alembic_config() -> Config:
 
 
 def run_migrations():
-    """Run pending database migrations"""
+    """Run pending database migrations using Alembic CLI"""
+    import sys
+    
     try:
         logger.info("Checking for pending database migrations...")
-        config = get_alembic_config()
+        sys.stdout.flush()
         
-        # Check if schema already exists (created by init SQL scripts)
         from sqlalchemy import create_engine, inspect, text
         from app.config import settings
         
+        # Quick check if schema exists
         engine = create_engine(settings.database_url)
         inspector = inspect(engine)
         
-        # Check if portfolio schema exists
         with engine.connect() as conn:
             result = conn.execute(text("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'portfolio'"))
             schema_exists = result.fetchone() is not None
         
         logger.info(f"Portfolio schema exists: {schema_exists}")
+        sys.stdout.flush()
         
-        # Check if tables exist in portfolio schema
-        tables_exist = False
-        if schema_exists:
-            portfolio_tables = inspector.get_table_names(schema='portfolio')
-            tables_exist = len(portfolio_tables) > 0
-            logger.info(f"Found {len(portfolio_tables)} tables in portfolio schema")
+        # Clean up check connection
+        engine.dispose()
         
-        # Get current migration version
-        current_version = None
-        try:
-            with engine.connect() as conn:
-                result = conn.execute(text("SELECT version_num FROM portfolio.alembic_version"))
-                current_version = result.scalar()
-                logger.info(f"Current migration version: {current_version}")
-        except Exception as e:
-            logger.debug(f"No migration version found (this is normal for fresh DB): {e}")
+        # Run alembic via CLI subprocess - this avoids hanging issues
+        logger.info("Running Alembic migrations via CLI...")
+        sys.stdout.flush()
         
-        # If tables exist but no alembic version, stamp as current
-        # (This means schema was created by SQL init scripts)
-        if tables_exist and not current_version:
-            logger.info("✓ Database schema exists but not tracked by migrations")
-            logger.info("  This indicates initialization via SQL scripts (db/init/*.sql)")
-            logger.info("  Marking database as migrated to current version...")
-            command.stamp(config, "head")
-            logger.info("✓ Database successfully marked as up-to-date")
-        elif not schema_exists:
-            logger.info("✓ Fresh database detected - no schema exists yet")
-            logger.info("  Running migrations to create schema...")
-            command.upgrade(config, "head")
-            logger.info("✓ Database migrations completed successfully")
-        else:
-            # Schema exists and has version, run normal migration
-            logger.info("✓ Running database migrations...")
-            command.upgrade(config, "head")
-            logger.info("✓ Database migrations completed successfully")
+        # Get path to alembic executable and config
+        api_dir = Path(__file__).resolve().parent.parent.parent  # Go up to api/ directory
+        alembic_ini = api_dir / "alembic.ini"
+        
+        # Run alembic upgrade head
+        result = subprocess.run(
+            ["alembic", "-c", str(alembic_ini), "upgrade", "head"],
+            cwd=str(api_dir),
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        # Log output
+        if result.stdout:
+            for line in result.stdout.splitlines():
+                logger.info(f"  {line}")
+        if result.stderr:
+            for line in result.stderr.splitlines():
+                logger.warning(f"  {line}")
+        
+        if result.returncode != 0:
+            logger.error(f"Alembic migration failed with code {result.returncode}")
+            sys.stdout.flush()
+            raise RuntimeError(f"Migration failed: {result.stderr}")
+        
+        logger.info("✓ Database migrations completed successfully")
+        sys.stdout.flush()
             
+    except subprocess.TimeoutExpired:
+        logger.error("Migration timed out after 30 seconds!")
+        sys.stdout.flush()
+        raise
     except Exception as e:
         logger.error(f"✗ Error running database migrations: {e}")
-        logger.error("  See docs/deployment/database-initialization.md for troubleshooting")
+        sys.stdout.flush()
         raise
 
 

@@ -30,10 +30,14 @@ def upgrade() -> None:
     This migration is idempotent and will skip creating objects that already exist.
     This handles cases where the database was initialized via SQL init scripts.
     """
+    import sys
     
     # Get connection and inspector
     conn = op.get_bind()
     inspector = inspect(conn)
+    
+    print("Checking for existing tables...", flush=True)
+    sys.stdout.flush()
     
     # Check if tables already exist in portfolio schema
     # (Exclude alembic_version which is created automatically by Alembic)
@@ -43,14 +47,22 @@ def upgrade() -> None:
     # If tables already exist, this database was initialized via SQL scripts
     # Just stamp it and return
     if len(existing_tables) > 0:
-        print(f"Found {len(existing_tables)} existing tables in portfolio schema.")
-        print("Database appears to be already initialized. Skipping table creation.")
+        print(f"Found {len(existing_tables)} existing tables in portfolio schema.", flush=True)
+        print("Database appears to be already initialized. Skipping table creation.", flush=True)
+        sys.stdout.flush()
         return
     
+    print("Creating fresh database schema...", flush=True)
+    sys.stdout.flush()
+    
     # Create schema if it doesn't exist
+    print("  Creating portfolio schema...", flush=True)
+    sys.stdout.flush()
     op.execute('CREATE SCHEMA IF NOT EXISTS portfolio')
     
     # Create ENUM types
+    print("  Creating ENUM types...", flush=True)
+    sys.stdout.flush()
     op.execute("""
         DO $$ BEGIN
             CREATE TYPE portfolio.asset_class AS ENUM ('stock', 'etf', 'crypto', 'cash');
@@ -81,6 +93,8 @@ def upgrade() -> None:
     """)
     
     # Create users table
+    print("  Creating users table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'users',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -115,6 +129,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_users_id'), 'users', ['id'], unique=False, schema='portfolio')
     
     # Create assets table
+    print("  Creating assets table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'assets',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -139,6 +155,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_assets_symbol'), 'assets', ['symbol'], unique=True, schema='portfolio')
     
     # Create prices table (price cache)
+    print("  Creating prices table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'prices',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -157,6 +175,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_prices_id'), 'prices', ['id'], unique=False, schema='portfolio')
     
     # Create portfolios table
+    print("  Creating portfolios table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'portfolios',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -176,6 +196,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_portfolios_id'), 'portfolios', ['id'], unique=False, schema='portfolio')
     
     # Create transactions table
+    print("  Creating transactions table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'transactions',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -203,6 +225,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_transactions_id'), 'transactions', ['id'], unique=False, schema='portfolio')
     
     # Create watchlist table
+    print("  Creating watchlist table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'watchlist',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -224,6 +248,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_watchlist_id'), 'watchlist', ['id'], unique=False, schema='portfolio')
     
     # Create notifications table
+    print("  Creating notifications table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'notifications',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -244,6 +270,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_notifications_id'), 'notifications', ['id'], unique=False, schema='portfolio')
     
     # Create asset_price_history table
+    print("  Creating asset_price_history table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'asset_price_history',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -269,6 +297,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_portfolio_asset_price_history_id'), 'asset_price_history', ['id'], unique=False, schema='portfolio')
     
     # Create config table (for email configuration)
+    print("  Creating config table...", flush=True)
+    sys.stdout.flush()
     op.create_table(
         'config',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -285,6 +315,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema=None  # config table is in public schema
     )
+    
+    print("✓ Database schema creation complete!", flush=True)
+    sys.stdout.flush()
 
 
 def downgrade() -> None:

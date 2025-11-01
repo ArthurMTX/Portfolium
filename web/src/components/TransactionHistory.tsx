@@ -1,5 +1,5 @@
-import { X, Calendar, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { X, TrendingUp, TrendingDown, ShoppingCart, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
 
 interface AssetTransaction {
@@ -18,12 +18,26 @@ interface TransactionHistoryProps {
   assetId: number
   assetSymbol: string
   portfolioId?: number
+  portfolioCurrency?: string
   onClose: () => void
 }
 
-export default function TransactionHistory({ assetId, assetSymbol, portfolioId, onClose }: TransactionHistoryProps) {
+type SortKey = 'tx_date' | 'type' | 'quantity' | 'adjusted_quantity' | 'price' | 'fees' | 'total'
+type SortDir = 'asc' | 'desc'
+
+export default function TransactionHistory({ assetId, assetSymbol, portfolioId, portfolioCurrency = 'USD', onClose }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<AssetTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortKey, setSortKey] = useState<SortKey>('tx_date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -53,20 +67,96 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
     if (amount === null) return 'N/A'
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: portfolioCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount)
   }
 
-  const buyTransactions = transactions.filter(tx => tx.type === 'BUY')
-  const sellTransactions = transactions.filter(tx => tx.type === 'SELL')
+  const formatQuantity = (value: number | null) => {
+    if (value === null || value === undefined) return '-'
+    const formatted = value.toFixed(8)
+    return formatted.replace(/\.?0+$/, '')
+  }
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
+  const isActive = (key: SortKey) => sortKey === key
+  
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    const active = isActive(col)
+    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
+    return sortDir === 'asc' ? (
+      <ChevronUp size={14} className="inline ml-1 opacity-80" />
+    ) : (
+      <ChevronDown size={14} className="inline ml-1 opacity-80" />
+    )
+  }
+
+  const sortedTransactions = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) => {
+      let aVal: string | number
+      let bVal: string | number
+
+      switch (sortKey) {
+        case 'tx_date':
+          aVal = new Date(a.tx_date).getTime()
+          bVal = new Date(b.tx_date).getTime()
+          break
+        case 'type':
+          aVal = a.type
+          bVal = b.type
+          break
+        case 'quantity':
+          aVal = a.quantity
+          bVal = b.quantity
+          break
+        case 'adjusted_quantity':
+          aVal = a.adjusted_quantity
+          bVal = b.adjusted_quantity
+          break
+        case 'price':
+          aVal = a.price || 0
+          bVal = b.price || 0
+          break
+        case 'fees':
+          aVal = a.fees || 0
+          bVal = b.fees || 0
+          break
+        case 'total': {
+          aVal = a.price && a.quantity ? a.price * a.quantity + (a.fees || 0) : 0
+          bVal = b.price && b.quantity ? b.price * b.quantity + (b.fees || 0) : 0
+          break
+        }
+        default:
+          return 0
+      }
+
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+
+      return sortDir === 'asc' ? (Number(aVal) - Number(bVal)) : (Number(bVal) - Number(aVal))
+    })
+    
+    return sorted
+  }, [transactions, sortKey, sortDir])
+
+  const buyTransactions = sortedTransactions.filter(tx => tx.type === 'BUY')
+  const sellTransactions = sortedTransactions.filter(tx => tx.type === 'SELL')
   
   // Check if any transactions have been split-adjusted
   const hasSplitAdjustments = transactions.some(tx => Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001)
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
@@ -136,87 +226,116 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                 </div>
               </div>
 
-              {/* Transaction List */}
-              <div className="space-y-3">
-                {transactions.map((tx) => {
-                  const isBuy = tx.type === 'BUY'
-                  const totalValue = tx.price && tx.quantity ? tx.price * tx.quantity : null
-                  const isSplitAdjusted = Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001
-                  
-                  return (
-                    <div
-                      key={tx.id}
-                      className="p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className={`p-2 rounded-lg ${isBuy ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+              {/* Transaction Table */}
+              <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-700 rounded-lg">
+                <table className="w-full">
+                  <thead className="bg-neutral-50 dark:bg-neutral-800/50">
+                    <tr>
+                      <th 
+                        onClick={() => handleSort('tx_date')}
+                        aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Date <SortIcon col="tx_date" />
+                      </th>
+                      <th 
+                        onClick={() => handleSort('type')}
+                        aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Type <SortIcon col="type" />
+                      </th>
+                      <th 
+                        onClick={() => handleSort('quantity')}
+                        aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Quantity <SortIcon col="quantity" />
+                      </th>
+                      {hasSplitAdjustments && (
+                        <th 
+                          onClick={() => handleSort('adjusted_quantity')}
+                          aria-sort={isActive('adjusted_quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                          className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        >
+                          Adjusted Qty <SortIcon col="adjusted_quantity" />
+                        </th>
+                      )}
+                      <th 
+                        onClick={() => handleSort('price')}
+                        aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Price <SortIcon col="price" />
+                      </th>
+                      <th 
+                        onClick={() => handleSort('fees')}
+                        aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Fees <SortIcon col="fees" />
+                      </th>
+                      <th 
+                        onClick={() => handleSort('total')}
+                        aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Total <SortIcon col="total" />
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        Notes
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                    {sortedTransactions.map((tx) => {
+                      const isBuy = tx.type === 'BUY'
+                      const total = tx.price && tx.quantity ? tx.price * tx.quantity + (tx.fees || 0) : null
+                      const isSplitAdjusted = Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001
+                      
+                      return (
+                        <tr
+                          key={tx.id}
+                          className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-neutral-100">
+                            {formatDate(tx.tx_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className={`flex items-center gap-2 text-sm font-medium ${isBuy ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {isBuy ? (
-                                <TrendingUp className="text-green-600 dark:text-green-400" size={20} />
+                                <TrendingUp size={16} />
                               ) : (
-                                <TrendingDown className="text-red-600 dark:text-red-400" size={20} />
+                                <TrendingDown size={16} />
                               )}
+                              {tx.type}
                             </div>
-                            <div>
-                              <div className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${isBuy ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
-                                  {tx.type}
-                                </span>
-                                <span>{tx.quantity.toFixed(4)} shares</span>
-                                {isSplitAdjusted && (
-                                  <span className="text-xs text-purple-600 dark:text-purple-400">
-                                    → {tx.adjusted_quantity.toFixed(4)} (split-adjusted)
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-                                Portfolio: <span className="font-medium">{tx.portfolio_name}</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Transaction Details */}
-                          <div className="mt-3 grid grid-cols-2 gap-3">
-                            <div className="text-sm">
-                              <span className="text-neutral-500 dark:text-neutral-400">Price per share:</span>
-                              <span className="ml-2 font-medium text-neutral-900 dark:text-neutral-100">
-                                {formatCurrency(tx.price)}
-                              </span>
-                            </div>
-                            {totalValue !== null && (
-                              <div className="text-sm">
-                                <span className="text-neutral-500 dark:text-neutral-400">Total value:</span>
-                                <span className="ml-2 font-medium text-neutral-900 dark:text-neutral-100">
-                                  {formatCurrency(totalValue)}
-                                </span>
-                              </div>
-                            )}
-                            {tx.fees !== null && tx.fees > 0 && (
-                              <div className="text-sm">
-                                <span className="text-neutral-500 dark:text-neutral-400">Fees:</span>
-                                <span className="ml-2 font-medium text-neutral-900 dark:text-neutral-100">
-                                  {formatCurrency(tx.fees)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mt-3">
-                            <Calendar size={14} />
-                            <span>{formatDate(tx.tx_date)}</span>
-                          </div>
-                          
-                          {tx.notes && (
-                            <div className="mt-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded text-sm text-neutral-700 dark:text-neutral-300">
-                              {tx.notes}
-                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
+                            {formatQuantity(tx.quantity)}
+                          </td>
+                          {hasSplitAdjustments && (
+                            <td className={`px-6 py-4 whitespace-nowrap text-right text-sm ${isSplitAdjusted ? 'text-purple-600 dark:text-purple-400 font-medium' : 'text-neutral-900 dark:text-neutral-100'}`}>
+                              {formatQuantity(tx.adjusted_quantity)}
+                            </td>
                           )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
+                            {formatCurrency(tx.price)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
+                            {tx.fees ? formatCurrency(tx.fees) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                            {total !== null ? formatCurrency(total) : '-'}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
+                            {tx.notes || '-'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
 
               {/* Summary */}

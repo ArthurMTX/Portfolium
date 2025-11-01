@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-11-01
+
+### Features
+
+* add search functionality to Assets and Transactions pages ([8152d5f](https://github.com/ArthurMTX/Portfolium/commit/8152d5f99bb63636b97776238e33b23d758b37bd))
+* add DevTools page for creating test notifications and managing notification types ([f998809](https://github.com/ArthurMTX/Portfolium/commit/f998809341eca7ae0de80da1782c1ea2c5c09412))
+* implement tab navigation for profile settings ([4132fcd](https://github.com/ArthurMTX/Portfolium/commit/4132fcdbf8ed9024f9e608cc722fbaeadaab3835))
+* transaction history is now a sortable table ([013c62e](https://github.com/ArthurMTX/Portfolium/commit/013c62efa649b599eaa8a607924fb2948834d7ab))
+* enhance performance metrics calculation & various fixes ([1f5d586](https://github.com/ArthurMTX/Portfolium/commit/1f5d5862598a0f6db235d0823292bfbef65e83c3))
+* Add FlagPreview and IconPreview components for country flags and icons display ([595ff35](https://github.com/ArthurMTX/Portfolium/commit/595ff353e7b396d4f7824d36735cf89b58456c83))
+
+### Bug Fixes
+
+* remove branch prefix from SHA tag generation in Docker build workflow ([c5d6515](https://github.com/ArthurMTX/Portfolium/commit/c5d6515b317ea456760e88cb173789c01b31e532))
+* update color classes and formatting for daily change percentages across components ([2500d4a](https://github.com/ArthurMTX/Portfolium/commit/2500d4a665c9419dce583125b203621787aca797))
+* enhance migration scripts with detailed logging and error handling ([ff3808a](https://github.com/ArthurMTX/Portfolium/commit/ff3808af2c6315c62cb266ef4148548325820f8b))
+* refactor price refresh and alert check to use async event loop for improved performance ([67ae818](https://github.com/ArthurMTX/Portfolium/commit/67ae81809eeff6587e7fcfb24a61d1833c5208f1))
+* optimize asset loading by fetching sold positions concurrently with current positions ([a915e71](https://github.com/ArthurMTX/Portfolium/commit/a915e71901d60597b7f841491e8b58501cd1abc9))
+* update position quantity calculation to include transactions on the as_of_date ([4b4c04b](https://github.com/ArthurMTX/Portfolium/commit/4b4c04bbd0c7794c7e365afa5384457d8d985aaa))
+* add support for creating and updating watchlist items with optional fields ([0635943](https://github.com/ArthurMTX/Portfolium/commit/0635943268084a1db0c3ea921888658b6af3678e))
+* prevent body scroll when modals are open and update modal overlay styles ([a06b1c3](https://github.com/ArthurMTX/Portfolium/commit/a06b1c3ddd3d0ea7cdb29171fe35899a8a1f3ece))
+* enhance logo fetching logic for ETFs and improve error handling ([b74743f](https://github.com/ArthurMTX/Portfolium/commit/b74743f4451b782b414e1206919da8d70b7962ba))
+* enhance investment performance chart with hover state and improved performance calculations ([23af867](https://github.com/ArthurMTX/Portfolium/commit/23af86752b2d52b2b51ee9a13b2d86f3d92fab96))
+* update sector color mapping for Telecommunications and Industrials ([8c89006](https://github.com/ArthurMTX/Portfolium/commit/8c8900606b7dea782790182c7b173bf8d70bb899))
+
 ## [0.1.0] - 2025-10-30
 
 
@@ -86,5 +111,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * update README to include automatic FX and currencies conversion feature ([c31726d](https://github.com/ArthurMTX/Portfolium/commit/c31726d6d0497a536a16c28df3532edf7fce4aec))
 * update README to include watchlist and notifications system features ([e008151](https://github.com/ArthurMTX/Portfolium/commit/e0081514c2fb67d65be1ed7e48e4952e1ab28d31))
 
-[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ArthurMTX/Portfolium/releases/tag/v0.1.0

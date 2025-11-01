@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
-
-  // Normalize ticker by removing currency suffixes like -USD, -EUR, etc.
-  const normalizeTickerForLogo = (symbol: string): string => {
-    return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-  }
 
 interface WatchlistItem {
   id: number
@@ -67,6 +63,18 @@ export default function Watchlist() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showAddModal, showImportModal, showImportProgress, convertItem, deleteConfirm])
 
   const openConvertModal = (item: WatchlistItem) => {
     setConvertItem(item)
@@ -269,8 +277,8 @@ export default function Watchlist() {
   const handleUpdate = async (id: number) => {
     try {
       await api.updateWatchlistItem(id, {
-        notes: editNotes || undefined,
-        alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : undefined,
+        notes: editNotes || null,  // Send null to clear, or the note text
+        alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : null,  // Send null to clear
         alert_enabled: editAlertEnabled,
       })
       setEditingItem(null)
@@ -541,7 +549,7 @@ export default function Watchlist() {
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-neutral-900 dark:text-neutral-100">
                       <span className="flex items-center gap-2">
                         <img
-                          src={`/logos/${normalizeTickerForLogo(item.symbol)}${item.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
+                          src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
                           alt={`${item.symbol} logo`}
                           className="w-8 h-8 object-cover"
                           style={{ borderRadius: 0 }}
@@ -573,32 +581,7 @@ export default function Watchlist() {
                               // Ignore canvas/security errors
                             }
                           }}
-                          onError={(e) => {
-                            const img = e.currentTarget as HTMLImageElement
-                            if (!img.dataset.resolverTried) {
-                              img.dataset.resolverTried = 'true'
-                              const params = new URLSearchParams()
-                              if (item.name) params.set('name', item.name)
-                              if (item.asset_type) params.set('asset_type', item.asset_type)
-                              fetch(`/api/assets/logo/${item.symbol}?${params.toString()}`, { redirect: 'follow' })
-                                .then((res) => {
-                                  if (res.redirected) {
-                                    img.src = res.url
-                                  } else if (res.ok) {
-                                    return res.blob().then((blob) => {
-                                      img.src = URL.createObjectURL(blob)
-                                    })
-                                  } else {
-                                    img.style.display = 'none'
-                                  }
-                                })
-                                .catch(() => {
-                                  img.style.display = 'none'
-                                })
-                            } else {
-                              img.style.display = 'none'
-                            }
-                          }}
+                          onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                         />
                         {item.symbol}
                       </span>
@@ -610,10 +593,14 @@ export default function Watchlist() {
                         const raw = item.daily_change_pct as unknown as number | string | null
                         const num = typeof raw === 'number' ? raw : (raw === null ? null : parseFloat(String(raw)))
                         if (num !== null && !isNaN(num)) {
-                          const isUp = num >= 0
+                          const colorClass = num > 0 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : num < 0 
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-neutral-600 dark:text-neutral-400'
                           return (
-                            <div className={`text-sm font-medium ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {`${isUp ? '+' : ''}${num.toFixed(2)}%`}
+                            <div className={`text-sm font-medium ${colorClass}`}>
+                              {`${num > 0 ? '+' : num < 0 ? '' : '+'}${num.toFixed(2)}%`}
                             </div>
                           )
                         }
@@ -729,7 +716,7 @@ export default function Watchlist() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="modal-overlay bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full">
             <h2 className="text-xl font-bold mb-4">Import Watchlist</h2>
             <div className="space-y-4">
@@ -776,7 +763,7 @@ export default function Watchlist() {
 
       {/* Convert to BUY Modal (styled like Transactions modal) */}
       {convertItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Convert to BUY</h2>
@@ -796,7 +783,7 @@ export default function Watchlist() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
                 <img
-                  src={`/logos/${normalizeTickerForLogo(convertItem.symbol)}${convertItem.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''}`}
+                  src={getAssetLogoUrl(convertItem.symbol, convertItem.asset_type, convertItem.name)}
                   alt={`${convertItem.symbol} logo`}
                   className="w-8 h-8 object-cover"
                   style={{ borderRadius: 0 }}
@@ -828,32 +815,7 @@ export default function Watchlist() {
                       // Ignore canvas/security errors
                     }
                   }}
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement
-                    if (!img.dataset.resolverTried) {
-                      img.dataset.resolverTried = 'true'
-                      const params = new URLSearchParams()
-                      if (convertItem.name) params.set('name', convertItem.name)
-                      if (convertItem.asset_type) params.set('asset_type', convertItem.asset_type)
-                      fetch(`/api/assets/logo/${convertItem.symbol}?${params.toString()}`, { redirect: 'follow' })
-                        .then((res) => {
-                          if (res.redirected) {
-                            img.src = res.url
-                          } else if (res.ok) {
-                            return res.blob().then((blob) => {
-                              img.src = URL.createObjectURL(blob)
-                            })
-                          } else {
-                            img.style.display = 'none'
-                          }
-                        })
-                        .catch(() => {
-                          img.style.display = 'none'
-                        })
-                    } else {
-                      img.style.display = 'none'
-                    }
-                  }}
+                  onError={(e) => handleLogoError(e, convertItem.symbol, convertItem.name, convertItem.asset_type)}
                 />
                 <div>
                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{convertItem.symbol}</div>
@@ -937,7 +899,7 @@ export default function Watchlist() {
 
       {/* Delete Confirmation Modal (matches Transactions style) */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
               Delete Watchlist Item
@@ -965,7 +927,7 @@ export default function Watchlist() {
 
       {/* Add to Watchlist Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">

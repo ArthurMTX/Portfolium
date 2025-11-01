@@ -338,11 +338,11 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     Fetch and return the best available logo for a symbol.
 
     Strategy:
-    1. Check database cache first for previously fetched logos
-    2. If asset_type is 'ETF', generate and cache generic ETF logo
+    1. For ETFs (asset_type='ETF'), skip cache and generate SVG logo directly
+    2. For other assets, check database cache first for previously fetched logos
     3. Try direct ticker fetch and cache result
     4. Try API search with company name and cache result
-    5. Cache 404 results to avoid repeated failed lookups
+    5. If all else fails, generate SVG fallback
     
     Returns the image data directly with aggressive caching headers.
 
@@ -359,8 +359,11 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     # Get or create asset in database
     db_asset = crud_assets.get_asset_by_symbol(db, symbol.upper())
     
-    # Check database cache first
-    if db_asset:
+    # For ETFs, skip cache and generate SVG directly to avoid incorrect brand logos
+    is_etf = asset_type and asset_type.upper() == 'ETF'
+    
+    # Check database cache first (but skip for ETFs)
+    if db_asset and not is_etf:
         cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
             logo_data, content_type = cached
@@ -373,7 +376,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
             return response
 
     # Fetch logo using the consolidated validation function
-    # This tries: 1) direct ticker, 2) ticker search, 3) company name search, 4) SVG fallback
+    # For ETFs, this will generate SVG directly; for others, tries brand search then SVG fallback
     logo_data = fetch_logo_with_validation(symbol, company_name=name, asset_type=asset_type)
     
     # Determine content type based on data
@@ -384,7 +387,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         content_type = 'image/webp'
         cache_time = 2592000  # 30 days for real logos
     
-    # Cache in database if asset exists
+    # Cache in database if asset exists (cache SVG for ETFs too)
     if db_asset:
         crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
     

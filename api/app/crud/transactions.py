@@ -170,18 +170,18 @@ def get_position_quantity_at_date(
 ) -> float:
     """
     Calculate the quantity held for an asset in a portfolio at a specific date.
-    Only considers transactions up to (but NOT including) the as_of_date.
+    Considers transactions up to and including the as_of_date (ordered by creation time).
     This is used for validation - to check if you have enough shares to sell on a given date.
     
     Args:
         db: Database session
         portfolio_id: Portfolio ID
         asset_id: Asset ID
-        as_of_date: Calculate position up to this date (exclusive)
+        as_of_date: Calculate position up to and including this date
         exclude_transaction_id: Optional transaction ID to exclude (for update validation)
     
     Returns:
-        Quantity held just before the as_of_date
+        Quantity held at the as_of_date (before the excluded transaction if specified)
     """
     from decimal import Decimal
     
@@ -191,7 +191,7 @@ def get_position_quantity_at_date(
             and_(
                 Transaction.portfolio_id == portfolio_id,
                 Transaction.asset_id == asset_id,
-                Transaction.tx_date < as_of_date
+                Transaction.tx_date <= as_of_date
             )
         )
     )

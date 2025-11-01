@@ -275,48 +275,59 @@ class InsightsService:
         return allocations
     
     def get_performance_metrics(
-        self, 
-        portfolio_id: int, 
+        self,
+        portfolio_id: int,
         period: str
     ) -> PerformanceMetrics:
-        """Calculate performance metrics for specified period"""
-        # Get historical values
+        """Calculate performance metrics for specified period based on market performance only"""
+        # Get historical values with invested amounts
         start_date, end_date = self._get_date_range(period, portfolio_id)
-        daily_values = self._get_daily_portfolio_values(
+        performance_data = self._get_daily_portfolio_performance(
             portfolio_id, start_date, end_date
         )
         
-        if not daily_values:
+        if not performance_data:
             return self._empty_performance_metrics(period)
         
-        start_value = daily_values[0][1]
-        end_value = daily_values[-1][1]
+        start_date_actual, start_value, start_invested = performance_data[0]
+        end_date_actual, end_value, end_invested = performance_data[-1]
         
-        # Calculate returns
-        total_return = end_value - start_value
+        # Calculate returns based on invested amount (market performance)
+        total_return = end_value - end_invested
         total_return_pct = (
-            (total_return / start_value * 100) if start_value > 0 else Decimal(0)
+            (total_return / end_invested * 100) if end_invested > 0 else Decimal(0)
         )
         
-        # Annualized return
+        # Annualized return based on performance percentage
         days = (end_date - start_date).days
         years = days / 365.25
-        annualized_return = (
-            (pow(float(end_value / start_value), 1 / years) - 1) * 100
-            if start_value > 0 and years > 0
-            else Decimal(0)
-        )
         
-        # Daily returns analysis
-        daily_returns = []
-        for i in range(1, len(daily_values)):
-            prev_value = daily_values[i-1][1]
-            curr_value = daily_values[i][1]
-            if prev_value > 0:
-                ret = (curr_value - prev_value) / prev_value * 100
-                daily_returns.append((daily_values[i][0], ret))
+        # Calculate annualized return from the performance percentage
+        if end_invested > 0 and years > 0:
+            total_return_multiplier = float(end_value / end_invested)
+            annualized_return = (pow(total_return_multiplier, 1 / years) - 1) * 100
+        else:
+            annualized_return = 0
         
-        # Best and worst days
+        # Daily performance returns (market-driven only)
+        # Calculate performance % for each day: (value - invested) / invested * 100
+        daily_performance_pcts = []
+        for i in range(len(performance_data)):
+            curr_date, curr_value, curr_invested = performance_data[i]
+            if curr_invested > 0:
+                perf_pct = (curr_value - curr_invested) / curr_invested * 100
+                daily_performance_pcts.append((curr_date, perf_pct))
+        
+        # Calculate daily performance changes (day-to-day performance difference)
+        # This shows how much the performance % changed each day
+        daily_perf_changes = []
+        for i in range(1, len(daily_performance_pcts)):
+            prev_date, prev_perf = daily_performance_pcts[i-1]
+            curr_date, curr_perf = daily_performance_pcts[i]
+            perf_change = curr_perf - prev_perf  # Change in performance percentage
+            daily_perf_changes.append((curr_date, perf_change))
+        
+        # Best and worst days based on performance changes
         best_day = None
         best_day_date = None
         worst_day = None
@@ -324,22 +335,22 @@ class InsightsService:
         positive_days = 0
         negative_days = 0
         
-        if daily_returns:
-            sorted_returns = sorted(daily_returns, key=lambda x: x[1], reverse=True)
-            best_day = sorted_returns[0][1]
-            best_day_date = sorted_returns[0][0].isoformat()
-            worst_day = sorted_returns[-1][1]
-            worst_day_date = sorted_returns[-1][0].isoformat()
+        if daily_perf_changes:
+            sorted_changes = sorted(daily_perf_changes, key=lambda x: x[1], reverse=True)
+            best_day = sorted_changes[0][1]
+            best_day_date = sorted_changes[0][0].isoformat()
+            worst_day = sorted_changes[-1][1]
+            worst_day_date = sorted_changes[-1][0].isoformat()
             
-            positive_days = sum(1 for _, ret in daily_returns if ret > 0)
-            negative_days = sum(1 for _, ret in daily_returns if ret < 0)
+            positive_days = sum(1 for _, change in daily_perf_changes if change > 0)
+            negative_days = sum(1 for _, change in daily_perf_changes if change < 0)
         
         win_rate = (
-            (Decimal(positive_days) / len(daily_returns) * 100)
-            if daily_returns else Decimal(0)
+            (Decimal(positive_days) / len(daily_perf_changes) * 100)
+            if daily_perf_changes else Decimal(0)
         )
         
-        # Get invested/withdrawn amounts
+        # Get invested/withdrawn amounts for the period
         total_invested, total_withdrawn = self._calculate_cash_flows(
             portfolio_id, start_date, end_date
         )
@@ -446,15 +457,15 @@ class InsightsService:
         benchmark_symbol: str, 
         period: str
     ) -> BenchmarkComparison:
-        """Compare portfolio performance to benchmark"""
+        """Compare portfolio performance to benchmark using investment performance calculation"""
         start_date, end_date = self._get_date_range(period, portfolio_id)
         
-        # Get portfolio values
-        portfolio_values = self._get_daily_portfolio_values(
+        # Get portfolio performance data (value and invested amounts)
+        portfolio_data = self._get_daily_portfolio_performance(
             portfolio_id, start_date, end_date
         )
         
-        if not portfolio_values:
+        if not portfolio_data:
             raise ValueError("No portfolio data available for this period")
         
         # Get benchmark data
@@ -487,46 +498,47 @@ class InsightsService:
             limit=10000
         )
         
-        # Build benchmark series (normalized to start at same value as portfolio)
+        # Build benchmark dictionary
         benchmark_dict = {p.asof.date(): p.price for p in benchmark_prices}
-        portfolio_start = portfolio_values[0][1]
+        
+        # Calculate performance percentages for both portfolio and benchmark
+        # Portfolio performance = (Value - Invested) / Invested * 100
+        # Benchmark performance = (Current Price - Start Price) / Start Price * 100
         
         benchmark_series = []
         portfolio_series = []
+        benchmark_start_price = None
         
-        for p_date, p_value in portfolio_values:
-            # Find closest benchmark price
+        for p_date, p_value, p_invested in portfolio_data:
+            # Get benchmark price for this date
             b_price = benchmark_dict.get(p_date)
             if b_price:
-                if not benchmark_series:
-                    # First point - normalize
-                    benchmark_start = b_price
-                    benchmark_value = portfolio_start
-                else:
-                    # Scale benchmark to portfolio starting value
-                    benchmark_value = (b_price / benchmark_start) * portfolio_start
+                if benchmark_start_price is None:
+                    benchmark_start_price = b_price
                 
-                benchmark_series.append(
-                    TimeSeriesPoint(date=p_date.isoformat(), value=benchmark_value)
+                # Calculate portfolio performance percentage
+                portfolio_perf = (
+                    ((p_value - p_invested) / p_invested * 100)
+                    if p_invested > 0 else Decimal(0)
                 )
+                
+                # Calculate benchmark performance percentage (relative to start)
+                benchmark_perf = (
+                    ((b_price - benchmark_start_price) / benchmark_start_price * 100)
+                    if benchmark_start_price > 0 else Decimal(0)
+                )
+                
+                # Store as performance percentages
                 portfolio_series.append(
-                    TimeSeriesPoint(date=p_date.isoformat(), value=p_value)
+                    TimeSeriesPoint(date=p_date.isoformat(), value=portfolio_perf)
+                )
+                benchmark_series.append(
+                    TimeSeriesPoint(date=p_date.isoformat(), value=benchmark_perf)
                 )
         
-        # Calculate returns
-        portfolio_return = (
-            ((portfolio_values[-1][1] - portfolio_values[0][1]) / portfolio_values[0][1] * 100)
-            if portfolio_values[0][1] > 0 else Decimal(0)
-        )
-        
-        if benchmark_series:
-            benchmark_return = (
-                ((benchmark_series[-1].value - benchmark_series[0].value) / 
-                 benchmark_series[0].value * 100)
-                if benchmark_series[0].value > 0 else Decimal(0)
-            )
-        else:
-            benchmark_return = Decimal(0)
+        # Calculate final returns (these are the performance at the end of the period)
+        portfolio_return = portfolio_series[-1].value if portfolio_series else Decimal(0)
+        benchmark_return = benchmark_series[-1].value if benchmark_series else Decimal(0)
         
         alpha = portfolio_return - benchmark_return
         
@@ -615,28 +627,31 @@ class InsightsService:
         start_date: date,
         end_date: date
     ) -> List[Tuple[date, Decimal]]:
-        """Get daily portfolio values for period"""
+        """Get daily portfolio values for period with invested amounts for performance calculation"""
         # Map period to appropriate interval for history method
         # Calculate days in range to determine best interval
         days_diff = (end_date - start_date).days
         
-        if days_diff <= 30:
-            interval = "daily"
+        if days_diff <= 7:
+            interval = "1W"
+        elif days_diff <= 30:
+            interval = "1M"
         elif days_diff <= 90:
-            interval = "daily"
+            interval = "3M"
         elif days_diff <= 180:
-            interval = "6months"
+            interval = "6M"
         elif days_diff <= 365:
-            interval = "1year"
+            interval = "1Y"
         else:
-            interval = "all"
+            interval = "ALL"
         
-        # Use the existing portfolio history method
+        # Use the existing portfolio history method which includes invested amounts
         history_points = self.metrics_service.get_portfolio_history(
             portfolio_id, interval=interval
         )
         
-        # Filter to date range and convert
+        # Filter to date range and convert - return tuples of (date, value)
+        # Note: This maintains backward compatibility by returning value, not performance
         values = []
         for point in history_points:
             point_date = date.fromisoformat(point.date)
@@ -644,6 +659,43 @@ class InsightsService:
                 values.append((point_date, Decimal(str(point.value))))
         
         return values
+    
+    def _get_daily_portfolio_performance(
+        self, 
+        portfolio_id: int,
+        start_date: date,
+        end_date: date
+    ) -> List[Tuple[date, Decimal, Decimal]]:
+        """Get daily portfolio performance (value and invested) for proper performance calculation"""
+        days_diff = (end_date - start_date).days
+        
+        if days_diff <= 7:
+            interval = "1W"
+        elif days_diff <= 30:
+            interval = "1M"
+        elif days_diff <= 90:
+            interval = "3M"
+        elif days_diff <= 180:
+            interval = "6M"
+        elif days_diff <= 365:
+            interval = "1Y"
+        else:
+            interval = "ALL"
+        
+        history_points = self.metrics_service.get_portfolio_history(
+            portfolio_id, interval=interval
+        )
+        
+        # Return tuples of (date, value, invested) for performance calculation
+        performance_data = []
+        for point in history_points:
+            point_date = date.fromisoformat(point.date)
+            if start_date <= point_date <= end_date:
+                value = Decimal(str(point.value))
+                invested = Decimal(str(point.invested)) if point.invested else value
+                performance_data.append((point_date, value, invested))
+        
+        return performance_data
     
     def _calculate_cash_flows(
         self,

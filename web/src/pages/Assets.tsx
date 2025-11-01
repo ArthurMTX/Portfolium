@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Package, Building2, Briefcase, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity } from 'lucide-react';
+import { Package, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X } from 'lucide-react';
 import api from '../lib/api';
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
+import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIcons';
 import AssetsCharts from '../components/AssetsCharts';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
@@ -61,6 +63,7 @@ export default function Assets() {
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string } | null>(null);
   const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load portfolio positions when active portfolio changes
   useEffect(() => {
@@ -71,9 +74,14 @@ export default function Assets() {
       }
 
       try {
-        const positions = await api.getPortfolioPositions(activePortfolioId);
-        const assetIds = new Set(positions.map(p => p.asset_id));
-        setPortfolioAssetIds(assetIds);
+        const [positions, soldPositions] = await Promise.all([
+          api.getPortfolioPositions(activePortfolioId),
+          api.getSoldPositions(activePortfolioId)
+        ]);
+        const currentAssetIds = positions.map(p => p.asset_id);
+        const soldAssetIds = soldPositions.map(p => p.asset_id);
+        const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
+        setPortfolioAssetIds(allAssetIds);
       } catch (err) {
         console.error('Error loading portfolio positions:', err);
         setPortfolioAssetIds(new Set());
@@ -109,6 +117,18 @@ export default function Assets() {
     localStorage.setItem('assets-show-sold', JSON.stringify(showSold));
   }, [showSold]);
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset])
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -127,6 +147,17 @@ export default function Assets() {
     // Filter by active portfolio if one is selected
     if (activePortfolioId && portfolioAssetIds.size > 0) {
       combined = combined.filter(asset => portfolioAssetIds.has(asset.id));
+    }
+    
+    // Filter by search query (symbol and name only)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      combined = combined.filter(asset => {
+        const symbol = asset.symbol.toLowerCase();
+        const name = (asset.name || '').toLowerCase();
+        
+        return symbol.includes(query) || name.includes(query);
+      });
     }
     
     const keyTypes = {
@@ -166,7 +197,7 @@ export default function Assets() {
       if (isNaN(nb)) return -1
       return (na - nb) * dir
     });
-  }, [heldAssets, soldAssets, showSold, sortKey, sortDir, activePortfolioId, portfolioAssetIds]);
+  }, [heldAssets, soldAssets, showSold, sortKey, sortDir, activePortfolioId, portfolioAssetIds, searchQuery]);
 
   const handleEnrichAll = async () => {
     try {
@@ -178,17 +209,6 @@ export default function Assets() {
     } finally {
       setEnriching(false);
     }
-  };
-
-  // Normalize ticker by removing currency suffixes like -USD, -EUR, -USDT
-  const normalizeTickerForLogo = (symbol: string): string => {
-    return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
-  }
-
-  const getAssetLogoUrl = (asset: HeldAsset) => {
-    const normalizedSymbol = normalizeTickerForLogo(asset.symbol)
-    const params = asset.asset_type?.toUpperCase() === 'ETF' ? '?asset_type=ETF' : ''
-    return `/logos/${normalizedSymbol}${params}`
   };
 
   const getAssetClassColor = (assetClass: string) => {
@@ -648,6 +668,25 @@ export default function Assets() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Search Bar */}
+              <div className="relative w-full sm:w-auto sm:min-w-[250px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={16} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search symbol or name..."
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setShowSold(!showSold)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
@@ -740,44 +779,35 @@ export default function Assets() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {sortedAssets.map((asset) => (
+                {sortedAssets.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-12">
+                      <div className="text-center text-neutral-500 dark:text-neutral-400">
+                        <p>No assets match your search</p>
+                        <p className="text-sm mt-2">
+                          Try searching for a different symbol or name, or{' '}
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
+                          >
+                            clear the search
+                          </button>
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  sortedAssets.map((asset) => (
                   <tr key={asset.id} className={`hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${asset.total_quantity === 0 ? 'opacity-60 bg-neutral-50 dark:bg-neutral-900' : ''}`}> 
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                           <img
-                            src={getAssetLogoUrl(asset)}
+                            src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
                             alt={asset.symbol}
                             loading="lazy"
                             className="w-8 h-8 object-contain"
-                            onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement
-                              if (!img.dataset.resolverTried) {
-                                // Final fallback: ask backend to resolve best brand logo
-                                img.dataset.resolverTried = 'true'
-                                const params = new URLSearchParams()
-                                if (asset.name) params.set('name', asset.name)
-                                if (asset.asset_type) params.set('asset_type', asset.asset_type)
-                                fetch(`/api/assets/logo/${asset.symbol}?${params.toString()}`, { redirect: 'follow' })
-                                  .then((res) => {
-                                    if (res.redirected) {
-                                      img.src = res.url
-                                    } else if (res.ok) {
-                                      // Some environments may not expose redirected flag; try blob
-                                      return res.blob().then((blob) => {
-                                        img.src = URL.createObjectURL(blob)
-                                      })
-                                    } else {
-                                      img.style.display = 'none'
-                                    }
-                                  })
-                                  .catch(() => {
-                                    img.style.display = 'none'
-                                  })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            }}
+                            onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
                           />
                         </div>
                         <div>
@@ -833,7 +863,10 @@ export default function Assets() {
                       <div className="text-sm flex items-center gap-2">
                         {asset.sector ? (
                           <>
-                            <Building2 size={14} className="text-neutral-400" />
+                            {(() => {
+                              const SectorIcon = getSectorIcon(asset.sector);
+                              return <SectorIcon size={14} className={getSectorColor(asset.sector)} />;
+                            })()}
                             {asset.sector}
                           </>
                         ) : (
@@ -845,7 +878,10 @@ export default function Assets() {
                       <div className="text-sm flex items-center gap-2">
                         {asset.industry ? (
                           <>
-                            <Briefcase size={14} className="text-neutral-400" />
+                            {(() => {
+                              const IndustryIcon = getIndustryIcon(asset.industry);
+                              return <IndustryIcon size={14} className={getIndustryColor(asset.industry)} />;
+                            })()}
                             {asset.industry}
                           </>
                         ) : (
@@ -898,7 +934,8 @@ export default function Assets() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -930,13 +967,14 @@ export default function Assets() {
           assetId={transactionHistoryAsset.id}
           assetSymbol={transactionHistoryAsset.symbol}
           portfolioId={activePortfolioId || undefined}
+          portfolioCurrency={portfolios.find(p => p.id === activePortfolioId)?.base_currency}
           onClose={() => setTransactionHistoryAsset(null)}
         />
       )}
 
       {/* Price Chart Modal */}
       {priceChartAsset && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <div className="modal-overlay bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between sticky top-0 bg-white dark:bg-neutral-900 z-10">
               <div className="flex items-center gap-3">
