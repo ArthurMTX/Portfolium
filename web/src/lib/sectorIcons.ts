@@ -408,6 +408,7 @@ export function getSectorColor(sector: string | null | undefined): string {
   const colorMap: Record<string, string> = {
     'Technology': 'text-blue-600 dark:text-blue-400',
     'Communication Services': 'text-purple-600 dark:text-purple-400',
+    'Telecommunications': 'text-violet-600 dark:text-violet-400',
     'Healthcare': 'text-red-600 dark:text-red-400',
     'Health Care': 'text-red-600 dark:text-red-400',
     'Financial Services': 'text-green-600 dark:text-green-400',
@@ -419,8 +420,8 @@ export function getSectorColor(sector: string | null | undefined): string {
     'Consumer Defensive': 'text-emerald-600 dark:text-emerald-400',
     'Consumer Discretionary': 'text-pink-600 dark:text-pink-400',
     'Consumer Staples': 'text-emerald-600 dark:text-emerald-400',
-    'Industrials': 'text-gray-600 dark:text-gray-400',
-    'Industrial': 'text-gray-600 dark:text-gray-400',
+    'Industrials': 'text-slate-600 dark:text-slate-400',
+    'Industrial': 'text-slate-600 dark:text-slate-400',
     'Basic Materials': 'text-orange-600 dark:text-orange-400',
     'Materials': 'text-orange-600 dark:text-orange-400',
     'Real Estate': 'text-indigo-600 dark:text-indigo-400',
