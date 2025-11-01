@@ -406,9 +406,11 @@ export default function Dashboard() {
                 <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Daily Gain</p>
                 <p
                   className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
-                    metrics.daily_change_value && metrics.daily_change_value >= 0
+                    metrics.daily_change_value && metrics.daily_change_value > 0
                       ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
+                      : metrics.daily_change_value && metrics.daily_change_value < 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-neutral-600 dark:text-neutral-400'
                   }`}
                 >
                   {metrics.daily_change_value !== null && metrics.daily_change_value !== undefined
@@ -417,19 +419,23 @@ export default function Dashboard() {
                 </p>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {metrics.daily_change_pct !== null && metrics.daily_change_pct !== undefined
-                    ? `${metrics.daily_change_pct >= 0 ? '+' : ''}${Number(metrics.daily_change_pct).toFixed(2)}%`
+                    ? `${metrics.daily_change_pct > 0 ? '+' : metrics.daily_change_pct < 0 ? '' : '+'}${Number(metrics.daily_change_pct).toFixed(2)}%`
                     : 'No data'}
                 </p>
               </div>
               <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                metrics.daily_change_value && metrics.daily_change_value >= 0
+                metrics.daily_change_value && metrics.daily_change_value > 0
                   ? 'bg-green-100 dark:bg-green-900/30'
-                  : 'bg-red-100 dark:bg-red-900/30'
+                  : metrics.daily_change_value && metrics.daily_change_value < 0
+                  ? 'bg-red-100 dark:bg-red-900/30'
+                  : 'bg-neutral-100 dark:bg-neutral-700'
               }`}>
-                {metrics.daily_change_value && metrics.daily_change_value >= 0 ? (
+                {metrics.daily_change_value && metrics.daily_change_value > 0 ? (
                   <TrendingUp className="text-green-600 dark:text-green-400" size={20} />
-                ) : (
+                ) : metrics.daily_change_value && metrics.daily_change_value < 0 ? (
                   <TrendingDown className="text-red-600 dark:text-red-400" size={20} />
+                ) : (
+                  <TrendingUp className="text-neutral-600 dark:text-neutral-400" size={20} />
                 )}
               </div>
             </div>

@@ -544,16 +544,21 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                   const firstPrice = history.prices[0].price
                   const lastPrice = history.prices[history.prices.length - 1].price
                   const percentChange = ((lastPrice - firstPrice) / firstPrice) * 100
-                  const isPositive = percentChange >= 0
                   const decimalPlaces = getDecimalPlaces(history.prices.map(p => p.price))
+                  
+                  const colorClass = percentChange > 0 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : percentChange < 0 
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-neutral-600 dark:text-neutral-400'
                   
                   return (
                     <div className="flex items-center justify-end gap-2">
                       <p className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
                         {getCurrencySymbol(currency)}{formatPrice(lastPrice, decimalPlaces)}
                       </p>
-                      <p className={`text-sm font-semibold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {isPositive ? '+' : ''}{percentChange.toFixed(2)}%
+                      <p className={`text-sm font-semibold ${colorClass}`}>
+                        {percentChange > 0 ? '+' : percentChange < 0 ? '' : '+'}{percentChange.toFixed(2)}%
                       </p>
                     </div>
                   )

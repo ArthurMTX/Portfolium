@@ -610,10 +610,14 @@ export default function Watchlist() {
                         const raw = item.daily_change_pct as unknown as number | string | null
                         const num = typeof raw === 'number' ? raw : (raw === null ? null : parseFloat(String(raw)))
                         if (num !== null && !isNaN(num)) {
-                          const isUp = num >= 0
+                          const colorClass = num > 0 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : num < 0 
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-neutral-600 dark:text-neutral-400'
                           return (
-                            <div className={`text-sm font-medium ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {`${isUp ? '+' : ''}${num.toFixed(2)}%`}
+                            <div className={`text-sm font-medium ${colorClass}`}>
+                              {`${num > 0 ? '+' : num < 0 ? '' : '+'}${num.toFixed(2)}%`}
                             </div>
                           )
                         }

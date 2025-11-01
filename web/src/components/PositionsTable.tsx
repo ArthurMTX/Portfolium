@@ -407,13 +407,15 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className={`text-sm font-medium ${
                           position.daily_change_pct !== null && position.daily_change_pct !== undefined
-                            ? (Number(position.daily_change_pct) >= 0
+                            ? (Number(position.daily_change_pct) > 0
                               ? 'text-green-600 dark:text-green-400'
-                              : 'text-red-600 dark:text-red-400')
+                              : Number(position.daily_change_pct) < 0
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-neutral-600 dark:text-neutral-400')
                             : 'text-neutral-500 dark:text-neutral-400'
                         }`}>
                           {position.daily_change_pct !== null && position.daily_change_pct !== undefined
-                            ? `${Number(position.daily_change_pct) >= 0 ? '+' : ''}${formatNumber(position.daily_change_pct, 2)}%`
+                            ? `${Number(position.daily_change_pct) > 0 ? '+' : Number(position.daily_change_pct) < 0 ? '' : '+'}${formatNumber(position.daily_change_pct, 2)}%`
                             : '-'}
                         </div>
                       </td>
