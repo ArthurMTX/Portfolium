@@ -80,7 +80,9 @@ export interface PortfolioHistoryPointDTO {
   date: string
   value: number
   invested?: number  // Total amount invested (deposits - withdrawals)
-  gain_pct?: number  // Percentage gain/loss (excluding deposits/withdrawals)
+  gain_pct?: number  // Percentage gain/loss vs. total invested (includes sold positions)
+  cost_basis?: number  // Cost basis of current holdings only
+  unrealized_pnl_pct?: number  // Unrealized P&L % of current holdings (matches Dashboard)
 }
 
 class ApiClient {

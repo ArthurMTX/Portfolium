@@ -52,12 +52,17 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   }, [portfolioId, period])
 
   // Calculate performance percentages
-  // For ALL: show absolute performance at each point
+  // For ALL: show unrealized P&L % (current holdings only, matches Dashboard)
   // For specific periods: show relative performance from the start of the period (normalized to 0%)
   const performanceData = history.map((point, index) => {
     // Get absolute performance at this point
     let absolutePerf = 0
-    if (point.gain_pct !== undefined && point.gain_pct !== null) {
+    
+    // Use unrealized_pnl_pct if available (current holdings performance, matches Dashboard)
+    // Otherwise fall back to gain_pct (total invested performance)
+    if (point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null) {
+      absolutePerf = point.unrealized_pnl_pct
+    } else if (point.gain_pct !== undefined && point.gain_pct !== null) {
       absolutePerf = point.gain_pct
     } else if (point.invested && point.invested > 0) {
       absolutePerf = ((point.value - point.invested) / point.invested) * 100
@@ -76,7 +81,9 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     
     const firstPoint = history[0]
     let baselinePerf = 0
-    if (firstPoint.gain_pct !== undefined && firstPoint.gain_pct !== null) {
+    if (firstPoint.unrealized_pnl_pct !== undefined && firstPoint.unrealized_pnl_pct !== null) {
+      baselinePerf = firstPoint.unrealized_pnl_pct
+    } else if (firstPoint.gain_pct !== undefined && firstPoint.gain_pct !== null) {
       baselinePerf = firstPoint.gain_pct
     } else if (firstPoint.invested && firstPoint.invested > 0) {
       baselinePerf = ((firstPoint.value - firstPoint.invested) / firstPoint.invested) * 100
@@ -194,14 +201,23 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             
             // For period views, show the relative change
             if (period === 'ALL') {
-              lines.push(`Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+              lines.push(`Current Holdings: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+              
+              // Also show total invested performance if different
+              if (point.gain_pct !== undefined && point.gain_pct !== null && 
+                  point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null &&
+                  Math.abs(point.gain_pct - point.unrealized_pnl_pct) > 0.01) {
+                lines.push(`Total Invested: ${point.gain_pct >= 0 ? '+' : ''}${point.gain_pct.toFixed(2)}%`)
+              }
             } else {
               // Show period performance (relative to start)
               lines.push(`Period Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
               
-              // Also show absolute all-time performance
+              // Also show absolute unrealized P&L performance
               let absolutePerf = 0
-              if (point.gain_pct !== undefined && point.gain_pct !== null) {
+              if (point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null) {
+                absolutePerf = point.unrealized_pnl_pct
+              } else if (point.gain_pct !== undefined && point.gain_pct !== null) {
                 absolutePerf = point.gain_pct
               } else if (point.invested && point.invested > 0) {
                 absolutePerf = ((point.value - point.invested) / point.invested) * 100
@@ -291,7 +307,12 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   let displayGainAmount = 0
   if (displayPoint) {
     if (period === 'ALL') {
-      displayGainAmount = displayPoint.value - (displayPoint.invested || 0)
+      // For ALL period, show unrealized gain of current holdings (matches Dashboard)
+      if (displayPoint.cost_basis !== undefined && displayPoint.cost_basis !== null) {
+        displayGainAmount = displayPoint.value - displayPoint.cost_basis
+      } else {
+        displayGainAmount = displayPoint.value - (displayPoint.invested || 0)
+      }
     } else if (history.length > 0) {
       const firstPoint = history[0]
       const startGain = firstPoint.value - (firstPoint.invested || 0)
@@ -304,7 +325,16 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     <div>
       {/* Title and performance display */}
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Investment Performance</h3>
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Portfolio Performance</h3>
+            {period === 'ALL' && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Current Holdings (matches Dashboard)
+              </p>
+            )}
+          </div>
+        </div>
         {history.length > 0 && displayPoint && (() => {
           const isPositive = displayPerformance > 0
           const isZero = displayPerformance === 0

@@ -429,7 +429,9 @@ class PortfolioHistoryPoint(BaseModel):
     date: str  # ISO date string
     value: float
     invested: Optional[float] = None  # Total amount invested (deposits - withdrawals)
-    gain_pct: Optional[float] = None  # Percentage gain/loss (excluding deposits/withdrawals)
+    gain_pct: Optional[float] = None  # Percentage gain/loss vs. total invested (includes sold positions)
+    cost_basis: Optional[float] = None  # Cost basis of current holdings only
+    unrealized_pnl_pct: Optional[float] = None  # Unrealized P&L % of current holdings (matches Dashboard)
 
 
 # ============================================================================

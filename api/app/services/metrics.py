@@ -714,9 +714,10 @@ class MetricsService:
                 asset_splits[tx.asset_id].append((tx.tx_date, ratio))
         
         # Track holdings, applying splits AS they occur chronologically
-        # Also track total invested amount (cash flow)
+        # Also track total invested amount (cash flow) AND cost basis of current holdings
         holdings: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))
-        total_invested = Decimal(0)  # Running total of net cash invested
+        cost_basis: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))  # Track cost basis per asset
+        total_invested = Decimal(0)  # Running total of net cash invested (includes sold positions)
         history: List[PortfolioHistoryPoint] = []
         tx_idx = 0
         
@@ -729,15 +730,22 @@ class MetricsService:
                 
                 if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
                     holdings[tx.asset_id] += tx.quantity
+                    # Add to cost basis for this asset
+                    cost_basis[tx.asset_id] += (tx.quantity * tx.price) + tx.fees
                     # Add cost to invested amount (quantity * price + fees)
                     total_invested += (tx.quantity * tx.price) + tx.fees
                 elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                    # Calculate the proportion of position being sold
+                    if holdings[tx.asset_id] > 0:
+                        sell_proportion = tx.quantity / holdings[tx.asset_id]
+                        # Reduce cost basis proportionally
+                        cost_basis[tx.asset_id] -= cost_basis[tx.asset_id] * sell_proportion
                     holdings[tx.asset_id] -= tx.quantity
                     # Subtract proceeds from invested amount (quantity * price - fees)
                     total_invested -= (tx.quantity * tx.price) - tx.fees
                 elif tx.type == TransactionType.SPLIT:
                     # Apply split to holdings (dashboard logic)
-                    # Splits don't affect invested amount
+                    # Splits don't affect cost basis or invested amount
                     ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
                     holdings[tx.asset_id] *= ratio
                 
@@ -786,17 +794,28 @@ class MetricsService:
                 for detail in daily_breakdown:
                     logger.info(f"  {detail}")
             
+            # Calculate total cost basis of current holdings
+            total_cost_basis = sum(cost_basis[asset_id] for asset_id in holdings.keys() if holdings[asset_id] > 0)
+            
             # Calculate gain percentage (value vs invested, excluding deposits/withdrawals)
             gain_pct = None
             if total_invested > 0:
                 gain = total_value - total_invested
                 gain_pct = float((gain / total_invested) * 100)
             
+            # Calculate unrealized P&L percentage (current holdings only, matches Dashboard)
+            unrealized_pnl_pct = None
+            if total_cost_basis > 0:
+                unrealized_gain = total_value - total_cost_basis
+                unrealized_pnl_pct = float((unrealized_gain / total_cost_basis) * 100)
+            
             history.append(PortfolioHistoryPoint(
                 date=current_date.isoformat(),
                 value=float(total_value),
                 invested=float(total_invested),
-                gain_pct=gain_pct
+                gain_pct=gain_pct,
+                cost_basis=float(total_cost_basis),
+                unrealized_pnl_pct=unrealized_pnl_pct
             ))
         
         if history:
