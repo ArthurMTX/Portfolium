@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { ArrowUpDown, TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { formatCurrency, formatNumber, formatQuantity } from '../lib/formatUtils'
 
 interface Position {
   asset_id: number
@@ -114,35 +115,6 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
       return (na - nb) * dir
     })
   }, [positions, sortKey, sortDir, totalPortfolioValue])
-
-  const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
-    if (value === null || value === undefined) return '-'
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    
-    // Format with up to 2 decimals, removing trailing zeros
-    const formatted = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(numValue)
-    
-    return formatted
-  }
-
-  const formatNumber = (value: number | string | null, decimals: number = 2) => {
-    if (value === null || value === undefined) return '-'
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    return numValue.toFixed(decimals)
-  }
-
-  const formatQuantity = (value: number | string | null) => {
-    if (value === null || value === undefined) return '-'
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    // Format with up to 8 decimals, then remove trailing zeros
-    const formatted = numValue.toFixed(8)
-    return formatted.replace(/\.?0+$/, '')
-  }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     const active = sortKey === col

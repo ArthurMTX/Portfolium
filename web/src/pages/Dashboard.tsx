@@ -5,6 +5,7 @@ import api, { PositionDTO } from '../lib/api'
 import PositionsTable from '../components/PositionsTable'
 import { usePriceUpdates } from '../hooks/usePriceUpdates'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
+import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
 
 type PositionsTab = 'current' | 'sold'
 
@@ -162,14 +163,9 @@ export default function Dashboard() {
     return `${hoursAgo}h ago`
   }
 
+  // Note: Dashboard metrics are always in EUR, so we use a wrapper
   const formatCurrency = (value: number | string) => {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(numValue)
+    return formatCurrencyUtil(value, 'EUR')
   }
 
   const isAnyRefreshing = refreshing || isAutoPriceRefreshing;

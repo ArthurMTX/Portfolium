@@ -1,6 +1,7 @@
 import { X, TrendingUp, TrendingDown, ShoppingCart, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
+import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
 
 interface AssetTransaction {
   id: number
@@ -64,13 +65,7 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
   }
 
   const formatCurrency = (amount: number | null) => {
-    if (amount === null) return 'N/A'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: portfolioCurrency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount)
+    return formatCurrencyUtil(amount, portfolioCurrency)
   }
 
   const formatQuantity = (value: number | null) => {

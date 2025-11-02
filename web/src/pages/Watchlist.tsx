@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { formatCurrency } from '../lib/formatUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 
@@ -353,10 +354,7 @@ export default function Watchlist() {
   const formatPrice = (price: number | null, currency: string) => {
     const n = toNumber(price as unknown)
     if (n === null) return 'N/A'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency || 'USD',
-    }).format(n)
+    return formatCurrency(n, currency)
   }
 
   // percentage formatting in table rows is done inline to match Dashboard style

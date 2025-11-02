@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -496,18 +497,7 @@ export default function Transactions() {
   }
 
   const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
-    if (value === null || value === undefined) return '-'
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    
-    // Format with up to 2 decimals, removing trailing zeros
-    const formatted = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(numValue)
-    
-    return formatted
+    return formatCurrencyUtil(value, currency)
   }
 
   const formatQuantity = (value: number | string | null) => {
