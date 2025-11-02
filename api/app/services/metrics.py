@@ -821,6 +821,22 @@ class MetricsService:
         if history:
             logger.info(f"Portfolio history final value: €{history[-1].value:.2f} on {history[-1].date}")
         
+        # For "ALL" interval, prepend a zero point before the first transaction
+        # This makes the chart start at 0 visually
+        if interval == "ALL" and history and transactions:
+            first_tx_date = transactions[0].tx_date
+            # Add a point one day before the first transaction with zero values
+            zero_date = first_tx_date - timedelta(days=1)
+            zero_point = PortfolioHistoryPoint(
+                date=zero_date.isoformat(),
+                value=0.0,
+                invested=0.0,
+                gain_pct=0.0,
+                cost_basis=0.0,
+                unrealized_pnl_pct=0.0
+            )
+            history.insert(0, zero_point)
+        
         return history
 
 

@@ -46,6 +46,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
   const [period, setPeriod] = useState<PeriodOption>('1M')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PortfolioHistoryPointDTO[]>([])
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   
   // Get portfolio currency
   const portfolio = portfolios.find(p => p.id === portfolioId)
@@ -56,6 +57,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
     let canceled = false
     const load = async () => {
       setLoading(true)
+      setHoveredIndex(null) // Reset hover state when changing period
       try {
         const data = await api.getPortfolioHistory(portfolioId, period)
         if (!canceled) setHistory(data)
@@ -184,25 +186,17 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
       duration: 400,
       easing: 'easeInOutQuart' as const,
     },
+    onHover: (_event: unknown, activeElements: { index: number }[]) => {
+      if (activeElements && activeElements.length > 0) {
+        setHoveredIndex(activeElements[0].index)
+      } else {
+        setHoveredIndex(null)
+      }
+    },
   }
 
   return (
     <div>
-      <div className="flex gap-2 mb-4 flex-wrap justify-center">
-        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
-          <button
-            key={opt}
-            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
-              period === opt 
-                ? 'bg-pink-600 text-white border-pink-600' 
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
-            }`}
-            onClick={() => setPeriod(opt)}
-          >
-            {periodLabels[opt]}
-          </button>
-        ))}
-      </div>
       <div style={{ minHeight: 320 }} className="p-4">
         {loading ? (
           <div>
@@ -240,29 +234,47 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Portfolio Value Over Time</h3>
               {history.length > 0 && (() => {
+                // Determine which point to display (hovered or last)
+                const displayIndex = hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < history.length 
+                  ? hoveredIndex 
+                  : history.length - 1
+                const displayPoint = history[displayIndex]
+                
                 const firstPoint = history[0]
-                const lastPoint = history[history.length - 1]
-                const firstValue = firstPoint.value
-                const lastValue = lastPoint.value
-                const absoluteChange = lastValue - firstValue
+                const hasZeroStartingPoint = firstPoint.value === 0 && firstPoint.invested === 0 && history.length > 1
+                
+                // For period gain calculations, skip zero starting point
+                const effectiveFirstPoint = hasZeroStartingPoint ? history[1] : firstPoint
+                
+                // If hovering over the zero point, use the effective first point for display
+                const isHoveringZeroPoint = displayIndex === 0 && hasZeroStartingPoint
+                const effectiveDisplayPoint = isHoveringZeroPoint ? effectiveFirstPoint : displayPoint
+                const displayValue = effectiveDisplayPoint.value
+                
+                // For "in period" change display:
+                // - If there's a zero starting point: show change from 0 (total growth)
+                // - Otherwise: show change from first point
+                const changeFromValue = hasZeroStartingPoint ? 0 : firstPoint.value
+                const absoluteChange = displayValue - changeFromValue
                 const isPositive = absoluteChange >= 0
                 
                 // Calculate TRUE investment gain for the period
                 // Gain = (End Value - End Invested) - (Start Value - Start Invested)
                 // This excludes the effect of deposits/withdrawals during the period
+                // Always use effective first point (skipping zero) for percentage calculations
                 let periodGainPct = null
-                if (firstPoint.invested && lastPoint.invested && firstPoint.invested > 0) {
-                  const startGain = firstValue - firstPoint.invested
-                  const endGain = lastValue - lastPoint.invested
+                if (effectiveFirstPoint.invested && effectiveDisplayPoint.invested && effectiveFirstPoint.invested > 0 && effectiveFirstPoint.value > 0) {
+                  const startGain = effectiveFirstPoint.value - effectiveFirstPoint.invested
+                  const endGain = displayValue - effectiveDisplayPoint.invested
                   const actualGain = endGain - startGain
                   // Calculate % based on the value at start of period
-                  periodGainPct = (actualGain / firstValue) * 100
+                  periodGainPct = (actualGain / effectiveFirstPoint.value) * 100
                 }
                 
                 return (
                   <div className="flex items-center gap-3">
                     <p className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
-                      {currencySymbol}{lastValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {currencySymbol}{displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <div className="flex flex-col items-end gap-0.5">
                       <p className={`text-sm font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -278,11 +290,31 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
                 )
               })()}
             </div>
-            <div style={{ height: '320px' }}>
+            <div 
+              style={{ height: '320px' }}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
               <Line data={chartData} options={chartOptions} />
             </div>
           </div>
         )}
+      </div>
+      
+      {/* Time period buttons */}
+      <div className="flex gap-2 mb-4 flex-wrap justify-center">
+        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
+          <button
+            key={opt}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
+              period === opt 
+                ? 'bg-pink-600 text-white border-pink-600' 
+                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
+            }`}
+            onClick={() => setPeriod(opt)}
+          >
+            {periodLabels[opt]}
+          </button>
+        ))}
       </div>
     </div>
   )

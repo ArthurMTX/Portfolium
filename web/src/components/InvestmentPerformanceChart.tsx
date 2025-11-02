@@ -323,65 +323,6 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
 
   return (
     <div>
-      {/* Title and performance display */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <div>
-            <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Portfolio Performance</h3>
-            {period === 'ALL' && (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Current Holdings (matches Dashboard)
-              </p>
-            )}
-          </div>
-        </div>
-        {history.length > 0 && displayPoint && (() => {
-          const isPositive = displayPerformance > 0
-          const isZero = displayPerformance === 0
-          
-          const currencySymbols: Record<string, string> = {
-            'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
-          }
-          const symbol = currencySymbols[currency] || currency + ' '
-          
-          // Determine color class based on value
-          const colorClass = isZero 
-            ? 'text-neutral-500 dark:text-neutral-400'
-            : isPositive 
-            ? 'text-green-600 dark:text-green-400' 
-            : 'text-red-600 dark:text-red-400'
-          
-          return (
-            <div className="flex items-center gap-3">
-              <p className={`text-2xl font-bold ${colorClass}`}>
-                {isPositive ? '+' : ''}{displayPerformance.toFixed(2)}%
-              </p>
-              <div className="flex flex-col items-end gap-0.5">
-                <p className={`text-sm font-medium ${colorClass}`}>
-                  {displayGainAmount > 0 ? '+' : ''}{symbol}{Math.abs(displayGainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-          )
-        })()}
-      </div>
-      
-      {/* Time period buttons */}
-      <div className="flex gap-2 mb-4 flex-wrap justify-center">
-        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
-          <button
-            key={opt}
-            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
-              period === opt 
-                ? 'bg-pink-600 text-white border-pink-600' 
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
-            }`}
-            onClick={() => setPeriod(opt)}
-          >
-            {periodLabels[opt]}
-          </button>
-        ))}
-      </div>
       <div style={{ minHeight: 320 }} className="p-4">
         {loading ? (
           <div>
@@ -428,13 +369,69 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             <p className="text-sm">Historical data will be calculated from your saved price records and transactions.</p>
           </div>
         ) : (
-          <div 
-            style={{ height: '320px' }}
-            onMouseLeave={() => setHoveredIndex(null)}
-          >
-            <Line data={chartData} options={chartOptions} />
+          <div>
+            {/* Title and performance display */}
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <div>
+                  <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Portfolio Performance</h3>
+                </div>
+              </div>
+              {displayPoint && (() => {
+                const isPositive = displayPerformance > 0
+                const isZero = displayPerformance === 0
+                
+                const currencySymbols: Record<string, string> = {
+                  'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
+                }
+                const symbol = currencySymbols[currency] || currency + ' '
+                
+                // Determine color class based on value
+                const colorClass = isZero 
+                  ? 'text-neutral-500 dark:text-neutral-400'
+                  : isPositive 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+                
+                return (
+                  <div className="flex items-center gap-3">
+                    <p className={`text-2xl font-bold ${colorClass}`}>
+                      {isPositive ? '+' : ''}{displayPerformance.toFixed(2)}%
+                    </p>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <p className={`text-sm font-medium ${colorClass}`}>
+                        {displayGainAmount > 0 ? '+' : ''}{symbol}{Math.abs(displayGainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+            <div 
+              style={{ height: '320px' }}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              <Line data={chartData} options={chartOptions} />
+            </div>
           </div>
         )}
+      </div>
+      
+      {/* Time period buttons */}
+      <div className="flex gap-2 mb-4 flex-wrap justify-center">
+        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
+          <button
+            key={opt}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
+              period === opt 
+                ? 'bg-pink-600 text-white border-pink-600' 
+                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
+            }`}
+            onClick={() => setPeriod(opt)}
+          >
+            {periodLabels[opt]}
+          </button>
+        ))}
       </div>
     </div>
   )
