@@ -69,6 +69,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [splits, setSplits] = useState<SplitTransaction[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   // Get currency symbol for display
   const getCurrencySymbol = (curr: string): string => {
@@ -343,6 +344,17 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
 
   const chartOptions = {
     responsive: true,
+    interaction: {
+      intersect: false,
+      mode: 'index' as const,
+    },
+    onHover: (_event: unknown, activeElements: unknown[]) => {
+      if (activeElements && activeElements.length > 0) {
+        setHoveredIndex((activeElements[0] as { index: number }).index)
+      } else {
+        setHoveredIndex(null)
+      }
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -460,7 +472,6 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
         },
       },
     },
-    interaction: { mode: 'nearest' as const, intersect: false },
     maintainAspectRatio: false,
     animation: {
       duration: 400, // Smooth but quick animation
@@ -541,9 +552,10 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
               </div>
               <div className="text-right">
                 {history.prices.length > 0 && (() => {
+                  const displayIndex = hoveredIndex !== null ? hoveredIndex : history.prices.length - 1
                   const firstPrice = history.prices[0].price
-                  const lastPrice = history.prices[history.prices.length - 1].price
-                  const percentChange = ((lastPrice - firstPrice) / firstPrice) * 100
+                  const displayPrice = history.prices[displayIndex].price
+                  const percentChange = ((displayPrice - firstPrice) / firstPrice) * 100
                   const decimalPlaces = getDecimalPlaces(history.prices.map(p => p.price))
                   
                   const colorClass = percentChange > 0 
@@ -555,7 +567,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                   return (
                     <div className="flex items-center justify-end gap-2">
                       <p className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
-                        {getCurrencySymbol(currency)}{formatPrice(lastPrice, decimalPlaces)}
+                        {getCurrencySymbol(currency)}{formatPrice(displayPrice, decimalPlaces)}
                       </p>
                       <p className={`text-sm font-semibold ${colorClass}`}>
                         {percentChange > 0 ? '+' : percentChange < 0 ? '' : '+'}{percentChange.toFixed(2)}%
@@ -565,7 +577,10 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                 })()}
               </div>
             </div>
-            <div style={{ height: '320px' }}>
+            <div 
+              style={{ height: '320px' }}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
               <Line data={chartData} options={chartOptions} />
             </div>
           </div>
