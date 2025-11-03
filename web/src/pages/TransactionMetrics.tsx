@@ -7,6 +7,7 @@ import api from '../lib/api'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import SharedSortIcon from '../components/SortIcon'
 
 type GroupingType = 'monthly' | 'yearly'
 type SortKey = 'period' | 'tx_count' | 'buy_sum' | 'buy_count' | 'buy_avg' | 'buy_fees' | 'sell_sum' | 'sell_count' | 'sell_avg' | 'sell_fees' | 'diff'
@@ -339,15 +340,6 @@ export default function TransactionMetrics() {
       <ChevronUp size={12} className="inline ml-1 opacity-80" />
     ) : (
       <ChevronDown size={12} className="inline ml-1 opacity-80" />
-    )
-  }
-
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
-    return sortDir === 'asc' ? (
-      <ChevronUp size={14} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={14} className="inline ml-1 opacity-80" />
     )
   }
 
@@ -794,67 +786,67 @@ export default function TransactionMetrics() {
                     onClick={() => handleSort('period')}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Period <SortIcon col="period" />
+                    Period <SharedSortIcon column="period" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('tx_count')}
                     className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Tx Count <SortIcon col="tx_count" />
+                    Tx Count <SharedSortIcon column="tx_count" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('buy_sum')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-2 border-neutral-300 dark:border-neutral-600"
                   >
-                    Buy Sum <SortIcon col="buy_sum" />
+                    Buy Sum <SharedSortIcon column="buy_sum" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('buy_count')}
                     className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Buy Count <SortIcon col="buy_count" />
+                    Buy Count <SharedSortIcon column="buy_count" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('buy_avg')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Buy Avg <SortIcon col="buy_avg" />
+                    Buy Avg <SharedSortIcon column="buy_avg" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('buy_fees')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Buy Fees <SortIcon col="buy_fees" />
+                    Buy Fees <SharedSortIcon column="buy_fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('sell_sum')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-2 border-neutral-300 dark:border-neutral-600"
                   >
-                    Sell Sum <SortIcon col="sell_sum" />
+                    Sell Sum <SharedSortIcon column="sell_sum" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('sell_count')}
                     className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Sell Count <SortIcon col="sell_count" />
+                    Sell Count <SharedSortIcon column="sell_count" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('sell_avg')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Sell Avg <SortIcon col="sell_avg" />
+                    Sell Avg <SharedSortIcon column="sell_avg" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('sell_fees')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Sell Fees <SortIcon col="sell_fees" />
+                    Sell Fees <SharedSortIcon column="sell_fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('diff')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-2 border-neutral-300 dark:border-neutral-600"
                   >
-                    Difference <SortIcon col="diff" />
+                    Difference <SharedSortIcon column="diff" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
                     Details

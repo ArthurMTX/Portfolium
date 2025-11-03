@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -113,7 +114,7 @@ export default function Login() {
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <LoadingSpinner size="sm" color="white" />
                   Signing in...
                 </>
               ) : (

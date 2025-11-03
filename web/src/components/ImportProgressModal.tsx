@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { X, CheckCircle, AlertCircle } from 'lucide-react'
+import LoadingSpinner from './LoadingSpinner'
 
 interface ImportLog {
   type: 'progress' | 'log' | 'complete' | 'error'
@@ -185,7 +186,7 @@ export default function ImportProgressModal({
           <h2 className="text-xl font-bold flex items-center gap-2">
             {status === 'importing' && (
               <>
-                <Loader className="animate-spin" size={20} />
+                <LoadingSpinner variant="icon" size="sm" />
                 Importing Transactions
               </>
             )}

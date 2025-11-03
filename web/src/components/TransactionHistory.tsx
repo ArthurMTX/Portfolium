@@ -1,7 +1,8 @@
-import { X, TrendingUp, TrendingDown, ShoppingCart, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { X, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
+import SortIcon from './SortIcon';
 
 interface AssetTransaction {
   id: number
@@ -84,16 +85,6 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
   }
 
   const isActive = (key: SortKey) => sortKey === key
-  
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    const active = isActive(col)
-    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
-    return sortDir === 'asc' ? (
-      <ChevronUp size={14} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={14} className="inline ml-1 opacity-80" />
-    )
-  }
 
   const sortedTransactions = useMemo(() => {
     const sorted = [...transactions].sort((a, b) => {
@@ -231,21 +222,21 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                         aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Date <SortIcon col="tx_date" />
+                        Date <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('type')}
                         aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Type <SortIcon col="type" />
+                        Type <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('quantity')}
                         aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Quantity <SortIcon col="quantity" />
+                        Quantity <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       {hasSplitAdjustments && (
                         <th 
@@ -253,7 +244,7 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                           aria-sort={isActive('adjusted_quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                           className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                         >
-                          Adjusted Qty <SortIcon col="adjusted_quantity" />
+                          Adjusted Qty <SortIcon column="adjusted_quantity" activeColumn={sortKey} direction={sortDir} />
                         </th>
                       )}
                       <th 
@@ -261,21 +252,21 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                         aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Price <SortIcon col="price" />
+                        Price <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('fees')}
                         aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Fees <SortIcon col="fees" />
+                        Fees <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('total')}
                         aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Total <SortIcon col="total" />
+                        Total <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
                         Notes

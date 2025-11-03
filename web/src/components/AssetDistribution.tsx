@@ -16,16 +16,15 @@ import {
   Building2,
   Layers,
   TrendingUp,
-  ArrowUpDown,
   ChevronUp,
   ChevronDown,
-  RefreshCw,
 } from 'lucide-react';
 import { getSectorIcon, getSectorColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIcons';
 import { getCountryCode } from '../lib/countryUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { formatAssetType } from '../lib/formatUtils';
 import api, { DistributionItemDTO } from '../lib/api';
+import SortIcon from './SortIcon';
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -492,39 +491,6 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
     setExpandedIndustries(newExpanded);
   };
 
-  const DetailedSortIcon = ({ field }: { field: DetailedSortField }) => {
-    if (detailedSortField !== field) {
-      return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />;
-    }
-    return detailedSortDirection === 'asc' ? (
-      <ChevronUp size={14} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={14} className="inline ml-1 opacity-80" />
-    );
-  };
-
-  const IndustrySortIcon = ({ field }: { field: DetailedSortField }) => {
-    if (industrySortField !== field) {
-      return <ArrowUpDown size={12} className="inline ml-1 opacity-40" />;
-    }
-    return industrySortDirection === 'asc' ? (
-      <ChevronUp size={12} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={12} className="inline ml-1 opacity-80" />
-    );
-  };
-
-  const AssetSortIcon = ({ field }: { field: 'symbol' | 'name' | 'percentage' | 'totalValue' | 'unrealizedPnl' }) => {
-    if (assetSortField !== field) {
-      return <ArrowUpDown size={12} className="inline ml-1 opacity-40" />;
-    }
-    return assetSortDirection === 'asc' ? (
-      <ChevronUp size={12} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={12} className="inline ml-1 opacity-80" />
-    );
-  };
-
   return (
     <div className="space-y-6">     
       {/* Header with Tabs */}
@@ -654,14 +620,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                     {activeTab === 'sector' && 'Sector'}
                     {activeTab === 'type' && 'Type'}
                     {activeTab === 'country' && 'Country'}
-                    <DetailedSortIcon field="name" />
+                    <SortIcon column="name" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   <th 
                     onClick={() => handleDetailedSort('count')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
                     Assets
-                    <DetailedSortIcon field="count" />
+                    <SortIcon column="count" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   {hasPerformanceData && (
                     <>
@@ -670,14 +636,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
                         Total Value
-                        <DetailedSortIcon field="totalValue" />
+                        <SortIcon column="totalValue" activeColumn={detailedSortField} direction={detailedSortDirection} />
                       </th>
                       <th 
                         onClick={() => handleDetailedSort('unrealizedPnl')}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
                         Unrealized P&L
-                        <DetailedSortIcon field="unrealizedPnl" />
+                        <SortIcon column="unrealizedPnl" activeColumn={detailedSortField} direction={detailedSortDirection} />
                       </th>
                     </>
                   )}
@@ -686,7 +652,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
                     % of Portfolio
-                    <DetailedSortIcon field="percentage" />
+                    <SortIcon column="percentage" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                     Details
@@ -800,7 +766,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                       }}
                                     >
                                       Assets
-                                      <IndustrySortIcon field="count" />
+                                      <SortIcon column="count" activeColumn={industrySortField} direction={industrySortDirection} />
                                     </th>
                                     {hasPerformanceData && (
                                       <>
@@ -816,7 +782,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                           }}
                                         >
                                           Total Value
-                                          <IndustrySortIcon field="totalValue" />
+                                          <SortIcon column="totalValue" activeColumn={industrySortField} direction={industrySortDirection} />
                                         </th>
                                         <th 
                                           className="px-4 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
@@ -830,7 +796,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                           }}
                                         >
                                           Unrealized P&L
-                                          <IndustrySortIcon field="unrealizedPnl" />
+                                          <SortIcon column="unrealizedPnl" activeColumn={industrySortField} direction={industrySortDirection} />
                                         </th>
                                       </>
                                     )}
@@ -846,7 +812,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                       }}
                                     >
                                       % of Sector
-                                      <IndustrySortIcon field="percentage" />
+                                      <SortIcon column="percentage" activeColumn={industrySortField} direction={industrySortDirection} />
                                     </th>
                                     <th className="px-4 py-2 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
                                       Details
@@ -981,14 +947,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                         onClick={() => handleAssetSort('symbol')}
                                                       >
                                                         Symbol
-                                                        <AssetSortIcon field="symbol" />
+                                                        <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                       <th 
                                                         className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                         onClick={() => handleAssetSort('name')}
                                                       >
                                                         Name
-                                                        <AssetSortIcon field="name" />
+                                                        <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                       {hasPerformanceData && (
                                                         <>
@@ -997,14 +963,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                             onClick={() => handleAssetSort('totalValue')}
                                                           >
                                                             Total Value
-                                                            <AssetSortIcon field="totalValue" />
+                                                            <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
                                                           </th>
                                                           <th 
                                                             className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                             onClick={() => handleAssetSort('unrealizedPnl')}
                                                           >
                                                             Unrealized P&L
-                                                            <AssetSortIcon field="unrealizedPnl" />
+                                                            <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
                                                           </th>
                                                         </>
                                                       )}
@@ -1013,7 +979,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                         onClick={() => handleAssetSort('percentage')}
                                                       >
                                                         % of Industry
-                                                        <AssetSortIcon field="percentage" />
+                                                        <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                     </tr>
                                                   </thead>
@@ -1101,14 +1067,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                     onClick={() => handleAssetSort('symbol')}
                                   >
                                     Symbol
-                                    <AssetSortIcon field="symbol" />
+                                    <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                   <th 
                                     className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('name')}
                                   >
                                     Name
-                                    <AssetSortIcon field="name" />
+                                    <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                   {hasPerformanceData && (
                                     <>
@@ -1117,14 +1083,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                         onClick={() => handleAssetSort('totalValue')}
                                       >
                                         Total Value
-                                        <AssetSortIcon field="totalValue" />
+                                        <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
                                       </th>
                                       <th 
                                         className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                         onClick={() => handleAssetSort('unrealizedPnl')}
                                       >
                                         Unrealized P&L
-                                        <AssetSortIcon field="unrealizedPnl" />
+                                        <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
                                       </th>
                                     </>
                                   )}
@@ -1133,7 +1099,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                     onClick={() => handleAssetSort('percentage')}
                                   >
                                     % of {activeTab === 'country' ? 'Country' : activeTab === 'type' ? 'Type' : 'Group'}
-                                    <AssetSortIcon field="percentage" />
+                                    <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                 </tr>
                               </thead>

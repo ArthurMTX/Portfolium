@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Package, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3 } from 'lucide-react';
+import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3 } from 'lucide-react';
 import api from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIcons';
@@ -9,6 +9,7 @@ import AssetDistribution from '../components/AssetDistribution';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
 import AssetPriceChart from '../components/AssetPriceChart';
+import SortIcon from '../components/SortIcon';
 import AssetPriceDebug from '../components/AssetPriceDebug';
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
@@ -258,13 +259,22 @@ export default function Assets() {
   };
 
   const isActive = (key: SortKey) => sortKey === key;
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    const active = isActive(col);
-    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />;
-    return sortDir === 'asc' 
-      ? <ChevronUp size={14} className="inline ml-1 opacity-80" />
-      : <ChevronDown size={14} className="inline ml-1 opacity-80" />;
-  };
+
+  // Get human-readable label for sort key
+  const getSortLabel = (key: SortKey): string => {
+    const labels: Record<SortKey, string> = {
+      symbol: 'Symbol',
+      name: 'Name',
+      class: 'Class',
+      country: 'Country',
+      asset_type: 'Type',
+      sector: 'Sector',
+      industry: 'Industry',
+      total_quantity: 'Quantity',
+      portfolio_count: 'Portfolios',
+    }
+    return labels[key]
+  }
 
   if (loading) {
     return (
@@ -401,20 +411,8 @@ export default function Assets() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {/* Jump to Distribution Button */}
-              <button
-                onClick={() => {
-                  distributionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                className="relative group px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
-                title="Jump to Asset Distribution"
-              >
-                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
-                <BarChart3 size={18} className="relative z-10" />
-                <span className="relative z-10 hidden sm:inline">Distribution</span>
-              </button>
               {/* Search Bar */}
-              <div className="relative w-full sm:w-auto sm:min-w-[250px]">
+              <div className="relative flex-1 sm:flex-none sm:min-w-[250px]">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={16} />
                 <input
                   type="text"
@@ -432,6 +430,20 @@ export default function Assets() {
                   </button>
                 )}
               </div>
+              {/* Jump to Distribution Button */}
+              <button
+                onClick={() => {
+                  distributionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="relative group px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
+                title="Jump to Asset Distribution"
+              >
+                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+                <BarChart3 size={18} className="relative z-10" />
+                <span className="relative z-10 hidden sm:inline">Distribution</span>
+              </button>
+              {/* Action buttons grouped together */}
+              <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSold(!showSold)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
@@ -453,11 +465,211 @@ export default function Assets() {
                 <span className="hidden sm:inline">{enriching ? 'Enriching...' : 'Enrich Metadata'}</span>
                 <span className="sm:hidden">{enriching ? 'Enrich...' : 'Enrich'}</span>
               </button>
+              </div>
             </div>
           </div>
 
           {/* Assets Table */}
-          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          <div>
+            <>
+              {/* Mobile: Sort Controls & Card Layout */}
+              <div className="lg:hidden">
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2 mb-3">
+                  <label htmlFor="mobile-sort-assets" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                    Sort by:
+                  </label>
+                  <select
+                    id="mobile-sort-assets"
+                    value={sortKey}
+                    onChange={(e) => handleSort(e.target.value as SortKey)}
+                    className="flex-1 input text-sm py-2 px-3"
+                  >
+                    {sortableColumns.map((option) => (
+                      <option key={option} value={option}>
+                        {getSortLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                    className="btn-secondary p-2 flex items-center gap-1"
+                    title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+                  >
+                    {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </div>
+
+                {/* Cards */}
+                <div className="space-y-3">
+                  {sortedAssets.length === 0 ? (
+                    <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
+                      <p>No assets match your search</p>
+                      <p className="text-sm mt-2">
+                        Try searching for a different symbol or name, or{' '}
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
+                        >
+                          clear the search
+                        </button>
+                      </p>
+                    </div>
+                  ) : (
+                    sortedAssets.map((asset) => (
+                      <div 
+                        key={asset.id} 
+                        className={`card p-4 ${asset.total_quantity === 0 ? 'opacity-60' : ''}`}
+                      >
+                        {/* Header: Logo, Symbol, Quantity */}
+                        <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <img
+                              src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                              alt={asset.symbol}
+                              loading="lazy"
+                              className="w-10 h-10 flex-shrink-0 object-contain"
+                              onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                                {asset.symbol}
+                              </div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                {asset.name || '-'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right ml-3">
+                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                              {formatQuantity(asset.total_quantity)}
+                            </div>
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                              {asset.currency}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Data Grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Class</span>
+                            <div className="mt-1">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.class ? getAssetClassColor(asset.class) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
+                                {asset.class ? asset.class.charAt(0).toUpperCase() + asset.class.slice(1).toLowerCase() : '-'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Type</span>
+                            <div className="mt-1 flex justify-end">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.asset_type ? getAssetTypeColor(asset.asset_type) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
+                                {formatAssetType(asset.asset_type)}
+                              </span>
+                            </div>
+                          </div>
+                          {asset.country && (
+                            <div>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">Country</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                {getCountryCode(asset.country) && (
+                                  <img
+                                    src={`https://flagcdn.com/w40/${getCountryCode(asset.country)}.png`}
+                                    alt={`${asset.country} flag`}
+                                    loading="lazy"
+                                    className="w-6 h-4 object-cover rounded shadow-sm"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                )}
+                                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                                  {asset.country}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {asset.sector && (
+                            <div className={!asset.country ? 'col-span-2' : 'text-right'}>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">Sector</span>
+                              <div className={`flex items-center gap-2 mt-1 ${!asset.country ? '' : 'justify-end'}`}>
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getSectorColor(asset.sector)}`}>
+                                  {(() => {
+                                    const SectorIcon = getSectorIcon(asset.sector);
+                                    return <SectorIcon size={14} />;
+                                  })()}
+                                </div>
+                                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                                  {asset.sector}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {asset.industry && (
+                            <div className="col-span-2">
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">Industry</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getIndustryColor(asset.industry)}`}>
+                                  {(() => {
+                                    const IndustryIcon = getIndustryIcon(asset.industry);
+                                    return <IndustryIcon size={14} />;
+                                  })()}
+                                </div>
+                                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                                  {asset.industry}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                          {(asset.split_count ?? 0) > 0 && (
+                            <button
+                              onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                              title="View Split History"
+                            >
+                              <Shuffle size={14} />
+                              Splits ({asset.split_count})
+                            </button>
+                          )}
+                          {(asset.transaction_count ?? 0) > 0 && (
+                            <button
+                              onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                              title="View Transactions"
+                            >
+                              <Activity size={14} />
+                              Txs ({asset.transaction_count})
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency })}
+                            className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                            title="View Price Chart"
+                          >
+                            <LineChart size={14} />
+                            Chart
+                          </button>
+                          <button
+                            onClick={() => setDebugAsset({ id: asset.id, symbol: asset.symbol })}
+                            className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                            title="Debug Price Data"
+                          >
+                            <TrendingUp size={14} />
+                            Debug
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
@@ -467,56 +679,56 @@ export default function Assets() {
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Symbol <SortIcon col="symbol" />
+                    Symbol <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('name')}
                     aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Name <SortIcon col="name" />
+                    Name <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('class')}
                     aria-sort={isActive('class') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Class <SortIcon col={"class"} />
+                    Class <SortIcon column="class" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('asset_type')}
                     aria-sort={isActive('asset_type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Type <SortIcon col="asset_type" />
+                    Type <SortIcon column="asset_type" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('country')}
                     aria-sort={isActive('country') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Country <SortIcon col="country" />
+                    Country <SortIcon column="country" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('sector')}
                     aria-sort={isActive('sector') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Sector <SortIcon col="sector" />
+                    Sector <SortIcon column="sector" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('industry')}
                     aria-sort={isActive('industry') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Industry <SortIcon col="industry" />
+                    Industry <SortIcon column="industry" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('total_quantity')}
                     aria-sort={isActive('total_quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Quantity <SortIcon col="total_quantity" />
+                    Quantity <SortIcon column="total_quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                     Actions
@@ -684,6 +896,8 @@ export default function Assets() {
               </tbody>
             </table>
           </div>
+              </div>
+            </>
           </div>
 
           {/* Charts - Bottom Section - Only show for held assets */}

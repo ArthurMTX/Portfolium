@@ -20,12 +20,28 @@ logger = logging.getLogger(__name__)
 
 # In-memory cache for price fetches (symbol -> (quote, timestamp))
 _price_memory_cache: Dict[str, Tuple[PriceQuote, datetime]] = {}
-_memory_cache_lock = asyncio.Lock()
+_memory_cache_lock: Optional[asyncio.Lock] = None
 _MEMORY_CACHE_TTL = timedelta(seconds=30)  # Very short TTL for in-memory cache
 
 # Deduplication cache for ongoing fetches
 _ongoing_fetches: Dict[str, asyncio.Task] = {}
-_fetch_lock = asyncio.Lock()
+_fetch_lock: Optional[asyncio.Lock] = None
+
+
+def _get_memory_lock() -> asyncio.Lock:
+    """Get or create the memory cache lock for the current event loop"""
+    global _memory_cache_lock
+    if _memory_cache_lock is None:
+        _memory_cache_lock = asyncio.Lock()
+    return _memory_cache_lock
+
+
+def _get_fetch_lock() -> asyncio.Lock:
+    """Get or create the fetch lock for the current event loop"""
+    global _fetch_lock
+    if _fetch_lock is None:
+        _fetch_lock = asyncio.Lock()
+    return _fetch_lock
 
 
 class PricingService:
@@ -48,7 +64,7 @@ class PricingService:
         """
         # Check in-memory cache first (very fast)
         if not force_refresh:
-            async with _memory_cache_lock:
+            async with _get_memory_lock():
                 if symbol in _price_memory_cache:
                     quote, cached_at = _price_memory_cache[symbol]
                     if datetime.utcnow() - cached_at < _MEMORY_CACHE_TTL:
@@ -56,7 +72,7 @@ class PricingService:
                         return quote
         
         # Check if there's an ongoing fetch for this symbol
-        async with _fetch_lock:
+        async with _get_fetch_lock():
             if symbol in _ongoing_fetches:
                 logger.info(f"Reusing ongoing price fetch for {symbol}")
                 return await _ongoing_fetches[symbol]
@@ -70,13 +86,13 @@ class PricingService:
             
             # Update in-memory cache
             if result:
-                async with _memory_cache_lock:
+                async with _get_memory_lock():
                     _price_memory_cache[symbol] = (result, datetime.utcnow())
             
             return result
         finally:
             # Remove from ongoing fetches
-            async with _fetch_lock:
+            async with _get_fetch_lock():
                 _ongoing_fetches.pop(symbol, None)
     
     async def _get_price_internal(self, symbol: str, force_refresh: bool = False) -> Optional[PriceQuote]:

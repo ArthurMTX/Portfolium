@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
-import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search, BarChart3 } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3 } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
+import SortIcon from '../components/SortIcon'
 
 interface TickerInfo {
   symbol: string
@@ -488,15 +489,22 @@ export default function Transactions() {
   }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery])
 
   const isActive = (key: SortKey) => sortKey === key
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    const active = isActive(col)
-    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
-    return sortDir === 'asc' ? (
-      <ChevronUp size={14} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={14} className="inline ml-1 opacity-80" />
-    )
+
+  // Get human-readable label for sort key
+  const getSortLabel = (key: SortKey): string => {
+    const labels: Record<SortKey, string> = {
+      tx_date: 'Date',
+      symbol: 'Symbol',
+      type: 'Type',
+      quantity: 'Quantity',
+      price: 'Price',
+      fees: 'Fees',
+      total: 'Total',
+    }
+    return labels[key]
   }
+
+  const availableSortOptions: SortKey[] = ['tx_date', 'symbol', 'type', 'quantity', 'price', 'fees', 'total']
 
   const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
     return formatCurrencyUtil(value, currency)
@@ -678,46 +686,49 @@ export default function Transactions() {
         )}
 
         {/* Transactions Table */}
-        <div className="overflow-x-auto">
+        <div>
           {loading ? (
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Asset</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Quantity</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Fees</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                        <div className="space-y-2">
-                          <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                          <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+            // Loading skeleton
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-neutral-50 dark:bg-neutral-800/50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Asset</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Fees</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          <div className="space-y-2">
+                            <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                            <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
               <p>No transactions found</p>
@@ -737,6 +748,170 @@ export default function Transactions() {
               </p>
             </div>
           ) : (
+            <>
+              {/* Mobile: Sort Controls & Card Layout */}
+              <div className="lg:hidden">
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2 p-3">
+                  <label htmlFor="mobile-sort-tx" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                    Sort by:
+                  </label>
+                  <select
+                    id="mobile-sort-tx"
+                    value={sortKey}
+                    onChange={(e) => handleSort(e.target.value as SortKey)}
+                    className="flex-1 input text-sm py-2 px-3"
+                  >
+                    {availableSortOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {getSortLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                    className="btn-secondary p-2 flex items-center gap-1"
+                    title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+                  >
+                    {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </div>
+
+                {/* Cards */}
+                <div className="space-y-3">
+                  {sortedTransactions.map((transaction) => {
+                    const quantity = typeof transaction.quantity === 'string' 
+                      ? parseFloat(transaction.quantity) 
+                      : transaction.quantity
+                    const price = typeof transaction.price === 'string' 
+                      ? parseFloat(transaction.price) 
+                      : transaction.price
+                    const fees = typeof transaction.fees === 'string' 
+                      ? parseFloat(transaction.fees) 
+                      : transaction.fees
+                    const total = quantity * price + fees
+                    const txData = transaction as unknown as Record<string, unknown>
+                    const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
+
+                    return (
+                      <div key={transaction.id} className="card p-4">
+                        {/* Header: Date, Symbol, Type, Total */}
+                        <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <img 
+                              src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
+                              alt={`${transaction.asset.symbol} logo`}
+                              className="w-10 h-10 flex-shrink-0 object-cover"
+                              onLoad={(e) => {
+                                const img = e.currentTarget as HTMLImageElement
+                                if (!validateLogoImage(img)) {
+                                  img.dispatchEvent(new Event('error'))
+                                }
+                              }}
+                              onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                                {transaction.asset.symbol}
+                              </div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                                {formatDate(transaction.tx_date)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right ml-3">
+                            <div className={`flex items-center justify-end gap-1 text-sm font-medium mb-1 ${getTransactionColor(transaction.type)}`}>
+                              {getTransactionIcon(transaction.type)}
+                              {transaction.type}
+                            </div>
+                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Data Grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Quantity</span>
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatQuantity(transaction.quantity)}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Price</span>
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Fees</span>
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
+                            </div>
+                          </div>
+                          {transaction.asset.name && (
+                            <div className="text-right">
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">Asset Name</span>
+                              <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                                {transaction.asset.name}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Notes */}
+                        {(transaction.notes || (transaction.type === 'SPLIT' && metadata?.split)) && (
+                          <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Notes:</span>
+                            <div className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">
+                              {transaction.type === 'SPLIT' && metadata?.split ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} split</span>
+                                  {transaction.notes && <span className="text-neutral-400">•</span>}
+                                  {transaction.notes}
+                                </span>
+                              ) : (
+                                transaction.notes
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                          {assetHasSplits(transaction.asset_id) && (
+                            <button
+                              onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
+                              className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
+                            >
+                              <Shuffle size={16} />
+                              Splits
+                            </button>
+                          )}
+                          <button
+                            onClick={() => openEditModal(transaction)}
+                            className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
+                          >
+                            <Edit2 size={16} />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(transaction.id)}
+                            className="btn-secondary text-sm px-3 py-2 flex items-center gap-2 text-red-600 dark:text-red-400"
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                 <tr>
@@ -745,49 +920,49 @@ export default function Transactions() {
                     aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Date <SortIcon col="tx_date" />
+                    Date <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('symbol')}
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Asset <SortIcon col="symbol" />
+                    Asset <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('type')}
                     aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Type <SortIcon col="type" />
+                    Type <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('quantity')}
                     aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Quantity <SortIcon col="quantity" />
+                    Quantity <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('price')}
                     aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Price <SortIcon col="price" />
+                    Price <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('fees')}
                     aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Fees <SortIcon col="fees" />
+                    Fees <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('total')}
                     aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Total <SortIcon col="total" />
+                    Total <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
                     Notes
@@ -826,30 +1001,8 @@ export default function Transactions() {
                             className="w-6 h-6 object-cover"
                             onLoad={(e) => {
                               const img = e.currentTarget as HTMLImageElement
-                              if (img.dataset.validated) return
-                              img.dataset.validated = 'true'
-                              try {
-                                const canvas = document.createElement('canvas')
-                                const ctx = canvas.getContext('2d')
-                                if (!ctx) return
-                                const w = Math.min(img.naturalWidth || 0, 64) || 24
-                                const h = Math.min(img.naturalHeight || 0, 64) || 24
-                                if (w === 0 || h === 0) return
-                                canvas.width = w
-                                canvas.height = h
-                                ctx.drawImage(img, 0, 0, w, h)
-                                const data = ctx.getImageData(0, 0, w, h).data
-                                let opaque = 0
-                                for (let i = 0; i < data.length; i += 4) {
-                                  const a = data[i + 3]
-                                  if (a > 8) opaque++
-                                }
-                                const total = (data.length / 4) || 1
-                                if (opaque / total < 0.01) {
-                                  img.dispatchEvent(new Event('error'))
-                                }
-                              } catch {
-                                // Ignore canvas/security errors
+                              if (!validateLogoImage(img)) {
+                                img.dispatchEvent(new Event('error'))
                               }
                             }}
                             onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
@@ -931,6 +1084,8 @@ export default function Transactions() {
                 })}
               </tbody>
             </table>
+              </div>
+            </>
           )}
         </div>
       </div>

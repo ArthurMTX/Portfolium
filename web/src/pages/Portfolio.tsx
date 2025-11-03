@@ -6,6 +6,7 @@ import PortfolioHistoryChart from '../components/PortfolioHistoryChart'
 import PortfolioHeatmap from '../components/PortfolioHeatmap'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Portfolio() {
   const {
@@ -66,7 +67,7 @@ export default function Portfolio() {
   if (checkingTransactions) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
+        <LoadingSpinner size="lg" className="mx-auto" />
         <p className="mt-4 text-neutral-600 dark:text-neutral-400">Loading...</p>
       </div>
     )

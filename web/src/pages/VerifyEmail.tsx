@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
-import { AlertCircle, CheckCircle, Loader } from 'lucide-react'
+import { AlertCircle, CheckCircle } from 'lucide-react'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -44,7 +45,7 @@ export default function VerifyEmail() {
         <div className="max-w-md w-full">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
             <div className="inline-block p-4 bg-blue-100 rounded-full mb-4">
-              <Loader className="w-12 h-12 text-blue-600 animate-spin" />
+              <LoadingSpinner size="lg" variant="icon" color="blue" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Verifying your email...

@@ -6,6 +6,7 @@ import PositionsTable from '../components/PositionsTable'
 import { usePriceUpdates } from '../hooks/usePriceUpdates'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 type PositionsTab = 'current' | 'sold'
 
@@ -550,7 +551,7 @@ export default function Dashboard() {
         ) : soldPositionsLoading ? (
           <div className="card p-12 text-center">
             <div className="max-w-md mx-auto">
-              <RefreshCw className="mx-auto h-12 w-12 text-pink-600 animate-spin mb-4" />
+              <LoadingSpinner size="lg" variant="icon" className="mx-auto mb-4" />
               <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                 Loading sold positions...
               </h3>

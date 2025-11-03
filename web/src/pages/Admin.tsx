@@ -3,6 +3,7 @@ import { useAuth, User } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import api from "../lib/api";
 import { PlusCircle, Users as UsersIcon, X, FileText, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 interface LogEntry {
   logs: string[];
@@ -331,7 +332,7 @@ const AdminDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -719,7 +720,7 @@ const AdminDashboard: React.FC = () => {
             
             {emailLoading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+                <LoadingSpinner size="md" />
               </div>
             ) : (
               <div className="space-y-4">
@@ -841,7 +842,7 @@ const AdminDashboard: React.FC = () => {
                 >
                   {emailSaving ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <LoadingSpinner size="sm" color="white" />
                       Saving...
                     </>
                   ) : (
@@ -897,7 +898,7 @@ const AdminDashboard: React.FC = () => {
                 >
                   {emailTesting ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <LoadingSpinner size="sm" color="white" />
                       Sending...
                     </>
                   ) : (

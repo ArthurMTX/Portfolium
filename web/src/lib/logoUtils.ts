@@ -3,6 +3,52 @@
  */
 
 /**
+ * Validate that a loaded logo image is not empty or fully transparent
+ * This catches edge cases where the backend returns a valid image file
+ * that is actually invisible/blank
+ * 
+ * @param img The loaded HTMLImageElement to validate
+ * @returns true if image is valid (has visible pixels), false if empty/transparent
+ */
+export const validateLogoImage = (img: HTMLImageElement): boolean => {
+  // Skip if already validated
+  if (img.dataset.validated) return true
+  img.dataset.validated = 'true'
+
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return true // Can't validate, assume valid
+
+    const w = Math.min(img.naturalWidth || 0, 64) || 32
+    const h = Math.min(img.naturalHeight || 0, 64) || 32
+    if (w === 0 || h === 0) return false // No dimensions = invalid
+
+    canvas.width = w
+    canvas.height = h
+    ctx.drawImage(img, 0, 0, w, h)
+    
+    const data = ctx.getImageData(0, 0, w, h).data
+    let opaque = 0
+    
+    // Count opaque pixels (alpha > 8)
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3]
+      if (a > 8) opaque++
+    }
+    
+    const total = (data.length / 4) || 1
+    const opacityRatio = opaque / total
+    
+    // Image is invalid if less than 1% of pixels are visible
+    return opacityRatio >= 0.01
+  } catch {
+    // Canvas/security errors - assume valid
+    return true
+  }
+}
+
+/**
  * Normalize ticker symbol for logo lookup by removing currency suffixes
  */
 export const normalizeTickerForLogo = (symbol: string): string => {

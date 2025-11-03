@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Lock, AlertCircle, CheckCircle } from 'lucide-react'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
@@ -156,7 +157,7 @@ export default function ResetPassword() {
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <LoadingSpinner size="sm" color="white" />
                   Resetting password...
                 </>
               ) : (

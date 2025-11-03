@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Calendar, Clock, TrendingUp, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
 import api from '../lib/api';
+import LoadingSpinner from './LoadingSpinner';
 
 interface Price {
   date: string;
@@ -148,7 +149,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <LoadingSpinner size="lg" color="blue" />
             </div>
           ) : view === 'health' && health ? (
             <div className="space-y-6">

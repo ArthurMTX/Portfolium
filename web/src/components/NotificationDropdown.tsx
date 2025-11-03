@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCheck, Trash2, ExternalLink, Clock, DollarSign, LogIn, Activity } from 'lucide-react'
+import { CheckCheck, Trash2, ExternalLink, Clock } from 'lucide-react'
 import { useNotificationStore } from '../store/useNotificationStore'
 import { formatDistanceToNow } from 'date-fns'
+import { getNotificationIcon } from '../lib/notificationUtils'
 
 interface NotificationDropdownProps {
   onClose: () => void
@@ -38,30 +39,11 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
     await deleteNotification(notificationId)
   }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'TRANSACTION_CREATED':
-      case 'TRANSACTION_UPDATED':
-      case 'TRANSACTION_DELETED':
-        return <Activity size={16} className="text-blue-500" />
-      case 'LOGIN':
-        return <LogIn size={16} className="text-green-500" />
-      case 'PRICE_ALERT':
-        return <DollarSign size={16} className="text-amber-500" />
-      case 'DAILY_CHANGE_UP':
-        return <Activity size={16} className="text-green-500" />
-      case 'DAILY_CHANGE_DOWN':
-        return <Activity size={16} className="text-red-500" />
-      default:
-        return <Clock size={16} className="text-neutral-500" />
-    }
-  }
-
   const recentNotifications = notifications.slice(0, 5)
 
   return (
     <div 
-      className="absolute right-0 mt-2 w-96 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 max-h-[600px] flex flex-col"
+      className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-2 sm:w-96 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 max-h-[600px] flex flex-col"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -105,7 +87,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-1 flex-shrink-0">
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationIcon(notification.type, 16)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">

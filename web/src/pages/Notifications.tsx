@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { CheckCheck, Trash2, Filter, Clock, DollarSign, LogIn, Activity, Bell } from 'lucide-react'
+import { CheckCheck, Trash2, Filter, Bell } from 'lucide-react'
 import { useNotificationStore } from '../store/useNotificationStore'
 import { formatDistanceToNow } from 'date-fns'
+import { getNotificationIcon, getNotificationBadgeClass } from '../lib/notificationUtils'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Notifications() {
   const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
@@ -23,40 +25,6 @@ export default function Notifications() {
 
   const handleDelete = async (notificationId: number) => {
     await deleteNotification(notificationId)
-  }
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'TRANSACTION_CREATED':
-      case 'TRANSACTION_UPDATED':
-      case 'TRANSACTION_DELETED':
-        return <Activity size={20} className="text-blue-500" />
-      case 'LOGIN':
-        return <LogIn size={20} className="text-green-500" />
-      case 'PRICE_ALERT':
-        return <DollarSign size={20} className="text-amber-500" />
-      case 'DAILY_CHANGE_UP':
-        return <Activity size={20} className="text-green-500" />
-      case 'DAILY_CHANGE_DOWN':
-        return <Activity size={20} className="text-red-500" />
-      default:
-        return <Clock size={20} className="text-neutral-500" />
-    }
-  }
-
-  const getNotificationBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      'TRANSACTION_CREATED': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'TRANSACTION_UPDATED': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'TRANSACTION_DELETED': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      'LOGIN': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'PRICE_ALERT': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-      'DAILY_CHANGE_UP': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'DAILY_CHANGE_DOWN': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      'SYSTEM': 'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200'
-    }
-    
-    return colors[type] || colors['SYSTEM']
   }
 
   const formatType = (type: string) => {
@@ -125,7 +93,7 @@ export default function Notifications() {
       <div className="space-y-2">
         {loading ? (
           <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto mb-4"></div>
+            <LoadingSpinner size="lg" className="mx-auto mb-4" />
             <p className="text-neutral-600 dark:text-neutral-400">Loading notifications...</p>
           </div>
         ) : notifications.length === 0 ? (
@@ -166,7 +134,7 @@ export default function Notifications() {
                           <span className="w-2 h-2 bg-pink-600 rounded-full"></span>
                         )}
                       </div>
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getNotificationBadge(notification.type)}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getNotificationBadgeClass(notification.type)}`}>
                         {formatType(notification.type)}
                       </span>
                     </div>
