@@ -599,7 +599,11 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
         {/* Chart */}
         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6 xl:col-span-2">
           <h3 className="text-lg font-semibold mb-4 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            {chartType === 'pie' ? <PieChartIcon size={20} /> : <BarChart3 size={20} />}
+            {chartType === 'pie' ? (
+              <PieChartIcon size={20} className="text-pink-600 dark:text-pink-400" />
+            ) : (
+              <BarChart3 size={20} className="text-blue-600 dark:text-blue-400" />
+            )}
             {activeTab === 'sector' && 'Sector Distribution'}
             {activeTab === 'type' && 'Asset Type Distribution'}
             {activeTab === 'country' && 'Country Distribution'}
@@ -626,7 +630,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden xl:col-span-3">
           <div className="p-6 pb-0">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2 mb-4">
-              <TrendingUp size={20} />
+              <TrendingUp size={20} className="text-green-600 dark:text-green-400" />
               Distribution {hasPerformanceData && '& Performance'}
             </h3>
           </div>

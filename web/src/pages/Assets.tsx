@@ -406,11 +406,12 @@ export default function Assets() {
                 onClick={() => {
                   distributionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                className="relative group px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
                 title="Jump to Asset Distribution"
               >
-                <BarChart3 size={16} />
-                <span className="hidden sm:inline">Distribution</span>
+                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+                <BarChart3 size={18} className="relative z-10" />
+                <span className="relative z-10 hidden sm:inline">Distribution</span>
               </button>
               {/* Search Bar */}
               <div className="relative w-full sm:w-auto sm:min-w-[250px]">

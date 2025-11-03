@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search, BarChart3 } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
@@ -40,6 +41,7 @@ type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | '
 type SortDir = 'asc' | 'desc'
 
 export default function Transactions() {
+  const navigate = useNavigate()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
@@ -569,6 +571,15 @@ export default function Transactions() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button 
+            onClick={() => navigate('/transactions/metrics')}
+            className="relative group px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+            <BarChart3 size={18} className="relative z-10" />
+            <span className="relative z-10 hidden sm:inline">View Metrics</span>
+            <span className="relative z-10 sm:hidden">Metrics</span>
+          </button>
           <button 
             onClick={handleImportClick}
             disabled={importLoading}
