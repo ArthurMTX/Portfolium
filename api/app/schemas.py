@@ -193,7 +193,7 @@ class AssetBase(BaseModel):
     class_: AssetClass = Field(default=AssetClass.STOCK, alias="class")
     sector: Optional[str] = None
     industry: Optional[str] = None
-    asset_type: Optional[str] = None  # 'EQUITY', 'ETF', 'CRYPTO', etc.
+    asset_type: Optional[str] = None  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
     country: Optional[str] = None
 
 
@@ -202,8 +202,32 @@ class AssetCreate(AssetBase):
     pass
 
 
+class AssetMetadataOverride(BaseModel):
+    """Schema for setting user-specific metadata overrides"""
+    sector_override: Optional[str] = Field(None, description="Override for sector when Yahoo Finance doesn't provide data")
+    industry_override: Optional[str] = Field(None, description="Override for industry when Yahoo Finance doesn't provide data")
+    country_override: Optional[str] = Field(None, description="Override for country when Yahoo Finance doesn't provide data")
+
+
+class AssetWithOverrides(AssetBase):
+    """Asset response schema with user-specific overrides"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    # User-specific override fields (if user has set them)
+    sector_override: Optional[str] = None
+    industry_override: Optional[str] = None
+    country_override: Optional[str] = None
+    # Computed effective values (includes overrides for this user)
+    effective_sector: Optional[str] = None
+    effective_industry: Optional[str] = None
+    effective_country: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class Asset(AssetBase):
-    """Asset response schema"""
+    """Asset response schema (without user-specific overrides)"""
     id: int
     created_at: datetime
     updated_at: datetime

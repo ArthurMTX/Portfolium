@@ -335,6 +335,17 @@ class ApiClient {
     })
   }
 
+  async setAssetMetadataOverrides(assetId: number, overrides: {
+    sector_override?: string | null
+    industry_override?: string | null
+    country_override?: string | null
+  }) {
+    return this.request<any>(`/assets/${assetId}/metadata-overrides`, {
+      method: 'PATCH',
+      body: JSON.stringify(overrides),
+    })
+  }
+
   async searchTicker(query: string) {
     return this.request<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
   }

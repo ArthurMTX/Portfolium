@@ -8,8 +8,10 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import Asset, AssetCreate
+from app.schemas import Asset, AssetCreate, AssetMetadataOverride, AssetWithOverrides
 from app.crud import assets as crud
+from app.auth import get_current_user
+from app.models import User
 import yfinance as yf
 
 router = APIRouter()
@@ -123,6 +125,77 @@ async def update_asset(
     return updated
 
 
+@router.patch("/{asset_id}/metadata-overrides", response_model=AssetWithOverrides)
+async def set_metadata_overrides(
+    asset_id: int,
+    overrides: AssetMetadataOverride,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Set user-specific metadata overrides for an asset (country, sector, industry).
+    
+    Overrides can ONLY be set when Yahoo Finance doesn't provide the corresponding data.
+    This ensures overrides are used as a fallback, not to replace valid Yahoo Finance data.
+    
+    Overrides are USER-SPECIFIC - each user can set their own classification preferences.
+    Other users will not see your overrides unless they set the same values.
+    
+    - **sector_override**: Custom sector when Yahoo Finance sector is None
+    - **industry_override**: Custom industry when Yahoo Finance industry is None  
+    - **country_override**: Custom country when Yahoo Finance country is None
+    
+    Example use case: ETFs often don't have sector/industry/country in Yahoo Finance,
+    so users can provide meaningful categorization for portfolio insights.
+    
+    Returns HTTP 400 if attempting to override when Yahoo Finance data exists.
+    """
+    try:
+        override_record = crud.set_asset_metadata_overrides(
+            db,
+            user_id=current_user.id,
+            asset_id=asset_id,
+            sector_override=overrides.sector_override,
+            industry_override=overrides.industry_override,
+            country_override=overrides.country_override
+        )
+        
+        # Get the asset with effective metadata
+        asset = crud.get_asset(db, asset_id)
+        if not asset:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Asset {asset_id} not found"
+            )
+        
+        # Get effective metadata for response
+        effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+        
+        # Build response with all fields
+        response_data = {
+            "id": asset.id,
+            "symbol": asset.symbol,
+            "name": asset.name,
+            "currency": asset.currency,
+            "class": asset.class_.value if asset.class_ else None,
+            "sector": asset.sector,
+            "industry": asset.industry,
+            "asset_type": asset.asset_type,
+            "country": asset.country,
+            "created_at": asset.created_at,
+            "updated_at": asset.updated_at,
+            **effective_data
+        }
+        
+        return response_data
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_asset(asset_id: int, db: Session = Depends(get_db)):
     """Delete asset"""
@@ -135,7 +208,11 @@ async def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/held/all")
-async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_held_assets(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all currently held assets across all portfolios with metadata
     
@@ -144,6 +221,7 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
     - Total quantity held across all portfolios (adjusted for splits)
     - Number of portfolios holding this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
+    - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
@@ -194,6 +272,9 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
+                # Get user-specific effective metadata
+                effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+                
                 results.append({
                     "id": asset.id,
                     "symbol": asset.symbol,
@@ -204,6 +285,9 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
                     "industry": asset.industry,
                     "asset_type": asset.asset_type,
                     "country": asset.country,
+                    "effective_sector": effective_data["effective_sector"],
+                    "effective_industry": effective_data["effective_industry"],
+                    "effective_country": effective_data["effective_country"],
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -218,7 +302,11 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
 
 
 @router.get("/sold/all")
-async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_sold_assets(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all sold assets across all portfolios with metadata
     
@@ -227,6 +315,7 @@ async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends
     - Total quantity (will be 0)
     - Number of portfolios that held this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
+    - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
@@ -277,6 +366,9 @@ async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
+                # Get user-specific effective metadata
+                effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+                
                 results.append({
                     "id": asset.id,
                     "symbol": asset.symbol,
@@ -287,6 +379,9 @@ async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends
                     "industry": asset.industry,
                     "asset_type": asset.asset_type,
                     "country": asset.country,
+                    "effective_sector": effective_data["effective_sector"],
+                    "effective_industry": effective_data["effective_industry"],
+                    "effective_country": effective_data["effective_country"],
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -542,9 +637,15 @@ async def get_asset_transaction_history(
 
 
 @router.get("/distribution/sectors")
-async def get_sectors_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_sectors_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get distribution of assets by sector with performance metrics
+    
+    Uses user-specific metadata overrides for classification.
     
     Returns aggregated data for each sector including:
     - Sector name
@@ -560,8 +661,8 @@ async def get_sectors_distribution(portfolio_id: int | None = None, db: Session 
     from app.services.metrics import MetricsService
     from collections import defaultdict
     
-    # Get all held assets (with optional portfolio filter)
-    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    # Get all held assets (with optional portfolio filter and user-specific overrides)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     # If we have a portfolio_id, get positions for that portfolio
     positions_map = {}
@@ -594,7 +695,8 @@ async def get_sectors_distribution(portfolio_id: int | None = None, db: Session 
         )
     
     for asset in held_assets_data:
-        sector = asset.get("sector") or "Unknown"
+        # Use effective_sector which includes user-specific overrides
+        sector = asset.get("effective_sector") or "Unknown"
         sector_data[sector]["assets"].append(asset["id"])
         sector_data[sector]["count"] += 1
         
@@ -641,9 +743,15 @@ async def get_sectors_distribution(portfolio_id: int | None = None, db: Session 
 
 
 @router.get("/distribution/countries")
-async def get_countries_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_countries_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get distribution of assets by country with performance metrics
+    
+    Uses user-specific metadata overrides for classification.
     
     Returns aggregated data for each country including:
     - Country name
@@ -659,7 +767,7 @@ async def get_countries_distribution(portfolio_id: int | None = None, db: Sessio
     from app.services.metrics import MetricsService
     from collections import defaultdict
     
-    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     positions_map = {}
     if portfolio_id is not None:
@@ -689,7 +797,8 @@ async def get_countries_distribution(portfolio_id: int | None = None, db: Sessio
         )
     
     for asset in held_assets_data:
-        country = asset.get("country") or "Unknown"
+        # Use effective_country which includes user-specific overrides
+        country = asset.get("effective_country") or "Unknown"
         country_data[country]["assets"].append(asset["id"])
         country_data[country]["count"] += 1
         
@@ -751,7 +860,11 @@ async def get_countries_distribution(portfolio_id: int | None = None, db: Sessio
 
 
 @router.get("/distribution/types")
-async def get_types_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_types_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get distribution of assets by type with performance metrics
     
@@ -769,7 +882,7 @@ async def get_types_distribution(portfolio_id: int | None = None, db: Session = 
     from app.services.metrics import MetricsService
     from collections import defaultdict
     
-    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     positions_map = {}
     if portfolio_id is not None:
@@ -861,9 +974,15 @@ async def get_types_distribution(portfolio_id: int | None = None, db: Session = 
 
 
 @router.get("/distribution/industries")
-async def get_industries_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_industries_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get distribution of assets by industry with performance metrics
+    
+    Uses user-specific metadata overrides for classification.
     
     Returns aggregated data for each industry including:
     - Industry name
@@ -879,8 +998,8 @@ async def get_industries_distribution(portfolio_id: int | None = None, db: Sessi
     from app.services.metrics import MetricsService
     from collections import defaultdict
     
-    # Get all held assets (with optional portfolio filter)
-    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    # Get all held assets (with optional portfolio filter and user-specific overrides)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     # If we have a portfolio_id, get positions for that portfolio
     positions_map = {}
@@ -913,7 +1032,8 @@ async def get_industries_distribution(portfolio_id: int | None = None, db: Sessi
         )
     
     for asset in held_assets_data:
-        industry = asset.get("industry") or "Unknown"
+        # Use effective_industry which includes user-specific overrides
+        industry = asset.get("effective_industry") or "Unknown"
         industry_data[industry]["assets"].append(asset["id"])
         industry_data[industry]["count"] += 1
         

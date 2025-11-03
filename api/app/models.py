@@ -106,6 +106,28 @@ class Asset(Base):
     # Relationships
     transactions = relationship("Transaction", back_populates="asset")
     prices = relationship("Price", back_populates="asset", cascade="all, delete-orphan")
+    metadata_overrides = relationship("AssetMetadataOverride", back_populates="asset", cascade="all, delete-orphan")
+
+
+class AssetMetadataOverride(Base):
+    """User-specific metadata overrides for assets"""
+    __tablename__ = "asset_metadata_overrides"
+    __table_args__ = (
+        {"schema": "portfolio"},
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("portfolio.users.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    sector_override = Column(String)
+    industry_override = Column(String)
+    country_override = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    asset = relationship("Asset", back_populates="metadata_overrides")
 
 
 class Portfolio(Base):

@@ -19,7 +19,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
-import { getSectorIcon, getSectorColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIcons';
+import { getSectorIcon, getSectorColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { formatAssetType } from '../lib/formatUtils';

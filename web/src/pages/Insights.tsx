@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
-import { getSectorIcon, getSectorColor } from '../lib/sectorIcons'
+import { getSectorIcon, getSectorColor } from '../lib/sectorIndustryUtils'
 import { getCountryCode } from '../lib/countryUtils'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'

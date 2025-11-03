@@ -1,8 +1,8 @@
 /**
- * Mapping of yfinance sectors and industries to Lucide React icons
+ * Sector and Industry Utilities
  * 
- * This file provides icon mappings for all known sectors and industries from Yahoo Finance,
- * used throughout the application to provide visual representation of different sectors and industries.
+ * This file provides comprehensive utilities for working with sectors and industries from Yahoo Finance,
+ * including icon mappings, color schemes, and hierarchical relationships.
  */
 
 import {
@@ -124,12 +124,9 @@ export const SECTOR_ICONS: Record<string, LucideIcon> = {
   
   // Healthcare
   'Healthcare': Heart,
-  'Health Care': Heart,
   
   // Financial
   'Financial Services': Landmark,
-  'Financial': Landmark,
-  'Financials': Landmark,
   
   // Energy
   'Energy': Zap,
@@ -145,7 +142,6 @@ export const SECTOR_ICONS: Record<string, LucideIcon> = {
   
   // Industrial
   'Industrials': Factory,
-  'Industrial': Factory,
   
   // Basic Materials
   'Basic Materials': Mountain,
@@ -310,7 +306,7 @@ export const INDUSTRY_ICONS: Record<string, LucideIcon> = {
   'Household & Personal Products': Home,
   'Tobacco': Leaf,
   
-  // Industrial
+  // Industrials
   'Aerospace & Defense': Rocket,
   'Airlines': Plane,
   'Airports & Air Services': Plane,
@@ -378,6 +374,289 @@ export const INDUSTRY_ICONS: Record<string, LucideIcon> = {
 };
 
 /**
+ * Mapping of sectors to their valid industries
+ * Based on GICS (Global Industry Classification Standard) hierarchy
+ */
+export const SECTOR_TO_INDUSTRIES: Record<string, string[]> = {
+  'Technology': [
+    'Software—Application',
+    'Software—Infrastructure',
+    'Software',
+    'Information Technology Services',
+    'Internet Content & Information',
+    'Electronic Gaming & Multimedia',
+    'Software - Application',
+    'Software - Infrastructure',
+    'Computer Hardware',
+    'Consumer Electronics',
+    'Electronic Components',
+    'Electronics & Computer Distribution',
+    'Scientific & Technical Instruments',
+    'Semiconductors',
+    'Semiconductor Equipment & Materials',
+  ],
+  
+  'Communication Services': [
+    'Telecom Services',
+    'Wireless Telecommunication Services',
+    'Diversified Telecommunication Services',
+    'Entertainment',
+    'Broadcasting',
+    'Interactive Media & Services',
+    'Publishing',
+    'Advertising Agencies',
+  ],
+  
+  'Telecommunications': [
+    'Telecom Services',
+    'Wireless Telecommunication Services',
+    'Diversified Telecommunication Services',
+  ],
+  
+  'Healthcare': [
+    'Biotechnology',
+    'Drug Manufacturers—General',
+    'Drug Manufacturers—Specialty & Generic',
+    'Pharmaceutical Retailers',
+    'Drug Manufacturers - General',
+    'Drug Manufacturers - Specialty & Generic',
+    'Medical Devices',
+    'Medical Instruments & Supplies',
+    'Medical Care Facilities',
+    'Medical Distribution',
+    'Health Care Equipment & Supplies',
+    'Health Care Providers & Services',
+    'Diagnostics & Research',
+    'Medical Diagnostics & Research',
+    'Health Information Services',
+  ],
+  
+  'Financial Services': [
+    'Banks—Diversified',
+    'Banks—Regional',
+    'Banks - Diversified',
+    'Banks - Regional',
+    'Diversified Banks',
+    'Regional Banks',
+    'Asset Management',
+    'Investment Banking & Brokerage',
+    'Capital Markets',
+    'Financial Data & Stock Exchanges',
+    'Credit Services',
+    'Insurance—Diversified',
+    'Insurance—Life',
+    'Insurance—Property & Casualty',
+    'Insurance—Reinsurance',
+    'Insurance—Specialty',
+    'Insurance - Diversified',
+    'Insurance - Life',
+    'Insurance - Property & Casualty',
+    'Diversified Financial Services',
+    'Consumer Finance',
+    'Mortgage Finance',
+  ], 
+  
+  'Energy': [
+    'Oil & Gas E&P',
+    'Oil & Gas Integrated',
+    'Oil & Gas Midstream',
+    'Oil & Gas Refining & Marketing',
+    'Oil & Gas Drilling',
+    'Oil & Gas Equipment & Services',
+    'Thermal Coal',
+    'Uranium',
+    'Solar',
+  ],
+  
+  'Utilities': [
+    'Utilities—Diversified',
+    'Utilities—Independent Power Producers',
+    'Utilities—Regulated Electric',
+    'Utilities—Regulated Gas',
+    'Utilities—Regulated Water',
+    'Utilities—Renewable',
+    'Utilities - Diversified',
+    'Utilities - Independent Power Producers',
+    'Utilities - Regulated Electric',
+    'Utilities - Regulated Gas',
+    'Utilities - Regulated Water',
+    'Utilities - Renewable',
+    'Electric Utilities',
+    'Gas Utilities',
+    'Water Utilities',
+    'Multi-Utilities',
+    'Independent Power and Renewable Electricity Producers',
+  ],
+  
+  'Consumer Cyclical': [
+    'Auto Manufacturers',
+    'Auto Parts',
+    'Recreational Vehicles',
+    'Auto & Truck Dealerships',
+    'Department Stores',
+    'Discount Stores',
+    'Apparel Manufacturing',
+    'Apparel Retail',
+    'Footwear & Accessories',
+    'Home Improvement Retail',
+    'Specialty Retail',
+    'Internet Retail',
+    'Luxury Goods',
+    'Furnishings, Fixtures & Appliances',
+    'Residential Construction',
+    'Restaurants',
+    'Lodging',
+    'Resorts & Casinos',
+    'Travel Services',
+    'Leisure',
+    'Gambling',
+    'Textile Manufacturing',
+    'Packaging & Containers',
+    'Personal Services',
+  ],
+  
+  'Consumer Defensive': [
+    'Beverages—Alcoholic',
+    'Beverages—Non-Alcoholic',
+    'Beverages - Alcoholic',
+    'Beverages - Non-Alcoholic',
+    'Beverages—Brewers',
+    'Beverages—Wineries & Distilleries',
+    'Confectioners',
+    'Farm Products',
+    'Food Distribution',
+    'Grocery Stores',
+    'Packaged Foods',
+    'Education & Training Services',
+    'Household & Personal Products',
+    'Tobacco',
+  ],
+  
+  'Consumer Discretionary': [
+    'Auto Manufacturers',
+    'Auto Parts',
+    'Recreational Vehicles',
+    'Auto & Truck Dealerships',
+    'Department Stores',
+    'Discount Stores',
+    'Apparel Manufacturing',
+    'Apparel Retail',
+    'Footwear & Accessories',
+    'Home Improvement Retail',
+    'Specialty Retail',
+    'Internet Retail',
+    'Luxury Goods',
+    'Furnishings, Fixtures & Appliances',
+    'Residential Construction',
+    'Restaurants',
+    'Lodging',
+    'Resorts & Casinos',
+    'Travel Services',
+    'Leisure',
+    'Gambling',
+    'Textile Manufacturing',
+    'Packaging & Containers',
+    'Personal Services',
+  ],
+  
+  'Consumer Staples': [
+    'Beverages—Alcoholic',
+    'Beverages—Non-Alcoholic',
+    'Beverages - Alcoholic',
+    'Beverages - Non-Alcoholic',
+    'Beverages—Brewers',
+    'Beverages—Wineries & Distilleries',
+    'Confectioners',
+    'Farm Products',
+    'Food Distribution',
+    'Grocery Stores',
+    'Packaged Foods',
+    'Education & Training Services',
+    'Household & Personal Products',
+    'Tobacco',
+  ],
+  
+  'Industrials': [
+    'Aerospace & Defense',
+    'Airlines',
+    'Airports & Air Services',
+    'Building Products & Equipment',
+    'Business Equipment & Supplies',
+    'Conglomerates',
+    'Construction & Engineering',
+    'Consulting Services',
+    'Electrical Equipment & Parts',
+    'Engineering & Construction',
+    'Farm & Heavy Construction Machinery',
+    'Industrial Distribution',
+    'Infrastructure Operations',
+    'Integrated Freight & Logistics',
+    'Machinery',
+    'Marine Shipping',
+    'Metal Fabrication',
+    'Pollution & Treatment Controls',
+    'Railroads',
+    'Rental & Leasing Services',
+    'Security & Protection Services',
+    'Specialty Business Services',
+    'Specialty Industrial Machinery',
+    'Staffing & Employment Services',
+    'Tools & Accessories',
+    'Trucking',
+    'Waste Management',
+  ],
+  
+  'Basic Materials': [
+    'Aluminum',
+    'Building Materials',
+    'Chemicals',
+    'Coking Coal',
+    'Copper',
+    'Gold',
+    'Lumber & Wood Production',
+    'Other Industrial Metals & Mining',
+    'Other Precious Metals & Mining',
+    'Paper & Paper Products',
+    'Silver',
+    'Specialty Chemicals',
+    'Steel',
+  ],
+  
+  'Materials': [
+    'Aluminum',
+    'Building Materials',
+    'Chemicals',
+    'Coking Coal',
+    'Copper',
+    'Gold',
+    'Lumber & Wood Production',
+    'Other Industrial Metals & Mining',
+    'Other Precious Metals & Mining',
+    'Paper & Paper Products',
+    'Silver',
+    'Specialty Chemicals',
+    'Steel',
+  ],
+  
+  'Real Estate': [
+    'Real Estate—Development',
+    'Real Estate—Diversified',
+    'Real Estate Services',
+    'REIT—Diversified',
+    'REIT—Healthcare Facilities',
+    'REIT—Hotel & Motel',
+    'REIT—Industrial',
+    'REIT—Mortgage',
+    'REIT—Office',
+    'REIT—Residential',
+    'REIT—Retail',
+    'REIT—Specialty',
+    'Real Estate - Development',
+    'Real Estate - Diversified',
+  ],
+};
+
+/**
  * Get icon for a sector
  * @param sector - Sector name from yfinance
  * @returns Lucide icon component
@@ -410,10 +689,7 @@ export function getSectorColor(sector: string | null | undefined): string {
     'Communication Services': 'text-purple-600 dark:text-purple-400',
     'Telecommunications': 'text-violet-600 dark:text-violet-400',
     'Healthcare': 'text-red-600 dark:text-red-400',
-    'Health Care': 'text-red-600 dark:text-red-400',
     'Financial Services': 'text-green-600 dark:text-green-400',
-    'Financial': 'text-green-600 dark:text-green-400',
-    'Financials': 'text-green-600 dark:text-green-400',
     'Energy': 'text-yellow-600 dark:text-yellow-400',
     'Utilities': 'text-amber-600 dark:text-amber-400',
     'Consumer Cyclical': 'text-pink-600 dark:text-pink-400',
@@ -421,7 +697,6 @@ export function getSectorColor(sector: string | null | undefined): string {
     'Consumer Discretionary': 'text-pink-600 dark:text-pink-400',
     'Consumer Staples': 'text-emerald-600 dark:text-emerald-400',
     'Industrials': 'text-slate-600 dark:text-slate-400',
-    'Industrial': 'text-slate-600 dark:text-slate-400',
     'Basic Materials': 'text-orange-600 dark:text-orange-400',
     'Materials': 'text-orange-600 dark:text-orange-400',
     'Real Estate': 'text-indigo-600 dark:text-indigo-400',
@@ -441,4 +716,67 @@ export function getIndustryColor(industry: string | null | undefined): string {
   // Use the sector color if we can determine the parent sector
   // Otherwise use a neutral color
   return 'text-neutral-600 dark:text-neutral-400';
+}
+
+/**
+ * Get valid industries for a given sector
+ * @param sector - Sector name
+ * @returns Array of valid industry names for that sector
+ */
+export function getIndustriesForSector(sector: string | null | undefined): string[] {
+  if (!sector) return Object.keys(INDUSTRY_ICONS).sort();
+  return SECTOR_TO_INDUSTRIES[sector] || Object.keys(INDUSTRY_ICONS).sort();
+}
+
+/**
+ * Get all available sectors
+ * @returns Array of all sector names
+ */
+export function getAllSectors(): string[] {
+  return Object.keys(SECTOR_ICONS).filter(s => s !== 'Unknown' && s !== 'Other').sort();
+}
+
+/**
+ * Get all available industries
+ * @returns Array of all industry names
+ */
+export function getAllIndustries(): string[] {
+  return Object.keys(INDUSTRY_ICONS).filter(i => i !== 'Unknown' && i !== 'Other').sort();
+}
+
+/**
+ * Check if a sector is valid
+ * @param sector - Sector name to validate
+ * @returns True if the sector exists in our mappings
+ */
+export function isValidSector(sector: string | null | undefined): boolean {
+  if (!sector) return false;
+  return sector in SECTOR_ICONS;
+}
+
+/**
+ * Check if an industry is valid
+ * @param industry - Industry name to validate
+ * @returns True if the industry exists in our mappings
+ */
+export function isValidIndustry(industry: string | null | undefined): boolean {
+  if (!industry) return false;
+  return industry in INDUSTRY_ICONS;
+}
+
+/**
+ * Get the parent sector for a given industry
+ * @param industry - Industry name
+ * @returns The parent sector name, or null if not found
+ */
+export function getSectorForIndustry(industry: string | null | undefined): string | null {
+  if (!industry) return null;
+  
+  for (const [sector, industries] of Object.entries(SECTOR_TO_INDUSTRIES)) {
+    if (industries.includes(industry)) {
+      return sector;
+    }
+  }
+  
+  return null;
 }

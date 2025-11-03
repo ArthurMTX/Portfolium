@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, X, Palette } from 'lucide-react';
-import { SECTOR_ICONS, INDUSTRY_ICONS, getSectorColor, getIndustryColor } from '../lib/sectorIcons';
+import { SECTOR_ICONS, INDUSTRY_ICONS, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
 
 export default function IconPreview() {
   const [searchQuery, setSearchQuery] = useState('');

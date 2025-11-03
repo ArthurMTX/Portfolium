@@ -139,7 +139,7 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     try:
         ticker = yf.Ticker(db_asset.symbol)
         info = ticker.info
-        # Update metadata if not already set or if name is same as symbol
+        # Update metadata ONLY if not already set
         if not db_asset.sector:
             db_asset.sector = info.get('sector')
         if not db_asset.industry:
@@ -211,6 +211,7 @@ def enrich_all_assets(db: Session) -> dict:
             info = ticker.info
             updated = False
             
+            # Only update fields if they're not set
             if not asset.sector and info.get('sector'):
                 asset.sector = info.get('sector')
                 updated = True
@@ -300,3 +301,150 @@ def get_cached_logo(db: Session, asset_id: int) -> Optional[tuple[bytes, str]]:
         return None
     
     return (db_asset.logo_data, db_asset.logo_content_type or 'image/webp')
+
+
+def get_user_asset_override(db: Session, user_id: int, asset_id: int):
+    """
+    Get user-specific metadata override for an asset
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        asset_id: Asset ID
+        
+    Returns:
+        AssetMetadataOverride or None if not found
+    """
+    from app.models import AssetMetadataOverride
+    
+    return (
+        db.query(AssetMetadataOverride)
+        .filter(
+            AssetMetadataOverride.user_id == user_id,
+            AssetMetadataOverride.asset_id == asset_id
+        )
+        .first()
+    )
+
+
+def set_asset_metadata_overrides(
+    db: Session,
+    user_id: int,
+    asset_id: int,
+    sector_override: Optional[str] = None,
+    industry_override: Optional[str] = None,
+    country_override: Optional[str] = None
+):
+    """
+    Set user-specific metadata overrides for an asset.
+    
+    Overrides can only be set when the corresponding Yahoo Finance field is None.
+    This ensures overrides are only used as a fallback when Yahoo Finance doesn't provide data.
+    Overrides are user-specific - each user can have their own classification preferences.
+    
+    Passing None will CLEAR that specific override field.
+    If all fields become None, the entire override record is deleted.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        asset_id: Asset ID
+        sector_override: Override for sector (None to clear)
+        industry_override: Override for industry (None to clear)
+        country_override: Override for country (None to clear)
+        
+    Returns:
+        Updated or created AssetMetadataOverride, or None if all overrides cleared
+        
+    Raises:
+        ValueError: If attempting to set a non-None override when Yahoo Finance data exists
+    """
+    from app.models import AssetMetadataOverride
+    
+    # Verify asset exists
+    db_asset = get_asset(db, asset_id)
+    if not db_asset:
+        raise ValueError(f"Asset {asset_id} not found")
+    
+    # Validate: only allow setting NON-NULL overrides when Yahoo Finance data is None
+    # Null values are allowed (they clear the override)
+    if sector_override is not None and sector_override.strip() and db_asset.sector is not None:
+        raise ValueError(
+            f"Cannot set sector override: Yahoo Finance already provides sector '{db_asset.sector}'. "
+            "Overrides can only be set when Yahoo Finance data is missing."
+        )
+    
+    if industry_override is not None and industry_override.strip() and db_asset.industry is not None:
+        raise ValueError(
+            f"Cannot set industry override: Yahoo Finance already provides industry '{db_asset.industry}'. "
+            "Overrides can only be set when Yahoo Finance data is missing."
+        )
+    
+    if country_override is not None and country_override.strip() and db_asset.country is not None:
+        raise ValueError(
+            f"Cannot set country override: Yahoo Finance already provides country '{db_asset.country}'. "
+            "Overrides can only be set when Yahoo Finance data is missing."
+        )
+    
+    # Get existing override record
+    override = get_user_asset_override(db, user_id, asset_id)
+    
+    if override is None:
+        # Only create new record if at least one override has a value
+        if (sector_override and sector_override.strip()) or \
+           (industry_override and industry_override.strip()) or \
+           (country_override and country_override.strip()):
+            override = AssetMetadataOverride(
+                user_id=user_id,
+                asset_id=asset_id,
+                sector_override=sector_override if sector_override and sector_override.strip() else None,
+                industry_override=industry_override if industry_override and industry_override.strip() else None,
+                country_override=country_override if country_override and country_override.strip() else None
+            )
+            db.add(override)
+            db.commit()
+            db.refresh(override)
+            return override
+        else:
+            # All values are None/empty, nothing to create
+            return None
+    else:
+        # Update existing override record - always update all fields
+        override.sector_override = sector_override if sector_override and sector_override.strip() else None
+        override.industry_override = industry_override if industry_override and industry_override.strip() else None
+        override.country_override = country_override if country_override and country_override.strip() else None
+        
+        # If all overrides are now None, delete the record entirely
+        if not override.sector_override and not override.industry_override and not override.country_override:
+            db.delete(override)
+            db.commit()
+            return None
+        
+        db.commit()
+        db.refresh(override)
+    return override
+
+
+def get_effective_asset_metadata(db: Session, asset: Asset, user_id: int) -> dict:
+    """
+    Get effective metadata for an asset including user-specific overrides
+    
+    Args:
+        db: Database session
+        asset: Asset object
+        user_id: User ID
+        
+    Returns:
+        Dict with effective_sector, effective_industry, effective_country
+    """
+    # Get user's overrides if they exist
+    override = get_user_asset_override(db, user_id, asset.id)
+    
+    return {
+        "effective_sector": asset.sector if asset.sector is not None else (override.sector_override if override else None),
+        "effective_industry": asset.industry if asset.industry is not None else (override.industry_override if override else None),
+        "effective_country": asset.country if asset.country is not None else (override.country_override if override else None),
+        "sector_override": override.sector_override if override else None,
+        "industry_override": override.industry_override if override else None,
+        "country_override": override.country_override if override else None,
+    }

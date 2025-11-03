@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3 } from 'lucide-react';
+import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit } from 'lucide-react';
 import api from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
-import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIcons';
+import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
 import { formatAssetType } from '../lib/formatUtils';
 import AssetDistribution from '../components/AssetDistribution';
@@ -11,6 +11,7 @@ import TransactionHistory from '../components/TransactionHistory';
 import AssetPriceChart from '../components/AssetPriceChart';
 import SortIcon from '../components/SortIcon';
 import AssetPriceDebug from '../components/AssetPriceDebug';
+import AssetMetadataEdit from '../components/AssetMetadataEdit';
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
 import usePortfolioStore from '../store/usePortfolioStore';
@@ -28,7 +29,10 @@ interface HeldAsset {
   portfolio_count: number;
   split_count?: number;
   transaction_count?: number;
-  country?: string | null;
+  country: string | null;
+  effective_sector?: string | null;
+  effective_industry?: string | null;
+  effective_country?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +70,7 @@ export default function Assets() {
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string } | null>(null);
   const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
+  const [editAsset, setEditAsset] = useState<HeldAsset | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const distributionRef = useRef<HTMLDivElement>(null);
 
@@ -98,12 +103,34 @@ export default function Assets() {
   const loadAssets = useCallback(async () => {
     try {
       setLoading(true);
-      const [held, sold] = await Promise.all([
+      
+      // Load both asset lists and portfolio asset IDs if there's an active portfolio
+      const promises = [
         api.getHeldAssets(activePortfolioId || undefined),
         api.getSoldAssets(activePortfolioId || undefined)
-      ]);
+      ];
+      
+      if (activePortfolioId) {
+        promises.push(
+          api.getPortfolioPositions(activePortfolioId).then(positions => positions.map(p => p.asset_id)),
+          api.getSoldPositions(activePortfolioId).then(positions => positions.map(p => p.asset_id))
+        );
+      }
+      
+      const results = await Promise.all(promises);
+      const [held, sold] = results as [HeldAsset[], HeldAsset[], number[]?, number[]?];
+      
       setHeldAssets(held);
       setSoldAssets(sold);
+      
+      // Update portfolio asset IDs if they were loaded
+      if (activePortfolioId && results.length > 2) {
+        const currentAssetIds = results[2] as number[];
+        const soldAssetIds = results[3] as number[];
+        const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
+        setPortfolioAssetIds(allAssetIds);
+      }
+      
       setError(null);
     } catch (err) {
       setError('Failed to load assets');
@@ -123,7 +150,7 @@ export default function Assets() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset) {
+    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset || editAsset) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -131,7 +158,7 @@ export default function Assets() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset])
+  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset, editAsset])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -568,14 +595,14 @@ export default function Assets() {
                               </span>
                             </div>
                           </div>
-                          {asset.country && (
+                          {(asset.country || asset.effective_country) && (
                             <div>
                               <span className="text-neutral-500 dark:text-neutral-400 text-xs">Country</span>
                               <div className="flex items-center gap-2 mt-1">
-                                {getCountryCode(asset.country) && (
+                                {getCountryCode(asset.effective_country || asset.country || '') && (
                                   <img
-                                    src={`https://flagcdn.com/w40/${getCountryCode(asset.country)}.png`}
-                                    alt={`${asset.country} flag`}
+                                    src={`https://flagcdn.com/w40/${getCountryCode(asset.effective_country || asset.country || '')}.png`}
+                                    alt={`${asset.effective_country || asset.country} flag`}
                                     loading="lazy"
                                     className="w-6 h-4 object-cover rounded shadow-sm"
                                     onError={(e) => {
@@ -584,39 +611,39 @@ export default function Assets() {
                                   />
                                 )}
                                 <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                  {asset.country}
+                                  {asset.effective_country || asset.country}
                                 </span>
                               </div>
                             </div>
                           )}
-                          {asset.sector && (
-                            <div className={!asset.country ? 'col-span-2' : 'text-right'}>
+                          {(asset.sector || asset.effective_sector) && (
+                            <div className={!(asset.country || asset.effective_country) ? 'col-span-2' : 'text-right'}>
                               <span className="text-neutral-500 dark:text-neutral-400 text-xs">Sector</span>
-                              <div className={`flex items-center gap-2 mt-1 ${!asset.country ? '' : 'justify-end'}`}>
-                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getSectorColor(asset.sector)}`}>
+                              <div className={`flex items-center gap-2 mt-1 ${!(asset.country || asset.effective_country) ? '' : 'justify-end'}`}>
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getSectorColor(asset.effective_sector || asset.sector || '')}`}>
                                   {(() => {
-                                    const SectorIcon = getSectorIcon(asset.sector);
+                                    const SectorIcon = getSectorIcon(asset.effective_sector || asset.sector || '');
                                     return <SectorIcon size={14} />;
                                   })()}
                                 </div>
                                 <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                                  {asset.sector}
+                                  {asset.effective_sector || asset.sector}
                                 </span>
                               </div>
                             </div>
                           )}
-                          {asset.industry && (
+                          {(asset.industry || asset.effective_industry) && (
                             <div className="col-span-2">
                               <span className="text-neutral-500 dark:text-neutral-400 text-xs">Industry</span>
                               <div className="flex items-center gap-2 mt-1">
-                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getIndustryColor(asset.industry)}`}>
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getIndustryColor(asset.effective_industry || asset.industry || '')}`}>
                                   {(() => {
-                                    const IndustryIcon = getIndustryIcon(asset.industry);
+                                    const IndustryIcon = getIndustryIcon(asset.effective_industry || asset.industry || '');
                                     return <IndustryIcon size={14} />;
                                   })()}
                                 </div>
                                 <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                                  {asset.industry}
+                                  {asset.effective_industry || asset.industry}
                                 </span>
                               </div>
                             </div>
@@ -625,6 +652,17 @@ export default function Assets() {
 
                         {/* Actions */}
                         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                          {/* Edit Metadata Button - Show if any metadata is missing */}
+                          {(!asset.sector || !asset.industry || !asset.country) && (
+                            <button
+                              onClick={() => setEditAsset(asset)}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                              title="Edit Metadata"
+                            >
+                              <Edit size={14} />
+                              Edit
+                            </button>
+                          )}
                           {(asset.split_count ?? 0) > 0 && (
                             <button
                               onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
@@ -793,12 +831,12 @@ export default function Assets() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {asset.country ? (
+                      {asset.country || asset.effective_country ? (
                         <div className="flex items-center gap-2">
-                          {getCountryCode(asset.country) ? (
+                          {getCountryCode(asset.effective_country || asset.country || '') ? (
                             <img
-                              src={`https://flagcdn.com/w40/${getCountryCode(asset.country)}.png`}
-                              alt={`${asset.country} flag`}
+                              src={`https://flagcdn.com/w40/${getCountryCode(asset.effective_country || asset.country || '')}.png`}
+                              alt={`${asset.effective_country || asset.country} flag`}
                               loading="lazy"
                               className="w-6 h-4 object-cover rounded shadow-sm"
                               onError={(e) => {
@@ -809,7 +847,7 @@ export default function Assets() {
                             <span className="text-lg">🌍</span>
                           )}
                           <span className="text-sm text-neutral-700 dark:text-neutral-300">
-                            {asset.country}
+                            {asset.effective_country || asset.country}
                           </span>
                         </div>
                       ) : (
@@ -818,13 +856,13 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm flex items-center gap-2">
-                        {asset.sector ? (
+                        {asset.sector || asset.effective_sector ? (
                           <>
                             {(() => {
-                              const SectorIcon = getSectorIcon(asset.sector);
-                              return <SectorIcon size={14} className={getSectorColor(asset.sector)} />;
+                              const SectorIcon = getSectorIcon(asset.effective_sector || asset.sector || '');
+                              return <SectorIcon size={14} className={getSectorColor(asset.effective_sector || asset.sector || '')} />;
                             })()}
-                            {asset.sector}
+                            {asset.effective_sector || asset.sector}
                           </>
                         ) : (
                           '-'
@@ -833,13 +871,13 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm flex items-center gap-2">
-                        {asset.industry ? (
+                        {asset.industry || asset.effective_industry ? (
                           <>
                             {(() => {
-                              const IndustryIcon = getIndustryIcon(asset.industry);
-                              return <IndustryIcon size={14} className={getIndustryColor(asset.industry)} />;
+                              const IndustryIcon = getIndustryIcon(asset.effective_industry || asset.industry || '');
+                              return <IndustryIcon size={14} className={getIndustryColor(asset.effective_industry || asset.industry || '')} />;
                             })()}
-                            {asset.industry}
+                            {asset.effective_industry || asset.industry}
                           </>
                         ) : (
                           '-'
@@ -858,6 +896,16 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Edit Metadata Button - Show if any metadata is missing */}
+                        {(!asset.sector || !asset.industry || !asset.country) && (
+                          <button
+                            onClick={() => setEditAsset(asset)}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded transition-colors"
+                            title="Edit Asset Metadata (Sector, Industry, Country)"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
                         {/* Price Chart Button - Show for all assets with transactions */}
                         {(asset.transaction_count ?? 0) > 0 && (
                           <button
@@ -992,6 +1040,17 @@ export default function Assets() {
           assetId={debugAsset.id}
           symbol={debugAsset.symbol}
           onClose={() => setDebugAsset(null)}
+        />
+      )}
+
+      {/* Edit Asset Metadata Modal */}
+      {editAsset && (
+        <AssetMetadataEdit
+          asset={editAsset}
+          onClose={() => setEditAsset(null)}
+          onSuccess={() => {
+            loadAssets(); // Reload assets to show updated effective values
+          }}
         />
       )}
     </div>

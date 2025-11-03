@@ -72,10 +72,11 @@ class InsightsService:
     async def get_portfolio_insights(
         self,
         portfolio_id: int,
+        user_id: int,
         period: str = "1y",
         benchmark_symbol: str = "SPY"
     ) -> PortfolioInsights:
-        """Get comprehensive portfolio insights"""
+        """Get comprehensive portfolio insights with user-specific metadata overrides"""
         # Check cache first
         cache_key = self._get_cache_key(portfolio_id, period, benchmark_symbol)
         cached_insights = self._get_cached_insights(cache_key)
@@ -94,10 +95,10 @@ class InsightsService:
         if not positions:
             raise ValueError("No positions found in portfolio. Please add transactions to see insights.")
         
-        # Calculate allocations (now async)
+        # Calculate allocations (now async, with user-specific overrides)
         asset_allocation = await self.get_asset_allocation(portfolio_id)
-        sector_allocation = await self.get_sector_allocation(portfolio_id)
-        geographic_allocation = await self.get_geographic_allocation(portfolio_id)
+        sector_allocation = await self.get_sector_allocation(portfolio_id, user_id)
+        geographic_allocation = await self.get_geographic_allocation(portfolio_id, user_id)
         
         # Calculate performance metrics
         try:
@@ -200,8 +201,10 @@ class InsightsService:
         allocations.sort(key=lambda x: x.value, reverse=True)
         return allocations
     
-    async def get_sector_allocation(self, portfolio_id: int) -> List[SectorAllocation]:
-        """Get sector allocation breakdown"""
+    async def get_sector_allocation(self, portfolio_id: int, user_id: int) -> List[SectorAllocation]:
+        """Get sector allocation breakdown with user-specific metadata overrides"""
+        from app.crud import assets as crud_assets
+        
         positions = await self.metrics_service.get_positions(portfolio_id)
         
         sector_data: Dict[str, Dict] = {}
@@ -213,7 +216,12 @@ class InsightsService:
             
             # Get asset details
             asset = self.db.query(Asset).filter(Asset.id == pos.asset_id).first()
-            sector = asset.sector if asset and asset.sector else "Unknown"
+            if not asset:
+                continue
+                
+            # Get user-specific effective metadata
+            effective_data = crud_assets.get_effective_asset_metadata(self.db, asset, user_id)
+            sector = effective_data["effective_sector"] or "Unknown"
             
             if sector not in sector_data:
                 sector_data[sector] = {"value": Decimal(0), "count": 0}
@@ -237,8 +245,10 @@ class InsightsService:
         allocations.sort(key=lambda x: x.value, reverse=True)
         return allocations
     
-    async def get_geographic_allocation(self, portfolio_id: int) -> List[GeographicAllocation]:
-        """Get geographic allocation breakdown"""
+    async def get_geographic_allocation(self, portfolio_id: int, user_id: int) -> List[GeographicAllocation]:
+        """Get geographic allocation breakdown with user-specific metadata overrides"""
+        from app.crud import assets as crud_assets
+        
         positions = await self.metrics_service.get_positions(portfolio_id)
         
         country_data: Dict[str, Dict] = {}
@@ -250,7 +260,12 @@ class InsightsService:
             
             # Get asset details
             asset = self.db.query(Asset).filter(Asset.id == pos.asset_id).first()
-            country = asset.country if asset and asset.country else "Unknown"
+            if not asset:
+                continue
+                
+            # Get user-specific effective metadata
+            effective_data = crud_assets.get_effective_asset_metadata(self.db, asset, user_id)
+            country = effective_data["effective_country"] or "Unknown"
             
             if country not in country_data:
                 country_data[country] = {"value": Decimal(0), "count": 0}
