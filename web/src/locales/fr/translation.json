@@ -1,0 +1,71 @@
+{
+  "navigation": {
+    "dashboard": "Tableau de bord",
+    "portfolios": "Portefeuilles",
+    "charts": "Graphiques",
+    "insights": "Analyses",
+    "transactions": "Transactions",
+    "assets": "Actifs",
+    "watchlist": "Liste de surveillance",
+    "settings": "Paramètres",
+    "logout": "Déconnexion"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "sort": "Trier",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "theme": "Thème",
+    "darkMode": "Mode sombre",
+    "lightMode": "Mode clair",
+    "systemMode": "Système"
+  },
+  "portfolio": {
+    "title": "Portefeuille",
+    "name": "Nom du portefeuille",
+    "currency": "Devise de base",
+    "description": "Description",
+    "created": "Créé",
+    "totalValue": "Valeur totale",
+    "totalReturn": "Rendement total",
+    "dailyChange": "Variation quotidienne"
+  },
+  "asset": {
+    "symbol": "Symbole",
+    "name": "Nom",
+    "type": "Type",
+    "quantity": "Quantité",
+    "price": "Prix",
+    "value": "Valeur",
+    "cost": "Coût",
+    "pnl": "P&L",
+    "change": "Variation"
+  },
+  "transaction": {
+    "date": "Date",
+    "type": "Type",
+    "buy": "Achat",
+    "sell": "Vente",
+    "dividend": "Dividende",
+    "fees": "Frais",
+    "total": "Total"
+  }
+}

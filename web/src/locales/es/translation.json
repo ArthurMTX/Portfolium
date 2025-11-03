@@ -1,0 +1,71 @@
+{
+  "navigation": {
+    "dashboard": "Panel de Control",
+    "portfolios": "Carteras",
+    "charts": "Gráficos",
+    "insights": "Análisis",
+    "transactions": "Transacciones",
+    "assets": "Activos",
+    "watchlist": "Lista de Seguimiento",
+    "settings": "Configuración",
+    "logout": "Cerrar Sesión"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "theme": "Tema",
+    "darkMode": "Modo Oscuro",
+    "lightMode": "Modo Claro",
+    "systemMode": "Sistema"
+  },
+  "portfolio": {
+    "title": "Cartera",
+    "name": "Nombre de la Cartera",
+    "currency": "Moneda Base",
+    "description": "Descripción",
+    "created": "Creado",
+    "totalValue": "Valor Total",
+    "totalReturn": "Retorno Total",
+    "dailyChange": "Cambio Diario"
+  },
+  "asset": {
+    "symbol": "Símbolo",
+    "name": "Nombre",
+    "type": "Tipo",
+    "quantity": "Cantidad",
+    "price": "Precio",
+    "value": "Valor",
+    "cost": "Costo",
+    "pnl": "P&L",
+    "change": "Cambio"
+  },
+  "transaction": {
+    "date": "Fecha",
+    "type": "Tipo",
+    "buy": "Compra",
+    "sell": "Venta",
+    "dividend": "Dividendo",
+    "fees": "Comisiones",
+    "total": "Total"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "portfolios": "Portfolios",
+    "charts": "Charts",
+    "insights": "Insights",
+    "transactions": "Transactions",
+    "assets": "Assets",
+    "watchlist": "Watchlist",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode",
+    "systemMode": "System"
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "name": "Portfolio Name",
+    "currency": "Base Currency",
+    "description": "Description",
+    "created": "Created",
+    "totalValue": "Total Value",
+    "totalReturn": "Total Return",
+    "dailyChange": "Daily Change"
+  },
+  "asset": {
+    "symbol": "Symbol",
+    "name": "Name",
+    "type": "Type",
+    "quantity": "Quantity",
+    "price": "Price",
+    "value": "Value",
+    "cost": "Cost",
+    "pnl": "P&L",
+    "change": "Change"
+  },
+  "transaction": {
+    "date": "Date",
+    "type": "Type",
+    "buy": "Buy",
+    "sell": "Sell",
+    "dividend": "Dividend",
+    "fees": "Fees",
+    "total": "Total"
+  }
+}

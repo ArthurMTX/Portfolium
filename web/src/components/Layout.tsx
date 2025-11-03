@@ -2,7 +2,9 @@
 import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import NotificationBell from './NotificationBell'
+import LanguageSwitcher from './LanguageSwitcher'
 import { VERSION } from '../version'
 
 export default function Layout() {
@@ -13,6 +15,7 @@ export default function Layout() {
   const menuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
 
   useEffect(() => {
     // Check system preference
@@ -78,7 +81,7 @@ export default function Layout() {
               }`}
             >
               <Home size={18} />
-              <span>Dashboard</span>
+              <span>{t('navigation.dashboard')}</span>
             </Link>
             <Link
               to="/portfolios"
@@ -89,7 +92,7 @@ export default function Layout() {
               }`}
             >
               <Briefcase size={18} />
-              <span>Portfolios</span>
+              <span>{t('navigation.portfolios')}</span>
             </Link>
             <Link
               to="/charts"
@@ -100,7 +103,7 @@ export default function Layout() {
               }`}
             >
               <LineChart size={18} />
-              <span>Charts</span>
+              <span>{t('navigation.charts')}</span>
             </Link>
             <Link
               to="/insights"
@@ -111,7 +114,7 @@ export default function Layout() {
               }`}
             >
               <TrendingUp size={18} />
-              <span>Insights</span>
+              <span>{t('navigation.insights')}</span>
             </Link>
             <Link
               to="/transactions"
@@ -122,7 +125,7 @@ export default function Layout() {
               }`}
             >
               <ArrowLeftRight size={18} />
-              <span>Transactions</span>
+              <span>{t('navigation.transactions')}</span>
             </Link>
             <Link
               to="/assets"
@@ -133,7 +136,7 @@ export default function Layout() {
               }`}
             >
               <Package size={18} />
-              <span>Assets</span>
+              <span>{t('navigation.assets')}</span>
             </Link>
             <Link
               to="/watchlist"
@@ -144,7 +147,7 @@ export default function Layout() {
               }`}
             >
               <Eye size={18} />
-              <span>Watchlist</span>
+              <span>{t('navigation.watchlist')}</span>
             </Link>
           </nav>
 
@@ -206,7 +209,7 @@ export default function Layout() {
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
                         <Settings size={16} />
-                        Settings
+                        {t('navigation.settings')}
                       </Link>
                       <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
                     {(user?.is_admin || user?.is_superuser) && (
@@ -229,12 +232,14 @@ export default function Layout() {
                         </Link>
                       </>
                     )}
+                      <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
+                      <LanguageSwitcher />
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
                         <LogOut size={16} />
-                        Logout
+                        {t('navigation.logout')}
                       </button>
                     </div>
                   </div>
@@ -257,7 +262,7 @@ export default function Layout() {
                 }`}
               >
                 <Home size={20} />
-                <span className="font-medium">Dashboard</span>
+                <span className="font-medium">{t('navigation.dashboard')}</span>
               </Link>
               <Link
                 to="/portfolios"
@@ -268,7 +273,7 @@ export default function Layout() {
                 }`}
               >
                 <Briefcase size={20} />
-                <span className="font-medium">Portfolios</span>
+                <span className="font-medium">{t('navigation.portfolios')}</span>
               </Link>
               <Link
                 to="/charts"
@@ -279,7 +284,7 @@ export default function Layout() {
                 }`}
               >
                 <LineChart size={20} />
-                <span className="font-medium">Charts</span>
+                <span className="font-medium">{t('navigation.charts')}</span>
               </Link>
               <Link
                 to="/insights"
@@ -290,7 +295,7 @@ export default function Layout() {
                 }`}
               >
                 <TrendingUp size={20} />
-                <span className="font-medium">Insights</span>
+                <span className="font-medium">{t('navigation.insights')}</span>
               </Link>
               <Link
                 to="/transactions"
@@ -301,7 +306,7 @@ export default function Layout() {
                 }`}
               >
                 <ArrowLeftRight size={20} />
-                <span className="font-medium">Transactions</span>
+                <span className="font-medium">{t('navigation.transactions')}</span>
               </Link>
               <Link
                 to="/assets"
@@ -312,7 +317,7 @@ export default function Layout() {
                 }`}
               >
                 <Package size={20} />
-                <span className="font-medium">Assets</span>
+                <span className="font-medium">{t('navigation.assets')}</span>
               </Link>
               <Link
                 to="/watchlist"
@@ -323,7 +328,7 @@ export default function Layout() {
                 }`}
               >
                 <Eye size={20} />
-                <span className="font-medium">Watchlist</span>
+                <span className="font-medium">{t('navigation.watchlist')}</span>
               </Link>
             </nav>
           </div>
