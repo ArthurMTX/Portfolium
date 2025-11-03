@@ -21,26 +21,48 @@ logger = logging.getLogger(__name__)
 # In-memory cache for price fetches (symbol -> (quote, timestamp))
 _price_memory_cache: Dict[str, Tuple[PriceQuote, datetime]] = {}
 _memory_cache_lock: Optional[asyncio.Lock] = None
+_memory_cache_loop: Optional[asyncio.AbstractEventLoop] = None
 _MEMORY_CACHE_TTL = timedelta(seconds=30)  # Very short TTL for in-memory cache
 
 # Deduplication cache for ongoing fetches
 _ongoing_fetches: Dict[str, asyncio.Task] = {}
 _fetch_lock: Optional[asyncio.Lock] = None
+_fetch_lock_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 def _get_memory_lock() -> asyncio.Lock:
     """Get or create the memory cache lock for the current event loop"""
-    global _memory_cache_lock
-    if _memory_cache_lock is None:
+    global _memory_cache_lock, _memory_cache_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, create one
+        current_loop = asyncio.get_event_loop()
+    
+    # Check if lock exists and is bound to the current loop
+    if _memory_cache_lock is None or _memory_cache_loop is not current_loop:
         _memory_cache_lock = asyncio.Lock()
+        _memory_cache_loop = current_loop
+    
     return _memory_cache_lock
 
 
 def _get_fetch_lock() -> asyncio.Lock:
     """Get or create the fetch lock for the current event loop"""
-    global _fetch_lock
-    if _fetch_lock is None:
+    global _fetch_lock, _fetch_lock_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, create one
+        current_loop = asyncio.get_event_loop()
+    
+    # Check if lock exists and is bound to the current loop
+    if _fetch_lock is None or _fetch_lock_loop is not current_loop:
         _fetch_lock = asyncio.Lock()
+        _fetch_lock_loop = current_loop
+    
     return _fetch_lock
 
 
