@@ -69,3 +69,18 @@ export function formatQuantity(value: number | string | null): string {
   const formatted = numValue.toFixed(8)
   return formatted.replace(/\.?0+$/, '')
 }
+
+/**
+ * Format asset type for display
+ * Converts uppercase or snake_case to title case
+ * Special handling for ETF to keep it uppercase
+ */
+export function formatAssetType(type: string | null): string {
+  if (!type) return '-'
+  if (type.trim().toLowerCase() === 'etf') return 'ETF'
+  // Convert to title case and clean up
+  return type
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}

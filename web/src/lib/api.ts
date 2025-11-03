@@ -85,6 +85,32 @@ export interface PortfolioHistoryPointDTO {
   unrealized_pnl_pct?: number  // Unrealized P&L % of current holdings (matches Dashboard)
 }
 
+// Asset Distribution Types
+export interface AssetPositionDTO {
+  asset_id: number
+  total_value: number
+  unrealized_pnl: number
+  percentage: number
+}
+
+export interface DistributionItemDTO {
+  name: string
+  count: number
+  percentage: number
+  total_value: number
+  cost_basis: number
+  unrealized_pnl: number
+  unrealized_pnl_pct: number
+  asset_ids: number[]
+  asset_positions?: AssetPositionDTO[]
+}
+
+export interface IndustryItemDTO {
+  name: string
+  count: number
+  asset_ids: number[]
+}
+
 class ApiClient {
   // Admin
   async getAdminUsers() {
@@ -367,6 +393,32 @@ class ApiClient {
         source: string
       }>
     }>(`/assets/${assetId}/prices?period=${encodeURIComponent(period)}`)
+  }
+
+  // Asset Distribution endpoints
+  async getSectorsDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/sectors${params}`)
+  }
+
+  async getCountriesDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/countries${params}`)
+  }
+
+  async getTypesDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/types${params}`)
+  }
+
+  async getSectorIndustriesDistribution(sectorName: string, portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/sectors/${encodeURIComponent(sectorName)}/industries${params}`)
+  }
+
+  async getIndustriesList(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<IndustryItemDTO[]>(`/assets/distribution/industries${params}`)
   }
 
   async getAssetHealth(assetId: number) {

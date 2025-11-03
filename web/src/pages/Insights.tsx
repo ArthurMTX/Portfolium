@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import { getSectorIcon, getSectorColor } from '../lib/sectorIcons'
+import { getCountryCode } from '../lib/countryUtils'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -132,57 +133,6 @@ interface TopPerformer {
   asset_type?: string | null
 }
 
-const getCountryCode = (country: string | null | undefined): string | null => {
-  if (!country) return null;
-  // ISO 3166-1 alpha-2 country codes, with common aliases
-  const countryCodeMap: Record<string, string> = {
-    'United States': 'us', 'USA': 'us', 'US': 'us',
-    'United Kingdom': 'gb', 'UK': 'gb', 'GB': 'gb',
-    'Canada': 'ca', 'CA': 'ca',
-    'Germany': 'de', 'DE': 'de',
-    'France': 'fr', 'FR': 'fr',
-    'Japan': 'jp', 'JP': 'jp',
-    'China': 'cn', 'CN': 'cn',
-    'Australia': 'au', 'AU': 'au',
-    'India': 'in', 'IN': 'in',
-    'Brazil': 'br', 'BR': 'br',
-    'Switzerland': 'ch', 'CH': 'ch',
-    'Netherlands': 'nl', 'NL': 'nl',
-    'Sweden': 'se', 'SE': 'se',
-    'Norway': 'no', 'NO': 'no',
-    'Denmark': 'dk', 'DK': 'dk',
-    'Finland': 'fi', 'FI': 'fi',
-    'Belgium': 'be', 'BE': 'be',
-    'Austria': 'at', 'AT': 'at',
-    'Spain': 'es', 'ES': 'es',
-    'Italy': 'it', 'IT': 'it',
-    'Ireland': 'ie', 'IE': 'ie',
-    'South Korea': 'kr', 'Korea': 'kr', 'KR': 'kr',
-    'Singapore': 'sg', 'SG': 'sg',
-    'Hong Kong': 'hk', 'HK': 'hk',
-    'Taiwan': 'tw', 'TW': 'tw',
-    'Mexico': 'mx', 'MX': 'mx',
-    'Russia': 'ru', 'Russian Federation': 'ru', 'RU': 'ru',
-    'South Africa': 'za', 'ZA': 'za',
-    'Argentina': 'ar', 'AR': 'ar',
-    'Chile': 'cl', 'CL': 'cl',
-    'Poland': 'pl', 'PL': 'pl',
-    'Turkey': 'tr', 'TR': 'tr',
-    'Indonesia': 'id', 'ID': 'id',
-    'Thailand': 'th', 'TH': 'th',
-    'Malaysia': 'my', 'MY': 'my',
-    'Philippines': 'ph', 'PH': 'ph',
-    'Vietnam': 'vn', 'VN': 'vn',
-    'New Zealand': 'nz', 'NZ': 'nz',
-    'Israel': 'il', 'IL': 'il',
-    'Portugal': 'pt', 'PT': 'pt',
-    'Greece': 'gr', 'GR': 'gr',
-    'Czech Republic': 'cz', 'Czechia': 'cz', 'CZ': 'cz',
-    'Hungary': 'hu', 'HU': 'hu',
-    'Romania': 'ro', 'RO': 'ro',
-  };
-  return countryCodeMap[country] || null;
-};
 
 export default function Insights() {
   const { activePortfolioId, portfolios } = usePortfolioStore()

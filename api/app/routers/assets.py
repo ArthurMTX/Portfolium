@@ -529,6 +529,552 @@ async def get_asset_transaction_history(
     return result
 
 
+@router.get("/distribution/sectors")
+async def get_sectors_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Get distribution of assets by sector with performance metrics
+    
+    Returns aggregated data for each sector including:
+    - Sector name
+    - Asset count
+    - Total market value (sum of all positions in this sector)
+    - Cost basis (sum of all cost bases)
+    - Unrealized P&L (sum of unrealized gains/losses)
+    - Percentage of total assets
+    - List of asset IDs in this sector
+    
+    Optionally filter by portfolio_id to get sector distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    # Get all held assets (with optional portfolio filter)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    
+    # If we have a portfolio_id, get positions for that portfolio
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        # Also get sold positions which might still have data
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    # Group by sector
+    sector_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        sector = asset.get("sector") or "Unknown"
+        sector_data[sector]["assets"].append(asset["id"])
+        sector_data[sector]["count"] += 1
+        
+        # Add position data if available
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            sector_data[sector]["total_value"] += pos.market_value or Decimal(0)
+            sector_data[sector]["cost_basis"] += pos.cost_basis or Decimal(0)
+            sector_data[sector]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    # Convert to list format
+    result = []
+    for sector, data in sector_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        result.append({
+            "name": sector,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/countries")
+async def get_countries_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Get distribution of assets by country with performance metrics
+    
+    Returns aggregated data for each country including:
+    - Country name
+    - Asset count
+    - Total market value
+    - Cost basis
+    - Unrealized P&L
+    - Percentage of total assets
+    - List of asset IDs in this country
+    
+    Optionally filter by portfolio_id to get country distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    country_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        country = asset.get("country") or "Unknown"
+        country_data[country]["assets"].append(asset["id"])
+        country_data[country]["count"] += 1
+        
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            country_data[country]["total_value"] += pos.market_value or Decimal(0)
+            country_data[country]["cost_basis"] += pos.cost_basis or Decimal(0)
+            country_data[country]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    result = []
+    for country, data in country_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        # Build asset positions list if we have portfolio data
+        asset_positions = []
+        if portfolio_id is not None:
+            country_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / country_total * 100) if country_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+        
+        result.append({
+            "name": country,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/types")
+async def get_types_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Get distribution of assets by type with performance metrics
+    
+    Returns aggregated data for each asset type including:
+    - Type name (e.g., EQUITY, ETF, CRYPTO)
+    - Asset count
+    - Total market value
+    - Cost basis
+    - Unrealized P&L
+    - Percentage of total assets
+    - List of asset IDs of this type
+    
+    Optionally filter by portfolio_id to get type distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    type_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        asset_type = asset.get("asset_type") or "Unknown"
+        type_data[asset_type]["assets"].append(asset["id"])
+        type_data[asset_type]["count"] += 1
+        
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            type_data[asset_type]["total_value"] += pos.market_value or Decimal(0)
+            type_data[asset_type]["cost_basis"] += pos.cost_basis or Decimal(0)
+            type_data[asset_type]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    result = []
+    for asset_type, data in type_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        # Build asset positions list if we have portfolio data
+        asset_positions = []
+        if portfolio_id is not None:
+            type_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / type_total * 100) if type_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+        
+        result.append({
+            "name": asset_type,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/industries")
+async def get_industries_distribution(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Get distribution of assets by industry with performance metrics
+    
+    Returns aggregated data for each industry including:
+    - Industry name
+    - Asset count
+    - Total market value (sum of all positions in this industry)
+    - Cost basis (sum of all cost bases)
+    - Unrealized P&L (sum of unrealized gains/losses)
+    - Percentage of total assets
+    - List of asset IDs in this industry
+    
+    Optionally filter by portfolio_id to get industry distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    # Get all held assets (with optional portfolio filter)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    
+    # If we have a portfolio_id, get positions for that portfolio
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        # Also get sold positions which might still have data
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    # Group by industry
+    industry_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        industry = asset.get("industry") or "Unknown"
+        industry_data[industry]["assets"].append(asset["id"])
+        industry_data[industry]["count"] += 1
+        
+        # Add position data if available
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            industry_data[industry]["total_value"] += pos.market_value or Decimal(0)
+            industry_data[industry]["cost_basis"] += pos.cost_basis or Decimal(0)
+            industry_data[industry]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    # Convert to list format
+    result = []
+    for industry, data in industry_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        result.append({
+            "name": industry,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/sectors/{sector_name}/industries")
+async def get_sector_industries_distribution(
+    sector_name: str, 
+    portfolio_id: int | None = None, 
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of industries within a specific sector with performance metrics
+    
+    Returns aggregated data for each industry in the specified sector including:
+    - Industry name
+    - Asset count
+    - Total market value (sum of all positions in this industry)
+    - Cost basis (sum of all cost bases)
+    - Unrealized P&L (sum of unrealized gains/losses)
+    - Percentage of sector total
+    - List of asset IDs in this industry
+    
+    Optionally filter by portfolio_id.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    from urllib.parse import unquote
+    
+    # Decode the sector name from URL encoding
+    sector_name = unquote(sector_name)
+    
+    # Get all held assets for the sector
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    
+    # Filter by sector
+    sector_assets = [a for a in held_assets_data if (a.get("sector") or "Unknown") == sector_name]
+    
+    if not sector_assets:
+        return []
+    
+    # If we have a portfolio_id, get positions for that portfolio
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    # Group by industry within this sector
+    industry_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    sector_total_value = Decimal(0)
+    
+    # Calculate sector total value if we have positions
+    if portfolio_id is not None:
+        sector_total_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in sector_assets
+            if asset["id"] in positions_map
+        )
+    
+    for asset in sector_assets:
+        industry = asset.get("industry") or "Unknown"
+        industry_data[industry]["assets"].append(asset["id"])
+        industry_data[industry]["count"] += 1
+        
+        # Add position data if available
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            industry_data[industry]["total_value"] += pos.market_value or Decimal(0)
+            industry_data[industry]["cost_basis"] += pos.cost_basis or Decimal(0)
+            industry_data[industry]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    # Convert to list format
+    result = []
+    for industry, data in industry_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on sector total value if available, otherwise use count
+        if portfolio_id is not None and sector_total_value > 0:
+            percentage = float(data["total_value"] / sector_total_value * 100)
+        else:
+            percentage = (data["count"] / len(sector_assets) * 100) if len(sector_assets) > 0 else 0
+        
+        # Build asset positions list if we have portfolio data
+        asset_positions = []
+        if portfolio_id is not None:
+            industry_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / industry_total * 100) if industry_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+        
+        result.append({
+            "name": industry,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
 @router.get("/{asset_id}/prices")
 async def get_asset_price_history(
     asset_id: int,

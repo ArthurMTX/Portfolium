@@ -469,10 +469,12 @@ class MetricsService:
                     f"{price_quote.price} {asset.currency} -> {current_price} {target_currency}"
                 )
             else:
-                logger.warning(
+                logger.error(
                     f"Failed to convert price for {asset.symbol} from "
-                    f"{asset.currency} to {target_currency}. Using original price."
+                    f"{asset.currency} to {target_currency}. Skipping this position to avoid incorrect valuation."
                 )
+                # Return None instead of using unconverted price to avoid massive valuation errors
+                return None
         
         # Calculate market value and P&L
         market_value = quantity * current_price if current_price else None
