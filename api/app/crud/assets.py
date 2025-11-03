@@ -52,6 +52,7 @@ def get_assets(
 def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
     import yfinance as yf
+    import re
     
     # Fetch additional info from yfinance
     ticker = yf.Ticker(asset.symbol)
@@ -66,6 +67,9 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
         # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
         if not asset.name or asset.name == asset.symbol:
             name = info.get('longName') or info.get('shortName') or asset.symbol
+            # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
+            if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+                name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
         else:
             name = asset.name
     except Exception:
@@ -126,6 +130,7 @@ def delete_asset(db: Session, asset_id: int) -> bool:
 def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     """Enrich asset with metadata from yfinance"""
     import yfinance as yf
+    import re
     
     db_asset = get_asset(db, asset_id)
     if not db_asset:
@@ -147,10 +152,25 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
         yf_currency = info.get('currency')
         if yf_currency:
             db_asset.currency = yf_currency
-        # Always update name if it's missing or just the symbol
-        if not db_asset.name or db_asset.name == db_asset.symbol or db_asset.name.upper() == db_asset.symbol.upper():
+        
+        # Check if name needs updating
+        needs_name_update = (not db_asset.name or 
+                           db_asset.name == db_asset.symbol or 
+                           db_asset.name.upper() == db_asset.symbol.upper())
+        
+        # Also update if cryptocurrency name has currency suffix
+        is_crypto_with_suffix = False
+        if db_asset.asset_type and db_asset.asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO'] and db_asset.name:
+            is_crypto_with_suffix = bool(re.search(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', db_asset.name, flags=re.IGNORECASE))
+        
+        # Always update name if it's missing, matches symbol, or is crypto with suffix
+        if needs_name_update or is_crypto_with_suffix:
             yf_name = info.get('longName') or info.get('shortName')
             if yf_name:
+                # Strip currency suffixes from cryptocurrency names
+                asset_type = db_asset.asset_type or info.get('quoteType')
+                if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+                    yf_name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', yf_name, flags=re.IGNORECASE)
                 db_asset.name = yf_name
         db.commit()
         db.refresh(db_asset)
@@ -164,6 +184,7 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
 def enrich_all_assets(db: Session) -> dict:
     """Enrich all assets with metadata from yfinance"""
     import yfinance as yf
+    import re
     
     assets = db.query(Asset).all()
     enriched = 0
@@ -176,9 +197,14 @@ def enrich_all_assets(db: Session) -> dict:
                                asset.name == asset.symbol or 
                                asset.name.upper() == asset.symbol.upper())
             
+            # Also check if cryptocurrency name has currency suffix that needs stripping
+            is_crypto_with_suffix = False
+            if asset.asset_type and asset.asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO'] and asset.name:
+                is_crypto_with_suffix = bool(re.search(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', asset.name, flags=re.IGNORECASE))
+            
             # Skip if already has all metadata and name doesn't need updating
             if (asset.sector and asset.industry and asset.asset_type and 
-                asset.country and not needs_name_update):
+                asset.country and not needs_name_update and not is_crypto_with_suffix):
                 continue
             
             ticker = yf.Ticker(asset.symbol)
@@ -202,10 +228,14 @@ def enrich_all_assets(db: Session) -> dict:
             if yf_currency and asset.currency != yf_currency:
                 asset.currency = yf_currency
                 updated = True
-            # Always update name if it's missing or just the symbol
-            if needs_name_update:
+            # Always update name if it's missing or just the symbol, or if it's a crypto with currency suffix
+            if needs_name_update or is_crypto_with_suffix:
                 yf_name = info.get('longName') or info.get('shortName')
                 if yf_name:
+                    # Strip currency suffixes from cryptocurrency names
+                    asset_type = asset.asset_type or info.get('quoteType')
+                    if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+                        yf_name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', yf_name, flags=re.IGNORECASE)
                     asset.name = yf_name
                     updated = True
             if updated:

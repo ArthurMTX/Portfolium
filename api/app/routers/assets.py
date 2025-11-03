@@ -338,7 +338,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     Fetch and return the best available logo for a symbol.
 
     Strategy:
-    1. For ETFs (asset_type='ETF'), skip cache and generate SVG logo directly
+    1. For ETFs and Cryptocurrencies, skip cache and generate/fetch logo to avoid incorrect brand logos
     2. For other assets, check database cache first for previously fetched logos
     3. Try direct ticker fetch and cache result
     4. Try API search with company name and cache result
@@ -359,11 +359,23 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     # Get or create asset in database
     db_asset = crud_assets.get_asset_by_symbol(db, symbol.upper())
     
-    # For ETFs, skip cache and generate SVG directly to avoid incorrect brand logos
-    is_etf = asset_type and asset_type.upper() == 'ETF'
+    # Use database asset_type if query param not provided
+    effective_asset_type = asset_type
+    if not effective_asset_type and db_asset:
+        effective_asset_type = db_asset.asset_type
     
-    # Check database cache first (but skip for ETFs)
-    if db_asset and not is_etf:
+    # Use database name if query param not provided
+    effective_name = name
+    if not effective_name and db_asset:
+        effective_name = db_asset.name
+    
+    # For ETFs and Cryptocurrencies, skip cache to avoid incorrect brand logos
+    is_etf = effective_asset_type and effective_asset_type.upper() == 'ETF'
+    is_crypto = effective_asset_type and effective_asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
+    skip_cache = is_etf or is_crypto
+    
+    # Check database cache first (but skip for ETFs and cryptocurrencies)
+    if db_asset and not skip_cache:
         cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
             logo_data, content_type = cached
@@ -376,8 +388,8 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
             return response
 
     # Fetch logo using the consolidated validation function
-    # For ETFs, this will generate SVG directly; for others, tries brand search then SVG fallback
-    logo_data = fetch_logo_with_validation(symbol, company_name=name, asset_type=asset_type)
+    # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
+    logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
     
     # Determine content type based on data
     if logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml'):
@@ -387,8 +399,8 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         content_type = 'image/webp'
         cache_time = 2592000  # 30 days for real logos
     
-    # Cache in database if asset exists (cache SVG for ETFs too)
-    if db_asset:
+    # Cache in database if asset exists and not ETF/Crypto (they should be refetched each time)
+    if db_asset and not skip_cache:
         crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
     
     # Return the logo

@@ -57,7 +57,8 @@ export const normalizeTickerForLogo = (symbol: string): string => {
 
 /**
  * Get the appropriate logo URL for an asset
- * For ETFs, uses the API endpoint directly to ensure SVG fallback generation
+ * For ETFs and Cryptocurrencies, uses the API endpoint directly with asset_type parameter
+ * to ensure proper logo fetching logic (avoiding incorrect ticker matches)
  * For other assets, uses static logos with API fallback on error
  */
 export const getAssetLogoUrl = (
@@ -67,10 +68,14 @@ export const getAssetLogoUrl = (
 ): string => {
   const normalizedSymbol = normalizeTickerForLogo(symbol)
   
-  // For ETFs, use the API endpoint directly to ensure proper SVG fallback
-  if (assetType?.toUpperCase() === 'ETF') {
+  // For ETFs and Cryptocurrencies, use the API endpoint directly with asset_type parameter
+  // This ensures the backend skips ticker search and uses appropriate logo fetching strategy
+  const assetTypeUpper = assetType?.toUpperCase()
+  if (assetTypeUpper === 'ETF' || assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO') {
     const params = new URLSearchParams()
-    params.set('asset_type', 'ETF')
+    if (assetType) {
+      params.set('asset_type', assetType)
+    }
     if (assetName) {
       params.set('name', assetName)
     }

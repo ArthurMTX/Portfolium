@@ -468,11 +468,12 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
     
     Strategy:
     1. If asset_type is 'ETF', generate SVG logo immediately (skip brand search)
-    2. Try direct CDN fetch using ticker as brand ID
-    3. If direct ticker returns empty/invalid, try searching by ticker (API search)
-    4. If that fails, try searching by company name
-    5. If all else fails, generate an SVG logo with the ticker
-    6. Validate all fetched images to ensure they're not empty
+    2. For cryptocurrencies, skip direct CDN and ticker search to avoid wrong matches
+    3. For other assets, try direct CDN fetch using ticker as brand ID
+    4. If direct ticker returns empty/invalid, try searching by ticker (API search)
+    5. If that fails, try searching by company name
+    6. If all else fails, generate an SVG logo with the ticker
+    7. Validate all fetched images to ensure they're not empty
     
     Args:
         ticker: Stock ticker symbol
@@ -488,23 +489,33 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
         svg_logo = generate_etf_logo(ticker)
         return svg_logo.encode('utf-8')
     
-    # Strategy 1: Direct fetch by ticker
-    logo_data = fetch_logo_direct(ticker)
-    if logo_data:
-        return logo_data
+    # Check if cryptocurrency to skip ticker-based searches
+    is_crypto = asset_type and asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
+    
+    # Strategy 1: Direct fetch by ticker (skip for cryptocurrencies)
+    if not is_crypto:
+        logo_data = fetch_logo_direct(ticker)
+        if logo_data:
+            return logo_data
+    else:
+        logger.info(f"Skipping direct CDN fetch for cryptocurrency {ticker}")
     
     # Strategy 2: Search API using normalized ticker as search term
-    logger.info(f"Direct ticker fetch failed for {ticker}, trying API search by ticker")
-    normalized_ticker = _normalize_ticker_for_search(ticker)
-    if normalized_ticker:
-        results = brandfetch_search(normalized_ticker)
-        best = pick_best_brand(results) if results else None
-        brand_id = best.get('brandId') if best else None
-        if brand_id and brand_id != ticker:
-            logo_data = fetch_logo_by_brand_id(brand_id)
-            if logo_data:
-                logger.info(f"Successfully fetched logo via ticker search for {ticker}")
-                return logo_data
+    # Skip ticker search for cryptocurrencies to avoid matching company tickers (e.g., BTC matching companies named BTC)
+    if not is_crypto:
+        logger.info(f"Direct ticker fetch failed for {ticker}, trying API search by ticker")
+        normalized_ticker = _normalize_ticker_for_search(ticker)
+        if normalized_ticker:
+            results = brandfetch_search(normalized_ticker)
+            best = pick_best_brand(results) if results else None
+            brand_id = best.get('brandId') if best else None
+            if brand_id and brand_id != ticker:
+                logo_data = fetch_logo_by_brand_id(brand_id)
+                if logo_data:
+                    logger.info(f"Successfully fetched logo via ticker search for {ticker}")
+                    return logo_data
+    else:
+        logger.info(f"Skipping ticker search for cryptocurrency {ticker}")
     
     # Strategy 3: Search by company name if provided
     if company_name:
