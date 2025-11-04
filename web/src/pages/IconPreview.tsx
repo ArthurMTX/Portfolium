@@ -1,6 +1,15 @@
 import { useState } from 'react';
-import { Search, X, Palette } from 'lucide-react';
-import { SECTOR_ICONS, INDUSTRY_ICONS, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
+import { Search, X, Palette, LucideIcon } from 'lucide-react';
+import { 
+  SECTOR_ICONS, 
+  INDUSTRY_ICONS, 
+  getSectorColor, 
+  getIndustryColor,
+  getSectorForIndustry,
+  getExampleTickerForIndustry,
+  getExampleNameForIndustry,
+} from '../lib/sectorIndustryUtils';
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 
 export default function IconPreview() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -11,9 +20,48 @@ export default function IconPreview() {
     name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter industries
-  const filteredIndustries = Object.entries(INDUSTRY_ICONS).filter(([name]) =>
-    name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Group industries by sector and filter
+  const industriesBySector: Record<string, Array<[string, LucideIcon]>> = {};
+  
+  Object.entries(INDUSTRY_ICONS).forEach(([industryName, icon]) => {
+    const sector = getSectorForIndustry(industryName) || 'Unknown';
+    const matchesSearch = industryName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         sector.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (matchesSearch) {
+      if (!industriesBySector[sector]) {
+        industriesBySector[sector] = [];
+      }
+      industriesBySector[sector].push([industryName, icon]);
+    }
+  });
+
+  // Sort sectors alphabetically, but put Other and Unknown at the end
+  const sortedSectors = Object.keys(industriesBySector).sort((a, b) => {
+    const isASpecial = a === 'Other' || a === 'Unknown';
+    const isBSpecial = b === 'Other' || b === 'Unknown';
+    
+    // Both are special - maintain order (Other, then Unknown)
+    if (isASpecial && isBSpecial) {
+      if (a === 'Other') return -1;
+      if (b === 'Other') return 1;
+      return 0;
+    }
+    
+    // A is special, B is not - A goes to end
+    if (isASpecial) return 1;
+    
+    // B is special, A is not - B goes to end
+    if (isBSpecial) return -1;
+    
+    // Neither is special - sort alphabetically
+    return a.localeCompare(b);
+  });
+  
+  // Count total filtered industries
+  const totalFilteredIndustries = Object.values(industriesBySector).reduce(
+    (sum, industries) => sum + industries.length, 
+    0
   );
 
   return (
@@ -147,14 +195,14 @@ export default function IconPreview() {
 
       {/* Industries Tab Content */}
       {selectedTab === 'industries' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">
-              {searchQuery ? `Found ${filteredIndustries.length} industry(ies)` : 'All Industries'}
+              {searchQuery ? `Found ${totalFilteredIndustries} industry(ies) across ${sortedSectors.length} sector(s)` : 'All Industries by Sector'}
             </h2>
           </div>
 
-          {filteredIndustries.length === 0 ? (
+          {totalFilteredIndustries === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
               <p>No industries match your search</p>
               <button
@@ -165,31 +213,75 @@ export default function IconPreview() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredIndustries.map(([name, Icon]) => (
-                <div
-                  key={name}
-                  className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4 hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 p-2 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
-                      <Icon size={20} className={getIndustryColor(name)} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm text-neutral-900 dark:text-neutral-100 line-clamp-2">
-                        {name}
-                      </h3>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">
-                        {Icon.displayName || Icon.name || 'Icon'}
-                      </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Icon size={14} className={getIndustryColor(name)} />
-                        <span className="text-xs text-neutral-600 dark:text-neutral-400">14px</span>
+            <div className="space-y-8">
+              {sortedSectors.map((sector) => {
+                const SectorIcon = SECTOR_ICONS[sector];
+                const industries = industriesBySector[sector];
+                
+                return (
+                  <div key={sector} className="space-y-4">
+                    {/* Sector Header */}
+                    <div className="flex items-center gap-3 pb-2 border-b-2 border-neutral-200 dark:border-neutral-700">
+                      {SectorIcon && <SectorIcon size={24} className={getSectorColor(sector)} />}
+                      <div>
+                        <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                          {sector}
+                        </h3>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                          {industries.length} {industries.length === 1 ? 'industry' : 'industries'}
+                        </p>
                       </div>
                     </div>
+
+                    {/* Industries Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {industries.map(([industryName, Icon]) => {
+                        const exampleTicker = getExampleTickerForIndustry(industryName);
+                        const exampleName = getExampleNameForIndustry(industryName)
+                        
+                        return (
+                          <div
+                            key={industryName}
+                            className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4 hover:shadow-lg transition-shadow"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 p-2 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                                <Icon size={20} className={getIndustryColor(industryName)} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                                  {industryName}
+                                </h4>
+                                
+                                {/* Example Company */}
+                                {exampleTicker && (
+                                  <div className="mt-3 flex items-center gap-2 p-2 bg-neutral-50 dark:bg-neutral-800 rounded-md">
+                                    <img
+                                      src={getAssetLogoUrl(exampleTicker, 'STOCK', null)}
+                                      alt={exampleTicker}
+                                      className="w-6 h-6 rounded object-cover flex-shrink-0"
+                                      onError={(e) => handleLogoError(e, exampleTicker, null, 'STOCK')}
+                                      loading="lazy"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300 truncate">
+                                        {exampleTicker}
+                                      </p>
+                                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                        {exampleName}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

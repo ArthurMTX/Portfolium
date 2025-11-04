@@ -12,12 +12,14 @@ import {
   Laptop,
   Wifi,
   Radio,
-  Satellite,
   Monitor,
   Globe,
   Network,
   Server,
   HardDrive,
+  Microchip,
+  Gamepad,
+  MemoryStick,
   
   // Healthcare & Pharmaceuticals
   Heart,
@@ -28,6 +30,11 @@ import {
   Microscope,
   FlaskConical,
   Dna,
+  BriefcaseMedical,
+  PillBottle,
+  HeartPlus,
+  Cross,
+  Hospital,
   
   // Financial Services
   DollarSign,
@@ -36,7 +43,6 @@ import {
   Building2,
   Coins,
   TrendingUp,
-  Wallet,
   
   // Energy & Utilities
   Zap,
@@ -54,7 +60,6 @@ import {
   Home,
   Shirt,
   Wine,
-  Coffee,
   Pizza,
   Car,
   Sofa,
@@ -81,7 +86,6 @@ import {
   Warehouse,
   
   // Transportation
-  Plane,
   Ship,
   Train,
   Truck,
@@ -108,553 +112,289 @@ import {
   
   // Fallback
   HelpCircle,
+  Drill,
+  Radiation,
+  Fuel,
+  CarFront,
+  CarTaxiFront,
+  ShoppingBasket,
+  TicketsPlane,
+  Volleyball,
+  Apple,
+  Container,
+  CupSoda,
+  Beer,
+  Cigarette,
+  Lamp,
+  ChartCandlestick,
+  LandPlot,
+  BadgeDollarSign,
+  TrendingUpDown,
+  ShieldPlus,
+  ShieldQuestionMark,
+  ShieldEllipsis,
+  Rss,
+  PlaneTakeoff,
+  PlaneLanding,
+  Anvil,
+  Handshake,
+  Cable,
+  Users,
+  Tractor,
+  BrickWallShield,
+  WashingMachine,
+  PencilRuler,
+  Forklift,
+  Trash,
+  MessageCircleQuestionMark,
+  TicketPercent,
+  DropletOff,
+  BrickWall,
+  Atom,
+  FlaskRound,
+  Pickaxe,
+  Cuboid,
+  HouseHeart,
+  HousePlug,
+  HouseWifi,
+  HousePlus,
+  BadgeQuestionMark
 } from 'lucide-react';
 
 import { LucideIcon } from 'lucide-react';
 
 /**
- * Sector to Icon mapping
- * Based on GICS (Global Industry Classification Standard) sectors used by Yahoo Finance
+ * Industry configuration with sector, icon, and example ticker
  */
-export const SECTOR_ICONS: Record<string, LucideIcon> = {
-  // Technology
-  'Technology': Cpu,
-  'Communication Services': Radio,
-  'Telecommunications': Smartphone,
-  
-  // Healthcare
-  'Healthcare': Heart,
-  
-  // Financial
-  'Financial Services': Landmark,
-  
-  // Energy
-  'Energy': Zap,
-  
-  // Utilities
-  'Utilities': Lightbulb,
-  
-  // Consumer
-  'Consumer Cyclical': ShoppingCart,
-  'Consumer Defensive': ShoppingBag,
-  'Consumer Discretionary': ShoppingCart,
-  'Consumer Staples': ShoppingBag,
-  
-  // Industrial
-  'Industrials': Factory,
-  
-  // Basic Materials
-  'Basic Materials': Mountain,
-  'Materials': Mountain,
-  
-  // Real Estate
-  'Real Estate': Building,
-  
-  // Other
-  'Unknown': HelpCircle,
-  'Other': Briefcase,
-};
+interface IndustryConfig {
+  sector: string;
+  icon: LucideIcon;
+  exampleTicker?: string;
+  exampleName?: string;
+}
 
 /**
- * Industry to Icon mapping
- * Comprehensive mapping of Yahoo Finance industries to appropriate Lucide icons
+ * Master industry configuration
+ * Single source of truth for all industry-to-sector-to-icon mappings
  */
-export const INDUSTRY_ICONS: Record<string, LucideIcon> = {
-  // Technology - Software & IT Services
-  'Software—Application': Laptop,
-  'Software—Infrastructure': Server,
-  'Software': Monitor,
-  'Information Technology Services': Network,
-  'Internet Content & Information': Globe,
-  'Electronic Gaming & Multimedia': Film,
-  'Software - Application': Laptop,
-  'Software - Infrastructure': Server,
-  
-  // Technology - Hardware
-  'Computer Hardware': Monitor,
-  'Consumer Electronics': Smartphone,
-  'Electronic Components': Cpu,
-  'Electronics & Computer Distribution': HardDrive,
-  'Scientific & Technical Instruments': Microscope,
-  'Semiconductors': Cpu,
-  'Semiconductor Equipment & Materials': Cpu,
-  
+const INDUSTRY_CONFIG: Record<string, IndustryConfig> = {
+  // Technology
+  'Information Technology Services': { sector: 'Technology', icon: Network, exampleTicker: 'IBM', exampleName: 'International Business Machines Corporation' },
+  'Software - Application': { sector: 'Technology', icon: Laptop, exampleTicker: 'MSFT', exampleName: 'Microsoft Corporation' },
+  'Software - Infrastructure': { sector: 'Technology', icon: Server, exampleTicker: 'CRM', exampleName: 'Salesforce, Inc.' },
+  'Computer Hardware': { sector: 'Technology', icon: Monitor, exampleTicker: 'ANET', exampleName: 'Arista Networks Inc' },
+  'Consumer Electronics': { sector: 'Technology', icon: Smartphone, exampleTicker: 'AAPL', exampleName: 'Apple Inc.' },
+  'Communication Equipment': { sector: 'Technology', icon: Wifi, exampleTicker: 'CSCO', exampleName: 'Cisco Systems, Inc.' },
+  'Electronic Components': { sector: 'Technology', icon: Cpu, exampleTicker: 'APH', exampleName: 'Amphenol Corporation' },
+  'Electronics & Computer Distribution': { sector: 'Technology', icon: HardDrive, exampleTicker: 'SNX', exampleName: 'TD SYNNEX Corporation' },
+  'Scientific & Technical Instruments': { sector: 'Technology', icon: Microscope, exampleTicker: 'GRMN', exampleName: 'Garmin Ltd.' },
+  'Semiconductors': { sector: 'Technology', icon: Microchip, exampleTicker: 'NVDA', exampleName: 'NVIDIA Corporation' },
+  'Semiconductor Equipment & Materials': { sector: 'Technology', icon: MemoryStick, exampleTicker: 'LRCX', exampleName: 'Lam Research Corporation' },
+  'Solar': { sector: 'Technology', icon: Sun, exampleTicker: 'FSLR', exampleName: 'First Solar, Inc.' },
+
   // Communication Services
-  'Telecom Services': Radio,
-  'Wireless Telecommunication Services': Wifi,
-  'Diversified Telecommunication Services': Satellite,
-  'Entertainment': Tv,
-  'Broadcasting': Radio,
-  'Interactive Media & Services': Globe,
-  'Publishing': Newspaper,
-  'Advertising Agencies': Camera,
+  'Internet Content & Information': { sector: 'Communication Services', icon: Rss, exampleTicker: 'GOOGL', exampleName: 'Alphabet Inc.' },
+  'Telecom Services': { sector: 'Communication Services', icon: Radio, exampleTicker: 'TMUS', exampleName: 'T-Mobile US, Inc.' },
+  'Entertainment': { sector: 'Communication Services', icon: Tv, exampleTicker: 'NFLX', exampleName: 'Netflix, Inc.' },
+  'Broadcasting': { sector: 'Communication Services', icon: Radio, exampleTicker: 'NXST', exampleName: 'Nexstar Media Group, Inc.' },
+  'Electronic Gaming & Multimedia': { sector: 'Communication Services', icon: Gamepad, exampleTicker: 'RBLX', exampleName: 'Roblox Corporation' },
+  'Publishing': { sector: 'Communication Services', icon: Newspaper, exampleTicker: 'NYT', exampleName: 'The New York Times Company' },
+  'Advertising Agencies': { sector: 'Communication Services', icon: Camera, exampleTicker: 'APP', exampleName: 'AppLovin Corporation' },
+
+  // Healthcare
+  'Biotechnology': { sector: 'Healthcare', icon: Dna, exampleTicker: 'VRTX', exampleName: 'Vertex Pharmaceuticals Incorporated' },
+  'Pharmaceutical Retailers': { sector: 'Healthcare', icon: Cross, exampleTicker: 'CVS', exampleName: 'CVS Health Corporation' },
+  'Drug Manufacturers - General': { sector: 'Healthcare', icon: Pill, exampleTicker: 'LLY', exampleName: 'Eli Lilly and Company' },
+  'Drug Manufacturers - Specialty & Generic': { sector: 'Healthcare', icon: PillBottle, exampleTicker: 'JDHIY', exampleName: 'JD Health International Inc.' },
+  'Medical Devices': { sector: 'Healthcare', icon: Stethoscope, exampleTicker: 'ABT', exampleName: 'Abbott Laboratories' },
+  'Medical Instruments & Supplies': { sector: 'Healthcare', icon: Syringe, exampleTicker: 'ISRG', exampleName: 'Intuitive Surgical, Inc.' },
+  'Medical Care Facilities': { sector: 'Healthcare', icon: Hospital, exampleTicker: 'HCA', exampleName: 'HCA Healthcare, Inc.' },
+  'Medical Distribution': { sector: 'Healthcare', icon: BriefcaseMedical, exampleTicker: 'MCK', exampleName: 'McKesson Corporation' },
+  'Diagnostics & Research': { sector: 'Healthcare', icon: FlaskConical, exampleTicker: 'TMO', exampleName: 'Thermo Fisher Scientific Inc.' },
+  'Health Information Services': { sector: 'Healthcare', icon: Activity, exampleTicker: 'VEEV', exampleName: 'Veeva Systems Inc.' },
+  'Healthcare Plans': { sector: 'Healthcare', icon: HeartPlus, exampleTicker: 'UNH', exampleName: 'UnitedHealth Group Incorporated' },
   
-  // Healthcare - Pharma & Biotech
-  'Biotechnology': Dna,
-  'Drug Manufacturers—General': Pill,
-  'Drug Manufacturers—Specialty & Generic': Pill,
-  'Pharmaceutical Retailers': Pill,
-  'Drug Manufacturers - General': Pill,
-  'Drug Manufacturers - Specialty & Generic': Pill,
-  
-  // Healthcare - Medical
-  'Medical Devices': Stethoscope,
-  'Medical Instruments & Supplies': Syringe,
-  'Medical Care Facilities': Heart,
-  'Medical Distribution': Activity,
-  'Health Care Equipment & Supplies': Stethoscope,
-  'Health Care Providers & Services': Heart,
-  'Diagnostics & Research': FlaskConical,
-  'Medical Diagnostics & Research': Microscope,
-  'Health Information Services': Activity,
-  
-  // Financial Services - Banking
-  'Banks—Diversified': Landmark,
-  'Banks—Regional': Building2,
-  'Banks - Diversified': Landmark,
-  'Banks - Regional': Building2,
-  'Diversified Banks': Landmark,
-  'Regional Banks': Building2,
-  
-  // Financial Services - Investment
-  'Asset Management': TrendingUp,
-  'Investment Banking & Brokerage': DollarSign,
-  'Capital Markets': TrendingUp,
-  'Financial Data & Stock Exchanges': Coins,
-  'Credit Services': CreditCard,
-  'Insurance—Diversified': Shield,
-  'Insurance—Life': Heart,
-  'Insurance—Property & Casualty': Building2,
-  'Insurance—Reinsurance': Shield,
-  'Insurance—Specialty': FileText,
-  'Insurance - Diversified': Shield,
-  'Insurance - Life': Heart,
-  'Insurance - Property & Casualty': Building2,
-  'Diversified Financial Services': Wallet,
-  'Consumer Finance': CreditCard,
-  'Mortgage Finance': HomeIcon,
-  
+  // Financial Services
+  'Banks - Diversified': { sector: 'Financial Services', icon: Landmark, exampleTicker: 'JPM', exampleName: 'JPMorgan Chase & Co.' },
+  'Banks - Regional': { sector: 'Financial Services', icon: Building2, exampleTicker: 'NU', exampleName: 'NuBank' },
+  'Asset Management': { sector: 'Financial Services', icon: TrendingUp, exampleTicker: 'BX', exampleName: 'Blackstone Inc.' },
+  'Capital Markets': { sector: 'Financial Services', icon: ChartCandlestick, exampleTicker: 'GS', exampleName: 'Goldman Sachs Group, Inc.' },
+  'Financial Data & Stock Exchanges': { sector: 'Financial Services', icon: Coins, exampleTicker: 'SPGI', exampleName: 'S&P Global Inc.' },
+  'Credit Services': { sector: 'Financial Services', icon: CreditCard, exampleTicker: 'V', exampleName: 'Visa Inc.' },
+  'Insurance - Diversified': { sector: 'Financial Services', icon: Shield, exampleTicker: 'BRK-B', exampleName: 'Berkshire Hathaway Inc.' },
+  'Insurance - Life': { sector: 'Financial Services', icon: ShieldPlus, exampleTicker: 'AFL', exampleName: 'Aflac Incorporated' },
+  'Insurance - Property & Casualty': { sector: 'Financial Services', icon: LandPlot, exampleTicker: 'PGR', exampleName: 'The Progressive Corporation' },
+  'Insurance - Specialty': { sector: 'Financial Services', icon: ShieldQuestionMark, exampleTicker: 'FNF', exampleName: 'Fidelity National Financial, Inc.' },
+  'Insurance - Reinsurance': { sector: 'Financial Services', icon: ShieldEllipsis, exampleTicker: 'EG', exampleName: 'Everest Group, Ltd.' },
+  'Mortgage Finance': { sector: 'Financial Services', icon: HomeIcon, exampleTicker: 'FNMA', exampleName: 'Federal National Mortgage Association' },
+  'Insurance Brokers': { sector: 'Financial Services', icon: BadgeDollarSign, exampleTicker: 'MMC', exampleName: 'Marsh & McLennan Companies, Inc.' },
+  'Financial Conglomerates': { sector: 'Financial Services', icon: DollarSign, exampleTicker: 'FRHC', exampleName: 'Freedom Holding Corp.' },
+  'Shell Companies': { sector: 'Financial Services', icon: TrendingUpDown, exampleTicker: 'CCCX', exampleName: 'Churchill Capital Corp X' },
+
   // Energy
-  'Oil & Gas E&P': Flame,
-  'Oil & Gas Integrated': Zap,
-  'Oil & Gas Midstream': Droplet,
-  'Oil & Gas Refining & Marketing': Flame,
-  'Oil & Gas Drilling': Wrench,
-  'Oil & Gas Equipment & Services': Wrench,
-  'Thermal Coal': Mountain,
-  'Uranium': Zap,
-  'Solar': Sun,
-  
+  'Oil & Gas E&P': { sector: 'Energy', icon: Fuel, exampleTicker: 'COP', exampleName: 'ConocoPhillips' },
+  'Oil & Gas Integrated': { sector: 'Energy', icon: Zap, exampleTicker: 'XOM', exampleName: 'Exxon Mobil Corporation' },
+  'Oil & Gas Midstream': { sector: 'Energy', icon: Droplet, exampleTicker: 'WMB', exampleName: 'Williams Companies, Inc.' },
+  'Oil & Gas Refining & Marketing': { sector: 'Energy', icon: Flame, exampleTicker: 'MPC', exampleName: 'Marathon Petroleum Corporation' },
+  'Oil & Gas Drilling': { sector: 'Energy', icon: Drill, exampleTicker: 'NE', exampleName: 'Noble Corporation' },
+  'Oil & Gas Equipment & Services': { sector: 'Energy', icon: Wrench, exampleTicker: 'SLB', exampleName: 'SLB N.V.' },
+  'Thermal Coal': { sector: 'Energy', icon: Mountain, exampleTicker: 'CNR', exampleName: 'Core Natural Resources, Inc.' },
+  'Uranium': { sector: 'Energy', icon: Radiation, exampleTicker: 'UEC', exampleName: 'Uranium Energy Corp.' },
+
   // Utilities
-  'Utilities—Diversified': Lightbulb,
-  'Utilities—Independent Power Producers': Zap,
-  'Utilities—Regulated Electric': Plug,
-  'Utilities—Regulated Gas': Flame,
-  'Utilities—Regulated Water': Droplet,
-  'Utilities—Renewable': Wind,
-  'Utilities - Diversified': Lightbulb,
-  'Utilities - Independent Power Producers': Zap,
-  'Utilities - Regulated Electric': Plug,
-  'Utilities - Regulated Gas': Flame,
-  'Utilities - Regulated Water': Droplet,
-  'Utilities - Renewable': Wind,
-  'Electric Utilities': Zap,
-  'Gas Utilities': Flame,
-  'Water Utilities': Droplet,
-  'Multi-Utilities': Lightbulb,
-  'Independent Power and Renewable Electricity Producers': Wind,
+  'Utilities - Diversified': { sector: 'Utilities', icon: Lightbulb, exampleTicker: 'SRE', exampleName: 'Sempra Energy' },
+  'Utilities - Independent Power Producers': { sector: 'Utilities', icon: Zap, exampleTicker: 'CEG', exampleName: 'Constellation Energy Corporation' },
+  'Utilities - Regulated Electric': { sector: 'Utilities', icon: Plug, exampleTicker: 'NEE', exampleName: 'NextEra Energy, Inc.' },
+  'Utilities - Regulated Gas': { sector: 'Utilities', icon: Flame, exampleTicker: 'ATO', exampleName: 'Atmos Energy Corporation' },
+  'Utilities - Regulated Water': { sector: 'Utilities', icon: Droplet, exampleTicker: 'AWK', exampleName: 'American Water Works Company, Inc.' },
+  'Utilities - Renewable': { sector: 'Utilities', icon: Wind, exampleTicker: 'ORA', exampleName: 'Ormat Technologies, Inc.' },
   
   // Consumer Cyclical
-  'Auto Manufacturers': Car,
-  'Auto Parts': Cog,
-  'Recreational Vehicles': Car,
-  'Auto & Truck Dealerships': Car,
-  'Department Stores': Store,
-  'Discount Stores': ShoppingBag,
-  'Apparel Manufacturing': Shirt,
-  'Apparel Retail': ShoppingCart,
-  'Footwear & Accessories': Watch,
-  'Home Improvement Retail': Home,
-  'Specialty Retail': Store,
-  'Internet Retail': Globe,
-  'Luxury Goods': Diamond,
-  'Furnishings, Fixtures & Appliances': Sofa,
-  'Residential Construction': Building,
-  'Restaurants': Pizza,
-  'Lodging': Hotel,
-  'Resorts & Casinos': Building2,
-  'Travel Services': Plane,
-  'Leisure': Film,
-  'Gambling': Coins,
-  'Textile Manufacturing': Shirt,
-  'Packaging & Containers': Boxes,
-  'Personal Services': Briefcase,
+  'Auto Manufacturers': { sector: 'Consumer Cyclical', icon: Car, exampleTicker: 'TSLA', exampleName: 'Tesla, Inc.' },
+  'Auto Parts': { sector: 'Consumer Cyclical', icon: Cog, exampleTicker: 'ORLY', exampleName: 'O\'Reilly Automotive, Inc.' },
+  'Recreational Vehicles': { sector: 'Consumer Cyclical', icon: CarFront, exampleTicker: 'THO', exampleName: 'Thor Industries, Inc.' },
+  'Auto & Truck Dealerships': { sector: 'Consumer Cyclical', icon: CarTaxiFront, exampleTicker: 'CVNA', exampleName: 'Carvana Co.' },
+  'Department Stores': { sector: 'Consumer Cyclical', icon: ShoppingBasket, exampleTicker: 'DDS', exampleName: 'Dillard\'s, Inc.' },
+  'Apparel Manufacturing': { sector: 'Consumer Cyclical', icon: Shirt, exampleTicker: 'RL', exampleName: 'Ralph Lauren Corporation' },
+  'Apparel Retail': { sector: 'Consumer Cyclical', icon: ShoppingBag, exampleTicker: 'TJX', exampleName: 'TJX Companies, Inc.' },
+  'Footwear & Accessories': { sector: 'Consumer Cyclical', icon: Watch, exampleTicker: 'NKE', exampleName: 'Nike, Inc.' },
+  'Home Improvement Retail': { sector: 'Consumer Cyclical', icon: Home, exampleTicker: 'HD', exampleName: 'Home Depot, Inc.' },
+  'Specialty Retail': { sector: 'Consumer Cyclical', icon: Store, exampleTicker: 'TSCO', exampleName: 'Tractor Supply Company' },
+  'Internet Retail': { sector: 'Consumer Cyclical', icon: Globe, exampleTicker: 'AMZN', exampleName: 'Amazon.com, Inc.' },
+  'Luxury Goods': { sector: 'Consumer Cyclical', icon: Diamond, exampleTicker: 'TPR', exampleName: 'Tapestry, Inc.' },
+  'Furnishings, Fixtures & Appliances': { sector: 'Consumer Cyclical', icon: Sofa, exampleTicker: 'SGI', exampleName: 'Somnigroup International Inc.' },
+  'Residential Construction': { sector: 'Consumer Cyclical', icon: Building, exampleTicker: 'DHI', exampleName: 'D.R. Horton, Inc.' },
+  'Restaurants': { sector: 'Consumer Cyclical', icon: Pizza, exampleTicker: 'MCD', exampleName: 'McDonald\'s Corporation' },
+  'Lodging': { sector: 'Consumer Cyclical', icon: Hotel, exampleTicker: 'MAR', exampleName: 'Marriott International, Inc.' },
+  'Resorts & Casinos': { sector: 'Consumer Cyclical', icon: Building2, exampleTicker: 'LVS', exampleName: 'Las Vegas Sands Corp.' },
+  'Travel Services': { sector: 'Consumer Cyclical', icon: TicketsPlane, exampleTicker: 'BKNG', exampleName: 'Booking Holdings Inc.' },
+  'Leisure': { sector: 'Consumer Cyclical', icon: Film, exampleTicker: 'AS', exampleName: 'Amer Sports, Inc.' },
+  'Gambling': { sector: 'Consumer Cyclical', icon: Coins, exampleTicker: 'FLUT', exampleName: 'Flutter Entertainment plc' },
+  'Textile Manufacturing': { sector: 'Consumer Cyclical', icon: Volleyball, exampleTicker: 'AIN', exampleName: 'Albany International Corp.' },
+  'Packaging & Containers': { sector: 'Consumer Cyclical', icon: Boxes, exampleTicker: 'IP', exampleName: 'International Paper Company' },
+  'Personal Services': { sector: 'Consumer Cyclical', icon: Briefcase, exampleTicker: 'ROL', exampleName: 'Rollins, Inc.' },
   
   // Consumer Defensive
-  'Beverages—Alcoholic': Wine,
-  'Beverages—Non-Alcoholic': Coffee,
-  'Beverages - Alcoholic': Wine,
-  'Beverages - Non-Alcoholic': Coffee,
-  'Beverages—Brewers': Wine,
-  'Beverages—Wineries & Distilleries': Wine,
-  'Confectioners': ShoppingBag,
-  'Farm Products': Wheat,
-  'Food Distribution': Truck,
-  'Grocery Stores': ShoppingBag,
-  'Packaged Foods': Package,
-  'Education & Training Services': GraduationCap,
-  'Household & Personal Products': Home,
-  'Tobacco': Leaf,
-  
+  'Discount Stores': { sector: 'Consumer Cyclical', icon: ShoppingCart, exampleTicker: 'WMT', exampleName: 'Walmart Inc.' },
+  'Beverages - Non-Alcoholic': { sector: 'Consumer Defensive', icon: CupSoda, exampleTicker: 'KO', exampleName: 'The Coca-Cola Company' },
+  'Beverages - Brewers': { sector: 'Consumer Defensive', icon: Beer, exampleTicker: 'STZ', exampleName: 'Constellation Brands, Inc.' },
+  'Beverages - Wineries & Distilleries': { sector: 'Consumer Defensive', icon: Wine, exampleTicker: 'BF-B', exampleName: 'Brown-Forman Corporation' },
+  'Confectioners': { sector: 'Consumer Defensive', icon: Container, exampleTicker: 'MDLZ', exampleName: 'Mondelez International, Inc.' },
+  'Farm Products': { sector: 'Consumer Defensive', icon: Wheat, exampleTicker: 'ADM', exampleName: 'Archer-Daniels-Midland Company' },
+  'Food Distribution': { sector: 'Consumer Defensive', icon: Truck, exampleTicker: 'SYY', exampleName: 'Sysco Corporation' },
+  'Grocery Stores': { sector: 'Consumer Defensive', icon: Apple, exampleTicker: 'KR', exampleName: 'The Kroger Co.' },
+  'Packaged Foods': { sector: 'Consumer Defensive', icon: Package, exampleTicker: 'K', exampleName: 'Kellanova' },
+  'Education & Training Services': { sector: 'Consumer Defensive', icon: GraduationCap, exampleTicker: 'LOPE', exampleName: 'Grand Canyon Education, Inc.' },
+  'Household & Personal Products': { sector: 'Consumer Defensive', icon: Lamp, exampleTicker: 'PG', exampleName: 'The Procter & Gamble Company' },
+  'Tobacco': { sector: 'Consumer Defensive', icon: Cigarette, exampleTicker: 'PM', exampleName: 'Philip Morris International Inc.' },
+
   // Industrials
-  'Aerospace & Defense': Rocket,
-  'Airlines': Plane,
-  'Airports & Air Services': Plane,
-  'Building Products & Equipment': Hammer,
-  'Business Equipment & Supplies': Briefcase,
-  'Conglomerates': Building2,
-  'Construction & Engineering': HardHat,
-  'Consulting Services': Briefcase,
-  'Electrical Equipment & Parts': Plug,
-  'Engineering & Construction': Factory,
-  'Farm & Heavy Construction Machinery': Cog,
-  'Industrial Distribution': Boxes,
-  'Infrastructure Operations': Factory,
-  'Integrated Freight & Logistics': Truck,
-  'Machinery': Cog,
-  'Marine Shipping': Ship,
-  'Metal Fabrication': Hammer,
-  'Pollution & Treatment Controls': Leaf,
-  'Railroads': Train,
-  'Rental & Leasing Services': Briefcase,
-  'Security & Protection Services': Shield,
-  'Specialty Business Services': Briefcase,
-  'Specialty Industrial Machinery': Cog,
-  'Staffing & Employment Services': Briefcase,
-  'Tools & Accessories': Wrench,
-  'Trucking': Truck,
-  'Waste Management': Boxes,
-  
+  'Aerospace & Defense': { sector: 'Industrials', icon: Rocket, exampleTicker: 'GE', exampleName: 'GE Aerospace' },
+  'Airlines': { sector: 'Industrials', icon: PlaneLanding, exampleTicker: 'DAL', exampleName: 'Delta Air Lines, Inc.' },
+  'Airports & Air Services': { sector: 'Industrials', icon: PlaneTakeoff, exampleTicker: 'JOBY', exampleName: 'Joby Aviation, Inc.' },
+  'Building Products & Equipment': { sector: 'Industrials', icon: Hammer, exampleTicker: 'TT', exampleName: 'Trane Technologies plc' },
+  'Business Equipment & Supplies': { sector: 'Industrials', icon: Cable, exampleTicker: 'EBF', exampleName: 'Ennis, Inc.' },
+  'Conglomerates': { sector: 'Industrials', icon: Users, exampleTicker: 'HON', exampleName: 'Honeywell International Inc.' },
+  'Consulting Services': { sector: 'Industrials', icon: MessageCircleQuestionMark, exampleTicker: 'VRSK', exampleName: 'Verisk Analytics, Inc.' },
+  'Electrical Equipment & Parts': { sector: 'Industrials', icon: Plug, exampleTicker: 'VRT', exampleName: 'Vertiv Holdings Co.' },
+  'Engineering & Construction': { sector: 'Industrials', icon: HardHat, exampleTicker: 'PWR', exampleName: 'Quanta Services, Inc.' },
+  'Farm & Heavy Construction Machinery': { sector: 'Industrials', icon: Tractor, exampleTicker: 'CAT', exampleName: 'Caterpillar Inc.' },
+  'Industrial Distribution': { sector: 'Industrials', icon: Boxes, exampleTicker: 'FERG', exampleName: 'Ferguson plc' },
+  'Infrastructure Operations': { sector: 'Industrials', icon: Factory, exampleTicker: 'TRAUF', exampleName: 'Trane Technologies plc' },
+  'Integrated Freight & Logistics': { sector: 'Industrials', icon: Forklift, exampleTicker: 'UPS', exampleName: 'United Parcel Service, Inc.' },
+  'Marine Shipping': { sector: 'Industrials', icon: Ship, exampleTicker: 'KEX', exampleName: 'Kirby Corporation' },
+  'Metal Fabrication': { sector: 'Industrials', icon: Anvil, exampleTicker: 'CRS', exampleName: 'Carpenter Technology Corporation' },
+  'Pollution & Treatment Controls': { sector: 'Industrials', icon: DropletOff, exampleTicker: 'VLTO', exampleName: 'Veralto Corporation' },
+  'Railroads': { sector: 'Industrials', icon: Train, exampleTicker: 'UNP', exampleName: 'Union Pacific Corporation' },
+  'Rental & Leasing Services': { sector: 'Industrials', icon: TicketPercent, exampleTicker: 'URI', exampleName: 'United Rentals, Inc.' },
+  'Security & Protection Services': { sector: 'Industrials', icon: BrickWallShield, exampleTicker: 'ALLE', exampleName: 'Allegion plc' },
+  'Specialty Business Services': { sector: 'Industrials', icon: Briefcase, exampleTicker: 'CTAS', exampleName: 'Cintas Corporation' },
+  'Specialty Industrial Machinery': { sector: 'Industrials', icon: WashingMachine, exampleTicker: 'GEV', exampleName: 'GE Vernova Inc.' },
+  'Staffing & Employment Services': { sector: 'Industrials', icon: Handshake, exampleTicker: 'KFY', exampleName: 'Korn Ferry' },
+  'Tools & Accessories': { sector: 'Industrials', icon: PencilRuler, exampleTicker: 'SNA', exampleName: 'Snap-on Incorporated' },
+  'Trucking': { sector: 'Industrials', icon: Truck, exampleTicker: 'ODFL', exampleName: 'Old Dominion Freight Line, Inc.' },
+  'Waste Management': { sector: 'Industrials', icon: Trash, exampleTicker: 'WM', exampleName: 'Waste Management, Inc.' },
+
   // Basic Materials
-  'Aluminum': Mountain,
-  'Building Materials': HardHat,
-  'Chemicals': FlaskConical,
-  'Coking Coal': Mountain,
-  'Copper': Mountain,
-  'Gold': Diamond,
-  'Lumber & Wood Production': TreePine,
-  'Other Industrial Metals & Mining': Mountain,
-  'Other Precious Metals & Mining': Gem,
-  'Paper & Paper Products': FileText,
-  'Silver': Gem,
-  'Specialty Chemicals': FlaskConical,
-  'Steel': Factory,
+  'Agricultural Inputs': { sector: 'Basic Materials', icon: Leaf, exampleTicker: 'CTVA', exampleName: 'Corteva, Inc.' },
+  'Aluminum': { sector: 'Basic Materials', icon: Mountain, exampleTicker: 'AA', exampleName: 'Alcoa Corporation' },
+  'Building Materials': { sector: 'Basic Materials', icon: BrickWall, exampleTicker: 'CRH', exampleName: 'CRH plc' },
+  'Chemicals': { sector: 'Basic Materials', icon: Atom, exampleTicker: 'DOW', exampleName: 'Dow Inc.' },
+  'Coking Coal': { sector: 'Basic Materials', icon: Mountain, exampleTicker: 'HCC', exampleName: 'Warrior Met Coal, Inc.' },
+  'Copper': { sector: 'Basic Materials', icon: Mountain, exampleTicker: 'SCCO', exampleName: 'Southern Copper Corporation' },
+  'Gold': { sector: 'Basic Materials', icon: Cuboid, exampleTicker: 'NEM', exampleName: 'Newmont Corporation' },
+  'Lumber & Wood Production': { sector: 'Basic Materials', icon: TreePine, exampleTicker: 'SSD', exampleName: 'Simpson Manufacturing Co., Inc.' },
+  'Other Industrial Metals & Mining': { sector: 'Basic Materials', icon: Pickaxe, exampleTicker: 'MP', exampleName: 'MP Materials Corp.' },
+  'Other Precious Metals & Mining': { sector: 'Basic Materials', icon: Gem, exampleTicker: 'HL', exampleName: 'Hecla Mining Company' },
+  'Paper & Paper Products': { sector: 'Basic Materials', icon: FileText, exampleTicker: 'SLVM', exampleName: 'Sylvamo Corporation' },
+  'Silver': { sector: 'Basic Materials', icon: Gem, exampleTicker: 'EXK', exampleName: 'Endeavour Silver Corp.' },
+  'Specialty Chemicals': { sector: 'Basic Materials', icon: FlaskRound, exampleTicker: 'LIN', exampleName: 'Linde plc' },
+  'Steel': { sector: 'Basic Materials', icon: Factory, exampleTicker: 'NUE', exampleName: 'Nucor Corporation' },
   
   // Real Estate
-  'Real Estate—Development': Building,
-  'Real Estate—Diversified': Building2,
-  'Real Estate Services': HomeIcon,
-  'REIT—Diversified': Building,
-  'REIT—Healthcare Facilities': Heart,
-  'REIT—Hotel & Motel': Hotel,
-  'REIT—Industrial': Warehouse,
-  'REIT—Mortgage': Landmark,
-  'REIT—Office': Building2,
-  'REIT—Residential': Home,
-  'REIT—Retail': Store,
-  'REIT—Specialty': Building,
-  'Real Estate - Development': Building,
-  'Real Estate - Diversified': Building2,
-  
+  'Real Estate - Development': { sector: 'Real Estate', icon: Building, exampleTicker: 'HHH', exampleName: 'Howard Hughes Holdings Inc.' },
+  'Real Estate - Diversified': { sector: 'Real Estate', icon: Building2, exampleTicker: 'JOE', exampleName: 'St. Joe Company' },
+  'Real Estate Services': { sector: 'Real Estate', icon: Home, exampleTicker: 'CBRE', exampleName: 'CBRE Group, Inc.' },
+  'REIT - Diversified': { sector: 'Real Estate', icon: Building2, exampleTicker: 'VICI', exampleName: 'VICI Properties Inc.' },
+  'REIT - Healthcare Facilities': { sector: 'Real Estate', icon: HouseHeart, exampleTicker: 'WELL', exampleName: 'Welltower Inc.' },
+  'REIT - Hotel & Motel': { sector: 'Real Estate', icon: Hotel, exampleTicker: 'HST', exampleName: 'Host Hotels & Resorts, Inc.' },
+  'REIT - Industrial': { sector: 'Real Estate', icon: Warehouse, exampleTicker: 'PLD', exampleName: 'Prologis, Inc.' },
+  'REIT - Mortgage': { sector: 'Real Estate', icon: Landmark, exampleTicker: 'NLY', exampleName: 'Annaly Capital Management, Inc.' },
+  'REIT - Office': { sector: 'Real Estate', icon: HouseWifi, exampleTicker: 'BXP', exampleName: 'BXP, Inc.' },
+  'REIT - Residential': { sector: 'Real Estate', icon: HousePlus, exampleTicker: 'AVB', exampleName: 'AvalonBay Communities, Inc.' },
+  'REIT - Retail': { sector: 'Real Estate', icon: Store, exampleTicker: 'SPG', exampleName: 'Simon Property Group, Inc.' },
+  'REIT - Specialty': { sector: 'Real Estate', icon: HousePlug, exampleTicker: 'AMT', exampleName: 'American Tower Corporation' },
+
   // Miscellaneous
-  'Shell Companies': HelpCircle,
-  'Conglomerate': Building2,
-  'Other': Briefcase,
-  'Unknown': HelpCircle,
+  'Other': { sector: 'Other', icon: Briefcase, exampleName: 'Other' },
+  'Unknown': { sector: 'Unknown', icon: HelpCircle, exampleName: 'Unknown' },
 };
 
 /**
- * Mapping of sectors to their valid industries
- * Based on GICS (Global Industry Classification Standard) hierarchy
+ * Sector icon configuration
  */
-export const SECTOR_TO_INDUSTRIES: Record<string, string[]> = {
-  'Technology': [
-    'Software—Application',
-    'Software—Infrastructure',
-    'Software',
-    'Information Technology Services',
-    'Internet Content & Information',
-    'Electronic Gaming & Multimedia',
-    'Software - Application',
-    'Software - Infrastructure',
-    'Computer Hardware',
-    'Consumer Electronics',
-    'Electronic Components',
-    'Electronics & Computer Distribution',
-    'Scientific & Technical Instruments',
-    'Semiconductors',
-    'Semiconductor Equipment & Materials',
-  ],
-  
-  'Communication Services': [
-    'Telecom Services',
-    'Wireless Telecommunication Services',
-    'Diversified Telecommunication Services',
-    'Entertainment',
-    'Broadcasting',
-    'Interactive Media & Services',
-    'Publishing',
-    'Advertising Agencies',
-  ],
-  
-  'Telecommunications': [
-    'Telecom Services',
-    'Wireless Telecommunication Services',
-    'Diversified Telecommunication Services',
-  ],
-  
-  'Healthcare': [
-    'Biotechnology',
-    'Drug Manufacturers—General',
-    'Drug Manufacturers—Specialty & Generic',
-    'Pharmaceutical Retailers',
-    'Drug Manufacturers - General',
-    'Drug Manufacturers - Specialty & Generic',
-    'Medical Devices',
-    'Medical Instruments & Supplies',
-    'Medical Care Facilities',
-    'Medical Distribution',
-    'Health Care Equipment & Supplies',
-    'Health Care Providers & Services',
-    'Diagnostics & Research',
-    'Medical Diagnostics & Research',
-    'Health Information Services',
-  ],
-  
-  'Financial Services': [
-    'Banks—Diversified',
-    'Banks—Regional',
-    'Banks - Diversified',
-    'Banks - Regional',
-    'Diversified Banks',
-    'Regional Banks',
-    'Asset Management',
-    'Investment Banking & Brokerage',
-    'Capital Markets',
-    'Financial Data & Stock Exchanges',
-    'Credit Services',
-    'Insurance—Diversified',
-    'Insurance—Life',
-    'Insurance—Property & Casualty',
-    'Insurance—Reinsurance',
-    'Insurance—Specialty',
-    'Insurance - Diversified',
-    'Insurance - Life',
-    'Insurance - Property & Casualty',
-    'Diversified Financial Services',
-    'Consumer Finance',
-    'Mortgage Finance',
-  ], 
-  
-  'Energy': [
-    'Oil & Gas E&P',
-    'Oil & Gas Integrated',
-    'Oil & Gas Midstream',
-    'Oil & Gas Refining & Marketing',
-    'Oil & Gas Drilling',
-    'Oil & Gas Equipment & Services',
-    'Thermal Coal',
-    'Uranium',
-    'Solar',
-  ],
-  
-  'Utilities': [
-    'Utilities—Diversified',
-    'Utilities—Independent Power Producers',
-    'Utilities—Regulated Electric',
-    'Utilities—Regulated Gas',
-    'Utilities—Regulated Water',
-    'Utilities—Renewable',
-    'Utilities - Diversified',
-    'Utilities - Independent Power Producers',
-    'Utilities - Regulated Electric',
-    'Utilities - Regulated Gas',
-    'Utilities - Regulated Water',
-    'Utilities - Renewable',
-    'Electric Utilities',
-    'Gas Utilities',
-    'Water Utilities',
-    'Multi-Utilities',
-    'Independent Power and Renewable Electricity Producers',
-  ],
-  
-  'Consumer Cyclical': [
-    'Auto Manufacturers',
-    'Auto Parts',
-    'Recreational Vehicles',
-    'Auto & Truck Dealerships',
-    'Department Stores',
-    'Discount Stores',
-    'Apparel Manufacturing',
-    'Apparel Retail',
-    'Footwear & Accessories',
-    'Home Improvement Retail',
-    'Specialty Retail',
-    'Internet Retail',
-    'Luxury Goods',
-    'Furnishings, Fixtures & Appliances',
-    'Residential Construction',
-    'Restaurants',
-    'Lodging',
-    'Resorts & Casinos',
-    'Travel Services',
-    'Leisure',
-    'Gambling',
-    'Textile Manufacturing',
-    'Packaging & Containers',
-    'Personal Services',
-  ],
-  
-  'Consumer Defensive': [
-    'Beverages—Alcoholic',
-    'Beverages—Non-Alcoholic',
-    'Beverages - Alcoholic',
-    'Beverages - Non-Alcoholic',
-    'Beverages—Brewers',
-    'Beverages—Wineries & Distilleries',
-    'Confectioners',
-    'Farm Products',
-    'Food Distribution',
-    'Grocery Stores',
-    'Packaged Foods',
-    'Education & Training Services',
-    'Household & Personal Products',
-    'Tobacco',
-  ],
-  
-  'Consumer Discretionary': [
-    'Auto Manufacturers',
-    'Auto Parts',
-    'Recreational Vehicles',
-    'Auto & Truck Dealerships',
-    'Department Stores',
-    'Discount Stores',
-    'Apparel Manufacturing',
-    'Apparel Retail',
-    'Footwear & Accessories',
-    'Home Improvement Retail',
-    'Specialty Retail',
-    'Internet Retail',
-    'Luxury Goods',
-    'Furnishings, Fixtures & Appliances',
-    'Residential Construction',
-    'Restaurants',
-    'Lodging',
-    'Resorts & Casinos',
-    'Travel Services',
-    'Leisure',
-    'Gambling',
-    'Textile Manufacturing',
-    'Packaging & Containers',
-    'Personal Services',
-  ],
-  
-  'Consumer Staples': [
-    'Beverages—Alcoholic',
-    'Beverages—Non-Alcoholic',
-    'Beverages - Alcoholic',
-    'Beverages - Non-Alcoholic',
-    'Beverages—Brewers',
-    'Beverages—Wineries & Distilleries',
-    'Confectioners',
-    'Farm Products',
-    'Food Distribution',
-    'Grocery Stores',
-    'Packaged Foods',
-    'Education & Training Services',
-    'Household & Personal Products',
-    'Tobacco',
-  ],
-  
-  'Industrials': [
-    'Aerospace & Defense',
-    'Airlines',
-    'Airports & Air Services',
-    'Building Products & Equipment',
-    'Business Equipment & Supplies',
-    'Conglomerates',
-    'Construction & Engineering',
-    'Consulting Services',
-    'Electrical Equipment & Parts',
-    'Engineering & Construction',
-    'Farm & Heavy Construction Machinery',
-    'Industrial Distribution',
-    'Infrastructure Operations',
-    'Integrated Freight & Logistics',
-    'Machinery',
-    'Marine Shipping',
-    'Metal Fabrication',
-    'Pollution & Treatment Controls',
-    'Railroads',
-    'Rental & Leasing Services',
-    'Security & Protection Services',
-    'Specialty Business Services',
-    'Specialty Industrial Machinery',
-    'Staffing & Employment Services',
-    'Tools & Accessories',
-    'Trucking',
-    'Waste Management',
-  ],
-  
-  'Basic Materials': [
-    'Aluminum',
-    'Building Materials',
-    'Chemicals',
-    'Coking Coal',
-    'Copper',
-    'Gold',
-    'Lumber & Wood Production',
-    'Other Industrial Metals & Mining',
-    'Other Precious Metals & Mining',
-    'Paper & Paper Products',
-    'Silver',
-    'Specialty Chemicals',
-    'Steel',
-  ],
-  
-  'Materials': [
-    'Aluminum',
-    'Building Materials',
-    'Chemicals',
-    'Coking Coal',
-    'Copper',
-    'Gold',
-    'Lumber & Wood Production',
-    'Other Industrial Metals & Mining',
-    'Other Precious Metals & Mining',
-    'Paper & Paper Products',
-    'Silver',
-    'Specialty Chemicals',
-    'Steel',
-  ],
-  
-  'Real Estate': [
-    'Real Estate—Development',
-    'Real Estate—Diversified',
-    'Real Estate Services',
-    'REIT—Diversified',
-    'REIT—Healthcare Facilities',
-    'REIT—Hotel & Motel',
-    'REIT—Industrial',
-    'REIT—Mortgage',
-    'REIT—Office',
-    'REIT—Residential',
-    'REIT—Retail',
-    'REIT—Specialty',
-    'Real Estate - Development',
-    'Real Estate - Diversified',
-  ],
+const SECTOR_ICON_MAP: Record<string, LucideIcon> = {
+  'Technology': Cpu,
+  'Communication Services': Radio,
+  'Healthcare': Heart,
+  'Financial Services': Landmark,
+  'Energy': Zap,
+  'Utilities': Lightbulb,
+  'Consumer Cyclical': ShoppingCart,
+  'Consumer Defensive': ShoppingBag,
+  'Industrials': Factory,
+  'Basic Materials': Mountain,
+  'Real Estate': Building2,
+  'Unknown': HelpCircle,
+  'Other': BadgeQuestionMark,
 };
+
+/**
+ * Derived: Industry to Icon mapping
+ * Automatically generated from INDUSTRY_CONFIG
+ */
+export const INDUSTRY_ICONS: Record<string, LucideIcon> = Object.fromEntries(
+  Object.entries(INDUSTRY_CONFIG).map(([industry, config]) => [industry, config.icon])
+);
+
+/**
+ * Derived: Sector to Icon mapping
+ */
+export const SECTOR_ICONS: Record<string, LucideIcon> = SECTOR_ICON_MAP;
+
+/**
+ * Derived: Mapping of sectors to their valid industries
+ * Automatically generated from INDUSTRY_CONFIG
+ */
+export const SECTOR_TO_INDUSTRIES: Record<string, string[]> = Object.entries(INDUSTRY_CONFIG)
+  .reduce((acc, [industry, config]) => {
+    const sector = config.sector;
+    if (!acc[sector]) {
+      acc[sector] = [];
+    }
+    acc[sector].push(industry);
+    return acc;
+  }, {} as Record<string, string[]>);
 
 /**
  * Get icon for a sector
@@ -687,15 +427,12 @@ export function getSectorColor(sector: string | null | undefined): string {
   const colorMap: Record<string, string> = {
     'Technology': 'text-blue-600 dark:text-blue-400',
     'Communication Services': 'text-purple-600 dark:text-purple-400',
-    'Telecommunications': 'text-violet-600 dark:text-violet-400',
     'Healthcare': 'text-red-600 dark:text-red-400',
     'Financial Services': 'text-green-600 dark:text-green-400',
     'Energy': 'text-yellow-600 dark:text-yellow-400',
     'Utilities': 'text-amber-600 dark:text-amber-400',
     'Consumer Cyclical': 'text-pink-600 dark:text-pink-400',
     'Consumer Defensive': 'text-emerald-600 dark:text-emerald-400',
-    'Consumer Discretionary': 'text-pink-600 dark:text-pink-400',
-    'Consumer Staples': 'text-emerald-600 dark:text-emerald-400',
     'Industrials': 'text-slate-600 dark:text-slate-400',
     'Basic Materials': 'text-orange-600 dark:text-orange-400',
     'Materials': 'text-orange-600 dark:text-orange-400',
@@ -703,6 +440,32 @@ export function getSectorColor(sector: string | null | undefined): string {
   };
   
   return colorMap[sector] || 'text-neutral-600 dark:text-neutral-400';
+}
+
+/**
+ * Get hex color for a sector (for charts and visualizations)
+ * @param sector - Sector name
+ * @returns Hex color code
+ */
+export function getSectorHexColor(sector: string | null | undefined): string {
+  if (!sector) return '#9ca3af'; // gray-400
+  
+  const hexColorMap: Record<string, string> = {
+    'Technology': '#3b82f6', // blue-500
+    'Communication Services': '#a855f7', // purple-500
+    'Healthcare': '#ef4444', // red-500
+    'Financial Services': '#10b981', // green-500
+    'Energy': '#eab308', // yellow-500
+    'Utilities': '#f59e0b', // amber-500
+    'Consumer Cyclical': '#ec4899', // pink-500
+    'Consumer Defensive': '#10b981', // emerald-500
+    'Industrials': '#64748b', // slate-500
+    'Basic Materials': '#f97316', // orange-500
+    'Real Estate': '#6366f1', // indigo-500
+    'Unknown': '#9ca3af', // gray-400
+  };
+  
+  return hexColorMap[sector] || '#9ca3af'; // gray-400 as fallback
 }
 
 /**
@@ -771,12 +534,25 @@ export function isValidIndustry(industry: string | null | undefined): boolean {
  */
 export function getSectorForIndustry(industry: string | null | undefined): string | null {
   if (!industry) return null;
-  
-  for (const [sector, industries] of Object.entries(SECTOR_TO_INDUSTRIES)) {
-    if (industries.includes(industry)) {
-      return sector;
-    }
-  }
-  
-  return null;
+  return INDUSTRY_CONFIG[industry]?.sector || null;
+}
+
+/**
+ * Get the example ticker for a given industry
+ * @param industry - Industry name
+ * @returns The example ticker symbol, or null if not found
+ */
+export function getExampleTickerForIndustry(industry: string | null | undefined): string | null {
+  if (!industry) return null;
+  return INDUSTRY_CONFIG[industry]?.exampleTicker || null;
+}
+
+/**
+ * Get the example company name for a given industry
+ * @param industry - Industry name
+ * @returns The example company name, or null if not found
+ */
+export function getExampleNameForIndustry(industry: string | null | undefined): string | null {
+  if (!industry) return null;
+  return INDUSTRY_CONFIG[industry]?.exampleName || null;
 }

@@ -19,7 +19,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
-import { getSectorIcon, getSectorColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIndustryUtils';
+import { getSectorIcon, getSectorColor, getSectorHexColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { formatAssetType } from '../lib/formatUtils';
@@ -214,31 +214,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
   const generateColors = (count: number) => {
     // If we're showing sectors, use sector-specific colors
     if (activeTab === 'sector') {
-      return chartSortedData.map(item => {
-        const sectorColorMap: Record<string, string> = {
-          'Technology': '#3b82f6', // blue-500
-          'Communication Services': '#a855f7', // purple-500
-          'Telecommunications': '#8b5cf6', // violet-500
-          'Healthcare': '#ef4444', // red-500
-          'Health Care': '#ef4444', // red-500
-          'Financial Services': '#10b981', // green-500
-          'Financial': '#10b981', // green-500
-          'Financials': '#10b981', // green-500
-          'Energy': '#eab308', // yellow-500
-          'Utilities': '#f59e0b', // amber-500
-          'Consumer Cyclical': '#ec4899', // pink-500
-          'Consumer Defensive': '#10b981', // emerald-500
-          'Consumer Discretionary': '#ec4899', // pink-500
-          'Consumer Staples': '#10b981', // emerald-500
-          'Industrials': '#64748b', // slate-500
-          'Industrial': '#64748b', // slate-500
-          'Basic Materials': '#f97316', // orange-500
-          'Materials': '#f97316', // orange-500
-          'Real Estate': '#6366f1', // indigo-500
-          'Unknown': '#9ca3af', // gray-400
-        };
-        return sectorColorMap[item.name] || '#9ca3af';
-      });
+      return chartSortedData.map(item => getSectorHexColor(item.name));
     }
     
     // Default color palette for other tabs
