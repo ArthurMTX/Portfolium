@@ -3,6 +3,7 @@ import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import api from '../lib/api'
+import { useTranslation } from 'react-i18next'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler, annotationPlugin)
 
@@ -12,16 +13,6 @@ interface Props {
   assetId: number
   symbol: string
   currency?: string
-}
-
-const periodLabels: Record<PeriodOption, string> = {
-  '1W': '1W',
-  '1M': '1M',
-  '3M': '3M',
-  '6M': '6M',
-  'YTD': 'YTD',
-  '1Y': '1Y',
-  'ALL': 'ALL',
 }
 
 interface PricePoint {
@@ -70,6 +61,10 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
   const [splits, setSplits] = useState<SplitTransaction[]>([])
   const [error, setError] = useState<string | null>(null)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const { t, i18n } = useTranslation()
+
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
 
   // Get currency symbol for display
   const getCurrencySymbol = (curr: string): string => {
@@ -166,19 +161,19 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
       // Format date based on period
       if (period === '1W') {
         // For 1 week, show day of week + date
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
       } else if (period === '1M') {
         // For 1 month, show month and day
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '3M') {
         // For 3 months, show month and day
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '6M' || period === 'YTD' || period === '1Y') {
         // For 6M, YTD, 1Y - show month and year (abbreviated)
-        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
       } else {
         // For ALL - show month and year (full) for better clarity
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
       }
     }) || [],
     datasets: [
@@ -373,7 +368,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             if (value === null) return ''
             const currSymbol = getCurrencySymbol(currency)
             const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
-            return `Price: ${currSymbol}${formatPrice(value, decimalPlaces)}`
+            return `${t('assetPriceChart.price')}: ${currSymbol}${formatPrice(value, decimalPlaces)}`
           },
           afterLabel: (context: { dataIndex: number }) => {
             const labels: string[] = []
@@ -384,13 +379,13 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
               const txDate = new Date(tx.tx_date)
               const formattedTxDate = (() => {
                 if (period === '1W') {
-                  return txDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                  return txDate.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
                 } else if (period === '1M' || period === '3M') {
-                  return txDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  return txDate.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
                 } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-                  return txDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+                  return txDate.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
                 } else {
-                  return txDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                  return txDate.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
                 }
               })()
               return formattedTxDate === dateLabel
@@ -399,7 +394,8 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             if (txsOnThisDate.length > 0) {
               const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
               txsOnThisDate.forEach(tx => {
-                labels.push(`\n${tx.type}: ${tx.quantity.toFixed(2)} @ ${tx.price ? getCurrencySymbol(currency) + formatPrice(tx.price, decimalPlaces) : 'N/A'}`)
+                const txType = tx.type === 'BUY' ? t('assetPriceChart.buy') : t('assetPriceChart.sell')
+                labels.push(`\n${txType}: ${tx.quantity.toFixed(2)} @ ${tx.price ? getCurrencySymbol(currency) + formatPrice(tx.price, decimalPlaces) : 'N/A'}`)
               })
             }
             
@@ -408,13 +404,13 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
               const splitDate = new Date(split.tx_date)
               const formattedSplitDate = (() => {
                 if (period === '1W') {
-                  return splitDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                  return splitDate.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
                 } else if (period === '1M' || period === '3M') {
-                  return splitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  return splitDate.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
                 } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-                  return splitDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+                  return splitDate.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
                 } else {
-                  return splitDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                  return splitDate.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
                 }
               })()
               return formattedSplitDate === dateLabel
@@ -424,8 +420,8 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
               splitsOnThisDate.forEach(split => {
                 const splitRatio = split.metadata?.split || '1:1'
                 const ratio = parseSplitRatio(splitRatio)
-                const splitType = ratio >= 1 ? 'Forward' : 'Reverse'
-                labels.push(`\n${splitType} SPLIT: ${splitRatio}`)
+                const splitType = ratio >= 1 ? t('splitHistory.forward') : t('splitHistory.reverse')
+                labels.push(`\n${splitType} ${t('assetPriceChart.split').toUpperCase()}: ${splitRatio}`)
               })
             }
             
@@ -456,7 +452,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
       y: {
         title: { 
           display: true, 
-          text: `Price (${currency})`,
+          text: `${t('assetPriceChart.price')} (${currency})`,
           color: '#64748b',
           font: { size: 12 }
         },
@@ -499,7 +495,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             }`}
             onClick={() => setPeriod(opt)}
           >
-            {periodLabels[opt]}
+            {t(`charts.period${opt}`)}
           </button>
         ))}
       </div>
@@ -512,13 +508,13 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
           </div>
         ) : error ? (
           <div className="text-red-500 dark:text-red-400 text-center py-12">
-            <p className="font-semibold mb-2">Error loading price data</p>
+            <p className="font-semibold mb-2">{t('assetPriceChart.error')}</p>
             <p className="text-sm">{error}</p>
           </div>
         ) : !history || history.data_points === 0 ? (
           <div className="text-neutral-400 text-center py-12">
-            <p className="font-semibold mb-2">No price data available</p>
-            <p className="text-sm">Price history will be fetched automatically when you add transactions for this asset.</p>
+            <p className="font-semibold mb-2">{t('assetPriceChart.noPriceData')}</p>
+            <p className="text-sm">{t('assetPriceChart.noPriceDataInfo')}</p>
           </div>
         ) : (
           <div>
@@ -590,7 +586,10 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
       {history && history.data_points > 0 && (
         <div className="mt-4 space-y-3">
           <div className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
-            Data from {new Date(history.start_date).toLocaleDateString()} to {new Date(history.end_date).toLocaleDateString()}
+            {t('assetPriceChart.dataFrom', {
+              date1: new Date(history.start_date).toLocaleDateString(currentLocale),
+              date2: new Date(history.end_date).toLocaleDateString(currentLocale)
+            })}
           </div>
           {(transactions.length > 0 || splits.length > 0) && (
             <div className="flex items-center justify-center gap-8 flex-wrap">
@@ -598,18 +597,18 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                 <>
                   <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <div className="w-3 h-3 rounded-full bg-white border-2 border-green-500"></div>
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">Buy</span>
+                    <span className="text-xs font-medium text-green-700 dark:text-green-400">{t('assetPriceChart.buy')}</span>
                   </div>
                   <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                     <div className="w-3 h-3 rounded-full bg-white border-2 border-red-500"></div>
-                    <span className="text-xs font-medium text-red-700 dark:text-red-400">Sell</span>
+                    <span className="text-xs font-medium text-red-700 dark:text-red-400">{t('assetPriceChart.sell')}</span>
                   </div>
                 </>
               )}
               {splits.length > 0 && (
                 <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
                   <div className="w-3 h-3 rounded-full bg-white border-2 border-purple-500"></div>
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-400">Split</span>
+                  <span className="text-xs font-medium text-purple-700 dark:text-purple-400">{t('assetPriceChart.split')}</span>
                 </div>
               )}
             </div>

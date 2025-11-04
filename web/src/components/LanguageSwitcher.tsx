@@ -6,7 +6,6 @@ import { getFlagUrl } from '../lib/countryUtils'
 const languages = [
   { code: 'en', name: 'English', country: 'GB' },
   { code: 'fr', name: 'Français', country: 'FR' },
-  { code: 'es', name: 'Español', country: 'ES' },
 ]
 
 export default function LanguageSwitcher() {

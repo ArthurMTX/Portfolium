@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Calendar, Clock, TrendingUp, Database, AlertCircle, CheckCircle2 } from 'lucide-react';
 import api from '../lib/api';
 import LoadingSpinner from './LoadingSpinner';
+import { useTranslation } from 'react-i18next'
 
 interface Price {
   date: string;
@@ -46,6 +47,9 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
   const [prices, setPrices] = useState<Price[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'health' | 'prices'>('health');
+  const { t, i18n } = useTranslation();
+ 
+  const currentLocale = i18n.language || 'en-US';
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -80,7 +84,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
       return (
         <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
           <CheckCircle2 size={14} />
-          Excellent
+          {t('assetPriceDebug.healthBadgeExcellent')}
         </span>
       );
     }
@@ -88,14 +92,14 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
       return (
         <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
           <AlertCircle size={14} />
-          Good
+          {t('assetPriceDebug.healthBadgeGood')}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
         <AlertCircle size={14} />
-        Poor
+        {t('assetPriceDebug.healthBadgePoor')}
       </span>
     );
   };
@@ -107,10 +111,10 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div>
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              {symbol} - Price Data Debug
+              {symbol} - {t('assetPriceDebug.title')}
             </h2>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-              Asset ID: {assetId}
+              {t('assetPriceDebug.assetId')}: {assetId}
             </p>
           </div>
           <button
@@ -131,7 +135,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
-            Health Check
+            {t('assetPriceDebug.healthCheck')}
           </button>
           <button
             onClick={() => setView('prices')}
@@ -141,7 +145,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
-            Price Data ({prices.length})
+            {t('assetPriceDebug.priceData')} ({prices.length})
           </button>
         </div>
 
@@ -157,7 +161,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
               <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                    Coverage Score
+                    {t('assetPriceDebug.coverageScore')}
                   </h3>
                   {getHealthBadge(health.coverage.coverage_pct)}
                 </div>
@@ -189,7 +193,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 mb-2">
                     <Calendar size={16} />
-                    <span className="text-xs font-medium">Days Range</span>
+                    <span className="text-xs font-medium">{t('assetPriceDebug.daysRange')}</span>
                   </div>
                   <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                     {health.data_range?.days || 0}
@@ -199,7 +203,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 mb-2">
                     <TrendingUp size={16} />
-                    <span className="text-xs font-medium">Expected Days</span>
+                    <span className="text-xs font-medium">{t('assetPriceDebug.expectedDays')}</span>
                   </div>
                   <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                     {health.coverage.expected_trading_days}
@@ -209,7 +213,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 mb-2">
                     <Database size={16} />
-                    <span className="text-xs font-medium">Actual Days</span>
+                    <span className="text-xs font-medium">{t('assetPriceDebug.actualDays')}</span>
                   </div>
                   <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                     {health.coverage.actual_data_points}
@@ -219,7 +223,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 mb-2">
                     <Clock size={16} />
-                    <span className="text-xs font-medium">Total Records</span>
+                    <span className="text-xs font-medium">{t('assetPriceDebug.totalRecords')}</span>
                   </div>
                   <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                     {health.total_price_records}
@@ -234,21 +238,21 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400">First Transaction:</span>
+                    <span className="text-neutral-500 dark:text-neutral-400">{t('assetPriceDebug.firstTransaction')}:</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100 mt-1">
                       {health.first_transaction_date || health.first_transaction_actual || 'N/A'}
                     </div>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400">Oldest Price:</span>
+                    <span className="text-neutral-500 dark:text-neutral-400">{t('assetPriceDebug.oldestPrice')}:</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100 mt-1">
-                      {health.data_range?.start ? new Date(health.data_range.start).toLocaleDateString() : 'N/A'}
+                      {health.data_range?.start ? new Date(health.data_range.start).toLocaleDateString(currentLocale) : 'N/A'}
                     </div>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400">Newest Price:</span>
+                    <span className="text-neutral-500 dark:text-neutral-400">{t('assetPriceDebug.newestPrice')}:</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100 mt-1">
-                      {health.data_range?.end ? new Date(health.data_range.end).toLocaleDateString() : 'N/A'}
+                      {health.data_range?.end ? new Date(health.data_range.end).toLocaleDateString(currentLocale) : 'N/A'}
                     </div>
                   </div>
                 </div>
@@ -258,7 +262,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
               {Object.keys(health.sources).length > 0 && (
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
-                    Data Sources
+                    {t('assetPriceDebug.dataSources')}
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {Object.entries(health.sources).map(([source, count]) => (
@@ -288,7 +292,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-400 mb-3 flex items-center gap-2">
                     <AlertCircle size={16} />
-                    Recommendations
+                    {t('assetPriceDebug.recommendations')}
                   </h3>
                   <ul className="space-y-2 text-sm text-amber-800 dark:text-amber-300">
                     {health.recommendations.map((rec, idx) => (
@@ -305,13 +309,13 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
               {health.coverage.gap_count > 0 && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-red-900 dark:text-red-400 mb-3">
-                    Data Gaps Detected ({health.coverage.gap_count} missing days)
+                    {t('assetPriceDebug.dataGapsDetected', { count: health.coverage.gap_count })}
                   </h3>
                   <div className="text-sm text-red-800 dark:text-red-300">
-                    <p className="mb-2">Missing {health.coverage.missing_days} out of {health.coverage.expected_trading_days} expected trading days.</p>
+                    <p className="mb-2">{t('assetPriceDebug.missingDaysInfo', { missing: health.coverage.missing_days, expected: health.coverage.expected_trading_days })}</p>
                     {Array.isArray(health.gaps) && health.gaps.length > 0 && (
                       <details className="cursor-pointer">
-                        <summary className="font-medium hover:underline">View gap details</summary>
+                        <summary className="font-medium hover:underline">{t('assetPriceDebug.viewGapDetails')}</summary>
                         <div className="mt-2 max-h-40 overflow-y-auto text-xs font-mono bg-red-100 dark:bg-red-900/30 p-2 rounded">
                           {health.gaps.join(', ')}
                         </div>
@@ -337,16 +341,16 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                   <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
-                        Date/Time
+                        {t('assetPriceDebug.dateTime')}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
-                        Price
+                        {t('assetPriceDebug.price')}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
-                        Volume
+                        {t('assetPriceDebug.volume')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
-                        Source
+                        {t('assetPriceDebug.source')}
                       </th>
                     </tr>
                   </thead>
@@ -383,7 +387,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
 
               {prices.length === 0 && (
                 <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-                  No price data available
+                  {t('assetPriceDebug.noPriceData')}
                 </div>
               )}
             </div>

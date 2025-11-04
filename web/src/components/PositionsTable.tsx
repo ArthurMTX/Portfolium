@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatNumber, formatQuantity } from '../lib/formatUtils'
 import SortIcon from './SortIcon'
+import { useTranslation } from 'react-i18next'
 
 interface Position {
   asset_id: number
@@ -41,6 +42,7 @@ type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
 
 export default function PositionsTable({ positions, isSold = false }: PositionsTableProps) {
+  const { t } = useTranslation()
   const [sortKey, setSortKey] = useState<SortKey>(isSold ? 'unrealized_pnl' : 'market_value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -120,16 +122,16 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
     const labels: Record<SortKey, string> = {
-      symbol: 'Symbol',
-      name: 'Name',
-      quantity: 'Quantity',
-      avg_cost: 'Avg Cost',
-      current_price: 'Current Price',
-      daily_change_pct: 'Daily Change %',
-      market_value: 'Market Value',
-      wallet_pct: '% of Wallet',
-      unrealized_pnl: isSold ? 'Realized P&L' : 'P&L',
-      unrealized_pnl_pct: isSold ? 'Realized P&L %' : 'P&L %',
+      symbol: t('common.symbol'),
+      name: t('common.name'),
+      quantity: t('common.quantity'),
+      avg_cost: t('dashboard.avgCost'),
+      current_price: t('dashboard.currentPrice'),
+      daily_change_pct: t('dashboard.dailyChange'),
+      market_value: t('dashboard.marketValue'),
+      wallet_pct: t('dashboard.percentOfWallet'),
+      unrealized_pnl: isSold ? t('dashboard.realizedPnL') : 'P&L',
+      unrealized_pnl_pct: isSold ? t('dashboard.realizedPnL') : 'P&L %',
     }
     return labels[key]
   }
@@ -146,7 +148,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
         {/* Sort Controls */}
         <div className="flex items-center gap-2 mb-3">
           <label htmlFor="mobile-sort" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-            Sort by:
+            {t('common.sortBy')}:
           </label>
           <select
             id="mobile-sort"
@@ -229,13 +231,13 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
               {isSold ? (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">Avg Cost Basis</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.avgCostBasis')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.avg_cost, position.currency)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">Avg Proceeds</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.avgProceeds')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.current_price, position.currency)}
                     </div>
@@ -244,31 +246,31 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
               ) : (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">Quantity</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.quantity')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatQuantity(position.quantity)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">% of Wallet</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.percentOfWallet')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {walletPct}
                     </div>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">Avg Cost</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.avgCost')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.avg_cost, position.currency)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">Current Price</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.currentPrice')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.current_price, position.currency)}
                     </div>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">Daily Change</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.dailyChange')}</span>
                     <div className={`font-medium ${
                       position.daily_change_pct !== null && position.daily_change_pct !== undefined
                         ? (Number(position.daily_change_pct) > 0
@@ -298,8 +300,8 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
 
         {sortedPositions.length === 0 && (
           <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
-            <p>No positions yet</p>
-            <p className="text-sm mt-2">Start by adding transactions to your portfolio</p>
+            <p>{t('dashboard.noPositions')}</p>
+            <p className="text-sm mt-2">{t('dashboard.noPositionsInfo')}</p>
           </div>
         )}
         </div>
@@ -316,14 +318,14 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   aria-sort={sortKey === 'symbol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  Symbol <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
+                  {t('common.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th
                   onClick={() => handleSort('name')}
                   aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  Name <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
+                  {t('common.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                 </th>
               {isSold ? (
                 <>
@@ -333,7 +335,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     title="Average cost per share including fees"
                   >
-                    Avg Cost Basis <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.avgCostBasis')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('current_price')}
@@ -341,21 +343,21 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     title="Average proceeds per share after fees"
                   >
-                    Avg Proceeds <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.avgProceeds')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl')}
                     aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Realized P&L <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.realizedPnL')} <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl_pct')}
                     aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Realized P&L % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.realizedPnL')} % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                 </>
               ) : (
@@ -365,56 +367,56 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Quantity <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
+                    {t('common.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('avg_cost')}
                     aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Avg Cost <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.avgCost')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Current Price <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('daily_change_pct')}
                     aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Daily Change % <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.dailyChange')} % <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('market_value')}
                     aria-sort={sortKey === 'market_value' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Market Value <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('wallet_pct')}
                     aria-sort={sortKey === 'wallet_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    % of Wallet <SortIcon column="wallet_pct" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.percentOfWallet')} <SortIcon column="wallet_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl')}
                     aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    P&L <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.unrealizedPnL')} <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl_pct')}
                     aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    P&L % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.unrealizedPnL')} % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                 </>
               )}
@@ -553,8 +555,8 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
 
         {sortedPositions.length === 0 && (
           <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-            <p>No positions yet</p>
-            <p className="text-sm mt-2">Start by adding transactions to your portfolio</p>
+            <p>{t('dashboard.noPositions')}</p>
+            <p className="text-sm mt-2">{t('dashboard.noPositionsInfo')}</p>
           </div>
         )}
       </div>

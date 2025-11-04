@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { X, CheckCircle, AlertCircle } from 'lucide-react'
 import LoadingSpinner from './LoadingSpinner'
+import { useTranslation } from 'react-i18next'
 
 interface ImportLog {
   type: 'progress' | 'log' | 'complete' | 'error'
@@ -39,6 +40,7 @@ export default function ImportProgressModal({
   const [result, setResult] = useState<ImportResult | null>(null)
   const hasStartedRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
+  const { t } = useTranslation()
 
   // Update the ref when onComplete changes
   useEffect(() => {
@@ -187,19 +189,19 @@ export default function ImportProgressModal({
             {status === 'importing' && (
               <>
                 <LoadingSpinner variant="icon" size="sm" />
-                Importing Transactions
+                {t('importProgressModal.title')}
               </>
             )}
             {status === 'complete' && (
               <>
                 <CheckCircle className="text-green-500" size={20} />
-                Import Complete
+                {t('importProgressModal.completed')}
               </>
             )}
             {status === 'error' && (
               <>
                 <AlertCircle className="text-red-500" size={20} />
-                Import Failed
+                {t('importProgressModal.failed')}
               </>
             )}
           </h2>
@@ -216,7 +218,7 @@ export default function ImportProgressModal({
         {/* Progress Bar */}
         <div className="mb-4 flex-shrink-0">
           <div className="flex justify-between text-sm mb-1">
-            <span>Progress: {progress} / {total}</span>
+            <span>{t('importProgressModal.progress')}: {progress} / {total}</span>
             <span>{progressPercent.toFixed(0)}%</span>
           </div>
           <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
@@ -232,7 +234,7 @@ export default function ImportProgressModal({
           <div className="mb-4 p-3 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex-shrink-0">
             <div className="text-sm space-y-1">
               <div className="flex justify-between">
-                <span className="font-medium">Imported:</span>
+                <span className="font-medium">{t('importProgressModal.imported')}:</span>
                 <span className="text-green-600 dark:text-green-400 font-bold">
                   {result.imported_count}
                 </span>
@@ -247,7 +249,7 @@ export default function ImportProgressModal({
               )}
               {result.warnings && result.warnings.length > 0 && (
                 <div className="flex justify-between">
-                  <span className="font-medium">Warnings:</span>
+                  <span className="font-medium">{t('importProgressModal.warnings')}:</span>
                   <span className="text-yellow-600 dark:text-yellow-400 font-bold">
                     {result.warnings.length}
                   </span>
@@ -260,8 +262,8 @@ export default function ImportProgressModal({
         {/* Logs */}
         <div className="flex-1 min-h-0 flex flex-col">
           <h3 className="text-sm font-semibold mb-2 text-neutral-700 dark:text-neutral-300 flex items-center justify-between flex-shrink-0">
-            <span>Import Log</span>
-            <span className="text-xs text-neutral-500 font-normal">(latest first)</span>
+            <span>{t('importProgressModal.importLog')}</span>
+            <span className="text-xs text-neutral-500 font-normal">({t('importProgressModal.latestFirst')})</span>
           </h3>
           <div className="flex-1 overflow-y-auto space-y-1 text-sm font-mono bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg">
             {logs.map((log, idx) => (
@@ -282,7 +284,7 @@ export default function ImportProgressModal({
               </div>
             ))}
             {logs.length === 0 && (
-              <div className="text-neutral-500 italic">Waiting for updates...</div>
+              <div className="text-neutral-500 italic">{t('importProgressModal.waitingForUpdates')}</div>
             )}
           </div>
         </div>
@@ -293,7 +295,7 @@ export default function ImportProgressModal({
             {result.errors && result.errors.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">
-                  Errors:
+                  {t('importProgressModal.errors')}:
                 </h4>
                 <div className="text-xs bg-red-50 dark:bg-red-950/30 p-2 rounded space-y-1">
                   {result.errors.map((error: string, idx: number) => (
@@ -307,8 +309,8 @@ export default function ImportProgressModal({
             {result.warnings && result.warnings.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-1 flex items-center gap-2">
-                  <span>Warnings</span>
-                  <span className="text-xs font-normal text-neutral-500">(Assets were automatically created)</span>
+                  <span>{t('importProgressModal.warnings')}</span>
+                  <span className="text-xs font-normal text-neutral-500">({t('importProgressModal.assetsAutoCreated')})</span>
                 </h4>
                 <div className="text-xs bg-yellow-50 dark:bg-yellow-950/30 p-2 rounded space-y-1">
                   {result.warnings.map((warning: string, idx: number) => (
@@ -326,7 +328,7 @@ export default function ImportProgressModal({
         {status !== 'importing' && (
           <div className="mt-4 flex justify-end gap-2 flex-shrink-0">
             <button onClick={onClose} className="btn-primary">
-              Close
+              {t('common.close')}
             </button>
           </div>
         )}

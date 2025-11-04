@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import { useTranslation } from 'react-i18next'
 
 interface Position {
   symbol: string
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function PortfolioHeatmap({ portfolioId }: Props) {
+  const { t } = useTranslation()
   const [positions, setPositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -313,10 +315,10 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     <div>
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-          Portfolio Heatmap
+          {t('charts.heatmap')}
         </h3>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-          Asset allocation by market value, colored by daily performance
+          {t('charts.heatmapDescription')}
         </p>
       </div>
 
@@ -324,15 +326,15 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
       <div className="flex items-center gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-700 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Daily Loss</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.dailyLoss')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-neutral-300 dark:bg-neutral-600 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Unchanged</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.unchanged')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-700 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Daily Gain</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.dailyGain')}</span>
         </div>
       </div>
 
@@ -356,7 +358,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                 minHeight: isLarge ? '140px' : isMedium ? '120px' : '100px',
               }}
               className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg p-3 transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
-              title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% of portfolio`}
+              title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% ${t('charts.ofPortfolio')}`}
             >
               <div className="flex items-center gap-2">
                 <img 
@@ -378,11 +380,11 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
               )}
               <div className="mt-auto">
                 <div className={`${isLarge ? 'text-sm' : 'text-xs'} opacity-90`}>
-                  <span className="opacity-60">Weight: </span>{percentage.toFixed(1)}%
+                  <span className="opacity-60">{t('charts.weight')}: </span>{percentage.toFixed(1)}%
                 </div>
                 {dailyPct !== null && (
                   <div className={`${isLarge ? 'text-sm' : 'text-xs'} font-semibold`}>
-                    <span className="opacity-60">Daily: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
+                    <span className="opacity-60">{t('charts.daily')}: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
                   </div>
                 )}
               </div>
@@ -416,7 +418,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                 minHeight: tile.minHeight,
               }}
               className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg ${padding} transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
-              title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% of portfolio, Daily: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
+              title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% ${t('charts.ofPortfolio')}, ${t('charts.daily')}: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
             >
               <div className="flex items-center gap-2">
                 <img 
@@ -438,11 +440,11 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
               )}
               <div className="mt-auto">
                 <div className={`${valueSize} opacity-90`}>
-                  <span className="opacity-60">Weight: </span>{tile.percentage.toFixed(1)}%
+                  <span className="opacity-60">{t('charts.weight')}: </span>{tile.percentage.toFixed(1)}%
                 </div>
                 {dailyPct !== null && (
                   <div className={`${valueSize} font-semibold`}>
-                    <span className="opacity-60">Daily: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
+                    <span className="opacity-60">{t('charts.daily')}: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
                   </div>
                 )}
               </div>

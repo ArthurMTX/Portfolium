@@ -25,6 +25,7 @@ import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { formatAssetType } from '../lib/formatUtils';
 import api, { DistributionItemDTO } from '../lib/api';
 import SortIcon from './SortIcon';
+import { useTranslation } from 'react-i18next'
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -86,6 +87,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
   const [assetSortDirection, setAssetSortDirection] = useState<SortDirection>('desc');
   const [apiDistributionData, setApiDistributionData] = useState<DistributionItemDTO[]>([]);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
 
   // Check if we have performance data (requires portfolioId)
   const hasPerformanceData = portfolioId !== undefined;
@@ -481,8 +483,8 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             }`}
           >
             <Layers size={18} />
-            <span className="hidden sm:inline">By Sector</span>
-            <span className="sm:hidden">Sector</span>
+            <span className="hidden sm:inline">{t('assetsDistribution.bySector')}</span>
+            <span className="sm:hidden">{t('assetsDistribution.sector')}</span>
           </button>
           <button
             onClick={() => setActiveTab('type')}
@@ -493,8 +495,8 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             }`}
           >
             <Building2 size={18} />
-            <span className="hidden sm:inline">By Type</span>
-            <span className="sm:hidden">Type</span>
+            <span className="hidden sm:inline">{t('assetsDistribution.byType')}</span>
+            <span className="sm:hidden">{t('assetsDistribution.type')}</span>
           </button>
           <button
             onClick={() => setActiveTab('country')}
@@ -505,8 +507,8 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             }`}
           >
             <Globe size={18} />
-            <span className="hidden sm:inline">By Country</span>
-            <span className="sm:hidden">Country</span>
+            <span className="hidden sm:inline">{t('assetsDistribution.byCountry')}</span>
+            <span className="sm:hidden">{t('assetsDistribution.country')}</span>
           </button>
         </div>
 
@@ -520,7 +522,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             }`}
           >
             <PieChartIcon size={16} />
-            <span className="hidden sm:inline">Pie</span>
+            <span className="hidden sm:inline">{t('assetsDistribution.pieChart')}</span>
           </button>
           <button
             onClick={() => setChartType('bar')}
@@ -531,7 +533,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             }`}
           >
             <BarChart3 size={16} />
-            <span className="hidden sm:inline">Bar</span>
+            <span className="hidden sm:inline">{t('assetsDistribution.barChart')}</span>
           </button>
         </div>
       </div>
@@ -546,9 +548,9 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             ) : (
               <BarChart3 size={20} className="text-blue-600 dark:text-blue-400" />
             )}
-            {activeTab === 'sector' && 'Sector Distribution'}
-            {activeTab === 'type' && 'Asset Type Distribution'}
-            {activeTab === 'country' && 'Country Distribution'}
+            {activeTab === 'sector' && t('assetsDistribution.sectorDistribution')}
+            {activeTab === 'type' && t('assetsDistribution.typeDistribution')}
+            {activeTab === 'country' && t('assetsDistribution.countryDistribution')}
           </h3>
           <div className="h-96 sm:h-[500px]">
             {loading ? (
@@ -573,7 +575,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
           <div className="p-6 pb-0">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2 mb-4">
               <TrendingUp size={20} className="text-green-600 dark:text-green-400" />
-              Distribution {hasPerformanceData && '& Performance'}
+              {t('assetsDistribution.distribution')} {hasPerformanceData && t('assetsDistribution.andPerformance')}
             </h3>
           </div>
           {loading ? (
@@ -593,16 +595,16 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                     onClick={() => handleDetailedSort('name')}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    {activeTab === 'sector' && 'Sector'}
-                    {activeTab === 'type' && 'Type'}
-                    {activeTab === 'country' && 'Country'}
+                    {activeTab === 'sector' && t('assetsDistribution.sector')}
+                    {activeTab === 'type' && t('assetsDistribution.type')}
+                    {activeTab === 'country' && t('assetsDistribution.country')}
                     <SortIcon column="name" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   <th 
                     onClick={() => handleDetailedSort('count')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Assets
+                    {t('assetsDistribution.assets')}
                     <SortIcon column="count" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   {hasPerformanceData && (
@@ -611,14 +613,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                         onClick={() => handleDetailedSort('totalValue')}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
-                        Total Value
+                        {t('assetsDistribution.totalValue')}
                         <SortIcon column="totalValue" activeColumn={detailedSortField} direction={detailedSortDirection} />
                       </th>
                       <th 
                         onClick={() => handleDetailedSort('unrealizedPnl')}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
-                        Unrealized P&L
+                        {t('assetsDistribution.unrealizedPnL')}
                         <SortIcon column="unrealizedPnl" activeColumn={detailedSortField} direction={detailedSortDirection} />
                       </th>
                     </>
@@ -627,11 +629,11 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                     onClick={() => handleDetailedSort('percentage')}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    % of Portfolio
+                    {t('assetsDistribution.percentageOfPortfolio')}
                     <SortIcon column="percentage" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                    Details
+                    {t('assetsDistribution.details')}
                   </th>
                 </tr>
               </thead>
@@ -721,14 +723,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                           // Show industry breakdown for sectors
                           <div className="space-y-2">
                             <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
-                              Industries in {item.name}
+                              {t('assetsDistribution.industriesIn', { sector: item.name })}
                             </h4>
                             <div className="overflow-x-auto">
                               <table className="min-w-full">
                                 <thead>
                                   <tr className="border-b border-neutral-200 dark:border-neutral-700">
                                     <th className="px-4 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                                      Industry
+                                      {t('assetsDistribution.industry')}
                                     </th>
                                     <th 
                                       className="px-4 py-2 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
@@ -741,7 +743,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                         }
                                       }}
                                     >
-                                      Assets
+                                      {t('assetsDistribution.assets')}
                                       <SortIcon column="count" activeColumn={industrySortField} direction={industrySortDirection} />
                                     </th>
                                     {hasPerformanceData && (
@@ -757,7 +759,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                             }
                                           }}
                                         >
-                                          Total Value
+                                          {t('assetsDistribution.totalValue')}
                                           <SortIcon column="totalValue" activeColumn={industrySortField} direction={industrySortDirection} />
                                         </th>
                                         <th 
@@ -771,7 +773,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                             }
                                           }}
                                         >
-                                          Unrealized P&L
+                                          {t('assetsDistribution.unrealizedPnL')}
                                           <SortIcon column="unrealizedPnl" activeColumn={industrySortField} direction={industrySortDirection} />
                                         </th>
                                       </>
@@ -787,11 +789,11 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                         }
                                       }}
                                     >
-                                      % of Sector
+                                      {t('assetsDistribution.percentageOfSector')}
                                       <SortIcon column="percentage" activeColumn={industrySortField} direction={industrySortDirection} />
                                     </th>
                                     <th className="px-4 py-2 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                                      Details
+                                      {t('assetsDistribution.details')}
                                     </th>
                                   </tr>
                                 </thead>
@@ -805,7 +807,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                       return (
                                         <tr>
                                           <td colSpan={hasPerformanceData ? 6 : 4} className="px-4 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                                            Loading industries...
+                                            {t('assetsDistribution.loadingIndustries')}
                                           </td>
                                         </tr>
                                       );
@@ -815,7 +817,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                       return (
                                         <tr>
                                           <td colSpan={hasPerformanceData ? 6 : 4} className="px-4 py-4 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                                            No industries found
+                                            {t('assetsDistribution.noIndustriesFound')}
                                           </td>
                                         </tr>
                                       );
@@ -922,14 +924,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                         className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                         onClick={() => handleAssetSort('symbol')}
                                                       >
-                                                        Symbol
+                                                        {t('assetsDistribution.symbol')}
                                                         <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                       <th 
                                                         className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                         onClick={() => handleAssetSort('name')}
                                                       >
-                                                        Name
+                                                        {t('assetsDistribution.name')}
                                                         <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                       {hasPerformanceData && (
@@ -938,14 +940,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                             className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                             onClick={() => handleAssetSort('totalValue')}
                                                           >
-                                                            Total Value
+                                                            {t('assetsDistribution.totalValue')}
                                                             <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
                                                           </th>
                                                           <th 
                                                             className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                             onClick={() => handleAssetSort('unrealizedPnl')}
                                                           >
-                                                            Unrealized P&L
+                                                            {t('assetsDistribution.unrealizedPnL')}
                                                             <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
                                                           </th>
                                                         </>
@@ -954,7 +956,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                         className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                         onClick={() => handleAssetSort('percentage')}
                                                       >
-                                                        % of Industry
+                                                        {t('assetsDistribution.percentageOfIndustry')}
                                                         <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                     </tr>
@@ -1042,14 +1044,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                     className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('symbol')}
                                   >
-                                    Symbol
+                                    {t('assetsDistribution.symbol')}
                                     <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                   <th 
                                     className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('name')}
                                   >
-                                    Name
+                                    {t('assetsDistribution.name')}
                                     <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                   {hasPerformanceData && (
@@ -1058,14 +1060,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                         className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                         onClick={() => handleAssetSort('totalValue')}
                                       >
-                                        Total Value
+                                        {t('assetsDistribution.totalValue')}
                                         <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
                                       </th>
                                       <th 
                                         className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                         onClick={() => handleAssetSort('unrealizedPnl')}
                                       >
-                                        Unrealized P&L
+                                        {t('assetsDistribution.unrealizedPnL')}
                                         <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
                                       </th>
                                     </>
@@ -1074,7 +1076,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                     className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('percentage')}
                                   >
-                                    % of {activeTab === 'country' ? 'Country' : activeTab === 'type' ? 'Type' : 'Group'}
+                                    {t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assetsDistribution.country') : activeTab === 'type' ? t('assetsDistribution.type') : t('assetsDistribution.group') })}
                                     <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                 </tr>

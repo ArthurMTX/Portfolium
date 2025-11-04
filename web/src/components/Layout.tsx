@@ -1,4 +1,4 @@
-            import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -157,7 +157,7 @@ export default function Layout() {
               data-mobile-menu-button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-              aria-label="Toggle menu"
+              aria-label={t('navigation.toggleMenu')}
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -165,7 +165,7 @@ export default function Layout() {
             <button
               onClick={toggleDarkMode}
               className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-              aria-label="Toggle dark mode"
+              aria-label={t('navigation.toggleDarkMode')}
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -191,7 +191,7 @@ export default function Layout() {
                       <p className="text-sm font-medium text-neutral-900 dark:text-white">{user.username}</p>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{user.email}</p>
                       {!user.is_verified && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Email not verified</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{t('auth.emailNotVerified')}</p>
                       )}
                     </div>
                     <div className="py-1">
@@ -201,7 +201,7 @@ export default function Layout() {
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       >
                         <User size={16} />
-                        Profile
+                        {t('navigation.profile')}
                       </Link>
                       <Link
                         to="/settings"
@@ -220,7 +220,7 @@ export default function Layout() {
                           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                         >
                           <ShieldCheck size={16} />
-                          Admin Dashboard
+                          {t('navigation.adminDashboard')}
                         </Link>
                         <Link
                           to="/dev"
@@ -228,7 +228,7 @@ export default function Layout() {
                           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                         >
                           <Wrench size={16} />
-                          Dev Tools
+                          {t('navigation.devTools')}
                         </Link>
                       </>
                     )}

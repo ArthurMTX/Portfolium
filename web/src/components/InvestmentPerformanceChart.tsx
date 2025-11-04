@@ -3,6 +3,7 @@ import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
 import api, { PortfolioHistoryPointDTO } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
+import { useTranslation } from 'react-i18next'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
@@ -12,22 +13,30 @@ interface Props {
   portfolioId: number
 }
 
-const periodLabels: Record<PeriodOption, string> = {
-  '1W': '1W',
-  '1M': '1M',
-  '3M': '3M',
-  '6M': '6M',
-  'YTD': 'YTD',
-  '1Y': '1Y',
-  'ALL': 'ALL',
-}
-
 export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   const { portfolios } = usePortfolioStore()
   const [period, setPeriod] = useState<PeriodOption>('1M')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PortfolioHistoryPointDTO[]>([])
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const { t, i18n } = useTranslation()
+
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
+  
+  // Period labels translation mapping
+  const getPeriodLabel = (period: PeriodOption): string => {
+    const labelMap: Record<PeriodOption, string> = {
+      '1W': t('charts.period1W'),
+      '1M': t('charts.period1M'),
+      '3M': t('charts.period3M'),
+      '6M': t('charts.period6M'),
+      'YTD': t('charts.periodYTD'),
+      '1Y': t('charts.period1Y'),
+      'ALL': t('charts.periodALL'),
+    }
+    return labelMap[period]
+  }
   
   // Get portfolio currency
   const portfolio = portfolios.find(p => p.id === portfolioId)
@@ -96,17 +105,17 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   const chartData = {
     labels: history.map(h => {
       const date = new Date(h.date)
-      // Format date based on period
+      // Format date based on period using current locale
       if (period === '1W') {
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
       } else if (period === '1M') {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '3M') {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
       } else {
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
       }
     }),
     datasets: [
@@ -180,10 +189,10 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
         caretSize: 8,
         callbacks: {
           title: (context: { dataIndex: number }[]) => {
-            // Show full date in tooltip title
+            // Show full date in tooltip title using current locale
             if (context.length > 0) {
               const date = new Date(history[context[0].dataIndex].date)
-              return date.toLocaleDateString('en-US', { 
+              return date.toLocaleDateString(currentLocale, { 
                 weekday: 'short',
                 year: 'numeric', 
                 month: 'short', 
@@ -201,18 +210,18 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             
             // For period views, show the relative change
             if (period === 'ALL') {
-              lines.push(`Current Holdings: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+              lines.push(`${t('charts.currentHoldings')} ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
               
               // Also show total invested performance if different
               if (point.gain_pct !== undefined && point.gain_pct !== null && 
                   point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null &&
                   Math.abs(point.gain_pct - point.unrealized_pnl_pct) > 0.01) {
-                lines.push(`Total Invested: ${point.gain_pct >= 0 ? '+' : ''}${point.gain_pct.toFixed(2)}%`)
+                lines.push(`${t('charts.totalInvested')}: ${point.gain_pct >= 0 ? '+' : ''}${point.gain_pct.toFixed(2)}%`)
               }
             } else {
               // Show period performance (relative to start)
-              lines.push(`Period Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
-              
+              lines.push(`${t('charts.periodPerformance')}: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+
               // Also show absolute unrealized P&L performance
               let absolutePerf = 0
               if (point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null) {
@@ -222,7 +231,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
               } else if (point.invested && point.invested > 0) {
                 absolutePerf = ((point.value - point.invested) / point.invested) * 100
               }
-              lines.push(`All-Time: ${absolutePerf >= 0 ? '+' : ''}${absolutePerf.toFixed(2)}%`)
+              lines.push(`${t('charts.allTimePerformance')}: ${absolutePerf >= 0 ? '+' : ''}${absolutePerf.toFixed(2)}%`)
             }
             
             if (point.invested) {
@@ -231,7 +240,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
                 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
               }
               const symbol = currencySymbols[currency] || currency + ' '
-              lines.push(`Total Gain: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+              lines.push(`${t('charts.totalGainLoss')}: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
             }
             return lines
           }
@@ -255,7 +264,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       y: {
         title: { 
           display: true, 
-          text: 'Performance (%)',
+          text: `${t('charts.performanceLabel')} (%)`,
           color: '#64748b',
           font: { size: 12 }
         },
@@ -365,8 +374,8 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
           </div>
         ) : history.length === 0 ? (
           <div className="text-neutral-400 text-center py-12">
-            <p className="font-semibold mb-2">No performance data available</p>
-            <p className="text-sm">Historical data will be calculated from your saved price records and transactions.</p>
+            <p className="font-semibold mb-2">{t('charts.noPortfolioPerformance')}</p>
+            <p className="text-sm">{t('charts.noPortfolioPerformanceInfo')}</p>
           </div>
         ) : (
           <div>
@@ -374,7 +383,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <div>
-                  <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Portfolio Performance</h3>
+                  <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t('charts.portfolioPerformanceLabel')}</h3>
                 </div>
               </div>
               {displayPoint && (() => {
@@ -429,7 +438,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             }`}
             onClick={() => setPeriod(opt)}
           >
-            {periodLabels[opt]}
+            {getPeriodLabel(opt)}
           </button>
         ))}
       </div>

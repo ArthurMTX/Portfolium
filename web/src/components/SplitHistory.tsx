@@ -1,6 +1,7 @@
 import { X, Calendar, Shuffle, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api from '../lib/api'
+import { useTranslation } from 'react-i18next'
 
 interface SplitTransaction {
   id: number
@@ -21,6 +22,7 @@ interface SplitHistoryProps {
 export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClose }: SplitHistoryProps) {
   const [splits, setSplits] = useState<SplitTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const { t } = useTranslation()
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -70,16 +72,24 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
       if (ratio > 1) {
         return {
           ratio,
-          description: `${parts[0]}-for-${parts[1]} split (${formatRatio(ratio)}x shares)`
+          description: t('splitHistory.forwardSplitDescription', {
+            numerator: parts[0],
+            denominator: parts[1],
+            ratio: formatRatio(ratio)
+          })
         }
       } else if (ratio < 1) {
         return {
           ratio,
-          description: `${parts[0]}-for-${parts[1]} reverse split (${formatRatio(ratio)}x shares)`
+          description: t('splitHistory.reverseSplitDescription', {
+            numerator: parts[0],
+            denominator: parts[1],
+            ratio: formatRatio(ratio)
+          })
         }
       }
     }
-    return { ratio: 1, description: 'Invalid split ratio' }
+    return { ratio: 1, description: t('splitHistory.invalidSplitRatio') }
   }
 
   const formatDate = (dateString: string) => {
@@ -98,7 +108,7 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
           <div>
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
               <Shuffle className="text-purple-600" size={28} />
-              Split History
+              {t('splitHistory.title')}
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
               {assetSymbol}
@@ -116,16 +126,16 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
         <div className="p-6">
           {loading ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              Loading split history...
+              {t('splitHistory.loading')}
             </div>
           ) : splits.length === 0 ? (
             <div className="text-center py-12">
               <Shuffle className="mx-auto text-neutral-400 dark:text-neutral-600 mb-4" size={48} />
               <p className="text-neutral-600 dark:text-neutral-400">
-                No stock splits recorded for {assetSymbol}
+                {t('splitHistory.noSplits', { ticker: assetSymbol })}
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-2">
-                Stock splits will appear here when recorded
+                {t('splitHistory.noSplitsInfo')}
               </p>
             </div>
           ) : (
@@ -173,14 +183,14 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
                       
                       <div className="ml-4 text-right">
                         <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                          Split #{splits.length - index}
+                          {t('splitHistory.split')} #{splits.length - index}
                         </div>
                         <div className={`mt-1 px-3 py-1 rounded-full text-xs font-medium ${
                           isReverse 
                             ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
                             : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
                         }`}>
-                          {isReverse ? 'Reverse' : 'Forward'}
+                          {isReverse ? t('splitHistory.reverse') : t('splitHistory.forward')}
                         </div>
                       </div>
                     </div>
@@ -191,10 +201,10 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
               {/* Summary */}
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="text-sm text-blue-900 dark:text-blue-300">
-                  <strong>Total splits recorded:</strong> {splits.length}
+                  <strong>{t('splitHistory.totalSplitsRecorded')}:</strong> {splits.length}
                 </div>
                 <div className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-                  Splits automatically adjust share quantities and average costs in your portfolio
+                  {t('splitHistory.splitsInfo')}
                 </div>
               </div>
             </div>
@@ -207,7 +217,7 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
             onClick={onClose}
             className="w-full px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
           >
-            Close
+            {t('common.close')}
           </button>
         </div>
       </div>

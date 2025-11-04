@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { PlusCircle, Edit2, Trash2, Folder, TrendingUp, X } from 'lucide-react'
 import api from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
+import { useTranslation } from 'react-i18next'
 
 interface Portfolio {
   id: number
@@ -12,6 +13,7 @@ interface Portfolio {
 }
 
 export default function Portfolios() {
+  const { t } = useTranslation()
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -152,35 +154,35 @@ export default function Portfolios() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <Folder className="text-pink-600" size={28} />
-            Portfolios
+            {t('portfolios.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Organize and manage your investment portfolios
+            {t('portfolios.description')}
           </p>
         </div>
         <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2 self-start sm:self-auto">
           <PlusCircle size={16} />
-          <span className="hidden sm:inline">Create Portfolio</span>
-          <span className="sm:hidden">Create</span>
+          <span className="hidden sm:inline">{t('portfolios.create')}</span>
+          <span className="sm:hidden">{t('common.create')}</span>
         </button>
       </div>
 
       {loading ? (
         <div className="card p-12 text-center">
-          <p className="text-neutral-500 dark:text-neutral-400">Loading portfolios...</p>
+          <p className="text-neutral-500 dark:text-neutral-400">{t('portfolios.loading')}</p>
         </div>
       ) : portfolios.length === 0 ? (
         <div className="card p-12 text-center">
           <Folder size={48} className="mx-auto text-neutral-400 dark:text-neutral-600 mb-4" />
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-            No Portfolios Yet
+            {t('common.noPortfolios')}
           </h3>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-            Create your first portfolio to start tracking your investments
+            {t('common.noPortfoliosInfo')}
           </p>
           <button onClick={openAddModal} className="btn-primary inline-flex items-center gap-2">
             <PlusCircle size={18} />
-            Create Your First Portfolio
+            {t('common.noPortfoliosCreate')}
           </button>
         </div>
       ) : (
@@ -221,7 +223,7 @@ export default function Portfolios() {
                       openEditModal(portfolio)
                     }}
                     className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
-                    title="Edit"
+                    title={t('common.edit')}
                   >
                     <Edit2 size={16} />
                   </button>
@@ -231,7 +233,7 @@ export default function Portfolios() {
                       setDeleteConfirm(portfolio.id)
                     }}
                     className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded transition-colors"
-                    title="Delete"
+                    title="{t('common.delete')}"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -246,7 +248,7 @@ export default function Portfolios() {
 
               <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
                 <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                  Created {formatDate(portfolio.created_at)}
+                  {t('portfolios.createdAt')} {formatDate(portfolio.created_at)}
                 </div>
               </div>
 
@@ -254,7 +256,7 @@ export default function Portfolios() {
                 <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
                   <div className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-xs font-medium rounded">
                     <TrendingUp size={12} />
-                    Active
+                    {t('common.active')}
                   </div>
                 </div>
               )}
@@ -269,7 +271,7 @@ export default function Portfolios() {
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                {editingPortfolio ? 'Edit Portfolio' : 'Create Portfolio'}
+                {editingPortfolio ? t('portfolios.edit') : t('portfolios.create')}
               </h2>
               <button
                 onClick={closeModal}
@@ -282,21 +284,21 @@ export default function Portfolios() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Portfolio Name *
+                  {t('portfolios.nameField')} *
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  placeholder="e.g., Main Portfolio, Retirement, Crypto"
+                  placeholder={t('portfolios.namePlaceholder')}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Base Currency *
+                  {t('portfolios.currencyField')} *
                 </label>
                 <select
                   value={baseCurrency}
@@ -313,14 +315,14 @@ export default function Portfolios() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Description
+                  {t('portfolios.descriptionField')}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   rows={3}
-                  placeholder="Optional description..."
+                  placeholder={t('portfolios.descriptionPlaceholder')}
                 />
               </div>
 
@@ -336,14 +338,14 @@ export default function Portfolios() {
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={formLoading}
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
-                  {formLoading ? 'Saving...' : editingPortfolio ? 'Save Changes' : 'Create Portfolio'}
+                  {formLoading ? t('common.saving') : editingPortfolio ? t('common.save') : t('portfolios.create')}
                 </button>
               </div>
             </form>
@@ -356,23 +358,23 @@ export default function Portfolios() {
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-              Delete Portfolio
+              {t('portfolios.delete')}
             </h3>
             <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              Are you sure you want to delete this portfolio? All transactions and data will be permanently removed. This action cannot be undone.
+              {t('portfolios.deleteConfirm')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>

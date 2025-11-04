@@ -9,6 +9,7 @@ import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 import SortIcon from '../components/SortIcon'
+import { useTranslation } from 'react-i18next'
 
 interface TickerInfo {
   symbol: string
@@ -59,6 +60,10 @@ export default function Transactions() {
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [displayLimit] = useState(100)
   const [searchQuery, setSearchQuery] = useState('')
+  const { t, i18n } = useTranslation()
+
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
 
   // Form state
   const [ticker, setTicker] = useState("")
@@ -519,20 +524,33 @@ export default function Transactions() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
+    return new Date(dateString).toLocaleDateString(currentLocale, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
     })
   }
 
+  const getTranslatedType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      'BUY': t('transactions.buy'),
+      'SELL': t('transactions.sell'),
+      'DIVIDEND': t('transactions.dividend'),
+      'FEE': t('transactions.fee'),
+      'SPLIT': t('transactions.split'),
+      'TRANSFER_IN': t('transactions.transferIn'),
+      'TRANSFER_OUT': t('transactions.transferOut'),
+    }
+    return typeMap[type.toUpperCase()] || type
+  }
+
   const tabs: { id: TabType; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'buy', label: 'Buy' },
-    { id: 'sell', label: 'Sell' },
-    { id: 'dividend', label: 'Dividend' },
-    { id: 'fee', label: 'Fees' },
-    { id: 'split', label: 'Split' },
+    { id: 'all', label: t('transactions.all') },
+    { id: 'buy', label: t('transactions.buy') },
+    { id: 'sell', label: t('transactions.sell') },
+    { id: 'dividend', label: t('transactions.dividend') },
+    { id: 'fee', label: t('transactions.fee') },
+    { id: 'split', label: t('transactions.split') },
   ]
 
   const getTransactionIcon = (type: string) => {
@@ -572,10 +590,10 @@ export default function Transactions() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <TrendingUp className="text-pink-600" size={28} />
-            Transactions
+            {t('transactions.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Track all your buy, sell, and dividend transactions
+            {t('transactions.description')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -585,8 +603,8 @@ export default function Transactions() {
           >
             <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
             <BarChart3 size={18} className="relative z-10" />
-            <span className="relative z-10 hidden sm:inline">View Metrics</span>
-            <span className="relative z-10 sm:hidden">Metrics</span>
+            <span className="relative z-10 hidden sm:inline">{t('transactions.viewMetrics')}</span>
+            <span className="relative z-10 sm:hidden">{t('transactions.metrics')}</span>
           </button>
           <button 
             onClick={handleImportClick}
@@ -594,20 +612,20 @@ export default function Transactions() {
             className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm px-3 py-2"
           >
             <Upload size={16} />
-            <span className="hidden sm:inline">{importLoading ? 'Importing...' : 'Import'}</span>
-            <span className="sm:hidden">Import</span>
+            <span className="hidden sm:inline">{importLoading ? t('common.importing') : t('common.import')}</span>
+            <span className="sm:hidden">{t('common.import')}</span>
           </button>
           <button 
             onClick={handleExportClick}
             className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
             <Download size={16} />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">{t('common.export')}</span>
           </button>
           <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm px-3 py-2">
             <PlusCircle size={16} />
-            <span className="hidden sm:inline">Add Transaction</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t('transactions.addTransaction')}</span>
+            <span className="sm:hidden">{t('common.add')}</span>
           </button>
         </div>
       </div>
@@ -653,7 +671,7 @@ export default function Transactions() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search symbol or name..."
+              placeholder={t('transactions.searchSymbol')}
               className="w-full pl-9 pr-8 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
             />
             {searchQuery && (
@@ -671,15 +689,15 @@ export default function Transactions() {
         {transactions.length > 0 && (
           <div className="px-4 sm:px-6 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm text-neutral-600 dark:text-neutral-400">
-              Showing <span className="font-semibold text-neutral-900 dark:text-neutral-100">{sortedTransactions.length}</span> of{' '}
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{transactions.length}</span> transactions
+              {t('common.showing')} <span className="font-semibold text-neutral-900 dark:text-neutral-100">{sortedTransactions.length}</span> {t('common.of')}{' '}
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{transactions.length}</span> {t('transactions.transactions')}
             </div>
             {transactions.length > displayLimit && (
               <button
                 onClick={() => setShowAllTransactions(!showAllTransactions)}
                 className="text-sm px-3 py-1 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors text-neutral-700 dark:text-neutral-300 font-medium"
               >
-                {showAllTransactions ? `Show Last ${displayLimit}` : 'Show All'}
+                {showAllTransactions ? t('transactions.showLast', { count: displayLimit }) : t('transactions.showAll')}
               </button>
             )}
           </div>
@@ -693,15 +711,15 @@ export default function Transactions() {
               <table className="w-full">
                 <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Asset</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Price</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Fees</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.date')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.asset')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.type')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.quantity')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.price')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.fees')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.total')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.notes')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('transactions.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -731,19 +749,19 @@ export default function Transactions() {
             </div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>No transactions found</p>
-              <p className="text-sm mt-2">Start by adding your first transaction</p>
+              <p>{t('transactions.noTransactions')}</p>
+              <p className="text-sm mt-2">{t('transactions.noTransactionsInfo')}</p>
             </div>
           ) : sortedTransactions.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>No transactions match your search</p>
+              <p>{t('transactions.noTransactionMatches')}</p>
               <p className="text-sm mt-2">
-                Try searching for a different symbol or name, or{' '}
+                {t('transactions.noTransactionMatchesInfo')}{' '}
                 <button
                   onClick={() => setSearchQuery('')}
                   className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
                 >
-                  clear the search
+                  {t('transactions.noTransactionMatchesClear')}
                 </button>
               </p>
             </div>
@@ -754,7 +772,7 @@ export default function Transactions() {
                 {/* Sort Controls */}
                 <div className="flex items-center gap-2 p-3">
                   <label htmlFor="mobile-sort-tx" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                    Sort by:
+                    {t('common.sortBy')}:
                   </label>
                   <select
                     id="mobile-sort-tx"
@@ -822,7 +840,7 @@ export default function Transactions() {
                           <div className="text-right ml-3">
                             <div className={`flex items-center justify-end gap-1 text-sm font-medium mb-1 ${getTransactionColor(transaction.type)}`}>
                               {getTransactionIcon(transaction.type)}
-                              {transaction.type}
+                              {getTranslatedType(transaction.type)}
                             </div>
                             <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
                               {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
@@ -833,26 +851,26 @@ export default function Transactions() {
                         {/* Data Grid */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
                           <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Quantity</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.quantity')}</span>
                             <div className="font-medium text-neutral-900 dark:text-neutral-100">
                               {transaction.type === 'SPLIT' ? '-' : formatQuantity(transaction.quantity)}
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Price</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.price')}</span>
                             <div className="font-medium text-neutral-900 dark:text-neutral-100">
                               {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
                             </div>
                           </div>
                           <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Fees</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.fees')}</span>
                             <div className="font-medium text-neutral-900 dark:text-neutral-100">
                               {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
                             </div>
                           </div>
                           {transaction.asset.name && (
                             <div className="text-right">
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">Asset Name</span>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.assetName')}</span>
                               <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
                                 {transaction.asset.name}
                               </div>
@@ -863,11 +881,11 @@ export default function Transactions() {
                         {/* Notes */}
                         {(transaction.notes || (transaction.type === 'SPLIT' && metadata?.split)) && (
                           <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">Notes:</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.notes')}:</span>
                             <div className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">
                               {transaction.type === 'SPLIT' && metadata?.split ? (
                                 <span className="inline-flex items-center gap-1">
-                                  <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} split</span>
+                                  <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} {t('transactions.split')}</span>
                                   {transaction.notes && <span className="text-neutral-400">•</span>}
                                   {transaction.notes}
                                 </span>
@@ -886,7 +904,7 @@ export default function Transactions() {
                               className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
                             >
                               <Shuffle size={16} />
-                              Splits
+                              {t('transactions.splits')}
                             </button>
                           )}
                           <button
@@ -894,14 +912,14 @@ export default function Transactions() {
                             className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
                           >
                             <Edit2 size={16} />
-                            Edit
+                            {t('common.edit')}
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(transaction.id)}
                             className="btn-secondary text-sm px-3 py-2 flex items-center gap-2 text-red-600 dark:text-red-400"
                           >
                             <Trash2 size={16} />
-                            Delete
+                            {t('common.delete')}
                           </button>
                         </div>
                       </div>
@@ -920,55 +938,55 @@ export default function Transactions() {
                     aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Date <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.date')} <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('symbol')}
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Asset <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.asset')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('type')}
                     aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Type <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.type')} <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('quantity')}
                     aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Quantity <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('price')}
                     aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Price <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.price')} <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('fees')}
                     aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Fees <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.fees')} <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('total')}
                     aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Total <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
+                    {t('transactions.total')} <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                    Notes
+                    {t('transactions.notes')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                    Actions
+                    {t('transactions.action')}
                   </th>
                 </tr>
               </thead>
@@ -1022,7 +1040,7 @@ export default function Transactions() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`flex items-center gap-2 text-sm font-medium ${getTransactionColor(transaction.type)}`}>
                           {getTransactionIcon(transaction.type)}
-                          {transaction.type}
+                          {getTranslatedType(transaction.type)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
@@ -1043,7 +1061,7 @@ export default function Transactions() {
                           const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
                           return transaction.type === 'SPLIT' && metadata?.split ? (
                             <span className="inline-flex items-center gap-1">
-                              <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} split</span>
+                              <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} {t('transactions.split')}</span>
                               {transaction.notes && <span className="text-neutral-400">•</span>}
                               {transaction.notes}
                             </span>
@@ -1058,7 +1076,7 @@ export default function Transactions() {
                             <button
                               onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
                               className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors"
-                              title="View Split History"
+                              title={t('transactions.viewSplitHistory')}
                             >
                               <Shuffle size={16} />
                             </button>
@@ -1066,14 +1084,14 @@ export default function Transactions() {
                           <button
                             onClick={() => openEditModal(transaction)}
                             className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
-                            title="Edit"
+                            title={t('transactions.editTransaction')}
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(transaction.id)}
                             className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded transition-colors"
-                            title="Delete"
+                            title={t('transactions.deleteTransaction')}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1096,7 +1114,7 @@ export default function Transactions() {
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                {modalMode === 'add' ? 'Add Transaction' : 'Edit Transaction'}
+                {modalMode === 'add' ? t('transactions.addTransaction') : t('transactions.editTransaction')}
               </h2>
               <button
                 onClick={closeModal}
@@ -1110,14 +1128,14 @@ export default function Transactions() {
               {modalMode === 'add' && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Ticker
+                    {t('transactions.ticker')}
                   </label>
                   <input
                     type="text"
                     value={ticker}
                     onChange={handleTickerChange}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    placeholder="Search ticker (e.g., AAPL)..."
+                    placeholder={t('transactions.tickerSearchPlaceholder')}
                   />
                   {searchResults.length > 0 && (
                     <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -1145,7 +1163,7 @@ export default function Transactions() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Date
+                    {t('transactions.date')}
                   </label>
                   <input
                     type="date"
@@ -1158,20 +1176,20 @@ export default function Transactions() {
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Type
+                    {t('transactions.type')}
                   </label>
                   <select
                     value={txType}
                     onChange={(e) => setTxType(e.target.value)}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   >
-                    <option value="BUY">Buy</option>
-                    <option value="SELL">Sell</option>
-                    <option value="DIVIDEND">Dividend</option>
-                    <option value="FEE">Fee</option>
-                    <option value="SPLIT">Split</option>
-                    <option value="TRANSFER_IN">Transfer In</option>
-                    <option value="TRANSFER_OUT">Transfer Out</option>
+                    <option value="BUY">{t('transactions.buy')}</option>
+                    <option value="SELL">{t('transactions.sell')}</option>
+                    <option value="DIVIDEND">{t('transactions.dividend')}</option>
+                    <option value="FEE">{t('transactions.fee')}</option>
+                    <option value="SPLIT">{t('transactions.split')}</option>
+                    <option value="TRANSFER_IN">{t('transactions.transferIn')}</option>
+                    <option value="TRANSFER_OUT">{t('transactions.transferOut')}</option>
                   </select>
                 </div>
               </div>
@@ -1180,18 +1198,18 @@ export default function Transactions() {
               {txType === 'SPLIT' && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Split Ratio
+                    {t('transactions.splitRatio')}
                   </label>
                   <input
                     type="text"
                     value={splitRatio}
                     onChange={(e) => setSplitRatio(e.target.value)}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    placeholder="e.g., 2:1 (2-for-1 split) or 1:2 (reverse split)"
+                    placeholder={t('transactions.splitRatioPlaceholder')}
                     required
                   />
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                    Format: "N:M" where N is new shares and M is old shares. Examples: "2:1" (doubles shares), "3:1" (triples), "1:2" (reverse split halves shares)
+                    {t('transactions.splitRatioInfo')}  
                   </p>
                 </div>
               )}
@@ -1201,7 +1219,7 @@ export default function Transactions() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Quantity
+                      {t('transactions.quantity')}
                     </label>
                     <input
                       type="number"
@@ -1217,7 +1235,7 @@ export default function Transactions() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Price ({portfolioCurrency}) {modalMode === 'add' && '(Optional)'}
+                      {t('transactions.price')} ({portfolioCurrency}) {modalMode === 'add' && `(${t('transactions.optional')})`}
                     </label>
                     <input
                       type="number"
@@ -1226,19 +1244,19 @@ export default function Transactions() {
                       className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                       min="0"
                       step="any"
-                      placeholder={modalMode === 'add' ? 'Auto-fetch' : '0.00'}
+                      placeholder={modalMode === 'add' ? t('transactions.autoFetch') : '0.00'}
                       required={modalMode === 'edit'}
                     />
                     {modalMode === 'add' && (
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        Leave empty to auto-fetch price in USD, or enter price in {portfolioCurrency}
+                        {t('transactions.autoFetchInfo', { currency: portfolioCurrency })}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Fees ({portfolioCurrency})
+                      {t('transactions.fees')} ({portfolioCurrency})
                     </label>
                     <input
                       type="number"
@@ -1255,14 +1273,14 @@ export default function Transactions() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Notes
+                  {t('transactions.notes')}
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   rows={3}
-                  placeholder="Optional notes..."
+                  placeholder={t('transactions.notesPlaceholder')}
                 />
               </div>
 
@@ -1278,14 +1296,14 @@ export default function Transactions() {
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={formLoading || (modalMode === 'add' && !selectedTicker)}
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
-                  {formLoading ? 'Saving...' : modalMode === 'add' ? 'Add Transaction' : 'Save Changes'}
+                  {formLoading ? t('common.saving') : modalMode === 'add' ? t('common.add') : t('common.save')}
                 </button>
               </div>
             </form>
@@ -1298,23 +1316,23 @@ export default function Transactions() {
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-              Delete Transaction
+              {t('transactions.deleteTransaction')}
             </h3>
             <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              Are you sure you want to delete this transaction? This action cannot be undone.
+              {t('transactions.deleteConfirm')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>

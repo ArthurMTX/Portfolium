@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { SECTOR_ICONS, getIndustriesForSector, getSectorIcon, getIndustryIcon, getSectorColor } from '../lib/sectorIndustryUtils';
 import { getCountryCodeMapping, getFlagUrl } from '../lib/countryUtils';
 import IconSelect from './IconSelect';
+import { useTranslation } from 'react-i18next'
 
 // Extract unique country names (filter out codes, keep only full country names)
 const COUNTRY_NAMES = Array.from(
@@ -48,6 +49,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const { t } = useTranslation();
 
   // Get filtered industries based on selected sector
   const availableIndustries = getIndustriesForSector(sectorOverride || asset.sector);
@@ -163,7 +165,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
             </div>
             <div>
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                Edit Asset Metadata
+                {t('assetMetadataEdit.title')}
               </h2>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
                 {asset.symbol} - {asset.name}
@@ -183,12 +185,12 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           <div className="flex gap-3">
             <Info className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={20} />
             <div className="text-sm text-blue-900 dark:text-blue-100">
-              <p className="font-semibold mb-1">About User-Specific Overrides</p>
+              <p className="font-semibold mb-1">{t('assetMetadataEdit.about')}</p>
               <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
-                <li>You can only set metadata when Yahoo Finance doesn't provide data</li>
-                <li>Your classifications are <strong>personal</strong> - other users won't see them</li>
-                <li>This helps complete your distribution charts and insights</li>
-                <li>If Yahoo Finance later adds data, your override will be ignored</li>
+                <li>{t('assetMetadataEdit.about1')}</li>
+                <li>{t('assetMetadataEdit.about2')} <strong>{t('assetMetadataEdit.about3')}</strong> {t('assetMetadataEdit.about4')}</li>
+                <li>{t('assetMetadataEdit.about5')}</li>
+                <li>{t('assetMetadataEdit.about6')}</li>
               </ul>
             </div>
           </div>
@@ -201,7 +203,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
               <div className="flex gap-3">
                 <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={20} />
                 <div className="text-sm text-red-900 dark:text-red-100">
-                  <p className="font-semibold">Error</p>
+                  <p className="font-semibold">{t('assetMetadataEdit.error')}</p>
                   <p className="text-red-800 dark:text-red-200">{error}</p>
                 </div>
               </div>
@@ -211,7 +213,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           {/* Sector */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              Sector
+              {t('assetMetadataEdit.sector')}
             </label>
             {hasYahooData('sector') ? (
               <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
@@ -220,11 +222,11 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
                     {asset.sector}
                   </span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-400 bg-neutral-200 dark:bg-neutral-700 px-2 py-1 rounded">
-                    Yahoo Finance
+                    {t('assetMetadataEdit.yahooFinance')}
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Cannot override - Yahoo Finance already provides this data
+                  {t('assetMetadataEdit.cannotOverride')}
                 </p>
               </div>
             ) : (
@@ -233,11 +235,11 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
                   value={sectorOverride}
                   onChange={setSectorOverride}
                   options={sectorOptions}
-                  placeholder="Select a sector..."
+                  placeholder={t('assetMetadataEdit.sectorPlaceholder')}
                   clearable
                 />
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Yahoo Finance: <span className="text-neutral-400">Not available</span>
+                  {t('assetMetadataEdit.yahooFinance')}: <span className="text-neutral-400">{t('assetMetadataEdit.notAvailable')}</span>
                 </p>
               </div>
             )}
@@ -246,7 +248,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           {/* Industry */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              Industry
+              {t('assetMetadataEdit.industry')}
             </label>
             {hasYahooData('industry') ? (
               <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
@@ -255,11 +257,11 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
                     {asset.industry}
                   </span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-400 bg-neutral-200 dark:bg-neutral-700 px-2 py-1 rounded">
-                    Yahoo Finance
+                    {t('assetMetadataEdit.yahooFinance')}
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Cannot override - Yahoo Finance already provides this data
+                  {t('assetMetadataEdit.cannotOverride')}
                 </p>
               </div>
             ) : (
@@ -268,15 +270,15 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
                   value={industryOverride}
                   onChange={setIndustryOverride}
                   options={industryOptions}
-                  placeholder="Select an industry..."
+                  placeholder={t('assetMetadataEdit.industryPlaceholder')}
                   disabled={!sectorOverride && !asset.sector}
                   clearable
                 />
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {!sectorOverride && !asset.sector ? (
-                    <span className="text-amber-600 dark:text-amber-400">Please select a sector first</span>
+                    <span className="text-amber-600 dark:text-amber-400">{t('assetMetadataEdit.selectASector')}</span>
                   ) : (
-                    <>Yahoo Finance: <span className="text-neutral-400">Not available</span></>
+                    <>{t('assetMetadataEdit.yahooFinance')}: <span className="text-neutral-400">{t('assetMetadataEdit.notAvailable')}</span></>
                   )}
                 </p>
               </div>
@@ -286,7 +288,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           {/* Country */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              Country
+              {t('assetMetadataEdit.country')}
             </label>
             {hasYahooData('country') ? (
               <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
@@ -295,11 +297,11 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
                     {asset.country}
                   </span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-400 bg-neutral-200 dark:bg-neutral-700 px-2 py-1 rounded">
-                    Yahoo Finance
+                    {t('assetMetadataEdit.yahooFinance')}
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Cannot override - Yahoo Finance already provides this data
+                  {t('assetMetadataEdit.cannotOverride')}
                 </p>
               </div>
             ) : (
@@ -308,11 +310,11 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
                   value={countryOverride}
                   onChange={setCountryOverride}
                   options={countryOptions}
-                  placeholder="Select a country..."
+                  placeholder={t('assetMetadataEdit.countryPlaceholder')}
                   clearable
                 />
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Yahoo Finance: <span className="text-neutral-400">Not available</span>
+                  {t('assetMetadataEdit.yahooFinance')}: <span className="text-neutral-400">{t('assetMetadataEdit.notAvailable')}</span>
                 </p>
               </div>
             )}
@@ -326,7 +328,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
               className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               disabled={loading}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -336,12 +338,12 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Saving...
+                  {t('common.saving')}...
                 </>
               ) : (
                 <>
                   <Save size={18} />
-                  Save Overrides
+                  {t('assetMetadataEdit.saveOverrides')}
                 </>
               )}
             </button>

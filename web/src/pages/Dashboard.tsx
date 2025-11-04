@@ -7,6 +7,8 @@ import { usePriceUpdates } from '../hooks/usePriceUpdates'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { useTranslation } from 'react-i18next'
+
 
 type PositionsTab = 'current' | 'sold'
 
@@ -24,6 +26,7 @@ export default function Dashboard() {
     setLoading,
   } = usePortfolioStore()
 
+  const { t } = useTranslation()  
   const [refreshing, setRefreshing] = useState(false)
   const [soldPositions, setSoldPositions] = useState<PositionDTO[]>([])
   const [soldPositionsLoading, setSoldPositionsLoading] = useState(false)
@@ -155,13 +158,13 @@ export default function Dashboard() {
   }
 
   const formatLastUpdate = (timestamp: number) => {
-    if (!timestamp) return 'Never'
+    if (!timestamp) return t('common.never')
     const secondsAgo = Math.floor((Date.now() - timestamp) / 1000)
-    if (secondsAgo < 60) return `${secondsAgo}s ago`
+    if (secondsAgo < 60) return t('common.timeAgo', { time: `${secondsAgo}s` })
     const minutesAgo = Math.floor(secondsAgo / 60)
-    if (minutesAgo < 60) return `${minutesAgo}m ago`
+    if (minutesAgo < 60) return t('common.timeAgo', { time: `${minutesAgo}m` })
     const hoursAgo = Math.floor(minutesAgo / 60)
-    return `${hoursAgo}h ago`
+    return t('common.timeAgo', { time: `${hoursAgo}h` })
   }
 
   // Note: Dashboard metrics are always in EUR, so we use a wrapper
@@ -201,10 +204,10 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
               <LayoutDashboard className="text-pink-600" size={28} />
-              Dashboard
+              {t('dashboard.title')}
             </h1>
             <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-              Loading your portfolio data...
+              {t('dashboard.loadingMessage')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -292,10 +295,10 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <LayoutDashboard className="text-pink-600" size={28} />
-            Dashboard
+            {t('dashboard.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Track your investments in real-time
+            {t('dashboard.description')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -307,27 +310,27 @@ export default function Dashboard() {
           )}
           {marketStatus === 'premarket' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">
-              ● Pre-Market
+              ● {t('dashboard.marketStatusPremarket')}
             </span>
           )}
           {marketStatus === 'open' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">
-              ● Market Open
+              ● {t('dashboard.marketStatusOpen')}
             </span>
           )}
           {marketStatus === 'afterhours' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">
-              ● After Hours
+              ● {t('dashboard.marketStatusAfterhours')}
             </span>
           )}
           {marketStatus === 'closed' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full">
-              ● Market Closed
+              ● {t('dashboard.marketStatusClosed')}
             </span>
           )}
           {marketStatus === 'unknown' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 rounded-full">
-              ● Status Unknown
+              ● {t('dashboard.marketStatusUnknown')}
             </span>
           )}
           <button
@@ -337,10 +340,10 @@ export default function Dashboard() {
                 ? 'bg-green-600 hover:bg-green-700 text-white'
                 : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
             } flex items-center gap-2 px-3 py-2`}
-            title={isAutoRefreshEnabled ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+            title={isAutoRefreshEnabled ? t('dashboard.autoRefreshOn') : t('dashboard.autoRefreshOff')}
           >
             {isAutoRefreshEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
-            <span className="hidden sm:inline">Auto</span>
+            <span className="hidden sm:inline">{t('common.auto')}</span>
           </button>
           <button
             onClick={handleRefresh}
@@ -348,7 +351,7 @@ export default function Dashboard() {
             className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2"
           >
             <RefreshCw size={16} className={isAnyRefreshing ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline">{t('common.refresh')}</span>
           </button>
         </div>
       </div>
@@ -357,7 +360,7 @@ export default function Dashboard() {
       {priceError && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm text-red-800 dark:text-red-200">
-            <strong>Price Update Error:</strong> {priceError}
+            <strong>{t('common.priceUpdateError')}:</strong> {priceError}
           </p>
         </div>
       )}
@@ -365,7 +368,7 @@ export default function Dashboard() {
       {/* Portfolio Selector */}
       {portfolios.length > 0 && (
         <div className="card p-4">
-          <label className="block text-sm font-medium mb-2">Active Portfolio</label>
+          <label className="block text-sm font-medium mb-2">{t('dashboard.activePortfolios')}</label>
           <select
             value={activePortfolioId ?? ''}
             onChange={(e) => setActivePortfolio(Number(e.target.value))}
@@ -386,7 +389,7 @@ export default function Dashboard() {
           <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Total Value</p>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.totalValue')}</p>
                 <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 truncate">
                   {formatCurrency(metrics.total_value)}
                 </p>
@@ -400,7 +403,7 @@ export default function Dashboard() {
           <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Daily Gain</p>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.dailyGain')}</p>
                 <p
                   className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
                     metrics.daily_change_value && metrics.daily_change_value > 0
@@ -441,7 +444,7 @@ export default function Dashboard() {
           <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Unrealized P&L</p>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.unrealizedPnL')}</p>
                 <p
                   className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
                     metrics.total_unrealized_pnl >= 0
@@ -473,7 +476,7 @@ export default function Dashboard() {
           <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Realized P&L</p>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.realizedPnL')}</p>
                 <p
                   className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
                     metrics.total_realized_pnl >= 0
@@ -493,12 +496,12 @@ export default function Dashboard() {
           <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">Dividends</p>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.dividends')}</p>
                 <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 truncate">
                   {formatCurrency(metrics.total_dividends)}
                 </p>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">
-                  Fees: {formatCurrency(metrics.total_fees)}
+                  {t('dashboard.fees')}: {formatCurrency(metrics.total_fees)}
                 </p>
               </div>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0">
@@ -521,7 +524,7 @@ export default function Dashboard() {
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
-            Current Positions (Unrealized P&L)
+            {t('dashboard.currentPositions')} ({t('dashboard.unrealizedPnL')})
             {positions.length > 0 && (
               <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
                 {positions.length}
@@ -536,7 +539,7 @@ export default function Dashboard() {
                 : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
-            Sold Positions (Realized P&L)
+            {t('dashboard.soldPositions')} ({t('dashboard.realizedPnL')})
             {soldPositions.length > 0 && (
               <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
                 {soldPositions.length}
@@ -553,10 +556,10 @@ export default function Dashboard() {
             <div className="max-w-md mx-auto">
               <LoadingSpinner size="lg" variant="icon" className="mx-auto mb-4" />
               <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
-                Loading sold positions...
+                {t('dashboard.loadingSoldPositions')}
               </h3>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Calculating realized P&L for your historical trades
+                {t('dashboard.calculatingRealizedPnL')}
               </p>
             </div>
           </div>
@@ -567,10 +570,10 @@ export default function Dashboard() {
             <div className="max-w-md mx-auto">
               <PiggyBank className="mx-auto h-12 w-12 text-neutral-400 dark:text-neutral-600 mb-4" />
               <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
-                No sold positions yet
+                {t('dashboard.noSoldPositions')}
               </h3>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                When you sell all shares of an asset, it will appear here with its realized P&L.
+                {t('dashboard.soldPositionsInfo')}
               </p>
             </div>
           </div>

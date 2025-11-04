@@ -3,6 +3,7 @@ import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
 import api, { PortfolioHistoryPointDTO } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
+import { useTranslation } from 'react-i18next'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
@@ -10,16 +11,6 @@ type PeriodOption = '1W' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'ALL'
 
 interface Props {
   portfolioId: number
-}
-
-const periodLabels: Record<PeriodOption, string> = {
-  '1W': '1W',
-  '1M': '1M',
-  '3M': '3M',
-  '6M': '6M',
-  'YTD': 'YTD',
-  '1Y': '1Y',
-  'ALL': 'ALL',
 }
 
 // Get currency symbol helper
@@ -47,6 +38,24 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PortfolioHistoryPointDTO[]>([])
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const { t, i18n } = useTranslation()
+  
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
+  
+  // Period labels translation mapping
+  const getPeriodLabel = (period: PeriodOption): string => {
+    const labelMap: Record<PeriodOption, string> = {
+      '1W': t('charts.period1W'),
+      '1M': t('charts.period1M'),
+      '3M': t('charts.period3M'),
+      '6M': t('charts.period6M'),
+      'YTD': t('charts.periodYTD'),
+      '1Y': t('charts.period1Y'),
+      'ALL': t('charts.periodALL'),
+    }
+    return labelMap[period]
+  }
   
   // Get portfolio currency
   const portfolio = portfolios.find(p => p.id === portfolioId)
@@ -74,17 +83,17 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
   const chartData = {
     labels: history.map(h => {
       const date = new Date(h.date)
-      // Format date based on period
+      // Format date based on period using current locale
       if (period === '1W') {
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
       } else if (period === '1M') {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '3M') {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
       } else {
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
       }
     }),
     datasets: [
@@ -129,10 +138,10 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
         caretSize: 8,
         callbacks: {
           title: (context: { dataIndex: number }[]) => {
-            // Show full date in tooltip title
+            // Show full date in tooltip title using current locale
             if (context.length > 0) {
               const date = new Date(history[context[0].dataIndex].date)
-              return date.toLocaleDateString('en-US', { 
+              return date.toLocaleDateString(currentLocale, { 
                 weekday: 'short',
                 year: 'numeric', 
                 month: 'short', 
@@ -144,7 +153,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
           label: (context: { parsed: { y: number | null } }) => {
             const value = context.parsed.y
             if (value === null) return ''
-            return `Value: ${currencySymbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            return `${t('charts.value')}: ${currencySymbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           }
         }
       },
@@ -166,7 +175,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
       y: {
         title: { 
           display: true, 
-          text: `Portfolio Value (${currency})`,
+          text: `${t('charts.portfolioValue')} (${currency})`,
           color: '#64748b',
           font: { size: 12 }
         },
@@ -226,13 +235,13 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
           </div>
         ) : history.length === 0 ? (
           <div className="text-neutral-400 text-center py-12">
-            <p className="font-semibold mb-2">No portfolio history available</p>
-            <p className="text-sm">Historical data will be calculated from your saved price records and transactions.</p>
+            <p className="font-semibold mb-2">{t('charts.noPortfolioHistory')}</p>
+            <p className="text-sm">{t('charts.noPortfolioHistoryInfo')}</p>
           </div>
         ) : (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Portfolio Value Over Time</h3>
+              <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t('charts.portfolioValueLabel')}</h3>
               {history.length > 0 && (() => {
                 // Determine which point to display (hovered or last)
                 const displayIndex = hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < history.length 
@@ -278,11 +287,11 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
                     </p>
                     <div className="flex flex-col items-end gap-0.5">
                       <p className={`text-sm font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {isPositive ? '+' : ''}{currencySymbol}{Math.abs(absoluteChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} in period
+                        {isPositive ? '+' : ''}{currencySymbol}{Math.abs(absoluteChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {t('charts.inPeriod')}
                       </p>
                       {periodGainPct !== null && (
                         <p className={`text-xs font-semibold ${periodGainPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {periodGainPct >= 0 ? '+' : ''}{periodGainPct.toFixed(2)}% period gain
+                          {periodGainPct >= 0 ? '+' : ''}{periodGainPct.toFixed(2)}% {t('charts.inPeriod')}
                         </p>
                       )}
                     </div>
@@ -312,7 +321,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
             }`}
             onClick={() => setPeriod(opt)}
           >
-            {periodLabels[opt]}
+            {getPeriodLabel(opt)}
           </button>
         ))}
       </div>
