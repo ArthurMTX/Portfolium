@@ -32,6 +32,7 @@ async def refresh_all_prices():
         try:
             from app.models import Asset, Transaction
             from sqlalchemy import distinct
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get all unique assets that have transactions
             active_assets = (
@@ -51,6 +52,9 @@ async def refresh_all_prices():
             asyncio.set_event_loop(loop)
             
             try:
+                # Clean up any stale tasks from previous event loops
+                _cleanup_stale_tasks()
+                
                 for asset in active_assets:
                     try:
                         # Run async get_price in the event loop
@@ -98,6 +102,7 @@ async def check_price_alerts():
         try:
             from app.models import Watchlist, Asset
             from decimal import Decimal
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get all watchlist items with alerts enabled
             watchlist_items = (
@@ -120,6 +125,9 @@ async def check_price_alerts():
             asyncio.set_event_loop(loop)
             
             try:
+                # Clean up any stale tasks from previous event loops
+                _cleanup_stale_tasks()
+                
                 for item in watchlist_items:
                     try:
                         asset = db.query(Asset).filter(Asset.id == item.asset_id).first()
@@ -273,6 +281,7 @@ async def check_daily_changes():
             from app.models import User, Portfolio
             from app.services.metrics import MetricsService
             from decimal import Decimal
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get current market session identifier
             session_id = get_market_session_id()
@@ -308,6 +317,9 @@ async def check_daily_changes():
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
                             try:
+                                # Clean up any stale tasks from previous event loops
+                                _cleanup_stale_tasks()
+                                
                                 positions = loop.run_until_complete(
                                     metrics_service.get_positions(portfolio.id)
                                 )
@@ -526,6 +538,7 @@ async def send_daily_reports():
             from app.services.pdf_reports import PDFReportService
             from app.services.email import email_service
             from app.services.notifications import notification_service
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get yesterday's date (report for previous day)
             report_date = (datetime.utcnow() - timedelta(days=1)).date()
@@ -564,6 +577,9 @@ async def send_daily_reports():
                     asyncio.set_event_loop(loop)
                     
                     try:
+                        # Clean up any stale tasks from previous event loops
+                        _cleanup_stale_tasks()
+                        
                         pdf_data = loop.run_until_complete(
                             pdf_service.generate_daily_report(
                                 user_id=user.id,

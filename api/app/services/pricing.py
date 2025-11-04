@@ -30,6 +30,40 @@ _fetch_lock: Optional[asyncio.Lock] = None
 _fetch_lock_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
+def _cleanup_stale_tasks():
+    """
+    Clean up tasks from different event loops to prevent 'attached to a different loop' errors.
+    This should be called when switching between event loops (e.g., in scheduler jobs).
+    """
+    global _ongoing_fetches, _fetch_lock, _fetch_lock_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, clear everything to be safe
+        _ongoing_fetches.clear()
+        _fetch_lock = None
+        _fetch_lock_loop = None
+        return
+    
+    # Clear tasks that are from a different loop
+    stale_symbols = []
+    for symbol, task in _ongoing_fetches.items():
+        try:
+            if task._loop != current_loop:
+                stale_symbols.append(symbol)
+        except AttributeError:
+            stale_symbols.append(symbol)
+    
+    for symbol in stale_symbols:
+        _ongoing_fetches.pop(symbol, None)
+    
+    # Reset lock if it's from a different loop
+    if _fetch_lock_loop is not None and _fetch_lock_loop != current_loop:
+        _fetch_lock = None
+        _fetch_lock_loop = None
+
+
 def _get_memory_lock() -> asyncio.Lock:
     """Get or create the memory cache lock for the current event loop"""
     global _memory_cache_lock, _memory_cache_loop
@@ -93,13 +127,34 @@ class PricingService:
                         logger.debug(f"Using in-memory cached price for {symbol}")
                         return quote
         
-        # Check if there's an ongoing fetch for this symbol
+        # Get the current event loop to ensure task is created in the right loop
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop - this shouldn't happen in async context
+            logger.warning(f"No running event loop when fetching price for {symbol}")
+            return await self._get_price_internal(symbol, force_refresh)
+        
+        # Check if there's an ongoing fetch for this symbol in the current loop
         async with _get_fetch_lock():
             if symbol in _ongoing_fetches:
-                logger.info(f"Reusing ongoing price fetch for {symbol}")
-                return await _ongoing_fetches[symbol]
+                existing_task = _ongoing_fetches[symbol]
+                # Verify the task is from the same event loop
+                try:
+                    # Check if task's loop matches current loop
+                    if existing_task._loop == current_loop:
+                        logger.info(f"Reusing ongoing price fetch for {symbol}")
+                        return await existing_task
+                    else:
+                        # Task is from a different loop, remove it and create a new one
+                        logger.warning(f"Removing stale task for {symbol} (different event loop)")
+                        _ongoing_fetches.pop(symbol, None)
+                except AttributeError:
+                    # Task doesn't have _loop attribute (shouldn't happen), treat as stale
+                    logger.warning(f"Removing invalid task for {symbol}")
+                    _ongoing_fetches.pop(symbol, None)
             
-            # Create a new task for this fetch
+            # Create a new task for this fetch in the current loop
             task = asyncio.create_task(self._get_price_internal(symbol, force_refresh))
             _ongoing_fetches[symbol] = task
         
