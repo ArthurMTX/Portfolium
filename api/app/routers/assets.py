@@ -1083,6 +1083,7 @@ async def get_industries_distribution(
 async def get_sector_industries_distribution(
     sector_name: str, 
     portfolio_id: int | None = None, 
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1107,7 +1108,7 @@ async def get_sector_industries_distribution(
     sector_name = unquote(sector_name)
     
     # Get all held assets for the sector
-    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, db=db)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     # Filter by sector
     sector_assets = [a for a in held_assets_data if (a.get("sector") or "Unknown") == sector_name]
