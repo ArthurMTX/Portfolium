@@ -2,7 +2,7 @@
 // This file can be updated automatically by CI/CD
 
 export const VERSION = '0.2.0';
-export const BUILD_DATE = '2025-11-01';
+export const BUILD_DATE = '2025-11-05';
 export const GIT_COMMIT = 'local';
 
 export interface VersionInfo {

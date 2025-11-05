@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-05
+
+### Features
+
+* add asset distribution component with API integration and refactor country/currency utilities ([e71b9ac](https://github.com/ArthurMTX/Portfolium/commit/e71b9ac))
+* add transaction metrics page with buy/sell analysis and visual charts ([7d71a2d](https://github.com/ArthurMTX/Portfolium/commit/7d71a2d))
+* update version to 0.2.0 and implement language support with i18next integration ([cd83fc3](https://github.com/ArthurMTX/Portfolium/commit/cd83fc3))
+* add Asset Metadata Edit component with sector, industry, and country overrides ([c16a634](https://github.com/ArthurMTX/Portfolium/commit/c16a634))
+* enhance IconPreview component: implement industry filtering by sector, add example company display, and improve search functionality ([d95d7a1](https://github.com/ArthurMTX/Portfolium/commit/d95d7a1))
+* add documentation link to user menu and update translations for navigation ([ed3f10b](https://github.com/ArthurMTX/Portfolium/commit/ed3f10b))
+* add French language support ([cc47d9e](https://github.com/ArthurMTX/Portfolium/commit/cc47d9e))
+* refactor translation keys in Transactions and Watchlist pages for consistency; add user preferred language to database; implement email translation utilities; enhance notification translation logic; create translation utilities for sectors and industries ([23beacc](https://github.com/ArthurMTX/Portfolium/commit/23beacc))
+* enhance asset translation functionality; add asset class and type translation utilities; update AssetDistribution and Assets components to utilize new translations ([01a2df6](https://github.com/ArthurMTX/Portfolium/commit/01a2df6))
+
+### Bug Fixes
+
+* refactor currency formatting functions for improved precision and consistency ([556c271](https://github.com/ArthurMTX/Portfolium/commit/556c271))
+* enhance portfolio metrics and performance chart with cost basis and unrealized P&L calculations ([72bba3a](https://github.com/ArthurMTX/Portfolium/commit/72bba3a))
+* add zero starting point for "ALL" interval in portfolio history charts and improve hover functionality ([6208498](https://github.com/ArthurMTX/Portfolium/commit/6208498))
+* enhance chart interaction by updating hover functionality and display logic ([eb01ddd](https://github.com/ArthurMTX/Portfolium/commit/eb01ddd))
+* enhance Transactions and Watchlist pages with sorting and loading indicators ([b122f18](https://github.com/ArthurMTX/Portfolium/commit/b122f18))
+* improve memory and fetch lock handling for async operations ([1d44e9c](https://github.com/ArthurMTX/Portfolium/commit/1d44e9c))
+* enhance logo fetching logic for cryptocurrencies to avoid incorrect matches ([b55aef1](https://github.com/ArthurMTX/Portfolium/commit/b55aef1))
+* implement cleanup of stale tasks in pricing service to prevent event loop errors ([6dbe0d7](https://github.com/ArthurMTX/Portfolium/commit/6dbe0d7))
+* update get_sector_industries_distribution to include current user dependency for asset retrieval ([cbd6793](https://github.com/ArthurMTX/Portfolium/commit/cbd6793))
+
 ## [0.1.1] - 2025-11-01
 
 ### Features
@@ -111,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * update README to include automatic FX and currencies conversion feature ([c31726d](https://github.com/ArthurMTX/Portfolium/commit/c31726d6d0497a536a16c28df3532edf7fce4aec))
 * update README to include watchlist and notifications system features ([e008151](https://github.com/ArthurMTX/Portfolium/commit/e0081514c2fb67d65be1ed7e48e4952e1ab28d31))
 
-[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ArthurMTX/Portfolium/releases/tag/v0.1.0
