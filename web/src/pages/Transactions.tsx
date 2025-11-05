@@ -120,6 +120,9 @@ export default function Transactions() {
   }, [activePortfolioId, activeTab])
 
   useEffect(() => {
+    // Clear transactions immediately when portfolio changes
+    setTransactions([])
+    
     if (activePortfolioId) {
       fetchTransactions()
     }

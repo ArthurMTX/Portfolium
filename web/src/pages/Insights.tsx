@@ -285,6 +285,10 @@ export default function Insights() {
   useEffect(() => {
     const abortController = new AbortController()
     
+    // Clear insights data immediately when portfolio changes to prevent showing stale data
+    setInsights(null)
+    setError('')
+    
     // Clear any pending debounce timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)

@@ -77,6 +77,9 @@ export default function TransactionMetrics() {
   const currentLocale = i18n.language || 'en-US'
 
   useEffect(() => {
+    // Clear metrics data immediately when portfolio changes
+    setMetricsData(null)
+    
     const fetchMetrics = async () => {
       if (!activePortfolioId) return
       

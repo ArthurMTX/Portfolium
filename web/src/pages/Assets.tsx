@@ -78,6 +78,11 @@ export default function Assets() {
 
   // Load portfolio asset IDs when active portfolio changes
   useEffect(() => {
+    // Clear state immediately when portfolio changes
+    setHeldAssets([]);
+    setSoldAssets([]);
+    setPortfolioAssetIds(new Set());
+    
     const loadPortfolioAssetIds = async () => {
       if (!activePortfolioId) {
         setPortfolioAssetIds(new Set());

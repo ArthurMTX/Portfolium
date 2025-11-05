@@ -86,6 +86,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (activePortfolioId) {
+      // Clear sold positions state immediately when portfolio changes
+      setSoldPositions([])
+      setSoldPositionsLoaded(false)
       loadPortfolioData(activePortfolioId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,9 +123,6 @@ export default function Dashboard() {
       ])
       setPositions(positionsData)
       setMetrics(metricsData)
-      // Reset sold positions when switching portfolios
-      setSoldPositions([])
-      setSoldPositionsLoaded(false)
     } catch (error) {
       console.error('Failed to load portfolio data:', error)
     } finally {
