@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
-import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import { useTranslation } from 'react-i18next'
 
 interface Position {
   symbol: string
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function PortfolioHeatmap({ portfolioId }: Props) {
+  const { t } = useTranslation()
   const [positions, setPositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -313,10 +315,10 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     <div>
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-          Portfolio Heatmap
+          {t('charts.heatmap')}
         </h3>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-          Asset allocation by market value, colored by daily performance
+          {t('charts.heatmapDescription')}
         </p>
       </div>
 
@@ -324,20 +326,75 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
       <div className="flex items-center gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-700 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Daily Loss</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.dailyLoss')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-neutral-300 dark:bg-neutral-600 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Unchanged</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.unchanged')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-700 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Daily Gain</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.dailyGain')}</span>
         </div>
       </div>
 
       {/* Heatmap Grid Layout */}
-      <div className="grid grid-cols-12 gap-2 auto-rows-auto">
+      
+      {/* Mobile: Simplified 2-Column Grid */}
+      <div className="lg:hidden grid grid-cols-2 gap-2 auto-rows-auto">
+        {sortedPositions.map((position) => {
+          const dailyPct = position.daily_change_pct !== null ? Number(position.daily_change_pct) : null
+          const percentage = totalValue > 0 ? ((Number(position.market_value) || 0) / totalValue) * 100 : 0
+          
+          // Determine size based on portfolio weight
+          const isLarge = percentage >= 15
+          const isMedium = percentage >= 8
+
+          return (
+            <div
+              key={position.symbol}
+              style={{
+                gridColumn: isLarge ? 'span 2' : 'span 1',
+                minHeight: isLarge ? '140px' : isMedium ? '120px' : '100px',
+              }}
+              className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg p-3 transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
+              title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% ${t('charts.ofPortfolio')}`}
+            >
+              <div className="flex items-center gap-2">
+                <img 
+                  src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
+                  alt={`${position.symbol} logo`}
+                  className={`${isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-7 h-7'} object-contain flex-shrink-0`}
+                  onLoad={(e) => {
+                    const img = e.currentTarget as HTMLImageElement
+                    if (!validateLogoImage(img)) {
+                      img.dispatchEvent(new Event('error'))
+                    }
+                  }}
+                  onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
+                />
+                <div className={`font-bold ${isLarge ? 'text-base' : 'text-sm'} truncate`}>{position.symbol}</div>
+              </div>
+              {position.name && isLarge && (
+                <div className="text-xs opacity-75 truncate mt-1">{position.name}</div>
+              )}
+              <div className="mt-auto">
+                <div className={`${isLarge ? 'text-sm' : 'text-xs'} opacity-90`}>
+                  <span className="opacity-60">{t('charts.weight')}: </span>{percentage.toFixed(1)}%
+                </div>
+                {dailyPct !== null && (
+                  <div className={`${isLarge ? 'text-sm' : 'text-xs'} font-semibold`}>
+                    <span className="opacity-60">{t('charts.daily')}: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop: Treemap Grid */}
+      <div className="hidden lg:grid grid-cols-12 gap-2 auto-rows-auto">
         {layoutTiles.map((tile) => {
           const dailyPct = tile.daily_change_pct !== null ? Number(tile.daily_change_pct) : null
           
@@ -361,7 +418,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                 minHeight: tile.minHeight,
               }}
               className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg ${padding} transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
-              title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% of portfolio, Daily: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
+              title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% ${t('charts.ofPortfolio')}, ${t('charts.daily')}: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
             >
               <div className="flex items-center gap-2">
                 <img 
@@ -370,30 +427,8 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
                   className={`${logoSize} object-contain flex-shrink-0`}
                   onLoad={(e) => {
                     const img = e.currentTarget as HTMLImageElement
-                    if (img.dataset.validated) return
-                    img.dataset.validated = 'true'
-                    try {
-                      const canvas = document.createElement('canvas')
-                      const ctx = canvas.getContext('2d')
-                      if (!ctx) return
-                      const w = Math.min(img.naturalWidth || 0, 64) || 32
-                      const h = Math.min(img.naturalHeight || 0, 64) || 32
-                      if (w === 0 || h === 0) return
-                      canvas.width = w
-                      canvas.height = h
-                      ctx.drawImage(img, 0, 0, w, h)
-                      const data = ctx.getImageData(0, 0, w, h).data
-                      let opaque = 0
-                      for (let i = 0; i < data.length; i += 4) {
-                        const a = data[i + 3]
-                        if (a > 8) opaque++
-                      }
-                      const total = (data.length / 4) || 1
-                      if (opaque / total < 0.01) {
-                        img.dispatchEvent(new Event('error'))
-                      }
-                    } catch {
-                      // Ignore canvas/security errors
+                    if (!validateLogoImage(img)) {
+                      img.dispatchEvent(new Event('error'))
                     }
                   }}
                   onError={(e) => handleLogoError(e, tile.symbol, tile.name, tile.asset_type)}
@@ -405,11 +440,11 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
               )}
               <div className="mt-auto">
                 <div className={`${valueSize} opacity-90`}>
-                  <span className="opacity-60">Weight: </span>{tile.percentage.toFixed(1)}%
+                  <span className="opacity-60">{t('charts.weight')}: </span>{tile.percentage.toFixed(1)}%
                 </div>
                 {dailyPct !== null && (
                   <div className={`${valueSize} font-semibold`}>
-                    <span className="opacity-60">Daily: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
+                    <span className="opacity-60">{t('charts.daily')}: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
                   </div>
                 )}
               </div>

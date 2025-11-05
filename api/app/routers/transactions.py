@@ -188,6 +188,160 @@ async def get_transactions(
     return transactions
 
 
+@router.get("/{portfolio_id}/transactions/metrics")
+async def get_transaction_metrics(
+    portfolio_id: int,
+    grouping: str = "monthly",  # "monthly" or "yearly"
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get aggregated transaction metrics grouped by month or year
+    
+    - **grouping**: "monthly" or "yearly"
+    
+    Returns metrics for BUY and SELL transactions:
+    - Total price sum
+    - Transaction count
+    - Max/Min/Avg total price per transaction
+    - Difference between buy and sell totals
+    """
+    # Verify portfolio exists and belongs to user
+    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Portfolio {portfolio_id} not found"
+        )
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this portfolio"
+        )
+    
+    from sqlalchemy import func, extract, case
+    from app.models import Transaction as TransactionModel
+    from decimal import Decimal
+    
+    # Define the grouping fields
+    if grouping == "yearly":
+        year_field = extract('year', TransactionModel.tx_date)
+        group_fields = [year_field]
+        period_label = 'year'
+    else:  # monthly
+        year_field = extract('year', TransactionModel.tx_date)
+        month_field = extract('month', TransactionModel.tx_date)
+        group_fields = [year_field, month_field]
+        period_label = 'month'
+    
+    # Calculate total price for each transaction (quantity * price + fees)
+    total_price = (TransactionModel.quantity * TransactionModel.price + TransactionModel.fees)
+    
+    # Build query for BUY transactions
+    buy_query = db.query(
+        *group_fields,
+        func.sum(total_price).label('buy_sum_total_price'),
+        func.count(TransactionModel.id).label('buy_count'),
+        func.max(total_price).label('buy_max_total_price'),
+        func.min(total_price).label('buy_min_total_price'),
+        func.avg(total_price).label('buy_avg_total_price'),
+        func.sum(TransactionModel.fees).label('buy_sum_fees')
+    ).filter(
+        TransactionModel.portfolio_id == portfolio_id,
+        TransactionModel.type == TransactionType.BUY
+    ).group_by(*group_fields)
+    
+    # Build query for SELL transactions
+    sell_query = db.query(
+        *group_fields,
+        func.sum(total_price).label('sell_sum_total_price'),
+        func.count(TransactionModel.id).label('sell_count'),
+        func.max(total_price).label('sell_max_total_price'),
+        func.min(total_price).label('sell_min_total_price'),
+        func.avg(total_price).label('sell_avg_total_price'),
+        func.sum(TransactionModel.fees).label('sell_sum_fees')
+    ).filter(
+        TransactionModel.portfolio_id == portfolio_id,
+        TransactionModel.type == TransactionType.SELL
+    ).group_by(*group_fields)
+    
+    # Execute queries
+    buy_results = buy_query.all()
+    sell_results = sell_query.all()
+    
+    # Convert to dictionaries for easier lookup
+    buy_data = {}
+    for row in buy_results:
+        if grouping == "yearly":
+            key = (int(row[0]),)  # year
+        else:  # monthly
+            key = (int(row[0]), int(row[1]))  # year, month
+        buy_data[key] = {
+            'sum': float(row[-6]) if row[-6] else 0,
+            'count': int(row[-5]) if row[-5] else 0,
+            'max': float(row[-4]) if row[-4] else 0,
+            'min': float(row[-3]) if row[-3] else 0,
+            'avg': float(row[-2]) if row[-2] else 0,
+            'fees': float(row[-1]) if row[-1] else 0
+        }
+    
+    sell_data = {}
+    for row in sell_results:
+        if grouping == "yearly":
+            key = (int(row[0]),)  # year
+        else:  # monthly
+            key = (int(row[0]), int(row[1]))  # year, month
+        sell_data[key] = {
+            'sum': float(row[-6]) if row[-6] else 0,
+            'count': int(row[-5]) if row[-5] else 0,
+            'max': float(row[-4]) if row[-4] else 0,
+            'min': float(row[-3]) if row[-3] else 0,
+            'avg': float(row[-2]) if row[-2] else 0,
+            'fees': float(row[-1]) if row[-1] else 0
+        }
+    
+    # Combine results
+    all_keys = set(buy_data.keys()) | set(sell_data.keys())
+    metrics = []
+    
+    for key in sorted(all_keys):
+        buy = buy_data.get(key, {'sum': 0, 'count': 0, 'max': 0, 'min': 0, 'avg': 0, 'fees': 0})
+        sell = sell_data.get(key, {'sum': 0, 'count': 0, 'max': 0, 'min': 0, 'avg': 0, 'fees': 0})
+        
+        if grouping == "yearly":
+            period = {
+                'year': key[0]
+            }
+        else:  # monthly
+            period = {
+                'month': key[1],
+                'year': key[0]
+            }
+        
+        metrics.append({
+            **period,
+            'buy_sum_total_price': buy['sum'],
+            'buy_count': buy['count'],
+            'buy_max_total_price': buy['max'],
+            'buy_min_total_price': buy['min'],
+            'buy_avg_total_price': buy['avg'],
+            'buy_sum_fees': buy['fees'],
+            'sell_sum_total_price': sell['sum'],
+            'sell_count': sell['count'],
+            'sell_max_total_price': sell['max'],
+            'sell_min_total_price': sell['min'],
+            'sell_avg_total_price': sell['avg'],
+            'sell_sum_fees': sell['fees'],
+            'diff_buy_sell': buy['sum'] - sell['sum']
+        })
+    
+    return {
+        'grouping': grouping,
+        'currency': portfolio.base_currency,
+        'metrics': metrics
+    }
+
+
 @router.get("/{portfolio_id}/transactions/{transaction_id}", response_model=Transaction)
 async def get_transaction(
     portfolio_id: int,

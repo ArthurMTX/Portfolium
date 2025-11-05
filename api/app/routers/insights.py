@@ -61,6 +61,7 @@ async def get_portfolio_insights(
     try:
         return await insights_service.get_portfolio_insights(
             portfolio_id=portfolio_id,
+            user_id=current_user.id,
             period=period,
             benchmark_symbol=benchmark
         )

@@ -3,6 +3,52 @@
  */
 
 /**
+ * Validate that a loaded logo image is not empty or fully transparent
+ * This catches edge cases where the backend returns a valid image file
+ * that is actually invisible/blank
+ * 
+ * @param img The loaded HTMLImageElement to validate
+ * @returns true if image is valid (has visible pixels), false if empty/transparent
+ */
+export const validateLogoImage = (img: HTMLImageElement): boolean => {
+  // Skip if already validated
+  if (img.dataset.validated) return true
+  img.dataset.validated = 'true'
+
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return true // Can't validate, assume valid
+
+    const w = Math.min(img.naturalWidth || 0, 64) || 32
+    const h = Math.min(img.naturalHeight || 0, 64) || 32
+    if (w === 0 || h === 0) return false // No dimensions = invalid
+
+    canvas.width = w
+    canvas.height = h
+    ctx.drawImage(img, 0, 0, w, h)
+    
+    const data = ctx.getImageData(0, 0, w, h).data
+    let opaque = 0
+    
+    // Count opaque pixels (alpha > 8)
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3]
+      if (a > 8) opaque++
+    }
+    
+    const total = (data.length / 4) || 1
+    const opacityRatio = opaque / total
+    
+    // Image is invalid if less than 1% of pixels are visible
+    return opacityRatio >= 0.01
+  } catch {
+    // Canvas/security errors - assume valid
+    return true
+  }
+}
+
+/**
  * Normalize ticker symbol for logo lookup by removing currency suffixes
  */
 export const normalizeTickerForLogo = (symbol: string): string => {
@@ -11,7 +57,8 @@ export const normalizeTickerForLogo = (symbol: string): string => {
 
 /**
  * Get the appropriate logo URL for an asset
- * For ETFs, uses the API endpoint directly to ensure SVG fallback generation
+ * For ETFs and Cryptocurrencies, uses the API endpoint directly with asset_type parameter
+ * to ensure proper logo fetching logic (avoiding incorrect ticker matches)
  * For other assets, uses static logos with API fallback on error
  */
 export const getAssetLogoUrl = (
@@ -21,10 +68,14 @@ export const getAssetLogoUrl = (
 ): string => {
   const normalizedSymbol = normalizeTickerForLogo(symbol)
   
-  // For ETFs, use the API endpoint directly to ensure proper SVG fallback
-  if (assetType?.toUpperCase() === 'ETF') {
+  // For ETFs and Cryptocurrencies, use the API endpoint directly with asset_type parameter
+  // This ensures the backend skips ticker search and uses appropriate logo fetching strategy
+  const assetTypeUpper = assetType?.toUpperCase()
+  if (assetTypeUpper === 'ETF' || assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO') {
     const params = new URLSearchParams()
-    params.set('asset_type', 'ETF')
+    if (assetType) {
+      params.set('asset_type', assetType)
+    }
     if (assetName) {
       params.set('name', assetName)
     }

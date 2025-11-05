@@ -23,6 +23,7 @@ export interface UserDTO {
   is_admin: boolean
   created_at: string
   last_login: string | null
+  preferred_language: string
   daily_change_notifications_enabled: boolean
   daily_change_threshold_pct: number
   transaction_notifications_enabled: boolean
@@ -80,7 +81,35 @@ export interface PortfolioHistoryPointDTO {
   date: string
   value: number
   invested?: number  // Total amount invested (deposits - withdrawals)
-  gain_pct?: number  // Percentage gain/loss (excluding deposits/withdrawals)
+  gain_pct?: number  // Percentage gain/loss vs. total invested (includes sold positions)
+  cost_basis?: number  // Cost basis of current holdings only
+  unrealized_pnl_pct?: number  // Unrealized P&L % of current holdings (matches Dashboard)
+}
+
+// Asset Distribution Types
+export interface AssetPositionDTO {
+  asset_id: number
+  total_value: number
+  unrealized_pnl: number
+  percentage: number
+}
+
+export interface DistributionItemDTO {
+  name: string
+  count: number
+  percentage: number
+  total_value: number
+  cost_basis: number
+  unrealized_pnl: number
+  unrealized_pnl_pct: number
+  asset_ids: number[]
+  asset_positions?: AssetPositionDTO[]
+}
+
+export interface IndustryItemDTO {
+  name: string
+  count: number
+  asset_ids: number[]
 }
 
 class ApiClient {
@@ -211,7 +240,7 @@ class ApiClient {
     return response.json()
   }
 
-  async register(email: string, username: string, password: string, fullName?: string) {
+  async register(email: string, username: string, password: string, fullName?: string, preferredLanguage?: string) {
     return this.request<UserDTO>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
@@ -219,6 +248,7 @@ class ApiClient {
         username,
         password,
         full_name: fullName,
+        preferred_language: preferredLanguage || 'en',
       }),
     })
   }
@@ -227,7 +257,7 @@ class ApiClient {
     return this.request<UserDTO>('/auth/me')
   }
 
-  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username' | 'daily_change_notifications_enabled' | 'daily_change_threshold_pct' | 'transaction_notifications_enabled' | 'daily_report_enabled'>>) {
+  async updateCurrentUser(update: Partial<Pick<UserDTO, 'full_name' | 'email' | 'username' | 'preferred_language' | 'daily_change_notifications_enabled' | 'daily_change_threshold_pct' | 'transaction_notifications_enabled' | 'daily_report_enabled'>>) {
     return this.request<UserDTO>('/auth/me', {
       method: 'PUT',
       body: JSON.stringify(update),
@@ -307,6 +337,17 @@ class ApiClient {
     })
   }
 
+  async setAssetMetadataOverrides(assetId: number, overrides: {
+    sector_override?: string | null
+    industry_override?: string | null
+    country_override?: string | null
+  }) {
+    return this.request<any>(`/assets/${assetId}/metadata-overrides`, {
+      method: 'PATCH',
+      body: JSON.stringify(overrides),
+    })
+  }
+
   async searchTicker(query: string) {
     return this.request<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
   }
@@ -365,6 +406,32 @@ class ApiClient {
         source: string
       }>
     }>(`/assets/${assetId}/prices?period=${encodeURIComponent(period)}`)
+  }
+
+  // Asset Distribution endpoints
+  async getSectorsDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/sectors${params}`)
+  }
+
+  async getCountriesDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/countries${params}`)
+  }
+
+  async getTypesDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/types${params}`)
+  }
+
+  async getSectorIndustriesDistribution(sectorName: string, portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/sectors/${encodeURIComponent(sectorName)}/industries${params}`)
+  }
+
+  async getIndustriesList(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<IndustryItemDTO[]>(`/assets/distribution/industries${params}`)
   }
 
   async getAssetHealth(assetId: number) {
@@ -503,6 +570,30 @@ class ApiClient {
     return this.request<void>(`/portfolios/${portfolioId}/transactions/${transactionId}`, {
       method: 'DELETE',
     })
+  }
+
+  async getTransactionMetrics(portfolioId: number, grouping: 'monthly' | 'yearly' = 'monthly') {
+    return this.request<{
+      grouping: string
+      currency: string
+      metrics: Array<{
+        month?: number
+        year: number
+        buy_sum_total_price: number
+        buy_count: number
+        buy_max_total_price: number
+        buy_min_total_price: number
+        buy_avg_total_price: number
+        buy_sum_fees: number
+        sell_sum_total_price: number
+        sell_count: number
+        sell_max_total_price: number
+        sell_min_total_price: number
+        sell_avg_total_price: number
+        sell_sum_fees: number
+        diff_buy_sell: number
+      }>
+    }>(`/portfolios/${portfolioId}/transactions/metrics?grouping=${grouping}`)
   }
 
   async importCsv(portfolioId: number, file: File) {

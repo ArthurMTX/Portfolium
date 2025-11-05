@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
-import { CheckCheck, Trash2, Filter, Clock, DollarSign, LogIn, Activity, Bell } from 'lucide-react'
+import { CheckCheck, Trash2, Filter, Bell } from 'lucide-react'
 import { useNotificationStore } from '../store/useNotificationStore'
 import { formatDistanceToNow } from 'date-fns'
+import { getNotificationIcon, getNotificationBadgeClass } from '../lib/notificationUtils'
+import LoadingSpinner from '../components/LoadingSpinner'
+import { useTranslation } from 'react-i18next'
+import { translateNotification, translateNotificationType } from '../lib/notificationTranslation'
 
 export default function Notifications() {
   const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const { t } = useTranslation()
 
   useEffect(() => {
     fetchNotifications(filter === 'unread')
@@ -25,49 +30,6 @@ export default function Notifications() {
     await deleteNotification(notificationId)
   }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'TRANSACTION_CREATED':
-      case 'TRANSACTION_UPDATED':
-      case 'TRANSACTION_DELETED':
-        return <Activity size={20} className="text-blue-500" />
-      case 'LOGIN':
-        return <LogIn size={20} className="text-green-500" />
-      case 'PRICE_ALERT':
-        return <DollarSign size={20} className="text-amber-500" />
-      case 'DAILY_CHANGE_UP':
-        return <Activity size={20} className="text-green-500" />
-      case 'DAILY_CHANGE_DOWN':
-        return <Activity size={20} className="text-red-500" />
-      default:
-        return <Clock size={20} className="text-neutral-500" />
-    }
-  }
-
-  const getNotificationBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      'TRANSACTION_CREATED': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'TRANSACTION_UPDATED': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      'TRANSACTION_DELETED': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      'LOGIN': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'PRICE_ALERT': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-      'DAILY_CHANGE_UP': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'DAILY_CHANGE_DOWN': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      'SYSTEM': 'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200'
-    }
-    
-    return colors[type] || colors['SYSTEM']
-  }
-
-  const formatType = (type: string) => {
-    return type.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')
-  }
-
-  // Helper to safely convert unknown metadata values to strings for display
-  const toDisplayString = (value: unknown): string => {
-    return String(value)
-  }
-
   const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
@@ -76,10 +38,10 @@ export default function Notifications() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
             <Bell className="text-pink-600" size={28} />
-            Notifications
+            {t('notifications.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Stay updated with your portfolio activity
+            {t('notifications.description')}
           </p>
         </div>
       </div>
@@ -96,7 +58,7 @@ export default function Notifications() {
                 : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
             }`}
           >
-            All ({notifications.length})
+            {t('notifications.all')} ({notifications.length})
           </button>
           <button
             onClick={() => setFilter('unread')}
@@ -106,7 +68,7 @@ export default function Notifications() {
                 : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
             }`}
           >
-            Unread ({unreadCount})
+            {t('notifications.unread')} ({unreadCount})
           </button>
         </div>
 
@@ -116,7 +78,7 @@ export default function Notifications() {
             className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm font-medium"
           >
             <CheckCheck size={16} />
-            Mark all as read
+            {t('notifications.markAllAsRead')}
           </button>
         )}
       </div>
@@ -125,23 +87,27 @@ export default function Notifications() {
       <div className="space-y-2">
         {loading ? (
           <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto mb-4"></div>
-            <p className="text-neutral-600 dark:text-neutral-400">Loading notifications...</p>
+            <LoadingSpinner size="lg" className="mx-auto mb-4" />
+            <p className="text-neutral-600 dark:text-neutral-400">{t('notifications.loadingNotifications')}</p>
           </div>
         ) : notifications.length === 0 ? (
           <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-12 text-center">
             <Bell size={48} className="mx-auto mb-4 text-neutral-300 dark:text-neutral-600" />
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
-              {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+              {filter === 'unread' ? t('notifications.noUnreadNotifications') : t('notifications.noNotifications')}
             </h3>
             <p className="text-neutral-600 dark:text-neutral-400">
-              {filter === 'unread' 
-                ? 'You\'re all caught up! Check back later for new updates.'
-                : 'You\'ll see notifications here when you have portfolio activity.'}
+              {filter === 'unread'
+                ? t('notifications.noUnreadNotificationsDescription')
+                : t('notifications.noNotificationsDescription')}
             </p>
           </div>
         ) : (
-          notifications.map((notification) => (
+          notifications.map((notification) => {
+            const { title, message } = translateNotification(notification, t)
+            const typeLabel = translateNotificationType(notification.type, t)
+            
+            return (
             <div
               key={notification.id}
               className={`bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4 transition-all hover:shadow-md ${
@@ -160,14 +126,14 @@ export default function Notifications() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
-                          {notification.title}
+                          {title}
                         </h3>
                         {!notification.is_read && (
                           <span className="w-2 h-2 bg-pink-600 rounded-full"></span>
                         )}
                       </div>
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getNotificationBadge(notification.type)}`}>
-                        {formatType(notification.type)}
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getNotificationBadgeClass(notification.type)}`}>
+                        {typeLabel}
                       </span>
                     </div>
                     
@@ -178,7 +144,7 @@ export default function Notifications() {
                   </div>
 
                   <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-3">
-                    {notification.message}
+                    {message}
                   </p>
 
                   {/* Metadata */}
@@ -188,6 +154,11 @@ export default function Notifications() {
                     // Helper to safely get metadata values
                     const getMetadata = (key: string) => metadata[key]
                     const hasValue = (key: string) => Boolean(getMetadata(key))
+                    
+                    // Helper to safely convert unknown metadata values to strings for display
+                    const toDisplayString = (value: unknown): string => {
+                      return String(value)
+                    }
                     
                     // Check if there's any displayable content before rendering the container
                     const hasLoginInfo = notification.type === 'LOGIN' && hasValue('ip_address')
@@ -205,37 +176,37 @@ export default function Notifications() {
                       <div className="bg-neutral-50 dark:bg-neutral-900 rounded p-2 mb-3 text-xs">
                         {hasLoginInfo && (
                           <div className="text-neutral-600 dark:text-neutral-400">
-                            <span className="font-medium">IP Address:</span> {toDisplayString(getMetadata('ip_address'))}
+                            <span className="font-medium">{t('notifications.ipAddress')}:</span> {toDisplayString(getMetadata('ip_address'))}
                           </div>
                         )}
                         {hasTransactionInfo && (
                           <div className="text-neutral-600 dark:text-neutral-400 space-y-0.5">
                             {hasValue('symbol') && (
-                              <div><span className="font-medium">Asset:</span> {toDisplayString(getMetadata('symbol'))}</div>
+                              <div><span className="font-medium">{t('notifications.asset')}:</span> {toDisplayString(getMetadata('symbol'))}</div>
                             )}
                             {hasValue('tx_date') && (
-                              <div><span className="font-medium">Date:</span> {toDisplayString(getMetadata('tx_date'))}</div>
+                              <div><span className="font-medium">{t('notifications.date')}:</span> {toDisplayString(getMetadata('tx_date'))}</div>
                             )}
                           </div>
                         )}
                         {hasPriceAlert && (
                           <div className="text-neutral-600 dark:text-neutral-400">
-                            <span className="font-medium">Target:</span> ${toDisplayString(getMetadata('target_price'))}
+                            <span className="font-medium">{t('notifications.target')}:</span> ${toDisplayString(getMetadata('target_price'))}
                           </div>
                         )}
                         {hasDailyChangeInfo && (
                           <div className="text-neutral-600 dark:text-neutral-400 space-y-0.5">
                             {hasValue('symbol') && (
-                              <div><span className="font-medium">Asset:</span> {toDisplayString(getMetadata('symbol'))}</div>
+                              <div><span className="font-medium">{t('notifications.asset')}:</span> {toDisplayString(getMetadata('symbol'))}</div>
                             )}
                             {hasValue('current_price') && (
-                              <div><span className="font-medium">Current Price:</span> ${toDisplayString(getMetadata('current_price'))}</div>
+                              <div><span className="font-medium">{t('notifications.currentPrice')}:</span> ${toDisplayString(getMetadata('current_price'))}</div>
                             )}
                             {hasValue('daily_change_pct') && (
-                              <div><span className="font-medium">Change:</span> {toDisplayString(getMetadata('daily_change_pct'))}%</div>
+                              <div><span className="font-medium">{t('notifications.change')}:</span> {toDisplayString(getMetadata('daily_change_pct'))}%</div>
                             )}
                             {hasValue('quantity') && (
-                              <div><span className="font-medium">Quantity:</span> {toDisplayString(getMetadata('quantity'))}</div>
+                              <div><span className="font-medium">{t('notifications.quantity')}:</span> {toDisplayString(getMetadata('quantity'))}</div>
                             )}
                           </div>
                         )}
@@ -251,7 +222,7 @@ export default function Notifications() {
                         className="text-xs text-pink-600 dark:text-pink-400 hover:underline flex items-center gap-1"
                       >
                         <CheckCheck size={14} />
-                        Mark as read
+                        {t('notifications.markAsRead')}
                       </button>
                     )}
                     <button
@@ -259,13 +230,13 @@ export default function Notifications() {
                       className="text-xs text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
                     >
                       <Trash2 size={14} />
-                      Delete
+                      {t('notifications.delete')}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-          ))
+          )})
         )}
       </div>
     </div>

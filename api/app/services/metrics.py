@@ -469,10 +469,12 @@ class MetricsService:
                     f"{price_quote.price} {asset.currency} -> {current_price} {target_currency}"
                 )
             else:
-                logger.warning(
+                logger.error(
                     f"Failed to convert price for {asset.symbol} from "
-                    f"{asset.currency} to {target_currency}. Using original price."
+                    f"{asset.currency} to {target_currency}. Skipping this position to avoid incorrect valuation."
                 )
+                # Return None instead of using unconverted price to avoid massive valuation errors
+                return None
         
         # Calculate market value and P&L
         market_value = quantity * current_price if current_price else None
@@ -714,9 +716,10 @@ class MetricsService:
                 asset_splits[tx.asset_id].append((tx.tx_date, ratio))
         
         # Track holdings, applying splits AS they occur chronologically
-        # Also track total invested amount (cash flow)
+        # Also track total invested amount (cash flow) AND cost basis of current holdings
         holdings: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))
-        total_invested = Decimal(0)  # Running total of net cash invested
+        cost_basis: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))  # Track cost basis per asset
+        total_invested = Decimal(0)  # Running total of net cash invested (includes sold positions)
         history: List[PortfolioHistoryPoint] = []
         tx_idx = 0
         
@@ -729,15 +732,22 @@ class MetricsService:
                 
                 if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
                     holdings[tx.asset_id] += tx.quantity
+                    # Add to cost basis for this asset
+                    cost_basis[tx.asset_id] += (tx.quantity * tx.price) + tx.fees
                     # Add cost to invested amount (quantity * price + fees)
                     total_invested += (tx.quantity * tx.price) + tx.fees
                 elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                    # Calculate the proportion of position being sold
+                    if holdings[tx.asset_id] > 0:
+                        sell_proportion = tx.quantity / holdings[tx.asset_id]
+                        # Reduce cost basis proportionally
+                        cost_basis[tx.asset_id] -= cost_basis[tx.asset_id] * sell_proportion
                     holdings[tx.asset_id] -= tx.quantity
                     # Subtract proceeds from invested amount (quantity * price - fees)
                     total_invested -= (tx.quantity * tx.price) - tx.fees
                 elif tx.type == TransactionType.SPLIT:
                     # Apply split to holdings (dashboard logic)
-                    # Splits don't affect invested amount
+                    # Splits don't affect cost basis or invested amount
                     ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
                     holdings[tx.asset_id] *= ratio
                 
@@ -786,21 +796,48 @@ class MetricsService:
                 for detail in daily_breakdown:
                     logger.info(f"  {detail}")
             
+            # Calculate total cost basis of current holdings
+            total_cost_basis = sum(cost_basis[asset_id] for asset_id in holdings.keys() if holdings[asset_id] > 0)
+            
             # Calculate gain percentage (value vs invested, excluding deposits/withdrawals)
             gain_pct = None
             if total_invested > 0:
                 gain = total_value - total_invested
                 gain_pct = float((gain / total_invested) * 100)
             
+            # Calculate unrealized P&L percentage (current holdings only, matches Dashboard)
+            unrealized_pnl_pct = None
+            if total_cost_basis > 0:
+                unrealized_gain = total_value - total_cost_basis
+                unrealized_pnl_pct = float((unrealized_gain / total_cost_basis) * 100)
+            
             history.append(PortfolioHistoryPoint(
                 date=current_date.isoformat(),
                 value=float(total_value),
                 invested=float(total_invested),
-                gain_pct=gain_pct
+                gain_pct=gain_pct,
+                cost_basis=float(total_cost_basis),
+                unrealized_pnl_pct=unrealized_pnl_pct
             ))
         
         if history:
             logger.info(f"Portfolio history final value: €{history[-1].value:.2f} on {history[-1].date}")
+        
+        # For "ALL" interval, prepend a zero point before the first transaction
+        # This makes the chart start at 0 visually
+        if interval == "ALL" and history and transactions:
+            first_tx_date = transactions[0].tx_date
+            # Add a point one day before the first transaction with zero values
+            zero_date = first_tx_date - timedelta(days=1)
+            zero_point = PortfolioHistoryPoint(
+                date=zero_date.isoformat(),
+                value=0.0,
+                invested=0.0,
+                gain_pct=0.0,
+                cost_basis=0.0,
+                unrealized_pnl_pct=0.0
+            )
+            history.insert(0, zero_point)
         
         return history
 

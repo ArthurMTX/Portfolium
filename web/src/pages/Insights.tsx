@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
-import { getSectorIcon, getSectorColor } from '../lib/sectorIcons'
+import { getSectorIcon, getSectorColor } from '../lib/sectorIndustryUtils'
+import { getTranslatedSector } from '../lib/translationUtils'
+import { getCountryCode } from '../lib/countryUtils'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
+import { useTranslation } from 'react-i18next'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -132,57 +135,6 @@ interface TopPerformer {
   asset_type?: string | null
 }
 
-const getCountryCode = (country: string | null | undefined): string | null => {
-  if (!country) return null;
-  // ISO 3166-1 alpha-2 country codes, with common aliases
-  const countryCodeMap: Record<string, string> = {
-    'United States': 'us', 'USA': 'us', 'US': 'us',
-    'United Kingdom': 'gb', 'UK': 'gb', 'GB': 'gb',
-    'Canada': 'ca', 'CA': 'ca',
-    'Germany': 'de', 'DE': 'de',
-    'France': 'fr', 'FR': 'fr',
-    'Japan': 'jp', 'JP': 'jp',
-    'China': 'cn', 'CN': 'cn',
-    'Australia': 'au', 'AU': 'au',
-    'India': 'in', 'IN': 'in',
-    'Brazil': 'br', 'BR': 'br',
-    'Switzerland': 'ch', 'CH': 'ch',
-    'Netherlands': 'nl', 'NL': 'nl',
-    'Sweden': 'se', 'SE': 'se',
-    'Norway': 'no', 'NO': 'no',
-    'Denmark': 'dk', 'DK': 'dk',
-    'Finland': 'fi', 'FI': 'fi',
-    'Belgium': 'be', 'BE': 'be',
-    'Austria': 'at', 'AT': 'at',
-    'Spain': 'es', 'ES': 'es',
-    'Italy': 'it', 'IT': 'it',
-    'Ireland': 'ie', 'IE': 'ie',
-    'South Korea': 'kr', 'Korea': 'kr', 'KR': 'kr',
-    'Singapore': 'sg', 'SG': 'sg',
-    'Hong Kong': 'hk', 'HK': 'hk',
-    'Taiwan': 'tw', 'TW': 'tw',
-    'Mexico': 'mx', 'MX': 'mx',
-    'Russia': 'ru', 'Russian Federation': 'ru', 'RU': 'ru',
-    'South Africa': 'za', 'ZA': 'za',
-    'Argentina': 'ar', 'AR': 'ar',
-    'Chile': 'cl', 'CL': 'cl',
-    'Poland': 'pl', 'PL': 'pl',
-    'Turkey': 'tr', 'TR': 'tr',
-    'Indonesia': 'id', 'ID': 'id',
-    'Thailand': 'th', 'TH': 'th',
-    'Malaysia': 'my', 'MY': 'my',
-    'Philippines': 'ph', 'PH': 'ph',
-    'Vietnam': 'vn', 'VN': 'vn',
-    'New Zealand': 'nz', 'NZ': 'nz',
-    'Israel': 'il', 'IL': 'il',
-    'Portugal': 'pt', 'PT': 'pt',
-    'Greece': 'gr', 'GR': 'gr',
-    'Czech Republic': 'cz', 'Czechia': 'cz', 'CZ': 'cz',
-    'Hungary': 'hu', 'HU': 'hu',
-    'Romania': 'ro', 'RO': 'ro',
-  };
-  return countryCodeMap[country] || null;
-};
 
 export default function Insights() {
   const { activePortfolioId, portfolios } = usePortfolioStore()
@@ -193,6 +145,10 @@ export default function Insights() {
   const [benchmark, setBenchmark] = useState('SPY')
   const [performersSortBy, setPerformersSortBy] = useState<'percentage' | 'currency'>('percentage')
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const { t, i18n } = useTranslation()
+
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
 
   // Get portfolio currency
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
@@ -329,6 +285,10 @@ export default function Insights() {
   useEffect(() => {
     const abortController = new AbortController()
     
+    // Clear insights data immediately when portfolio changes to prevent showing stale data
+    setInsights(null)
+    setError('')
+    
     // Clear any pending debounce timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
@@ -359,10 +319,10 @@ export default function Insights() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
               <TrendingUp className="text-pink-600" size={28} />
-              Portfolio Insights
+              {t('insights.title')}
             </h1>
             <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-              Analyzing your portfolio performance...
+              {t('insights.loadingMessage')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -444,7 +404,7 @@ export default function Insights() {
     return (
       <div className="space-y-4">
         <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">Unable to Load Insights</h3>
+          <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">{t('common.error')}</h3>
           <p className="text-red-800 dark:text-red-200">{error}</p>
         </div>
         
@@ -452,7 +412,7 @@ export default function Insights() {
           onClick={() => loadInsights()}
           className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
         >
-          Retry
+          {t('common.retry')}
         </button>
       </div>
     )
@@ -469,7 +429,7 @@ export default function Insights() {
   
   const benchmarkChartData = {
     labels: portfolioSeries.map(p => 
-      new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      new Date(p.date).toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
     ),
     datasets: [
       {
@@ -568,10 +528,10 @@ export default function Insights() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <TrendingUp className="text-pink-600" size={28} />
-            Portfolio Insights
+            {t('insights.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Comprehensive analysis and performance metrics
+            {t('insights.description')}
           </p>
         </div>
 
@@ -582,12 +542,12 @@ export default function Insights() {
             onChange={(e) => setPeriod(e.target.value)}
             className="px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800"
           >
-            <option value="1m">1 Month</option>
-            <option value="3m">3 Months</option>
-            <option value="6m">6 Months</option>
-            <option value="ytd">Year to Date</option>
-            <option value="1y">1 Year</option>
-            <option value="all">All Time</option>
+            <option value="1m">{t('insights.periods.1M')}</option>
+            <option value="3m">{t('insights.periods.3M')}</option>
+            <option value="6m">{t('insights.periods.6M')}</option>
+            <option value="ytd">{t('insights.periods.YTD')}</option>
+            <option value="1y">{t('insights.periods.1Y')}</option>
+            <option value="all">{t('insights.periods.ALL')}</option>
           </select>
 
           {/* Benchmark selector */}
@@ -600,7 +560,7 @@ export default function Insights() {
             <option value="QQQ">Nasdaq 100</option>
             <option value="IWM">Russell 2000</option>
             <option value="DIA">Dow Jones</option>
-            <option value="VTI">Total Market</option>
+            <option value="VTI">{t('insights.totalMarket')}</option>
           </select>
         </div>
       </div>
@@ -611,7 +571,7 @@ export default function Insights() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Total Return
+                {t('insights.totalReturn')}
               </p>
               <p className={`mt-2 text-2xl font-bold ${
                 insights.total_return >= 0 ? 'text-green-600' : 'text-red-600'
@@ -633,7 +593,7 @@ export default function Insights() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Annualized Return
+                {t('insights.annualizedReturn')}
               </p>
               <p className={`mt-2 text-2xl font-bold ${
                 insights.performance.annualized_return >= 0 ? 'text-green-600' : 'text-red-600'
@@ -642,7 +602,7 @@ export default function Insights() {
                 {insights.performance.annualized_return.toFixed(2)}%
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                Period: {period.toUpperCase()}
+                {t('insights.period')}: {period.toUpperCase()}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
@@ -655,13 +615,13 @@ export default function Insights() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Sharpe Ratio
+                {t('insights.sharpeRatio')}
               </p>
               <p className="mt-2 text-2xl font-bold">
                 {insights.risk.sharpe_ratio ? insights.risk.sharpe_ratio.toFixed(2) : 'N/A'}
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                Risk-adjusted return
+                {t('insights.riskAdjustedReturn')}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
@@ -683,7 +643,7 @@ export default function Insights() {
                 {insights.benchmark_comparison.alpha.toFixed(2)}%
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                Alpha (outperformance)
+                {t('insights.alpha')} ({t('insights.outperformance')})
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
@@ -697,14 +657,14 @@ export default function Insights() {
       <div className="card p-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-pink-600" />
-          Performance vs Benchmark
+          {t('insights.performanceVsBenchmark')}
         </h2>
         <div className="h-80">
           <Line key={`${period}-${benchmark}`} data={benchmarkChartData} options={chartOptions} />
         </div>
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <p className="text-neutral-600 dark:text-neutral-400">Portfolio Return</p>
+            <p className="text-neutral-600 dark:text-neutral-400">{t('insights.portfolioReturn')}</p>
             <p className={`font-semibold ${
               insights.benchmark_comparison.portfolio_return >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
@@ -713,7 +673,7 @@ export default function Insights() {
             </p>
           </div>
           <div>
-            <p className="text-neutral-600 dark:text-neutral-400">Benchmark Return</p>
+            <p className="text-neutral-600 dark:text-neutral-400">{t('insights.benchmarkReturn')}</p>
             <p className={`font-semibold ${
               insights.benchmark_comparison.benchmark_return >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
@@ -722,7 +682,7 @@ export default function Insights() {
             </p>
           </div>
           <div>
-            <p className="text-neutral-600 dark:text-neutral-400">Correlation</p>
+            <p className="text-neutral-600 dark:text-neutral-400">{t('insights.correlation')}</p>
             <p className="font-semibold">
               {insights.benchmark_comparison.correlation 
                 ? insights.benchmark_comparison.correlation.toFixed(2) 
@@ -730,7 +690,7 @@ export default function Insights() {
             </p>
           </div>
           <div>
-            <p className="text-neutral-600 dark:text-neutral-400">Win Rate</p>
+            <p className="text-neutral-600 dark:text-neutral-400">{t('insights.winRate')}</p>
             <p className="font-semibold">{insights.performance.win_rate.toFixed(1)}%</p>
           </div>
         </div>
@@ -740,17 +700,17 @@ export default function Insights() {
       <div className="card p-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield className="h-5 w-5 text-pink-600" />
-          Risk Analysis
+          {t('insights.riskAnalysis')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Volatility (Annual)</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.volatility')} ({t('insights.annual')})</p>
             <p className="text-xl font-bold text-orange-600">
               {insights.risk.volatility.toFixed(2)}%
             </p>
           </div>
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Max Drawdown</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.maxDrawdown')}</p>
             <p className="text-xl font-bold text-red-600">
               -{insights.risk.max_drawdown.toFixed(2)}%
             </p>
@@ -761,13 +721,13 @@ export default function Insights() {
             )}
           </div>
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Downside Deviation</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.downsideDeviation')}</p>
             <p className="text-xl font-bold text-amber-600">
               {insights.risk.downside_deviation.toFixed(2)}%
             </p>
           </div>
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">VaR (95%)</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.valueAtRisk')} (95%)</p>
             <p className="text-xl font-bold text-purple-600">
               {insights.risk.var_95 ? `${insights.risk.var_95.toFixed(2)}%` : 'N/A'}
             </p>
@@ -779,11 +739,11 @@ export default function Insights() {
       <div className="card p-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Activity className="h-5 w-5 text-pink-600" />
-          Performance Statistics
+          {t('insights.performanceStatistics')}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Best Day</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.bestDay')}</p>
             <p className="text-xl font-bold text-green-600">
               {insights.performance.best_day ? `+${insights.performance.best_day.toFixed(2)}%` : 'N/A'}
             </p>
@@ -794,7 +754,7 @@ export default function Insights() {
             )}
           </div>
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Worst Day</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.worstDay')}</p>
             <p className="text-xl font-bold text-red-600">
               {insights.performance.worst_day ? `${insights.performance.worst_day.toFixed(2)}%` : 'N/A'}
             </p>
@@ -805,13 +765,13 @@ export default function Insights() {
             )}
           </div>
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Positive Days</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.positiveDays')}</p>
             <p className="text-xl font-bold text-green-600">
               {insights.performance.positive_days}
             </p>
           </div>
           <div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Negative Days</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.negativeDays')}</p>
             <p className="text-xl font-bold text-red-600">
               {insights.performance.negative_days}
             </p>
@@ -823,7 +783,7 @@ export default function Insights() {
       <div className="space-y-4">
         {/* Toggle for sorting method */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Top & Worst Performers</h2>
+          <h2 className="text-lg font-semibold">{t('insights.topAndWorstPerformers')}</h2>
           <div className="flex gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
             <button
               onClick={() => setPerformersSortBy('percentage')}
@@ -833,7 +793,7 @@ export default function Insights() {
                   : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
               }`}
             >
-              By %
+              {t('common.by').charAt(0).toUpperCase() + t('common.by').slice(1)} %
             </button>
             <button
               onClick={() => setPerformersSortBy('currency')}
@@ -843,7 +803,7 @@ export default function Insights() {
                   : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
               }`}
             >
-              By {currencySymbol}
+              {t('common.by').charAt(0).toUpperCase() + t('common.by').slice(1)} {currencySymbol}
             </button>
           </div>
         </div>
@@ -853,7 +813,7 @@ export default function Insights() {
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Award className="h-5 w-5 text-green-600" />
-              Top Performers
+              {t('insights.topPerformers')}
             </h2>
             <div className="space-y-3">
               {[...insights.top_performers]
@@ -928,7 +888,7 @@ export default function Insights() {
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-600" />
-              Worst Performers
+              {t('insights.worstPerformers')}
             </h2>
             <div className="space-y-3">
               {[...insights.worst_performers]
@@ -1007,7 +967,7 @@ export default function Insights() {
         <div className="card p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <PieChart className="h-5 w-5 text-pink-600" />
-            Sector Allocation
+            {t('insights.sectorAllocation')}
           </h2>
           <div className="space-y-3">
             {insights.sector_allocation.map((sector, idx) => (
@@ -1018,7 +978,7 @@ export default function Insights() {
                       const SectorIcon = getSectorIcon(sector.sector);
                       return <SectorIcon size={16} className={getSectorColor(sector.sector)} />;
                     })()}
-                    <span className="text-sm font-medium">{sector.sector}</span>
+                    <span className="text-sm font-medium">{getTranslatedSector(sector.sector, t)}</span>
                   </div>
                   <span className="text-sm text-neutral-600 dark:text-neutral-400">
                     {sector.percentage.toFixed(1)}%
@@ -1031,7 +991,7 @@ export default function Insights() {
                   />
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {currencySymbol}{sector.value.toLocaleString()} • {sector.count} assets
+                  {currencySymbol}{sector.value.toLocaleString()} • {sector.count} {t('insights.assets')}
                 </p>
               </div>
             ))}
@@ -1042,7 +1002,7 @@ export default function Insights() {
         <div className="card p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <PieChart className="h-5 w-5 text-pink-600" />
-            Geographic Allocation
+            {t('insights.geographicAllocation')}
           </h2>
           <div className="space-y-3">
             {insights.geographic_allocation.map((geo, idx) => (
@@ -1073,7 +1033,7 @@ export default function Insights() {
                   />
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {currencySymbol}{geo.value.toLocaleString()} • {geo.count} assets
+                  {currencySymbol}{geo.value.toLocaleString()} • {geo.count} {t('insights.assets')}
                 </p>
               </div>
             ))}
@@ -1087,17 +1047,17 @@ export default function Insights() {
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Target className="h-5 w-5 text-pink-600" />
-              Diversification Score
+              {t('insights.diversificationScore')}
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              Based on number of holdings and allocation spread
+              {t('insights.diversificationDescription')}
             </p>
           </div>
           <div className="text-right">
             <p className="text-4xl font-bold text-pink-600">
               {insights.diversification_score?.toFixed(0) || 'N/A'}
             </p>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">out of 100</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('insights.outOf100')}</p>
           </div>
         </div>
         <div className="mt-4 w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-3">

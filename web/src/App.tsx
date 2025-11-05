@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { LanguageProvider } from './contexts/LanguageContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
 import Portfolios from './pages/Portfolios'
 import Charts from './pages/Charts'
 import Transactions from './pages/Transactions'
+import TransactionMetrics from './pages/TransactionMetrics'
 import Assets from './pages/Assets'
 import Watchlist from './pages/Watchlist'
 import Notifications from './pages/Notifications'
@@ -25,15 +27,16 @@ import NotFound from './pages/NotFound'
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
 
           {/* Protected routes */}
           <Route
@@ -50,6 +53,7 @@ function App() {
             <Route path="charts" element={<Charts />} />
             <Route path="insights" element={<Insights />} />
             <Route path="transactions" element={<Transactions />} />
+            <Route path="transactions/metrics" element={<TransactionMetrics />} />
             <Route path="assets" element={<Assets />} />
             <Route path="watchlist" element={<Watchlist />} />
             <Route path="notifications" element={<Notifications />} />
@@ -93,6 +97,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </LanguageProvider>
   )
 }
 

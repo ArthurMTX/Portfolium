@@ -68,6 +68,16 @@ Architecture of the pricing subsystem:
 - Error handling strategies
 - Cache invalidation logic
 
+### [Asset Metadata Overrides](asset-metadata-overrides.md)
+
+User-specific asset classification system:
+
+- Custom sector, industry, and country assignments
+- User-specific overrides (each user can set their own)
+- Fallback-only design (only when Yahoo Finance has no data)
+- Automatic integration with distributions and insights
+- Database table for override storage
+
 ## Technology Stack
 
 ### Backend
@@ -77,6 +87,8 @@ Architecture of the pricing subsystem:
 - **Database**: PostgreSQL 14+
 - **Validation**: Pydantic v2
 - **Data Sources**: yfinance, Brandfetch API
+- **Async Tasks**: APScheduler
+- **Migration Tool**: Alembic
 
 ### Frontend
 

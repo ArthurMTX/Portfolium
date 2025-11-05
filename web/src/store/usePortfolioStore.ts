@@ -91,7 +91,14 @@ const usePortfolioStore = create<PortfolioStore>()(
 
       // Actions
       setPortfolios: (portfolios) => set({ portfolios }),
-      setActivePortfolio: (id) => set({ activePortfolioId: id }),
+      setActivePortfolio: (id) => set({ 
+        activePortfolioId: id,
+        // Clear old portfolio data immediately when switching to prevent showing stale data
+        positions: [],
+        metrics: null,
+        transactions: [],
+        loading: true,
+      }),
       setPositions: (positions) => set({ positions }),
       setMetrics: (metrics) => set({ metrics }),
       setTransactions: (transactions) => set({ transactions }),

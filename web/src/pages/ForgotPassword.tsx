@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -104,7 +105,7 @@ export default function ForgotPassword() {
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <LoadingSpinner size="sm" color="white" />
                   Sending...
                 </>
               ) : (

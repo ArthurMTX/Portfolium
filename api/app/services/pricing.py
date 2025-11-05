@@ -20,12 +20,84 @@ logger = logging.getLogger(__name__)
 
 # In-memory cache for price fetches (symbol -> (quote, timestamp))
 _price_memory_cache: Dict[str, Tuple[PriceQuote, datetime]] = {}
-_memory_cache_lock = asyncio.Lock()
+_memory_cache_lock: Optional[asyncio.Lock] = None
+_memory_cache_loop: Optional[asyncio.AbstractEventLoop] = None
 _MEMORY_CACHE_TTL = timedelta(seconds=30)  # Very short TTL for in-memory cache
 
 # Deduplication cache for ongoing fetches
 _ongoing_fetches: Dict[str, asyncio.Task] = {}
-_fetch_lock = asyncio.Lock()
+_fetch_lock: Optional[asyncio.Lock] = None
+_fetch_lock_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _cleanup_stale_tasks():
+    """
+    Clean up tasks from different event loops to prevent 'attached to a different loop' errors.
+    This should be called when switching between event loops (e.g., in scheduler jobs).
+    """
+    global _ongoing_fetches, _fetch_lock, _fetch_lock_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, clear everything to be safe
+        _ongoing_fetches.clear()
+        _fetch_lock = None
+        _fetch_lock_loop = None
+        return
+    
+    # Clear tasks that are from a different loop
+    stale_symbols = []
+    for symbol, task in _ongoing_fetches.items():
+        try:
+            if task._loop != current_loop:
+                stale_symbols.append(symbol)
+        except AttributeError:
+            stale_symbols.append(symbol)
+    
+    for symbol in stale_symbols:
+        _ongoing_fetches.pop(symbol, None)
+    
+    # Reset lock if it's from a different loop
+    if _fetch_lock_loop is not None and _fetch_lock_loop != current_loop:
+        _fetch_lock = None
+        _fetch_lock_loop = None
+
+
+def _get_memory_lock() -> asyncio.Lock:
+    """Get or create the memory cache lock for the current event loop"""
+    global _memory_cache_lock, _memory_cache_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, create one
+        current_loop = asyncio.get_event_loop()
+    
+    # Check if lock exists and is bound to the current loop
+    if _memory_cache_lock is None or _memory_cache_loop is not current_loop:
+        _memory_cache_lock = asyncio.Lock()
+        _memory_cache_loop = current_loop
+    
+    return _memory_cache_lock
+
+
+def _get_fetch_lock() -> asyncio.Lock:
+    """Get or create the fetch lock for the current event loop"""
+    global _fetch_lock, _fetch_lock_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, create one
+        current_loop = asyncio.get_event_loop()
+    
+    # Check if lock exists and is bound to the current loop
+    if _fetch_lock is None or _fetch_lock_loop is not current_loop:
+        _fetch_lock = asyncio.Lock()
+        _fetch_lock_loop = current_loop
+    
+    return _fetch_lock
 
 
 class PricingService:
@@ -48,20 +120,41 @@ class PricingService:
         """
         # Check in-memory cache first (very fast)
         if not force_refresh:
-            async with _memory_cache_lock:
+            async with _get_memory_lock():
                 if symbol in _price_memory_cache:
                     quote, cached_at = _price_memory_cache[symbol]
                     if datetime.utcnow() - cached_at < _MEMORY_CACHE_TTL:
                         logger.debug(f"Using in-memory cached price for {symbol}")
                         return quote
         
-        # Check if there's an ongoing fetch for this symbol
-        async with _fetch_lock:
+        # Get the current event loop to ensure task is created in the right loop
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop - this shouldn't happen in async context
+            logger.warning(f"No running event loop when fetching price for {symbol}")
+            return await self._get_price_internal(symbol, force_refresh)
+        
+        # Check if there's an ongoing fetch for this symbol in the current loop
+        async with _get_fetch_lock():
             if symbol in _ongoing_fetches:
-                logger.info(f"Reusing ongoing price fetch for {symbol}")
-                return await _ongoing_fetches[symbol]
+                existing_task = _ongoing_fetches[symbol]
+                # Verify the task is from the same event loop
+                try:
+                    # Check if task's loop matches current loop
+                    if existing_task._loop == current_loop:
+                        logger.info(f"Reusing ongoing price fetch for {symbol}")
+                        return await existing_task
+                    else:
+                        # Task is from a different loop, remove it and create a new one
+                        logger.warning(f"Removing stale task for {symbol} (different event loop)")
+                        _ongoing_fetches.pop(symbol, None)
+                except AttributeError:
+                    # Task doesn't have _loop attribute (shouldn't happen), treat as stale
+                    logger.warning(f"Removing invalid task for {symbol}")
+                    _ongoing_fetches.pop(symbol, None)
             
-            # Create a new task for this fetch
+            # Create a new task for this fetch in the current loop
             task = asyncio.create_task(self._get_price_internal(symbol, force_refresh))
             _ongoing_fetches[symbol] = task
         
@@ -70,13 +163,13 @@ class PricingService:
             
             # Update in-memory cache
             if result:
-                async with _memory_cache_lock:
+                async with _get_memory_lock():
                     _price_memory_cache[symbol] = (result, datetime.utcnow())
             
             return result
         finally:
             # Remove from ongoing fetches
-            async with _fetch_lock:
+            async with _get_fetch_lock():
                 _ongoing_fetches.pop(symbol, None)
     
     async def _get_price_internal(self, symbol: str, force_refresh: bool = False) -> Optional[PriceQuote]:
@@ -283,39 +376,49 @@ class PricingService:
         Fetch price from Yahoo Finance
         
         Returns dict with price, asof, volume, previous_close or None
+        
+        Strategy: Use ticker.info for both current price and previousClose.
+        This matches what Yahoo Finance website and other platforms (Trade Republic) show.
+        The previousClose includes after-hours trading and is the reference point for
+        intraday percentage calculations that users expect to see.
         """
         try:
             ticker = yf.Ticker(symbol)
             
-            # Try fast_info first (faster) - includes previous close
+            # Try to get current price and previous close from info
+            # This is what Yahoo Finance website uses and what users expect
+            logger.info(f"Fetching data for {symbol}")
             try:
-                info = ticker.fast_info
-                price = float(info.get('last_price', 0))
-                prev_close = float(info.get('previous_close', 0))
+                info = ticker.info
+                current_price = info.get('regularMarketPrice') or info.get('currentPrice')
+                prev_close = info.get('previousClose')
                 
-                logger.info(f"Yahoo Finance fast_info for {symbol}: price={price}, prev_close={prev_close}")
-                
-                if price > 0:
+                if current_price and current_price > 0:
                     result = {
-                        "price": Decimal(str(price)),
+                        "price": Decimal(str(current_price)),
                         "asof": datetime.utcnow(),
-                        "volume": None
+                        "volume": info.get('regularMarketVolume')
                     }
-                    if prev_close > 0:
+                    
+                    if prev_close and prev_close > 0:
                         result["previous_close"] = Decimal(str(prev_close))
-                        logger.info(f"Added previous_close={prev_close} to result for {symbol}")
+                        logger.info(f"Yahoo Finance for {symbol}: price=${current_price}, prev_close=${prev_close}")
+                    
                     return result
             except Exception as e:
-                logger.warning(f"fast_info failed for {symbol}: {e}")
+                logger.warning(f"ticker.info failed for {symbol}: {e}")
             
-            # Fallback to history - get 5 days to ensure we have previous close
+            # Fallback to history for both current and previous close
             logger.info(f"Fetching history for {symbol}")
-            hist = ticker.history(period="5d")
+            hist = ticker.history(period="10d")
+            
             if not hist.empty:
                 logger.info(f"History data for {symbol}: {len(hist)} rows")
                 last_row = hist.iloc[-1]
+                current_price = Decimal(str(float(last_row["Close"])))
+                
                 result = {
-                    "price": Decimal(str(float(last_row["Close"]))),
+                    "price": current_price,
                     "asof": datetime.utcnow(),
                     "volume": int(last_row.get("Volume", 0)) if "Volume" in last_row else None
                 }
@@ -325,7 +428,7 @@ class PricingService:
                     prev_row = hist.iloc[-2]
                     prev_close_val = Decimal(str(float(prev_row["Close"])))
                     result["previous_close"] = prev_close_val
-                    logger.info(f"Added previous_close={prev_close_val} from history for {symbol}")
+                    logger.info(f"Using history for {symbol}: price=${current_price}, prev_close=${prev_close_val}")
                 
                 return result
             
@@ -346,16 +449,18 @@ class PricingService:
         Fetch only the previous close from yfinance and save it to DB.
         This is used when we have a cached price but no historical data for daily change calculation.
         Returns the previous close price if found, None otherwise.
+        
+        Uses ticker.info previousClose to match what Yahoo Finance website shows.
         """
         try:
             ticker = yf.Ticker(symbol)
             
-            # Try fast_info first
+            # Try ticker.info first - matches Yahoo Finance website
             try:
-                info = ticker.fast_info
-                prev_close = float(info.get('previous_close', 0))
+                info = ticker.info
+                prev_close = info.get('previousClose')
                 
-                if prev_close > 0:
+                if prev_close and prev_close > 0:
                     prev_close_decimal = Decimal(str(prev_close))
                     
                     # Save to DB if not already saved
@@ -377,14 +482,14 @@ class PricingService:
                             source="yfinance_prev_close"
                         )
                         crud_prices.create_price(self.db, prev_price_create)
-                        logger.info(f"Saved previous close for {symbol}: {prev_close_decimal}")
+                        logger.info(f"Saved previous close from info for {symbol}: {prev_close_decimal}")
                     
                     return prev_close_decimal
             except Exception as e:
-                logger.warning(f"fast_info failed for {symbol} when fetching prev close: {e}")
+                logger.warning(f"ticker.info failed for {symbol}, trying history: {e}")
             
             # Fallback to history
-            hist = ticker.history(period="5d")
+            hist = ticker.history(period="10d")
             if not hist.empty and len(hist) > 1:
                 prev_row = hist.iloc[-2]
                 prev_close_decimal = Decimal(str(float(prev_row["Close"])))

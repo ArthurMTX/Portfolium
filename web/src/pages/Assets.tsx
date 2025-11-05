@@ -1,16 +1,21 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Package, RefreshCw, ArrowUpDown, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X } from 'lucide-react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit } from 'lucide-react';
 import api from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
-import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIcons';
-import AssetsCharts from '../components/AssetsCharts';
+import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
+import { getCountryCode } from '../lib/countryUtils';
+import AssetDistribution from '../components/AssetDistribution';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
 import AssetPriceChart from '../components/AssetPriceChart';
+import SortIcon from '../components/SortIcon';
 import AssetPriceDebug from '../components/AssetPriceDebug';
+import AssetMetadataEdit from '../components/AssetMetadataEdit';
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
 import usePortfolioStore from '../store/usePortfolioStore';
+import { useTranslation } from 'react-i18next'
+import { getTranslatedSector, getTranslatedIndustry, getTranslatedAssetClass, getTranslatedAssetType } from '../lib/translationUtils'
 
 interface HeldAsset {
   id: number;
@@ -25,7 +30,10 @@ interface HeldAsset {
   portfolio_count: number;
   split_count?: number;
   transaction_count?: number;
-  country?: string | null;
+  country: string | null;
+  effective_sector?: string | null;
+  effective_industry?: string | null;
+  effective_country?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,43 +71,73 @@ export default function Assets() {
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string } | null>(null);
   const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
+  const [editAsset, setEditAsset] = useState<HeldAsset | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const distributionRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
-  // Load portfolio positions when active portfolio changes
+  // Load portfolio asset IDs when active portfolio changes
   useEffect(() => {
-    const loadPortfolioPositions = async () => {
+    // Clear state immediately when portfolio changes
+    setHeldAssets([]);
+    setSoldAssets([]);
+    setPortfolioAssetIds(new Set());
+    
+    const loadPortfolioAssetIds = async () => {
       if (!activePortfolioId) {
         setPortfolioAssetIds(new Set());
         return;
       }
 
       try {
-        const [positions, soldPositions] = await Promise.all([
+        const [currentPositions, soldPositions] = await Promise.all([
           api.getPortfolioPositions(activePortfolioId),
           api.getSoldPositions(activePortfolioId)
         ]);
-        const currentAssetIds = positions.map(p => p.asset_id);
+        const currentAssetIds = currentPositions.map(p => p.asset_id);
         const soldAssetIds = soldPositions.map(p => p.asset_id);
         const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
         setPortfolioAssetIds(allAssetIds);
       } catch (err) {
-        console.error('Error loading portfolio positions:', err);
+        console.error('Error loading portfolio asset IDs:', err);
         setPortfolioAssetIds(new Set());
       }
     };
 
-    loadPortfolioPositions();
+    loadPortfolioAssetIds();
   }, [activePortfolioId]);
 
   const loadAssets = useCallback(async () => {
     try {
       setLoading(true);
-      const [held, sold] = await Promise.all([
+      
+      // Load both asset lists and portfolio asset IDs if there's an active portfolio
+      const promises = [
         api.getHeldAssets(activePortfolioId || undefined),
         api.getSoldAssets(activePortfolioId || undefined)
-      ]);
+      ];
+      
+      if (activePortfolioId) {
+        promises.push(
+          api.getPortfolioPositions(activePortfolioId).then(positions => positions.map(p => p.asset_id)),
+          api.getSoldPositions(activePortfolioId).then(positions => positions.map(p => p.asset_id))
+        );
+      }
+      
+      const results = await Promise.all(promises);
+      const [held, sold] = results as [HeldAsset[], HeldAsset[], number[]?, number[]?];
+      
       setHeldAssets(held);
       setSoldAssets(sold);
+      
+      // Update portfolio asset IDs if they were loaded
+      if (activePortfolioId && results.length > 2) {
+        const currentAssetIds = results[2] as number[];
+        const soldAssetIds = results[3] as number[];
+        const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
+        setPortfolioAssetIds(allAssetIds);
+      }
+      
       setError(null);
     } catch (err) {
       setError('Failed to load assets');
@@ -119,7 +157,7 @@ export default function Assets() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset) {
+    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset || editAsset) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -127,7 +165,7 @@ export default function Assets() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset])
+  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset, editAsset])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -248,290 +286,29 @@ export default function Assets() {
     return colors[type] || 'bg-slate-100 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300';
   };
 
-  const formatAssetType = (type: string | null) => {
-    if (!type) return '-';
-    if (type.trim().toLowerCase() === 'etf') return 'ETF';
-    // Convert to title case and clean up
-    return type
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
   const formatQuantity = (value: number) => {
     // Format with up to 8 decimals, then remove trailing zeros
     const formatted = value.toFixed(8);
     return formatted.replace(/\.?0+$/, '');
   };
 
-  const getCountryCode = (country: string | null | undefined): string | null => {
-    if (!country) return null;
-    // ISO 3166-1 alpha-2 country codes, with common aliases
-    const countryCodeMap: Record<string, string> = {
-      'Afghanistan': 'af', 'AF': 'af',
-      'Albania': 'al', 'AL': 'al',
-      'Algeria': 'dz', 'DZ': 'dz',
-      'Andorra': 'ad', 'AD': 'ad',
-      'Angola': 'ao', 'AO': 'ao',
-      'Antigua and Barbuda': 'ag', 'Antigua & Barbuda': 'ag', 'AG': 'ag',
-      'Argentina': 'ar', 'AR': 'ar',
-      'Armenia': 'am', 'AM': 'am',
-      'Australia': 'au', 'AU': 'au',
-      'Austria': 'at', 'AT': 'at',
-      'Azerbaijan': 'az', 'AZ': 'az',
-      'Bahamas': 'bs', 'BS': 'bs',
-      'Bahrain': 'bh', 'BH': 'bh',
-      'Bangladesh': 'bd', 'BD': 'bd',
-      'Barbados': 'bb', 'BB': 'bb',
-      'Belarus': 'by', 'BY': 'by',
-      'Belgium': 'be', 'BE': 'be',
-      'Belize': 'bz', 'BZ': 'bz',
-      'Benin': 'bj', 'BJ': 'bj',
-      'Bhutan': 'bt', 'BT': 'bt',
-      'Bolivia': 'bo', 'BO': 'bo',
-      'Bosnia and Herzegovina': 'ba', 'Bosnia & Herzegovina': 'ba', 'BA': 'ba',
-      'Botswana': 'bw', 'BW': 'bw',
-      'Brazil': 'br', 'BR': 'br',
-      'Brunei': 'bn', 'BN': 'bn',
-      'Bulgaria': 'bg', 'BG': 'bg',
-      'Burkina Faso': 'bf', 'BF': 'bf',
-      'Burundi': 'bi', 'BI': 'bi',
-      'Cabo Verde': 'cv', 'Cape Verde': 'cv', 'CV': 'cv',
-      'Cambodia': 'kh', 'KH': 'kh',
-      'Cameroon': 'cm', 'CM': 'cm',
-      'Canada': 'ca', 'CA': 'ca',
-      'Central African Republic': 'cf', 'CF': 'cf',
-      'Chad': 'td', 'TD': 'td',
-      'Chile': 'cl', 'CL': 'cl',
-      'China': 'cn', 'CN': 'cn',
-      'Colombia': 'co', 'CO': 'co',
-      'Comoros': 'km', 'KM': 'km',
-      'Congo': 'cg', 'CG': 'cg',
-      'Congo (Democratic Republic)': 'cd', 'Congo, Democratic Republic of the': 'cd', 'CD': 'cd',
-      'Costa Rica': 'cr', 'CR': 'cr',
-      'Cote d\'Ivoire': 'ci', 'Ivory Coast': 'ci', 'CI': 'ci',
-      'Croatia': 'hr', 'HR': 'hr',
-      'Cuba': 'cu', 'CU': 'cu',
-      'Cyprus': 'cy', 'CY': 'cy',
-      'Czech Republic': 'cz', 'Czechia': 'cz', 'CZ': 'cz',
-      'Denmark': 'dk', 'DK': 'dk',
-      'Djibouti': 'dj', 'DJ': 'dj',
-      'Dominica': 'dm', 'DM': 'dm',
-      'Dominican Republic': 'do', 'DO': 'do',
-      'Ecuador': 'ec', 'EC': 'ec',
-      'Egypt': 'eg', 'EG': 'eg',
-      'El Salvador': 'sv', 'SV': 'sv',
-      'Equatorial Guinea': 'gq', 'GQ': 'gq',
-      'Eritrea': 'er', 'ER': 'er',
-      'Estonia': 'ee', 'EE': 'ee',
-      'Eswatini': 'sz', 'Swaziland': 'sz', 'SZ': 'sz',
-      'Ethiopia': 'et', 'ET': 'et',
-      'Fiji': 'fj', 'FJ': 'fj',
-      'Finland': 'fi', 'FI': 'fi',
-      'France': 'fr', 'FR': 'fr',
-      'Gabon': 'ga', 'GA': 'ga',
-      'Gambia': 'gm', 'GM': 'gm',
-      'Georgia': 'ge', 'GE': 'ge',
-      'Germany': 'de', 'DE': 'de',
-      'Ghana': 'gh', 'GH': 'gh',
-      'Greece': 'gr', 'GR': 'gr',
-      'Grenada': 'gd', 'GD': 'gd',
-      'Guatemala': 'gt', 'GT': 'gt',
-      'Guinea': 'gn', 'GN': 'gn',
-      'Guinea-Bissau': 'gw', 'GW': 'gw',
-      'Guyana': 'gy', 'GY': 'gy',
-      'Haiti': 'ht', 'HT': 'ht',
-      'Honduras': 'hn', 'HN': 'hn',
-      'Hungary': 'hu', 'HU': 'hu',
-      'Iceland': 'is', 'IS': 'is',
-      'India': 'in', 'IN': 'in',
-      'Indonesia': 'id', 'ID': 'id',
-      'Iran': 'ir', 'IR': 'ir',
-      'Iraq': 'iq', 'IQ': 'iq',
-      'Ireland': 'ie', 'IE': 'ie',
-      'Israel': 'il', 'IL': 'il',
-      'Italy': 'it', 'IT': 'it',
-      'Jamaica': 'jm', 'JM': 'jm',
-      'Japan': 'jp', 'JP': 'jp',
-      'Jordan': 'jo', 'JO': 'jo',
-      'Kazakhstan': 'kz', 'KZ': 'kz',
-      'Kenya': 'ke', 'KE': 'ke',
-      'Kiribati': 'ki', 'KI': 'ki',
-      'Korea': 'kr', 'South Korea': 'kr', 'KR': 'kr',
-      'North Korea': 'kp', 'KP': 'kp',
-      'Kuwait': 'kw', 'KW': 'kw',
-      'Kyrgyzstan': 'kg', 'KG': 'kg',
-      'Laos': 'la', 'LA': 'la',
-      'Latvia': 'lv', 'LV': 'lv',
-      'Lebanon': 'lb', 'LB': 'lb',
-      'Lesotho': 'ls', 'LS': 'ls',
-      'Liberia': 'lr', 'LR': 'lr',
-      'Libya': 'ly', 'LY': 'ly',
-      'Liechtenstein': 'li', 'LI': 'li',
-      'Lithuania': 'lt', 'LT': 'lt',
-      'Luxembourg': 'lu', 'LU': 'lu',
-      'Madagascar': 'mg', 'MG': 'mg',
-      'Malawi': 'mw', 'MW': 'mw',
-      'Malaysia': 'my', 'MY': 'my',
-      'Maldives': 'mv', 'MV': 'mv',
-      'Mali': 'ml', 'ML': 'ml',
-      'Malta': 'mt', 'MT': 'mt',
-      'Marshall Islands': 'mh', 'MH': 'mh',
-      'Mauritania': 'mr', 'MR': 'mr',
-      'Mauritius': 'mu', 'MU': 'mu',
-      'Mexico': 'mx', 'MX': 'mx',
-      'Micronesia': 'fm', 'FM': 'fm',
-      'Moldova': 'md', 'MD': 'md',
-      'Monaco': 'mc', 'MC': 'mc',
-      'Mongolia': 'mn', 'MN': 'mn',
-      'Montenegro': 'me', 'ME': 'me',
-      'Morocco': 'ma', 'MA': 'ma',
-      'Mozambique': 'mz', 'MZ': 'mz',
-      'Myanmar': 'mm', 'Burma': 'mm', 'MM': 'mm',
-      'Namibia': 'na', 'NA': 'na',
-      'Nauru': 'nr', 'NR': 'nr',
-      'Nepal': 'np', 'NP': 'np',
-      'Netherlands': 'nl', 'NL': 'nl',
-      'New Zealand': 'nz', 'NZ': 'nz',
-      'Nicaragua': 'ni', 'NI': 'ni',
-      'Niger': 'ne', 'NE': 'ne',
-      'Nigeria': 'ng', 'NG': 'ng',
-      'North Macedonia': 'mk', 'MK': 'mk',
-      'Norway': 'no', 'NO': 'no',
-      'Oman': 'om', 'OM': 'om',
-      'Pakistan': 'pk', 'PK': 'pk',
-      'Palau': 'pw', 'PW': 'pw',
-      'Palestine': 'ps', 'PS': 'ps',
-      'Panama': 'pa', 'PA': 'pa',
-      'Papua New Guinea': 'pg', 'PG': 'pg',
-      'Paraguay': 'py', 'PY': 'py',
-      'Peru': 'pe', 'PE': 'pe',
-      'Philippines': 'ph', 'PH': 'ph',
-      'Poland': 'pl', 'PL': 'pl',
-      'Portugal': 'pt', 'PT': 'pt',
-      'Qatar': 'qa', 'QA': 'qa',
-      'Romania': 'ro', 'RO': 'ro',
-      'Russia': 'ru', 'Russian Federation': 'ru', 'RU': 'ru',
-      'Rwanda': 'rw', 'RW': 'rw',
-      'Saint Kitts and Nevis': 'kn', 'Saint Kitts & Nevis': 'kn', 'KN': 'kn',
-      'Saint Lucia': 'lc', 'LC': 'lc',
-      'Saint Vincent and the Grenadines': 'vc', 'Saint Vincent & the Grenadines': 'vc', 'VC': 'vc',
-      'Samoa': 'ws', 'WS': 'ws',
-      'San Marino': 'sm', 'SM': 'sm',
-      'Sao Tome and Principe': 'st', 'Sao Tome & Principe': 'st', 'ST': 'st',
-      'Saudi Arabia': 'sa', 'SA': 'sa',
-      'Senegal': 'sn', 'SN': 'sn',
-      'Serbia': 'rs', 'RS': 'rs',
-      'Seychelles': 'sc', 'SC': 'sc',
-      'Sierra Leone': 'sl', 'SL': 'sl',
-      'Singapore': 'sg', 'SG': 'sg',
-      'Slovakia': 'sk', 'SK': 'sk',
-      'Slovenia': 'si', 'SI': 'si',
-      'Solomon Islands': 'sb', 'SB': 'sb',
-      'Somalia': 'so', 'SO': 'so',
-      'South Africa': 'za', 'ZA': 'za',
-      'South Sudan': 'ss', 'SS': 'ss',
-      'Spain': 'es', 'ES': 'es',
-      'Sri Lanka': 'lk', 'LK': 'lk',
-      'Sudan': 'sd', 'SD': 'sd',
-      'Suriname': 'sr', 'SR': 'sr',
-      'Sweden': 'se', 'SE': 'se',
-      'Switzerland': 'ch', 'CH': 'ch',
-      'Syria': 'sy', 'SY': 'sy',
-      'Tajikistan': 'tj', 'TJ': 'tj',
-      'Tanzania': 'tz', 'TZ': 'tz',
-      'Thailand': 'th', 'TH': 'th',
-      'Timor-Leste': 'tl', 'East Timor': 'tl', 'TL': 'tl',
-      'Togo': 'tg', 'TG': 'tg',
-      'Tonga': 'to', 'TO': 'to',
-      'Trinidad and Tobago': 'tt', 'Trinidad & Tobago': 'tt', 'TT': 'tt',
-      'Tunisia': 'tn', 'TN': 'tn',
-      'Turkey': 'tr', 'TR': 'tr',
-      'Turkmenistan': 'tm', 'TM': 'tm',
-      'Tuvalu': 'tv', 'TV': 'tv',
-      'Uganda': 'ug', 'UG': 'ug',
-      'Ukraine': 'ua', 'UA': 'ua',
-      'United Arab Emirates': 'ae', 'UAE': 'ae', 'AE': 'ae',
-      'United Kingdom': 'gb', 'UK': 'gb', 'GB': 'gb',
-      'United States': 'us', 'USA': 'us', 'US': 'us',
-      'Uruguay': 'uy', 'UY': 'uy',
-      'Uzbekistan': 'uz', 'UZ': 'uz',
-      'Vanuatu': 'vu', 'VU': 'vu',
-      'Vatican City': 'va', 'Holy See': 'va', 'VA': 'va',
-      'Venezuela': 've', 'VE': 've',
-      'Vietnam': 'vn', 'VN': 'vn',
-      'Yemen': 'ye', 'YE': 'ye',
-      'Zambia': 'zm', 'ZM': 'zm',
-      'Zimbabwe': 'zw', 'ZW': 'zw',
-      'Hong Kong': 'hk', 'HK': 'hk',
-      'Macau': 'mo', 'MO': 'mo',
-      'Taiwan': 'tw', 'TW': 'tw',
-      'Puerto Rico': 'pr', 'PR': 'pr',
-      'Greenland': 'gl', 'GL': 'gl',
-      'Gibraltar': 'gi', 'GI': 'gi',
-      'Isle of Man': 'im', 'IM': 'im',
-      'Jersey': 'je', 'JE': 'je',
-      'Guernsey': 'gg', 'GG': 'gg',
-      'Bermuda': 'bm', 'BM': 'bm',
-      'Cayman Islands': 'ky', 'KY': 'ky',
-      'British Virgin Islands': 'vg', 'Virgin Islands, British': 'vg', 'VG': 'vg',
-      'US Virgin Islands': 'vi', 'Virgin Islands, U.S.': 'vi', 'VI': 'vi',
-      'Anguilla': 'ai', 'AI': 'ai',
-      'Aruba': 'aw', 'AW': 'aw',
-      'Montserrat': 'ms', 'MS': 'ms',
-      'Turks and Caicos Islands': 'tc', 'TC': 'tc',
-      'Falkland Islands': 'fk', 'FK': 'fk',
-      'Saint Pierre and Miquelon': 'pm', 'PM': 'pm',
-      'Saint Helena': 'sh', 'SH': 'sh',
-      'Saint Barthélemy': 'bl', 'BL': 'bl',
-      'Saint Martin': 'mf', 'MF': 'mf',
-      'Sint Maarten': 'sx', 'SX': 'sx',
-      'Bonaire': 'bq', 'BQ': 'bq',
-      'Curacao': 'cw', 'CW': 'cw',
-      'Svalbard and Jan Mayen': 'sj', 'SJ': 'sj',
-      'Faroe Islands': 'fo', 'FO': 'fo',
-      'French Guiana': 'gf', 'GF': 'gf',
-      'French Polynesia': 'pf', 'PF': 'pf',
-      'French Southern Territories': 'tf', 'TF': 'tf',
-      'Guadeloupe': 'gp', 'GP': 'gp',
-      'Martinique': 'mq', 'MQ': 'mq',
-      'Mayotte': 'yt', 'YT': 'yt',
-      'New Caledonia': 'nc', 'NC': 'nc',
-      'Reunion': 're', 'RE': 're',
-      'Saint Martin (French part)': 'mf',
-      'Saint Pierre & Miquelon': 'pm',
-      'Wallis and Futuna': 'wf', 'WF': 'wf',
-      'French Antilles': 'gp',
-      'Caribbean Netherlands': 'bq',
-      'Kosovo': 'xk', 'XK': 'xk',
-      'Palestinian Territories': 'ps',
-      'Western Sahara': 'eh', 'EH': 'eh',
-      'Antarctica': 'aq', 'AQ': 'aq',
-      'Heard Island and McDonald Islands': 'hm', 'HM': 'hm',
-      'South Georgia and the South Sandwich Islands': 'gs', 'GS': 'gs',
-      'Bouvet Island': 'bv', 'BV': 'bv',
-      'Pitcairn Islands': 'pn', 'PN': 'pn',
-      'Norfolk Island': 'nf', 'NF': 'nf',
-      'Niue': 'nu', 'NU': 'nu',
-      'Cook Islands': 'ck', 'CK': 'ck',
-      'Tokelau': 'tk', 'TK': 'tk',
-      'American Samoa': 'as', 'AS': 'as',
-      'Guam': 'gu', 'GU': 'gu',
-      'Northern Mariana Islands': 'mp', 'MP': 'mp',
-      'Micronesia (Federated States of)': 'fm',
-      'Wallis and Futuna Islands': 'wf',
-    };
-    return countryCodeMap[country] || null;
-  };
-
   const isActive = (key: SortKey) => sortKey === key;
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    const active = isActive(col);
-    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />;
-    return sortDir === 'asc' 
-      ? <ChevronUp size={14} className="inline ml-1 opacity-80" />
-      : <ChevronDown size={14} className="inline ml-1 opacity-80" />;
-  };
+
+  // Get human-readable label for sort key
+  const getSortLabel = (key: SortKey): string => {
+    const labels: Record<SortKey, string> = {
+      symbol: 'Symbol',
+      name: 'Name',
+      class: 'Class',
+      country: 'Country',
+      asset_type: 'Type',
+      sector: 'Sector',
+      industry: 'Industry',
+      total_quantity: 'Quantity',
+      portfolio_count: 'Portfolios',
+    }
+    return labels[key]
+  }
 
   if (loading) {
     return (
@@ -541,10 +318,10 @@ export default function Assets() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
               <Package className="text-pink-600" size={28} />
-              Assets
+              {t('assets.title')}
             </h1>
             <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-              Loading your assets...
+              {t('assets.loadingMessage')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -559,16 +336,15 @@ export default function Assets() {
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Symbol</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Class</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Country</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Sector</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Industry</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Quantity</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Portfolios</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.symbol')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.name')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.class')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.type')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.country')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.sector')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.industry')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.quantity')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -590,7 +366,6 @@ export default function Assets() {
                     <td className="px-6 py-4"><div className="h-4 w-28 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
                     <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
                     <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-8 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
                     <td className="px-6 py-4 text-right"><div className="h-4 w-12 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
                   </tr>
                 ))}
@@ -602,7 +377,7 @@ export default function Assets() {
         {/* Charts Skeleton */}
         <div className="pt-4">
           <h2 className="text-xl font-semibold mb-4 text-neutral-900 dark:text-neutral-100">
-            Asset Distribution
+            {t('assets.assetDistribution')}
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
@@ -629,7 +404,7 @@ export default function Assets() {
           onClick={loadAssets}
           className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
         >
-          Retry
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -647,35 +422,29 @@ export default function Assets() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
                 <Package className="text-pink-600" size={28} />
-                {activePortfolioId ? (
-                  <>
-                    {portfolios.find(p => p.id === activePortfolioId)?.name || 'Portfolio'} Assets
-                  </>
-                ) : (
-                  'Assets'
-                )}
+                {t('assets.title')}
               </h1>
               <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
                 {activePortfolioId ? (
                   showSold
-                    ? `Held and sold assets in ${portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio'}`
-                    : `Currently held assets in ${portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio'}`
+                    ? t('assets.heldAndSoldAssetsIn', { portfolio: portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio' })
+                    : t('assets.heldAssetsIn', { portfolio: portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio' })
                 ) : (
                   showSold
-                    ? 'Held and sold assets across all portfolios'
-                    : 'Currently held assets across all portfolios'
+                    ? t('assets.heldAndSoldAssetsAll')
+                    : t('assets.heldAssetsAll')
                 )}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {/* Search Bar */}
-              <div className="relative w-full sm:w-auto sm:min-w-[250px]">
+              <div className="relative flex-1 sm:flex-none sm:min-w-[250px]">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={16} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search symbol or name..."
+                  placeholder={t('placeholders.searchSymbol')}
                   className="w-full pl-9 pr-8 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
                 />
                 {searchQuery && (
@@ -687,6 +456,20 @@ export default function Assets() {
                   </button>
                 )}
               </div>
+              {/* Jump to Distribution Button */}
+              <button
+                onClick={() => {
+                  distributionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="relative group px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
+                title={t('assets.jumpToDistribution')}
+              >
+                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+                <BarChart3 size={18} className="relative z-10" />
+                <span className="relative z-10 hidden sm:inline">{t('assets.distribution')}</span>
+              </button>
+              {/* Action buttons grouped together */}
+              <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSold(!showSold)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
@@ -696,8 +479,8 @@ export default function Assets() {
                 }`}
               >
                 <Archive size={16} />
-                <span className="hidden sm:inline">{showSold ? 'Hide Sold' : 'Show Sold'}</span>
-                <span className="sm:hidden">{showSold ? 'Hide' : 'Show'}</span>
+                <span className="hidden sm:inline">{showSold ? t('assets.hideSold') : t('assets.showSold')}</span>
+                <span className="sm:hidden">{showSold ? t('assets.hide') : t('assets.show')}</span>
               </button>
               <button
                 onClick={handleEnrichAll}
@@ -705,14 +488,217 @@ export default function Assets() {
                 className="flex items-center gap-2 px-3 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
                 <RefreshCw size={16} className={enriching ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">{enriching ? 'Enriching...' : 'Enrich Metadata'}</span>
-                <span className="sm:hidden">{enriching ? 'Enrich...' : 'Enrich'}</span>
+                <span className="hidden sm:inline">{enriching ? t('assets.enrichingMetadata') : t('assets.enrichMetadata')}</span>
+                <span className="sm:hidden">{enriching ? t('assets.enriching') : t('assets.enrich')}</span>
               </button>
+              </div>
             </div>
           </div>
 
           {/* Assets Table */}
-          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          <div>
+            <>
+              {/* Mobile: Sort Controls & Card Layout */}
+              <div className="lg:hidden">
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2 mb-3">
+                  <label htmlFor="mobile-sort-assets" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                    {t('common.sortBy')}:
+                  </label>
+                  <select
+                    id="mobile-sort-assets"
+                    value={sortKey}
+                    onChange={(e) => handleSort(e.target.value as SortKey)}
+                    className="flex-1 input text-sm py-2 px-3"
+                  >
+                    {sortableColumns.map((option) => (
+                      <option key={option} value={option}>
+                        {getSortLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                    className="btn-secondary p-2 flex items-center gap-1"
+                    title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+                  >
+                    {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </div>
+
+                {/* Cards */}
+                <div className="space-y-3">
+                  {sortedAssets.length === 0 ? (
+                    <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
+                      <p>{t('assets.empty.noAssetsMatch')}</p>
+                      <p className="text-sm mt-2">
+                        {t('assets.empty.noAssetsMatchInfo')}{' '}
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
+                        >
+                          {t('assets.empty.clearSearch')}
+                        </button>
+                      </p>
+                    </div>
+                  ) : (
+                    sortedAssets.map((asset) => (
+                      <div 
+                        key={asset.id} 
+                        className={`card p-4 ${asset.total_quantity === 0 ? 'opacity-60' : ''}`}
+                      >
+                        {/* Header: Logo, Symbol, Quantity */}
+                        <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <img
+                              src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                              alt={asset.symbol}
+                              loading="lazy"
+                              className="w-10 h-10 flex-shrink-0 object-contain"
+                              onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                                {asset.symbol}
+                              </div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                {asset.name || '-'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right ml-3">
+                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                              {formatQuantity(asset.total_quantity)}
+                            </div>
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                              {asset.currency}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Data Grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('assets.class')}</span>
+                            <div className="mt-1">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.class ? getAssetClassColor(asset.class) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
+                                {getTranslatedAssetClass(asset.class, t)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.type')}</span>
+                            <div className="mt-1 flex justify-end">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.asset_type ? getAssetTypeColor(asset.asset_type) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
+                                {getTranslatedAssetType(asset.asset_type, t)}
+                              </span>
+                            </div>
+                          </div>
+                          {(asset.country || asset.effective_country) && (
+                            <div>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('assets.country')}</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                {getCountryCode(asset.effective_country || asset.country || '') && (
+                                  <img
+                                    src={`https://flagcdn.com/w40/${getCountryCode(asset.effective_country || asset.country || '')}.png`}
+                                    alt={`${asset.effective_country || asset.country} flag`}
+                                    loading="lazy"
+                                    className="w-6 h-4 object-cover rounded shadow-sm"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                )}
+                                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                                  {asset.effective_country || asset.country}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {(asset.sector || asset.effective_sector) && (
+                            <div className={!(asset.country || asset.effective_country) ? 'col-span-2' : 'text-right'}>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('assets.sector')}</span>
+                              <div className={`flex items-center gap-2 mt-1 ${!(asset.country || asset.effective_country) ? '' : 'justify-end'}`}>
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getSectorColor(asset.effective_sector || asset.sector || '')}`}>
+                                  {(() => {
+                                    const SectorIcon = getSectorIcon(asset.effective_sector || asset.sector || '');
+                                    return <SectorIcon size={14} />;
+                                  })()}
+                                </div>
+                                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                                  {getTranslatedSector(asset.effective_sector || asset.sector || '', t)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {(asset.industry || asset.effective_industry) && (
+                            <div className="col-span-2">
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('assets.industry')}</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getIndustryColor(asset.effective_industry || asset.industry || '')}`}>
+                                  {(() => {
+                                    const IndustryIcon = getIndustryIcon(asset.effective_industry || asset.industry || '');
+                                    return <IndustryIcon size={14} />;
+                                  })()}
+                                </div>
+                                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                                  {getTranslatedIndustry(asset.effective_industry || asset.industry || '', t)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                          {/* Edit Metadata Button - Show if any metadata is missing */}
+                          {(!asset.sector || !asset.industry || !asset.country) && (
+                            <button
+                              onClick={() => setEditAsset(asset)}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                              title="Edit Metadata"
+                            >
+                              <Edit size={14} />
+                              {t('common.edit')}
+                            </button>
+                          )}
+                          {(asset.split_count ?? 0) > 0 && (
+                            <button
+                              onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                              title="View Split History"
+                            >
+                              <Shuffle size={14} />
+                              {t('splitHistory.splits')} ({asset.split_count})
+                            </button>
+                          )}
+                          {(asset.transaction_count ?? 0) > 0 && (
+                            <button
+                              onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                              title="View Transactions"
+                            >
+                              <Activity size={14} />
+                              {t('assets.txs')} ({asset.transaction_count})
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency })}
+                            className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                            title="View Price Chart"
+                          >
+                            <LineChart size={14} />
+                            {t('assets.chart')}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
@@ -722,59 +708,59 @@ export default function Assets() {
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Symbol <SortIcon col="symbol" />
+                    {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('name')}
                     aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Name <SortIcon col="name" />
+                    {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('class')}
                     aria-sort={isActive('class') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Class <SortIcon col={"class"} />
+                    {t('assets.class')} <SortIcon column="class" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('asset_type')}
                     aria-sort={isActive('asset_type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Type <SortIcon col="asset_type" />
+                    {t('fields.type')} <SortIcon column="asset_type" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('country')}
                     aria-sort={isActive('country') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Country <SortIcon col="country" />
+                    {t('assets.country')} <SortIcon column="country" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('sector')}
                     aria-sort={isActive('sector') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Sector <SortIcon col="sector" />
+                    {t('assets.sector')} <SortIcon column="sector" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('industry')}
                     aria-sort={isActive('industry') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Industry <SortIcon col="industry" />
+                    {t('assets.industry')} <SortIcon column="industry" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('total_quantity')}
                     aria-sort={isActive('total_quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    Quantity <SortIcon col="total_quantity" />
+                    {t('fields.quantity')} <SortIcon column="total_quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                    Actions
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -783,14 +769,14 @@ export default function Assets() {
                   <tr>
                     <td colSpan={9} className="px-6 py-12">
                       <div className="text-center text-neutral-500 dark:text-neutral-400">
-                        <p>No assets match your search</p>
+                        <p>{t('assets.empty.noAssetsMatch')}</p>
                         <p className="text-sm mt-2">
-                          Try searching for a different symbol or name, or{' '}
+                          {t('assets.empty.noAssetsMatchInfo')} <br />
                           <button
                             onClick={() => setSearchQuery('')}
                             className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
                           >
-                            clear the search
+                            {t('assets.empty.clearSearch')}
                           </button>
                         </p>
                       </div>
@@ -827,21 +813,21 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.class ? getAssetClassColor(asset.class) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
-                        {asset.class ? asset.class.charAt(0).toUpperCase() + asset.class.slice(1).toLowerCase() : '-'}
+                        {getTranslatedAssetClass(asset.class, t)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.asset_type ? getAssetTypeColor(asset.asset_type) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
-                        {formatAssetType(asset.asset_type)}
+                        {getTranslatedAssetType(asset.asset_type, t)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {asset.country ? (
+                      {asset.country || asset.effective_country ? (
                         <div className="flex items-center gap-2">
-                          {getCountryCode(asset.country) ? (
+                          {getCountryCode(asset.effective_country || asset.country || '') ? (
                             <img
-                              src={`https://flagcdn.com/w40/${getCountryCode(asset.country)}.png`}
-                              alt={`${asset.country} flag`}
+                              src={`https://flagcdn.com/w40/${getCountryCode(asset.effective_country || asset.country || '')}.png`}
+                              alt={`${asset.effective_country || asset.country} flag`}
                               loading="lazy"
                               className="w-6 h-4 object-cover rounded shadow-sm"
                               onError={(e) => {
@@ -852,7 +838,7 @@ export default function Assets() {
                             <span className="text-lg">🌍</span>
                           )}
                           <span className="text-sm text-neutral-700 dark:text-neutral-300">
-                            {asset.country}
+                            {asset.effective_country || asset.country}
                           </span>
                         </div>
                       ) : (
@@ -861,13 +847,13 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm flex items-center gap-2">
-                        {asset.sector ? (
+                        {asset.sector || asset.effective_sector ? (
                           <>
                             {(() => {
-                              const SectorIcon = getSectorIcon(asset.sector);
-                              return <SectorIcon size={14} className={getSectorColor(asset.sector)} />;
+                              const SectorIcon = getSectorIcon(asset.effective_sector || asset.sector || '');
+                              return <SectorIcon size={14} className={getSectorColor(asset.effective_sector || asset.sector || '')} />;
                             })()}
-                            {asset.sector}
+                            {getTranslatedSector(asset.effective_sector || asset.sector || '', t)}
                           </>
                         ) : (
                           '-'
@@ -876,13 +862,13 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm flex items-center gap-2">
-                        {asset.industry ? (
+                        {asset.industry || asset.effective_industry ? (
                           <>
                             {(() => {
-                              const IndustryIcon = getIndustryIcon(asset.industry);
-                              return <IndustryIcon size={14} className={getIndustryColor(asset.industry)} />;
+                              const IndustryIcon = getIndustryIcon(asset.effective_industry || asset.industry || '');
+                              return <IndustryIcon size={14} className={getIndustryColor(asset.effective_industry || asset.industry || '')} />;
                             })()}
-                            {asset.industry}
+                            {getTranslatedIndustry(asset.effective_industry || asset.industry || '', t)}
                           </>
                         ) : (
                           '-'
@@ -894,19 +880,29 @@ export default function Assets() {
                         {formatQuantity(asset.total_quantity)}
                         {asset.total_quantity === 0 && (
                           <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 ml-2">
-                            Sold
+                            {t('assets.sold')}
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Edit Metadata Button - Show if any metadata is missing */}
+                        {(!asset.sector || !asset.industry || !asset.country) && (
+                          <button
+                            onClick={() => setEditAsset(asset)}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded transition-colors"
+                            title={t('assets.editAssetMetadata')}
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
                         {/* Price Chart Button - Show for all assets with transactions */}
                         {(asset.transaction_count ?? 0) > 0 && (
                           <button
                             onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD' })}
                             className="p-2 text-pink-600 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-900/20 rounded transition-colors"
-                            title="View Price Chart"
+                            title={t('assets.viewPriceChart')}
                           >
                             <LineChart size={16} />
                           </button>
@@ -915,7 +911,7 @@ export default function Assets() {
                           <button
                             onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
                             className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors inline-flex items-center gap-1"
-                            title={`View Transaction History (${asset.transaction_count} transaction${asset.transaction_count! > 1 ? 's' : ''})`}
+                            title={t('assets.viewTransactionHistory', { txCount: asset.transaction_count, suffix: asset.transaction_count! > 1 ? 's' : '' })}
                           >
                             <TrendingUp size={16} />
                             <span className="text-xs">{asset.transaction_count}</span>
@@ -925,7 +921,7 @@ export default function Assets() {
                           <button
                             onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
                             className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors inline-flex items-center gap-1"
-                            title={`View Split History (${asset.split_count} split${asset.split_count! > 1 ? 's' : ''})`}
+                            title={t('assets.viewSplitHistory', { splitCount: asset.split_count, suffix: asset.split_count! > 1 ? 's' : '' })}
                           >
                             <Shuffle size={16} />
                             <span className="text-xs">{asset.split_count}</span>
@@ -939,14 +935,20 @@ export default function Assets() {
               </tbody>
             </table>
           </div>
+              </div>
+            </>
           </div>
 
           {/* Charts - Bottom Section - Only show for held assets */}
-          <div className="pt-4">
+          <div className="pt-4" ref={distributionRef}>
             <h2 className="text-xl font-semibold mb-4 text-neutral-900 dark:text-neutral-100">
-              Asset Distribution
+              {t('assets.assetDistribution')}
             </h2>
-            <AssetsCharts assets={sortedAssets} />
+            <AssetDistribution 
+              assets={sortedAssets} 
+              portfolioId={activePortfolioId || undefined}
+              currency={portfolios.find(p => p.id === activePortfolioId)?.base_currency || 'USD'}
+            />
           </div>
         </>
       )}
@@ -983,10 +985,10 @@ export default function Assets() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                    {priceChartAsset.symbol} Price Chart
+                    {priceChartAsset.symbol} {t('assets.priceChart')}
                   </h2>
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    Historical price data
+                    {t('assets.historicalPriceData')}
                   </p>
                 </div>
               </div>
@@ -1029,6 +1031,17 @@ export default function Assets() {
           assetId={debugAsset.id}
           symbol={debugAsset.symbol}
           onClose={() => setDebugAsset(null)}
+        />
+      )}
+
+      {/* Edit Asset Metadata Modal */}
+      {editAsset && (
+        <AssetMetadataEdit
+          asset={editAsset}
+          onClose={() => setEditAsset(null)}
+          onSuccess={() => {
+            loadAssets(); // Reload assets to show updated effective values
+          }}
         />
       )}
     </div>

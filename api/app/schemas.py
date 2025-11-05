@@ -38,6 +38,11 @@ class UserCreate(UserBase):
         ..., min_length=8, max_length=256,
         description="Password (hashed with bcrypt_sha256; supports long passwords)"
     )
+    preferred_language: Optional[str] = Field(
+        default='en',
+        max_length=5,
+        description="User's preferred language for emails and UI (e.g., 'en', 'fr')"
+    )
 
 
 class UserLogin(BaseModel):
@@ -62,6 +67,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     is_admin: Optional[bool] = None
+    preferred_language: Optional[str] = Field(None, pattern="^(en|fr)$")
     daily_change_notifications_enabled: Optional[bool] = None
     daily_change_threshold_pct: Optional[Decimal] = Field(None, ge=0, le=100)
     transaction_notifications_enabled: Optional[bool] = None
@@ -120,6 +126,7 @@ class User(UserBase):
     is_admin: bool
     created_at: datetime
     last_login: Optional[datetime] = None
+    preferred_language: str = Field(default='en')
     daily_change_notifications_enabled: bool = True
     daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
     transaction_notifications_enabled: bool = True
@@ -193,7 +200,7 @@ class AssetBase(BaseModel):
     class_: AssetClass = Field(default=AssetClass.STOCK, alias="class")
     sector: Optional[str] = None
     industry: Optional[str] = None
-    asset_type: Optional[str] = None  # 'EQUITY', 'ETF', 'CRYPTO', etc.
+    asset_type: Optional[str] = None  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
     country: Optional[str] = None
 
 
@@ -202,8 +209,32 @@ class AssetCreate(AssetBase):
     pass
 
 
+class AssetMetadataOverride(BaseModel):
+    """Schema for setting user-specific metadata overrides"""
+    sector_override: Optional[str] = Field(None, description="Override for sector when Yahoo Finance doesn't provide data")
+    industry_override: Optional[str] = Field(None, description="Override for industry when Yahoo Finance doesn't provide data")
+    country_override: Optional[str] = Field(None, description="Override for country when Yahoo Finance doesn't provide data")
+
+
+class AssetWithOverrides(AssetBase):
+    """Asset response schema with user-specific overrides"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    # User-specific override fields (if user has set them)
+    sector_override: Optional[str] = None
+    industry_override: Optional[str] = None
+    country_override: Optional[str] = None
+    # Computed effective values (includes overrides for this user)
+    effective_sector: Optional[str] = None
+    effective_industry: Optional[str] = None
+    effective_country: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class Asset(AssetBase):
-    """Asset response schema"""
+    """Asset response schema (without user-specific overrides)"""
     id: int
     created_at: datetime
     updated_at: datetime
@@ -429,7 +460,9 @@ class PortfolioHistoryPoint(BaseModel):
     date: str  # ISO date string
     value: float
     invested: Optional[float] = None  # Total amount invested (deposits - withdrawals)
-    gain_pct: Optional[float] = None  # Percentage gain/loss (excluding deposits/withdrawals)
+    gain_pct: Optional[float] = None  # Percentage gain/loss vs. total invested (includes sold positions)
+    cost_basis: Optional[float] = None  # Cost basis of current holdings only
+    unrealized_pnl_pct: Optional[float] = None  # Unrealized P&L % of current holdings (matches Dashboard)
 
 
 # ============================================================================

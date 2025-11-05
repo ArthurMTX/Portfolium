@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
-import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
-import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import { formatCurrency } from '../lib/formatUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
+import SortIcon from '../components/SortIcon'
+import { useTranslation } from 'react-i18next'
 
 interface WatchlistItem {
   id: number
@@ -63,6 +66,9 @@ export default function Watchlist() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const { t, i18n } = useTranslation()
+
+  const currentLocale = i18n.language || 'en-US'
 
   // Prevent body scroll when modals are open
   useEffect(() => {
@@ -190,12 +196,17 @@ export default function Watchlist() {
   }, [watchlist, sortKey, sortDir])
 
   const isActive = (key: SortKey) => sortKey === key
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    const active = isActive(col)
-    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
-    return sortDir === 'asc' 
-      ? <ChevronUp size={14} className="inline ml-1 opacity-80" />
-      : <ChevronDown size={14} className="inline ml-1 opacity-80" />
+
+  // Get human-readable label for sort key
+  const getSortLabel = (key: SortKey): string => {
+    const labels: Record<SortKey, string> = {
+      symbol: 'Symbol',
+      name: 'Name',
+      current_price: 'Price',
+      daily_change_pct: 'Daily Change %',
+      alert_target_price: 'Alert Price',
+    }
+    return labels[key]
   }
 
   useEffect(() => {
@@ -353,10 +364,7 @@ export default function Watchlist() {
   const formatPrice = (price: number | null, currency: string) => {
     const n = toNumber(price as unknown)
     if (n === null) return 'N/A'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency || 'USD',
-    }).format(n)
+    return formatCurrency(n, currency)
   }
 
   // percentage formatting in table rows is done inline to match Dashboard style
@@ -369,10 +377,10 @@ export default function Watchlist() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
               <Eye className="text-pink-600" size={28} />
-              Watchlist
+              {t('watchlist.title')}
             </h1>
             <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-              Loading your watchlist...
+              {t('watchlist.loadingMessage')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -385,7 +393,7 @@ export default function Watchlist() {
 
         {/* Add Form Skeleton */}
         <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">Add to Watchlist</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('watchlist.addToWatchlist')}</h2>
           <div className="flex gap-4">
             <div className="w-[40%] h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
             <div className="w-[50%] h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
@@ -399,13 +407,13 @@ export default function Watchlist() {
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Symbol</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Daily Change %</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Alert</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.symbol')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.name')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.price')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.dailyChange')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.notes')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.alert')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -444,10 +452,10 @@ export default function Watchlist() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <Eye className="text-pink-600" size={28} />
-            Watchlist
+            {t('watchlist.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Track assets you don't own yet, set alerts, and convert to investments.
+            {t('watchlist.description')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -456,29 +464,29 @@ export default function Watchlist() {
             className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
             <Upload size={16} />
-            <span className="hidden sm:inline">Import</span>
+            <span className="hidden sm:inline">{t('common.import')}</span>
           </button>
           <button 
             onClick={handleExportClick}
             className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
             <Download size={16} />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">{t('common.export')}</span>
           </button>
           <button
             onClick={handleRefreshPrices}
             className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
             <RefreshCw size={16} />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline">{t('common.refresh')}</span>
           </button>
           <button 
             onClick={() => setShowAddModal(true)} 
             className="btn-primary flex items-center gap-2 text-sm px-3 py-2"
           >
             <Plus size={16} />
-            <span className="hidden sm:inline">Add to Watchlist</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t('watchlist.addToWatchlist')}</span>
+            <span className="sm:hidden">{t('common.add')}</span>
           </button>
         </div>
       </div>
@@ -486,13 +494,215 @@ export default function Watchlist() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm text-red-800 dark:text-red-200">
-            <strong>Error:</strong> {error}
+            <strong>{t('common.error')}:</strong> {error}
           </p>
         </div>
       )}
 
       {/* Watchlist Table with Logo, Price, Daily Change */}
-      <div className="card overflow-hidden">
+      <div>
+        <>
+          {/* Mobile: Sort Controls & Card Layout */}
+          <div className="lg:hidden">
+            {/* Sort Controls */}
+            <div className="flex items-center gap-2 mb-3">
+              <label htmlFor="mobile-sort-watchlist" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                {t('common.sortBy')}:
+              </label>
+              <select
+                id="mobile-sort-watchlist"
+                value={sortKey}
+                onChange={(e) => handleSort(e.target.value as SortKey)}
+                className="flex-1 input text-sm py-2 px-3"
+              >
+                {sortableColumns.map((option) => (
+                  <option key={option} value={option}>
+                    {getSortLabel(option)}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                className="btn-secondary p-2 flex items-center gap-1"
+                title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+              >
+                {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+            </div>
+
+            {/* Cards */}
+            <div className="space-y-3">
+              {sortedWatchlist.length === 0 ? (
+                <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
+                  {t('watchlist.empty.noWatchlistAssets')}
+                </div>
+              ) : (
+                sortedWatchlist.map((item) => {
+                  const raw = item.daily_change_pct as unknown as number | string | null
+                  const changeNum = typeof raw === 'number' ? raw : (raw === null ? null : parseFloat(String(raw)))
+                  const changeColor = changeNum !== null && !isNaN(changeNum)
+                    ? (changeNum > 0 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : changeNum < 0 
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-neutral-600 dark:text-neutral-400')
+                    : 'text-neutral-500 dark:text-neutral-400'
+
+                  return (
+                    <div key={item.id} className="card p-4">
+                      {/* Header: Logo, Symbol, Price & Change */}
+                      <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <img
+                            src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
+                            alt={`${item.symbol} logo`}
+                            className="w-10 h-10 flex-shrink-0 object-cover"
+                            style={{ borderRadius: 0 }}
+                            onLoad={(e) => {
+                              const img = e.currentTarget as HTMLImageElement
+                              if (!validateLogoImage(img)) {
+                                img.dispatchEvent(new Event('error'))
+                              }
+                            }}
+                            onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                              {item.symbol}
+                            </div>
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                              {item.name || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                            {formatPrice(item.current_price, item.currency)}
+                          </div>
+                          <div className={`text-sm font-semibold ${changeColor}`}>
+                            {changeNum !== null && !isNaN(changeNum)
+                              ? `${changeNum > 0 ? '+' : changeNum < 0 ? '' : '+'}${changeNum.toFixed(2)}%`
+                              : '-'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Data Grid / Edit Form */}
+                      {editingItem === item.id ? (
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
+                              {t('fields.notes')}
+                            </label>
+                            <textarea
+                              placeholder={t('fields.notes')}
+                              value={editNotes}
+                              onChange={(e) => setEditNotes(e.target.value)}
+                              className="input w-full text-sm"
+                              rows={2}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
+                              {t('watchlist.alertTargetPrice')}
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder={t('watchlist.alertTargetPrice')}
+                              value={editAlertPrice}
+                              onChange={(e) => setEditAlertPrice(e.target.value)}
+                              className="input w-full text-sm"
+                            />
+                          </div>
+                          <label className="flex items-center text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editAlertEnabled}
+                              onChange={(e) => setEditAlertEnabled(e.target.checked)}
+                              className="mr-2"
+                            />
+                            <span className="text-neutral-700 dark:text-neutral-300">{t('watchlist.alertEnabled')}</span>
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-y-2.5 text-sm">
+                          {item.notes && (
+                            <div>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
+                              <div className="text-neutral-900 dark:text-neutral-100 mt-1">
+                                {item.notes}
+                              </div>
+                            </div>
+                          )}
+                          {item.alert_target_price && (
+                            <div>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.alertPrice')}</span>
+                              <div className="text-neutral-900 dark:text-neutral-100 mt-1 flex items-center gap-2">
+                                {formatPrice(item.alert_target_price, item.currency)}
+                                {item.alert_enabled && (
+                                  <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                                    {t('common.enabled')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                        {editingItem === item.id ? (
+                          <>
+                            <button
+                              onClick={() => handleUpdate(item.id)}
+                              className="btn-secondary text-xs px-3 py-2 bg-green-600 text-white hover:bg-green-700 flex items-center gap-1.5"
+                            >
+                              {t('common.save')}
+                            </button>
+                            <button
+                              onClick={() => setEditingItem(null)}
+                              className="btn-secondary text-xs px-3 py-2"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEdit(item)}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                            >
+                              <Pencil size={14} />
+                              {t('common.edit')}
+                            </button>
+                            <button
+                              onClick={() => openConvertModal(item)}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                            >
+                              <ShoppingCart size={14} />
+                              {t('watchlist.buy')}
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(item.id)}
+                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 text-red-600 dark:text-red-400"
+                            >
+                              <Trash2 size={14} />
+                              {t('common.delete')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Desktop: Table Layout */}
+          <div className="hidden lg:block card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
@@ -502,28 +712,28 @@ export default function Watchlist() {
                   aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  Symbol <SortIcon col="symbol" />
+                  {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th 
                   onClick={() => handleSort('name')}
                   aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  Name <SortIcon col="name" />
+                  {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th 
                   onClick={() => handleSort('current_price')}
                   aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  Price <SortIcon col="current_price" />
+                  {t('fields.price')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th 
                   onClick={() => handleSort('daily_change_pct')}
                   aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  Daily Change % <SortIcon col="daily_change_pct" />
+                  {t('watchlist.dailyChange')} <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
                 <th 
@@ -531,16 +741,16 @@ export default function Watchlist() {
                   aria-sort={isActive('alert_target_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  Alert <SortIcon col="alert_target_price" />
+                  {t('watchlist.alert')} <SortIcon column="alert_target_price" activeColumn={sortKey} direction={sortDir} />
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
               {sortedWatchlist.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
-                    No assets in your watchlist. Add symbols above to start tracking.
+                    {t('watchlist.empty.noWatchlistAssets')}
                   </td>
                 </tr>
               ) : (
@@ -555,30 +765,8 @@ export default function Watchlist() {
                           style={{ borderRadius: 0 }}
                           onLoad={(e) => {
                             const img = e.currentTarget as HTMLImageElement
-                            if (img.dataset.validated) return
-                            img.dataset.validated = 'true'
-                            try {
-                              const canvas = document.createElement('canvas')
-                              const ctx = canvas.getContext('2d')
-                              if (!ctx) return
-                              const w = Math.min(img.naturalWidth || 0, 64) || 32
-                              const h = Math.min(img.naturalHeight || 0, 64) || 32
-                              if (w === 0 || h === 0) return
-                              canvas.width = w
-                              canvas.height = h
-                              ctx.drawImage(img, 0, 0, w, h)
-                              const data = ctx.getImageData(0, 0, w, h).data
-                              let opaque = 0
-                              for (let i = 0; i < data.length; i += 4) {
-                                const a = data[i + 3]
-                                if (a > 8) opaque++
-                              }
-                              const total = (data.length / 4) || 1
-                              if (opaque / total < 0.01) {
-                                img.dispatchEvent(new Event('error'))
-                              }
-                            } catch {
-                              // Ignore canvas/security errors
+                            if (!validateLogoImage(img)) {
+                              img.dispatchEvent(new Event('error'))
                             }
                           }}
                           onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
@@ -611,6 +799,7 @@ export default function Watchlist() {
                       {editingItem === item.id ? (
                         <input
                           type="text"
+                          placeholder={t('placeholders.enterNotes')}
                           value={editNotes}
                           onChange={(e) => setEditNotes(e.target.value)}
                           className="input w-full text-sm"
@@ -625,7 +814,7 @@ export default function Watchlist() {
                           <input
                             type="number"
                             step="0.01"
-                            placeholder="Target price"
+                            placeholder={t('watchlist.targetPrice')}
                             value={editAlertPrice}
                             onChange={(e) => setEditAlertPrice(e.target.value)}
                             className="input w-full text-sm"
@@ -637,7 +826,7 @@ export default function Watchlist() {
                               onChange={(e) => setEditAlertEnabled(e.target.checked)}
                               className="mr-1"
                             />
-                            Enabled
+                            {t('common.enabled')}
                           </label>
                         </div>
                       ) : item.alert_enabled && item.alert_target_price !== null ? (
@@ -670,13 +859,13 @@ export default function Watchlist() {
                               onClick={() => handleUpdate(item.id)}
                               className="btn-primary"
                             >
-                              Save
+                              {t('common.save')}
                             </button>
                             <button
                               onClick={() => setEditingItem(null)}
                               className="btn"
                             >
-                              Cancel
+                              {t('common.cancel')}
                             </button>
                           </>
                         ) : (
@@ -684,21 +873,21 @@ export default function Watchlist() {
                             <button
                               onClick={() => startEdit(item)}
                               className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                              title="Edit"
+                              title={t('common.edit')}
                             >
                               <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
                             </button>
                             <button
                               onClick={() => openConvertModal(item)}
                               className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
-                              title="Convert to BUY"
+                              title={t('watchlist.convertToBuy')}
                             >
                               <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(item.id)}
                               className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
-                              title="Delete"
+                              title={t('common.delete')}
                             >
                               <Trash2 size={18} className="text-red-600 dark:text-red-400" />
                             </button>
@@ -712,23 +901,25 @@ export default function Watchlist() {
             </tbody>
           </table>
         </div>
+          </div>
+        </>
       </div>
 
       {/* Import Modal */}
       {showImportModal && (
         <div className="modal-overlay bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Import Watchlist</h2>
+            <h2 className="text-xl font-bold mb-4">{t('watchlist.importTitle')}</h2>
             <div className="space-y-4">
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Import your watchlist from a CSV file. Click the button below to select a file.
+                {t('watchlist.importDescription')}
               </p>
               <div className="text-xs bg-neutral-100 dark:bg-neutral-800 p-3 rounded">
-                <strong>CSV format:</strong>
+                <strong>{t('watchlist.importFormatInfo')}:</strong>
                 <br />
                 <code className="text-xs">symbol,notes,alert_target_price,alert_enabled</code>
                 <br />
-                <code className="text-xs">AAPL,Watch for earnings,150.00,true</code>
+                <code className="text-xs">{t('watchlist.importFormat')}</code>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
@@ -736,7 +927,7 @@ export default function Watchlist() {
                 onClick={() => setShowImportModal(false)}
                 className="btn"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -745,7 +936,7 @@ export default function Watchlist() {
                 }}
                 className="btn-primary"
               >
-                Select CSV File
+                {t('watchlist.selectFile')}
               </button>
             </div>
           </div>
@@ -761,12 +952,12 @@ export default function Watchlist() {
         apiEndpoint="/api/watchlist/import/csv/stream"
       />
 
-      {/* Convert to BUY Modal (styled like Transactions modal) */}
+      {/* Convert to BUY Modal */}
       {convertItem && (
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Convert to BUY</h2>
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{t('watchlist.convertToBuy')}</h2>
               <button
                 onClick={() => {
                   setConvertItem(null)
@@ -789,30 +980,8 @@ export default function Watchlist() {
                   style={{ borderRadius: 0 }}
                   onLoad={(e) => {
                     const img = e.currentTarget as HTMLImageElement
-                    if (img.dataset.validated) return
-                    img.dataset.validated = 'true'
-                    try {
-                      const canvas = document.createElement('canvas')
-                      const ctx = canvas.getContext('2d')
-                      if (!ctx) return
-                      const w = Math.min(img.naturalWidth || 0, 64) || 32
-                      const h = Math.min(img.naturalHeight || 0, 64) || 32
-                      if (w === 0 || h === 0) return
-                      canvas.width = w
-                      canvas.height = h
-                      ctx.drawImage(img, 0, 0, w, h)
-                      const data = ctx.getImageData(0, 0, w, h).data
-                      let opaque = 0
-                      for (let i = 0; i < data.length; i += 4) {
-                        const a = data[i + 3]
-                        if (a > 8) opaque++
-                      }
-                      const total = (data.length / 4) || 1
-                      if (opaque / total < 0.01) {
-                        img.dispatchEvent(new Event('error'))
-                      }
-                    } catch {
-                      // Ignore canvas/security errors
+                    if (!validateLogoImage(img)) {
+                      img.dispatchEvent(new Event('error'))
                     }
                   }}
                   onError={(e) => handleLogoError(e, convertItem.symbol, convertItem.name, convertItem.asset_type)}
@@ -826,14 +995,13 @@ export default function Watchlist() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Portfolio</label>
+                <label className="block text-sm font-medium mb-1">{t('fields.portfolio')}</label>
                 <select
                   value={convertPortfolioId || ''}
                   onChange={(e) => setConvertPortfolioId(Number(e.target.value))}
                   className="input w-full"
                   required
                 >
-                  <option value="">Select Portfolio</option>
                   {portfolios.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -842,7 +1010,7 @@ export default function Watchlist() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Quantity</label>
+                  <label className="block text-sm font-medium mb-1">{t('fields.quantity')}</label>
                   <input
                     type="number"
                     step="0.00000001"
@@ -854,7 +1022,7 @@ export default function Watchlist() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Price ({convertItem.currency})</label>
+                  <label className="block text-sm font-medium mb-1">{t('fields.price')} ({convertItem.currency})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -866,8 +1034,8 @@ export default function Watchlist() {
                   />
                   {toNumber(convertItem.current_price) !== null && (
                     <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      Current: {new Intl.NumberFormat('en-US', { style: 'currency', currency: convertItem.currency || 'USD' }).format(toNumber(convertItem.current_price) || 0)}
-                      {convertItem.last_updated ? ` • updated ${new Date(convertItem.last_updated).toLocaleString()}` : ''}
+                      {t('fields.current')}: {new Intl.NumberFormat(currentLocale, { style: 'currency', currency: convertItem.currency || 'USD' }).format(toNumber(convertItem.current_price) || 0)}
+                      {convertItem.last_updated ? ` • ${t('watchlist.updatedAt')} ${new Date(convertItem.last_updated).toLocaleString(currentLocale)}` : ''}
                     </div>
                   )}
                 </div>
@@ -883,13 +1051,13 @@ export default function Watchlist() {
                   }}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleConvertToBuy}
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors"
                 >
-                  Create BUY Transaction
+                  {t('watchlist.convertToBuy')}
                 </button>
               </div>
             </div>
@@ -897,28 +1065,28 @@ export default function Watchlist() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal (matches Transactions style) */}
+      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-              Delete Watchlist Item
+              {t('watchlist.deleteWatchlistAsset')}
             </h3>
             <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              Are you sure you want to remove this asset from your watchlist? This action cannot be undone.
+              {t('watchlist.deleteConfirm')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>
@@ -931,7 +1099,7 @@ export default function Watchlist() {
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                Add to Watchlist
+                {t('watchlist.addToWatchlist')}
               </h2>
               <button
                 onClick={() => {
@@ -952,7 +1120,7 @@ export default function Watchlist() {
             <form onSubmit={handleAddSymbol} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Ticker Symbol
+                  {t('fields.symbol')}
                 </label>
                 <input
                   type="text"
@@ -986,14 +1154,14 @@ export default function Watchlist() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Notes (Optional)
+                  {t('fields.notes')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={addNotes}
                   onChange={(e) => setAddNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  placeholder="Add any notes..."
+                  placeholder={t('placeholders.enterNotes')}
                 />
               </div>
 
@@ -1033,13 +1201,13 @@ export default function Watchlist() {
                   }}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors"
                 >
-                  Add to Watchlist
+                  {t('watchlist.addToWatchlist')}
                 </button>
               </div>
             </form>

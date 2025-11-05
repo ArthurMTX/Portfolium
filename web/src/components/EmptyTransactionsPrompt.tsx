@@ -2,7 +2,7 @@ import { PlusCircle, LineChart, Package, FileText, Sparkles, TrendingUp } from '
 import { useNavigate } from 'react-router-dom'
 
 interface EmptyTransactionsPromptProps {
-  pageType?: 'insights' | 'assets' | 'charts'
+  pageType?: 'insights' | 'assets' | 'charts' | 'metrics'
   portfolioName?: string
 }
 
@@ -14,6 +14,8 @@ export default function EmptyTransactionsPrompt({ pageType = 'assets', portfolio
       case 'insights':
         return <TrendingUp className="text-pink-400 dark:text-pink-500" size={80} />
       case 'charts':
+        return <LineChart className="text-pink-400 dark:text-pink-500" size={80} />
+      case 'metrics':
         return <LineChart className="text-pink-400 dark:text-pink-500" size={80} />
       case 'assets':
         return <Package className="text-pink-400 dark:text-pink-500" size={80} />
@@ -28,6 +30,8 @@ export default function EmptyTransactionsPrompt({ pageType = 'assets', portfolio
         return 'No Data for Insights Yet'
       case 'charts':
         return 'No Performance Data'
+      case 'metrics':
+        return 'No Transaction Metrics Yet'
       default:
         return 'No Assets to Display'
     }
@@ -41,6 +45,8 @@ export default function EmptyTransactionsPrompt({ pageType = 'assets', portfolio
         return `Start adding transactions to ${portfolio} to unlock detailed insights, performance metrics, and analytics.`
       case 'charts':
         return `Add transactions to ${portfolio} to visualize your investment performance over time with charts and graphs.`
+      case 'metrics':
+        return `Add transactions to ${portfolio} to analyze your buying and selling activity over time.`
       default:
         return `Add your first transaction to ${portfolio} to start tracking your investments and see your asset allocation.`
     }
@@ -52,6 +58,8 @@ export default function EmptyTransactionsPrompt({ pageType = 'assets', portfolio
         return 'Portfolio insights include performance metrics, risk analysis, sector allocation, and benchmark comparisons.'
       case 'charts':
         return 'Interactive charts will show your portfolio value over time, daily changes, and performance trends.'
+      case 'metrics':
+        return 'View detailed breakdowns of purchases vs. sales, average transaction sizes, fees, and activity patterns by month or year.'
       default:
         return 'Once you add transactions, you\'ll see your holdings, market values, profit/loss, and asset distribution.'
     }

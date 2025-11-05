@@ -74,6 +74,9 @@ class User(Base):
     transaction_notifications_enabled = Column(Boolean, default=True)  # Enable/disable transaction notifications
     daily_report_enabled = Column(Boolean, default=False)  # Enable/disable daily PDF report emails
     
+    # Language preference
+    preferred_language = Column(String(5), default='en')  # User's preferred language (en, fr, etc.)
+    
     # Relationships
     portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")
 
@@ -106,6 +109,28 @@ class Asset(Base):
     # Relationships
     transactions = relationship("Transaction", back_populates="asset")
     prices = relationship("Price", back_populates="asset", cascade="all, delete-orphan")
+    metadata_overrides = relationship("AssetMetadataOverride", back_populates="asset", cascade="all, delete-orphan")
+
+
+class AssetMetadataOverride(Base):
+    """User-specific metadata overrides for assets"""
+    __tablename__ = "asset_metadata_overrides"
+    __table_args__ = (
+        {"schema": "portfolio"},
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("portfolio.users.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    sector_override = Column(String)
+    industry_override = Column(String)
+    country_override = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    asset = relationship("Asset", back_populates="metadata_overrides")
 
 
 class Portfolio(Base):

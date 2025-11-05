@@ -3,6 +3,7 @@ import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell, Info } from
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import VersionInfo from '../components/VersionInfo'
+import { useTranslation } from 'react-i18next'
 
 type SettingsTab = 'general' | 'notifications' | 'validation' | 'danger' | 'about';
 
@@ -13,6 +14,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   // Auto-refresh settings
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(
@@ -142,10 +144,10 @@ export default function Settings() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <SettingsIcon className="text-pink-600" size={28} />
-            Settings
+            {t('settings.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Configure your application preferences and options
+            {t('settings.description')}
           </p>
         </div>
 
@@ -161,7 +163,7 @@ export default function Settings() {
             }`}
           >
             <Zap size={14} className="inline mr-1" />
-            General
+            {t('settings.generalTab')}
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
@@ -172,7 +174,7 @@ export default function Settings() {
             }`}
           >
             <Bell size={14} className="inline mr-1" />
-            Notifications
+            {t('settings.notificationsTab')}
           </button>
           <button
             onClick={() => setActiveTab('validation')}
@@ -183,7 +185,7 @@ export default function Settings() {
             }`}
           >
             <Shield size={14} className="inline mr-1" />
-            Validation
+            {t('settings.validationTab')}
           </button>
           <button
             onClick={() => setActiveTab('danger')}
@@ -194,7 +196,7 @@ export default function Settings() {
             }`}
           >
             <AlertTriangle size={14} className="inline mr-1" />
-            Danger
+            {t('settings.dangerTab')}
           </button>
           <button
             onClick={() => setActiveTab('about')}
@@ -205,7 +207,7 @@ export default function Settings() {
             }`}
           >
             <Info size={14} className="inline mr-1" />
-            About
+            {t('settings.aboutTab')}
           </button>
         </nav>
       </div>
@@ -216,10 +218,10 @@ export default function Settings() {
           <div className="card p-6">
         <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
           <Zap size={20} className="text-pink-600 dark:text-pink-400" />
-          Auto-Refresh Settings
+          {t('settings.autoRefreshSettings')}
         </h2>
         <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-          Configure automatic price updates for your portfolio
+          {t('settings.autoRefreshSettingsDescription')}
         </p>
 
         <div className="space-y-4">
@@ -234,14 +236,14 @@ export default function Settings() {
                 className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
               />
               <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Enable automatic price refresh
+                {t('settings.enableAutoRefresh')}
               </span>
             </label>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              Refresh Interval
+              {t('settings.refreshInterval')}
             </label>
             <select
               value={autoRefreshInterval}
@@ -251,23 +253,21 @@ export default function Settings() {
               className="input w-full max-w-xs"
               disabled={!autoRefreshEnabled}
             >
-              <option value="15">Every 15 seconds (testing)</option>
-              <option value="30">Every 30 seconds</option>
-              <option value="60">Every 1 minute</option>
-              <option value="120">Every 2 minutes</option>
-              <option value="300">Every 5 minutes</option>
-              <option value="600">Every 10 minutes</option>
+              <option value="15">{t('settings.refreshInterval15s')}</option>
+              <option value="30">{t('settings.refreshInterval30s')}</option>
+              <option value="60">{t('settings.refreshInterval1m')}</option>
+              <option value="120">{t('settings.refreshInterval2m')}</option>
+              <option value="300">{t('settings.refreshInterval5m')}</option>
+              <option value="600">{t('settings.refreshInterval10m')}</option>
             </select>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              Shorter intervals may increase API usage
+              {t('settings.refreshIntervalWarning')}
             </p>
           </div>
 
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
             <p className="text-xs text-blue-800 dark:text-blue-200">
-              <strong>Note:</strong> Auto-refresh can be toggled on/off from the Dashboard using the
-              lightning bolt button. Prices will also refresh automatically when you switch back to
-              the tab.
+              <strong>{t('settings.note')}:</strong> {t('settings.refreshIntervalNote')}
             </p>
           </div>
         </div>
@@ -282,10 +282,10 @@ export default function Settings() {
           <div className="card p-6">
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
               <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              Daily Change Notifications
+              {t('settings.dailyChangeNotifications')}
             </h2>
             <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              Get notified when your holdings experience significant daily price movements
+              {t('settings.dailyChangeNotificationsDescription')}
             </p>
 
             <div className="space-y-4">
@@ -299,17 +299,17 @@ export default function Settings() {
                     className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                   />
                   <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    Enable daily change notifications
+                    {t('settings.enableDailyChangeNotifications')}
                   </span>
                 </label>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  Receive notifications when any of your holdings moves up or down significantly
+                  {t('settings.enableDailyChangeNotificationsInfo')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Notification Threshold
+                  {t('settings.notificationThreshold')}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -325,14 +325,13 @@ export default function Settings() {
                   <span className="text-sm text-neutral-600 dark:text-neutral-400">%</span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Get notified when a holding's daily change exceeds this percentage (positive or negative)
+                  {t('settings.notificationThresholdInfo')}
                 </p>
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>How it works:</strong> Every day at 9:00 AM, the system checks your holdings for significant price changes. 
-                  You'll receive notifications for both upside movements 📈 (gains) and downside movements 📉 (losses) that exceed your threshold.
+                  <strong>{t('settings.howItWorks')}:</strong> {t('settings.notificationThresholdNote')}
                 </p>
               </div>
             </div>
@@ -342,10 +341,10 @@ export default function Settings() {
           <div className="card p-6">
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
               <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              Transaction Notifications
+              {t('settings.transactionNotifications')}
             </h2>
             <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              Get notified about transaction activity in your portfolios
+              {t('settings.transactionNotificationsDescription')}
             </p>
 
             <div className="space-y-4">
@@ -359,18 +358,17 @@ export default function Settings() {
                     className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                   />
                   <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    Enable transaction notifications
+                    {t('settings.enableTransactionNotifications')}
                   </span>
                 </label>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  Receive notifications when you create, update, or delete transactions
+                  {t('settings.enableTransactionNotificationsInfo')}
                 </p>
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>Note:</strong> Transaction notifications help you track all portfolio activity, 
-                  including new purchases, sales, dividends, and any modifications to existing transactions.
+                  <strong>{t('settings.note')}:</strong> {t('settings.enableTransactionNotificationsNote')}
                 </p>
               </div>
             </div>
@@ -380,10 +378,10 @@ export default function Settings() {
           <div className="card p-6">
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
               <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              Daily Portfolio Reports
+              {t('settings.dailyPortfolioReports')}
             </h2>
             <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              Receive a comprehensive daily PDF report of your portfolio performance
+              {t('settings.dailyPortfolioReportsDescription')}
             </p>
 
             <div className="space-y-4">
@@ -397,19 +395,17 @@ export default function Settings() {
                     className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                   />
                   <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    Enable daily portfolio reports
+                    {t('settings.enableDailyPortfolioReports')}
                   </span>
                 </label>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  Get a beautiful PDF report emailed to you every weekday at 4 PM ET (after market close)
+                  {t('settings.enableDailyPortfolioReportsInfo')}
                 </p>
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>What's included:</strong> Your daily report contains portfolio metrics, 
-                  a visual heatmap of all positions, holdings with P&L, and transaction activity. 
-                  Reports are sent Monday-Friday at 4:00 PM Eastern Time when markets close.
+                  <strong>{t('settings.whatsIncluded')}:</strong> {t('settings.enableDailyPortfolioReportsNote')}
                 </p>
               </div>
             </div>
@@ -432,7 +428,7 @@ export default function Settings() {
               disabled={savingNotifications}
               className="btn-primary"
             >
-              {savingNotifications ? 'Saving...' : 'Save Notification Settings'}
+              {savingNotifications ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </>
@@ -443,10 +439,10 @@ export default function Settings() {
         <div className="card p-6">
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
             <Shield size={20} className="text-pink-600 dark:text-pink-400" />
-            Transaction Validation
+            {t('settings.transactionValidationSettings')}
           </h2>
         <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-          Control transaction validation rules
+          {t('settings.transactionValidationSettingsDescription')}
         </p>
 
         {settingsLoading ? (
@@ -463,11 +459,11 @@ export default function Settings() {
                   className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                 />
                 <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Validate sell quantity (prevent overselling)
+                  {t('settings.validateSellQuantities')}
                 </span>
               </label>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                When enabled, you cannot sell more shares than you currently own. Disable this for historical data imports or short selling.
+                {t('settings.validateSellQuantitiesDescription')}
               </p>
             </div>
 
@@ -485,7 +481,7 @@ export default function Settings() {
 
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
               <p className="text-xs text-amber-800 dark:text-amber-200">
-                <strong>Note:</strong> Changes to this setting take effect immediately but are not persisted across server restarts. To make permanent changes, update the <code className="bg-amber-100 dark:bg-amber-800/50 px-1 rounded">VALIDATE_SELL_QUANTITY</code> environment variable.
+                <strong>{t('settings.note')}:</strong> {t('settings.validateSellQuantitiesDescription1')} <code className="bg-amber-100 dark:bg-amber-800/50 px-1 rounded">VALIDATE_SELL_QUANTITY</code>{t('settings.validateSellQuantitiesDescription2')}
               </p>
             </div>
           </div>
@@ -498,14 +494,14 @@ export default function Settings() {
         <div className="card p-6 border border-red-300/40 bg-red-50 dark:bg-red-950/30">
         <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
           <AlertTriangle size={20} />
-          Danger zone
+          {t('settings.dangerZone')}
         </h2>
         <p className="text-red-800 dark:text-red-200 mb-4">
-          This will permanently delete all portfolios, transactions, prices, and assets. This action cannot be undone.
+          {t('settings.dangerZoneDescription')}
         </p>
 
         <label className="block text-sm text-red-800 dark:text-red-200 mb-2">
-          Type "delete" to confirm
+          {t('settings.typeDeleteToConfirm')}
         </label>
         <div className="flex gap-3 items-center">
           <input
@@ -520,7 +516,7 @@ export default function Settings() {
             disabled={!canDelete || loading}
             className={`btn ${canDelete ? 'btn-error' : 'btn-disabled'}`}
           >
-            {loading ? 'Deleting…' : 'Delete all data'}
+            {loading ? t('settings.deletingData') : t('settings.deleteAllDataButton')}
           </button>
         </div>
 
@@ -543,21 +539,22 @@ export default function Settings() {
           <VersionInfo />
           
           <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">About Portfolium</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('settings.about')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              A modern investment portfolio tracker built with FastAPI and React. 
-              Track your stocks, ETFs, and crypto with real-time pricing, P&L analytics, and beautiful charts.
+              {t('settings.projectDescription')}
             </p>
             <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <p><strong>Features:</strong></p>
+              <p><strong>{t('settings.features')}:</strong></p>
               <ul className="list-disc list-inside ml-2 space-y-1">
-                <li>Multi-portfolio support</li>
-                <li>Real-time price tracking via Yahoo Finance</li>
-                <li>Automatic P&L calculations</li>
-                <li>Portfolio performance charts</li>
-                <li>Transaction history & CSV import</li>
-                <li>Daily change notifications</li>
-                <li>Company logo integration</li>
+                <li>{t('settings.features1')}</li>
+                <li>{t('settings.features2')}</li>
+                <li>{t('settings.features3')}</li>
+                <li>{t('settings.features4')}</li>
+                <li>{t('settings.features5')}</li>
+                <li>{t('settings.features6')}</li>
+                <li>{t('settings.features7')}</li>
+                <li>{t('settings.features8')}</li>
+                <li>{t('settings.features9')}</li>
               </ul>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -567,7 +564,7 @@ export default function Settings() {
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                View on GitHub →
+                {t('settings.viewOnGitHub')} →
               </a>
             </div>
           </div>

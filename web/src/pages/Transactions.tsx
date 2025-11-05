@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
-import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ArrowUpDown, ChevronUp, ChevronDown, Shuffle, Search } from 'lucide-react'
+import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3 } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
+import SortIcon from '../components/SortIcon'
+import { useTranslation } from 'react-i18next'
 
 interface TickerInfo {
   symbol: string
@@ -39,6 +43,7 @@ type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | '
 type SortDir = 'asc' | 'desc'
 
 export default function Transactions() {
+  const navigate = useNavigate()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
@@ -55,6 +60,10 @@ export default function Transactions() {
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [displayLimit] = useState(100)
   const [searchQuery, setSearchQuery] = useState('')
+  const { t, i18n } = useTranslation()
+
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
 
   // Form state
   const [ticker, setTicker] = useState("")
@@ -111,6 +120,9 @@ export default function Transactions() {
   }, [activePortfolioId, activeTab])
 
   useEffect(() => {
+    // Clear transactions immediately when portfolio changes
+    setTransactions([])
+    
     if (activePortfolioId) {
       fetchTransactions()
     }
@@ -485,29 +497,25 @@ export default function Transactions() {
   }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery])
 
   const isActive = (key: SortKey) => sortKey === key
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    const active = isActive(col)
-    if (!active) return <ArrowUpDown size={14} className="inline ml-1 opacity-40" />
-    return sortDir === 'asc' ? (
-      <ChevronUp size={14} className="inline ml-1 opacity-80" />
-    ) : (
-      <ChevronDown size={14} className="inline ml-1 opacity-80" />
-    )
+
+  // Get human-readable label for sort key
+  const getSortLabel = (key: SortKey): string => {
+    const labels: Record<SortKey, string> = {
+      tx_date: 'Date',
+      symbol: 'Symbol',
+      type: 'Type',
+      quantity: 'Quantity',
+      price: 'Price',
+      fees: 'Fees',
+      total: 'Total',
+    }
+    return labels[key]
   }
 
+  const availableSortOptions: SortKey[] = ['tx_date', 'symbol', 'type', 'quantity', 'price', 'fees', 'total']
+
   const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
-    if (value === null || value === undefined) return '-'
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    
-    // Format with up to 2 decimals, removing trailing zeros
-    const formatted = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(numValue)
-    
-    return formatted
+    return formatCurrencyUtil(value, currency)
   }
 
   const formatQuantity = (value: number | string | null) => {
@@ -519,20 +527,33 @@ export default function Transactions() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
+    return new Date(dateString).toLocaleDateString(currentLocale, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
     })
   }
 
+  const getTranslatedType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      'BUY': t('transaction.types.buy'),
+      'SELL': t('transaction.types.sell'),
+      'DIVIDEND': t('transaction.types.dividend'),
+      'FEE': t('transaction.types.fee'),
+      'SPLIT': t('transaction.types.split'),
+      'TRANSFER_IN': t('transaction.types.transferIn'),
+      'TRANSFER_OUT': t('transaction.types.transferOut'),
+    }
+    return typeMap[type.toUpperCase()] || type
+  }
+
   const tabs: { id: TabType; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'buy', label: 'Buy' },
-    { id: 'sell', label: 'Sell' },
-    { id: 'dividend', label: 'Dividend' },
-    { id: 'fee', label: 'Fees' },
-    { id: 'split', label: 'Split' },
+    { id: 'all', label: t('transactions.all') },
+    { id: 'buy', label: t('transaction.types.buy') },
+    { id: 'sell', label: t('transaction.types.sell') },
+    { id: 'dividend', label: t('transaction.types.dividend') },
+    { id: 'fee', label: t('transaction.types.fee') },
+    { id: 'split', label: t('transaction.types.split') },
   ]
 
   const getTransactionIcon = (type: string) => {
@@ -572,33 +593,42 @@ export default function Transactions() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <TrendingUp className="text-pink-600" size={28} />
-            Transactions
+            {t('transactions.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Track all your buy, sell, and dividend transactions
+            {t('transactions.description')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button 
+            onClick={() => navigate('/transactions/metrics')}
+            className="relative group px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+            <BarChart3 size={18} className="relative z-10" />
+            <span className="relative z-10 hidden sm:inline">{t('transactions.viewMetrics')}</span>
+            <span className="relative z-10 sm:hidden">{t('transactions.metrics')}</span>
+          </button>
           <button 
             onClick={handleImportClick}
             disabled={importLoading}
             className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm px-3 py-2"
           >
             <Upload size={16} />
-            <span className="hidden sm:inline">{importLoading ? 'Importing...' : 'Import'}</span>
-            <span className="sm:hidden">Import</span>
+            <span className="hidden sm:inline">{importLoading ? t('common.importing') : t('common.import')}</span>
+            <span className="sm:hidden">{t('common.import')}</span>
           </button>
           <button 
             onClick={handleExportClick}
             className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
             <Download size={16} />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">{t('common.export')}</span>
           </button>
           <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm px-3 py-2">
             <PlusCircle size={16} />
-            <span className="hidden sm:inline">Add Transaction</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t('transactions.addTransaction')}</span>
+            <span className="sm:hidden">{t('common.add')}</span>
           </button>
         </div>
       </div>
@@ -644,7 +674,7 @@ export default function Transactions() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search symbol or name..."
+              placeholder={t('placeholders.searchSymbol')}
               className="w-full pl-9 pr-8 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
             />
             {searchQuery && (
@@ -662,80 +692,247 @@ export default function Transactions() {
         {transactions.length > 0 && (
           <div className="px-4 sm:px-6 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm text-neutral-600 dark:text-neutral-400">
-              Showing <span className="font-semibold text-neutral-900 dark:text-neutral-100">{sortedTransactions.length}</span> of{' '}
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{transactions.length}</span> transactions
+              {t('common.showing')} <span className="font-semibold text-neutral-900 dark:text-neutral-100">{sortedTransactions.length}</span> {t('common.of')}{' '}
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{transactions.length}</span> {t('transactions.transactions')}
             </div>
             {transactions.length > displayLimit && (
               <button
                 onClick={() => setShowAllTransactions(!showAllTransactions)}
                 className="text-sm px-3 py-1 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors text-neutral-700 dark:text-neutral-300 font-medium"
               >
-                {showAllTransactions ? `Show Last ${displayLimit}` : 'Show All'}
+                {showAllTransactions ? t('transactions.showLast', { count: displayLimit }) : t('transactions.showAll')}
               </button>
             )}
           </div>
         )}
 
         {/* Transactions Table */}
-        <div className="overflow-x-auto">
+        <div>
           {loading ? (
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Asset</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Quantity</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Fees</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                        <div className="space-y-2">
-                          <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                          <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+            // Loading skeleton
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-neutral-50 dark:bg-neutral-800/50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.date')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.asset')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.type')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.quantity')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.price')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.fees')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.total')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.notes')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          <div className="space-y-2">
+                            <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                            <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>No transactions found</p>
-              <p className="text-sm mt-2">Start by adding your first transaction</p>
+              <p>{t('transactions.empty.noTransactions')}</p>
+              <p className="text-sm mt-2">{t('transactions.empty.noTransactionsInfo')}</p>
             </div>
           ) : sortedTransactions.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>No transactions match your search</p>
+              <p>{t('transactions.empty.noTransactionMatches')}</p>
               <p className="text-sm mt-2">
-                Try searching for a different symbol or name, or{' '}
+                {t('transactions.empty.noTransactionMatchesInfo')}{' '}
                 <button
                   onClick={() => setSearchQuery('')}
                   className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
                 >
-                  clear the search
+                  {t('transactions.empty.noTransactionMatchesClear')}
                 </button>
               </p>
             </div>
           ) : (
+            <>
+              {/* Mobile: Sort Controls & Card Layout */}
+              <div className="lg:hidden">
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2 p-3">
+                  <label htmlFor="mobile-sort-tx" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                    {t('common.sortBy')}:
+                  </label>
+                  <select
+                    id="mobile-sort-tx"
+                    value={sortKey}
+                    onChange={(e) => handleSort(e.target.value as SortKey)}
+                    className="flex-1 input text-sm py-2 px-3"
+                  >
+                    {availableSortOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {getSortLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                    className="btn-secondary p-2 flex items-center gap-1"
+                    title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+                  >
+                    {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </div>
+
+                {/* Cards */}
+                <div className="space-y-3">
+                  {sortedTransactions.map((transaction) => {
+                    const quantity = typeof transaction.quantity === 'string' 
+                      ? parseFloat(transaction.quantity) 
+                      : transaction.quantity
+                    const price = typeof transaction.price === 'string' 
+                      ? parseFloat(transaction.price) 
+                      : transaction.price
+                    const fees = typeof transaction.fees === 'string' 
+                      ? parseFloat(transaction.fees) 
+                      : transaction.fees
+                    const total = quantity * price + fees
+                    const txData = transaction as unknown as Record<string, unknown>
+                    const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
+
+                    return (
+                      <div key={transaction.id} className="card p-4">
+                        {/* Header: Date, Symbol, Type, Total */}
+                        <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <img 
+                              src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
+                              alt={`${transaction.asset.symbol} logo`}
+                              className="w-10 h-10 flex-shrink-0 object-cover"
+                              onLoad={(e) => {
+                                const img = e.currentTarget as HTMLImageElement
+                                if (!validateLogoImage(img)) {
+                                  img.dispatchEvent(new Event('error'))
+                                }
+                              }}
+                              onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                                {transaction.asset.symbol}
+                              </div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                                {formatDate(transaction.tx_date)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right ml-3">
+                            <div className={`flex items-center justify-end gap-1 text-sm font-medium mb-1 ${getTransactionColor(transaction.type)}`}>
+                              {getTransactionIcon(transaction.type)}
+                              {getTranslatedType(transaction.type)}
+                            </div>
+                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Data Grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.quantity')}</span>
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatQuantity(transaction.quantity)}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.price')}</span>
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.fees')}</span>
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
+                            </div>
+                          </div>
+                          {transaction.asset.name && (
+                            <div className="text-right">
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.assetName')}</span>
+                              <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                                {transaction.asset.name}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Notes */}
+                        {(transaction.notes || (transaction.type === 'SPLIT' && metadata?.split)) && (
+                          <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}:</span>
+                            <div className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">
+                              {transaction.type === 'SPLIT' && metadata?.split ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} {t('transaction.types.split')}</span>
+                                  {transaction.notes && <span className="text-neutral-400">•</span>}
+                                  {transaction.notes}
+                                </span>
+                              ) : (
+                                transaction.notes
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                          {assetHasSplits(transaction.asset_id) && (
+                            <button
+                              onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
+                              className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
+                            >
+                              <Shuffle size={16} />
+                              {t('transactions.splits')}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => openEditModal(transaction)}
+                            className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
+                          >
+                            <Edit2 size={16} />
+                            {t('common.edit')}
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(transaction.id)}
+                            className="btn-secondary text-sm px-3 py-2 flex items-center gap-2 text-red-600 dark:text-red-400"
+                          >
+                            <Trash2 size={16} />
+                            {t('common.delete')}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                 <tr>
@@ -744,55 +941,55 @@ export default function Transactions() {
                     aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Date <SortIcon col="tx_date" />
+                    {t('fields.date')} <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('symbol')}
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Asset <SortIcon col="symbol" />
+                    {t('fields.asset')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('type')}
                     aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Type <SortIcon col="type" />
+                    {t('fields.type')} <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('quantity')}
                     aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Quantity <SortIcon col="quantity" />
+                    {t('fields.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('price')}
                     aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Price <SortIcon col="price" />
+                    {t('fields.price')} <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('fees')}
                     aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Fees <SortIcon col="fees" />
+                    {t('fields.fees')} <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('total')}
                     aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Total <SortIcon col="total" />
+                    {t('fields.total')} <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                    Notes
+                    {t('fields.notes')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                    Actions
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -825,30 +1022,8 @@ export default function Transactions() {
                             className="w-6 h-6 object-cover"
                             onLoad={(e) => {
                               const img = e.currentTarget as HTMLImageElement
-                              if (img.dataset.validated) return
-                              img.dataset.validated = 'true'
-                              try {
-                                const canvas = document.createElement('canvas')
-                                const ctx = canvas.getContext('2d')
-                                if (!ctx) return
-                                const w = Math.min(img.naturalWidth || 0, 64) || 24
-                                const h = Math.min(img.naturalHeight || 0, 64) || 24
-                                if (w === 0 || h === 0) return
-                                canvas.width = w
-                                canvas.height = h
-                                ctx.drawImage(img, 0, 0, w, h)
-                                const data = ctx.getImageData(0, 0, w, h).data
-                                let opaque = 0
-                                for (let i = 0; i < data.length; i += 4) {
-                                  const a = data[i + 3]
-                                  if (a > 8) opaque++
-                                }
-                                const total = (data.length / 4) || 1
-                                if (opaque / total < 0.01) {
-                                  img.dispatchEvent(new Event('error'))
-                                }
-                              } catch {
-                                // Ignore canvas/security errors
+                              if (!validateLogoImage(img)) {
+                                img.dispatchEvent(new Event('error'))
                               }
                             }}
                             onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
@@ -868,7 +1043,7 @@ export default function Transactions() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`flex items-center gap-2 text-sm font-medium ${getTransactionColor(transaction.type)}`}>
                           {getTransactionIcon(transaction.type)}
-                          {transaction.type}
+                          {getTranslatedType(transaction.type)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
@@ -889,7 +1064,7 @@ export default function Transactions() {
                           const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
                           return transaction.type === 'SPLIT' && metadata?.split ? (
                             <span className="inline-flex items-center gap-1">
-                              <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} split</span>
+                              <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} {t('transaction.types.split')}</span>
                               {transaction.notes && <span className="text-neutral-400">•</span>}
                               {transaction.notes}
                             </span>
@@ -904,7 +1079,7 @@ export default function Transactions() {
                             <button
                               onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
                               className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors"
-                              title="View Split History"
+                              title={t('transactions.viewSplitHistory')}
                             >
                               <Shuffle size={16} />
                             </button>
@@ -912,14 +1087,14 @@ export default function Transactions() {
                           <button
                             onClick={() => openEditModal(transaction)}
                             className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
-                            title="Edit"
+                            title={t('transactions.editTransaction')}
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(transaction.id)}
                             className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded transition-colors"
-                            title="Delete"
+                            title={t('transactions.deleteTransaction')}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -930,6 +1105,8 @@ export default function Transactions() {
                 })}
               </tbody>
             </table>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -940,7 +1117,7 @@ export default function Transactions() {
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                {modalMode === 'add' ? 'Add Transaction' : 'Edit Transaction'}
+                {modalMode === 'add' ? t('transactions.addTransaction') : t('transactions.editTransaction')}
               </h2>
               <button
                 onClick={closeModal}
@@ -954,14 +1131,14 @@ export default function Transactions() {
               {modalMode === 'add' && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Ticker
+                    {t('transactions.ticker')}
                   </label>
                   <input
                     type="text"
                     value={ticker}
                     onChange={handleTickerChange}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    placeholder="Search ticker (e.g., AAPL)..."
+                    placeholder={t('transactions.tickerSearchPlaceholder')}
                   />
                   {searchResults.length > 0 && (
                     <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -989,7 +1166,7 @@ export default function Transactions() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Date
+                    {t('fields.date')}
                   </label>
                   <input
                     type="date"
@@ -1002,20 +1179,20 @@ export default function Transactions() {
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Type
+                    {t('fields.type')}
                   </label>
                   <select
                     value={txType}
                     onChange={(e) => setTxType(e.target.value)}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   >
-                    <option value="BUY">Buy</option>
-                    <option value="SELL">Sell</option>
-                    <option value="DIVIDEND">Dividend</option>
-                    <option value="FEE">Fee</option>
-                    <option value="SPLIT">Split</option>
-                    <option value="TRANSFER_IN">Transfer In</option>
-                    <option value="TRANSFER_OUT">Transfer Out</option>
+                    <option value="BUY">{t('transaction.types.buy')}</option>
+                    <option value="SELL">{t('transaction.types.sell')}</option>
+                    <option value="DIVIDEND">{t('transaction.types.dividend')}</option>
+                    <option value="FEE">{t('transaction.types.fee')}</option>
+                    <option value="SPLIT">{t('transaction.types.split')}</option>
+                    <option value="TRANSFER_IN">{t('transaction.types.transferIn')}</option>
+                    <option value="TRANSFER_OUT">{t('transaction.types.transferOut')}</option>
                   </select>
                 </div>
               </div>
@@ -1024,18 +1201,18 @@ export default function Transactions() {
               {txType === 'SPLIT' && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Split Ratio
+                    {t('transactions.splitRatio')}
                   </label>
                   <input
                     type="text"
                     value={splitRatio}
                     onChange={(e) => setSplitRatio(e.target.value)}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    placeholder="e.g., 2:1 (2-for-1 split) or 1:2 (reverse split)"
+                    placeholder={t('transactions.splitRatioPlaceholder')}
                     required
                   />
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                    Format: "N:M" where N is new shares and M is old shares. Examples: "2:1" (doubles shares), "3:1" (triples), "1:2" (reverse split halves shares)
+                    {t('transactions.splitRatioInfo')}  
                   </p>
                 </div>
               )}
@@ -1045,7 +1222,7 @@ export default function Transactions() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Quantity
+                      {t('fields.quantity')}
                     </label>
                     <input
                       type="number"
@@ -1061,7 +1238,7 @@ export default function Transactions() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Price ({portfolioCurrency}) {modalMode === 'add' && '(Optional)'}
+                      {t('fields.price')} ({portfolioCurrency}) {modalMode === 'add' && `(${t('common.optional')})`}
                     </label>
                     <input
                       type="number"
@@ -1070,19 +1247,19 @@ export default function Transactions() {
                       className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                       min="0"
                       step="any"
-                      placeholder={modalMode === 'add' ? 'Auto-fetch' : '0.00'}
+                      placeholder={modalMode === 'add' ? t('transactions.autoFetch') : '0.00'}
                       required={modalMode === 'edit'}
                     />
                     {modalMode === 'add' && (
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        Leave empty to auto-fetch price in USD, or enter price in {portfolioCurrency}
+                        {t('transactions.autoFetchInfo', { currency: portfolioCurrency })}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      Fees ({portfolioCurrency})
+                      {t('fields.fees')} ({portfolioCurrency})
                     </label>
                     <input
                       type="number"
@@ -1099,14 +1276,14 @@ export default function Transactions() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Notes
+                  {t('fields.notes')}
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   rows={3}
-                  placeholder="Optional notes..."
+                  placeholder={t('placeholders.enterNotes')}
                 />
               </div>
 
@@ -1122,14 +1299,14 @@ export default function Transactions() {
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={formLoading || (modalMode === 'add' && !selectedTicker)}
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
-                  {formLoading ? 'Saving...' : modalMode === 'add' ? 'Add Transaction' : 'Save Changes'}
+                  {formLoading ? t('common.saving') : modalMode === 'add' ? t('common.add') : t('common.save')}
                 </button>
               </div>
             </form>
@@ -1142,23 +1319,23 @@ export default function Transactions() {
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-              Delete Transaction
+              {t('transactions.deleteTransaction')}
             </h3>
             <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              Are you sure you want to delete this transaction? This action cannot be undone.
+              {t('transactions.deleteConfirm')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>

@@ -32,6 +32,7 @@ async def refresh_all_prices():
         try:
             from app.models import Asset, Transaction
             from sqlalchemy import distinct
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get all unique assets that have transactions
             active_assets = (
@@ -51,6 +52,9 @@ async def refresh_all_prices():
             asyncio.set_event_loop(loop)
             
             try:
+                # Clean up any stale tasks from previous event loops
+                _cleanup_stale_tasks()
+                
                 for asset in active_assets:
                     try:
                         # Run async get_price in the event loop
@@ -98,6 +102,7 @@ async def check_price_alerts():
         try:
             from app.models import Watchlist, Asset
             from decimal import Decimal
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get all watchlist items with alerts enabled
             watchlist_items = (
@@ -120,6 +125,9 @@ async def check_price_alerts():
             asyncio.set_event_loop(loop)
             
             try:
+                # Clean up any stale tasks from previous event loops
+                _cleanup_stale_tasks()
+                
                 for item in watchlist_items:
                     try:
                         asset = db.query(Asset).filter(Asset.id == item.asset_id).first()
@@ -273,6 +281,7 @@ async def check_daily_changes():
             from app.models import User, Portfolio
             from app.services.metrics import MetricsService
             from decimal import Decimal
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get current market session identifier
             session_id = get_market_session_id()
@@ -308,6 +317,9 @@ async def check_daily_changes():
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
                             try:
+                                # Clean up any stale tasks from previous event loops
+                                _cleanup_stale_tasks()
+                                
                                 positions = loop.run_until_complete(
                                     metrics_service.get_positions(portfolio.id)
                                 )
@@ -526,6 +538,7 @@ async def send_daily_reports():
             from app.services.pdf_reports import PDFReportService
             from app.services.email import email_service
             from app.services.notifications import notification_service
+            from app.services.pricing import _cleanup_stale_tasks
             
             # Get yesterday's date (report for previous day)
             report_date = (datetime.utcnow() - timedelta(days=1)).date()
@@ -558,27 +571,40 @@ async def send_daily_reports():
                         logger.info(f"User {user.id} has no portfolios, skipping")
                         continue
                     
-                    # Generate PDF report (async method called in sync context via run_coroutine_threadsafe)
+                    # Generate one PDF per portfolio
                     import asyncio
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     
                     try:
-                        pdf_data = loop.run_until_complete(
-                            pdf_service.generate_daily_report(
-                                user_id=user.id,
-                                report_date=report_date
+                        # Clean up any stale tasks from previous event loops
+                        _cleanup_stale_tasks()
+                        
+                        # Generate PDFs for each portfolio
+                        pdf_attachments = []
+                        for portfolio in portfolios:
+                            pdf_data = loop.run_until_complete(
+                                pdf_service.generate_daily_report(
+                                    user_id=user.id,
+                                    portfolio_id=portfolio.id,
+                                    report_date=report_date
+                                )
                             )
-                        )
+                            # Clean portfolio name for filename (remove special chars)
+                            clean_name = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in portfolio.name)
+                            filename = f"portfolio_report_{clean_name}_{report_date.strftime('%Y%m%d')}.pdf"
+                            pdf_attachments.append((filename, pdf_data))
+                            logger.info(f"Generated PDF for portfolio '{portfolio.name}' ({portfolio.id})")
                     finally:
                         loop.close()
                     
-                    # Send email with PDF attachment
+                    # Send email with multiple PDF attachments (one per portfolio)
                     success = email_service.send_daily_report_email(
                         to_email=user.email,
                         username=user.username,
                         report_date=report_date.strftime('%B %d, %Y'),
-                        pdf_data=pdf_data
+                        pdf_attachments=pdf_attachments,
+                        language=user.preferred_language
                     )
                     
                     if success:

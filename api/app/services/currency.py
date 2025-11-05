@@ -52,7 +52,29 @@ class CurrencyService:
             info = ticker.history(period="1d")
             
             if info.empty:
-                logger.warning(f"No exchange rate data for {forex_symbol}")
+                logger.warning(f"No exchange rate data for {forex_symbol}, trying inverse pair")
+                
+                # Try the inverse pair (e.g., if JPYEUR=X doesn't exist, try EURJPY=X)
+                inverse_symbol = f"{to_currency}{from_currency}=X"
+                try:
+                    inverse_ticker = yf.Ticker(inverse_symbol)
+                    inverse_info = inverse_ticker.history(period="1d")
+                    
+                    if not inverse_info.empty:
+                        # Invert the rate (if EUR/JPY = 165, then JPY/EUR = 1/165)
+                        inverse_rate = Decimal(str(inverse_info['Close'].iloc[-1]))
+                        if inverse_rate > 0:
+                            rate = Decimal(1) / inverse_rate
+                            
+                            # Cache the rate
+                            _exchange_rate_cache[cache_key] = (rate, datetime.utcnow())
+                            
+                            logger.info(f"Fetched inverse exchange rate {inverse_symbol}: {inverse_rate}, calculated {forex_symbol}: {rate}")
+                            return rate
+                except Exception as inv_e:
+                    logger.warning(f"Failed to fetch inverse pair {inverse_symbol}: {inv_e}")
+                
+                logger.error(f"No exchange rate data available for {from_currency} to {to_currency}")
                 return None
             
             # Get the most recent close price

@@ -3,6 +3,7 @@ import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
 import api, { PortfolioHistoryPointDTO } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
+import { useTranslation } from 'react-i18next'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
@@ -12,22 +13,30 @@ interface Props {
   portfolioId: number
 }
 
-const periodLabels: Record<PeriodOption, string> = {
-  '1W': '1W',
-  '1M': '1M',
-  '3M': '3M',
-  '6M': '6M',
-  'YTD': 'YTD',
-  '1Y': '1Y',
-  'ALL': 'ALL',
-}
-
 export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   const { portfolios } = usePortfolioStore()
   const [period, setPeriod] = useState<PeriodOption>('1M')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PortfolioHistoryPointDTO[]>([])
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const { t, i18n } = useTranslation()
+
+  // Get the current locale for date formatting
+  const currentLocale = i18n.language || 'en-US'
+  
+  // Period labels translation mapping
+  const getPeriodLabel = (period: PeriodOption): string => {
+    const labelMap: Record<PeriodOption, string> = {
+      '1W': t('charts.periods.1W'),
+      '1M': t('charts.periods.1M'),
+      '3M': t('charts.periods.3M'),
+      '6M': t('charts.periods.6M'),
+      'YTD': t('charts.periods.YTD'),
+      '1Y': t('charts.periods.1Y'),
+      'ALL': t('charts.periods.ALL'),
+    }
+    return labelMap[period]
+  }
   
   // Get portfolio currency
   const portfolio = portfolios.find(p => p.id === portfolioId)
@@ -52,12 +61,17 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   }, [portfolioId, period])
 
   // Calculate performance percentages
-  // For ALL: show absolute performance at each point
+  // For ALL: show unrealized P&L % (current holdings only, matches Dashboard)
   // For specific periods: show relative performance from the start of the period (normalized to 0%)
   const performanceData = history.map((point, index) => {
     // Get absolute performance at this point
     let absolutePerf = 0
-    if (point.gain_pct !== undefined && point.gain_pct !== null) {
+    
+    // Use unrealized_pnl_pct if available (current holdings performance, matches Dashboard)
+    // Otherwise fall back to gain_pct (total invested performance)
+    if (point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null) {
+      absolutePerf = point.unrealized_pnl_pct
+    } else if (point.gain_pct !== undefined && point.gain_pct !== null) {
       absolutePerf = point.gain_pct
     } else if (point.invested && point.invested > 0) {
       absolutePerf = ((point.value - point.invested) / point.invested) * 100
@@ -76,7 +90,9 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     
     const firstPoint = history[0]
     let baselinePerf = 0
-    if (firstPoint.gain_pct !== undefined && firstPoint.gain_pct !== null) {
+    if (firstPoint.unrealized_pnl_pct !== undefined && firstPoint.unrealized_pnl_pct !== null) {
+      baselinePerf = firstPoint.unrealized_pnl_pct
+    } else if (firstPoint.gain_pct !== undefined && firstPoint.gain_pct !== null) {
       baselinePerf = firstPoint.gain_pct
     } else if (firstPoint.invested && firstPoint.invested > 0) {
       baselinePerf = ((firstPoint.value - firstPoint.invested) / firstPoint.invested) * 100
@@ -89,17 +105,17 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   const chartData = {
     labels: history.map(h => {
       const date = new Date(h.date)
-      // Format date based on period
+      // Format date based on period using current locale
       if (period === '1W') {
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
       } else if (period === '1M') {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '3M') {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
       } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
       } else {
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        return date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
       }
     }),
     datasets: [
@@ -173,10 +189,10 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
         caretSize: 8,
         callbacks: {
           title: (context: { dataIndex: number }[]) => {
-            // Show full date in tooltip title
+            // Show full date in tooltip title using current locale
             if (context.length > 0) {
               const date = new Date(history[context[0].dataIndex].date)
-              return date.toLocaleDateString('en-US', { 
+              return date.toLocaleDateString(currentLocale, { 
                 weekday: 'short',
                 year: 'numeric', 
                 month: 'short', 
@@ -194,19 +210,28 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             
             // For period views, show the relative change
             if (period === 'ALL') {
-              lines.push(`Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+              lines.push(`${t('charts.currentHoldings')} ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+              
+              // Also show total invested performance if different
+              if (point.gain_pct !== undefined && point.gain_pct !== null && 
+                  point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null &&
+                  Math.abs(point.gain_pct - point.unrealized_pnl_pct) > 0.01) {
+                lines.push(`${t('charts.totalInvested')}: ${point.gain_pct >= 0 ? '+' : ''}${point.gain_pct.toFixed(2)}%`)
+              }
             } else {
               // Show period performance (relative to start)
-              lines.push(`Period Performance: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
-              
-              // Also show absolute all-time performance
+              lines.push(`${t('charts.periodPerformance')}: ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`)
+
+              // Also show absolute unrealized P&L performance
               let absolutePerf = 0
-              if (point.gain_pct !== undefined && point.gain_pct !== null) {
+              if (point.unrealized_pnl_pct !== undefined && point.unrealized_pnl_pct !== null) {
+                absolutePerf = point.unrealized_pnl_pct
+              } else if (point.gain_pct !== undefined && point.gain_pct !== null) {
                 absolutePerf = point.gain_pct
               } else if (point.invested && point.invested > 0) {
                 absolutePerf = ((point.value - point.invested) / point.invested) * 100
               }
-              lines.push(`All-Time: ${absolutePerf >= 0 ? '+' : ''}${absolutePerf.toFixed(2)}%`)
+              lines.push(`${t('charts.allTimePerformance')}: ${absolutePerf >= 0 ? '+' : ''}${absolutePerf.toFixed(2)}%`)
             }
             
             if (point.invested) {
@@ -215,7 +240,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
                 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
               }
               const symbol = currencySymbols[currency] || currency + ' '
-              lines.push(`Total Gain: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+              lines.push(`${t('charts.totalGainLoss')}: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
             }
             return lines
           }
@@ -239,7 +264,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       y: {
         title: { 
           display: true, 
-          text: 'Performance (%)',
+          text: `${t('charts.performanceLabel')} (%)`,
           color: '#64748b',
           font: { size: 12 }
         },
@@ -291,7 +316,12 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   let displayGainAmount = 0
   if (displayPoint) {
     if (period === 'ALL') {
-      displayGainAmount = displayPoint.value - (displayPoint.invested || 0)
+      // For ALL period, show unrealized gain of current holdings (matches Dashboard)
+      if (displayPoint.cost_basis !== undefined && displayPoint.cost_basis !== null) {
+        displayGainAmount = displayPoint.value - displayPoint.cost_basis
+      } else {
+        displayGainAmount = displayPoint.value - (displayPoint.invested || 0)
+      }
     } else if (history.length > 0) {
       const firstPoint = history[0]
       const startGain = firstPoint.value - (firstPoint.invested || 0)
@@ -302,56 +332,6 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
 
   return (
     <div>
-      {/* Title and performance display */}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">Investment Performance</h3>
-        {history.length > 0 && displayPoint && (() => {
-          const isPositive = displayPerformance > 0
-          const isZero = displayPerformance === 0
-          
-          const currencySymbols: Record<string, string> = {
-            'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
-          }
-          const symbol = currencySymbols[currency] || currency + ' '
-          
-          // Determine color class based on value
-          const colorClass = isZero 
-            ? 'text-neutral-500 dark:text-neutral-400'
-            : isPositive 
-            ? 'text-green-600 dark:text-green-400' 
-            : 'text-red-600 dark:text-red-400'
-          
-          return (
-            <div className="flex items-center gap-3">
-              <p className={`text-2xl font-bold ${colorClass}`}>
-                {isPositive ? '+' : ''}{displayPerformance.toFixed(2)}%
-              </p>
-              <div className="flex flex-col items-end gap-0.5">
-                <p className={`text-sm font-medium ${colorClass}`}>
-                  {displayGainAmount > 0 ? '+' : ''}{symbol}{Math.abs(displayGainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-          )
-        })()}
-      </div>
-      
-      {/* Time period buttons */}
-      <div className="flex gap-2 mb-4 flex-wrap justify-center">
-        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
-          <button
-            key={opt}
-            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
-              period === opt 
-                ? 'bg-pink-600 text-white border-pink-600' 
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
-            }`}
-            onClick={() => setPeriod(opt)}
-          >
-            {periodLabels[opt]}
-          </button>
-        ))}
-      </div>
       <div style={{ minHeight: 320 }} className="p-4">
         {loading ? (
           <div>
@@ -394,17 +374,73 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
           </div>
         ) : history.length === 0 ? (
           <div className="text-neutral-400 text-center py-12">
-            <p className="font-semibold mb-2">No performance data available</p>
-            <p className="text-sm">Historical data will be calculated from your saved price records and transactions.</p>
+            <p className="font-semibold mb-2">{t('charts.noPortfolioPerformance')}</p>
+            <p className="text-sm">{t('charts.noPortfolioPerformanceInfo')}</p>
           </div>
         ) : (
-          <div 
-            style={{ height: '320px' }}
-            onMouseLeave={() => setHoveredIndex(null)}
-          >
-            <Line data={chartData} options={chartOptions} />
+          <div>
+            {/* Title and performance display */}
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <div>
+                  <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t('charts.portfolioPerformanceLabel')}</h3>
+                </div>
+              </div>
+              {displayPoint && (() => {
+                const isPositive = displayPerformance > 0
+                const isZero = displayPerformance === 0
+                
+                const currencySymbols: Record<string, string> = {
+                  'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
+                }
+                const symbol = currencySymbols[currency] || currency + ' '
+                
+                // Determine color class based on value
+                const colorClass = isZero 
+                  ? 'text-neutral-500 dark:text-neutral-400'
+                  : isPositive 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+                
+                return (
+                  <div className="flex items-center gap-3">
+                    <p className={`text-2xl font-bold ${colorClass}`}>
+                      {isPositive ? '+' : ''}{displayPerformance.toFixed(2)}%
+                    </p>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <p className={`text-sm font-medium ${colorClass}`}>
+                        {displayGainAmount > 0 ? '+' : ''}{symbol}{Math.abs(displayGainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+            <div 
+              style={{ height: '320px' }}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              <Line data={chartData} options={chartOptions} />
+            </div>
           </div>
         )}
+      </div>
+      
+      {/* Time period buttons */}
+      <div className="flex gap-2 mb-4 flex-wrap justify-center">
+        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
+          <button
+            key={opt}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
+              period === opt 
+                ? 'bg-pink-600 text-white border-pink-600' 
+                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
+            }`}
+            onClick={() => setPeriod(opt)}
+          >
+            {getPeriodLabel(opt)}
+          </button>
+        ))}
       </div>
     </div>
   )

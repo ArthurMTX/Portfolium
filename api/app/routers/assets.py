@@ -8,8 +8,10 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import Asset, AssetCreate
+from app.schemas import Asset, AssetCreate, AssetMetadataOverride, AssetWithOverrides
 from app.crud import assets as crud
+from app.auth import get_current_user
+from app.models import User
 import yfinance as yf
 
 router = APIRouter()
@@ -123,6 +125,77 @@ async def update_asset(
     return updated
 
 
+@router.patch("/{asset_id}/metadata-overrides", response_model=AssetWithOverrides)
+async def set_metadata_overrides(
+    asset_id: int,
+    overrides: AssetMetadataOverride,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Set user-specific metadata overrides for an asset (country, sector, industry).
+    
+    Overrides can ONLY be set when Yahoo Finance doesn't provide the corresponding data.
+    This ensures overrides are used as a fallback, not to replace valid Yahoo Finance data.
+    
+    Overrides are USER-SPECIFIC - each user can set their own classification preferences.
+    Other users will not see your overrides unless they set the same values.
+    
+    - **sector_override**: Custom sector when Yahoo Finance sector is None
+    - **industry_override**: Custom industry when Yahoo Finance industry is None  
+    - **country_override**: Custom country when Yahoo Finance country is None
+    
+    Example use case: ETFs often don't have sector/industry/country in Yahoo Finance,
+    so users can provide meaningful categorization for portfolio insights.
+    
+    Returns HTTP 400 if attempting to override when Yahoo Finance data exists.
+    """
+    try:
+        override_record = crud.set_asset_metadata_overrides(
+            db,
+            user_id=current_user.id,
+            asset_id=asset_id,
+            sector_override=overrides.sector_override,
+            industry_override=overrides.industry_override,
+            country_override=overrides.country_override
+        )
+        
+        # Get the asset with effective metadata
+        asset = crud.get_asset(db, asset_id)
+        if not asset:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Asset {asset_id} not found"
+            )
+        
+        # Get effective metadata for response
+        effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+        
+        # Build response with all fields
+        response_data = {
+            "id": asset.id,
+            "symbol": asset.symbol,
+            "name": asset.name,
+            "currency": asset.currency,
+            "class": asset.class_.value if asset.class_ else None,
+            "sector": asset.sector,
+            "industry": asset.industry,
+            "asset_type": asset.asset_type,
+            "country": asset.country,
+            "created_at": asset.created_at,
+            "updated_at": asset.updated_at,
+            **effective_data
+        }
+        
+        return response_data
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_asset(asset_id: int, db: Session = Depends(get_db)):
     """Delete asset"""
@@ -135,7 +208,11 @@ async def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/held/all")
-async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_held_assets(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all currently held assets across all portfolios with metadata
     
@@ -144,6 +221,7 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
     - Total quantity held across all portfolios (adjusted for splits)
     - Number of portfolios holding this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
+    - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
@@ -194,6 +272,9 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
+                # Get user-specific effective metadata
+                effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+                
                 results.append({
                     "id": asset.id,
                     "symbol": asset.symbol,
@@ -204,6 +285,9 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
                     "industry": asset.industry,
                     "asset_type": asset.asset_type,
                     "country": asset.country,
+                    "effective_sector": effective_data["effective_sector"],
+                    "effective_industry": effective_data["effective_industry"],
+                    "effective_country": effective_data["effective_country"],
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -218,7 +302,11 @@ async def get_held_assets(portfolio_id: int | None = None, db: Session = Depends
 
 
 @router.get("/sold/all")
-async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends(get_db)):
+async def get_sold_assets(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get all sold assets across all portfolios with metadata
     
@@ -227,6 +315,7 @@ async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends
     - Total quantity (will be 0)
     - Number of portfolios that held this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
+    - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
@@ -277,6 +366,9 @@ async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
+                # Get user-specific effective metadata
+                effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+                
                 results.append({
                     "id": asset.id,
                     "symbol": asset.symbol,
@@ -287,6 +379,9 @@ async def get_sold_assets(portfolio_id: int | None = None, db: Session = Depends
                     "industry": asset.industry,
                     "asset_type": asset.asset_type,
                     "country": asset.country,
+                    "effective_sector": effective_data["effective_sector"],
+                    "effective_industry": effective_data["effective_industry"],
+                    "effective_country": effective_data["effective_country"],
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -338,7 +433,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     Fetch and return the best available logo for a symbol.
 
     Strategy:
-    1. For ETFs (asset_type='ETF'), skip cache and generate SVG logo directly
+    1. For ETFs and Cryptocurrencies, skip cache and generate/fetch logo to avoid incorrect brand logos
     2. For other assets, check database cache first for previously fetched logos
     3. Try direct ticker fetch and cache result
     4. Try API search with company name and cache result
@@ -359,11 +454,23 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     # Get or create asset in database
     db_asset = crud_assets.get_asset_by_symbol(db, symbol.upper())
     
-    # For ETFs, skip cache and generate SVG directly to avoid incorrect brand logos
-    is_etf = asset_type and asset_type.upper() == 'ETF'
+    # Use database asset_type if query param not provided
+    effective_asset_type = asset_type
+    if not effective_asset_type and db_asset:
+        effective_asset_type = db_asset.asset_type
     
-    # Check database cache first (but skip for ETFs)
-    if db_asset and not is_etf:
+    # Use database name if query param not provided
+    effective_name = name
+    if not effective_name and db_asset:
+        effective_name = db_asset.name
+    
+    # For ETFs and Cryptocurrencies, skip cache to avoid incorrect brand logos
+    is_etf = effective_asset_type and effective_asset_type.upper() == 'ETF'
+    is_crypto = effective_asset_type and effective_asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
+    skip_cache = is_etf or is_crypto
+    
+    # Check database cache first (but skip for ETFs and cryptocurrencies)
+    if db_asset and not skip_cache:
         cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
             logo_data, content_type = cached
@@ -376,8 +483,8 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
             return response
 
     # Fetch logo using the consolidated validation function
-    # For ETFs, this will generate SVG directly; for others, tries brand search then SVG fallback
-    logo_data = fetch_logo_with_validation(symbol, company_name=name, asset_type=asset_type)
+    # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
+    logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
     
     # Determine content type based on data
     if logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml'):
@@ -387,8 +494,8 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         content_type = 'image/webp'
         cache_time = 2592000  # 30 days for real logos
     
-    # Cache in database if asset exists (cache SVG for ETFs too)
-    if db_asset:
+    # Cache in database if asset exists and not ETF/Crypto (they should be refetched each time)
+    if db_asset and not skip_cache:
         crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
     
     # Return the logo
@@ -525,6 +632,578 @@ async def get_asset_transaction_history(
             "portfolio_name": portfolio_name,
             "notes": tx.notes
         })
+    
+    return result
+
+
+@router.get("/distribution/sectors")
+async def get_sectors_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of assets by sector with performance metrics
+    
+    Uses user-specific metadata overrides for classification.
+    
+    Returns aggregated data for each sector including:
+    - Sector name
+    - Asset count
+    - Total market value (sum of all positions in this sector)
+    - Cost basis (sum of all cost bases)
+    - Unrealized P&L (sum of unrealized gains/losses)
+    - Percentage of total assets
+    - List of asset IDs in this sector
+    
+    Optionally filter by portfolio_id to get sector distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    # Get all held assets (with optional portfolio filter and user-specific overrides)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
+    
+    # If we have a portfolio_id, get positions for that portfolio
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        # Also get sold positions which might still have data
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    # Group by sector
+    sector_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        # Use effective_sector which includes user-specific overrides
+        sector = asset.get("effective_sector") or "Unknown"
+        sector_data[sector]["assets"].append(asset["id"])
+        sector_data[sector]["count"] += 1
+        
+        # Add position data if available
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            sector_data[sector]["total_value"] += pos.market_value or Decimal(0)
+            sector_data[sector]["cost_basis"] += pos.cost_basis or Decimal(0)
+            sector_data[sector]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    # Convert to list format
+    result = []
+    for sector, data in sector_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        result.append({
+            "name": sector,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/countries")
+async def get_countries_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of assets by country with performance metrics
+    
+    Uses user-specific metadata overrides for classification.
+    
+    Returns aggregated data for each country including:
+    - Country name
+    - Asset count
+    - Total market value
+    - Cost basis
+    - Unrealized P&L
+    - Percentage of total assets
+    - List of asset IDs in this country
+    
+    Optionally filter by portfolio_id to get country distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
+    
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    country_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        # Use effective_country which includes user-specific overrides
+        country = asset.get("effective_country") or "Unknown"
+        country_data[country]["assets"].append(asset["id"])
+        country_data[country]["count"] += 1
+        
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            country_data[country]["total_value"] += pos.market_value or Decimal(0)
+            country_data[country]["cost_basis"] += pos.cost_basis or Decimal(0)
+            country_data[country]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    result = []
+    for country, data in country_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        # Build asset positions list if we have portfolio data
+        asset_positions = []
+        if portfolio_id is not None:
+            country_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / country_total * 100) if country_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+        
+        result.append({
+            "name": country,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/types")
+async def get_types_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of assets by type with performance metrics
+    
+    Returns aggregated data for each asset type including:
+    - Type name (e.g., EQUITY, ETF, CRYPTO)
+    - Asset count
+    - Total market value
+    - Cost basis
+    - Unrealized P&L
+    - Percentage of total assets
+    - List of asset IDs of this type
+    
+    Optionally filter by portfolio_id to get type distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
+    
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    type_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        asset_type = asset.get("asset_type") or "Unknown"
+        type_data[asset_type]["assets"].append(asset["id"])
+        type_data[asset_type]["count"] += 1
+        
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            type_data[asset_type]["total_value"] += pos.market_value or Decimal(0)
+            type_data[asset_type]["cost_basis"] += pos.cost_basis or Decimal(0)
+            type_data[asset_type]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    result = []
+    for asset_type, data in type_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        # Build asset positions list if we have portfolio data
+        asset_positions = []
+        if portfolio_id is not None:
+            type_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / type_total * 100) if type_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+        
+        result.append({
+            "name": asset_type,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/industries")
+async def get_industries_distribution(
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of assets by industry with performance metrics
+    
+    Uses user-specific metadata overrides for classification.
+    
+    Returns aggregated data for each industry including:
+    - Industry name
+    - Asset count
+    - Total market value (sum of all positions in this industry)
+    - Cost basis (sum of all cost bases)
+    - Unrealized P&L (sum of unrealized gains/losses)
+    - Percentage of total assets
+    - List of asset IDs in this industry
+    
+    Optionally filter by portfolio_id to get industry distribution for a specific portfolio.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    
+    # Get all held assets (with optional portfolio filter and user-specific overrides)
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
+    
+    # If we have a portfolio_id, get positions for that portfolio
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        # Also get sold positions which might still have data
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    # Group by industry
+    industry_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+    
+    # Calculate total portfolio value if we have positions
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+    
+    for asset in held_assets_data:
+        # Use effective_industry which includes user-specific overrides
+        industry = asset.get("effective_industry") or "Unknown"
+        industry_data[industry]["assets"].append(asset["id"])
+        industry_data[industry]["count"] += 1
+        
+        # Add position data if available
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            industry_data[industry]["total_value"] += pos.market_value or Decimal(0)
+            industry_data[industry]["cost_basis"] += pos.cost_basis or Decimal(0)
+            industry_data[industry]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    # Convert to list format
+    result = []
+    for industry, data in industry_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on total value if available, otherwise use count
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+        
+        result.append({
+            "name": industry,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+
+@router.get("/distribution/sectors/{sector_name}/industries")
+async def get_sector_industries_distribution(
+    sector_name: str, 
+    portfolio_id: int | None = None, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of industries within a specific sector with performance metrics
+    
+    Returns aggregated data for each industry in the specified sector including:
+    - Industry name
+    - Asset count
+    - Total market value (sum of all positions in this industry)
+    - Cost basis (sum of all cost bases)
+    - Unrealized P&L (sum of unrealized gains/losses)
+    - Percentage of sector total
+    - List of asset IDs in this industry
+    
+    Optionally filter by portfolio_id.
+    """
+    from app.services.metrics import MetricsService
+    from collections import defaultdict
+    from urllib.parse import unquote
+    
+    # Decode the sector name from URL encoding
+    sector_name = unquote(sector_name)
+    
+    # Get all held assets for the sector
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
+    
+    # Filter by sector
+    sector_assets = [a for a in held_assets_data if (a.get("sector") or "Unknown") == sector_name]
+    
+    if not sector_assets:
+        return []
+    
+    # If we have a portfolio_id, get positions for that portfolio
+    positions_map = {}
+    if portfolio_id is not None:
+        metrics_service = MetricsService(db)
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+    
+    # Group by industry within this sector
+    industry_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+    
+    sector_total_value = Decimal(0)
+    
+    # Calculate sector total value if we have positions
+    if portfolio_id is not None:
+        sector_total_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in sector_assets
+            if asset["id"] in positions_map
+        )
+    
+    for asset in sector_assets:
+        industry = asset.get("industry") or "Unknown"
+        industry_data[industry]["assets"].append(asset["id"])
+        industry_data[industry]["count"] += 1
+        
+        # Add position data if available
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            industry_data[industry]["total_value"] += pos.market_value or Decimal(0)
+            industry_data[industry]["cost_basis"] += pos.cost_basis or Decimal(0)
+            industry_data[industry]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+    
+    # Convert to list format
+    result = []
+    for industry, data in industry_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+        
+        # Calculate percentage based on sector total value if available, otherwise use count
+        if portfolio_id is not None and sector_total_value > 0:
+            percentage = float(data["total_value"] / sector_total_value * 100)
+        else:
+            percentage = (data["count"] / len(sector_assets) * 100) if len(sector_assets) > 0 else 0
+        
+        # Build asset positions list if we have portfolio data
+        asset_positions = []
+        if portfolio_id is not None:
+            industry_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / industry_total * 100) if industry_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+        
+        result.append({
+            "name": industry,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+    
+    # Sort by total value descending if we have portfolio data, otherwise by count
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
     
     return result
 

@@ -23,8 +23,8 @@ services:
 
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./api/Dockerfile
     container_name: portfolium-api
     restart: unless-stopped
     env_file:
@@ -63,6 +63,7 @@ services:
         condition: service_healthy
     volumes:
       - ./api:/app
+      - ./web/src/locales:/app/locales:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

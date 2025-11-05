@@ -7,6 +7,7 @@ import InvestmentPerformanceChart from '../components/InvestmentPerformanceChart
 import PortfolioHeatmap from '../components/PortfolioHeatmap'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
+import { useTranslation } from 'react-i18next'
 
 type ChartTab = 'heatmap' | 'history' | 'performance'
 
@@ -18,6 +19,7 @@ export default function Charts() {
     setActivePortfolio,
   } = usePortfolioStore()
 
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<ChartTab>('heatmap')
   const [hasTransactions, setHasTransactions] = useState<boolean | null>(null)
   const [checkingTransactions, setCheckingTransactions] = useState(false)
@@ -75,10 +77,10 @@ export default function Charts() {
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <LineChart className="text-pink-600" size={32} />
-              Portfolio Charts
+              {t('charts.title')}
             </h1>
             <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              Loading your portfolio data...
+              {t('charts.loadingMessage')}
             </p>
           </div>
           <div className="h-10 w-36 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
@@ -108,10 +110,10 @@ export default function Charts() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <LineChart className="text-pink-600" size={32} />
-            Portfolio Charts
+            {t('charts.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            Track your portfolio value and visualize asset allocation
+            {t('charts.description')}
           </p>
         </div>
       </div>
@@ -129,7 +131,7 @@ export default function Charts() {
               }`}
             >
               <Grid3x3 size={18} />
-              Heatmap
+              {t('charts.heatmap')}
             </button>
             <button
               onClick={() => setActiveTab('history')}
@@ -140,7 +142,7 @@ export default function Charts() {
               }`}
             >
               <TrendingUp size={18} />
-              Portfolio Value
+              {t('charts.history')}
             </button>
             <button
               onClick={() => setActiveTab('performance')}
@@ -151,7 +153,7 @@ export default function Charts() {
               }`}
             >
               <TrendingDown size={18} />
-              Performance
+              {t('charts.performance')}
             </button>
           </div>
         </div>
