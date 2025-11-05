@@ -38,7 +38,6 @@ import {
   
   // Financial Services
   DollarSign,
-  CreditCard,
   Landmark,
   Building2,
   Coins,
@@ -63,7 +62,6 @@ import {
   Pizza,
   Car,
   Sofa,
-  Watch,
   
   // Industrial & Manufacturing
   Factory,
@@ -121,11 +119,9 @@ import {
   TicketsPlane,
   Volleyball,
   Apple,
-  Container,
   CupSoda,
   Beer,
   Cigarette,
-  Lamp,
   ChartCandlestick,
   LandPlot,
   BadgeDollarSign,
