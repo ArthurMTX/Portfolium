@@ -310,20 +310,20 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
       {/* Desktop Table Layout */}
       <div className="hidden lg:block card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
               <tr>
                 <th
                   onClick={() => handleSort('symbol')}
                   aria-sort={sortKey === 'symbol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="px-3 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
                   {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th
                   onClick={() => handleSort('name')}
                   aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="px-3 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 hidden xl:table-cell"
                 >
                   {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                 </th>
@@ -332,7 +332,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   <th
                     onClick={() => handleSort('avg_cost')}
                     aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     title="Average cost per share including fees"
                   >
                     {t('dashboard.avgCostBasis')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
@@ -340,7 +340,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   <th
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     title="Average proceeds per share after fees"
                   >
                     {t('dashboard.avgProceeds')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
@@ -348,14 +348,14 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   <th
                     onClick={() => handleSort('unrealized_pnl')}
                     aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {t('dashboard.realizedPnL')} <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl_pct')}
                     aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {t('dashboard.realizedPnL')} % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
@@ -365,58 +365,58 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   <th
                     onClick={() => handleSort('quantity')}
                     aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {t('fields.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('avg_cost')}
                     aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {t('dashboard.avgCost')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {t('dashboard.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('daily_change_pct')}
                     aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 hidden xl:table-cell"
                   >
                     {t('dashboard.dailyChange')} % <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('market_value')}
                     aria-sort={sortKey === 'market_value' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {t('dashboard.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('wallet_pct')}
                     aria-sort={sortKey === 'wallet_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 hidden xl:table-cell"
                   >
-                    {t('dashboard.percentOfWallet')} <SortIcon column="wallet_pct" activeColumn={sortKey} direction={sortDir} />
+                    % {t('common.wallet')} <SortIcon column="wallet_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl')}
                     aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('dashboard.unrealizedPnL')} <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
+                    P&L <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl_pct')}
                     aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('dashboard.unrealizedPnL')} % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
+                    P&L % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                 </>
               )}
@@ -437,12 +437,12 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   key={position.asset_id}
                   className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
                       <img 
                         src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
                         alt={`${position.symbol} logo`}
-                        className="w-8 h-8 object-cover"
+                        className="w-8 h-8 object-cover flex-shrink-0"
                         style={{ borderRadius: 0 }}
                         onLoad={(e) => {
                           const img = e.currentTarget as HTMLImageElement
@@ -457,30 +457,30 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 whitespace-nowrap hidden xl:table-cell">
                     <div className="text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
                       {position.name || '-'}
                     </div>
                   </td>
                   {isSold ? (
                     <>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className="text-sm text-neutral-900 dark:text-neutral-100">
                           {formatCurrency(position.avg_cost, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className="text-sm text-neutral-900 dark:text-neutral-100">
                           {formatCurrency(position.current_price, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className={`text-sm font-semibold flex items-center justify-end gap-1 ${pnlColor}`}>
                           {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                           {formatCurrency(position.unrealized_pnl, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className={`text-sm font-semibold ${pnlColor}`}>
                           {position.unrealized_pnl_pct !== null
                             ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
@@ -490,22 +490,22 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     </>
                   ) : (
                     <>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                           {formatQuantity(position.quantity)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className="text-sm text-neutral-900 dark:text-neutral-100">
                           {formatCurrency(position.avg_cost, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className="text-sm text-neutral-900 dark:text-neutral-100">
                           {formatCurrency(position.current_price, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right hidden xl:table-cell">
                         <div className={`text-sm font-medium ${
                           position.daily_change_pct !== null && position.daily_change_pct !== undefined
                             ? (Number(position.daily_change_pct) > 0
@@ -520,25 +520,25 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                             : '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                           {formatCurrency(position.market_value, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right hidden xl:table-cell">
                         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                           {position.market_value !== null && position.market_value !== undefined && totalPortfolioValue > 0
                             ? `${((Number(position.market_value) / totalPortfolioValue) * 100).toFixed(2)}%`
                             : '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className={`text-sm font-semibold flex items-center justify-end gap-1 ${pnlColor}`}>
                           {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                           {formatCurrency(position.unrealized_pnl, position.currency)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 whitespace-nowrap text-right">
                         <div className={`text-sm font-semibold ${pnlColor}`}>
                           {position.unrealized_pnl_pct !== null
                             ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
