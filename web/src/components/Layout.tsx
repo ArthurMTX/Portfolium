@@ -1,11 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText } from 'lucide-react'
+import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText, Folder } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import NotificationBell from './NotificationBell'
 import LanguageSwitcher from './LanguageSwitcher'
 import { VERSION } from '../version'
+import usePortfolioStore from '../store/usePortfolioStore'
 
 export default function Layout() {
   const location = useLocation()
@@ -16,6 +17,7 @@ export default function Layout() {
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
   const { t } = useTranslation()
+  const { portfolios, activePortfolioId, setActivePortfolio } = usePortfolioStore()
 
   useEffect(() => {
     // Check system preference
@@ -64,110 +66,139 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg" />
-            <h1 className="text-xl font-bold">Portfolium</h1>
+        <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-7 h-7 bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg" />
+            <h1 className="text-lg font-bold hidden sm:block">Portfolium</h1>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 2xl:gap-3">
             <Link
               to="/dashboard"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/dashboard')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.dashboard')}
             >
-              <Home size={18} />
-              <span>{t('navigation.dashboard')}</span>
+              <Home size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.dashboard')}</span>
             </Link>
             <Link
               to="/portfolios"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/portfolios')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.portfolios')}
             >
-              <Briefcase size={18} />
-              <span>{t('navigation.portfolios')}</span>
+              <Briefcase size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.portfolios')}</span>
             </Link>
             <Link
               to="/charts"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/charts')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.charts')}
             >
-              <LineChart size={18} />
-              <span>{t('navigation.charts')}</span>
+              <LineChart size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.charts')}</span>
             </Link>
             <Link
               to="/insights"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/insights')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.insights')}
             >
-              <TrendingUp size={18} />
-              <span>{t('navigation.insights')}</span>
+              <TrendingUp size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.insights')}</span>
             </Link>
             <Link
               to="/transactions"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/transactions')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.transactions')}
             >
-              <ArrowLeftRight size={18} />
-              <span>{t('navigation.transactions')}</span>
+              <ArrowLeftRight size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.transactions')}</span>
             </Link>
             <Link
               to="/assets"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/assets')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.assets')}
             >
-              <Package size={18} />
-              <span>{t('navigation.assets')}</span>
+              <Package size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.assets')}</span>
             </Link>
             <Link
               to="/watchlist"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive('/watchlist')
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
+              title={t('navigation.watchlist')}
             >
-              <Eye size={18} />
-              <span>{t('navigation.watchlist')}</span>
+              <Eye size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.watchlist')}</span>
             </Link>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 xl:gap-2">
+            {/* Portfolio Selector - Desktop */}
+            {portfolios.length > 0 && (
+              <div className="hidden lg:block max-w-[140px] xl:max-w-[180px] 2xl:max-w-[220px]">
+                <div className="relative">
+                  <Folder size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 pointer-events-none" />
+                  <select
+                    value={activePortfolioId ?? ''}
+                    onChange={(e) => setActivePortfolio(Number(e.target.value))}
+                    className="w-full pl-7 pr-1.5 py-1 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs 2xl:text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 dark:focus:ring-pink-400 truncate"
+                    aria-label="Select Portfolio"
+                    title={portfolios.find(p => p.id === activePortfolioId)?.name}
+                  >
+                    {portfolios.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
             {/* Mobile menu button */}
             <button
               data-mobile-menu-button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               aria-label={t('navigation.toggleMenu')}
             >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
 
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               aria-label={t('navigation.toggleDarkMode')}
             >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* Notification Bell */}
@@ -178,10 +209,10 @@ export default function Layout() {
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  <User size={18} />
-                  <span className="hidden sm:inline text-sm font-medium">{user.username}</span>
+                  <User size={16} />
+                  <span className="hidden sm:inline text-xs 2xl:text-sm font-medium">{user.username}</span>
                   <ChevronDown size={16} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
                 
@@ -262,6 +293,29 @@ export default function Layout() {
         {mobileMenuOpen && (
           <div ref={mobileMenuRef} className="lg:hidden border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
             <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
+              {/* Portfolio Selector - Mobile */}
+              {portfolios.length > 0 && (
+                <div className="mb-2 pb-4 border-b border-neutral-200 dark:border-neutral-700">
+                  <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2 px-4">
+                    {t('dashboard.activePortfolios')}
+                  </label>
+                  <div className="relative px-4">
+                    <Folder size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 pointer-events-none" />
+                    <select
+                      value={activePortfolioId ?? ''}
+                      onChange={(e) => setActivePortfolio(Number(e.target.value))}
+                      className="w-full pl-9 pr-3 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm font-medium text-neutral-900 dark:text-neutral-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 dark:focus:ring-pink-400"
+                    >
+                      {portfolios.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <Link
                 to="/dashboard"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${

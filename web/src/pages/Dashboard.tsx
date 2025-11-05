@@ -365,24 +365,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Portfolio Selector */}
-      {portfolios.length > 0 && (
-        <div className="card p-4">
-          <label className="block text-sm font-medium mb-2">{t('dashboard.activePortfolios')}</label>
-          <select
-            value={activePortfolioId ?? ''}
-            onChange={(e) => setActivePortfolio(Number(e.target.value))}
-            className="input w-full max-w-md"
-          >
-            {portfolios.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
       {/* Metrics Cards */}
       {metrics && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
