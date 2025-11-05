@@ -158,7 +158,12 @@ import {
   HousePlug,
   HouseWifi,
   HousePlus,
-  BadgeQuestionMark
+  BadgeQuestionMark,
+  Footprints,
+  PaintRoller,
+  Candy,
+  SprayCan,
+  Wallet
 } from 'lucide-react';
 
 import { LucideIcon } from 'lucide-react';
@@ -220,7 +225,7 @@ const INDUSTRY_CONFIG: Record<string, IndustryConfig> = {
   'Asset Management': { sector: 'Financial Services', icon: TrendingUp, exampleTicker: 'BX', exampleName: 'Blackstone Inc.' },
   'Capital Markets': { sector: 'Financial Services', icon: ChartCandlestick, exampleTicker: 'GS', exampleName: 'Goldman Sachs Group, Inc.' },
   'Financial Data & Stock Exchanges': { sector: 'Financial Services', icon: Coins, exampleTicker: 'SPGI', exampleName: 'S&P Global Inc.' },
-  'Credit Services': { sector: 'Financial Services', icon: CreditCard, exampleTicker: 'V', exampleName: 'Visa Inc.' },
+  'Credit Services': { sector: 'Financial Services', icon: Wallet, exampleTicker: 'V', exampleName: 'Visa Inc.' },
   'Insurance - Diversified': { sector: 'Financial Services', icon: Shield, exampleTicker: 'BRK-B', exampleName: 'Berkshire Hathaway Inc.' },
   'Insurance - Life': { sector: 'Financial Services', icon: ShieldPlus, exampleTicker: 'AFL', exampleName: 'Aflac Incorporated' },
   'Insurance - Property & Casualty': { sector: 'Financial Services', icon: LandPlot, exampleTicker: 'PGR', exampleName: 'The Progressive Corporation' },
@@ -257,8 +262,8 @@ const INDUSTRY_CONFIG: Record<string, IndustryConfig> = {
   'Department Stores': { sector: 'Consumer Cyclical', icon: ShoppingBasket, exampleTicker: 'DDS', exampleName: 'Dillard\'s, Inc.' },
   'Apparel Manufacturing': { sector: 'Consumer Cyclical', icon: Shirt, exampleTicker: 'RL', exampleName: 'Ralph Lauren Corporation' },
   'Apparel Retail': { sector: 'Consumer Cyclical', icon: ShoppingBag, exampleTicker: 'TJX', exampleName: 'TJX Companies, Inc.' },
-  'Footwear & Accessories': { sector: 'Consumer Cyclical', icon: Watch, exampleTicker: 'NKE', exampleName: 'Nike, Inc.' },
-  'Home Improvement Retail': { sector: 'Consumer Cyclical', icon: Home, exampleTicker: 'HD', exampleName: 'Home Depot, Inc.' },
+  'Footwear & Accessories': { sector: 'Consumer Cyclical', icon: Footprints, exampleTicker: 'NKE', exampleName: 'Nike, Inc.' },
+  'Home Improvement Retail': { sector: 'Consumer Cyclical', icon: PaintRoller, exampleTicker: 'HD', exampleName: 'Home Depot, Inc.' },
   'Specialty Retail': { sector: 'Consumer Cyclical', icon: Store, exampleTicker: 'TSCO', exampleName: 'Tractor Supply Company' },
   'Internet Retail': { sector: 'Consumer Cyclical', icon: Globe, exampleTicker: 'AMZN', exampleName: 'Amazon.com, Inc.' },
   'Luxury Goods': { sector: 'Consumer Cyclical', icon: Diamond, exampleTicker: 'TPR', exampleName: 'Tapestry, Inc.' },
@@ -275,23 +280,23 @@ const INDUSTRY_CONFIG: Record<string, IndustryConfig> = {
   'Personal Services': { sector: 'Consumer Cyclical', icon: Briefcase, exampleTicker: 'ROL', exampleName: 'Rollins, Inc.' },
   
   // Consumer Defensive
-  'Discount Stores': { sector: 'Consumer Cyclical', icon: ShoppingCart, exampleTicker: 'WMT', exampleName: 'Walmart Inc.' },
+  'Discount Stores': { sector: 'Consumer Defensive', icon: ShoppingCart, exampleTicker: 'WMT', exampleName: 'Walmart Inc.' },
   'Beverages - Non-Alcoholic': { sector: 'Consumer Defensive', icon: CupSoda, exampleTicker: 'KO', exampleName: 'The Coca-Cola Company' },
   'Beverages - Brewers': { sector: 'Consumer Defensive', icon: Beer, exampleTicker: 'STZ', exampleName: 'Constellation Brands, Inc.' },
   'Beverages - Wineries & Distilleries': { sector: 'Consumer Defensive', icon: Wine, exampleTicker: 'BF-B', exampleName: 'Brown-Forman Corporation' },
-  'Confectioners': { sector: 'Consumer Defensive', icon: Container, exampleTicker: 'MDLZ', exampleName: 'Mondelez International, Inc.' },
+  'Confectioners': { sector: 'Consumer Defensive', icon: Candy, exampleTicker: 'MDLZ', exampleName: 'Mondelez International, Inc.' },
   'Farm Products': { sector: 'Consumer Defensive', icon: Wheat, exampleTicker: 'ADM', exampleName: 'Archer-Daniels-Midland Company' },
   'Food Distribution': { sector: 'Consumer Defensive', icon: Truck, exampleTicker: 'SYY', exampleName: 'Sysco Corporation' },
   'Grocery Stores': { sector: 'Consumer Defensive', icon: Apple, exampleTicker: 'KR', exampleName: 'The Kroger Co.' },
   'Packaged Foods': { sector: 'Consumer Defensive', icon: Package, exampleTicker: 'K', exampleName: 'Kellanova' },
   'Education & Training Services': { sector: 'Consumer Defensive', icon: GraduationCap, exampleTicker: 'LOPE', exampleName: 'Grand Canyon Education, Inc.' },
-  'Household & Personal Products': { sector: 'Consumer Defensive', icon: Lamp, exampleTicker: 'PG', exampleName: 'The Procter & Gamble Company' },
+  'Household & Personal Products': { sector: 'Consumer Defensive', icon: SprayCan, exampleTicker: 'PG', exampleName: 'The Procter & Gamble Company' },
   'Tobacco': { sector: 'Consumer Defensive', icon: Cigarette, exampleTicker: 'PM', exampleName: 'Philip Morris International Inc.' },
 
   // Industrials
   'Aerospace & Defense': { sector: 'Industrials', icon: Rocket, exampleTicker: 'GE', exampleName: 'GE Aerospace' },
-  'Airlines': { sector: 'Industrials', icon: PlaneLanding, exampleTicker: 'DAL', exampleName: 'Delta Air Lines, Inc.' },
-  'Airports & Air Services': { sector: 'Industrials', icon: PlaneTakeoff, exampleTicker: 'JOBY', exampleName: 'Joby Aviation, Inc.' },
+  'Airlines': { sector: 'Industrials', icon: PlaneTakeoff, exampleTicker: 'DAL', exampleName: 'Delta Air Lines, Inc.' },
+  'Airports & Air Services': { sector: 'Industrials', icon: PlaneLanding, exampleTicker: 'JOBY', exampleName: 'Joby Aviation, Inc.' },
   'Building Products & Equipment': { sector: 'Industrials', icon: Hammer, exampleTicker: 'TT', exampleName: 'Trane Technologies plc' },
   'Business Equipment & Supplies': { sector: 'Industrials', icon: Cable, exampleTicker: 'EBF', exampleName: 'Ennis, Inc.' },
   'Conglomerates': { sector: 'Industrials', icon: Users, exampleTicker: 'HON', exampleName: 'Honeywell International Inc.' },
