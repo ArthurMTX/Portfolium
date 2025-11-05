@@ -583,11 +583,13 @@ class ApiClient {
         buy_max_total_price: number
         buy_min_total_price: number
         buy_avg_total_price: number
+        buy_sum_fees: number
         sell_sum_total_price: number
         sell_count: number
         sell_max_total_price: number
         sell_min_total_price: number
         sell_avg_total_price: number
+        sell_sum_fees: number
         diff_buy_sell: number
       }>
     }>(`/portfolios/${portfolioId}/transactions/metrics?grouping=${grouping}`)

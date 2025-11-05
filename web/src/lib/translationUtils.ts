@@ -7,8 +7,10 @@
 
 /**
  * Type for the translation function from react-i18next
+ * Compatible with TFunction<"translation", undefined> from i18next
  */
-type TranslationFunction = (key: string, options?: unknown) => string;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TranslationFunction = (key: string, options?: any) => string;
 
 /**
  * Get translated sector name
