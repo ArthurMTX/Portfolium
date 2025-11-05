@@ -1090,5 +1090,22 @@
     "REIT - Specialty": "REIT - Specialty",
     "Other": "Other",
     "Unknown": "Unknown"
+  },
+  "assetClasses": {
+    "stock": "Stock",
+    "etf": "ETF",
+    "crypto": "Crypto",
+    "cash": "Cash"
+  },
+  "assetTypes": {
+    "EQUITY": "Equity",
+    "ETF": "ETF",
+    "CRYPTO": "Crypto",
+    "CRYPTOCURRENCY": "Cryptocurrency",
+    "CASH": "Cash",
+    "MUTUAL_FUND": "Mutual Fund",
+    "INDEX": "Index",
+    "CURRENCY": "Currency",
+    "COMMODITY": "Commodity"
   }
 }

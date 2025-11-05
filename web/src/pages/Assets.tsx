@@ -4,7 +4,6 @@ import api from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
-import { formatAssetType } from '../lib/formatUtils';
 import AssetDistribution from '../components/AssetDistribution';
 import SplitHistory from '../components/SplitHistory';
 import TransactionHistory from '../components/TransactionHistory';
@@ -16,7 +15,7 @@ import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
 import usePortfolioStore from '../store/usePortfolioStore';
 import { useTranslation } from 'react-i18next'
-import { getTranslatedSector, getTranslatedIndustry } from '../lib/translationUtils'
+import { getTranslatedSector, getTranslatedIndustry, getTranslatedAssetClass, getTranslatedAssetType } from '../lib/translationUtils'
 
 interface HeldAsset {
   id: number;
@@ -578,7 +577,7 @@ export default function Assets() {
                             <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('assets.class')}</span>
                             <div className="mt-1">
                               <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.class ? getAssetClassColor(asset.class) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
-                                {asset.class ? asset.class.charAt(0).toUpperCase() + asset.class.slice(1).toLowerCase() : '-'}
+                                {getTranslatedAssetClass(asset.class, t)}
                               </span>
                             </div>
                           </div>
@@ -586,7 +585,7 @@ export default function Assets() {
                             <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.type')}</span>
                             <div className="mt-1 flex justify-end">
                               <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.asset_type ? getAssetTypeColor(asset.asset_type) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
-                                {formatAssetType(asset.asset_type)}
+                                {getTranslatedAssetType(asset.asset_type, t)}
                               </span>
                             </div>
                           </div>
@@ -809,12 +808,12 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.class ? getAssetClassColor(asset.class) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
-                        {asset.class ? asset.class.charAt(0).toUpperCase() + asset.class.slice(1).toLowerCase() : '-'}
+                        {getTranslatedAssetClass(asset.class, t)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.asset_type ? getAssetTypeColor(asset.asset_type) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
-                        {formatAssetType(asset.asset_type)}
+                        {getTranslatedAssetType(asset.asset_type, t)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

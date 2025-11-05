@@ -1135,5 +1135,22 @@
     "REIT - Specialty": "FPI - Spécialisée",
     "Other": "Autre",
     "Unknown": "Inconnu"
+  },
+  "assetClasses": {
+    "stock": "Action",
+    "etf": "ETF",
+    "crypto": "Crypto",
+    "cash": "Liquidité"
+  },
+  "assetTypes": {
+    "EQUITY": "Action",
+    "ETF": "ETF",
+    "CRYPTO": "Crypto",
+    "CRYPTOCURRENCY": "Cryptomonnaie",
+    "CASH": "Liquidité",
+    "MUTUAL_FUND": "Fonds Commun",
+    "INDEX": "Indice",
+    "CURRENCY": "Devise",
+    "COMMODITY": "Matière Première"
   }
 }

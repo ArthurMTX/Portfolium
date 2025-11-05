@@ -22,11 +22,10 @@ import {
 import { getSectorIcon, getSectorColor, getSectorHexColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
-import { formatAssetType } from '../lib/formatUtils';
 import api, { DistributionItemDTO } from '../lib/api';
 import SortIcon from './SortIcon';
 import { useTranslation } from 'react-i18next';
-import { getTranslatedSector, getTranslatedIndustry } from '../lib/translationUtils';
+import { getTranslatedSector, getTranslatedIndustry, getTranslatedAssetType } from '../lib/translationUtils';
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -276,7 +275,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
   const chartData = {
     labels: chartSortedData.map((item) => 
       activeTab === 'type' 
-        ? formatAssetType(item.name) 
+        ? getTranslatedAssetType(item.name, t)
         : activeTab === 'sector' 
           ? getTranslatedSector(item.name, t) 
           : item.name
@@ -312,7 +311,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
           label: (context: { dataIndex: number }) => {
             const item = chartSortedData[context.dataIndex];
             const displayName = activeTab === 'type' 
-              ? formatAssetType(item.name) 
+              ? getTranslatedAssetType(item.name, t)
               : activeTab === 'sector' 
                 ? getTranslatedSector(item.name, t) 
                 : item.name;
@@ -684,7 +683,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                           )}
                         <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                           {activeTab === 'type' 
-                            ? formatAssetType(item.name) 
+                            ? getTranslatedAssetType(item.name, t)
                             : activeTab === 'sector' 
                               ? getTranslatedSector(item.name, t) 
                               : item.name}
