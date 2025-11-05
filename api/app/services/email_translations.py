@@ -12,15 +12,28 @@ from typing import Dict, Any
 
 def get_translation_file_path(language: str) -> Path:
     """Get the path to the translation JSON file for a given language"""
-    # Get the project root (assumes api/ is at project root)
+    # First, try Docker/production path (locales copied to /app/locales)
+    docker_path = Path("/app/locales") / language / "translation.json"
+    if docker_path.exists():
+        return docker_path
+    
+    # Second, try development path (relative to api directory)
+    api_root = Path(__file__).parent.parent.parent
+    dev_path = api_root / "locales" / language / "translation.json"
+    if dev_path.exists():
+        return dev_path
+    
+    # Third, try web directory path (for local development)
     project_root = Path(__file__).parent.parent.parent.parent
-    translation_path = project_root / "web" / "src" / "locales" / language / "translation.json"
+    web_path = project_root / "web" / "src" / "locales" / language / "translation.json"
+    if web_path.exists():
+        return web_path
     
-    if not translation_path.exists():
-        # Fallback to English if language file doesn't exist
-        translation_path = project_root / "web" / "src" / "locales" / "en" / "translation.json"
+    # Fallback to English if language file doesn't exist
+    if language != 'en':
+        return get_translation_file_path('en')
     
-    return translation_path
+    raise FileNotFoundError(f"Translation file not found for language: {language}")
 
 
 def load_translations(language: str = 'en') -> Dict[str, Any]:
@@ -58,12 +71,26 @@ def get_all_translations(language: str, email_type: str) -> Dict[str, str]:
     """
     Get all translations for a specific email type
     
+    Converts i18next-style placeholders ({{variable}}) to Python format placeholders ({variable})
+    for use with .format()
+    
     Args:
         language: Language code (e.g., 'en', 'fr')
         email_type: Email type (e.g., 'verification', 'passwordReset', 'welcome', 'dailyReport')
     
     Returns:
-        Dictionary of all translations for the email type
+        Dictionary of all translations for the email type with converted placeholders
     """
     translations = load_translations(language)
-    return translations.get('emails', {}).get(email_type, {})
+    email_translations = translations.get('emails', {}).get(email_type, {})
+    
+    # Convert i18next placeholders {{var}} to Python format placeholders {var}
+    converted = {}
+    for key, value in email_translations.items():
+        if isinstance(value, str):
+            # Replace {{variable}} with {variable}
+            converted[key] = value.replace('{{', '{').replace('}}', '}')
+        else:
+            converted[key] = value
+    
+    return converted

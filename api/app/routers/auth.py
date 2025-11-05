@@ -211,6 +211,10 @@ async def update_current_user(
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
 
+    # Apply preferred language change if provided
+    if user_update.preferred_language is not None:
+        current_user.preferred_language = user_update.preferred_language
+
     # Apply notification settings if provided
     if user_update.daily_change_notifications_enabled is not None:
         current_user.daily_change_notifications_enabled = user_update.daily_change_notifications_enabled

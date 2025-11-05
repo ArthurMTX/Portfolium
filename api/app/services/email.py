@@ -2,7 +2,7 @@
 Email service for sending verification and password reset emails
 """
 import logging
-from typing import Optional
+from typing import Optional, List, Tuple
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -65,14 +65,29 @@ class EmailService:
         html_content: str,
         text_content: Optional[str] = None,
         attachment_data: Optional[bytes] = None,
-        attachment_filename: Optional[str] = None
+        attachment_filename: Optional[str] = None,
+        attachments: Optional[List[Tuple[str, bytes]]] = None
     ) -> bool:
-        """Send an email via SMTP with optional PDF attachment"""
+        """
+        Send an email via SMTP with optional PDF attachment(s)
+        
+        Args:
+            to_email: Recipient email
+            subject: Email subject
+            html_content: HTML email body
+            text_content: Plain text email body
+            attachment_data: Single attachment data (deprecated, use attachments)
+            attachment_filename: Single attachment filename (deprecated, use attachments)
+            attachments: List of tuples (filename, data) for multiple attachments
+        """
         if not settings.ENABLE_EMAIL:
             logger.info(f"Email disabled. Would send to {to_email}: {subject}")
             logger.debug(f"Email content: {html_content}")
             if attachment_filename:
                 logger.info(f"Would attach: {attachment_filename} ({len(attachment_data) if attachment_data else 0} bytes)")
+            if attachments:
+                for filename, data in attachments:
+                    logger.info(f"Would attach: {filename} ({len(data)} bytes)")
             return True
         
         # Check if SMTP is configured
@@ -96,11 +111,19 @@ class EmailService:
             part2 = MIMEText(html_content, 'html')
             msg.attach(part2)
             
-            # Add PDF attachment if provided
+            # Add single PDF attachment if provided (backward compatibility)
             if attachment_data and attachment_filename:
                 pdf_part = MIMEApplication(attachment_data, _subtype='pdf')
                 pdf_part.add_header('Content-Disposition', 'attachment', filename=attachment_filename)
                 msg.attach(pdf_part)
+            
+            # Add multiple PDF attachments if provided
+            if attachments:
+                for filename, data in attachments:
+                    pdf_part = MIMEApplication(data, _subtype='pdf')
+                    pdf_part.add_header('Content-Disposition', 'attachment', filename=filename)
+                    msg.attach(pdf_part)
+                    logger.info(f"Added attachment: {filename} ({len(data)} bytes)")
             
             # Send email - use SSL for port 465, TLS for other ports
             if self.smtp_port == 465:
@@ -217,7 +240,7 @@ class EmailService:
         reset_url = f"{frontend_url}/reset-password?token={reset_token}"
         
         # Get translations for the specified language
-        t = get_all_translations(language, 'password_reset')
+        t = get_all_translations(language, 'passwordReset')
         
         subject = t['subject']
         
@@ -377,12 +400,25 @@ class EmailService:
         to_email: str,
         username: str,
         report_date: str,
-        pdf_data: bytes,
+        pdf_attachments: List[Tuple[str, bytes]],
         language: str = 'en'
     ) -> bool:
-        """Send daily portfolio report email with PDF attachment"""
-        t = get_all_translations(language, 'daily_report')
-        subject = t['subject'].format(report_date=report_date)
+        """
+        Send daily portfolio report email with multiple PDF attachments (one per portfolio)
+        
+        Args:
+            to_email: Recipient email
+            username: User's username
+            report_date: Report date string (formatted)
+            pdf_attachments: List of tuples (filename, pdf_data) for each portfolio
+            language: User's preferred language
+        """
+        t = get_all_translations(language, 'dailyReport')
+        subject = t['subject'].format(reportDate=report_date)
+        
+        # Update the email content to mention multiple portfolios
+        portfolios_count = len(pdf_attachments)
+        portfolios_text = f"{portfolios_count} portfolio{'s' if portfolios_count > 1 else ''}"
         
         html_content = f"""
         <!DOCTYPE html>
@@ -399,7 +435,7 @@ class EmailService:
                 <div style="background-color: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
                     <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px;">{t['greeting'].format(username=username)}</p>
                     
-                    <p style="margin: 0 0 20px 0; color: #4b5563;">{t['intro'].format(report_date=report_date)}</p>
+                    <p style="margin: 0 0 20px 0; color: #4b5563;">{t['intro'].format(reportDate=report_date)}</p>
                     
                     <!-- Report Info Box -->
                     <div style="background: linear-gradient(135deg, #eef2ff 0%, #fce7f3 100%); border: 1px solid #e9d5ff; border-radius: 6px; padding: 20px; margin: 20px 0;">
@@ -428,6 +464,16 @@ class EmailService:
                     
                     <p style="margin: 20px 0; color: #4b5563;">{t['attachment_text']}</p>
                     
+                    <!-- Attachments Info -->
+                    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+                        <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">
+                            📎 {portfolios_count} PDF Attachment{'s' if portfolios_count > 1 else ''} Included
+                        </p>
+                        <p style="margin: 4px 0 0 0; color: #92400e; font-size: 13px;">
+                            You'll find a separate detailed report for each of your {portfolios_text}.
+                        </p>
+                    </div>
+                    
                     <!-- Settings Link -->
                     <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: center;">
                         <p style="margin: 0; color: #6b7280; font-size: 14px;">
@@ -455,7 +501,7 @@ class EmailService:
         
         {t['text_greeting'].format(username=username)}
         
-        {t['text_intro'].format(report_date=report_date)}
+        {t['text_intro'].format(reportDate=report_date)}
         
         {t['text_report_title']}
         {t['text_report_item_1']}
@@ -471,15 +517,12 @@ class EmailService:
         {t['copyright']}
         """
         
-        filename = f"portfolio_report_{report_date}.pdf"
-        
         return self._send_email(
             to_email, 
             subject, 
             html_content, 
             text_content,
-            attachment_data=pdf_data,
-            attachment_filename=filename
+            attachments=pdf_attachments
         )
 
 

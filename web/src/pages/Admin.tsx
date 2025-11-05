@@ -5,6 +5,7 @@ import api from "../lib/api";
 import { PlusCircle, Users as UsersIcon, X, FileText, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
+import { getFlagUrl } from '../lib/countryUtils'
 
 interface LogEntry {
   logs: string[];
@@ -470,6 +471,7 @@ const AdminDashboard: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('username')}>
                     {t('admin.username')} {sortKey === 'username' && (sortDir === 'asc' ? '▲' : '▼')}
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.language')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.active')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.admin')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('created_at')}>
@@ -539,6 +541,19 @@ const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-neutral-700 dark:text-neutral-300">{u.username}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={getFlagUrl(u.preferred_language === 'fr' ? 'FR' : 'GB', 'w40') || ''}
+                          alt={u.preferred_language === 'fr' ? 'French' : 'English'}
+                          className="w-5 h-4 object-cover rounded-sm"
+                          title={u.preferred_language === 'fr' ? 'Français' : 'English'}
+                        />
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
+                          {u.preferred_language || 'en'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{u.is_active ? t('admin.active') : t('admin.inactive')}</span>

@@ -18,14 +18,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY pyproject.toml ./
+COPY api/pyproject.toml ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
 # Copy application
-COPY . .
+COPY api/ .
+
+# Copy translation files from web directory (needed for email translations)
+COPY web/src/locales ./locales
 
 # Expose port
 EXPOSE 8000

@@ -768,6 +768,7 @@
     "id": "ID",
     "email": "Email",
     "username": "Nom d'utilisateur",
+    "language": "Langue",
     "admin": "Admin",
     "created": "Créé",
     "actions": "Actions",

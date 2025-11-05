@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr
 from app.db import get_db
 from app.auth import get_password_hash
 from app.auth import get_current_admin_user
-from app.models import User, NotificationType
+from app.models import User, NotificationType, Portfolio
 from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
 from app.tasks.scheduler import check_price_alerts, refresh_all_prices
@@ -630,21 +630,21 @@ async def test_email_connection(
             )
             
         elif test_request.test_type == "verification":
-            # Test verification email template
+            # Test verification email template using admin's preferred language
             success = email_service.send_verification_email(
                 test_request.to_email,
-                "TestUser",
+                current_user.username,
                 "test-token-12345",
-                "en"  # Use English for test emails
+                current_user.preferred_language or "en"
             )
             
         elif test_request.test_type == "password_reset":
-            # Test password reset email template
+            # Test password reset email template using admin's preferred language
             success = email_service.send_password_reset_email(
                 test_request.to_email,
-                "TestUser",
+                current_user.username,
                 "reset-token-12345",
-                "en"  # Use English for test emails
+                current_user.preferred_language or "en"
             )
             
         elif test_request.test_type == "daily_report":
@@ -664,22 +664,35 @@ async def test_email_connection(
             report_date = (datetime.utcnow() - timedelta(days=1)).date()
             
             try:
-                pdf_bytes = await pdf_service.generate_daily_report(
-                    user_id=user.id,
-                    report_date=report_date
-                )
+                # Get user's portfolios to generate one PDF per portfolio
+                portfolios = db.query(Portfolio).filter(Portfolio.user_id == user.id).all()
                 
-                # Extract username from test email if user not found
-                username = user.username if user.email == test_request.to_email else test_request.to_email.split('@')[0]
+                if not portfolios:
+                    raise ValueError(f"User {user.id} has no portfolios to generate a report for")
                 
-                # Use user's preferred language if found, otherwise English
-                language = user.preferred_language if user.email == test_request.to_email else "en"
+                # Generate PDFs for each portfolio
+                pdf_attachments = []
+                for portfolio in portfolios:
+                    pdf_data = await pdf_service.generate_daily_report(
+                        user_id=user.id,
+                        portfolio_id=portfolio.id,
+                        report_date=report_date
+                    )
+                    # Clean portfolio name for filename
+                    clean_name = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in portfolio.name)
+                    filename = f"portfolio_report_{clean_name}_{report_date.strftime('%Y%m%d')}.pdf"
+                    pdf_attachments.append((filename, pdf_data))
+                
+                # Extract username and language from the user account
+                # Always use the actual user's language preference (either matched user or current admin)
+                username = user.username
+                language = user.preferred_language or "en"
                 
                 success = email_service.send_daily_report_email(
                     test_request.to_email,
                     username,
                     report_date.strftime('%B %d, %Y'),
-                    pdf_bytes,
+                    pdf_attachments,
                     language
                 )
             except ValueError as e:

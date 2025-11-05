@@ -723,6 +723,7 @@
     "id": "ID",
     "email": "Email",
     "username": "Username",
+    "language": "Language",
     "admin": "Admin",
     "created": "Created",
     "actions": "Actions",
