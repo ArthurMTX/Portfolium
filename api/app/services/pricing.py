@@ -376,39 +376,49 @@ class PricingService:
         Fetch price from Yahoo Finance
         
         Returns dict with price, asof, volume, previous_close or None
+        
+        Strategy: Use ticker.info for both current price and previousClose.
+        This matches what Yahoo Finance website and other platforms (Trade Republic) show.
+        The previousClose includes after-hours trading and is the reference point for
+        intraday percentage calculations that users expect to see.
         """
         try:
             ticker = yf.Ticker(symbol)
             
-            # Try fast_info first (faster) - includes previous close
+            # Try to get current price and previous close from info
+            # This is what Yahoo Finance website uses and what users expect
+            logger.info(f"Fetching data for {symbol}")
             try:
-                info = ticker.fast_info
-                price = float(info.get('last_price', 0))
-                prev_close = float(info.get('previous_close', 0))
+                info = ticker.info
+                current_price = info.get('regularMarketPrice') or info.get('currentPrice')
+                prev_close = info.get('previousClose')
                 
-                logger.info(f"Yahoo Finance fast_info for {symbol}: price={price}, prev_close={prev_close}")
-                
-                if price > 0:
+                if current_price and current_price > 0:
                     result = {
-                        "price": Decimal(str(price)),
+                        "price": Decimal(str(current_price)),
                         "asof": datetime.utcnow(),
-                        "volume": None
+                        "volume": info.get('regularMarketVolume')
                     }
-                    if prev_close > 0:
+                    
+                    if prev_close and prev_close > 0:
                         result["previous_close"] = Decimal(str(prev_close))
-                        logger.info(f"Added previous_close={prev_close} to result for {symbol}")
+                        logger.info(f"Yahoo Finance for {symbol}: price=${current_price}, prev_close=${prev_close}")
+                    
                     return result
             except Exception as e:
-                logger.warning(f"fast_info failed for {symbol}: {e}")
+                logger.warning(f"ticker.info failed for {symbol}: {e}")
             
-            # Fallback to history - get 5 days to ensure we have previous close
+            # Fallback to history for both current and previous close
             logger.info(f"Fetching history for {symbol}")
-            hist = ticker.history(period="5d")
+            hist = ticker.history(period="10d")
+            
             if not hist.empty:
                 logger.info(f"History data for {symbol}: {len(hist)} rows")
                 last_row = hist.iloc[-1]
+                current_price = Decimal(str(float(last_row["Close"])))
+                
                 result = {
-                    "price": Decimal(str(float(last_row["Close"]))),
+                    "price": current_price,
                     "asof": datetime.utcnow(),
                     "volume": int(last_row.get("Volume", 0)) if "Volume" in last_row else None
                 }
@@ -418,7 +428,7 @@ class PricingService:
                     prev_row = hist.iloc[-2]
                     prev_close_val = Decimal(str(float(prev_row["Close"])))
                     result["previous_close"] = prev_close_val
-                    logger.info(f"Added previous_close={prev_close_val} from history for {symbol}")
+                    logger.info(f"Using history for {symbol}: price=${current_price}, prev_close=${prev_close_val}")
                 
                 return result
             
@@ -439,16 +449,18 @@ class PricingService:
         Fetch only the previous close from yfinance and save it to DB.
         This is used when we have a cached price but no historical data for daily change calculation.
         Returns the previous close price if found, None otherwise.
+        
+        Uses ticker.info previousClose to match what Yahoo Finance website shows.
         """
         try:
             ticker = yf.Ticker(symbol)
             
-            # Try fast_info first
+            # Try ticker.info first - matches Yahoo Finance website
             try:
-                info = ticker.fast_info
-                prev_close = float(info.get('previous_close', 0))
+                info = ticker.info
+                prev_close = info.get('previousClose')
                 
-                if prev_close > 0:
+                if prev_close and prev_close > 0:
                     prev_close_decimal = Decimal(str(prev_close))
                     
                     # Save to DB if not already saved
@@ -470,14 +482,14 @@ class PricingService:
                             source="yfinance_prev_close"
                         )
                         crud_prices.create_price(self.db, prev_price_create)
-                        logger.info(f"Saved previous close for {symbol}: {prev_close_decimal}")
+                        logger.info(f"Saved previous close from info for {symbol}: {prev_close_decimal}")
                     
                     return prev_close_decimal
             except Exception as e:
-                logger.warning(f"fast_info failed for {symbol} when fetching prev close: {e}")
+                logger.warning(f"ticker.info failed for {symbol}, trying history: {e}")
             
             # Fallback to history
-            hist = ticker.history(period="5d")
+            hist = ticker.history(period="10d")
             if not hist.empty and len(hist) > 1:
                 prev_row = hist.iloc[-2]
                 prev_close_decimal = Decimal(str(float(prev_row["Close"])))
