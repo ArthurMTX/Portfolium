@@ -58,6 +58,7 @@ def create_user(db: Session, user: UserCreate) -> User:
         username=user.username,
         full_name=user.full_name,
         hashed_password=get_password_hash(user.password),
+        preferred_language=user.preferred_language or 'en',
         is_active=True,  # Active but not verified (unless email is disabled)
         is_verified=is_verified,
         # is_admin must not be set via public registration

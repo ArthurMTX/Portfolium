@@ -634,7 +634,8 @@ async def test_email_connection(
             success = email_service.send_verification_email(
                 test_request.to_email,
                 "TestUser",
-                "test-token-12345"
+                "test-token-12345",
+                "en"  # Use English for test emails
             )
             
         elif test_request.test_type == "password_reset":
@@ -642,7 +643,8 @@ async def test_email_connection(
             success = email_service.send_password_reset_email(
                 test_request.to_email,
                 "TestUser",
-                "reset-token-12345"
+                "reset-token-12345",
+                "en"  # Use English for test emails
             )
             
         elif test_request.test_type == "daily_report":
@@ -670,11 +672,15 @@ async def test_email_connection(
                 # Extract username from test email if user not found
                 username = user.username if user.email == test_request.to_email else test_request.to_email.split('@')[0]
                 
+                # Use user's preferred language if found, otherwise English
+                language = user.preferred_language if user.email == test_request.to_email else "en"
+                
                 success = email_service.send_daily_report_email(
                     test_request.to_email,
                     username,
                     report_date.strftime('%B %d, %Y'),
-                    pdf_bytes
+                    pdf_bytes,
+                    language
                 )
             except ValueError as e:
                 raise HTTPException(

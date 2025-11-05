@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { X, Save, AlertCircle, Info } from 'lucide-react';
 import api from '../lib/api';
 import { SECTOR_ICONS, getIndustriesForSector, getSectorIcon, getIndustryIcon, getSectorColor } from '../lib/sectorIndustryUtils';
+import { getTranslatedSector, getTranslatedIndustry } from '../lib/translationUtils';
 import { getCountryCodeMapping, getFlagUrl } from '../lib/countryUtils';
 import IconSelect from './IconSelect';
 import { useTranslation } from 'react-i18next'
@@ -59,21 +60,21 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
     () =>
       SECTOR_NAMES.map((sector) => ({
         value: sector,
-        label: sector,
+        label: getTranslatedSector(sector, t),
         icon: getSectorIcon(sector),
         iconColor: getSectorColor(sector),
       })),
-    []
+    [t]
   );
 
   const industryOptions = useMemo(
     () =>
       availableIndustries.map((industry) => ({
         value: industry,
-        label: industry,
+        label: getTranslatedIndustry(industry, t),
         icon: getIndustryIcon(industry),
       })),
-    [availableIndustries]
+    [availableIndustries, t]
   );
 
   const countryOptions = useMemo(
@@ -203,7 +204,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
               <div className="flex gap-3">
                 <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={20} />
                 <div className="text-sm text-red-900 dark:text-red-100">
-                  <p className="font-semibold">{t('assetMetadataEdit.error')}</p>
+                  <p className="font-semibold">{t('common.error')}</p>
                   <p className="text-red-800 dark:text-red-200">{error}</p>
                 </div>
               </div>
@@ -213,13 +214,13 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           {/* Sector */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('assetMetadataEdit.sector')}
+              {t('assets.sector')}
             </label>
             {hasYahooData('sector') ? (
               <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-neutral-900 dark:text-neutral-100 font-medium">
-                    {asset.sector}
+                    {getTranslatedSector(asset.sector, t)}
                   </span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-400 bg-neutral-200 dark:bg-neutral-700 px-2 py-1 rounded">
                     {t('assetMetadataEdit.yahooFinance')}
@@ -248,13 +249,13 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           {/* Industry */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('assetMetadataEdit.industry')}
+              {t('assets.industry')}
             </label>
             {hasYahooData('industry') ? (
               <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-neutral-900 dark:text-neutral-100 font-medium">
-                    {asset.industry}
+                    {getTranslatedIndustry(asset.industry, t)}
                   </span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-400 bg-neutral-200 dark:bg-neutral-700 px-2 py-1 rounded">
                     {t('assetMetadataEdit.yahooFinance')}
@@ -288,7 +289,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           {/* Country */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('assetMetadataEdit.country')}
+              {t('assets.country')}
             </label>
             {hasYahooData('country') ? (
               <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-3">

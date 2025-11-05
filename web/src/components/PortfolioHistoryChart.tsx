@@ -46,13 +46,13 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
   // Period labels translation mapping
   const getPeriodLabel = (period: PeriodOption): string => {
     const labelMap: Record<PeriodOption, string> = {
-      '1W': t('charts.period1W'),
-      '1M': t('charts.period1M'),
-      '3M': t('charts.period3M'),
-      '6M': t('charts.period6M'),
-      'YTD': t('charts.periodYTD'),
-      '1Y': t('charts.period1Y'),
-      'ALL': t('charts.periodALL'),
+      '1W': t('charts.periods.1W'),
+      '1M': t('charts.periods.1M'),
+      '3M': t('charts.periods.3M'),
+      '6M': t('charts.periods.6M'),
+      'YTD': t('charts.periods.YTD'),
+      '1Y': t('charts.periods.1Y'),
+      'ALL': t('charts.periods.ALL'),
     }
     return labelMap[period]
   }
@@ -153,7 +153,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
           label: (context: { parsed: { y: number | null } }) => {
             const value = context.parsed.y
             if (value === null) return ''
-            return `${t('charts.value')}: ${currencySymbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            return `${t('fields.value')}: ${currencySymbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           }
         }
       },

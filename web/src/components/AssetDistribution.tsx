@@ -25,7 +25,8 @@ import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { formatAssetType } from '../lib/formatUtils';
 import api, { DistributionItemDTO } from '../lib/api';
 import SortIcon from './SortIcon';
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next';
+import { getTranslatedSector, getTranslatedIndustry } from '../lib/translationUtils';
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -273,7 +274,13 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
 
   // Chart data - use total value if available, otherwise use count
   const chartData = {
-    labels: chartSortedData.map((item) => activeTab === 'type' ? formatAssetType(item.name) : item.name),
+    labels: chartSortedData.map((item) => 
+      activeTab === 'type' 
+        ? formatAssetType(item.name) 
+        : activeTab === 'sector' 
+          ? getTranslatedSector(item.name, t) 
+          : item.name
+    ),
     datasets: [
       {
         label: hasPerformanceData ? 'Portfolio Value' : 'Assets',
@@ -304,7 +311,11 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
         callbacks: {
           label: (context: { dataIndex: number }) => {
             const item = chartSortedData[context.dataIndex];
-            const displayName = activeTab === 'type' ? formatAssetType(item.name) : item.name;
+            const displayName = activeTab === 'type' 
+              ? formatAssetType(item.name) 
+              : activeTab === 'sector' 
+                ? getTranslatedSector(item.name, t) 
+                : item.name;
             if (hasPerformanceData) {
               return `${displayName}: ${formatCurrency(item.totalValue)} (${item.percentage.toFixed(1)}%)`;
             }
@@ -496,7 +507,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
           >
             <Building2 size={18} />
             <span className="hidden sm:inline">{t('assetsDistribution.byType')}</span>
-            <span className="sm:hidden">{t('assetsDistribution.type')}</span>
+            <span className="sm:hidden">{t('fields.type')}</span>
           </button>
           <button
             onClick={() => setActiveTab('country')}
@@ -508,7 +519,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
           >
             <Globe size={18} />
             <span className="hidden sm:inline">{t('assetsDistribution.byCountry')}</span>
-            <span className="sm:hidden">{t('assetsDistribution.country')}</span>
+            <span className="sm:hidden">{t('assets.country')}</span>
           </button>
         </div>
 
@@ -596,8 +607,8 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
                     {activeTab === 'sector' && t('assetsDistribution.sector')}
-                    {activeTab === 'type' && t('assetsDistribution.type')}
-                    {activeTab === 'country' && t('assetsDistribution.country')}
+                    {activeTab === 'type' && t('fields.type')}
+                    {activeTab === 'country' && t('assets.country')}
                     <SortIcon column="name" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   <th 
@@ -672,7 +683,11 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                             </>
                           )}
                         <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                          {activeTab === 'type' ? formatAssetType(item.name) : item.name}
+                          {activeTab === 'type' 
+                            ? formatAssetType(item.name) 
+                            : activeTab === 'sector' 
+                              ? getTranslatedSector(item.name, t) 
+                              : item.name}
                         </span>
                       </div>
                     </td>
@@ -723,7 +738,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                           // Show industry breakdown for sectors
                           <div className="space-y-2">
                             <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
-                              {t('assetsDistribution.industriesIn', { sector: item.name })}
+                              {t('assetsDistribution.industriesIn', { sector: getTranslatedSector(item.name, t) })}
                             </h4>
                             <div className="overflow-x-auto">
                               <table className="min-w-full">
@@ -870,7 +885,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                               <div className="flex items-center gap-2">
                                                 <IndustryIcon size={16} className={getIndustryColor(industry.name)} />
                                                 <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                                  {industry.name}
+                                                  {getTranslatedIndustry(industry.name, t)}
                                                 </span>
                                               </div>
                                             </td>
@@ -924,14 +939,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                         className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                         onClick={() => handleAssetSort('symbol')}
                                                       >
-                                                        {t('assetsDistribution.symbol')}
+                                                        {t('fields.symbol')}
                                                         <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                       <th 
                                                         className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                                         onClick={() => handleAssetSort('name')}
                                                       >
-                                                        {t('assetsDistribution.name')}
+                                                        {t('fields.name')}
                                                         <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
                                                       </th>
                                                       {hasPerformanceData && (
@@ -1044,14 +1059,14 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                     className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('symbol')}
                                   >
-                                    {t('assetsDistribution.symbol')}
+                                    {t('fields.symbol')}
                                     <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                   <th 
                                     className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('name')}
                                   >
-                                    {t('assetsDistribution.name')}
+                                    {t('fields.name')}
                                     <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                   {hasPerformanceData && (
@@ -1076,7 +1091,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                     className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('percentage')}
                                   >
-                                    {t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assetsDistribution.country') : activeTab === 'type' ? t('assetsDistribution.type') : t('assetsDistribution.group') })}
+                                    {t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assets.country') : activeTab === 'type' ? t('fields.type') : t('assetsDistribution.group') })}
                                     <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                 </tr>

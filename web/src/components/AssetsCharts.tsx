@@ -2,6 +2,8 @@
 import { useMemo, useEffect, useState } from 'react';
 import { Pie, Line } from 'react-chartjs-2';
 import { Chart, ArcElement, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale, TimeScale } from 'chart.js';
+import { useTranslation } from 'react-i18next';
+import { getTranslatedSector } from '../lib/translationUtils';
 
 Chart.register(ArcElement, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale, TimeScale);
 
@@ -37,6 +39,8 @@ interface AssetsChartsProps {
 }
 
 export default function AssetsCharts({ assets, portfolioId }: AssetsChartsProps) {
+  const { t } = useTranslation();
+  
   // Sector distribution
   const sectorData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -72,7 +76,7 @@ export default function AssetsCharts({ assets, portfolioId }: AssetsChartsProps)
   }, [assets]);
 
   const sectorChartData = {
-    labels: Object.keys(sectorData),
+    labels: Object.keys(sectorData).map(sector => getTranslatedSector(sector, t)),
     datasets: [
       {
         data: Object.values(sectorData),

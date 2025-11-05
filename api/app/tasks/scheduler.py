@@ -594,7 +594,8 @@ async def send_daily_reports():
                         to_email=user.email,
                         username=user.username,
                         report_date=report_date.strftime('%B %d, %Y'),
-                        pdf_data=pdf_data
+                        pdf_data=pdf_data,
+                        language=user.preferred_language
                     )
                     
                     if success:

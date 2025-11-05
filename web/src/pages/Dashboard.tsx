@@ -310,27 +310,27 @@ export default function Dashboard() {
           )}
           {marketStatus === 'premarket' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">
-              ● {t('dashboard.marketStatusPremarket')}
+              ● {t('market.status.premarket')}
             </span>
           )}
           {marketStatus === 'open' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">
-              ● {t('dashboard.marketStatusOpen')}
+              ● {t('market.status.open')}
             </span>
           )}
           {marketStatus === 'afterhours' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">
-              ● {t('dashboard.marketStatusAfterhours')}
+              ● {t('market.status.afterhours')}
             </span>
           )}
           {marketStatus === 'closed' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full">
-              ● {t('dashboard.marketStatusClosed')}
+              ● {t('market.status.closed')}
             </span>
           )}
           {marketStatus === 'unknown' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 rounded-full">
-              ● {t('dashboard.marketStatusUnknown')}
+              ● {t('market.status.unknown')}
             </span>
           )}
           <button
@@ -501,7 +501,7 @@ export default function Dashboard() {
                   {formatCurrency(metrics.total_dividends)}
                 </p>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">
-                  {t('dashboard.fees')}: {formatCurrency(metrics.total_fees)}
+                  {t('fields.fees')}: {formatCurrency(metrics.total_fees)}
                 </p>
               </div>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0">

@@ -38,6 +38,11 @@ class UserCreate(UserBase):
         ..., min_length=8, max_length=256,
         description="Password (hashed with bcrypt_sha256; supports long passwords)"
     )
+    preferred_language: Optional[str] = Field(
+        default='en',
+        max_length=5,
+        description="User's preferred language for emails and UI (e.g., 'en', 'fr')"
+    )
 
 
 class UserLogin(BaseModel):

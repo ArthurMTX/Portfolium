@@ -175,14 +175,14 @@ export default function Portfolios() {
         <div className="card p-12 text-center">
           <Folder size={48} className="mx-auto text-neutral-400 dark:text-neutral-600 mb-4" />
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-            {t('common.noPortfolios')}
+            {t('emptyStates.noPortfolios')}
           </h3>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-            {t('common.noPortfoliosInfo')}
+            {t('emptyStates.noPortfoliosInfo')}
           </p>
           <button onClick={openAddModal} className="btn-primary inline-flex items-center gap-2">
             <PlusCircle size={18} />
-            {t('common.noPortfoliosCreate')}
+            {t('emptyStates.noPortfoliosCreate')}
           </button>
         </div>
       ) : (

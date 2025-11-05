@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import api from "../lib/api";
 import { PlusCircle, Users as UsersIcon, X, FileText, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { useTranslation } from 'react-i18next'
 
 interface LogEntry {
   logs: string[];
@@ -37,6 +38,7 @@ const AdminDashboard: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const { t } = useTranslation();
   const [newUser, setNewUser] = useState<NewUser>({
     email: "",
     username: "",
@@ -360,10 +362,10 @@ const AdminDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <UsersIcon className="text-pink-600" size={28} />
-            Admin
+            {t('admin.title')}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Manage users, permissions, and view system logs
+            {t('admin.description')}
           </p>
         </div>
         {activeTab === 'users' && (
@@ -372,14 +374,14 @@ const AdminDashboard: React.FC = () => {
               onClick={loadUsers}
               className="flex items-center gap-2 px-3 py-2 text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
             >
-              Refresh
+              {t('admin.refresh')}
             </button>
             <button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
             >
               <PlusCircle size={18} />
-              New User
+              {t('admin.newUser')}
             </button>
           </div>
         )}
@@ -397,7 +399,7 @@ const AdminDashboard: React.FC = () => {
             }`}
           >
             <UsersIcon size={14} className="inline mr-1" />
-            Users
+            {t('admin.usersTab')}
           </button>
           <button
             onClick={() => setActiveTab('logs')}
@@ -408,7 +410,7 @@ const AdminDashboard: React.FC = () => {
             }`}
           >
             <FileText size={14} className="inline mr-1" />
-            Logs
+            {t('admin.logsTab')}
           </button>
           <button
             onClick={() => setActiveTab('email')}
@@ -419,7 +421,7 @@ const AdminDashboard: React.FC = () => {
             }`}
           >
             <Mail size={14} className="inline mr-1" />
-            Email
+            {t('admin.emailTab')}
           </button>
         </nav>
       </div>
@@ -432,7 +434,7 @@ const AdminDashboard: React.FC = () => {
             <input
               value={search}
               onChange={(e)=>setSearch(e.target.value)}
-              placeholder="Search by email or username"
+              placeholder={t('admin.searchEmailUser')}
               className="input text-sm max-w-sm"
             />
             <select
@@ -440,40 +442,40 @@ const AdminDashboard: React.FC = () => {
               onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>setFilterRole(e.target.value as 'all' | 'admin' | 'user')}
               className="input text-sm"
             >
-              <option value="all">All roles</option>
-              <option value="admin">Admins</option>
-              <option value="user">Users</option>
+              <option value="all">{t('admin.allRoles')}</option>
+              <option value="admin">{t('admin.admins')}</option>
+              <option value="user">{t('admin.users')}</option>
             </select>
             <select
               value={filterStatus}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
               className="input text-sm"
             >
-              <option value="all">All statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="all">{t('admin.allStatuses')}</option>
+              <option value="active">{t('admin.active')}</option>
+              <option value="inactive">{t('admin.inactive')}</option>
             </select>
-            <button onClick={() => { setSearch(''); setFilterRole('all'); setFilterStatus('all'); }} className="btn btn-secondary text-sm">Clear</button>
+            <button onClick={() => { setSearch(''); setFilterRole('all'); setFilterStatus('all'); }} className="btn btn-secondary text-sm">{t('admin.clear')}</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('id')}>
-                    ID {sortKey === 'id' && (sortDir === 'asc' ? '▲' : '▼')}
+                    {t('admin.id')} {sortKey === 'id' && (sortDir === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('email')}>
-                    Email {sortKey === 'email' && (sortDir === 'asc' ? '▲' : '▼')}
+                    {t('admin.email')} {sortKey === 'email' && (sortDir === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('username')}>
-                    Username {sortKey === 'username' && (sortDir === 'asc' ? '▲' : '▼')}
+                    {t('admin.username')} {sortKey === 'username' && (sortDir === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Active</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Admin</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.active')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.admin')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('created_at')}>
-                    Created {sortKey === 'created_at' && (sortDir === 'asc' ? '▲' : '▼')}
+                    {t('admin.created')} {sortKey === 'created_at' && (sortDir === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -521,17 +523,17 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <div className="text-sm text-neutral-700 dark:text-neutral-300">{u.email}</div>
                         {u.is_admin ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 font-medium">Admin</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 font-medium">{t('admin.admin')}</span>
                         ) : (
                           u.is_superuser && (
-                            <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 font-medium">Superuser</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 font-medium">{t('admin.superuser')}</span>
                           )
                         )}
                         {!u.is_active && (
-                          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 font-medium">Inactive</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 font-medium">{t('admin.inactive')}</span>
                         )}
                         {u.is_verified && (
-                          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 font-medium">Verified</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 font-medium">{t('admin.verified')}</span>
                         )}
                       </div>
                     </td>
@@ -539,10 +541,10 @@ const AdminDashboard: React.FC = () => {
                       <div className="text-sm text-neutral-700 dark:text-neutral-300">{u.username}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{u.is_active ? 'Active' : 'Inactive'}</span>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{u.is_active ? t('admin.active') : t('admin.inactive')}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.is_admin ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{u.is_admin ? 'Admin' : 'User'}</span>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.is_admin ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{u.is_admin ? t('admin.admin') : t('admin.user')}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -555,31 +557,31 @@ const AdminDashboard: React.FC = () => {
                           onClick={() => toggleActive(u)}
                           disabled={u.is_superuser}
                           className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 transition-colors"
-                          title={u.is_superuser ? 'Cannot deactivate the primary admin' : ''}
+                          title={u.is_superuser ? t('admin.cannotDeactivatePrimaryAdmin') : ''}
                         >
-                          {u.is_active ? 'Deactivate' : 'Activate'}
+                          {u.is_active ? t('admin.deactivate') : t('admin.activate')}
                         </button>
                         <button
                           onClick={() => toggleAdmin(u)}
                           disabled={u.is_superuser}
                           className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 transition-colors"
-                          title={u.is_superuser ? 'Cannot revoke admin from the primary admin' : ''}
+                          title={u.is_superuser ? t('admin.cannotRemovePrimaryAdmin') : ''}
                         >
-                          {u.is_admin ? 'Revoke Admin' : 'Make Admin'}
+                          {u.is_admin ? t('admin.revokeAdmin') : t('admin.makeAdmin')}
                         </button>
                         <button
                           onClick={() => openEditModal(u)}
                           className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                         >
-                          Edit
+                          {t('common.edit')}
                         </button>
                         <button
                           onClick={() => deleteUser(u)}
                           disabled={u.id === user?.id || u.is_superuser}
                           className="px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50 transition-colors"
-                          title={u.is_superuser ? 'Cannot delete the primary admin' : ''}
+                          title={u.is_superuser ? t('admin.cannotDeletePrimaryAdmin') : ''}
                         >
-                          Delete
+                          {t('common.delete')}
                         </button>
                       </div>
                     </td>
@@ -597,7 +599,7 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
               <FileText size={20} className="text-pink-600 dark:text-pink-400" />
-              API Logs
+              {t('admin.apiLogs')}
             </h2>
             <div className="flex items-center gap-2">
               <button
@@ -605,7 +607,7 @@ const AdminDashboard: React.FC = () => {
                 onClick={() => fetchLogs(true)}
                 disabled={logsManualRefresh}
               >
-                {logsManualRefresh ? 'Refreshing...' : 'Refresh'}
+                {logsManualRefresh ? t('common.refreshing') : t('common.refresh')}
               </button>
             </div>
           </div>
@@ -616,12 +618,12 @@ const AdminDashboard: React.FC = () => {
               value={logsLevel}
               onChange={e => { setLogsLevel(e.target.value); setLogsPage(1); }}
             >
-              <option value="">All Levels</option>
+              <option value="">{t('admin.allLevels')}</option>
               {LOG_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
             <input
               className="input text-sm"
-              placeholder="Search logs..."
+              placeholder={t('admin.searchLogs')}
               value={logsSearch}
               onChange={e => setLogsSearch(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") fetchLogs(); }}
@@ -630,7 +632,7 @@ const AdminDashboard: React.FC = () => {
               className="btn btn-primary text-sm"
               onClick={() => { setLogsPage(1); fetchLogs(true); }}
             >
-              Search
+              {t('common.search')}
             </button>
             <select
               className="input text-sm"
@@ -638,7 +640,7 @@ const AdminDashboard: React.FC = () => {
               onChange={e => { setLogsPageSize(Number(e.target.value)); setLogsPage(1); }}
             >
               {[25, 50, 100, 200, 500].map(size => (
-                <option key={size} value={size}>{size} per page</option>
+                <option key={size} value={size}>{size} {t('admin.perPage')}</option>
               ))}
             </select>
             
@@ -651,7 +653,7 @@ const AdminDashboard: React.FC = () => {
                   onChange={(e) => setLogsAutoRefresh(e.target.checked)}
                   className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                 />
-                Auto-refresh
+                {t('admin.autoRefresh')}
               </label>
               <select
                 className="input text-sm w-24"
@@ -670,15 +672,15 @@ const AdminDashboard: React.FC = () => {
           
           <div className="bg-black text-green-200 font-mono text-xs rounded p-2 h-[600px] overflow-auto border border-neutral-700">
             {logsLoading && logs.length === 0 ? (
-              <div className="text-yellow-300">Loading logs...</div>
+              <div className="text-yellow-300">{t('admin.loadingLogs')}</div>
             ) : !Array.isArray(logs) || logs.length === 0 ? (
               <div>
-                <div className="text-yellow-300">No logs found.</div>
+                <div className="text-yellow-300">{t('admin.noLogsFound')}</div>
                 <div className="text-neutral-400 mt-2">
-                  {logsTotal === 0 && 'The log file may be empty or does not exist yet.'}
+                  {logsTotal === 0 && t('admin.logFileEmptyOrNotFound')}
                 </div>
                 <div className="text-neutral-400 mt-1">
-                  Check the browser console for any errors.
+                  {t('admin.checkConsole')}
                 </div>
               </div>
             ) : (
@@ -692,17 +694,17 @@ const AdminDashboard: React.FC = () => {
               onClick={() => setLogsPage(p => Math.max(1, p - 1))}
               disabled={logsPage === 1}
             >
-              Prev
+              {t('admin.prevButton')}
             </button>
             <span className="text-sm text-neutral-600 dark:text-neutral-400">
-              Page {logsPage} of {logsTotalPages || 1}
+              {t('admin.pageOf', { current: logsPage, total: logsTotalPages || 1 })}
             </span>
             <button
               className="btn btn-secondary text-sm disabled:opacity-50"
               onClick={() => setLogsPage(p => Math.min(logsTotalPages, p + 1))}
               disabled={logsPage === logsTotalPages || logsTotalPages === 0}
             >
-              Next
+              {t('admin.nextButton')}
             </button>
           </div>
         </div>
@@ -715,7 +717,7 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Mail size={20} className="text-pink-600" />
-              Email Configuration
+              {t('admin.emailSettings')}
             </h2>
             
             {emailLoading ? (
@@ -727,8 +729,8 @@ const AdminDashboard: React.FC = () => {
                 {/* Enable Email */}
                 <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
                   <div>
-                    <h3 className="font-medium text-neutral-900 dark:text-neutral-100">Enable Email System</h3>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Allow the application to send emails</p>
+                    <h3 className="font-medium text-neutral-900 dark:text-neutral-100">{t('admin.enableEmail')}</h3>
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('admin.emailSettingsDescription')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -744,7 +746,7 @@ const AdminDashboard: React.FC = () => {
                 {/* SMTP Settings */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Host</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpHost')}</label>
                     <input
                       type="text"
                       value={emailConfig.smtp_host}
@@ -754,7 +756,7 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Port</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpPort')}</label>
                     <input
                       type="number"
                       value={emailConfig.smtp_port}
@@ -764,7 +766,7 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Username</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpUsername')}</label>
                     <input
                       type="text"
                       value={emailConfig.smtp_user}
@@ -774,7 +776,7 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">SMTP Password</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpPassword')}</label>
                     <input
                       type="password"
                       value={emailConfig.smtp_password || ''}
@@ -794,13 +796,13 @@ const AdminDashboard: React.FC = () => {
                     onChange={(e) => setEmailConfig({ ...emailConfig, smtp_tls: e.target.checked })}
                     className="rounded border-neutral-300 dark:border-neutral-700"
                   />
-                  <label htmlFor="smtp_tls" className="text-sm text-neutral-700 dark:text-neutral-300">Use TLS encryption</label>
+                  <label htmlFor="smtp_tls" className="text-sm text-neutral-700 dark:text-neutral-300">{t('admin.useTls')}</label>
                 </div>
 
                 {/* From Email Settings */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">From Email</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fromEmail')}</label>
                     <input
                       type="email"
                       value={emailConfig.from_email}
@@ -810,7 +812,7 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">From Name</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fromName')}</label>
                     <input
                       type="text"
                       value={emailConfig.from_name}
@@ -823,7 +825,7 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Frontend URL */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Frontend URL</label>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.frontendUrl')}</label>
                   <input
                     type="url"
                     value={emailConfig.frontend_url}
@@ -831,7 +833,7 @@ const AdminDashboard: React.FC = () => {
                     className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
                     placeholder="https://example.com"
                   />
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Used in email links and templates</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('admin.frontendNote')}</p>
                 </div>
 
                 {/* Save Button */}
@@ -843,12 +845,12 @@ const AdminDashboard: React.FC = () => {
                   {emailSaving ? (
                     <>
                       <LoadingSpinner size="sm" color="white" />
-                      Saving...
+                      {t('common.saving')}
                     </>
                   ) : (
                     <>
                       <CheckCircle size={16} />
-                      Save Configuration
+                      {t('common.save')}
                     </>
                   )}
                 </button>
@@ -861,13 +863,13 @@ const AdminDashboard: React.FC = () => {
             <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <Send size={20} className="text-pink-600" />
-                Test Email
+                {t('admin.testEmail')}
               </h2>
               
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Recipient Email</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.recipientEmail')}</label>
                     <input
                       type="email"
                       value={testEmailAddress}
@@ -877,16 +879,16 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Email Type</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailType')}</label>
                     <select
                       value={testEmailType}
                       onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'daily_report')}
                       className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
                     >
-                      <option value="simple">Simple Test</option>
-                      <option value="verification">Verification Email</option>
-                      <option value="password_reset">Password Reset</option>
-                      <option value="daily_report">Daily Report</option>
+                      <option value="simple">{t('admin.simpleTest')}</option>
+                      <option value="verification">{t('admin.verificationTest')}</option>
+                      <option value="password_reset">{t('admin.passwordResetTest')}</option>
+                      <option value="daily_report">{t('admin.dailyReportTest')}</option>
                     </select>
                   </div>
                 </div>
@@ -899,12 +901,12 @@ const AdminDashboard: React.FC = () => {
                   {emailTesting ? (
                     <>
                       <LoadingSpinner size="sm" color="white" />
-                      Sending...
+                      {t('admin.sendingTestEmail')}
                     </>
                   ) : (
                     <>
                       <Send size={16} />
-                      Send Test Email
+                      {t('admin.sendTestEmail')}
                     </>
                   )}
                 </button>
@@ -936,42 +938,42 @@ const AdminDashboard: React.FC = () => {
           {/* Email Statistics */}
           {emailStats && (
             <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
-              <h2 className="text-xl font-semibold mb-4">Email Statistics</h2>
+              <h2 className="text-xl font-semibold mb-4">{t('admin.emailStatistics')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Active Users</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">{t('admin.totalActiveUsers')}</p>
                   <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{emailStats.total_active_users}</p>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
-                  <p className="text-sm text-green-600 dark:text-green-400 font-medium">Verified Users</p>
+                  <p className="text-sm text-green-600 dark:text-green-400 font-medium">{t('admin.verifiedUsers')}</p>
                   <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{emailStats.verified_users}</p>
                 </div>
                 <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Email System</p>
+                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">{t('admin.emailSystem')}</p>
                   <p className="text-lg font-bold text-purple-900 dark:text-purple-100 mt-1">
-                    {emailStats.email_enabled ? '✓ Enabled' : '✗ Disabled'}
+                    {emailStats.email_enabled ? `✓ ${t('admin.enabled')}` : `✗ ${t('admin.disabled')}`}
                   </p>
                 </div>
                 <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                  <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">SMTP Configuration</p>
+                  <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">{t('admin.smtpConfiguration')}</p>
                   <p className="text-lg font-bold text-orange-900 dark:text-orange-100 mt-1">
-                    {emailStats.smtp_configured ? '✓ Configured' : '✗ Not Configured'}
+                    {emailStats.smtp_configured ? `✓ ${t('admin.configured')}` : `✗ ${t('admin.notConfigured')}`}
                   </p>
                 </div>
               </div>
               <div className="mt-4 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
-                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">Notification Preferences</h3>
+                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.notificationPreferences')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                   <div>
-                    <span className="text-neutral-600 dark:text-neutral-400">Daily Reports:</span>{' '}
+                    <span className="text-neutral-600 dark:text-neutral-400">{t('admin.dailyReports')}:</span>{' '}
                     <span className="font-medium text-neutral-900 dark:text-neutral-100">{emailStats.notifications.daily_reports_enabled}</span>
                   </div>
                   <div>
-                    <span className="text-neutral-600 dark:text-neutral-400">Daily Changes:</span>{' '}
+                    <span className="text-neutral-600 dark:text-neutral-400">{t('admin.dailyChanges')}:</span>{' '}
                     <span className="font-medium text-neutral-900 dark:text-neutral-100">{emailStats.notifications.daily_changes_enabled}</span>
                   </div>
                   <div>
-                    <span className="text-neutral-600 dark:text-neutral-400">Transactions:</span>{' '}
+                    <span className="text-neutral-600 dark:text-neutral-400">{t('admin.transactions')}:</span>{' '}
                     <span className="font-medium text-neutral-900 dark:text-neutral-100">{emailStats.notifications.transaction_notifications_enabled}</span>
                   </div>
                 </div>
@@ -986,7 +988,7 @@ const AdminDashboard: React.FC = () => {
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Create User</h2>
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{t('admin.createUser')}</h2>
               <button onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors">
                 <X size={20} />
               </button>
@@ -994,31 +996,31 @@ const AdminDashboard: React.FC = () => {
 
             <form className="p-6 space-y-4" onSubmit={createUser}>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Email</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder="Email" type="email" value={newUser.email} onChange={(e)=>setNewUser({...newUser, email: e.target.value})} required />
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailField')}</label>
+                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.emailPlaceholder')} type="email" value={newUser.email} onChange={(e)=>setNewUser({...newUser, email: e.target.value})} required />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Username</label>
-                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder="Username" value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} required />
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.usernameField')}</label>
+                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.usernamePlaceholder')} value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Full name</label>
-                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder="Full name" value={newUser.full_name} onChange={(e)=>setNewUser({...newUser, full_name: e.target.value})} />
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fullNameField')}</label>
+                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.fullNamePlaceholder')} value={newUser.full_name} onChange={(e)=>setNewUser({...newUser, full_name: e.target.value})} />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Password</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder="Password" type="password" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} required />
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.passwordField')}</label>
+                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.passwordPlaceholder')} type="password" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} required />
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_admin} onChange={(e)=>setNewUser({...newUser, is_admin: e.target.checked})} /> Admin</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_active} onChange={(e)=>setNewUser({...newUser, is_active: e.target.checked})} /> Active</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_verified} onChange={(e)=>setNewUser({...newUser, is_verified: e.target.checked})} /> Verified</label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_admin} onChange={(e)=>setNewUser({...newUser, is_admin: e.target.checked})} /> {t('admin.isAdminLabel')}</label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_active} onChange={(e)=>setNewUser({...newUser, is_active: e.target.checked})} /> {t('admin.isActiveLabel')}</label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_verified} onChange={(e)=>setNewUser({...newUser, is_verified: e.target.checked})} /> {t('admin.isVerifiedLabel')}</label>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Cancel</button>
-                <button type="submit" disabled={creating} className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors">{creating ? 'Creating...' : 'Create'}</button>
+                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">{t('common.cancel')}</button>
+                <button type="submit" disabled={creating} className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors">{creating ? t('common.creating') : t('common.create')}</button>
               </div>
             </form>
           </div>
@@ -1030,38 +1032,38 @@ const AdminDashboard: React.FC = () => {
         <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Edit User</h2>
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{t('admin.editUser')}</h2>
               <button onClick={closeEditModal} className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors">
                 <X size={20} />
               </button>
             </div>
             <form className="p-6 space-y-4" onSubmit={saveEdit}>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Email</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailField')}</label>
                 <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" value={editPayload.email || ''} onChange={(e)=>setEditPayload(p=>({...p, email: e.target.value}))} required />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Username</label>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.usernameField')}</label>
                   <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" value={editPayload.username || ''} onChange={(e)=>setEditPayload(p=>({...p, username: e.target.value}))} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Full name</label>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fullNameField')}</label>
                   <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" value={editPayload.full_name || ''} onChange={(e)=>setEditPayload(p=>({...p, full_name: e.target.value}))} />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">New Password (optional)</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" type="password" value={editPayload.password || ''} onChange={(e)=>setEditPayload(p=>({...p, password: e.target.value}))} placeholder="Leave blank to keep current password" />
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.newPasswordField')}</label>
+                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" type="password" value={editPayload.password || ''} onChange={(e)=>setEditPayload(p=>({...p, password: e.target.value}))} placeholder={t('admin.newPasswordPlaceholder')} />
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_admin} onChange={(e)=>setEditPayload(p=>({...p, is_admin: e.target.checked}))} disabled={editingUser.is_superuser} /> Admin</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_active} onChange={(e)=>setEditPayload(p=>({...p, is_active: e.target.checked}))} disabled={editingUser.is_superuser} /> Active</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_verified} onChange={(e)=>setEditPayload(p=>({...p, is_verified: e.target.checked}))} /> Verified</label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_admin} onChange={(e)=>setEditPayload(p=>({...p, is_admin: e.target.checked}))} disabled={editingUser.is_superuser} /> <span>{t('admin.isAdminLabel')}</span></label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_active} onChange={(e)=>setEditPayload(p=>({...p, is_active: e.target.checked}))} disabled={editingUser.is_superuser} /> <span>{t('admin.isActiveLabel')}</span></label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_verified} onChange={(e)=>setEditPayload(p=>({...p, is_verified: e.target.checked}))} /> <span>{t('admin.isVerifiedLabel')}</span></label>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={closeEditModal} className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors">Save</button>
+                <button type="button" onClick={closeEditModal} className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">{t('common.cancel')}</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors">{t('common.save')}</button>
               </div>
             </form>
           </div>

@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { MailCheck, Shield, Trash2, User as UserIcon, RefreshCw } from 'lucide-react'
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 type ProfileTab = 'profile' | 'security' | 'danger';
 
 export default function Profile() {
   const { user, refreshUser, logout } = useAuth()
+  const { t } = useTranslation()
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
   const [fullName, setFullName] = useState('')
@@ -51,7 +53,7 @@ export default function Profile() {
       if (email !== user.email) payload.email = email
 
       if (Object.keys(payload).length === 0) {
-        setMessage({ type: 'success', text: 'Nothing to update' })
+        setMessage({ type: 'success', text: t('profile.nothingToUpdate') })
         return
       }
 
@@ -61,11 +63,11 @@ export default function Profile() {
       setMessage({
         type: 'success',
         text: emailChanged
-          ? 'Profile updated. Please verify your new email address—verification email sent.'
-          : 'Profile updated successfully.',
+          ? t('profile.profileUpdatedEmailChanged')
+          : t('profile.profileUpdated'),
       })
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : 'Failed to update profile'
+      const text = err instanceof Error ? err.message : t('profile.failedToUpdateProfile')
       setMessage({ type: 'error', text })
     } finally {
       setSaving(false)
@@ -77,22 +79,22 @@ export default function Profile() {
     e.preventDefault()
     setPwdMessage(null)
     if (!newPassword || newPassword.length < 8) {
-      setPwdMessage({ type: 'error', text: 'New password must be at least 8 characters' })
+      setPwdMessage({ type: 'error', text: t('profile.newPasswordMinLength') })
       return
     }
     if (newPassword !== confirmPassword) {
-      setPwdMessage({ type: 'error', text: 'New passwords do not match' })
+      setPwdMessage({ type: 'error', text: t('profile.newPasswordMismatch') })
       return
     }
     setChangingPwd(true)
     try {
       await api.changePassword(currentPassword, newPassword)
-      setPwdMessage({ type: 'success', text: 'Password changed successfully' })
+      setPwdMessage({ type: 'success', text: t('profile.passwordSuccessfullyChanged') })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : 'Failed to change password'
+      const text = err instanceof Error ? err.message : t('profile.failedToChangePassword')
       setPwdMessage({ type: 'error', text })
     } finally {
       setChangingPwd(false)
@@ -108,7 +110,7 @@ export default function Profile() {
       const res = await api.resendVerification(email)
       setResendMsg(res.message)
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : 'Failed to resend verification email'
+      const text = err instanceof Error ? err.message : t('profile.failedToSendVerification')
       setResendMsg(text)
     } finally {
       setResending(false)
@@ -124,7 +126,7 @@ export default function Profile() {
       // Log out and redirect to login
       logout()
     } catch (err: unknown) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to delete account' })
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('profile.failedToDeleteAccount') })
     } finally {
       setDeleting(false)
     }
@@ -136,10 +138,10 @@ export default function Profile() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
           <UserIcon className="text-pink-600" size={28} />
-          Profile
+          {t('profile.title')}
         </h1>
         <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-          Manage your account settings and preferences
+          {t('profile.description')}
         </p>
       </div>
 
@@ -155,7 +157,7 @@ export default function Profile() {
             }`}
           >
             <UserIcon size={14} className="inline mr-1" />
-            Profile
+            {t('profile.profileTab')}
           </button>
           <button
             onClick={() => setActiveTab('security')}
@@ -166,7 +168,7 @@ export default function Profile() {
             }`}
           >
             <Shield size={14} className="inline mr-1" />
-            Security
+            {t('profile.securityTab')}
           </button>
           <button
             onClick={() => setActiveTab('danger')}
@@ -177,7 +179,7 @@ export default function Profile() {
             }`}
           >
             <Trash2 size={14} className="inline mr-1" />
-            Danger
+            {t('profile.dangerTab')}
           </button>
         </nav>
       </div>
@@ -187,9 +189,9 @@ export default function Profile() {
         <div className="card p-6">
         <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
           <UserIcon size={20} className="text-pink-600 dark:text-pink-400" />
-          Profile Information
+          {t('profile.profileInformation')}
         </h2>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Update your personal information.</p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">{t('profile.profileDescription')}</p>
 
         {message && (
           <div
@@ -205,42 +207,42 @@ export default function Profile() {
 
         <form onSubmit={handleSave} className="space-y-4 max-w-xl">
           <div>
-            <label className="block text-sm font-medium mb-1">Full name</label>
+            <label className="block text-sm font-medium mb-1">{t('profile.nameField')}</label>
             <input
               className="input w-full"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Your name"
+              placeholder={t('profile.namePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Username</label>
+            <label className="block text-sm font-medium mb-1">{t('profile.usernameField')}</label>
             <input
               className="input w-full"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="username"
+              placeholder={t('profile.usernamePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label className="block text-sm font-medium mb-1">{t('profile.emailField')}</label>
             <input
               type="email"
               className="input w-full"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={t('profile.emailPlaceholder')}
             />
             {user && !user.is_verified && (
               <div className="mt-2 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
-                <MailCheck size={14} /> Email not verified.
+                <MailCheck size={14} /> {t('profile.emailNotVerified')}
                 <button
                   type="button"
                   onClick={handleResendVerification}
                   disabled={resending}
                   className="inline-flex items-center gap-1 text-pink-600 dark:text-pink-400 hover:underline"
                 >
-                  <RefreshCw size={12} /> {resending ? 'Sending…' : 'Resend verification'}
+                  <RefreshCw size={12} /> {resending ? t('profile.resendingVerification') : t('profile.resendVerification')}
                 </button>
                 {resendMsg && <span className="ml-2">{resendMsg}</span>}
               </div>
@@ -249,7 +251,7 @@ export default function Profile() {
 
           <div className="pt-2">
             <button type="submit" disabled={saving} className={`btn ${saving ? 'btn-disabled' : 'btn-primary'}`}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </form>
@@ -261,9 +263,9 @@ export default function Profile() {
         <div className="card p-6">
         <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
           <Shield size={20} className="text-pink-600 dark:text-pink-400" />
-          Security
+          {t('profile.securityInformation')}
         </h2>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Update your password regularly to keep your account secure.</p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">{t('profile.securityDescription')}</p>
 
         {pwdMessage && (
           <div
@@ -279,7 +281,7 @@ export default function Profile() {
 
         <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
           <div>
-            <label className="block text-sm font-medium mb-1">Current password</label>
+            <label className="block text-sm font-medium mb-1">{t('profile.currentPasswordField')}</label>
             <input
               type="password"
               className="input w-full"
@@ -290,30 +292,30 @@ export default function Profile() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">New password</label>
+            <label className="block text-sm font-medium mb-1">{t('profile.newPasswordField')}</label>
             <input
               type="password"
               className="input w-full"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="At least 8 characters"
+              placeholder={t('profile.newPasswordPlaceholder')}
               autoComplete="new-password"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Confirm new password</label>
+            <label className="block text-sm font-medium mb-1">{t('profile.confirmNewPasswordField')}</label>
             <input
               type="password"
               className="input w-full"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Repeat new password"
+              placeholder={t('profile.confirmNewPasswordPlaceholder')}
               autoComplete="new-password"
             />
           </div>
           <div className="pt-2">
             <button type="submit" disabled={changingPwd} className={`btn ${changingPwd ? 'btn-disabled' : 'btn-primary'}`}>
-              {changingPwd ? 'Changing…' : 'Change password'}
+              {changingPwd ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </form>
@@ -325,12 +327,12 @@ export default function Profile() {
         <div className="card p-6 border border-red-300/40 bg-red-50 dark:bg-red-950/30">
         <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
           <Trash2 size={20} />
-          Delete account
+          {t('profile.deleteAccount')}
         </h2>
         <p className="text-red-800 dark:text-red-200 mb-4">
-          This will permanently delete your account and all associated data. This action cannot be undone.
+          {t('profile.deleteDescription')}
         </p>
-        <label className="block text-sm text-red-800 dark:text-red-200 mb-2">Type "delete account" to confirm</label>
+        <label className="block text-sm text-red-800 dark:text-red-200 mb-2">{t('profile.deleteConfirm')}</label>
         <div className="flex gap-3 items-center">
           <input
             className="input w-52 bg-white/70 dark:bg-neutral-900/50"
@@ -343,7 +345,7 @@ export default function Profile() {
             disabled={!canDelete || deleting}
             className={`btn ${canDelete ? 'btn-error' : 'btn-disabled'}`}
           >
-            {deleting ? 'Deleting…' : 'Delete my account'}
+            {deleting ? t('profile.deletingAccount') : t('profile.deleteAccountButton')}
           </button>
         </div>
       </div>

@@ -126,7 +126,7 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
         <div className="p-6">
           {loading ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              {t('splitHistory.loading')}
+              {t('common.loading')}
             </div>
           ) : splits.length === 0 ? (
             <div className="text-center py-12">
@@ -135,7 +135,7 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
                 {t('splitHistory.noSplits', { ticker: assetSymbol })}
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-2">
-                {t('splitHistory.noSplitsInfo')}
+                {t('splitHistory.empty.noSplitsInfo')}
               </p>
             </div>
           ) : (

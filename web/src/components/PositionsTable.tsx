@@ -122,9 +122,9 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
     const labels: Record<SortKey, string> = {
-      symbol: t('common.symbol'),
-      name: t('common.name'),
-      quantity: t('common.quantity'),
+      symbol: t('fields.symbol'),
+      name: t('fields.name'),
+      quantity: t('fields.quantity'),
       avg_cost: t('dashboard.avgCost'),
       current_price: t('dashboard.currentPrice'),
       daily_change_pct: t('dashboard.dailyChange'),
@@ -246,7 +246,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
               ) : (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.quantity')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.quantity')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatQuantity(position.quantity)}
                     </div>
@@ -318,14 +318,14 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   aria-sort={sortKey === 'symbol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  {t('common.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
+                  {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th
                   onClick={() => handleSort('name')}
                   aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  {t('common.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
+                  {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                 </th>
               {isSold ? (
                 <>
@@ -367,7 +367,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('common.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
+                    {t('fields.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('avg_cost')}

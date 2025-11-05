@@ -407,13 +407,13 @@ export default function Watchlist() {
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.symbol')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.name')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.price')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.symbol')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.name')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.price')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.dailyChange')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.notes')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.notes')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.alert')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.actions')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -507,7 +507,7 @@ export default function Watchlist() {
             {/* Sort Controls */}
             <div className="flex items-center gap-2 mb-3">
               <label htmlFor="mobile-sort-watchlist" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                {t('watchlist.sortBy')}:
+                {t('common.sortBy')}:
               </label>
               <select
                 id="mobile-sort-watchlist"
@@ -534,7 +534,7 @@ export default function Watchlist() {
             <div className="space-y-3">
               {sortedWatchlist.length === 0 ? (
                 <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
-                  {t('watchlist.noWatchlistAssets')}
+                  {t('watchlist.empty.noWatchlistAssets')}
                 </div>
               ) : (
                 sortedWatchlist.map((item) => {
@@ -592,10 +592,10 @@ export default function Watchlist() {
                         <div className="space-y-3 text-sm">
                           <div>
                             <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
-                              {t('watchlist.notes')}
+                              {t('fields.notes')}
                             </label>
                             <textarea
-                              placeholder={t('watchlist.notes')}
+                              placeholder={t('fields.notes')}
                               value={editNotes}
                               onChange={(e) => setEditNotes(e.target.value)}
                               className="input w-full text-sm"
@@ -629,7 +629,7 @@ export default function Watchlist() {
                         <div className="grid grid-cols-1 gap-y-2.5 text-sm">
                           {item.notes && (
                             <div>
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.notes')}</span>
+                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
                               <div className="text-neutral-900 dark:text-neutral-100 mt-1">
                                 {item.notes}
                               </div>
@@ -642,7 +642,7 @@ export default function Watchlist() {
                                 {formatPrice(item.alert_target_price, item.currency)}
                                 {item.alert_enabled && (
                                   <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-                                    {t('watchlist.enabled')}
+                                    {t('common.enabled')}
                                   </span>
                                 )}
                               </div>
@@ -712,21 +712,21 @@ export default function Watchlist() {
                   aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  {t('watchlist.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
+                  {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th 
                   onClick={() => handleSort('name')}
                   aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  {t('watchlist.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
+                  {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th 
                   onClick={() => handleSort('current_price')}
                   aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  {t('watchlist.price')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                  {t('fields.price')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th 
                   onClick={() => handleSort('daily_change_pct')}
@@ -743,14 +743,14 @@ export default function Watchlist() {
                 >
                   {t('watchlist.alert')} <SortIcon column="alert_target_price" activeColumn={sortKey} direction={sortDir} />
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.actions')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
               {sortedWatchlist.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
-                    {t('watchlist.noWatchlistAssets')}
+                    {t('watchlist.empty.noWatchlistAssets')}
                   </td>
                 </tr>
               ) : (
@@ -799,7 +799,7 @@ export default function Watchlist() {
                       {editingItem === item.id ? (
                         <input
                           type="text"
-                          placeholder={t('watchlist.notesPlaceholder')}
+                          placeholder={t('placeholders.enterNotes')}
                           value={editNotes}
                           onChange={(e) => setEditNotes(e.target.value)}
                           className="input w-full text-sm"
@@ -826,7 +826,7 @@ export default function Watchlist() {
                               onChange={(e) => setEditAlertEnabled(e.target.checked)}
                               className="mr-1"
                             />
-                            {t('watchlist.enabled')}
+                            {t('common.enabled')}
                           </label>
                         </div>
                       ) : item.alert_enabled && item.alert_target_price !== null ? (
@@ -995,7 +995,7 @@ export default function Watchlist() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">{t('watchlist.portfolio')}</label>
+                <label className="block text-sm font-medium mb-1">{t('fields.portfolio')}</label>
                 <select
                   value={convertPortfolioId || ''}
                   onChange={(e) => setConvertPortfolioId(Number(e.target.value))}
@@ -1010,7 +1010,7 @@ export default function Watchlist() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('watchlist.quantity')}</label>
+                  <label className="block text-sm font-medium mb-1">{t('fields.quantity')}</label>
                   <input
                     type="number"
                     step="0.00000001"
@@ -1022,7 +1022,7 @@ export default function Watchlist() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('watchlist.price')} ({convertItem.currency})</label>
+                  <label className="block text-sm font-medium mb-1">{t('fields.price')} ({convertItem.currency})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1034,7 +1034,7 @@ export default function Watchlist() {
                   />
                   {toNumber(convertItem.current_price) !== null && (
                     <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      {t('watchlist.current')}: {new Intl.NumberFormat(currentLocale, { style: 'currency', currency: convertItem.currency || 'USD' }).format(toNumber(convertItem.current_price) || 0)}
+                      {t('fields.current')}: {new Intl.NumberFormat(currentLocale, { style: 'currency', currency: convertItem.currency || 'USD' }).format(toNumber(convertItem.current_price) || 0)}
                       {convertItem.last_updated ? ` • ${t('watchlist.updatedAt')} ${new Date(convertItem.last_updated).toLocaleString(currentLocale)}` : ''}
                     </div>
                   )}
@@ -1120,7 +1120,7 @@ export default function Watchlist() {
             <form onSubmit={handleAddSymbol} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {t('watchlist.symbol')}
+                  {t('fields.symbol')}
                 </label>
                 <input
                   type="text"
@@ -1154,14 +1154,14 @@ export default function Watchlist() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {t('watchlist.notes')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
+                  {t('fields.notes')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={addNotes}
                   onChange={(e) => setAddNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  placeholder={t('watchlist.notesPlaceholder')}
+                  placeholder={t('placeholders.enterNotes')}
                 />
               </div>
 

@@ -239,7 +239,7 @@ class ApiClient {
     return response.json()
   }
 
-  async register(email: string, username: string, password: string, fullName?: string) {
+  async register(email: string, username: string, password: string, fullName?: string, preferredLanguage?: string) {
     return this.request<UserDTO>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
@@ -247,6 +247,7 @@ class ApiClient {
         username,
         password,
         full_name: fullName,
+        preferred_language: preferredLanguage || 'en',
       }),
     })
   }

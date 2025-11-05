@@ -16,6 +16,7 @@ import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
 import usePortfolioStore from '../store/usePortfolioStore';
 import { useTranslation } from 'react-i18next'
+import { getTranslatedSector, getTranslatedIndustry } from '../lib/translationUtils'
 
 interface HeldAsset {
   id: number;
@@ -331,15 +332,15 @@ export default function Assets() {
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.symbol')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.name')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.symbol')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.name')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.class')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.type')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.type')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.country')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.sector')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.industry')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.quantity')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('assets.actions')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('fields.quantity')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -439,7 +440,7 @@ export default function Assets() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('assets.searchPlaceholder')}
+                  placeholder={t('placeholders.searchSymbol')}
                   className="w-full pl-9 pr-8 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
                 />
                 {searchQuery && (
@@ -498,7 +499,7 @@ export default function Assets() {
                 {/* Sort Controls */}
                 <div className="flex items-center gap-2 mb-3">
                   <label htmlFor="mobile-sort-assets" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                    {t('assets.sortBy')}:
+                    {t('common.sortBy')}:
                   </label>
                   <select
                     id="mobile-sort-assets"
@@ -525,14 +526,14 @@ export default function Assets() {
                 <div className="space-y-3">
                   {sortedAssets.length === 0 ? (
                     <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
-                      <p>{t('assets.noAssetsMatch')}</p>
+                      <p>{t('assets.empty.noAssetsMatch')}</p>
                       <p className="text-sm mt-2">
-                        {t('assets.noAssetsMatchInfo')}{' '}
+                        {t('assets.empty.noAssetsMatchInfo')}{' '}
                         <button
                           onClick={() => setSearchQuery('')}
                           className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
                         >
-                          {t('assets.clearSearch')}
+                          {t('assets.empty.clearSearch')}
                         </button>
                       </p>
                     </div>
@@ -582,7 +583,7 @@ export default function Assets() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('assets.type')}</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.type')}</span>
                             <div className="mt-1 flex justify-end">
                               <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.asset_type ? getAssetTypeColor(asset.asset_type) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>
                                 {formatAssetType(asset.asset_type)}
@@ -621,7 +622,7 @@ export default function Assets() {
                                   })()}
                                 </div>
                                 <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                                  {asset.effective_sector || asset.sector}
+                                  {getTranslatedSector(asset.effective_sector || asset.sector || '', t)}
                                 </span>
                               </div>
                             </div>
@@ -637,7 +638,7 @@ export default function Assets() {
                                   })()}
                                 </div>
                                 <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                                  {asset.effective_industry || asset.industry}
+                                  {getTranslatedIndustry(asset.effective_industry || asset.industry || '', t)}
                                 </span>
                               </div>
                             </div>
@@ -664,7 +665,7 @@ export default function Assets() {
                               title="View Split History"
                             >
                               <Shuffle size={14} />
-                              {t('assets.splits')} ({asset.split_count})
+                              {t('splitHistory.splits')} ({asset.split_count})
                             </button>
                           )}
                           {(asset.transaction_count ?? 0) > 0 && (
@@ -703,14 +704,14 @@ export default function Assets() {
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    {t('assets.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
+                    {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('name')}
                     aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    {t('assets.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
+                    {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('class')}
@@ -724,7 +725,7 @@ export default function Assets() {
                     aria-sort={isActive('asset_type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    {t('assets.type')} <SortIcon column="asset_type" activeColumn={sortKey} direction={sortDir} />
+                    {t('fields.type')} <SortIcon column="asset_type" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('country')}
@@ -752,10 +753,10 @@ export default function Assets() {
                     aria-sort={isActive('total_quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    {t('assets.quantity')} <SortIcon column="total_quantity" activeColumn={sortKey} direction={sortDir} />
+                    {t('fields.quantity')} <SortIcon column="total_quantity" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                    {t('assets.actions')}
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -764,14 +765,14 @@ export default function Assets() {
                   <tr>
                     <td colSpan={9} className="px-6 py-12">
                       <div className="text-center text-neutral-500 dark:text-neutral-400">
-                        <p>{t('assets.noAssetsMatch')}</p>
+                        <p>{t('assets.empty.noAssetsMatch')}</p>
                         <p className="text-sm mt-2">
-                          {t('assets.noAssetsMatchInfo')} <br />
+                          {t('assets.empty.noAssetsMatchInfo')} <br />
                           <button
                             onClick={() => setSearchQuery('')}
                             className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
                           >
-                            {t('assets.clearSearch')}
+                            {t('assets.empty.clearSearch')}
                           </button>
                         </p>
                       </div>
@@ -848,7 +849,7 @@ export default function Assets() {
                               const SectorIcon = getSectorIcon(asset.effective_sector || asset.sector || '');
                               return <SectorIcon size={14} className={getSectorColor(asset.effective_sector || asset.sector || '')} />;
                             })()}
-                            {asset.effective_sector || asset.sector}
+                            {getTranslatedSector(asset.effective_sector || asset.sector || '', t)}
                           </>
                         ) : (
                           '-'
@@ -863,7 +864,7 @@ export default function Assets() {
                               const IndustryIcon = getIndustryIcon(asset.effective_industry || asset.industry || '');
                               return <IndustryIcon size={14} className={getIndustryColor(asset.effective_industry || asset.industry || '')} />;
                             })()}
-                            {asset.effective_industry || asset.industry}
+                            {getTranslatedIndustry(asset.effective_industry || asset.industry || '', t)}
                           </>
                         ) : (
                           '-'

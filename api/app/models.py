@@ -74,6 +74,9 @@ class User(Base):
     transaction_notifications_enabled = Column(Boolean, default=True)  # Enable/disable transaction notifications
     daily_report_enabled = Column(Boolean, default=False)  # Enable/disable daily PDF report emails
     
+    # Language preference
+    preferred_language = Column(String(5), default='en')  # User's preferred language (en, fr, etc.)
+    
     # Relationships
     portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")
 

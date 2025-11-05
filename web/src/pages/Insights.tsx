@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import { getSectorIcon, getSectorColor } from '../lib/sectorIndustryUtils'
+import { getTranslatedSector } from '../lib/translationUtils'
 import { getCountryCode } from '../lib/countryUtils'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
@@ -399,7 +400,7 @@ export default function Insights() {
     return (
       <div className="space-y-4">
         <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">{t('insights.error')}</h3>
+          <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">{t('common.error')}</h3>
           <p className="text-red-800 dark:text-red-200">{error}</p>
         </div>
         
@@ -537,12 +538,12 @@ export default function Insights() {
             onChange={(e) => setPeriod(e.target.value)}
             className="px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800"
           >
-            <option value="1m">{t('insights.period1M')}</option>
-            <option value="3m">{t('insights.period3M')}</option>
-            <option value="6m">{t('insights.period6M')}</option>
-            <option value="ytd">{t('insights.periodYTD')}</option>
-            <option value="1y">{t('insights.period1Y')}</option>
-            <option value="all">{t('insights.periodALL')}</option>
+            <option value="1m">{t('insights.periods.1M')}</option>
+            <option value="3m">{t('insights.periods.3M')}</option>
+            <option value="6m">{t('insights.periods.6M')}</option>
+            <option value="ytd">{t('insights.periods.YTD')}</option>
+            <option value="1y">{t('insights.periods.1Y')}</option>
+            <option value="all">{t('insights.periods.ALL')}</option>
           </select>
 
           {/* Benchmark selector */}
@@ -973,7 +974,7 @@ export default function Insights() {
                       const SectorIcon = getSectorIcon(sector.sector);
                       return <SectorIcon size={16} className={getSectorColor(sector.sector)} />;
                     })()}
-                    <span className="text-sm font-medium">{sector.sector}</span>
+                    <span className="text-sm font-medium">{getTranslatedSector(sector.sector, t)}</span>
                   </div>
                   <span className="text-sm text-neutral-600 dark:text-neutral-400">
                     {sector.percentage.toFixed(1)}%

@@ -84,7 +84,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
       return (
         <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
           <CheckCircle2 size={14} />
-          {t('assetPriceDebug.healthBadgeExcellent')}
+          {t('assetPriceDebug.healthBadges.excellent')}
         </span>
       );
     }
@@ -92,14 +92,14 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
       return (
         <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
           <AlertCircle size={14} />
-          {t('assetPriceDebug.healthBadgeGood')}
+          {t('assetPriceDebug.healthBadges.good')}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
         <AlertCircle size={14} />
-        {t('assetPriceDebug.healthBadgePoor')}
+        {t('assetPriceDebug.healthBadges.poor')}
       </span>
     );
   };
@@ -344,7 +344,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
                         {t('assetPriceDebug.dateTime')}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
-                        {t('assetPriceDebug.price')}
+                        {t('fields.price')}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
                         {t('assetPriceDebug.volume')}
@@ -387,7 +387,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
 
               {prices.length === 0 && (
                 <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-                  {t('assetPriceDebug.noPriceData')}
+                  {t('assetPriceDebug.empty.noPriceData')}
                 </div>
               )}
             </div>

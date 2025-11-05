@@ -23,7 +23,7 @@ interface AuthContextType {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, username: string, password: string, fullName?: string) => Promise<void>
+  register: (email: string, username: string, password: string, fullName?: string, preferredLanguage?: string) => Promise<void>
   logout: () => void
   refreshUser: () => Promise<void>
 }
@@ -70,9 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     username: string,
     password: string,
-    fullName?: string
+    fullName?: string,
+    preferredLanguage?: string
   ) => {
-    await api.register(email, username, password, fullName)
+    await api.register(email, username, password, fullName, preferredLanguage)
     // Don't auto-login after registration - require email verification
   }
 

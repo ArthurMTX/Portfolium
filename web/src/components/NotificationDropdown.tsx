@@ -4,6 +4,8 @@ import { CheckCheck, Trash2, ExternalLink, Clock } from 'lucide-react'
 import { useNotificationStore } from '../store/useNotificationStore'
 import { formatDistanceToNow } from 'date-fns'
 import { getNotificationIcon } from '../lib/notificationUtils'
+import { useTranslation } from 'react-i18next'
+import { translateNotification } from '../lib/notificationTranslation'
 
 interface NotificationDropdownProps {
   onClose: () => void
@@ -14,6 +16,7 @@ interface NotificationDropdownProps {
 export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLeave }: NotificationDropdownProps) {
   const navigate = useNavigate()
   const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
+  const { t } = useTranslation()
 
   useEffect(() => {
     fetchNotifications()
@@ -49,7 +52,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Notifications</h3>
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{t('notifications.title')}</h3>
         <div className="flex items-center gap-2">
           {notifications.some(n => !n.is_read) && (
             <button
@@ -58,7 +61,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
               title="Mark all as read"
             >
               <CheckCheck size={14} />
-              Mark all read
+              {t('notifications.markAllAsRead')}
             </button>
           )}
         </div>
@@ -68,16 +71,19 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
       <div className="overflow-y-auto flex-1">
         {loading ? (
           <div className="p-8 text-center text-neutral-500 dark:text-neutral-400">
-            Loading...
+            {t('notifications.loadingNotifications')}
           </div>
         ) : recentNotifications.length === 0 ? (
           <div className="p-8 text-center text-neutral-500 dark:text-neutral-400">
             <Clock size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No notifications yet</p>
+            <p className="text-sm">{t('notifications.noNotifications')}</p>
           </div>
         ) : (
           <div>
-            {recentNotifications.map((notification) => (
+            {recentNotifications.map((notification) => {
+              const { title, message } = translateNotification(notification, t)
+              
+              return (
               <div
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification.id, notification.is_read)}
@@ -92,7 +98,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="text-sm font-medium text-neutral-900 dark:text-white truncate">
-                        {notification.title}
+                        {title}
                       </h4>
                       <button
                         onClick={(e) => handleDelete(e, notification.id)}
@@ -103,7 +109,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
                       </button>
                     </div>
                     <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
-                      {notification.message}
+                      {message}
                     </p>
                     <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
@@ -114,7 +120,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
                   )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
@@ -126,7 +132,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
             onClick={handleViewAll}
             className="w-full text-center text-sm text-pink-600 dark:text-pink-400 hover:underline flex items-center justify-center gap-1"
           >
-            View all notifications
+            {t('notifications.viewAll')}
             <ExternalLink size={14} />
           </button>
         </div>

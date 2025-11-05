@@ -72,7 +72,8 @@ async def register(
             email_service.send_verification_email,
             user.email,
             user.username,
-            user.verification_token
+            user.verification_token,
+            user.preferred_language
         )
     
     logger.info(f"New user registered: {user.email}")
@@ -233,7 +234,8 @@ async def update_current_user(
             email_service.send_verification_email,
             current_user.email,
             current_user.username,
-            current_user.verification_token or ""
+            current_user.verification_token or "",
+            current_user.preferred_language
         )
 
     return current_user
@@ -267,7 +269,8 @@ async def verify_email(
     background_tasks.add_task(
         email_service.send_welcome_email,
         user.email,
-        user.username
+        user.username,
+        user.preferred_language
     )
     
     logger.info(f"Email verified for user: {user.email}")
@@ -312,7 +315,8 @@ async def resend_verification(
         email_service.send_verification_email,
         user.email,
         user.username,
-        user.verification_token
+        user.verification_token,
+        user.preferred_language
     )
     
     logger.info(f"Verification email resent to: {user.email}")
@@ -346,7 +350,8 @@ async def forgot_password(
         email_service.send_password_reset_email,
         user.email,
         user.username,
-        reset_token
+        reset_token,
+        user.preferred_language
     )
     
     logger.info(f"Password reset requested for: {user.email}")

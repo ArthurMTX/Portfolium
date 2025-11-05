@@ -9,9 +9,12 @@ import {
   getExampleTickerForIndustry,
   getExampleNameForIndustry,
 } from '../lib/sectorIndustryUtils';
+import { getTranslatedSector, getTranslatedIndustry } from '../lib/translationUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
+import { useTranslation } from 'react-i18next';
 
 export default function IconPreview() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState<'sectors' | 'industries'>('sectors');
 
@@ -225,7 +228,7 @@ export default function IconPreview() {
                       {SectorIcon && <SectorIcon size={24} className={getSectorColor(sector)} />}
                       <div>
                         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                          {sector}
+                          {getTranslatedSector(sector, t)}
                         </h3>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400">
                           {industries.length} {industries.length === 1 ? 'industry' : 'industries'}
@@ -250,7 +253,7 @@ export default function IconPreview() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-medium text-sm text-neutral-900 dark:text-neutral-100 line-clamp-2">
-                                  {industryName}
+                                  {getTranslatedIndustry(industryName, t)}
                                 </h4>
                                 
                                 {/* Example Company */}

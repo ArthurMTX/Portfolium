@@ -368,7 +368,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             if (value === null) return ''
             const currSymbol = getCurrencySymbol(currency)
             const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
-            return `${t('assetPriceChart.price')}: ${currSymbol}${formatPrice(value, decimalPlaces)}`
+            return `${t('fields.price')}: ${currSymbol}${formatPrice(value, decimalPlaces)}`
           },
           afterLabel: (context: { dataIndex: number }) => {
             const labels: string[] = []
@@ -394,7 +394,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             if (txsOnThisDate.length > 0) {
               const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
               txsOnThisDate.forEach(tx => {
-                const txType = tx.type === 'BUY' ? t('assetPriceChart.buy') : t('assetPriceChart.sell')
+                const txType = tx.type === 'BUY' ? t('transaction.types.buy') : t('transaction.types.sell')
                 labels.push(`\n${txType}: ${tx.quantity.toFixed(2)} @ ${tx.price ? getCurrencySymbol(currency) + formatPrice(tx.price, decimalPlaces) : 'N/A'}`)
               })
             }
@@ -421,7 +421,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                 const splitRatio = split.metadata?.split || '1:1'
                 const ratio = parseSplitRatio(splitRatio)
                 const splitType = ratio >= 1 ? t('splitHistory.forward') : t('splitHistory.reverse')
-                labels.push(`\n${splitType} ${t('assetPriceChart.split').toUpperCase()}: ${splitRatio}`)
+                labels.push(`\n${splitType} ${t('transaction.types.split').toUpperCase()}: ${splitRatio}`)
               })
             }
             
@@ -452,7 +452,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
       y: {
         title: { 
           display: true, 
-          text: `${t('assetPriceChart.price')} (${currency})`,
+          text: `${t('fields.price')} (${currency})`,
           color: '#64748b',
           font: { size: 12 }
         },
@@ -508,13 +508,13 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
           </div>
         ) : error ? (
           <div className="text-red-500 dark:text-red-400 text-center py-12">
-            <p className="font-semibold mb-2">{t('assetPriceChart.error')}</p>
+            <p className="font-semibold mb-2">{t('assetPriceChart.empty.error')}</p>
             <p className="text-sm">{error}</p>
           </div>
         ) : !history || history.data_points === 0 ? (
           <div className="text-neutral-400 text-center py-12">
-            <p className="font-semibold mb-2">{t('assetPriceChart.noPriceData')}</p>
-            <p className="text-sm">{t('assetPriceChart.noPriceDataInfo')}</p>
+            <p className="font-semibold mb-2">{t('assetPriceChart.empty.noPriceData')}</p>
+            <p className="text-sm">{t('assetPriceChart.empty.noPriceDataInfo')}</p>
           </div>
         ) : (
           <div>
@@ -597,18 +597,18 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
                 <>
                   <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <div className="w-3 h-3 rounded-full bg-white border-2 border-green-500"></div>
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">{t('assetPriceChart.buy')}</span>
+                    <span className="text-xs font-medium text-green-700 dark:text-green-400">{t('transaction.types.buy')}</span>
                   </div>
                   <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                     <div className="w-3 h-3 rounded-full bg-white border-2 border-red-500"></div>
-                    <span className="text-xs font-medium text-red-700 dark:text-red-400">{t('assetPriceChart.sell')}</span>
+                    <span className="text-xs font-medium text-red-700 dark:text-red-400">{t('transaction.types.sell')}</span>
                   </div>
                 </>
               )}
               {splits.length > 0 && (
                 <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
                   <div className="w-3 h-3 rounded-full bg-white border-2 border-purple-500"></div>
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-400">{t('assetPriceChart.split')}</span>
+                  <span className="text-xs font-medium text-purple-700 dark:text-purple-400">{t('transaction.types.split')}</span>
                 </div>
               )}
             </div>

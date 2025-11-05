@@ -273,13 +273,13 @@ export default function TransactionMetrics() {
 
   const getTranslatedType = (type: string): string => {
     const typeMap: Record<string, string> = {
-      'BUY': t('transactions.buy'),
-      'SELL': t('transactions.sell'),
-      'DIVIDEND': t('transactions.dividend'),
-      'FEE': t('transactions.fee'),
-      'SPLIT': t('transactions.split'),
-      'TRANSFER_IN': t('transactions.transferIn'),
-      'TRANSFER_OUT': t('transactions.transferOut'),
+      'BUY': t('transaction.types.buy'),
+      'SELL': t('transaction.types.sell'),
+      'DIVIDEND': t('transaction.types.dividend'),
+      'FEE': t('transaction.types.fee'),
+      'SPLIT': t('transaction.types.split'),
+      'TRANSFER_IN': t('transaction.types.transferIn'),
+      'TRANSFER_OUT': t('transaction.types.transferOut'),
     }
     return typeMap[type.toUpperCase()] || type
   }
@@ -463,7 +463,7 @@ export default function TransactionMetrics() {
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
             }`}
           >
-            {t('transactionMetrics.monthlyButton')}
+            {t('transactionMetrics.viewModes.monthly')}
           </button>
           <button
             onClick={() => setGrouping('yearly')}
@@ -473,7 +473,7 @@ export default function TransactionMetrics() {
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
             }`}
           >
-            {t('transactionMetrics.yearlyButton')}
+            {t('transactionMetrics.viewModes.yearly')}
           </button>
         </div>
       </div>
@@ -572,7 +572,7 @@ export default function TransactionMetrics() {
               {formatCurrency(totals.totalFees)}
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.buy')}: {formatCurrency(totals.totalBuyFees)} · {t('transactionMetrics.sell')}: {formatCurrency(totals.totalSellFees)}
+              {t('transaction.types.buy')}: {formatCurrency(totals.totalBuyFees)} · {t('transaction.types.sell')}: {formatCurrency(totals.totalSellFees)}
             </div>
           </div>
 
@@ -624,7 +624,7 @@ export default function TransactionMetrics() {
               {totals.avgTransactionsPerPeriod.toFixed(1)}
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.transactionsPer', { period: grouping === 'monthly' ? t('transactionMetrics.periodMonth') : t('transactionMetrics.periodYear') })}
+              {t('transactionMetrics.transactionsPer', { period: grouping === 'monthly' ? t('transactionMetrics.periods.month') : t('transactionMetrics.periods.year') })}
             </div>
           </div>
         </div>
@@ -647,7 +647,7 @@ export default function TransactionMetrics() {
             </div>
           ) : chartData.length === 0 ? (
             <div className="h-80 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
-              {t('transactionMetrics.noTransactionData')}
+              {t('transactionMetrics.empty.noTransactionData')}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
@@ -707,7 +707,7 @@ export default function TransactionMetrics() {
             </div>
           ) : chartData.length === 0 ? (
             <div className="h-80 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
-              {t('transactionMetrics.noTransactionData')}
+              {t('transactionMetrics.empty.noTransactionData')}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
@@ -773,7 +773,7 @@ export default function TransactionMetrics() {
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.period')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('insights.period')}</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.txCount')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase border-l-2 border-neutral-300 dark:border-neutral-600">{t('transactionMetrics.buySum')}</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.buyCount')}</th>
@@ -803,8 +803,8 @@ export default function TransactionMetrics() {
             </table>
           ) : sortedMetrics.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>{t('transactionMetrics.noTransactionData')}</p>
-              <p className="text-sm mt-2">{t('transactionMetrics.startAddingTransactions')}</p>
+              <p>{t('transactionMetrics.empty.noTransactionData')}</p>
+              <p className="text-sm mt-2">{t('transactionMetrics.empty.startAddingTransactions')}</p>
             </div>
           ) : (
             <table className="w-full">
@@ -814,7 +814,7 @@ export default function TransactionMetrics() {
                     onClick={() => handleSort('period')}
                     className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('transactionMetrics.period')} <SharedSortIcon column="period" activeColumn={sortKey} direction={sortDir} />
+                    {t('insights.period')} <SharedSortIcon column="period" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('tx_count')}
@@ -962,43 +962,43 @@ export default function TransactionMetrics() {
                                           onClick={() => handleTxSort(periodKey, 'date')}
                                           className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.date')} <TxSortIcon periodKey={periodKey} col="date" />
+                                          {t('fields.date')} <TxSortIcon periodKey={periodKey} col="date" />
                                         </th>
                                         <th 
                                           onClick={() => handleTxSort(periodKey, 'asset')}
                                           className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.asset')} <TxSortIcon periodKey={periodKey} col="asset" />
+                                          {t('fields.asset')} <TxSortIcon periodKey={periodKey} col="asset" />
                                         </th>
                                         <th 
                                           onClick={() => handleTxSort(periodKey, 'type')}
                                           className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.type')} <TxSortIcon periodKey={periodKey} col="type" />
+                                          {t('fields.type')} <TxSortIcon periodKey={periodKey} col="type" />
                                         </th>
                                         <th 
                                           onClick={() => handleTxSort(periodKey, 'quantity')}
                                           className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.quantity')} <TxSortIcon periodKey={periodKey} col="quantity" />
+                                          {t('fields.quantity')} <TxSortIcon periodKey={periodKey} col="quantity" />
                                         </th>
                                         <th 
                                           onClick={() => handleTxSort(periodKey, 'price')}
                                           className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.price')} <TxSortIcon periodKey={periodKey} col="price" />
+                                          {t('fields.price')} <TxSortIcon periodKey={periodKey} col="price" />
                                         </th>
                                         <th 
                                           onClick={() => handleTxSort(periodKey, 'fees')}
                                           className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.fees')} <TxSortIcon periodKey={periodKey} col="fees" />
+                                          {t('fields.fees')} <TxSortIcon periodKey={periodKey} col="fees" />
                                         </th>
                                         <th 
                                           onClick={() => handleTxSort(periodKey, 'total')}
                                           className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                          {t('transactionMetrics.total')} <TxSortIcon periodKey={periodKey} col="total" />
+                                          {t('fields.total')} <TxSortIcon periodKey={periodKey} col="total" />
                                         </th>
                                       </tr>
                                     </thead>

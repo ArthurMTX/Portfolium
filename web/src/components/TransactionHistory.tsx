@@ -181,7 +181,7 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                 {t('transactionHistory.noBuySellTransactions', { assetSymbol })}
               </p>
               <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-2">
-                {t('transactionHistory.noBuySellTransactionsInfo')}
+                {t('transactionHistory.empty.noBuySellTransactionsInfo')}
               </p>
             </div>
           ) : (
@@ -227,21 +227,21 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                         aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        {t('transactionHistory.date')} <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
+                        {t('fields.date')} <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('type')}
                         aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        {t('transactionHistory.type')} <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
+                        {t('fields.type')} <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('quantity')}
                         aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        {t('transactionHistory.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
+                        {t('fields.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       {hasSplitAdjustments && (
                         <th 
@@ -257,24 +257,24 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                         aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        {t('transactionHistory.price')} <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
+                        {t('fields.price')} <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('fees')}
                         aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        {t('transactionHistory.fees')} <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
+                        {t('fields.fees')} <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th 
                         onClick={() => handleSort('total')}
                         aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        {t('transactionHistory.total')} <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
+                        {t('fields.total')} <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                        {t('transactionHistory.notes')}
+                        {t('fields.notes')}
                       </th>
                     </tr>
                   </thead>
@@ -299,7 +299,7 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                               ) : (
                                 <TrendingDown size={16} />
                               )}
-                              {isBuy ? t('transactions.buy') : t('transactions.sell')}
+                              {isBuy ? t('transaction.types.buy') : t('transaction.types.sell')}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
