@@ -31,41 +31,45 @@ def upgrade() -> None:
     # Used heavily in position calculations (metrics.py)
     op.create_index(
         'idx_transaction_portfolio_asset_date',
-        'transaction',
+        'transactions',
         ['portfolio_id', 'asset_id', 'tx_date'],
-        unique=False
+        unique=False,
+        schema='portfolio'
     )
     
     # Index for transaction type filtering (BUY, SELL, SPLIT, etc.)
     # Speeds up realized P&L calculations
     op.create_index(
         'idx_transaction_portfolio_type',
-        'transaction',
+        'transactions',
         ['portfolio_id', 'type'],
-        unique=False
+        unique=False,
+        schema='portfolio'
     )
     
     # Index for fast price lookups (most recent price for an asset)
     # Critical for current price fetching
     op.create_index(
         'idx_asset_price_asset_date_desc',
-        'asset_price',
+        'prices',
         ['asset_id', sa.text('asof DESC')],
-        unique=False
+        unique=False,
+        schema='portfolio'
     )
     
     # Index for asset lookups by symbol (used in price fetching)
     op.create_index(
         'idx_asset_symbol',
-        'asset',
+        'assets',
         ['symbol'],
-        unique=True
+        unique=True,
+        schema='portfolio'
     )
 
 
 def downgrade() -> None:
     """Remove performance indexes."""
-    op.drop_index('idx_asset_symbol', table_name='asset')
-    op.drop_index('idx_asset_price_asset_date_desc', table_name='asset_price')
-    op.drop_index('idx_transaction_portfolio_type', table_name='transaction')
-    op.drop_index('idx_transaction_portfolio_asset_date', table_name='transaction')
+    op.drop_index('idx_asset_symbol', table_name='assets', schema='portfolio')
+    op.drop_index('idx_asset_price_asset_date_desc', table_name='prices', schema='portfolio')
+    op.drop_index('idx_transaction_portfolio_type', table_name='transactions', schema='portfolio')
+    op.drop_index('idx_transaction_portfolio_asset_date', table_name='transactions', schema='portfolio')
