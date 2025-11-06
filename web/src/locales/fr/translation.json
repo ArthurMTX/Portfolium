@@ -1155,5 +1155,20 @@
     "INDEX": "Indice",
     "CURRENCY": "Devise",
     "COMMODITY": "Matière Première"
+  },
+  "notFound": {
+    "errorCode": "404",
+    "percentChange": "-100% (Page Introuvable)",
+    "title": "Portefeuille Sous-Performant",
+    "message": "Cette page a été <1>liquidée</1> de notre portefeuille.",
+    "liquidated": "liquidée",
+    "assetsFound": "Actifs Trouvés",
+    "dailyChange": "Variation Quotidienne",
+    "errorCodeLabel": "Code d'Erreur",
+    "investmentTip": "Conseil d'Investissement :",
+    "tipMessage": "La diversification est essentielle. Envisagez de retourner au tableau de bord pour explorer d'autres opportunités.",
+    "returnToDashboard": "Retour au Tableau de bord",
+    "viewPortfolios": "Voir les Portefeuilles",
+    "marketStatus": "ÉTAT DU MARCHÉ : FERMÉ | ERREUR : ROUTE_INTROUVABLE | HEURE : {{time}}"
   }
 }

@@ -1110,5 +1110,20 @@
     "INDEX": "Index",
     "CURRENCY": "Currency",
     "COMMODITY": "Commodity"
+  },
+  "notFound": {
+    "errorCode": "404",
+    "percentChange": "-100% (Page Not Found)",
+    "title": "Portfolio Underperforming",
+    "message": "This page has been <1>liquidated</1> from our portfolio.",
+    "liquidated": "liquidated",
+    "assetsFound": "Assets Found",
+    "dailyChange": "Daily Change",
+    "errorCodeLabel": "Error Code",
+    "investmentTip": "Investment Tip:",
+    "tipMessage": "Diversification is key. Consider returning to the dashboard to explore other opportunities.",
+    "returnToDashboard": "Return to Dashboard",
+    "viewPortfolios": "View Portfolios",
+    "marketStatus": "MARKET STATUS: CLOSED | ERROR: ROUTE_NOT_FOUND | TIME: {{time}}"
   }
 }
