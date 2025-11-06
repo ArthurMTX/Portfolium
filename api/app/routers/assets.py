@@ -241,18 +241,19 @@ async def get_held_assets(
         if portfolio_id is not None:
             # For portfolio-specific view, only get transactions from that portfolio
             portfolio_transactions = tx_query.filter(Transaction.portfolio_id == portfolio_id).order_by(Transaction.tx_date, Transaction.created_at).all()
-            # But we still need global transactions to calculate total quantity across all portfolios
-            all_transactions = db.query(Transaction).filter(Transaction.asset_id == asset_id).order_by(Transaction.tx_date, Transaction.created_at).all()
+            # Use portfolio transactions to calculate quantity for this specific portfolio
+            transactions_for_calculation = portfolio_transactions
         else:
             # Global view - get all transactions
             all_transactions = tx_query.order_by(Transaction.tx_date, Transaction.created_at).all()
             portfolio_transactions = all_transactions
+            transactions_for_calculation = all_transactions
         
-        # Calculate total quantity with split adjustments (using all transactions)
+        # Calculate total quantity with split adjustments
         total_quantity = Decimal(0)
         portfolio_ids = set()
         
-        for tx in all_transactions:
+        for tx in transactions_for_calculation:
             portfolio_ids.add(tx.portfolio_id)
             
             if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
@@ -335,18 +336,19 @@ async def get_sold_assets(
         if portfolio_id is not None:
             # For portfolio-specific view, only get transactions from that portfolio
             portfolio_transactions = tx_query.filter(Transaction.portfolio_id == portfolio_id).order_by(Transaction.tx_date, Transaction.created_at).all()
-            # But we still need global transactions to calculate total quantity across all portfolios
-            all_transactions = db.query(Transaction).filter(Transaction.asset_id == asset_id).order_by(Transaction.tx_date, Transaction.created_at).all()
+            # Use portfolio transactions to calculate quantity for this specific portfolio
+            transactions_for_calculation = portfolio_transactions
         else:
             # Global view - get all transactions
             all_transactions = tx_query.order_by(Transaction.tx_date, Transaction.created_at).all()
             portfolio_transactions = all_transactions
+            transactions_for_calculation = all_transactions
         
-        # Calculate total quantity with split adjustments (using all transactions)
+        # Calculate total quantity with split adjustments
         total_quantity = Decimal(0)
         portfolio_ids = set()
         
-        for tx in all_transactions:
+        for tx in transactions_for_calculation:
             portfolio_ids.add(tx.portfolio_id)
             
             if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
