@@ -1,14 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, TrendingUp, TrendingDown, DollarSign, PiggyBank, Zap, ZapOff, Clock, LayoutDashboard } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
-import api, { PositionDTO } from '../lib/api'
+import api, { PositionDTO, BatchPriceDTO } from '../lib/api'
 import PositionsTable from '../components/PositionsTable'
-import { usePriceUpdates } from '../hooks/usePriceUpdates'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
-
 
 type PositionsTab = 'current' | 'sold'
 
@@ -16,23 +15,48 @@ export default function Dashboard() {
   const {
     portfolios,
     activePortfolioId,
-    positions,
-    metrics,
-    loading,
     setPortfolios,
     setActivePortfolio,
-    setPositions,
-    setMetrics,
-    setLoading,
   } = usePortfolioStore()
 
-  const { t } = useTranslation()  
-  const [refreshing, setRefreshing] = useState(false)
-  const [soldPositions, setSoldPositions] = useState<PositionDTO[]>([])
-  const [soldPositionsLoading, setSoldPositionsLoading] = useState(false)
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [soldPositionsLoaded, setSoldPositionsLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState<PositionsTab>('current')
+  
+  // Load last update from localStorage - use a ref to avoid reinitialization
+  const [lastUpdate, setLastUpdate] = useState<number>(() => {
+    const stored = localStorage.getItem('dashboardLastUpdate')
+    const timestamp = stored ? parseInt(stored, 10) : 0
+    return timestamp
+  })
+  
+  // Force re-render for live countdown (only when this component is mounted)
+  const [, forceUpdate] = useState(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Update every second only while component is mounted
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+    
+    let counter = 0
+    // Start new timer
+    timerRef.current = setInterval(() => {
+      counter++
+      forceUpdate(counter) // Force re-render to update "time ago" display
+    }, 1000)
+    
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - only run on mount/unmount, lastUpdate changes don't need timer restart
 
   // Auto-refresh settings from localStorage
   const getAutoRefreshSettings = useCallback(() => {
@@ -65,101 +89,155 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [getAutoRefreshSettings]);
 
-  // Auto price updates hook
-  const {
-    isRefreshing: isAutoPriceRefreshing,
-    isAutoRefreshEnabled,
-    lastUpdate,
-    error: priceError,
-    refreshPrices,
-    setAutoRefreshEnabled,
-  } = usePriceUpdates({
-    interval: autoRefreshSettings.interval,
-    enabled: autoRefreshSettings.enabled,
-    refreshOnFocus: true,
-  });
+  // Load portfolios list (rarely changes, long cache)
+  const { data: portfoliosData } = useQuery({
+    queryKey: ['portfolios'],
+    queryFn: () => api.getPortfolios(),
+    staleTime: 5 * 60 * 1000, // 5 minutes - portfolios don't change often
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  })
 
+  // Sync portfolios to store when data changes
   useEffect(() => {
-    loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (activePortfolioId) {
-      // Clear sold positions state immediately when portfolio changes
-      setSoldPositions([])
-      setSoldPositionsLoaded(false)
-      loadPortfolioData(activePortfolioId)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePortfolioId])
-
-  // Load sold positions when user switches to the sold tab
-  useEffect(() => {
-    if (activeTab === 'sold' && activePortfolioId && !soldPositionsLoaded) {
-      loadSoldPositions(activePortfolioId)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, activePortfolioId])
-
-  const loadData = async () => {
-    try {
-      const portfoliosData = await api.getPortfolios()
+    if (portfoliosData) {
       setPortfolios(portfoliosData)
       if (portfoliosData.length > 0 && !activePortfolioId) {
         setActivePortfolio(portfoliosData[0].id)
       }
-    } catch (error) {
-      console.error('Failed to load portfolios:', error)
     }
-  }
+  }, [portfoliosData, activePortfolioId, setPortfolios, setActivePortfolio])
 
-  const loadPortfolioData = async (portfolioId: number) => {
-    setLoading(true)
-    try {
-      const [positionsData, metricsData] = await Promise.all([
-        api.getPortfolioPositions(portfolioId),
-        api.getPortfolioMetrics(portfolioId),
-      ])
-      setPositions(positionsData)
-      setMetrics(metricsData)
-    } catch (error) {
-      console.error('Failed to load portfolio data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Load positions (changes on transactions, medium cache)
+  const { 
+    data: positions, 
+    isLoading: positionsLoading,
+  } = useQuery({
+    queryKey: ['positions', activePortfolioId],
+    queryFn: () => api.getPortfolioPositions(activePortfolioId!),
+    enabled: !!activePortfolioId,
+    staleTime: 60 * 1000, // 1 minute - positions only change on transactions
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  })
 
-  const loadSoldPositions = async (portfolioId: number) => {
-    if (soldPositionsLoaded) return // Already loaded
-    
-    setSoldPositionsLoading(true)
-    try {
-      const soldPositionsData = await api.getSoldPositions(portfolioId)
-      setSoldPositions(soldPositionsData)
+  // Load metrics (aggregated data, short cache for live feel)
+  const { 
+    data: metrics, 
+    isLoading: metricsLoading,
+  } = useQuery({
+    queryKey: ['metrics', activePortfolioId],
+    queryFn: () => api.getPortfolioMetrics(activePortfolioId!),
+    enabled: !!activePortfolioId,
+    staleTime: 10 * 1000, // 10 seconds - metrics include daily changes
+    gcTime: 2 * 60 * 1000, // 2 minutes
+  })
+
+  // Load sold positions (lazy loaded when tab is opened)
+  const { 
+    data: soldPositions, 
+    isLoading: soldPositionsLoading,
+  } = useQuery<PositionDTO[]>({
+    queryKey: ['soldPositions', activePortfolioId],
+    queryFn: () => api.getSoldPositions(activePortfolioId!),
+    enabled: !!activePortfolioId && activeTab === 'sold' && !soldPositionsLoaded,
+    staleTime: 2 * 60 * 1000, // 2 minutes - sold positions don't change often
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  })
+
+  // Mark sold positions as loaded when data arrives
+  useEffect(() => {
+    if (soldPositions) {
       setSoldPositionsLoaded(true)
-    } catch (error) {
-      console.error('Failed to load sold positions:', error)
-    } finally {
-      setSoldPositionsLoading(false)
     }
-  }
+  }, [soldPositions])
 
-  const handleRefresh = async () => {
+  // Batch price updates for auto-refresh (ultra-fast, no cache)
+  const { 
+    data: batchPrices,
+    isRefetching: isPriceRefetching,
+    error: priceError,
+  } = useQuery({
+    queryKey: ['batchPrices', activePortfolioId],
+    queryFn: async () => {
+      const data = await api.getBatchPrices(activePortfolioId!)
+      const timestamp = Date.now()
+      setLastUpdate(timestamp)
+      localStorage.setItem('dashboardLastUpdate', timestamp.toString())
+      return data
+    },
+    enabled: !!activePortfolioId && autoRefreshSettings.enabled,
+    staleTime: 0, // Always fetch fresh prices
+    gcTime: 30 * 1000, // Keep for 30s
+    refetchInterval: autoRefreshSettings.enabled ? autoRefreshSettings.interval : false,
+    refetchOnWindowFocus: true,
+  })
+
+  // Merge cached positions with live prices for display
+  const displayPositions = useMemo(() => {
+    if (!positions || !batchPrices?.prices) return positions || []
+
+    return positions.map(pos => {
+      const priceUpdate = batchPrices.prices.find((p: BatchPriceDTO) => p.asset_id === pos.asset_id)
+      if (!priceUpdate) return pos
+
+      // Calculate new market value with updated price
+      const newMarketValue = priceUpdate.current_price 
+        ? priceUpdate.current_price * pos.quantity 
+        : pos.market_value
+
+      // Recalculate unrealized P&L if we have market value
+      const newUnrealizedPnl = newMarketValue !== null 
+        ? newMarketValue - pos.cost_basis
+        : pos.unrealized_pnl
+
+      const newUnrealizedPnlPct = newUnrealizedPnl !== null && pos.cost_basis > 0
+        ? (newUnrealizedPnl / pos.cost_basis) * 100
+        : pos.unrealized_pnl_pct
+
+      return {
+        ...pos,
+        current_price: priceUpdate.current_price ?? pos.current_price,
+        market_value: newMarketValue,
+        unrealized_pnl: newUnrealizedPnl,
+        unrealized_pnl_pct: newUnrealizedPnlPct,
+        daily_change_pct: priceUpdate.daily_change_pct ?? pos.daily_change_pct,
+        last_updated: priceUpdate.last_updated ?? pos.last_updated,
+      }
+    })
+  }, [positions, batchPrices])
+
+  // Reset sold positions loaded flag when portfolio changes
+  useEffect(() => {
+    setSoldPositionsLoaded(false)
+  }, [activePortfolioId])
+
+  // Manual refresh function
+  const handleRefresh = useCallback(async () => {
     if (!activePortfolioId) return
-    setRefreshing(true)
-    try {
-      await refreshPrices()
-    } catch (error) {
-      console.error('Failed to refresh prices:', error)
-    } finally {
-      setRefreshing(false)
-    }
-  }
+    
+    // Invalidate all queries to force fresh data
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['positions', activePortfolioId] }),
+      queryClient.invalidateQueries({ queryKey: ['metrics', activePortfolioId] }),
+      queryClient.invalidateQueries({ queryKey: ['batchPrices', activePortfolioId] }),
+    ])
+    
+    const timestamp = Date.now()
+    setLastUpdate(timestamp)
+    localStorage.setItem('dashboardLastUpdate', timestamp.toString())
+  }, [activePortfolioId, queryClient])
+
+  // Toggle auto-refresh
+  const toggleAutoRefresh = useCallback(() => {
+    const newEnabled = !autoRefreshSettings.enabled
+    localStorage.setItem('autoRefreshEnabled', String(newEnabled))
+    setAutoRefreshSettings(prev => ({ ...prev, enabled: newEnabled }))
+  }, [autoRefreshSettings.enabled])
 
   const formatLastUpdate = (timestamp: number) => {
     if (!timestamp) return t('common.never')
-    const secondsAgo = Math.floor((Date.now() - timestamp) / 1000)
+    const now = Date.now()
+    const secondsAgo = Math.floor((now - timestamp) / 1000)
+    if (secondsAgo < 0) return t('common.timeAgo', { time: '0s' }) // Guard against negative values
     if (secondsAgo < 60) return t('common.timeAgo', { time: `${secondsAgo}s` })
     const minutesAgo = Math.floor(secondsAgo / 60)
     if (minutesAgo < 60) return t('common.timeAgo', { time: `${minutesAgo}m` })
@@ -167,12 +245,24 @@ export default function Dashboard() {
     return t('common.timeAgo', { time: `${hoursAgo}h` })
   }
 
+  const getNextRefreshIn = () => {
+    if (!lastUpdate || !autoRefreshSettings.enabled) return null
+    const now = Date.now()
+    const elapsed = now - lastUpdate
+    const remaining = autoRefreshSettings.interval - elapsed
+    if (remaining <= 0) return null
+    const seconds = Math.ceil(remaining / 1000)
+    return seconds
+  }
+
   // Note: Dashboard metrics are always in EUR, so we use a wrapper
   const formatCurrency = (value: number | string) => {
     return formatCurrencyUtil(value, 'EUR')
   }
 
-  const isAnyRefreshing = refreshing || isAutoPriceRefreshing;
+  const loading = positionsLoading || metricsLoading
+  const isRefreshing = isPriceRefetching
+  const isAutoRefreshEnabled = autoRefreshSettings.enabled
   const [marketStatus, setMarketStatus] = useState<'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown'>('unknown');
 
   useEffect(() => {
@@ -189,6 +279,8 @@ export default function Dashboard() {
     const interval = setInterval(checkMarketStatus, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const isAnyRefreshing = isRefreshing
 
   // Show empty portfolio prompt if no portfolios exist or no active portfolio
   if (portfolios.length === 0 || !activePortfolioId) {
@@ -302,12 +394,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {lastUpdate > 0 && (
-            <div className="flex items-center gap-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
-              <Clock size={14} />
-              {formatLastUpdate(lastUpdate)}
-            </div>
-          )}
           {marketStatus === 'premarket' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">
               ● {t('market.status.premarket')}
@@ -333,8 +419,21 @@ export default function Dashboard() {
               ● {t('market.status.unknown')}
             </span>
           )}
+          {lastUpdate > 0 && (
+            <div className="flex flex-col items-end gap-0.5 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                <Clock size={12} />
+                <span className="font-medium">{formatLastUpdate(lastUpdate)}</span>
+              </div>
+              {autoRefreshSettings.enabled && getNextRefreshIn() !== null && getNextRefreshIn()! > 0 && (
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                  {t('common.next')}: {getNextRefreshIn()}s
+                </div>
+              )}
+            </div>
+          )}
           <button
-            onClick={() => setAutoRefreshEnabled(!isAutoRefreshEnabled)}
+            onClick={toggleAutoRefresh}
             className={`btn text-sm sm:text-base ${
               isAutoRefreshEnabled
                 ? 'bg-green-600 hover:bg-green-700 text-white'
@@ -360,7 +459,7 @@ export default function Dashboard() {
       {priceError && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm text-red-800 dark:text-red-200">
-            <strong>{t('common.priceUpdateError')}:</strong> {priceError}
+            <strong>{t('common.priceUpdateError')}:</strong> {priceError.message || String(priceError)}
           </p>
         </div>
       )}
@@ -507,9 +606,9 @@ export default function Dashboard() {
             }`}
           >
             {t('dashboard.currentPositions')} ({t('dashboard.unrealizedPnL')})
-            {positions.length > 0 && (
+            {displayPositions && displayPositions.length > 0 && (
               <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                {positions.length}
+                {displayPositions.length}
               </span>
             )}
           </button>
@@ -522,7 +621,7 @@ export default function Dashboard() {
             }`}
           >
             {t('dashboard.soldPositions')} ({t('dashboard.realizedPnL')})
-            {soldPositions.length > 0 && (
+            {soldPositions && soldPositions.length > 0 && (
               <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
                 {soldPositions.length}
               </span>
@@ -532,7 +631,7 @@ export default function Dashboard() {
 
         {/* Tab Content */}
         {activeTab === 'current' ? (
-          <PositionsTable positions={positions} />
+          <PositionsTable positions={displayPositions || []} />
         ) : soldPositionsLoading ? (
           <div className="card p-12 text-center">
             <div className="max-w-md mx-auto">
@@ -545,7 +644,7 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-        ) : soldPositions.length > 0 ? (
+        ) : soldPositions && soldPositions.length > 0 ? (
           <PositionsTable positions={soldPositions} isSold={true} />
         ) : (
           <div className="card p-12 text-center">
