@@ -461,6 +461,43 @@ class ApiClient {
     }>(`/assets/${assetId}/health`)
   }
 
+  async getYFinanceData(assetId: number) {
+    return this.request<{
+      asset_id: number
+      symbol: string
+      name: string | null
+      fetched_at: string
+      info: Record<string, unknown>
+      recent_history: unknown
+      calendar: unknown
+      recommendations: unknown
+      institutional_holders: unknown
+      major_holders: unknown
+      dividends: unknown
+      splits: unknown
+      actions: unknown
+    }>(`/assets/${assetId}/yfinance`)
+  }
+
+  async getYFinanceDataBySymbol(symbol: string) {
+    return this.request<{
+      asset_id: number | null
+      symbol: string
+      name: string | null
+      in_database: boolean
+      fetched_at: string
+      info: Record<string, unknown>
+      recent_history: unknown
+      calendar: unknown
+      recommendations: unknown
+      institutional_holders: unknown
+      major_holders: unknown
+      dividends: unknown
+      splits: unknown
+      actions: unknown
+    }>(`/assets/0/yfinance?symbol=${encodeURIComponent(symbol)}`)
+  }
+
   // Portfolios
   async getPortfolios() {
     return this.request<PortfolioDTO[]>('/portfolios')

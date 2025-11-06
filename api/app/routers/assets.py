@@ -3,6 +3,8 @@ Assets router
 """
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
+from datetime import datetime
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from app.models import User
 import yfinance as yf
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _parse_split_ratio(split_str: str) -> Decimal:
@@ -273,6 +276,10 @@ async def get_held_assets(
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
+                # Get first transaction date (earliest BUY transaction)
+                buy_transactions = [tx for tx in portfolio_transactions if tx.type == TransactionType.BUY]
+                first_transaction_date = min([tx.tx_date for tx in buy_transactions]) if buy_transactions else None
+                
                 # Get user-specific effective metadata
                 effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
                 
@@ -293,6 +300,8 @@ async def get_held_assets(
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
                     "transaction_count": transaction_count,
+                    "first_transaction_date": first_transaction_date.isoformat() if first_transaction_date else None,
+                    "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
                     "created_at": asset.created_at,
                     "updated_at": asset.updated_at
                 })
@@ -368,6 +377,10 @@ async def get_sold_assets(
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
                 
+                # Get first transaction date (earliest BUY transaction)
+                buy_transactions = [tx for tx in portfolio_transactions if tx.type == TransactionType.BUY]
+                first_transaction_date = min([tx.tx_date for tx in buy_transactions]) if buy_transactions else None
+                
                 # Get user-specific effective metadata
                 effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
                 
@@ -388,6 +401,8 @@ async def get_sold_assets(
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
                     "transaction_count": transaction_count,
+                    "first_transaction_date": first_transaction_date.isoformat() if first_transaction_date else None,
+                    "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
                     "created_at": asset.created_at,
                     "updated_at": asset.updated_at
                 })
@@ -1486,5 +1501,217 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
         recommendations.append("⚠️ No first_transaction_date set. Historical backfill may not work correctly.")
     
     return recommendations
+
+
+@router.get("/{asset_id}/yfinance")
+async def get_yfinance_data(
+    asset_id: int = None, 
+    symbol: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get raw yfinance data for an asset
+    
+    Fetches all available data from yfinance Ticker.info and returns it as-is.
+    Useful for debugging and seeing what data Yahoo Finance provides for this asset.
+    
+    Can be called with either:
+    - /assets/{asset_id}/yfinance - Fetch for an asset in the database
+    - /assets/0/yfinance?symbol=AAPL - Fetch for any symbol (even if not in DB)
+    """
+    # Determine the symbol to fetch
+    asset_in_db = None
+    fetch_symbol = symbol
+    
+    if asset_id and asset_id > 0:
+        # Try to get asset from database
+        asset_in_db = crud.get_asset(db, asset_id)
+        if not asset_in_db and not symbol:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Asset {asset_id} not found in database"
+            )
+        if asset_in_db:
+            fetch_symbol = asset_in_db.symbol
+    
+    if not fetch_symbol:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either valid asset_id or symbol parameter is required"
+        )
+    
+    try:
+        # Fetch ticker info from yfinance
+        ticker = yf.Ticker(fetch_symbol)
+        
+        # Get the info dict - this contains all metadata
+        info = ticker.info
+        
+        # Helper function to convert timestamps to strings
+        def serialize_data(obj):
+            """Convert pandas Timestamp and other non-serializable objects to JSON-serializable format"""
+            import pandas as pd
+            import numpy as np
+            from datetime import datetime, date
+            
+            # Check for arrays first (before isna check)
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            
+            # Check for pandas/numpy scalar types
+            if isinstance(obj, (pd.Timestamp, datetime, date)):
+                return obj.isoformat()
+            elif isinstance(obj, (np.integer, np.floating)):
+                return obj.item()
+            
+            # Check for NaN/None (only for scalar values)
+            try:
+                if pd.isna(obj):
+                    return None
+            except (ValueError, TypeError):
+                # If pd.isna() fails (e.g., on non-scalar), continue
+                pass
+            
+            # Handle collections
+            if isinstance(obj, dict):
+                return {k: serialize_data(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [serialize_data(item) for item in obj]
+            
+            return obj
+        
+        # Serialize info dict
+        info = serialize_data(info)
+        
+        # Get additional data structures
+        try:
+            # Try to get recent history (last 90 days)
+            history = ticker.history(period="3mo")
+            history_dict = {
+                "columns": list(history.columns) if not history.empty else [],
+                "index": [str(idx) for idx in history.index] if not history.empty else [],
+                "data": [serialize_data(row.to_dict()) for _, row in history.iterrows()] if not history.empty else []
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch history for {fetch_symbol}: {str(e)}")
+            history_dict = {"error": str(e)}
+        
+        # Try to get calendar data
+        try:
+            calendar = ticker.calendar
+            if calendar is not None:
+                if hasattr(calendar, 'to_dict'):
+                    calendar_dict = serialize_data(calendar.to_dict())
+                else:
+                    calendar_dict = serialize_data(str(calendar))
+            else:
+                calendar_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch calendar for {fetch_symbol}: {str(e)}")
+            calendar_dict = {"error": str(e)}
+        
+        # Try to get recommendations
+        try:
+            recommendations = ticker.recommendations
+            if recommendations is not None and not recommendations.empty:
+                recommendations_dict = {
+                    "data": [serialize_data(row.to_dict()) for _, row in recommendations.iterrows()]
+                }
+            else:
+                recommendations_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch recommendations for {fetch_symbol}: {str(e)}")
+            recommendations_dict = {"error": str(e)}
+        
+        # Try to get institutional holders
+        try:
+            institutional_holders = ticker.institutional_holders
+            if institutional_holders is not None and not institutional_holders.empty:
+                institutional_holders_dict = {
+                    "data": [serialize_data(row.to_dict()) for _, row in institutional_holders.iterrows()]
+                }
+            else:
+                institutional_holders_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch institutional_holders for {fetch_symbol}: {str(e)}")
+            institutional_holders_dict = {"error": str(e)}
+        
+        # Try to get major holders
+        try:
+            major_holders = ticker.major_holders
+            if major_holders is not None and not major_holders.empty:
+                major_holders_dict = {
+                    "data": [serialize_data(row.to_dict()) for _, row in major_holders.iterrows()]
+                }
+            else:
+                major_holders_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch major_holders for {fetch_symbol}: {str(e)}")
+            major_holders_dict = {"error": str(e)}
+        
+        # Try to get dividends
+        try:
+            dividends = ticker.dividends
+            if dividends is not None and not dividends.empty:
+                dividends_dict = {
+                    "data": {str(idx): serialize_data(val) for idx, val in dividends.items()}
+                }
+            else:
+                dividends_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch dividends for {fetch_symbol}: {str(e)}")
+            dividends_dict = {"error": str(e)}
+        
+        # Try to get splits
+        try:
+            splits = ticker.splits
+            if splits is not None and not splits.empty:
+                splits_dict = {
+                    "data": {str(idx): serialize_data(val) for idx, val in splits.items()}
+                }
+            else:
+                splits_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch splits for {fetch_symbol}: {str(e)}")
+            splits_dict = {"error": str(e)}
+        
+        # Try to get actions (dividends + splits combined)
+        try:
+            actions = ticker.actions
+            if actions is not None and not actions.empty:
+                actions_dict = {
+                    "columns": list(actions.columns),
+                    "data": {str(idx): serialize_data(row.to_dict()) for idx, row in actions.iterrows()}
+                }
+            else:
+                actions_dict = None
+        except Exception as e:
+            logger.error(f"Failed to fetch actions for {fetch_symbol}: {str(e)}")
+            actions_dict = {"error": str(e)}
+        
+        return {
+            "asset_id": asset_in_db.id if asset_in_db else None,
+            "symbol": fetch_symbol,
+            "name": asset_in_db.name if asset_in_db else info.get('longName') or info.get('shortName'),
+            "in_database": asset_in_db is not None,
+            "fetched_at": datetime.utcnow().isoformat(),
+            "info": info,
+            "recent_history": history_dict,
+            "calendar": calendar_dict,
+            "recommendations": recommendations_dict,
+            "institutional_holders": institutional_holders_dict,
+            "major_holders": major_holders_dict,
+            "dividends": dividends_dict,
+            "splits": splits_dict,
+            "actions": actions_dict,
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch yfinance data for {fetch_symbol}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch yfinance data: {str(e)}"
+        )
+
+
 
 

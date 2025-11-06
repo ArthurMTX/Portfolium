@@ -24,6 +24,8 @@ import IconPreview from './pages/IconPreview'
 import FlagPreview from './pages/FlagPreview'
 import Insights from './pages/Insights'
 import NotFound from './pages/NotFound'
+import AssetDebug from './pages/AssetDebug'
+import AssetsList from './pages/AssetsList'
 
 function App() {
   return (
@@ -72,6 +74,22 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin>
                   <DevTools />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="dev/assets"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AssetDebug />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="dev/assets-list"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AssetsList />
                 </ProtectedRoute>
               }
             />
