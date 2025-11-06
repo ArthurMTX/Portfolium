@@ -68,7 +68,9 @@
     "viewDetails": "View Details",
     "actions": "Actions",
     "wallet": "Wallet",
-    "priceUpdateError": "Price Update Error"
+    "portfolio": "this portfolio",
+    "priceUpdateError": "Price Update Error",
+    "retry": "Retry"
   },
   "fields": {
     "symbol": "Symbol",
@@ -172,6 +174,22 @@
   },
   "auth": {
     "emailNotVerified": "Your email address has not been verified."
+  },
+  "apiErrors": {
+    "emailAlreadyRegistered": "Email already registered",
+    "usernameAlreadyTaken": "Username already taken",
+    "incorrectEmailOrPassword": "Incorrect email or password",
+    "accountInactive": "Account is inactive",
+    "emailNotVerified": "Email not verified. Please check your email and verify your account before logging in.",
+    "invalidOrExpiredVerificationToken": "Invalid or expired verification token",
+    "emailAlreadyVerified": "Email already verified",
+    "invalidOrExpiredResetToken": "Invalid or expired reset token",
+    "incorrectCurrentPassword": "Incorrect current password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordMinLength": "Password must be at least 8 characters",
+    "failedToSendResetEmail": "Failed to send reset email",
+    "failedToResetPassword": "Failed to reset password",
+    "failedToVerifyEmail": "Failed to verify email"
   },
   "charts": {
     "title": "Charts",
@@ -839,6 +857,44 @@
     "redirecting": "Redirecting to login page...",
     "goToLogin": "Go to login now →"
   },
+  "forgotPassword": {
+    "title": "Forgot password?",
+    "subtitle": "No worries, we'll send you reset instructions",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "sending": "Sending...",
+    "sendResetInstructions": "Send reset instructions",
+    "backToLogin": "Back to login",
+    "successTitle": "Check your email",
+    "successMessage": "We've sent password reset instructions to <strong>{{email}}</strong>. Please check your inbox and follow the link to reset your password.",
+    "expiryMessage": "The reset link will expire in 1 hour."
+  },
+  "resetPassword": {
+    "title": "Reset your password",
+    "subtitle": "Enter your new password below",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "passwordHint": "Minimum 8 characters",
+    "resetting": "Resetting password...",
+    "resetPassword": "Reset password",
+    "backToLogin": "Back to login",
+    "successTitle": "Password reset successful!",
+    "successMessage": "Your password has been reset. You can now sign in with your new password.",
+    "redirecting": "Redirecting to login page...",
+    "goToLogin": "Go to login now →"
+  },
+  "verifyEmail": {
+    "verifying": "Verifying your email...",
+    "verifyingMessage": "Please wait while we verify your email address.",
+    "successTitle": "Email verified successfully!",
+    "successMessage": "Your email has been verified. You can now sign in to your account and start tracking your investments.",
+    "redirecting": "Redirecting to login page in 5 seconds...",
+    "signInNow": "Sign in now →",
+    "errorTitle": "Verification failed",
+    "errorMessageDefault": "Invalid or expired verification link.",
+    "goToLogin": "Go to login",
+    "createNewAccount": "Create new account"
+  },
   "emails": {
     "verification": {
       "subject": "Verify Your Email - Portfolium",
@@ -1110,5 +1166,79 @@
     "INDEX": "Index",
     "CURRENCY": "Currency",
     "COMMODITY": "Commodity"
+  },
+  "notFound": {
+    "errorCode": "404",
+    "percentChange": "-100% (Page Not Found)",
+    "title": "Portfolio Underperforming",
+    "message": "This page has been <1>liquidated</1> from our portfolio.",
+    "liquidated": "liquidated",
+    "assetsFound": "Assets Found",
+    "dailyChange": "Daily Change",
+    "errorCodeLabel": "Error Code",
+    "investmentTip": "Investment Tip:",
+    "tipMessage": "Diversification is key. Consider returning to the dashboard to explore other opportunities.",
+    "returnToDashboard": "Return to Dashboard",
+    "viewPortfolios": "View Portfolios",
+    "marketStatus": "MARKET STATUS: CLOSED | ERROR: ROUTE_NOT_FOUND | TIME: {{time}}"
+  },
+  "emptyPortfolio": {
+    "dashboard": {
+      "title": "No Portfolio Yet",
+      "message": "Get started by creating your first portfolio to track your investments and analyze performance."
+    },
+    "insights": {
+      "title": "No Portfolio Selected",
+      "message": "Create or select a portfolio to view detailed insights, performance metrics, and analytics."
+    },
+    "transactions": {
+      "title": "No Portfolio to Track",
+      "message": "Create a portfolio first to start tracking your buy, sell, and dividend transactions."
+    },
+    "assets": {
+      "title": "No Assets to Display",
+      "message": "Create a portfolio and add transactions to see your assets and their distribution."
+    },
+    "watchlist": {
+      "title": "Watchlist Ready",
+      "message": "While you can add assets to your watchlist, creating a portfolio will let you convert them into actual investments."
+    },
+    "charts": {
+      "title": "No Data to Visualize",
+      "message": "Create a portfolio and add transactions to visualize your investment performance over time."
+    },
+    "createButton": "Create Your First Portfolio",
+    "gettingStartedLabel": "Getting Started:",
+    "gettingStartedMessage": "A portfolio is a container for your investments. You can create multiple portfolios to organize different investment strategies."
+  },
+  "emptyTransactions": {
+    "assets": {
+      "title": "No Assets to Display",
+      "message": "Add your first transaction to {{portfolio}} to start tracking your investments and see your asset allocation.",
+      "secondaryMessage": "Once you add transactions, you'll see your holdings, market values, profit/loss, and asset distribution."
+    },
+    "insights": {
+      "title": "No Data for Insights Yet",
+      "message": "Start adding transactions to {{portfolio}} to unlock detailed insights, performance metrics, and analytics.",
+      "secondaryMessage": "Portfolio insights include performance metrics, risk analysis, sector allocation, and benchmark comparisons."
+    },
+    "charts": {
+      "title": "No Performance Data",
+      "message": "Add transactions to {{portfolio}} to visualize your investment performance over time with charts and graphs.",
+      "secondaryMessage": "Interactive charts will show your portfolio value over time, daily changes, and performance trends."
+    },
+    "metrics": {
+      "title": "No Transaction Metrics Yet",
+      "message": "Add transactions to {{portfolio}} to analyze your buying and selling activity over time.",
+      "secondaryMessage": "View detailed breakdowns of purchases vs. sales, average transaction sizes, fees, and activity patterns by month or year."
+    },
+    "addButton": "Add Your First Transaction",
+    "quickStartTitle": "Quick Start Guide",
+    "step1": "Click \"Add Your First Transaction\" or go to the Transactions page",
+    "step2": "Search for a stock or ETF ticker (e.g., AAPL, MSFT, SPY)",
+    "step3": "Enter the quantity, price, and date of your purchase",
+    "step4": "Watch your portfolio come to life with real-time data!",
+    "proTipTitle": "💡 Pro Tip: Bulk Import",
+    "proTipMessage": "Already tracking your portfolio elsewhere? Use the CSV import feature on the Transactions page to quickly add all your holdings at once."
   }
 }

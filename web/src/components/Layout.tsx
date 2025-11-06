@@ -242,9 +242,9 @@ export default function Layout() {
                         <Settings size={16} />
                         {t('navigation.settings')}
                       </Link>
-                      <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
                     {(user?.is_admin || user?.is_superuser) && (
                       <>
+                        <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
                         <Link
                           to="/admin"
                           onClick={() => setUserMenuOpen(false)}

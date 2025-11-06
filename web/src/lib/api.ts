@@ -86,6 +86,27 @@ export interface PortfolioHistoryPointDTO {
   unrealized_pnl_pct?: number  // Unrealized P&L % of current holdings (matches Dashboard)
 }
 
+// Batch Price Response
+export interface BatchPriceDTO {
+  symbol: string
+  asset_id: number
+  name: string
+  current_price: number | null  // Price converted to portfolio base currency
+  original_price: number  // Original price in asset's native currency
+  original_currency: string  // Asset's native currency (e.g., "USD")
+  daily_change_pct: number | null
+  last_updated: string | null
+  asset_type: string | null
+}
+
+export interface BatchPricesResponseDTO {
+  portfolio_id: number
+  base_currency: string  // Portfolio's base currency for all converted prices
+  prices: BatchPriceDTO[]
+  updated_at: string
+  count: number
+}
+
 // Asset Distribution Types
 export interface AssetPositionDTO {
   asset_id: number
@@ -461,6 +482,43 @@ class ApiClient {
     }>(`/assets/${assetId}/health`)
   }
 
+  async getYFinanceData(assetId: number) {
+    return this.request<{
+      asset_id: number
+      symbol: string
+      name: string | null
+      fetched_at: string
+      info: Record<string, unknown>
+      recent_history: unknown
+      calendar: unknown
+      recommendations: unknown
+      institutional_holders: unknown
+      major_holders: unknown
+      dividends: unknown
+      splits: unknown
+      actions: unknown
+    }>(`/assets/${assetId}/yfinance`)
+  }
+
+  async getYFinanceDataBySymbol(symbol: string) {
+    return this.request<{
+      asset_id: number | null
+      symbol: string
+      name: string | null
+      in_database: boolean
+      fetched_at: string
+      info: Record<string, unknown>
+      recent_history: unknown
+      calendar: unknown
+      recommendations: unknown
+      institutional_holders: unknown
+      major_holders: unknown
+      dividends: unknown
+      splits: unknown
+      actions: unknown
+    }>(`/assets/0/yfinance?symbol=${encodeURIComponent(symbol)}`)
+  }
+
   // Portfolios
   async getPortfolios() {
     return this.request<PortfolioDTO[]>('/portfolios')
@@ -509,6 +567,22 @@ class ApiClient {
 
   async getPortfolioMetrics(portfolioId: number) {
     return this.request<PortfolioMetricsDTO>(`/portfolios/${portfolioId}/metrics`)
+  }
+
+  /**
+   * Get batch prices for all assets in a portfolio (ultra-fast, price-only updates)
+   * 
+   * This endpoint is optimized for auto-refresh scenarios where you need to update
+   * prices without recalculating full positions. Returns only current prices and
+   * daily changes, skipping heavy P&L calculations.
+   * 
+   * **Performance:** ~10x faster than getPortfolioPositions()
+   * 
+   * @param portfolioId Portfolio ID
+   * @returns Batch price data for all portfolio assets
+   */
+  async getBatchPrices(portfolioId: number) {
+    return this.request<BatchPricesResponseDTO>(`/portfolios/${portfolioId}/prices/batch`)
   }
 
   // Transactions

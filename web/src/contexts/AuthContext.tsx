@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { api } from '../lib/api'
+import usePortfolioStore from '../store/usePortfolioStore'
 
 export interface User {
   id: number
@@ -38,6 +39,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
   const [loading, setLoading] = useState(true)
 
+  // Get portfolio store reset function
+  const resetPortfolioStore = usePortfolioStore((state) => state.reset)
+  const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
+  const setActivePortfolio = usePortfolioStore((state) => state.setActivePortfolio)
+
   // Fetch current user on mount or token change
   useEffect(() => {
     if (token) {
@@ -65,6 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.access_token)
     setUser(data.user)
     localStorage.setItem('auth_token', data.access_token)
+    
+    // Clear portfolio store to prevent accessing portfolios from previous user
+    resetPortfolioStore()
+    setPortfolios([])
+    setActivePortfolio(null as any)
   }
 
   const register = async (
@@ -82,6 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     setUser(null)
     localStorage.removeItem('auth_token')
+    
+    // Clear portfolio store on logout
+    resetPortfolioStore()
+    setPortfolios([])
+    setActivePortfolio(null as any)
   }
 
   const refreshUser = async () => {

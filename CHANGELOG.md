@@ -7,10 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-11-05
+## [0.2.1] - 2025-11-06
 
 ### Features
 
+* implement batch price fetching endpoint for portfolios to enhance performance ([a4eac7d](https://github.com/ArthurMTX/Portfolium/commit/a4eac7d))
+* add AssetsList component for displaying and filtering asset data ([05c49e8](https://github.com/ArthurMTX/Portfolium/commit/05c49e8))
+* Implement dark mode and improve error handling across authentication pages ([f7300d7](https://github.com/ArthurMTX/Portfolium/commit/f7300d7))
+* add localized not found messages and error handling in NotFound component ([6c2d660](https://github.com/ArthurMTX/Portfolium/commit/6c2d660))
+
+### Bug Fixes
+
+* update wallet percentage label in PositionsTable component ([9e981bc](https://github.com/ArthurMTX/Portfolium/commit/9e981bc))
+* Enhance portfolio management by validating active portfolio and resetting store on user change ([be3dc74](https://github.com/ArthurMTX/Portfolium/commit/be3dc74))
+* Refactor French translations to group period labels and enhance empty state messages ([27ad7e6](https://github.com/ArthurMTX/Portfolium/commit/27ad7e6))
+* Adjust admin link visibility by moving the separator above the admin menu item ([b5aae4a](https://github.com/ArthurMTX/Portfolium/commit/b5aae4a))
+* Refactor asset transaction calculations to improve portfolio-specific views ([82073e7](https://github.com/ArthurMTX/Portfolium/commit/82073e7))
+* Update sector filtering to use effective sector and industry for user-specific overrides ([f7ce8f1](https://github.com/ArthurMTX/Portfolium/commit/f7ce8f1))
+
+## [0.2.0] - 2025-11-05
+
+### Features
+    
 * add asset distribution component with API integration and refactor country/currency utilities ([e71b9ac](https://github.com/ArthurMTX/Portfolium/commit/e71b9ac))
 * add transaction metrics page with buy/sell analysis and visual charts ([7d71a2d](https://github.com/ArthurMTX/Portfolium/commit/7d71a2d))
 * update version to 0.2.0 and implement language support with i18next integration ([cd83fc3](https://github.com/ArthurMTX/Portfolium/commit/cd83fc3))
@@ -137,7 +155,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * update README to include automatic FX and currencies conversion feature ([c31726d](https://github.com/ArthurMTX/Portfolium/commit/c31726d6d0497a536a16c28df3532edf7fce4aec))
 * update README to include watchlist and notifications system features ([e008151](https://github.com/ArthurMTX/Portfolium/commit/e0081514c2fb67d65be1ed7e48e4952e1ab28d31))
 
-[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ArthurMTX/Portfolium/releases/tag/v0.1.0

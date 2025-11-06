@@ -252,7 +252,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.percentOfWallet')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">% {t('common.wallet')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {walletPct}
                     </div>

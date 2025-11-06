@@ -13,7 +13,8 @@ import {
   ArrowDown,
   Settings,
   Palette,
-  Flag
+  Flag,
+  Database
 } from 'lucide-react'
 import { api } from '../lib/api'
 
@@ -200,6 +201,58 @@ export default function DevTools() {
           >
             <Flag size={16} />
             View Flags
+          </button>
+        </div>
+      </div>
+
+      {/* Asset Debug Link */}
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm border border-purple-200 dark:border-purple-900 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
+              <Database className="text-purple-600" size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                Asset Debugger
+              </h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
+                Deep dive into asset data, transactions, prices, and health metrics
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/dev/assets')}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+          >
+            <Database size={16} />
+            Debug Assets
+          </button>
+        </div>
+      </div>
+
+      {/* Assets List Link */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm border border-blue-200 dark:border-blue-900 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
+              <Database className="text-blue-600" size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                Assets Database List
+              </h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
+                Browse all assets in the database with filtering and search capabilities
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/dev/assets-list')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <Database size={16} />
+            View List
           </button>
         </div>
       </div>

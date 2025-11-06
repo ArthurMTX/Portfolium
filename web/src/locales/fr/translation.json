@@ -68,7 +68,9 @@
     "viewDetails": "Voir les détails",
     "actions": "Actions",
     "wallet": "Portefeuille",
-    "priceUpdateError": "Erreur de mise à jour des prix"
+    "portfolio": "ce portefeuille",
+    "priceUpdateError": "Erreur de mise à jour des prix",
+    "retry": "Réessayer"
   },
   "fields": {
     "symbol": "Symbole",
@@ -173,6 +175,22 @@
   "auth": {
     "emailNotVerified": "Votre adresse e-mail n'a pas été vérifiée."
   },
+  "apiErrors": {
+    "emailAlreadyRegistered": "Adresse e-mail déjà enregistrée",
+    "usernameAlreadyTaken": "Nom d'utilisateur déjà pris",
+    "incorrectEmailOrPassword": "E-mail ou mot de passe incorrect",
+    "accountInactive": "Le compte est inactif",
+    "emailNotVerified": "E-mail non vérifié. Veuillez vérifier votre boîte de réception et vérifier votre compte avant de vous connecter.",
+    "invalidOrExpiredVerificationToken": "Jeton de vérification invalide ou expiré",
+    "emailAlreadyVerified": "E-mail déjà vérifié",
+    "invalidOrExpiredResetToken": "Jeton de réinitialisation invalide ou expiré",
+    "incorrectCurrentPassword": "Mot de passe actuel incorrect",
+    "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+    "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères",
+    "failedToSendResetEmail": "Échec de l'envoi de l'e-mail de réinitialisation",
+    "failedToResetPassword": "Échec de la réinitialisation du mot de passe",
+    "failedToVerifyEmail": "Échec de la vérification de l'e-mail"
+  },
   "charts": {
     "title": "Graphiques",
     "description": "Suivez la valeur de votre portefeuille et visualisez la répartition des actifs",
@@ -201,26 +219,20 @@
     "allTimePerformance": "Performance sur toute la période",
     "totalGainLoss": "Gain/Perte total",
     "inPeriod": "dans la période",
-    "value": "Valeur",
-    "period1W": "1S",
-    "period1M": "1M",
-    "period3M": "3M",
-    "period6M": "6M",
-    "periodYTD": "ACJ",
-    "period1Y": "1A",
-    "periodALL": "TOUT"
+    "periods": {
+      "1W": "1S",
+      "1M": "1M",
+      "3M": "3M",
+      "6M": "6M",
+      "YTD": "ACJ",
+      "1Y": "1A",
+      "ALL": "TOUT"
+    }
   },
   "insights": {
     "title": "Analyses",
     "description": "Analysez la performance de vos investissements et les tendances du marché",
     "loadingMessage": "Chargement des données d'analyse...",
-    "error": "Erreur lors du chargement des analyses.",
-    "period1M": "1 Mois",
-    "period3M": "3 Mois",
-    "period6M": "6 Mois",
-    "period1Y": "1 An",
-    "periodYTD": "Depuis le début de l'année",
-    "periodALL": "Tout le temps",
     "totalMarket": "Marché total",
     "totalReturn": "Retour total",
     "annualizedReturn": "Retour annualisé",
@@ -254,7 +266,15 @@
     "assets": "actifs",
     "diversificationScore": "Score de diversification",
     "diversificationDescription": "Basé sur le nombre de positions et la répartition des allocations.",
-    "outOf100": "sur 100"
+    "outOf100": "sur 100",
+    "periods": {
+      "1M": "1 Mois",
+      "3M": "3 Mois",
+      "6M": "6 Mois",
+      "1Y": "1 An",
+      "YTD": "Depuis le début de l'année",
+      "ALL": "Tout le temps"
+    }
   },
   "transactions": {
     "title": "Transactions",
@@ -264,53 +284,34 @@
     "metrics": "Métriques",
     "addTransaction": "Ajouter une transaction",
     "editTransaction": "Modifier la transaction",
-    "searchSymbol": "Rechercher par symbole ou nom...",
+    "deleteTransaction": "Supprimer la transaction",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette transaction ? Cette action ne peut pas être annulée.",
     "transactions": "transactions",
-    "noTransactions": "Aucune transaction à afficher.",
-    "noTransactionsInfo": "Commencez par ajouter des transactions pour les voir répertoriées ici.",
-    "noTransactionMatches": "Aucune transaction ne correspond à votre recherche.",
-    "noTransactionMatchesInfo": "Essayez de rechercher avec un symbole ou un nom différent ou",
-    "noTransactionMatchesClear": "effacez votre recherche pour voir toutes les transactions.",
+    "all": "Tout",
     "showAll": "Afficher tout",
     "showLast": "Afficher les {{count}} dernières",
-    "split": "Fractionnement",
-    "splits": "Fractionnements",
-    "date": "Date",
-    "asset": "Actif",
-    "type": "Type",
-    "quantity": "Quantité",
-    "price": "Prix",
-    "total": "Total",
-    "fees": "Frais",
-    "notes": "Notes",
-    "action": "Actions",
     "assetName": "Nom de l'actif",
     "viewSplitHistory": "Voir l'historique des fractionnements",
     "ticker": "Symbole",
     "tickerSearchPlaceholder": "Rechercher par symbole (ex : NVDA, BTC)...",
-    "buy": "Achat",
-    "sell": "Vente",
-    "dividend": "Dividende",
-    "fee": "Frais",
-    "transferIn": "Transfert entrant",
-    "transferOut": "Transfert sortant",
     "splitRatio": "Ratio de fractionnement",
     "splitRatioPlaceholder": "ex : 2:1 (fractionnement 2 pour 1) ou 1:2 (fractionnement inverse)",
     "splitRatioInfo": "Format : \"N:M\" où N est le nouveau nombre d'actions et M est l'ancien nombre d'actions. Exemples : \"2:1\" (double les actions), \"3:1\" (triple), \"1:2\" (fractionnement inverse divise par deux les actions)",
-    "optional": "Optionnel",
     "autoFetch": "Récupération automatique",
     "autoFetchInfo": "Laissez vide pour récupérer automatiquement le prix en USD, ou entrez le prix en {{currency}}.",
-    "notesPlaceholder": "Notes optionnelles sur cette transaction...",
-    "deleteTransaction": "Supprimer la transaction",
-    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette transaction ? Cette action ne peut pas être annulée.",
-    "all": "Tout"
+    "empty": {
+      "noTransactions": "Aucune transaction à afficher.",
+      "noTransactionsInfo": "Commencez par ajouter des transactions pour les voir répertoriées ici.",
+      "noTransactionMatches": "Aucune transaction ne correspond à votre recherche.",
+      "noTransactionMatchesInfo": "Essayez de rechercher avec un symbole ou un nom différent ou",
+      "noTransactionMatchesClear": "effacez votre recherche pour voir toutes les transactions."
+    }
   },
   "splitHistory": {
     "title": "Historique des fractionnements",
     "loadingSplitHistory": "Chargement de l'historique des fractionnements...",
-    "noSplits": "Aucun fractionnement à afficher pour {{ticker}}.",
-    "noSplitsInfo": "Les fractionnements d'actions apparaîtront ici lorsqu'ils seront enregistrés.",
     "split": "Fractionnement",
+    "splits": "Fractionnements",
     "totalSplitsRecorded": "Total des fractionnements enregistrés",
     "splitsInfo": "Les fractionnements ajustent automatiquement les quantités d'actions et les coûts moyens dans votre portefeuille.",
     "reverse": "Regroupement",
@@ -318,7 +319,10 @@
     "invalidSplitRatio": "Ratio de fractionnement invalide.",
     "forwardSplitDescription": "Fractionnement {{numerator}} pour {{denominator}} ({{ratio}}x actions)",
     "reverseSplitDescription": "Regroupement {{numerator}} pour {{denominator}} ({{ratio}}x actions)",
-    "loading": "Chargement de l'historique des fractionnements..."
+    "empty": {
+      "noSplits": "Aucun fractionnement à afficher pour {{ticker}}.",
+      "noSplitsInfo": "Les fractionnements d'actions apparaîtront ici lorsqu'ils seront enregistrés."
+    }
   },
   "importProgressModal": {
     "title": "Importation des transactions",
@@ -338,8 +342,6 @@
     "description": "Analysez votre activité d'achat et de vente au fil du temps",
     "loadingMessage": "Chargement des métriques de vos transactions...",
     "backToTransactions": "Retour aux transactions",
-    "monthlyButton": "Mensuel",
-    "yearlyButton": "Annuel",
     "transactions": "transactions",
     "totalPurchases": "Achats totaux",
     "totalSales": "Ventes totales",
@@ -350,8 +352,6 @@
     "perTransaction": "par transaction",
     "totalFees": "Frais totaux",
     "feeEfficiency": "Efficacité des frais",
-    "buy": "Achat",
-    "sell": "Vente",
     "ofTotalVolume": "Du volume total",
     "buySellRatio": "Ratio achat/vente",
     "noSales": "Aucune vente.",
@@ -360,17 +360,12 @@
     "netDistributing": "Distribution nette",
     "avgFrequency": "Fréquence moyenne",
     "transactionsPer": "Transactions par {{period}}",
-    "periodMonth": "mois",
-    "periodYear": "année",
     "buyVsSellVolume": "Volume Achat vs Vente",
     "buyTotal": "Total des achats",
     "sellTotal": "Total des ventes",
-    "noTransactionData": "Aucune donnée de transaction.",
-    "startAddingTransactions": "Commencez à ajouter des transactions pour voir les métriques ici.",
     "netDifferenceTrend": "Tendance de la différence nette",
     "amount": "Montant",
     "detailedBreakdown": "Répartition détaillée",
-    "period": "Période",
     "txCount": "Nbr Tx",
     "buySum": "Somme Achats",
     "buyCount": "Nbr Achats",
@@ -383,33 +378,32 @@
     "difference": "Différence",
     "details": "Détails",
     "transactionsIn": "Transactions en {{period}}",
-    "date": "Date",
-    "type": "Type",
-    "asset": "Actif",
-    "quantity": "Quantité",
-    "price": "Prix",
-    "fees": "Frais",
-    "total": "Total"
+    "viewModes": {
+      "monthly": "Mensuel",
+      "yearly": "Annuel"
+    },
+    "periods": {
+      "month": "mois",
+      "year": "année"
+    },
+    "empty": {
+      "noTransactionData": "Aucune donnée de transaction.",
+      "startAddingTransactions": "Commencez à ajouter des transactions pour voir les métriques ici."
+    }
   },
   "assets": {
     "title": "Actifs",
     "description": "Gérer et analyser vos actifs détenus",
     "loadingMessage": "Chargement de vos actifs...",
-    "symbol": "Symbole",
-    "name": "Nom",
     "class": "Classe",
-    "type": "Type",
     "country": "Pays",
     "sector": "Secteur",
     "industry": "Industrie",
-    "quantity": "Quantité",
-    "actions": "Actions",
     "assetDistribution": "Répartition des actifs",
     "heldAndSoldAssetsIn": "Actifs détenus et vendus dans {{portfolio}}",
     "heldAssetsIn": "Actifs actuellement détenus dans {{portfolio}}",
     "heldAndSoldAssetsAll": "Actifs détenus et vendus dans tous les portefeuilles",
     "heldAssetsAll": "Actifs actuellement détenus dans tous les portefeuilles",
-    "searchPlaceholder": "Rechercher par symbole ou nom...",
     "distribution": "Répartition",
     "jumpToDistribution": "Accéder à la répartition des actifs",
     "hideSold": "Masquer les actifs vendus",
@@ -420,11 +414,6 @@
     "enrichingMetadata": "Enrichissement des métadonnées...",
     "enrich": "Enrichir",
     "enriching": "Enrichissement...",
-    "sortBy": "Trier par",
-    "noAssetsMatch": "Aucun actif ne correspond à votre recherche.",
-    "noAssetsMatchInfo": "Essayez de rechercher avec un symbole ou un nom différent, ou",
-    "clearSearch": "effacer votre recherche.",
-    "splits": "Fractionnements",
     "txs": "Txs",
     "chart": "Graphique",
     "sold": "Vendu",
@@ -433,7 +422,12 @@
     "viewTransactionHistory": "Voir l'historique des transactions ({{txCount}} transaction{{suffix}})",
     "viewSplitHistory": "Voir l'historique des fractionnements ({{splitCount}} fractionnement{{suffix}})",
     "priceChart": "Graphique des prix",
-    "historicalPriceData": "Données historiques des prix"
+    "historicalPriceData": "Données historiques des prix",
+    "empty": {
+      "noAssetsMatch": "Aucun actif ne correspond à votre recherche.",
+      "noAssetsMatchInfo": "Essayez de rechercher avec un symbole ou un nom différent, ou",
+      "clearSearch": "effacer votre recherche."
+    }
   },
   "assetsDistribution": {
     "bySector": "Par secteur",
@@ -441,10 +435,6 @@
     "byCountry": "Par pays",
     "sector": "Secteur",
     "industry": "Industrie",
-    "symbol": "Symbole",
-    "name": "Nom",
-    "type": "Type",
-    "country": "Pays",
     "pieChart": "Graphique circulaire",
     "barChart": "Graphique à barres",
     "sectorDistribution": "Répartition par secteur",
@@ -467,41 +457,31 @@
   "transactionHistory": {
     "title": "Historique des Transactions",
     "loadingMessage": "Chargement de l'historique des transactions...",
-    "noBuySellTransactions": "Aucune transaction d'achat/vente enregistrée pour {{assetSymbol}}.",
-    "noBuySellTransactionsInfo": "Les transactions d'achat et de vente apparaîtront ici lorsqu'elles seront enregistrées.",
     "buyTransactions": "Transactions d'achat",
     "sellTransactions": "Transactions de vente",
     "totalQuantity": "Quantité totale: ",
     "splitAdjustedQuantity": "Quantité ajustée pour les fractionnements: ",
-    "date": "Date",
-    "type": "Type",
-    "quantity": "Quantité",
     "adjustedQuantity": "Quantité ajustée",
-    "price": "Prix",
-    "fees": "Frais",
-    "total": "Total",
-    "notes": "Notes",
     "totalTransactions": "Total des transactions",
     "buys": "achats",
     "sells": "ventes",
     "netPositionChange": "Changement net de position",
     "splitAdjusted": "ajusté pour les fractionnements",
-    "shares": "actions"
+    "shares": "actions",
+    "empty": {
+      "noBuySellTransactions": "Aucune transaction d'achat/vente enregistrée pour {{assetSymbol}}.",
+      "noBuySellTransactionsInfo": "Les transactions d'achat et de vente apparaîtront ici lorsqu'elles seront enregistrées."
+    }
   },
   "assetPriceChart": {
-    "price": "Prix",
-    "error": "Erreur lors du chargement des données du graphique des prix.",
-    "noPriceData": "Aucune donnée de prix disponible pour cet actif.",
-    "noPriceDataInfo": "L'historique des prix sera récupéré automatiquement lorsque vous ajouterez des transactions pour cet actif.",
     "dataFrom": "Données de {{date1}} à {{date2}}",
-    "buy": "Achat",
-    "sell": "Vente",
-    "split": "Fractionnement"
+    "empty": {
+      "error": "Erreur lors du chargement des données du graphique des prix.",
+      "noPriceData": "Aucune donnée de prix disponible pour cet actif.",
+      "noPriceDataInfo": "L'historique des prix sera récupéré automatiquement lorsque vous ajouterez des transactions pour cet actif."
+    }
   },
   "assetPriceDebug": {
-    "healthBadgeExcellent": "Excellent",
-    "healthBadgeGood": "Bon",
-    "healthBadgePoor": "Mauvais",
     "title": "Débogage des Données de Prix",
     "assetId": "ID de l'Actif",
     "healthCheck": "Vérification de la Santé",
@@ -511,6 +491,7 @@
     "expectedDays": "Jours Attendus",
     "actualDays": "Jours Réels",
     "totalRecords": "Total des Enregistrements",
+    "dateRange": "Plage de Dates",
     "firstTransaction": "Première Transaction",
     "oldestPrice": "Prix le Plus Ancien",
     "newestPrice": "Prix le Plus Récent",
@@ -520,10 +501,16 @@
     "missingDaysInfo": "Manque {{missing}} sur {{expected}} jours de trading attendus.",
     "viewGapDetails": "Voir les Détails du Manque",
     "dateTime": "Date/Heure",
-    "price": "Prix",
     "volume": "Volume",
     "source": "Source",
-    "noPriceData": "Aucune donnée de prix disponible pour cet actif."
+    "healthBadges": {
+      "excellent": "Excellent",
+      "good": "Bon",
+      "poor": "Mauvais"
+    },
+    "empty": {
+      "noPriceData": "Aucune donnée de prix disponible pour cet actif."
+    }
   },
   "assetMetadataEdit": {
     "title": "Modifier les Métadonnées de l'Actif",
@@ -534,10 +521,6 @@
     "about4": " - les autres utilisateurs ne les verront pas",
     "about5": "Cela aide à compléter vos graphiques de distribution et vos analyses",
     "about6": "Si Yahoo Finance ajoute plus tard des données, votre remplacement sera ignoré",
-    "error": "Erreur",
-    "sector": "Secteur",
-    "industry": "Industrie",
-    "country": "Pays",
     "yahooFinance": "Yahoo Finance",
     "cannotOverride": "Impossible de remplacer - Yahoo Finance fournit déjà ces données",
     "sectorPlaceholder": "Sélectionner un secteur...",
@@ -552,35 +535,25 @@
     "description": "Suivez les actifs que vous ne possédez pas encore, définissez des alertes et convertissez-les en investissements.",
     "loadingMessage": "Chargement de votre liste de surveillance...",
     "addToWatchlist": "Ajouter à la liste de surveillance",
-    "symbol": "Symbole",
-    "name": "Nom",
-    "price": "Prix",
     "dailyChange": "Changement Quotidien %",
-    "notes": "Notes",
     "alert": "Alerte",
-    "actions": "Actions",
-    "sortBy": "Trier par",
-    "noWatchlistAssets": "Aucun actif dans votre liste de surveillance. Ajoutez des actifs pour commencer à suivre.",
     "alertTargetPrice": "Prix cible de l'alerte",
     "alertEnabled": "Alerte activée",
     "alertPrice": "Prix de l'alerte",
-    "enabled": "Activée",
     "buy": "Acheter",
     "targetPrice": "Prix cible",
-    "notesPlaceholder": "Notes optionnelles...",
     "convertToBuy": "Convertir en achat",
     "importTitle": "Importer la liste de surveillance",
     "importDescription": "Importez votre liste de surveillance à partir d'un fichier CSV. Cliquez sur le bouton ci-dessous pour sélectionner un fichier.",
     "importFormatInfo": "Format CSV",
     "importFormat": "AAPL,Surveiller les résultats,150.00,true",
     "selectFile": "Sélectionner un fichier CSV",
-    "portfolio": "Portefeuille",
-    "quantity": "Quantité",
-    "current": "Actuel",
     "updatedAt": "Mis à jour le",
     "deleteWatchlistAsset": "Supprimer l'actif de la liste de surveillance",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet actif de votre liste de surveillance ? Cette action ne peut pas être annulée.",
-    "optional": "Optionnel"
+    "empty": {
+      "noWatchlistAssets": "Aucun actif dans votre liste de surveillance. Ajoutez des actifs pour commencer à suivre."
+    }
   },
   "profile": {
     "title": "Profil",
@@ -884,6 +857,44 @@
     "redirecting": "Redirection vers la page de connexion...",
     "goToLogin": "Aller à la connexion maintenant →"
   },
+  "forgotPassword": {
+    "title": "Mot de passe oublié ?",
+    "subtitle": "Pas de souci, nous vous enverrons les instructions de réinitialisation",
+    "emailLabel": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "sending": "Envoi en cours...",
+    "sendResetInstructions": "Envoyer les instructions de réinitialisation",
+    "backToLogin": "Retour à la connexion",
+    "successTitle": "Vérifiez votre boîte e-mail",
+    "successMessage": "Nous avons envoyé les instructions de réinitialisation du mot de passe à <strong>{{email}}</strong>. Veuillez vérifier votre boîte de réception et suivre le lien pour réinitialiser votre mot de passe.",
+    "expiryMessage": "Le lien de réinitialisation expirera dans 1 heure."
+  },
+  "resetPassword": {
+    "title": "Réinitialiser votre mot de passe",
+    "subtitle": "Entrez votre nouveau mot de passe ci-dessous",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmPasswordLabel": "Confirmer le nouveau mot de passe",
+    "passwordHint": "Minimum 8 caractères",
+    "resetting": "Réinitialisation du mot de passe...",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "backToLogin": "Retour à la connexion",
+    "successTitle": "Réinitialisation du mot de passe réussie !",
+    "successMessage": "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
+    "redirecting": "Redirection vers la page de connexion...",
+    "goToLogin": "Aller à la connexion maintenant →"
+  },
+  "verifyEmail": {
+    "verifying": "Vérification de votre e-mail...",
+    "verifyingMessage": "Veuillez patienter pendant que nous vérifions votre adresse e-mail.",
+    "successTitle": "E-mail vérifié avec succès !",
+    "successMessage": "Votre e-mail a été vérifié. Vous pouvez maintenant vous connecter à votre compte et commencer à suivre vos investissements.",
+    "redirecting": "Redirection vers la page de connexion dans 5 secondes...",
+    "signInNow": "Se connecter maintenant →",
+    "errorTitle": "Échec de la vérification",
+    "errorMessageDefault": "Lien de vérification invalide ou expiré.",
+    "goToLogin": "Aller à la connexion",
+    "createNewAccount": "Créer un nouveau compte"
+  },
   "emails": {
     "verification": {
       "subject": "Vérifiez votre e-mail - Portfolium",
@@ -1155,5 +1166,79 @@
     "INDEX": "Indice",
     "CURRENCY": "Devise",
     "COMMODITY": "Matière Première"
+  },
+  "notFound": {
+    "errorCode": "404",
+    "percentChange": "-100% (Page Introuvable)",
+    "title": "Portefeuille Sous-Performant",
+    "message": "Cette page a été <1>liquidée</1> de notre portefeuille.",
+    "liquidated": "liquidée",
+    "assetsFound": "Actifs Trouvés",
+    "dailyChange": "Variation Quotidienne",
+    "errorCodeLabel": "Code d'Erreur",
+    "investmentTip": "Conseil d'Investissement :",
+    "tipMessage": "La diversification est essentielle. Envisagez de retourner au tableau de bord pour explorer d'autres opportunités.",
+    "returnToDashboard": "Retour au Tableau de bord",
+    "viewPortfolios": "Voir les Portefeuilles",
+    "marketStatus": "ÉTAT DU MARCHÉ : FERMÉ | ERREUR : ROUTE_INTROUVABLE | HEURE : {{time}}"
+  },
+  "emptyPortfolio": {
+    "dashboard": {
+      "title": "Aucun portefeuille",
+      "message": "Commencez par créer votre premier portefeuille pour suivre vos investissements et analyser les performances."
+    },
+    "insights": {
+      "title": "Aucun portefeuille sélectionné",
+      "message": "Créez ou sélectionnez un portefeuille pour voir les insights détaillés, les métriques de performance et les analyses."
+    },
+    "transactions": {
+      "title": "Aucun portefeuille à suivre",
+      "message": "Créez d'abord un portefeuille pour commencer à suivre vos transactions d'achat, de vente et de dividendes."
+    },
+    "assets": {
+      "title": "Aucun actif à afficher",
+      "message": "Créez un portefeuille et ajoutez des transactions pour voir vos actifs et leur répartition."
+    },
+    "watchlist": {
+      "title": "Liste de surveillance prête",
+      "message": "Bien que vous puissiez ajouter des actifs à votre liste de surveillance, créer un portefeuille vous permettra de les convertir en investissements réels."
+    },
+    "charts": {
+      "title": "Aucune donnée à visualiser",
+      "message": "Créez un portefeuille et ajoutez des transactions pour visualiser vos performances d'investissement au fil du temps."
+    },
+    "createButton": "Créer votre premier portefeuille",
+    "gettingStartedLabel": "Pour commencer :",
+    "gettingStartedMessage": "Un portefeuille est un conteneur pour vos investissements. Vous pouvez créer plusieurs portefeuilles pour organiser différentes stratégies d'investissement."
+  },
+  "emptyTransactions": {
+    "assets": {
+      "title": "Aucun actif à afficher",
+      "message": "Ajoutez votre première transaction à {{portfolio}} pour commencer à suivre vos investissements et voir votre allocation d'actifs.",
+      "secondaryMessage": "Une fois que vous aurez ajouté des transactions, vous verrez vos avoirs, les valeurs de marché, les profits/pertes et la répartition des actifs."
+    },
+    "insights": {
+      "title": "Aucune donnée pour les analyses",
+      "message": "Commencez à ajouter des transactions à {{portfolio}} pour débloquer des analyses détaillées, des métriques de performance et des comparaisons avec des indices de référence.",
+      "secondaryMessage": "Les analyses du portefeuille incluent les métriques de performance, l'analyse des risques, la répartition sectorielle et les comparaisons avec des indices de référence."
+    },
+    "charts": {
+      "title": "Aucune donnée de performance",
+      "message": "Ajoutez des transactions à {{portfolio}} pour visualiser vos performances d'investissement au fil du temps avec des graphiques.",
+      "secondaryMessage": "Les graphiques interactifs montreront la valeur de votre portefeuille au fil du temps, les variations quotidiennes et les tendances de performance."
+    },
+    "metrics": {
+      "title": "Aucune métrique de transaction",
+      "message": "Ajoutez des transactions à {{portfolio}} pour analyser votre activité d'achat et de vente au fil du temps.",
+      "secondaryMessage": "Visualisez des répartitions détaillées des achats vs. ventes, les tailles moyennes des transactions, les frais et les modèles d'activité par mois ou par année."
+    },
+    "addButton": "Ajouter votre première transaction",
+    "quickStartTitle": "Guide de démarrage rapide",
+    "step1": "Cliquez sur \"Ajouter votre première transaction\" ou allez sur la page Transactions",
+    "step2": "Recherchez un ticker d'action ou d'ETF (ex. AAPL, MSFT, SPY)",
+    "step3": "Entrez la quantité, le prix et la date de votre achat",
+    "step4": "Regardez votre portefeuille prendre vie avec des données en temps réel !",
+    "proTipTitle": "💡 Astuce Pro : Importation en masse",
+    "proTipMessage": "Vous suivez déjà votre portefeuille ailleurs ? Utilisez la fonctionnalité d'importation CSV sur la page Transactions pour ajouter rapidement tous vos avoirs en une fois."
   }
 }

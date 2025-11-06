@@ -51,9 +51,16 @@ export default function Portfolios() {
       const data = await api.getPortfolios()
       setPortfolios(data)
       
-      // Set first portfolio as active if none selected
-      if (!activePortfolioId && data.length > 0) {
+      // Validate that activePortfolioId belongs to the current user's portfolios
+      const portfolioIds = data.map(p => p.id)
+      const activeIsValid = activePortfolioId && portfolioIds.includes(activePortfolioId)
+      
+      // If current active portfolio doesn't exist in user's portfolios, reset it
+      if (!activeIsValid && data.length > 0) {
         setActivePortfolio(data[0].id)
+      } else if (!activeIsValid && data.length === 0) {
+        // No portfolios at all, clear active
+        setActivePortfolio(null as any)
       }
     } catch (error) {
       console.error('Failed to fetch portfolios:', error)
