@@ -1112,8 +1112,8 @@ async def get_sector_industries_distribution(
     # Get all held assets for the sector
     held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
-    # Filter by sector
-    sector_assets = [a for a in held_assets_data if (a.get("sector") or "Unknown") == sector_name]
+    # Filter by sector - use effective_sector to include user-specific overrides
+    sector_assets = [a for a in held_assets_data if (a.get("effective_sector") or "Unknown") == sector_name]
     
     if not sector_assets:
         return []
@@ -1147,7 +1147,8 @@ async def get_sector_industries_distribution(
         )
     
     for asset in sector_assets:
-        industry = asset.get("industry") or "Unknown"
+        # Use effective_industry which includes user-specific overrides
+        industry = asset.get("effective_industry") or "Unknown"
         industry_data[industry]["assets"].append(asset["id"])
         industry_data[industry]["count"] += 1
         
