@@ -6,6 +6,7 @@ import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle, Moon, Sun } from 
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
 import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
+import { translateApiError } from '../lib/errorUtils'
 
 export default function Register() {
   const { t, i18n } = useTranslation()
@@ -86,7 +87,7 @@ export default function Register() {
       }, 3000)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('register.registrationFailed')
-      setError(message)
+      setError(translateApiError(message, t))
     } finally {
       setLoading(false)
     }

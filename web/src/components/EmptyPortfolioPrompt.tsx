@@ -1,5 +1,6 @@
 import { Home, PlusCircle, TrendingUp, Package, Eye, LineChart, ArrowLeftRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 interface EmptyPortfolioPromptProps {
   pageType?: 'dashboard' | 'insights' | 'transactions' | 'assets' | 'watchlist' | 'charts'
@@ -7,6 +8,7 @@ interface EmptyPortfolioPromptProps {
 
 export default function EmptyPortfolioPrompt({ pageType = 'dashboard' }: EmptyPortfolioPromptProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const getIcon = () => {
     switch (pageType) {
@@ -26,37 +28,11 @@ export default function EmptyPortfolioPrompt({ pageType = 'dashboard' }: EmptyPo
   }
 
   const getTitle = () => {
-    switch (pageType) {
-      case 'insights':
-        return 'No Portfolio Selected'
-      case 'transactions':
-        return 'No Portfolio to Track'
-      case 'assets':
-        return 'No Assets to Display'
-      case 'watchlist':
-        return 'Watchlist Ready'
-      case 'charts':
-        return 'No Data to Visualize'
-      default:
-        return 'No Portfolio Yet'
-    }
+    return t(`emptyPortfolio.${pageType}.title`)
   }
 
   const getMessage = () => {
-    switch (pageType) {
-      case 'insights':
-        return 'Create or select a portfolio to view detailed insights, performance metrics, and analytics.'
-      case 'transactions':
-        return 'Create a portfolio first to start tracking your buy, sell, and dividend transactions.'
-      case 'assets':
-        return 'Create a portfolio and add transactions to see your assets and their distribution.'
-      case 'watchlist':
-        return 'While you can add assets to your watchlist, creating a portfolio will let you convert them into actual investments.'
-      case 'charts':
-        return 'Create a portfolio and add transactions to visualize your investment performance over time.'
-      default:
-        return 'Get started by creating your first portfolio to track your investments and analyze performance.'
-    }
+    return t(`emptyPortfolio.${pageType}.message`)
   }
 
   return (
@@ -90,15 +66,14 @@ export default function EmptyPortfolioPrompt({ pageType = 'dashboard' }: EmptyPo
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
               >
                 <PlusCircle size={20} />
-                Create Your First Portfolio
+                {t('emptyPortfolio.createButton')}
               </button>
             </div>
 
             {/* Additional help text */}
             <div className="mt-8 pt-8 border-t border-neutral-200 dark:border-neutral-700">
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                💡 <strong>Getting Started:</strong> A portfolio is a container for your investments. 
-                You can create multiple portfolios to organize different investment strategies.
+                💡 <strong>{t('emptyPortfolio.gettingStartedLabel')}</strong> {t('emptyPortfolio.gettingStartedMessage')}
               </p>
             </div>
 

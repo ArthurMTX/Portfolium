@@ -68,7 +68,9 @@
     "viewDetails": "Voir les détails",
     "actions": "Actions",
     "wallet": "Portefeuille",
-    "priceUpdateError": "Erreur de mise à jour des prix"
+    "portfolio": "ce portefeuille",
+    "priceUpdateError": "Erreur de mise à jour des prix",
+    "retry": "Réessayer"
   },
   "fields": {
     "symbol": "Symbole",
@@ -172,6 +174,22 @@
   },
   "auth": {
     "emailNotVerified": "Votre adresse e-mail n'a pas été vérifiée."
+  },
+  "apiErrors": {
+    "emailAlreadyRegistered": "Adresse e-mail déjà enregistrée",
+    "usernameAlreadyTaken": "Nom d'utilisateur déjà pris",
+    "incorrectEmailOrPassword": "E-mail ou mot de passe incorrect",
+    "accountInactive": "Le compte est inactif",
+    "emailNotVerified": "E-mail non vérifié. Veuillez vérifier votre boîte de réception et vérifier votre compte avant de vous connecter.",
+    "invalidOrExpiredVerificationToken": "Jeton de vérification invalide ou expiré",
+    "emailAlreadyVerified": "E-mail déjà vérifié",
+    "invalidOrExpiredResetToken": "Jeton de réinitialisation invalide ou expiré",
+    "incorrectCurrentPassword": "Mot de passe actuel incorrect",
+    "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+    "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères",
+    "failedToSendResetEmail": "Échec de l'envoi de l'e-mail de réinitialisation",
+    "failedToResetPassword": "Échec de la réinitialisation du mot de passe",
+    "failedToVerifyEmail": "Échec de la vérification de l'e-mail"
   },
   "charts": {
     "title": "Graphiques",
@@ -884,6 +902,44 @@
     "redirecting": "Redirection vers la page de connexion...",
     "goToLogin": "Aller à la connexion maintenant →"
   },
+  "forgotPassword": {
+    "title": "Mot de passe oublié ?",
+    "subtitle": "Pas de souci, nous vous enverrons les instructions de réinitialisation",
+    "emailLabel": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "sending": "Envoi en cours...",
+    "sendResetInstructions": "Envoyer les instructions de réinitialisation",
+    "backToLogin": "Retour à la connexion",
+    "successTitle": "Vérifiez votre boîte e-mail",
+    "successMessage": "Nous avons envoyé les instructions de réinitialisation du mot de passe à <strong>{{email}}</strong>. Veuillez vérifier votre boîte de réception et suivre le lien pour réinitialiser votre mot de passe.",
+    "expiryMessage": "Le lien de réinitialisation expirera dans 1 heure."
+  },
+  "resetPassword": {
+    "title": "Réinitialiser votre mot de passe",
+    "subtitle": "Entrez votre nouveau mot de passe ci-dessous",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmPasswordLabel": "Confirmer le nouveau mot de passe",
+    "passwordHint": "Minimum 8 caractères",
+    "resetting": "Réinitialisation du mot de passe...",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "backToLogin": "Retour à la connexion",
+    "successTitle": "Réinitialisation du mot de passe réussie !",
+    "successMessage": "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
+    "redirecting": "Redirection vers la page de connexion...",
+    "goToLogin": "Aller à la connexion maintenant →"
+  },
+  "verifyEmail": {
+    "verifying": "Vérification de votre e-mail...",
+    "verifyingMessage": "Veuillez patienter pendant que nous vérifions votre adresse e-mail.",
+    "successTitle": "E-mail vérifié avec succès !",
+    "successMessage": "Votre e-mail a été vérifié. Vous pouvez maintenant vous connecter à votre compte et commencer à suivre vos investissements.",
+    "redirecting": "Redirection vers la page de connexion dans 5 secondes...",
+    "signInNow": "Se connecter maintenant →",
+    "errorTitle": "Échec de la vérification",
+    "errorMessageDefault": "Lien de vérification invalide ou expiré.",
+    "goToLogin": "Aller à la connexion",
+    "createNewAccount": "Créer un nouveau compte"
+  },
   "emails": {
     "verification": {
       "subject": "Vérifiez votre e-mail - Portfolium",
@@ -1170,5 +1226,64 @@
     "returnToDashboard": "Retour au Tableau de bord",
     "viewPortfolios": "Voir les Portefeuilles",
     "marketStatus": "ÉTAT DU MARCHÉ : FERMÉ | ERREUR : ROUTE_INTROUVABLE | HEURE : {{time}}"
+  },
+  "emptyPortfolio": {
+    "dashboard": {
+      "title": "Aucun portefeuille",
+      "message": "Commencez par créer votre premier portefeuille pour suivre vos investissements et analyser les performances."
+    },
+    "insights": {
+      "title": "Aucun portefeuille sélectionné",
+      "message": "Créez ou sélectionnez un portefeuille pour voir les insights détaillés, les métriques de performance et les analyses."
+    },
+    "transactions": {
+      "title": "Aucun portefeuille à suivre",
+      "message": "Créez d'abord un portefeuille pour commencer à suivre vos transactions d'achat, de vente et de dividendes."
+    },
+    "assets": {
+      "title": "Aucun actif à afficher",
+      "message": "Créez un portefeuille et ajoutez des transactions pour voir vos actifs et leur répartition."
+    },
+    "watchlist": {
+      "title": "Liste de surveillance prête",
+      "message": "Bien que vous puissiez ajouter des actifs à votre liste de surveillance, créer un portefeuille vous permettra de les convertir en investissements réels."
+    },
+    "charts": {
+      "title": "Aucune donnée à visualiser",
+      "message": "Créez un portefeuille et ajoutez des transactions pour visualiser vos performances d'investissement au fil du temps."
+    },
+    "createButton": "Créer votre premier portefeuille",
+    "gettingStartedLabel": "Pour commencer :",
+    "gettingStartedMessage": "Un portefeuille est un conteneur pour vos investissements. Vous pouvez créer plusieurs portefeuilles pour organiser différentes stratégies d'investissement."
+  },
+  "emptyTransactions": {
+    "assets": {
+      "title": "Aucun actif à afficher",
+      "message": "Ajoutez votre première transaction à {{portfolio}} pour commencer à suivre vos investissements et voir votre allocation d'actifs.",
+      "secondaryMessage": "Une fois que vous aurez ajouté des transactions, vous verrez vos avoirs, les valeurs de marché, les profits/pertes et la répartition des actifs."
+    },
+    "insights": {
+      "title": "Aucune donnée pour les analyses",
+      "message": "Commencez à ajouter des transactions à {{portfolio}} pour débloquer des analyses détaillées, des métriques de performance et des comparaisons avec des indices de référence.",
+      "secondaryMessage": "Les analyses du portefeuille incluent les métriques de performance, l'analyse des risques, la répartition sectorielle et les comparaisons avec des indices de référence."
+    },
+    "charts": {
+      "title": "Aucune donnée de performance",
+      "message": "Ajoutez des transactions à {{portfolio}} pour visualiser vos performances d'investissement au fil du temps avec des graphiques.",
+      "secondaryMessage": "Les graphiques interactifs montreront la valeur de votre portefeuille au fil du temps, les variations quotidiennes et les tendances de performance."
+    },
+    "metrics": {
+      "title": "Aucune métrique de transaction",
+      "message": "Ajoutez des transactions à {{portfolio}} pour analyser votre activité d'achat et de vente au fil du temps.",
+      "secondaryMessage": "Visualisez des répartitions détaillées des achats vs. ventes, les tailles moyennes des transactions, les frais et les modèles d'activité par mois ou par année."
+    },
+    "addButton": "Ajouter votre première transaction",
+    "quickStartTitle": "Guide de démarrage rapide",
+    "step1": "Cliquez sur \"Ajouter votre première transaction\" ou allez sur la page Transactions",
+    "step2": "Recherchez un ticker d'action ou d'ETF (ex. AAPL, MSFT, SPY)",
+    "step3": "Entrez la quantité, le prix et la date de votre achat",
+    "step4": "Regardez votre portefeuille prendre vie avec des données en temps réel !",
+    "proTipTitle": "💡 Astuce Pro : Importation en masse",
+    "proTipMessage": "Vous suivez déjà votre portefeuille ailleurs ? Utilisez la fonctionnalité d'importation CSV sur la page Transactions pour ajouter rapidement tous vos avoirs en une fois."
   }
 }

@@ -3,6 +3,7 @@ import { MailCheck, Shield, Trash2, User as UserIcon, RefreshCw } from 'lucide-r
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
+import { translateApiError } from '../lib/errorUtils'
 
 type ProfileTab = 'profile' | 'security' | 'danger';
 
@@ -67,7 +68,7 @@ export default function Profile() {
           : t('profile.profileUpdated'),
       })
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : t('profile.failedToUpdateProfile')
+      const text = err instanceof Error ? translateApiError(err.message, t) : t('profile.failedToUpdateProfile')
       setMessage({ type: 'error', text })
     } finally {
       setSaving(false)
@@ -94,7 +95,7 @@ export default function Profile() {
       setNewPassword('')
       setConfirmPassword('')
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : t('profile.failedToChangePassword')
+      const text = err instanceof Error ? translateApiError(err.message, t) : t('profile.failedToChangePassword')
       setPwdMessage({ type: 'error', text })
     } finally {
       setChangingPwd(false)
@@ -110,7 +111,7 @@ export default function Profile() {
       const res = await api.resendVerification(email)
       setResendMsg(res.message)
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : t('profile.failedToSendVerification')
+      const text = err instanceof Error ? translateApiError(err.message, t) : t('profile.failedToSendVerification')
       setResendMsg(text)
     } finally {
       setResending(false)
@@ -126,7 +127,8 @@ export default function Profile() {
       // Log out and redirect to login
       logout()
     } catch (err: unknown) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('profile.failedToDeleteAccount') })
+      const text = err instanceof Error ? translateApiError(err.message, t) : t('profile.failedToDeleteAccount')
+      setMessage({ type: 'error', text })
     } finally {
       setDeleting(false)
     }

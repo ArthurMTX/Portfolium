@@ -5,6 +5,7 @@ import { LogIn, Mail, Lock, AlertCircle, Moon, Sun } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
 import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
+import { translateApiError } from '../lib/errorUtils'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -50,7 +51,7 @@ export default function Login() {
       navigate(from, { replace: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid email or password'
-      setError(message)
+      setError(translateApiError(message, t))
     } finally {
       setLoading(false)
     }
