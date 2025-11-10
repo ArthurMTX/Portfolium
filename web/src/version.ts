@@ -1,7 +1,7 @@
 // Version information for Portfolium Web
 // This file can be updated automatically by CI/CD
 
-export const VERSION = '0.2.1';
+export const VERSION = '0.3.0';
 export const BUILD_DATE = '2025-11-06';
 export const GIT_COMMIT = 'local';
 
