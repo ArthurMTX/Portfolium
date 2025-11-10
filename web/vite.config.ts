@@ -69,16 +69,19 @@ export default defineConfig({
     },
     proxy: {
       // Dev proxy for API requests to backend
-      // Try Docker hostname first, fall back to localhost
+      // Inside Docker container: use 'api:8000' (Docker service name)
       '/api': {
         target: 'http://api:8000',
         changeOrigin: true,
+        secure: false,
+        ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
       // Dev proxy for logo requests - route through our API for ETF SVG support
       '/logos': {
         target: 'http://api:8000',
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/logos/, '/assets/logo'),
       },
     },

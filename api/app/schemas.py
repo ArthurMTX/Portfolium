@@ -451,7 +451,8 @@ class HealthCheck(BaseModel):
     timestamp: datetime
     database: str
     version: str
-    market_status: str  # 'premarket', 'open', 'afterhours', or 'closed'
+    market_status: str  # 'premarket', 'open', 'afterhours', or 'closed' (US markets)
+    market_statuses: dict  # Status for all regions: {'us': str, 'europe': str, 'asia': str, 'oceania': str}
     email_enabled: bool  # Whether email system is enabled
 
 
@@ -711,3 +712,76 @@ class PortfolioInsights(BaseModel):
     total_return: Decimal
     total_return_pct: Decimal
     diversification_score: Optional[Decimal]  # 0-100, higher is more diversified
+
+
+# ============================================================================
+# Dashboard Layout Schemas
+# ============================================================================
+
+class LayoutItemSchema(BaseModel):
+    """Individual widget layout configuration (react-grid-layout format)"""
+    i: str  # Widget ID
+    x: int
+    y: int
+    w: int
+    h: int
+    minW: Optional[int] = None
+    minH: Optional[int] = None
+    maxW: Optional[int] = None
+    maxH: Optional[int] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LayoutConfigSchema(BaseModel):
+    """Complete layout configuration for all breakpoints"""
+    lg: List[LayoutItemSchema]
+    md: List[LayoutItemSchema]
+    sm: List[LayoutItemSchema]
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardLayoutBase(BaseModel):
+    """Base dashboard layout schema"""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    portfolio_id: Optional[int] = None
+    is_default: bool = False
+    is_shared: bool = False
+
+
+class DashboardLayoutCreate(DashboardLayoutBase):
+    """Schema for creating a dashboard layout"""
+    layout_config: LayoutConfigSchema
+
+
+class DashboardLayoutUpdate(BaseModel):
+    """Schema for updating a dashboard layout"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    is_default: Optional[bool] = None
+    is_shared: Optional[bool] = None
+    layout_config: Optional[LayoutConfigSchema] = None
+
+
+class DashboardLayoutResponse(DashboardLayoutBase):
+    """Schema for dashboard layout response"""
+    id: int
+    user_id: int
+    layout_config: LayoutConfigSchema
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardLayoutExport(BaseModel):
+    """Schema for exporting/importing dashboard layouts"""
+    name: str
+    description: Optional[str] = None
+    layout_config: LayoutConfigSchema
+    version: str = "1.0"  # For future compatibility
+    exported_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    model_config = ConfigDict(from_attributes=True)

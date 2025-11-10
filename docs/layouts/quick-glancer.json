@@ -1,0 +1,25 @@
+{
+  "name": "Quick Glancer - Minimalist",
+  "description": "Simple, clean layout with only essential metrics for quick portfolio checks",
+  "version": "1.0",
+  "layout_config": {
+    "lg": [
+      { "i": "total-value", "x": 0, "y": 0, "w": 4, "h": 2, "minW": 2, "minH": 2 },
+      { "i": "daily-gain", "x": 4, "y": 0, "w": 4, "h": 2, "minW": 2, "minH": 2 },
+      { "i": "unrealized-pnl", "x": 8, "y": 0, "w": 4, "h": 2, "minW": 2, "minH": 2 },
+      { "i": "positions", "x": 0, "y": 2, "w": 12, "h": 12, "minW": 8, "minH": 6 }
+    ],
+    "md": [
+      { "i": "total-value", "x": 0, "y": 0, "w": 4, "h": 2, "minW": 2, "minH": 2 },
+      { "i": "daily-gain", "x": 4, "y": 0, "w": 4, "h": 2, "minW": 2, "minH": 2 },
+      { "i": "unrealized-pnl", "x": 0, "y": 2, "w": 4, "h": 2, "minW": 2, "minH": 2 },
+      { "i": "positions", "x": 0, "y": 4, "w": 8, "h": 12, "minW": 6, "minH": 6 }
+    ],
+    "sm": [
+      { "i": "total-value", "x": 0, "y": 0, "w": 4, "h": 2, "minW": 4, "minH": 2 },
+      { "i": "daily-gain", "x": 0, "y": 2, "w": 4, "h": 2, "minW": 4, "minH": 2 },
+      { "i": "unrealized-pnl", "x": 0, "y": 4, "w": 4, "h": 2, "minW": 4, "minH": 2 },
+      { "i": "positions", "x": 0, "y": 6, "w": 4, "h": 10, "minW": 4, "minH": 4 }
+    ]
+  }
+}

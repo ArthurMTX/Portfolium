@@ -58,7 +58,7 @@ body {
   }
   
   .card {
-    @apply bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-sm;
+    @apply bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-[0_1px_3px_0_rgba(0,0,0,0.08)];
   }
   
   .input {

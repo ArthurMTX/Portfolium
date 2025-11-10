@@ -160,4 +160,4 @@ async def get_top_performers(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     
     insights_service = InsightsService(db)
-    return insights_service.get_top_performers(portfolio_id, period, limit)
+    return await insights_service.get_top_performers(portfolio_id, period, limit)

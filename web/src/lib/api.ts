@@ -3,6 +3,13 @@
  * API client for Portfolium backend
  */
 
+import type { 
+  DashboardLayoutDTO, 
+  DashboardLayoutCreate, 
+  DashboardLayoutUpdate, 
+  DashboardLayoutExport 
+} from '../types/dashboard'
+
 // Use /api prefix so requests go through proxy (both dev and production)
 // Vite dev proxy and nginx will forward /api/* to the backend
 const API_BASE_URL = '/api'
@@ -49,6 +56,7 @@ export interface PositionDTO {
   asset_id: number
   symbol: string
   name: string | null
+  asset_type?: string | null
   quantity: number
   avg_cost: number
   current_price: number | null
@@ -131,6 +139,63 @@ export interface IndustryItemDTO {
   name: string
   count: number
   asset_ids: number[]
+}
+
+// Insights Types
+export interface TopPerformerDTO {
+  symbol: string
+  name: string | null
+  return_pct: number
+  value: number
+  unrealized_pnl: number
+  period: string
+  logo_url?: string | null
+  asset_type?: string | null
+}
+
+// Price Quote
+export interface PriceQuote {
+  symbol: string
+  current_price: number
+  price: number
+  asof: string
+  currency: string
+  daily_change_pct?: number
+  percent_change?: number
+}
+
+// Market Status
+export interface MarketStatusDTO {
+  status: string
+  timestamp: string
+  database: string
+  version: string
+  market_status: string
+  market_statuses?: {
+    us: string
+    europe: string
+    asia: string
+    oceania: string
+  }
+  email_enabled: boolean
+  is_open?: boolean
+  next_open?: string
+  current_time?: string
+}
+
+export interface TransactionDTO {
+  id: number
+  portfolio_id: number
+  asset_id: number
+  transaction_type: string
+  transaction_date: string
+  quantity: number
+  price: number
+  fees: number
+  notes: string | null
+  symbol: string
+  asset_name: string | null
+  created_at: string
 }
 
 class ApiClient {
@@ -885,6 +950,42 @@ class ApiClient {
     return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`, { signal })
   }
 
+  async getTopPerformers(portfolioId: number, period: string = '1y', limit: number = 5, signal?: AbortSignal) {
+    return this.request<TopPerformerDTO[]>(`/insights/${portfolioId}/top-performers?period=${period}&limit=${limit}`, { signal })
+  }
+
+  async getRecentTransactions(portfolioId: number, limit: number = 5, signal?: AbortSignal) {
+    return this.request<TransactionDTO[]>(`/portfolios/${portfolioId}/transactions?limit=${limit}`, { signal })
+  }
+
+  // Market Status
+  async getMarketStatus(signal?: AbortSignal) {
+    return this.request<MarketStatusDTO>('/health', { signal })
+  }
+
+  // Market Indices
+  async getMarketIndices(signal?: AbortSignal) {
+    const symbols = [
+      '^GSPC', '^DJI', '^IXIC', '^GSPTSE',
+      '^FTSE', '^GDAXI', '^FCHI', 'FTSEMIB.MI',
+      '^N225', '^HSI', '000001.SS', '^AXJO'
+    ].join(',')
+    
+    const response = await this.request<Record<string, PriceQuote>>(`/prices/indices?symbols=${symbols}`, { signal })
+    
+    // Normalize the response to include percent_change
+    const normalized: Record<string, PriceQuote> = {}
+    for (const [symbol, data] of Object.entries(response)) {
+      normalized[symbol] = {
+        ...data,
+        current_price: data.price,
+        percent_change: data.daily_change_pct
+      }
+    }
+    
+    return normalized
+  }
+
   // Admin Email Configuration
   async getEmailConfig() {
     return this.request<{
@@ -954,7 +1055,82 @@ class ApiClient {
       smtp_configured: boolean
     }>('/admin/email/stats')
   }
+  
+  // ============================================================================
+  // Dashboard Layouts
+  // ============================================================================
+
+  async getDashboardLayouts(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : ''
+    return this.request<DashboardLayoutDTO[]>(`/dashboard-layouts/${params}`)
+  }
+
+  async getDefaultDashboardLayout(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : ''
+    try {
+      return await this.request<DashboardLayoutDTO>(`/dashboard-layouts/default${params}`)
+    } catch (error) {
+      // Return null if no default layout exists (404)
+      return null
+    }
+  }
+
+  async getDashboardLayout(layoutId: number) {
+    return this.request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutId}`)
+  }
+
+  async createDashboardLayout(layout: DashboardLayoutCreate) {
+    return this.request<DashboardLayoutDTO>('/dashboard-layouts/', {
+      method: 'POST',
+      body: JSON.stringify(layout),
+    })
+  }
+
+  async updateDashboardLayout(layoutId: number, update: DashboardLayoutUpdate) {
+    return this.request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutId}`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  async deleteDashboardLayout(layoutId: number) {
+    return this.request<void>(`/dashboard-layouts/${layoutId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async duplicateDashboardLayout(layoutId: number, newName: string) {
+    return this.request<DashboardLayoutDTO>(
+      `/dashboard-layouts/${layoutId}/duplicate?new_name=${encodeURIComponent(newName)}`,
+      { method: 'POST' }
+    )
+  }
+
+  async exportDashboardLayout(layoutId: number) {
+    return this.request<DashboardLayoutExport>(`/dashboard-layouts/${layoutId}/export`)
+  }
+
+  async importDashboardLayout(layout: DashboardLayoutExport, portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : ''
+    return this.request<DashboardLayoutDTO>(`/dashboard-layouts/import${params}`, {
+      method: 'POST',
+      body: JSON.stringify(layout),
+    })
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)
 export default api
+
+// Export convenience functions
+export const getTopPerformers = (portfolioId: number, period?: string, limit?: number, signal?: AbortSignal) => 
+  api.getTopPerformers(portfolioId, period, limit, signal)
+
+export const getRecentTransactions = (portfolioId: number, limit?: number, signal?: AbortSignal) =>
+  api.getRecentTransactions(portfolioId, limit, signal)
+
+export const getMarketStatus = (signal?: AbortSignal) =>
+  api.getMarketStatus(signal)
+
+export const getMarketIndices = (signal?: AbortSignal) =>
+  api.getMarketIndices(signal)

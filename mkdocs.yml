@@ -73,6 +73,7 @@ nav:
   - User Guide:
       - Portfolios: user-guide/portfolios.md
       - Dashboard: user-guide/dashboard.md
+      - Example Layouts: user-guide/example-layouts.md
       - Charts: user-guide/charts.md
       - Transactions: user-guide/transactions.md
       - Assets: user-guide/assets.md

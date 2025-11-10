@@ -550,6 +550,7 @@
     "selectFile": "Sélectionner un fichier CSV",
     "updatedAt": "Mis à jour le",
     "deleteWatchlistAsset": "Supprimer l'actif de la liste de surveillance",
+    "viewAll": "Voir tous les actifs de la liste de surveillance",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet actif de votre liste de surveillance ? Cette action ne peut pas être annulée.",
     "empty": {
       "noWatchlistAssets": "Aucun actif dans votre liste de surveillance. Ajoutez des actifs pour commencer à suivre."

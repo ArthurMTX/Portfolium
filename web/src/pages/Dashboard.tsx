@@ -1,15 +1,17 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, PiggyBank, Zap, ZapOff, Clock, LayoutDashboard } from 'lucide-react'
+import { RefreshCw, Zap, ZapOff, Clock, LayoutDashboard, Grid3x3, Library, Save } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api, { PositionDTO, BatchPriceDTO } from '../lib/api'
-import PositionsTable from '../components/PositionsTable'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
-import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
-import LoadingSpinner from '../components/LoadingSpinner'
+import DashboardGrid from '../components/dashboard/core/DashboardGrid'
+import WidgetLibrary from '../components/dashboard/core/WidgetLibrary'
+import LayoutManager from '../components/dashboard/core/LayoutManager'
+import { loadLayout, saveLayout } from '../components/dashboard/utils/defaultLayouts'
+import { Layout } from 'react-grid-layout'
 import { useTranslation } from 'react-i18next'
-
-type PositionsTab = 'current' | 'sold'
+import { useAuth } from '../contexts/AuthContext'
+import type { DashboardLayoutDTO } from '../types/dashboard'
 
 export default function Dashboard() {
   const {
@@ -19,34 +21,64 @@ export default function Dashboard() {
     setActivePortfolio,
   } = usePortfolioStore()
 
+  const { user } = useAuth()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [soldPositionsLoaded, setSoldPositionsLoaded] = useState(false)
-  const [activeTab, setActiveTab] = useState<PositionsTab>('current')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isWidgetLibraryOpen, setIsWidgetLibraryOpen] = useState(false)
+  const [isLayoutManagerOpen, setIsLayoutManagerOpen] = useState(false)
+  const [currentLayout, setCurrentLayout] = useState<Layout[]>(loadLayout('lg', user?.id, activePortfolioId || undefined))
+  const [currentBreakpoint, setCurrentBreakpoint] = useState<'lg' | 'md' | 'sm'>('lg')
+  const [layoutVersion, setLayoutVersion] = useState(0) // Trigger re-renders
+  const [currentLayouts, setCurrentLayouts] = useState<{lg: Layout[], md: Layout[], sm: Layout[]}>({
+    lg: loadLayout('lg', user?.id, activePortfolioId || undefined),
+    md: loadLayout('md', user?.id, activePortfolioId || undefined),
+    sm: loadLayout('sm', user?.id, activePortfolioId || undefined),
+  })
   
-  // Load last update from localStorage - use a ref to avoid reinitialization
+  // Reload layout when widget library opens (to sync with any changes from DashboardGrid)
+  useEffect(() => {
+    if (isWidgetLibraryOpen) {
+      setCurrentLayout(loadLayout(currentBreakpoint, user?.id, activePortfolioId || undefined))
+    }
+  }, [isWidgetLibraryOpen, currentBreakpoint, user?.id, activePortfolioId])
+  
+  // Update breakpoint based on window size
+  useEffect(() => {
+    const updateBreakpoint = () => {
+      const width = window.innerWidth
+      const newBreakpoint = width >= 1024 ? 'lg' : width >= 768 ? 'md' : 'sm'
+      if (newBreakpoint !== currentBreakpoint) {
+        setCurrentBreakpoint(newBreakpoint)
+        setCurrentLayout(loadLayout(newBreakpoint, user?.id, activePortfolioId || undefined))
+      }
+    }
+
+    updateBreakpoint()
+    window.addEventListener('resize', updateBreakpoint)
+    return () => window.removeEventListener('resize', updateBreakpoint)
+  }, [currentBreakpoint, user?.id, activePortfolioId])
+  
+  // Load last update from localStorage
   const [lastUpdate, setLastUpdate] = useState<number>(() => {
     const stored = localStorage.getItem('dashboardLastUpdate')
     const timestamp = stored ? parseInt(stored, 10) : 0
     return timestamp
   })
   
-  // Force re-render for live countdown (only when this component is mounted)
+  // Force re-render for live countdown
   const [, forceUpdate] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Update every second only while component is mounted
   useEffect(() => {
-    // Clear any existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current)
     }
     
     let counter = 0
-    // Start new timer
     timerRef.current = setInterval(() => {
       counter++
-      forceUpdate(counter) // Force re-render to update "time ago" display
+      forceUpdate(counter)
     }, 1000)
     
     return () => {
@@ -55,49 +87,45 @@ export default function Dashboard() {
         timerRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty deps - only run on mount/unmount, lastUpdate changes don't need timer restart
+  }, [])
 
-  // Auto-refresh settings from localStorage
+  // Auto-refresh settings
   const getAutoRefreshSettings = useCallback(() => {
-    const intervalStr = localStorage.getItem('autoRefreshInterval') || '60';
-    const enabledStr = localStorage.getItem('autoRefreshEnabled');
+    const intervalStr = localStorage.getItem('autoRefreshInterval') || '60'
+    const enabledStr = localStorage.getItem('autoRefreshEnabled')
     return {
-      interval: Math.max(5, parseInt(intervalStr, 10)) * 1000, // fallback to 60s, min 5s
+      interval: Math.max(5, parseInt(intervalStr, 10)) * 1000,
       enabled: enabledStr === 'true',
-    };
-  }, []);
+    }
+  }, [])
 
-  const [autoRefreshSettings, setAutoRefreshSettings] = useState(getAutoRefreshSettings());
+  const [autoRefreshSettings, setAutoRefreshSettings] = useState(getAutoRefreshSettings())
 
-  // Listen for localStorage changes (cross-tab)
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'autoRefreshInterval' || e.key === 'autoRefreshEnabled') {
-        setAutoRefreshSettings(getAutoRefreshSettings());
+        setAutoRefreshSettings(getAutoRefreshSettings())
       }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, [getAutoRefreshSettings]);
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [getAutoRefreshSettings])
 
-  // Also update settings if user changes them in this tab
   useEffect(() => {
     const id = setInterval(() => {
-      setAutoRefreshSettings(getAutoRefreshSettings());
-    }, 2000);
-    return () => clearInterval(id);
-  }, [getAutoRefreshSettings]);
+      setAutoRefreshSettings(getAutoRefreshSettings())
+    }, 2000)
+    return () => clearInterval(id)
+  }, [getAutoRefreshSettings])
 
-  // Load portfolios list (rarely changes, long cache)
+  // Load portfolios
   const { data: portfoliosData } = useQuery({
     queryKey: ['portfolios'],
     queryFn: () => api.getPortfolios(),
-    staleTime: 5 * 60 * 1000, // 5 minutes - portfolios don't change often
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   })
 
-  // Sync portfolios to store when data changes
   useEffect(() => {
     if (portfoliosData) {
       setPortfolios(portfoliosData)
@@ -107,55 +135,38 @@ export default function Dashboard() {
     }
   }, [portfoliosData, activePortfolioId, setPortfolios, setActivePortfolio])
 
-  // Load positions (changes on transactions, medium cache)
-  const { 
-    data: positions, 
-    isLoading: positionsLoading,
-  } = useQuery({
+  // Load positions
+  const { data: positions, isLoading: positionsLoading } = useQuery({
     queryKey: ['positions', activePortfolioId],
     queryFn: () => api.getPortfolioPositions(activePortfolioId!),
     enabled: !!activePortfolioId,
-    staleTime: 60 * 1000, // 1 minute - positions only change on transactions
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   })
 
-  // Load metrics (aggregated data, short cache for live feel)
-  const { 
-    data: metrics, 
-    isLoading: metricsLoading,
-  } = useQuery({
+  // Load metrics
+  const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['metrics', activePortfolioId],
     queryFn: () => api.getPortfolioMetrics(activePortfolioId!),
     enabled: !!activePortfolioId,
-    staleTime: 10 * 1000, // 10 seconds - metrics include daily changes
-    gcTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 10 * 1000,
+    gcTime: 2 * 60 * 1000,
   })
 
-  // Load sold positions (lazy loaded when tab is opened)
-  const { 
-    data: soldPositions, 
-    isLoading: soldPositionsLoading,
-  } = useQuery<PositionDTO[]>({
+  // Load sold positions (always enabled when there's an active portfolio)
+  const { data: soldPositions, isLoading: soldPositionsLoading } = useQuery<PositionDTO[]>({
     queryKey: ['soldPositions', activePortfolioId],
-    queryFn: () => api.getSoldPositions(activePortfolioId!),
-    enabled: !!activePortfolioId && activeTab === 'sold' && !soldPositionsLoaded,
-    staleTime: 2 * 60 * 1000, // 2 minutes - sold positions don't change often
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    queryFn: async () => {
+      const data = await api.getSoldPositions(activePortfolioId!)
+      return data
+    },
+    enabled: !!activePortfolioId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000,
   })
 
-  // Mark sold positions as loaded when data arrives
-  useEffect(() => {
-    if (soldPositions) {
-      setSoldPositionsLoaded(true)
-    }
-  }, [soldPositions])
-
-  // Batch price updates for auto-refresh (ultra-fast, no cache)
-  const { 
-    data: batchPrices,
-    isRefetching: isPriceRefetching,
-    error: priceError,
-  } = useQuery({
+  // Batch price updates
+  const { data: batchPrices, isRefetching: isPriceRefetching, error: priceError } = useQuery({
     queryKey: ['batchPrices', activePortfolioId],
     queryFn: async () => {
       const data = await api.getBatchPrices(activePortfolioId!)
@@ -165,13 +176,13 @@ export default function Dashboard() {
       return data
     },
     enabled: !!activePortfolioId && autoRefreshSettings.enabled,
-    staleTime: 0, // Always fetch fresh prices
-    gcTime: 30 * 1000, // Keep for 30s
+    staleTime: 0,
+    gcTime: 30 * 1000,
     refetchInterval: autoRefreshSettings.enabled ? autoRefreshSettings.interval : false,
     refetchOnWindowFocus: true,
   })
 
-  // Merge cached positions with live prices for display
+  // Merge positions with live prices
   const displayPositions = useMemo(() => {
     if (!positions || !batchPrices?.prices) return positions || []
 
@@ -179,12 +190,10 @@ export default function Dashboard() {
       const priceUpdate = batchPrices.prices.find((p: BatchPriceDTO) => p.asset_id === pos.asset_id)
       if (!priceUpdate) return pos
 
-      // Calculate new market value with updated price
       const newMarketValue = priceUpdate.current_price 
         ? priceUpdate.current_price * pos.quantity 
         : pos.market_value
 
-      // Recalculate unrealized P&L if we have market value
       const newUnrealizedPnl = newMarketValue !== null 
         ? newMarketValue - pos.cost_basis
         : pos.unrealized_pnl
@@ -205,16 +214,10 @@ export default function Dashboard() {
     })
   }, [positions, batchPrices])
 
-  // Reset sold positions loaded flag when portfolio changes
-  useEffect(() => {
-    setSoldPositionsLoaded(false)
-  }, [activePortfolioId])
-
-  // Manual refresh function
+  // Manual refresh
   const handleRefresh = useCallback(async () => {
     if (!activePortfolioId) return
     
-    // Invalidate all queries to force fresh data
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['positions', activePortfolioId] }),
       queryClient.invalidateQueries({ queryKey: ['metrics', activePortfolioId] }),
@@ -233,11 +236,36 @@ export default function Dashboard() {
     setAutoRefreshSettings(prev => ({ ...prev, enabled: newEnabled }))
   }, [autoRefreshSettings.enabled])
 
+  // Toggle edit mode
+  const toggleEditMode = useCallback(() => {
+    setIsEditMode(prev => !prev)
+  }, [])
+
+  // Handle loading a saved layout
+  const handleLoadLayout = useCallback((layout: DashboardLayoutDTO) => {
+    const { lg, md, sm } = layout.layout_config
+    setCurrentLayouts({ lg, md, sm })
+    
+    // Save to localStorage
+    saveLayout(lg, 'lg', user?.id, activePortfolioId || undefined)
+    saveLayout(md, 'md', user?.id, activePortfolioId || undefined)
+    saveLayout(sm, 'sm', user?.id, activePortfolioId || undefined)
+    
+    // Update current layout based on breakpoint
+    setCurrentLayout(layout.layout_config[currentBreakpoint])
+    
+    // Trigger re-render
+    setLayoutVersion(v => v + 1)
+    
+    // Close the layout manager
+    setIsLayoutManagerOpen(false)
+  }, [user?.id, activePortfolioId, currentBreakpoint])
+
   const formatLastUpdate = (timestamp: number) => {
     if (!timestamp) return t('common.never')
     const now = Date.now()
     const secondsAgo = Math.floor((now - timestamp) / 1000)
-    if (secondsAgo < 0) return t('common.timeAgo', { time: '0s' }) // Guard against negative values
+    if (secondsAgo < 0) return t('common.timeAgo', { time: '0s' })
     if (secondsAgo < 60) return t('common.timeAgo', { time: `${secondsAgo}s` })
     const minutesAgo = Math.floor(secondsAgo / 60)
     if (minutesAgo < 60) return t('common.timeAgo', { time: `${minutesAgo}m` })
@@ -255,129 +283,28 @@ export default function Dashboard() {
     return seconds
   }
 
-  // Note: Dashboard metrics are always in EUR, so we use a wrapper
-  const formatCurrency = (value: number | string) => {
-    return formatCurrencyUtil(value, 'EUR')
-  }
 
-  const loading = positionsLoading || metricsLoading
-  const isRefreshing = isPriceRefetching
   const isAutoRefreshEnabled = autoRefreshSettings.enabled
-  const [marketStatus, setMarketStatus] = useState<'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown'>('unknown');
+  const isAnyRefreshing = isPriceRefetching
+
+  const [marketStatus, setMarketStatus] = useState<'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown'>('unknown')
 
   useEffect(() => {
     const checkMarketStatus = async () => {
       try {
-        const health = await api.healthCheck();
-        setMarketStatus(health.market_status as 'premarket' | 'open' | 'afterhours' | 'closed');
+        const health = await api.healthCheck()
+        setMarketStatus(health.market_status as 'premarket' | 'open' | 'afterhours' | 'closed')
       } catch {
-        setMarketStatus('unknown');
+        setMarketStatus('unknown')
       }
-    };
-    checkMarketStatus();
-    // Refresh market status every 5 minutes
-    const interval = setInterval(checkMarketStatus, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+    }
+    checkMarketStatus()
+    const interval = setInterval(checkMarketStatus, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
-  const isAnyRefreshing = isRefreshing
-
-  // Show empty portfolio prompt if no portfolios exist or no active portfolio
   if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="dashboard" />
-  }
-
-  // Show loading skeleton for initial portfolio data load
-  if (loading && !metrics) {
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-              <LayoutDashboard className="text-pink-600" size={28} />
-              {t('dashboard.title')}
-            </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-              {t('dashboard.loadingMessage')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="h-8 w-20 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="h-10 w-20 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="h-10 w-24 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-          </div>
-        </div>
-
-        {/* Portfolio Selector Skeleton */}
-        <div className="card p-4">
-          <div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-700 rounded mb-2 animate-pulse"></div>
-          <div className="h-10 w-full max-w-md bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
-        </div>
-
-        {/* Metrics Cards Skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="card p-4 sm:p-6 animate-pulse">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0 space-y-3">
-                  <div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                  <div className="h-8 w-28 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                  <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-neutral-200 dark:bg-neutral-700 rounded-full"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Positions Table Skeleton */}
-        <div>
-          <div className="flex items-center gap-4 mb-4 border-b border-neutral-200 dark:border-neutral-700">
-            <div className="h-10 w-48 bg-neutral-200 dark:bg-neutral-700 rounded-t animate-pulse"></div>
-            <div className="h-10 w-48 bg-neutral-200 dark:bg-neutral-700 rounded-t animate-pulse"></div>
-          </div>
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Asset</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Quantity</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Avg Cost</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Price</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">Value</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">P&L</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">P&L %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                          <div className="space-y-2">
-                            <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                            <div className="h-3 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -394,6 +321,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Market Status */}
           {marketStatus === 'premarket' && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">
               ● {t('market.status.premarket')}
@@ -419,6 +347,8 @@ export default function Dashboard() {
               ● {t('market.status.unknown')}
             </span>
           )}
+          
+          {/* Last Update */}
           {lastUpdate > 0 && (
             <div className="flex flex-col items-end gap-0.5 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
               <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
@@ -432,6 +362,44 @@ export default function Dashboard() {
               )}
             </div>
           )}
+          
+          {/* Edit Mode Toggle */}
+          <button
+            onClick={toggleEditMode}
+            className={`btn text-sm sm:text-base ${
+              isEditMode
+                ? 'bg-pink-600 hover:bg-pink-700 text-white'
+                : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
+            } flex items-center gap-2 px-3 py-2`}
+            title={isEditMode ? 'Exit Edit Mode' : 'Customize Layout'}
+          >
+            <Grid3x3 size={16} />
+            <span className="hidden sm:inline">{isEditMode ? 'Done' : 'Edit'}</span>
+          </button>
+          
+          {/* Widget Library Button - Only show in edit mode */}
+          {isEditMode && (
+            <button
+              onClick={() => setIsWidgetLibraryOpen(true)}
+              className="btn text-sm sm:text-base bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600 flex items-center gap-2 px-3 py-2"
+              title="Add/Remove Widgets"
+            >
+              <Library size={16} />
+              <span className="hidden sm:inline">Widgets</span>
+            </button>
+          )}
+          
+          {/* Layout Manager Button */}
+          <button
+            onClick={() => setIsLayoutManagerOpen(true)}
+            className="btn text-sm sm:text-base bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 px-3 py-2"
+            title="Manage Layouts - Save, Load, Import/Export"
+          >
+            <Save size={16} />
+            <span className="hidden sm:inline">Layouts</span>
+          </button>
+          
+          {/* Auto Refresh */}
           <button
             onClick={toggleAutoRefresh}
             className={`btn text-sm sm:text-base ${
@@ -444,6 +412,8 @@ export default function Dashboard() {
             {isAutoRefreshEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
             <span className="hidden sm:inline">{t('common.auto')}</span>
           </button>
+          
+          {/* Manual Refresh */}
           <button
             onClick={handleRefresh}
             disabled={isAnyRefreshing}
@@ -464,202 +434,59 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Metrics Cards */}
-      {metrics && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="card p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.totalValue')}</p>
-                <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 truncate">
-                  {formatCurrency(metrics.total_value)}
-                </p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                <DollarSign className="text-pink-600 dark:text-pink-400" size={20} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.dailyGain')}</p>
-                <p
-                  className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
-                    metrics.daily_change_value && metrics.daily_change_value > 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : metrics.daily_change_value && metrics.daily_change_value < 0
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-neutral-600 dark:text-neutral-400'
-                  }`}
-                >
-                  {metrics.daily_change_value !== null && metrics.daily_change_value !== undefined
-                    ? formatCurrency(metrics.daily_change_value)
-                    : 'N/A'}
-                </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {metrics.daily_change_pct !== null && metrics.daily_change_pct !== undefined
-                    ? `${metrics.daily_change_pct > 0 ? '+' : metrics.daily_change_pct < 0 ? '' : '+'}${Number(metrics.daily_change_pct).toFixed(2)}%`
-                    : 'No data'}
-                </p>
-              </div>
-              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                metrics.daily_change_value && metrics.daily_change_value > 0
-                  ? 'bg-green-100 dark:bg-green-900/30'
-                  : metrics.daily_change_value && metrics.daily_change_value < 0
-                  ? 'bg-red-100 dark:bg-red-900/30'
-                  : 'bg-neutral-100 dark:bg-neutral-700'
-              }`}>
-                {metrics.daily_change_value && metrics.daily_change_value > 0 ? (
-                  <TrendingUp className="text-green-600 dark:text-green-400" size={20} />
-                ) : metrics.daily_change_value && metrics.daily_change_value < 0 ? (
-                  <TrendingDown className="text-red-600 dark:text-red-400" size={20} />
-                ) : (
-                  <TrendingUp className="text-neutral-600 dark:text-neutral-400" size={20} />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.unrealizedPnL')}</p>
-                <p
-                  className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
-                    metrics.total_unrealized_pnl >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}
-                >
-                  {formatCurrency(metrics.total_unrealized_pnl)}
-                </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {metrics.total_unrealized_pnl_pct >= 0 ? '+' : ''}
-                  {Number(metrics.total_unrealized_pnl_pct).toFixed(2)}%
-                </p>
-              </div>
-              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                metrics.total_unrealized_pnl >= 0
-                  ? 'bg-green-100 dark:bg-green-900/30'
-                  : 'bg-red-100 dark:bg-red-900/30'
-              }`}>
-                {metrics.total_unrealized_pnl >= 0 ? (
-                  <TrendingUp className="text-green-600 dark:text-green-400" size={20} />
-                ) : (
-                  <TrendingDown className="text-red-600 dark:text-red-400" size={20} />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.realizedPnL')}</p>
-                <p
-                  className={`text-xl sm:text-2xl font-bold mt-1 truncate ${
-                    metrics.total_realized_pnl >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}
-                >
-                  {formatCurrency(metrics.total_realized_pnl)}
-                </p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                <PiggyBank className="text-blue-600 dark:text-blue-400" size={20} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">{t('dashboard.dividends')}</p>
-                <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 truncate">
-                  {formatCurrency(metrics.total_dividends)}
-                </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">
-                  {t('fields.fees')}: {formatCurrency(metrics.total_fees)}
-                </p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="text-purple-600 dark:text-purple-400" size={20} />
-              </div>
-            </div>
-          </div>
+      {/* Edit Mode Indicator */}
+      {isEditMode && (
+        <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
+          <p className="text-sm text-pink-800 dark:text-pink-200">
+            <strong>Edit Mode:</strong> Drag widgets to reorder them or resize by dragging the corners. Click "Done" when finished.
+          </p>
         </div>
       )}
 
-      {/* Positions Table */}
-      <div>
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-4 mb-4 border-b border-neutral-200 dark:border-neutral-700">
-          <button
-            onClick={() => setActiveTab('current')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'current'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-            }`}
-          >
-            {t('dashboard.currentPositions')} ({t('dashboard.unrealizedPnL')})
-            {displayPositions && displayPositions.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                {displayPositions.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('sold')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'sold'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-            }`}
-          >
-            {t('dashboard.soldPositions')} ({t('dashboard.realizedPnL')})
-            {soldPositions && soldPositions.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                {soldPositions.length}
-              </span>
-            )}
-          </button>
-        </div>
+      {/* Dashboard Grid */}
+      <DashboardGrid
+        key={`dashboard-${layoutVersion}`}
+        metrics={metrics || null}
+        positions={displayPositions || []}
+        soldPositions={soldPositions}
+        soldPositionsLoading={soldPositionsLoading}
+        isEditMode={isEditMode}
+        isLoading={positionsLoading || metricsLoading}
+        userId={user?.id}
+        portfolioId={activePortfolioId || undefined}
+      />
 
-        {/* Tab Content */}
-        {activeTab === 'current' ? (
-          <PositionsTable positions={displayPositions || []} />
-        ) : soldPositionsLoading ? (
-          <div className="card p-12 text-center">
-            <div className="max-w-md mx-auto">
-              <LoadingSpinner size="lg" variant="icon" className="mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
-                {t('dashboard.loadingSoldPositions')}
-              </h3>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                {t('dashboard.calculatingRealizedPnL')}
-              </p>
-            </div>
-          </div>
-        ) : soldPositions && soldPositions.length > 0 ? (
-          <PositionsTable positions={soldPositions} isSold={true} />
-        ) : (
-          <div className="card p-12 text-center">
-            <div className="max-w-md mx-auto">
-              <PiggyBank className="mx-auto h-12 w-12 text-neutral-400 dark:text-neutral-600 mb-4" />
-              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
-                {t('dashboard.noSoldPositions')}
-              </h3>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                {t('dashboard.soldPositionsInfo')}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Widget Library Modal */}
+      <WidgetLibrary
+        isOpen={isWidgetLibraryOpen}
+        onClose={() => setIsWidgetLibraryOpen(false)}
+        currentBreakpoint={currentBreakpoint}
+        currentLayout={currentLayout}
+        userId={user?.id}
+        portfolioId={activePortfolioId || undefined}
+        onLayoutChange={(newLayout: Layout[]) => {
+          setCurrentLayout(newLayout)
+          setLayoutVersion(v => v + 1) // Trigger DashboardGrid re-render
+        }}
+        onVisibilityChange={() => {
+          // Refresh the dashboard grid
+          setLayoutVersion(v => v + 1)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((window as any).__refreshDashboardVisibility) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).__refreshDashboardVisibility()
+          }
+        }}
+      />
+
+      {/* Layout Manager Modal */}
+      <LayoutManager
+        isOpen={isLayoutManagerOpen}
+        onClose={() => setIsLayoutManagerOpen(false)}
+        currentLayout={currentLayouts}
+        portfolioId={activePortfolioId || undefined}
+        onLoadLayout={handleLoadLayout}
+      />
     </div>
   )
 }

@@ -117,7 +117,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
       if (isNaN(nb)) return -1
       return (na - nb) * dir
     })
-  }, [positions, sortKey, sortDir])
+  }, [positions, sortKey, sortDir, totalPortfolioValue])
 
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
@@ -308,11 +308,10 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
       </div>
 
       {/* Desktop Table Layout */}
-      <div className="hidden lg:block card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
-              <tr>
+      <div className="hidden lg:block overflow-x-auto h-full -mt-px">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 sticky top-0 z-10 shadow-sm">
+            <tr>
                 <th
                   onClick={() => handleSort('symbol')}
                   aria-sort={sortKey === 'symbol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -560,7 +559,6 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
           </div>
         )}
       </div>
-    </div>
     </>
   )
 }
