@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import GridLayout, { Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -72,11 +72,47 @@ export default function DashboardGrid({
    * Compact layout vertically - removes gaps between widgets
    * This ensures widgets are tightly packed without empty spaces
    */
-  const compactLayoutUtil = (layout: Layout[], breakpoint: 'lg' | 'md' | 'sm'): Layout[] => {
-    if (!layout || layout.length === 0) return layout
+  // Clean layout utility - removes invalid properties
+  const cleanLayout = useCallback((layout: Layout[]): Layout[] => {
+    return layout.map(item => {
+      const cleaned: Layout = {
+        i: item.i,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+      }
+      
+      // Only include minW/minH if they're valid numbers
+      if (typeof item.minW === 'number' && isFinite(item.minW)) {
+        cleaned.minW = item.minW
+      }
+      if (typeof item.minH === 'number' && isFinite(item.minH)) {
+        cleaned.minH = item.minH
+      }
+      
+      // Only include maxW/maxH if they're valid numbers (not Infinity)
+      if (typeof item.maxW === 'number' && isFinite(item.maxW)) {
+        cleaned.maxW = item.maxW
+      }
+      if (typeof item.maxH === 'number' && isFinite(item.maxH)) {
+        cleaned.maxH = item.maxH
+      }
+      
+      return cleaned
+    })
+  }, [])
+
+  const compactLayoutUtil = useCallback((layout: Layout[], breakpoint: 'lg' | 'md' | 'sm'): Layout[] => {
+    if (!layout || layout.length === 0) {
+      return layout
+    }
+    
+    // Clean the layout first to remove any invalid properties
+    const cleanedLayout = cleanLayout(layout)
     
     // Sort by y position, then x position
-    const sorted = [...layout].sort((a, b) => {
+    const sorted = [...cleanedLayout].sort((a, b) => {
       if (a.y === b.y) return a.x - b.x
       return a.y - b.y
     })
@@ -85,44 +121,56 @@ export default function DashboardGrid({
     const cols = breakpoint === 'lg' ? 12 : breakpoint === 'md' ? 8 : 4
     const grid: boolean[][] = []
     
-    // Place each widget in the next available position
-    const compacted = sorted.map(item => {
-      // Find the first available y position for this widget
-      let targetY = 0
-      let foundPosition = false
-      
-      while (!foundPosition && targetY < 1000) { // Safety limit
-        foundPosition = true
-        
-        // Check if this position has enough space
-        for (let dy = 0; dy < item.h; dy++) {
-          const row = targetY + dy
-          if (!grid[row]) grid[row] = Array(cols).fill(false)
-          
-          for (let dx = 0; dx < item.w; dx++) {
-            const col = item.x + dx
-            if (col >= cols || grid[row][col]) {
-              foundPosition = false
-              break
-            }
+    // Initialize grid helper function
+    const ensureGridRow = (row: number) => {
+      if (!grid[row]) grid[row] = Array(cols).fill(false)
+    }
+    
+    // Check if a position is available
+    const isPositionAvailable = (x: number, y: number, w: number, h: number): boolean => {
+      for (let dy = 0; dy < h; dy++) {
+        const row = y + dy
+        ensureGridRow(row)
+        for (let dx = 0; dx < w; dx++) {
+          const col = x + dx
+          if (col >= cols || grid[row][col]) {
+            return false
           }
-          if (!foundPosition) break
         }
-        
-        if (!foundPosition) targetY++
       }
-      
-      // Mark this space as occupied
-      for (let dy = 0; dy < item.h; dy++) {
-        const row = targetY + dy
-        if (!grid[row]) grid[row] = Array(cols).fill(false)
-        for (let dx = 0; dx < item.w; dx++) {
-          const col = item.x + dx
+      return true
+    }
+    
+    // Mark position as occupied
+    const markOccupied = (x: number, y: number, w: number, h: number) => {
+      for (let dy = 0; dy < h; dy++) {
+        const row = y + dy
+        ensureGridRow(row)
+        for (let dx = 0; dx < w; dx++) {
+          const col = x + dx
           if (col < cols) {
             grid[row][col] = true
           }
         }
       }
+    }
+    
+    // Place each widget in the next available position
+    const compacted = sorted.map(item => {
+      // Start from y=0 and find the first available position
+      let targetY = 0
+      
+      // Keep moving down until we find a spot where this widget fits
+      while (targetY < 1000) { // Safety limit
+        if (isPositionAvailable(item.x, targetY, item.w, item.h)) {
+          // Found a valid position!
+          break
+        }
+        targetY++
+      }
+      
+      // Mark this space as occupied
+      markOccupied(item.x, targetY, item.w, item.h)
       
       return {
         ...item,
@@ -131,7 +179,7 @@ export default function DashboardGrid({
     })
     
     return compacted
-  }
+  }, [cleanLayout])
 
   // Reload layouts when userId or portfolioId changes
   useEffect(() => {
@@ -146,7 +194,7 @@ export default function DashboardGrid({
     saveLayout(loadedLayouts.lg, 'lg', userId, portfolioId)
     saveLayout(loadedLayouts.md, 'md', userId, portfolioId)
     saveLayout(loadedLayouts.sm, 'sm', userId, portfolioId)
-  }, [userId, portfolioId])
+  }, [userId, portfolioId, compactLayoutUtil])
 
   // Reload layouts when requested
   useEffect(() => {
@@ -168,7 +216,7 @@ export default function DashboardGrid({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).__refreshDashboardVisibility = handleRefresh
     }
-  }, [onRefreshVisibility, userId, portfolioId])
+  }, [onRefreshVisibility, userId, portfolioId, compactLayoutUtil])
 
   // Determine breakpoint based on window width
   useEffect(() => {
@@ -249,19 +297,117 @@ export default function DashboardGrid({
     }
   }, [isEditMode])
 
+  // Track if user is currently dragging or resizing
+  const [isDragging, setIsDragging] = useState(false)
+  const [draggedItem, setDraggedItem] = useState<Layout | null>(null)
+
   const handleLayoutChange = (layout: Layout[]) => {
-    if (isEditMode) {
-      // Compact the layout to remove gaps
-      const compactedLayout = compactLayoutUtil(layout, currentBreakpoint)
-      
-      // Update layouts for current breakpoint
+    if (isEditMode && isDragging) {
+      // Update the layout immediately so the widget resizes/moves smoothly
+      // We'll compact it when the operation completes
       setLayouts(prev => ({
         ...prev,
-        [currentBreakpoint]: compactedLayout
+        [currentBreakpoint]: layout
       }))
-      // Save current breakpoint layout
-      saveLayout(compactedLayout, currentBreakpoint, userId, portfolioId)
     }
+  }
+
+  /**
+   * Find the widget that the dragged item is mostly overlapping with
+   */
+  const findSwapTarget = (draggedItem: Layout, layout: Layout[]): Layout | null => {
+    let maxOverlap = 0
+    let swapTarget: Layout | null = null
+
+    for (const item of layout) {
+      if (item.i === draggedItem.i) continue
+
+      // Calculate overlap area
+      const overlapX = Math.max(0, Math.min(draggedItem.x + draggedItem.w, item.x + item.w) - Math.max(draggedItem.x, item.x))
+      const overlapY = Math.max(0, Math.min(draggedItem.y + draggedItem.h, item.y + item.h) - Math.max(draggedItem.y, item.y))
+      const overlapArea = overlapX * overlapY
+
+      if (overlapArea > maxOverlap) {
+        maxOverlap = overlapArea
+        swapTarget = item
+      }
+    }
+
+    // Only swap if there's significant overlap (at least 25% of dragged item's area)
+    const draggedArea = draggedItem.w * draggedItem.h
+    if (maxOverlap > draggedArea * 0.25) {
+      return swapTarget
+    }
+
+    return null
+  }
+
+  const handleDragStop = (layout: Layout[], _oldItem: Layout, newItem: Layout) => {
+    if (isEditMode) {
+      setIsDragging(false)
+      
+      // Check if we should swap with another widget
+      const swapTarget = findSwapTarget(newItem, layout)
+      
+      let finalLayout = layout
+      
+      if (swapTarget && draggedItem) {
+        // Swap positions of the two widgets
+        finalLayout = layout.map(item => {
+          if (item.i === newItem.i) {
+            // Move dragged item to target's position
+            return {
+              ...item,
+              x: swapTarget.x,
+              y: swapTarget.y,
+            }
+          } else if (item.i === swapTarget.i) {
+            // Move target to dragged item's original position
+            return {
+              ...item,
+              x: draggedItem.x,
+              y: draggedItem.y,
+            }
+          }
+          return item
+        })
+      }
+      
+      // Save layout as-is when drag operation completes
+      // react-grid-layout's built-in compaction handles the positioning
+      const cleanedLayout = cleanLayout(finalLayout)
+      setLayouts(prev => ({
+        ...prev,
+        [currentBreakpoint]: cleanedLayout
+      }))
+      saveLayout(cleanedLayout, currentBreakpoint, userId, portfolioId)
+      
+      setDraggedItem(null)
+    }
+  }
+
+  const handleResizeStop = (layout: Layout[]) => {
+    if (isEditMode) {
+      setIsDragging(false)
+      
+      // Save layout as-is when resize operation completes
+      // react-grid-layout's built-in compaction handles the positioning
+      const cleanedLayout = cleanLayout(layout)
+      setLayouts(prev => ({
+        ...prev,
+        [currentBreakpoint]: cleanedLayout
+      }))
+      saveLayout(cleanedLayout, currentBreakpoint, userId, portfolioId)
+    }
+  }
+
+  const handleDragStart = (_layout: Layout[], oldItem: Layout) => {
+    setIsDragging(true)
+    setDraggedItem(oldItem)
+  }
+
+  const handleResizeStart = () => {
+    setIsDragging(true)
   }
 
   const handleDeleteWidget = (widgetId: string) => {
@@ -375,9 +521,14 @@ export default function DashboardGrid({
           isResizable={isEditMode}
           compactType="vertical"
           preventCollision={false}
+          allowOverlap={false}
           margin={[20, 20]}
           containerPadding={[0, 0]}
           onLayoutChange={handleLayoutChange}
+          onDragStart={handleDragStart}
+          onDragStop={handleDragStop}
+          onResizeStart={handleResizeStart}
+          onResizeStop={handleResizeStop}
           draggableHandle=".widget-drag-handle"
           useCSSTransforms={false}
           resizeHandles={['s', 'e', 'se']}
