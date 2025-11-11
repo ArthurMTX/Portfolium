@@ -6,6 +6,7 @@ import { formatCurrency } from '../../../../lib/formatUtils'
 import { getAssetLogoUrl, handleLogoError } from '@/lib/logoUtils'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface TopPerformersWidgetProps extends BaseWidgetProps {}
 
@@ -15,6 +16,7 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
   const shouldLoad = useWidgetVisibility('top-performers')
+  const { t } = useTranslation()
 
   const { data: performers, isLoading } = useQuery({
     queryKey: ['top-performers', activePortfolioId],
@@ -25,7 +27,7 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
   if (isLoading || !performers) {
     return (
       <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">Loading...</p>
+        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
       </div>
     )
   }
@@ -37,13 +39,13 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
           <TrendingUp className="text-emerald-600 dark:text-emerald-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Top Performers
+          {t('dashboard.widgets.topPerformers.name')}
         </h3>
       </div>
 
       {performers.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
-          No performance data yet
+          {t('dashboard.widgets.topPerformers.noPerformanceData')}
         </p>
       ) : (
         <div className="space-y-3">

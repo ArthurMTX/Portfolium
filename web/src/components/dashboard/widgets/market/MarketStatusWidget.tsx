@@ -3,6 +3,7 @@ import { Globe } from 'lucide-react'
 import { getMarketStatus } from '@/lib/api'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface MarketRegion {
   name: string
@@ -10,7 +11,7 @@ interface MarketRegion {
 }
 
 const regions: MarketRegion[] = [
-  { name: 'United States', key: 'us' },
+  { name: 'USA', key: 'us' },
   { name: 'Europe', key: 'europe' },
   { name: 'Asia', key: 'asia' },
   { name: 'Oceania', key: 'oceania' },
@@ -20,6 +21,7 @@ interface MarketStatusWidgetProps extends BaseWidgetProps {}
 
 export default function MarketStatusWidget({ isPreview = false }: MarketStatusWidgetProps) {
   const shouldLoad = useWidgetVisibility('market-status')
+  const { t } = useTranslation()
 
   const { data: health, isLoading } = useQuery({
     queryKey: ['market-status'],
@@ -47,34 +49,34 @@ export default function MarketStatusWidget({ isPreview = false }: MarketStatusWi
     if (isUS) {
       switch (status) {
         case 'open':
-          return 'Open'
+          return t('market.status.open')
         case 'premarket':
-          return 'Pre-Market'
+          return t('market.status.premarket')
         case 'afterhours':
-          return 'After Hours'
+          return t('market.status.afterhours')
         case 'closed':
-          return 'Closed'
+          return t('market.status.closed')
         default:
-          return 'Unknown'
+          return t('market.status.unknown')
       }
     }
     
     // For other regions, simple open/closed
     switch (status) {
       case 'open':
-        return 'Open'
+        return t('market.status.open')
       case 'closed':
-        return 'Closed'
+        return t('market.status.closed')
       default:
-        return 'Unknown'
+        return t('market.status.unknown')
     }
   }
 
   const getRegionStatus = (regionKey: 'us' | 'europe' | 'asia' | 'oceania') => {
     if (regionKey === 'us') {
-      return health?.market_status || 'unknown'
+      return health?.market_status || t('market.status.unknown')
     }
-    return health?.market_statuses?.[regionKey] || 'unknown'
+    return health?.market_statuses?.[regionKey] || t('market.status.unknown')
   }
 
   return (
@@ -84,7 +86,7 @@ export default function MarketStatusWidget({ isPreview = false }: MarketStatusWi
           <Globe className="text-sky-600 dark:text-sky-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Market Status
+          {t('dashboard.marketStatus')}
         </h3>
       </div>
 
@@ -106,7 +108,7 @@ export default function MarketStatusWidget({ isPreview = false }: MarketStatusWi
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${getStatusColor(status)}`} />
                   <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                    {region.name}
+                    {t(`market.regions.${region.key}`)}
                   </span>
                 </div>
                 <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

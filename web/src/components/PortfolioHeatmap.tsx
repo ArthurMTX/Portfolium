@@ -306,7 +306,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
   if (positions.length === 0) {
     return (
       <div className="p-8">
-        <p className="text-center text-neutral-500 dark:text-neutral-400">No positions to display</p>
+        <p className="text-center text-neutral-500 dark:text-neutral-400">{t('dashboard.noPositions')}</p>
       </div>
     )
   }

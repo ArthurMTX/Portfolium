@@ -4,12 +4,14 @@ import { formatCurrency } from '../../../../lib/formatUtils'
 import { getAssetLogoUrl, handleLogoError } from '../../../../lib/logoUtils'
 import usePortfolioStore from '@/store/usePortfolioStore'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface LargestHoldingsWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
 export default function LargestHoldingsWidget({ positions, isPreview = false }: LargestHoldingsWidgetProps) {
+  const { t } = useTranslation()  
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
@@ -34,13 +36,13 @@ export default function LargestHoldingsWidget({ positions, isPreview = false }: 
           <PieChart className="text-purple-600 dark:text-purple-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Largest Holdings
+          {t('dashboard.widgets.largestHoldings.name')}
         </h3>
       </div>
 
       {topHoldings.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
-          No holdings yet
+          {t('dashboard.widgets.largestHoldings.noHoldingsData')}
         </p>
       ) : (
         <div className="space-y-3">

@@ -70,7 +70,23 @@
     "wallet": "Wallet",
     "portfolio": "this portfolio",
     "priceUpdateError": "Price Update Error",
-    "retry": "Retry"
+    "retry": "Retry",
+    "widgets": "Widgets",
+    "layouts": "Layouts",
+    "preview": "Preview",
+    "previewError": "Preview Error",
+    "canAddMultiple": "Can add multiple",
+    "size": "Size",
+    "remove": "Remove",
+    "reset": "Reset",
+    "resetToDefault": "Reset to Default",
+    "default": "Default",
+    "updatedAt": "Updated at {{date}}",
+    "copy": "Copy",
+    "load": "Load",
+    "clear": "Clear",
+    "selected": "Selected",
+    "unknown": "Unknown"
   },
   "fields": {
     "symbol": "Symbol",
@@ -115,6 +131,12 @@
       "afterhours": "After-hours",
       "closed": "Market closed",
       "unknown": "Unknown"
+    },
+    "regions": {
+      "us": "USA",
+      "europe": "Europe",
+      "asia": "Asia",
+      "oceania": "Oceania"
     }
   },
   "transaction": {
@@ -155,7 +177,190 @@
     "dailyChange": "Daily Change",
     "marketValue": "Market Value",
     "noPositions": "No positions to display.",
-    "noPositionsInfo": "Start by adding transactions to your portfolio."
+    "noPositionsInfo": "Start by adding transactions to your portfolio.",
+    "editMode": "Edit Mode",
+    "editModeInfo": "Drag widgets to reorder them or resize by dragging the corners. Click {{save}} again to save layout.",
+    "widgetsInfo": "Add/Remove widgets",
+    "layoutsInfo": "Manage Layouts - Save, Load, Import/Export",
+    "customizeLayout": "Customize Layout",
+    "exitEditMode": "Exit Edit Mode",
+    "marketStatus": "Market Status",
+    "emptyDashboard": "Your dashboard is feeling lonely!",
+    "emptyDashboardInfo": "It's like a pizza without toppings. Click the \"Edit\" and \"Widgets\" button to spice things up!",
+    "proTip": "Pro Tip",
+    "proTipInfo": "You can use the default layouts as a starting point!",
+    "removeWidget": "Remove Widget",
+    "removeWidgetMessage": "Are you sure you want to remove this widget from your dashboard?",
+    "widgets": {
+      "totalValue": {
+        "name": "Total Value",
+        "description": "Display your total portfolio value"
+      },
+      "dailyGain": {
+        "name": "Daily Gain",
+        "description": "Show your portfolio's daily gain/loss"
+      },
+      "unrealizedPnL": {
+        "name": "Unrealized P&L",
+        "description": "View your portfolio's unrealized profit and loss"
+      },
+      "realizedPnL": {
+        "name": "Realized P&L",
+        "description": "View your portfolio's realized profit and loss"
+      },
+      "dividends": {
+        "name": "Dividends",
+        "description": "Show total dividends received"
+      },
+      "notifications": {
+        "name": "Recents Notifications",
+        "description": "View recent alerts and notifications"
+      },
+      "watchlist": {
+        "name": "Watchlist",
+        "description": "Track your watchlist assets"
+      },
+      "positions": {
+        "name": "Positions Table",
+        "description": "View all your current and sold positions"
+      },
+      "totalReturn": {
+        "name": "Total Return",
+        "description": "Display your portfolio's total return (unrealized + realized + dividends - fees)",
+        "subtitle": "All gains & losses"
+      },
+      "winRate": {
+        "name": "Win Rate",
+        "description": "Show the percentage of profitable trades in your portfolio",
+        "positionsInProfit": "positions in profit",
+        "profitOutOfTotal": "{{profit}} out of {{total}} total"
+      },
+      "concentrationRisk": {
+        "name": "Concentration Risk",
+        "description": "Analyze the risk of over-concentration in your portfolio"
+      },
+      "bestWorstToday": {
+        "name": "Best & Worst Today",
+        "description": "Highlight your best and worst performing assets today"
+      },
+      "performanceMetrics": {
+        "name": "Week/Month/YTD Performance",
+        "description": "Performance overview for different time periods",
+        "weekly": "Weekly Performance",
+        "monthly": "Monthly Performance",
+        "ytd": "Year-to-Date Performance"
+      },
+      "topPerformers": {
+        "name": "Top Performers",
+        "description": "Best 5 positions by return percentage",
+        "noPerformanceData": "No performance data available."
+      },
+      "worstPerformers": {
+        "name": "Worst Performers",
+        "description": "Worst 5 positions by return percentage",
+        "noPerformanceData": "No performance data available."
+      },
+      "largestHoldings": {
+        "name": "Largest Holdings",
+        "description": "Top 5 positions by market value with allocation",
+        "noHoldingsData": "No holdings data available."
+      },
+      "recentTransactions": {
+        "name": "Recent Transactions",
+        "description": "Last 5 transactions timeline",
+        "noTransactions": "No recent transactions to display.",
+        "buy": "Buy",
+        "sell": "Sell",
+        "dividend": "Dividend",
+        "split": "Split"
+      },
+      "marketStatus": {
+        "name": "Market Status",
+        "description": "Current market statuses for major regions"
+      },
+      "marketIndices": {
+        "name": "Market Indices",
+        "description": "Major market indices by region (S&P 500, DAX, Nikkei, etc.)",
+        "failedToLoad": "Failed to load market indices.",
+        "regions": {
+          "us": "USA",
+          "europe": "Europe",
+          "asia": "Asia"
+        }
+      },
+      "assetAllocation": {
+        "name": "Asset Allocation",
+        "description": "Visual breakdown of portfolio by sector, type, or country",
+        "donutChart": "Donut Chart",
+        "pieChart": "Pie Chart",
+        "barChart": "Bar Chart",
+        "noAllocationData": "No allocation data available."
+      },
+      "portfolioHeatmap": {
+        "name": "Portfolio Heatmap",
+        "description": "Visual heatmap of all positions with color-coded daily performance"
+      },
+      "goalTracker": {
+        "name": "Goal Tracker",
+        "description": "Track progress towards your investment goals",
+        "editGoal": "Edit Goal",
+        "targetAmount": "Target Amount",
+        "amountPlaceholder": "Enter target amount",
+        "goalReached": "Goal Reached!",
+        "current": "Current",
+        "goal": "Goal",
+        "toGo": "To Go",
+        "estTime": "Est. Time",
+        "congratulations": "Congratulations! You've reached your investment goal.",
+        "setARealisticGoal": "Set a realistic goal amount to track your investment progress.",
+        "estimates8PercentReturn": "Based on an estimated 8% annual return."
+      },
+      "categories": {
+        "insights": {
+          "label": "Charts & Insights",
+          "description": "Visual analytics and performance data"
+        },
+        "metrics": {
+          "label": "Key & Metrics",
+          "description": "Essential portfolio statistics and values"
+        },
+        "data": {
+          "label": "Data & Lists",
+          "description": "Tabular data and list views"
+        }
+      },
+      "library": {
+        "title": "Widget Library",
+        "description": "Click to add widgets to your dashboard",
+        "widgetsCount": "{{count}} widgets active",
+        "resetDashboard": "Reset Dashboard",
+        "resetDashboardMessage": "Reset dashboard to default layout? This will remove all your customizations and widgets.",
+        "widgetAlreadyExists": "Widget Already Exists",
+        "widgetAlreadyExistsMessage": "This widget is already on your dashboard. You can only add one instance of this widget type."
+      }
+    },
+    "layouts": {
+      "title": "Layout Manager",
+      "description": "Save, load, and share your dashboard layouts",
+      "saveCurrentLayout": "Save Current Layout",
+      "myLayouts": "My Layouts",
+      "templates": "Templates",
+      "template": "Template",
+      "loadingLayouts": "Loading layouts...",
+      "noSavedLayouts": "No saved layouts yet",
+      "noSavedLayoutsInfo": "Save your current layout to get started.",
+      "loadThisLayout": "Load This Layout",
+      "setAsDefault": "Set as Default Layout",
+      "removeAsDefault": "Remove as Default Layout",
+      "duplicateLayout": "Duplicate Layout",
+      "proTipInfo": "These are professionally designed layouts optimized for different investment styles. Click \"Load\" to apply any template.",
+      "importLayoutInfo": "Select an exported layout JSON file to import a custom layout.",
+      "selectLayoutFile": "Select Layout File",
+      "layoutName": "Layout Name",
+      "layoutNamePlaceholder": "e.g., Day Trading Setup, Retirement View",
+      "descriptionField": "Layout Description",
+      "descriptionPlaceholder": "Optional description about this layout"
+    }
   },
   "portfolios": {
     "title": "Portfolios",
@@ -398,6 +603,7 @@
     "class": "Class",
     "country": "Country",
     "sector": "Sector",
+    "type": "Type",
     "industry": "Industry",
     "assetDistribution": "Asset Distribution",
     "heldAndSoldAssetsIn": "Held and sold assets in {{portfolio}}",
@@ -738,7 +944,6 @@
     "allStatuses": "All Statuses",
     "active": "Active",
     "inactive": "Inactive",
-    "clear": "Clear",
     "id": "ID",
     "email": "Email",
     "username": "Username",

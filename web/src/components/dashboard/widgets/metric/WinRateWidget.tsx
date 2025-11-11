@@ -1,12 +1,14 @@
 import { Target } from 'lucide-react'
 import { PositionDTO } from '../../../../lib/api'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface WinRateWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
 export default function WinRateWidget({ positions, isPreview = false }: WinRateWidgetProps) {
+  const { t } = useTranslation()
   const positionsInProfit = positions.filter(
     (p) => p.unrealized_pnl !== null && p.unrealized_pnl > 0
   ).length
@@ -28,7 +30,7 @@ export default function WinRateWidget({ positions, isPreview = false }: WinRateW
           <Target className="text-cyan-600 dark:text-cyan-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Win Rate
+          {t('dashboard.widgets.winRate.name')}
         </h3>
       </div>
 
@@ -38,10 +40,10 @@ export default function WinRateWidget({ positions, isPreview = false }: WinRateW
             {winRate.toFixed(0)}%
           </p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            positions in profit
+            {t('dashboard.widgets.winRate.positionsInProfit')}
           </p>
           <p className="text-xs text-neutral-600 dark:text-neutral-500 mt-0.5">
-            ({positionsInProfit} out of {totalPositions} total)
+            {t('dashboard.widgets.winRate.profitOutOfTotal', { profit: positionsInProfit, total: totalPositions })}
           </p>
         </div>
       </div>

@@ -173,7 +173,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
             )}
           </div>
           <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            Asset Allocation
+            {t('dashboard.widgets.assetAllocation.name')}
           </h3>
         </div>
         {/* Chart Type Toggle */}
@@ -185,7 +185,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
                 ? 'bg-white dark:bg-neutral-700 shadow-sm'
                 : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'
             }`}
-            title="Donut Chart"
+            title={t('dashboard.widgets.assetAllocation.donutChart')}
           >
             <PieChartIcon size={14} />
           </button>
@@ -196,7 +196,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
                 ? 'bg-white dark:bg-neutral-700 shadow-sm'
                 : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'
             }`}
-            title="Pie Chart"
+            title={t('dashboard.widgets.assetAllocation.pieChart')}
           >
             <PieChartIcon size={14} className="fill-current" />
           </button>
@@ -207,7 +207,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
                 ? 'bg-white dark:bg-neutral-700 shadow-sm'
                 : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'
             }`}
-            title="Bar Chart"
+            title={t('dashboard.widgets.assetAllocation.barChart')}
           >
             <BarChart3 size={14} />
           </button>
@@ -224,7 +224,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
           }`}
         >
-          Sector
+          {t('assets.sector')}
         </button>
         <button
           onClick={() => setActiveTab('type')}
@@ -234,7 +234,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
           }`}
         >
-          Type
+          {t('assets.type')}
         </button>
         <button
           onClick={() => setActiveTab('country')}
@@ -244,7 +244,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
           }`}
         >
-          Country
+          {t('assets.country')}
         </button>
       </div>
 
@@ -257,7 +257,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
         ) : distributionData.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-              No allocation data
+              {t('dashboard.widgets.assetAllocation.noAllocationData')}
             </p>
           </div>
         ) : (
@@ -269,13 +269,20 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
               ) : (
                 <Pie data={chartData} options={chartOptions} />
               )}
+
             </div>
             {/* Legend */}
             <div className="flex flex-wrap gap-2 text-xs">
               {distributionData.slice(0, 5).map((item, idx) => (
-                <div key={item.name} className="flex items-center gap-1.5">
+                <div key={item.name} className="flex items-center gap-1.5" title={
+                  `${activeTab === 'sector'
+                    ? getTranslatedSector(item.name, t)
+                    : activeTab === 'type'
+                    ? getTranslatedAssetType(item.name, t)
+                    : item.name}: ${item.percentage < 0.1 ? item.percentage.toFixed(2) : item.percentage.toFixed(1)}%`
+                }>
                   <div
-                    className="w-2.5 h-2.5 rounded-full"
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{
                       backgroundColor:
                         activeTab === 'sector'
@@ -283,15 +290,19 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
                           : chartData.datasets[0].backgroundColor[idx],
                     }}
                   />
-                  <span className="text-neutral-700 dark:text-neutral-300 truncate max-w-[80px]">
+                  <span className="text-neutral-700 dark:text-neutral-300 truncate max-w-[120px]">
                     {activeTab === 'sector'
                       ? getTranslatedSector(item.name, t)
                       : activeTab === 'type'
                       ? getTranslatedAssetType(item.name, t)
                       : item.name}
                   </span>
-                  <span className="text-neutral-500 dark:text-neutral-400 font-medium">
-                    {item.percentage.toFixed(0)}%
+                  <span className="text-neutral-500 dark:text-neutral-400 font-medium whitespace-nowrap">
+                    {item.percentage < 0.1 
+                      ? item.percentage.toFixed(2)
+                      : item.percentage < 1
+                      ? item.percentage.toFixed(1)
+                      : item.percentage.toFixed(0)}%
                   </span>
                 </div>
               ))}

@@ -6,18 +6,18 @@ import { CategoryConfig } from '../types'
 export const widgetCategories: CategoryConfig[] = [
   {
     id: 'metrics',
-    label: 'Key Metrics',
-    description: 'Essential portfolio statistics and values',
+    label: 'dashboard.widgets.categories.metrics.label',
+    description: 'dashboard.widgets.categories.metrics.description',
   },
   {
     id: 'data',
-    label: 'Data & Lists',
-    description: 'Tabular data and list views',
+    label: 'dashboard.widgets.categories.data.label',
+    description: 'dashboard.widgets.categories.data.description',
   },
   {
     id: 'insights',
-    label: 'Charts & Insights',
-    description: 'Visual analytics and performance data',
+    label: 'dashboard.widgets.categories.insights.label',
+    description: 'dashboard.widgets.categories.insights.description',
   },
 ]
 

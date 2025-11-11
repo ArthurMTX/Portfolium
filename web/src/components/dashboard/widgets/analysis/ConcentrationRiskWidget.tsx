@@ -2,12 +2,15 @@ import { AlertTriangle, Shield } from 'lucide-react'
 import { PositionDTO } from '../../../../lib/api'
 import { getAssetLogoUrl, handleLogoError } from '@/lib/logoUtils'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface ConcentrationRiskWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
 export default function ConcentrationRiskWidget({ positions, isPreview = false }: ConcentrationRiskWidgetProps) {
+  const { t } = useTranslation()
+  
   // Calculate total portfolio value
   const totalValue = positions.reduce((sum, p) => {
     const value = p.market_value !== null ? Number(p.market_value) : 0
@@ -46,7 +49,7 @@ export default function ConcentrationRiskWidget({ positions, isPreview = false }
             )}
           </div>
           <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            Concentration Risk
+            {t('dashboard.widgets.concentrationRisk.name')}
           </h3>
         </div>
         

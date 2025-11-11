@@ -153,6 +153,24 @@ export interface TopPerformerDTO {
   asset_type?: string | null
 }
 
+export interface PerformanceMetricsDTO {
+  period: string
+  total_return: number
+  total_return_pct: number
+  annualized_return: number
+  start_value: number
+  end_value: number
+  total_invested: number
+  total_withdrawn: number
+  best_day: number | null
+  best_day_date: string | null
+  worst_day: number | null
+  worst_day_date: string | null
+  positive_days: number
+  negative_days: number
+  win_rate: number
+}
+
 // Price Quote
 export interface PriceQuote {
   symbol: string
@@ -952,6 +970,10 @@ class ApiClient {
 
   async getTopPerformers(portfolioId: number, period: string = '1y', limit: number = 5, signal?: AbortSignal) {
     return this.request<TopPerformerDTO[]>(`/insights/${portfolioId}/top-performers?period=${period}&limit=${limit}`, { signal })
+  }
+
+  async getPerformanceMetrics(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<PerformanceMetricsDTO>(`/insights/${portfolioId}/performance?period=${period}`, { signal })
   }
 
   async getRecentTransactions(portfolioId: number, limit: number = 5, signal?: AbortSignal) {

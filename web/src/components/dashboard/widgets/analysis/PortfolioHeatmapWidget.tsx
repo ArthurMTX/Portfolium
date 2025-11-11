@@ -5,6 +5,7 @@ import usePortfolioStore from '@/store/usePortfolioStore'
 import api, { PositionDTO } from '@/lib/api'
 import { mockPositions } from '../../utils/mockDataProvider'
 import { getAssetLogoUrl, handleLogoError } from '@/lib/logoUtils'
+import { useTranslation } from 'react-i18next'
 
 interface PortfolioHeatmapWidgetProps extends BaseWidgetProps {}
 
@@ -12,6 +13,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const [positions, setPositions] = useState<PositionDTO[]>([])
   const [loading, setLoading] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     // Use mock data in preview mode
@@ -77,7 +79,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
           <TrendingUp className="text-cyan-600 dark:text-cyan-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Portfolio Heatmap
+          {t('dashboard.widgets.portfolioHeatmap.name')}
         </h3>
       </div>
 
@@ -90,7 +92,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
         ) : positions.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-              No positions
+              {t('dashboard.noPositions')}
             </p>
           </div>
         ) : (

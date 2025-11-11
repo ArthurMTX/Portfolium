@@ -2,12 +2,15 @@ import { TrendingUp, TrendingDown, Zap } from 'lucide-react'
 import { PositionDTO } from '../../../../lib/api'
 import { getAssetLogoUrl, handleLogoError } from '../../../../lib/logoUtils'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface BestWorstTodayWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
 export default function BestWorstTodayWidget({ positions, isPreview = false }: BestWorstTodayWidgetProps) {
+  const { t } = useTranslation()
+
   // Filter positions with valid daily change
   const validPositions = positions.filter(
     (p) => p.daily_change_pct !== null && p.market_value !== null && p.market_value > 0
@@ -37,7 +40,7 @@ export default function BestWorstTodayWidget({ positions, isPreview = false }: B
           <Zap className="text-amber-600 dark:text-amber-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Best & Worst Today
+          {t('dashboard.widgets.bestWorstToday.name')}
         </h3>
       </div>
 
@@ -63,7 +66,7 @@ export default function BestWorstTodayWidget({ positions, isPreview = false }: B
               </span>
             </div>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-              {best.name || 'Unknown'}
+              {best.name || t('common.unknown')}
             </p>
           </div>
         </div>
@@ -89,7 +92,7 @@ export default function BestWorstTodayWidget({ positions, isPreview = false }: B
               </span>
             </div>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-              {worst.name || 'Unknown'}
+              {worst.name || t('common.unknown')}
             </p>
           </div>
         </div>

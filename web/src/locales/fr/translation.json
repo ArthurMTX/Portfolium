@@ -70,7 +70,23 @@
     "wallet": "Portefeuille",
     "portfolio": "ce portefeuille",
     "priceUpdateError": "Erreur de mise à jour des prix",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "widgets": "Widgets",
+    "layouts": "Mises en page",
+    "preview": "Aperçu",
+    "previewError": "Erreur de l'aperçu",
+    "canAddMultiple": "Peut ajouter plusieurs",
+    "size": "Taille",
+    "remove": "Retirer",
+    "reset": "Réinitialiser",
+    "resetToDefault": "Réinitialiser par défaut",
+    "default": "Par défaut",
+    "updatedAt": "Mis à jour le {{date}}",
+    "copy": "Copie",
+    "load": "Charger",
+    "clear": "Effacer",
+    "selected": "Sélectionné",
+    "unknown": "Inconnu"
   },
   "fields": {
     "symbol": "Symbole",
@@ -115,6 +131,12 @@
       "afterhours": "Après-marché",
       "closed": "Marché fermé",
       "unknown": "Inconnu"
+    },
+    "regions": {
+      "us": "USA",
+      "europe": "Europe",
+      "asia": "Asie",
+      "oceania": "Océanie"
     }
   },
   "transaction": {
@@ -155,7 +177,190 @@
     "dailyChange": "Variation quotidienne",
     "marketValue": "Valeur marchande",
     "noPositions": "Aucune position à afficher.",
-    "noPositionsInfo": "Commencez par ajouter des transactions à votre portefeuille."
+    "noPositionsInfo": "Commencez par ajouter des transactions à votre portefeuille.",
+    "editMode": "Mode d'édition",
+    "editModeInfo": "Faites glisser les widgets pour les réorganiser ou redimensionnez-les en faisant glisser les coins. Cliquez sur {{save}} à nouveau pour enregistrer la mise en page.",
+    "widgetsInfo": "Ajouter/Retirer des widgets",
+    "layoutsInfo": "Gérer les mises en page - Enregistrer, Charger, Importer/Exporter",
+    "customizeLayout": "Personnaliser la mise en page",
+    "exitEditMode": "Quitter le mode d'édition",
+    "marketStatus": "Statut du marché",
+    "emptyDashboard": "Votre tableau de bord se sent seul !",
+    "emptyDashboardInfo": "C'est comme une pizza sans garniture. Cliquez sur les boutons \"Modifier\" et \"Widgets\" pour pimenter les choses !",
+    "proTip": "Astuce Pro",
+    "proTipInfo": "Vous pouvez utiliser les mises en page par défaut comme point de départ !",
+    "removeWidget": "Supprimer le widget",
+    "removeWidgetMessage": "Êtes-vous sûr de vouloir supprimer ce widget de votre tableau de bord ?",
+    "widgets": {
+      "totalValue": {
+        "name": "Valeur Totale",
+        "description": "Afficher la valeur totale de votre portefeuille"
+      },
+      "dailyGain": {
+        "name": "Gain Quotidien",
+        "description": "Afficher le gain/perte quotidien de votre portefeuille"
+      },
+      "unrealizedPnL": {
+        "name": "P&L non réalisé",
+        "description": "Afficher le P&L non réalisé de votre portefeuille"
+      },
+      "realizedPnL": {
+        "name": "P&L réalisé",
+        "description": "Afficher le P&L réalisé de votre portefeuille"
+      },
+      "dividends": {
+        "name": "Dividendes",
+        "description": "Afficher les dividendes totaux reçus"
+      },
+      "notifications": {
+        "name": "Notifications récentes",
+        "description": "Afficher les notifications récentes du système"
+      },
+      "watchlist": {
+        "name": "Liste de surveillance",
+        "description": "Suivez vos actifs de la liste de surveillance"
+      },
+      "positions": {
+        "name": "Tableau des positions",
+        "description": "Afficher toutes vos positions actuelles et vendues"
+      },
+      "totalReturn": {
+        "name": "Retour total",
+        "description": "Afficher le retour total de votre portefeuille (non réalisé + réalisé + dividendes - frais)",
+        "subtitle": "Tous les gains et pertes"
+      },
+      "winRate": {
+        "name": "Taux de réussite",
+        "description": "Afficher le pourcentage de positions gagnantes dans votre portefeuille",
+        "positionsInProfit": "positions gagnantes",
+        "profitOutOfTotal": "{{profit}} sur {{total}} au total"
+      },
+      "concentrationRisk": {
+        "name": "Risque de concentration",
+        "description": "Analyser le risque de sur-concentration dans votre portefeuille"
+      },
+      "bestWorstToday": {
+        "name": "Meilleurs/Pires aujourd'hui",
+        "description": "Mettre en évidence vos meilleurs et pires actifs performants aujourd'hui"
+      },
+      "performanceMetrics": {
+        "name": "Performance Hebdomadaire/Mensuelle/YTD",
+        "description": "Afficher la performance de votre portefeuille sur différentes périodes",
+        "weekly": "Performance Hebdomadaire",
+        "monthly": "Performance Mensuelle",
+        "ytd": "Performance Annuelle"
+      },
+      "topPerformers": {
+        "name": "Meilleurs Performeurs",
+        "description": "Meilleures 5 positions par pourcentage de retour",
+        "noPerformanceData": "Aucune donnée de performance disponible."
+      },
+      "worstPerformers": {
+        "name": "Pires Performeurs",
+        "description": "Pires 5 positions par pourcentage de retour",
+        "noPerformanceData": "Aucune donnée de performance disponible."
+      },
+      "largestHoldings": {
+        "name": "Plus Grandes Positions",
+        "description": "Top 5 positions par valeur marchande avec allocation",
+        "noHoldingsData": "Aucune donnée de positions disponible."
+      },
+      "recentTransactions": {
+        "name": "Transactions Récentes",
+        "description": "Chronologie des 5 dernières transactions",
+        "noTransactions": "Aucune transaction récente à afficher.",
+        "buy": "Achat",
+        "sell": "Vente",
+        "dividend": "Dividende",
+        "split": "Fractionnement"
+      },
+      "marketStatus": {
+        "name": "Statut du Marché",
+        "description": "Statuts actuels du marché pour les principales régions"
+      },
+      "marketIndices": {
+        "name": "Indices du Marché",
+        "description": "Principaux indices boursiers par région (S&P 500, DAX, Nikkei, etc.)",
+        "failedToLoad": "Échec du chargement des indices du marché.",
+        "regions": {
+          "us": "USA",
+          "europe": "Europe",
+          "asia": "Asie"
+        }
+      },
+      "assetAllocation": {
+        "name": "Répartition des Actifs",
+        "description": "Répartition visuelle du portefeuille par secteur, type ou pays",
+        "donutChart": "Graphique en anneau",
+        "pieChart": "Graphique en secteurs",
+        "barChart": "Graphique en barres",
+        "noAllocationData": "Aucune donnée de répartition disponible."
+      },
+      "portfolioHeatmap": {
+        "name": "Carte de Chaleur du Portefeuille",
+        "description": "Carte de chaleur visuelle de toutes les positions avec performance quotidienne codée par couleur"
+      },
+      "goalTracker": {
+        "name": "Suivi des Objectifs",
+        "description": "Suivez vos progrès vers vos objectifs d'investissement",
+        "editGoal": "Modifier l'objectif",
+        "targetAmount": "Montant cible",
+        "amountPlaceholder": "Entrez le montant cible",
+        "goalReached": "Objectif atteint !",
+        "current": "Actuel",
+        "goal": "Objectif",
+        "toGo": "Restant",
+        "estTime": "Temps estimé",
+        "congratulations": "Félicitations ! Vous avez atteint votre objectif d'investissement.",
+        "setARealisticGoal": "Définissez un montant d'objectif réaliste pour suivre vos progrès d'investissement.",
+        "estimates8PercentReturn": "Basé sur un rendement annuel estimé de 8 %."
+      },
+      "categories": {
+        "insights": {
+          "label": "Graphiques & Analyses",
+          "description": "Analytique visuelle et données de performance"
+        },
+        "metrics": {
+          "label": "Indicateurs Clés",
+          "description": "Statistiques et valeurs essentielles du portefeuille"
+        },
+        "data": {
+          "label": "Données & Listes",
+          "description": "Données tabulaires et vues en liste"
+        }
+      },
+      "library": {
+        "title": "Bibliothèque de Widgets",
+        "description": "Cliquez pour ajouter des widgets à votre tableau de bord",
+        "widgetsCount": "{{count}} widgets actifs",
+        "resetDashboard": "Réinitialiser le tableau de bord",
+        "resetDashboardMessage": "Réinitialiser le tableau de bord à la mise en page par défaut ? Cela supprimera toutes vos personnalisations et widgets.",
+        "widgetAlreadyExists": "Le widget existe déjà",
+        "widgetAlreadyExistsMessage": "Ce widget est déjà sur votre tableau de bord. Vous ne pouvez ajouter qu'une seule instance de ce type de widget."
+      }
+    },
+    "layouts": {
+      "title": "Gestionnaire de Mise en Page",
+      "description": "Enregistrer, charger et partager vos mises en page de tableau de bord",
+      "saveCurrentLayout": "Enregistrer la mise en page actuelle",
+      "myLayouts": "Mes Mises en Page",
+      "templates": "Modèles",
+      "template": "Modèle",
+      "loadingLayouts": "Chargement des mises en page...",
+      "noSavedLayouts": "Aucune mise en page enregistrée pour le moment",
+      "noSavedLayoutsInfo": "Enregistrez votre mise en page actuelle pour commencer.",
+      "loadThisLayout": "Charger cette mise en page",
+      "setAsDefault": "Définir comme mise en page par défaut",
+      "removeAsDefault": "Retirer comme mise en page par défaut",
+      "duplicateLayout": "Dupliquer la mise en page",
+      "proTipInfo": "Ces mises en page sont conçues par des professionnels et optimisées pour différents styles d'investissement. Cliquez sur \"Charger\" pour appliquer un modèle.",
+      "importLayoutInfo": "Sélectionnez un fichier JSON de mise en page exporté pour importer une mise en page personnalisée.",
+      "selectLayoutFile": "Sélectionner le fichier de mise en page",
+      "layoutName": "Nom de la mise en page",
+      "layoutNamePlaceholder": "ex. Configuration de trading journalier, Vue retraite",
+      "descriptionField": "Description de la mise en page",
+      "descriptionPlaceholder": "Description optionnelle de cette mise en page"
+    }
   },
   "portfolios": {
     "title": "Portefeuilles",

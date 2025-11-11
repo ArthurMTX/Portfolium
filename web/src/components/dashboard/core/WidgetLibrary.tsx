@@ -7,6 +7,7 @@ import { WidgetConfig } from '../types'
 import { saveLayout, loadLayout } from '../utils/defaultLayouts'
 import ConfirmModal from '../../ConfirmModal'
 import { WidgetGallery } from './WidgetGallery'
+import { useTranslation } from 'react-i18next'
 
 interface WidgetLibraryNewProps {
   isOpen: boolean
@@ -34,6 +35,7 @@ export default function WidgetLibraryNew({
 }: WidgetLibraryNewProps) {
   const [showResetModal, setShowResetModal] = useState(false)
   const [showAlreadyExistsModal, setShowAlreadyExistsModal] = useState(false)
+  const { t } = useTranslation()
 
   // Get widgets grouped by category from registry
   const groupedWidgets = getWidgetsGroupedByCategory()
@@ -119,10 +121,10 @@ export default function WidgetLibraryNew({
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
           <div>
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              Widget Library
+              {t('dashboard.widgets.library.title')}
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              Click to add widgets to your dashboard • {currentLayout.length} widgets active
+              {t('dashboard.widgets.library.description')} • {t('dashboard.widgets.library.widgetsCount', { count: currentLayout.length })}
             </p>
           </div>
           <button
@@ -148,13 +150,13 @@ export default function WidgetLibraryNew({
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors font-medium"
           >
             <Trash2 size={16} />
-            Reset to Default
+            {t('common.resetToDefault')}
           </button>
           <button
             onClick={onClose}
             className="px-6 py-2 rounded-lg bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition-colors font-medium"
           >
-            Done
+            {t('common.close')}
           </button>
         </div>
       </div>
@@ -164,10 +166,10 @@ export default function WidgetLibraryNew({
         isOpen={showResetModal}
         onClose={() => setShowResetModal(false)}
         onConfirm={resetToDefault}
-        title="Reset Dashboard"
-        message="Reset dashboard to default layout? This will remove all your customizations and widgets."
-        confirmText="Reset"
-        cancelText="Cancel"
+        title={t('dashboard.widgets.library.resetDashboard')}
+        message={t('dashboard.widgets.library.resetDashboardMessage')}
+        confirmText={t('common.reset')}
+        cancelText={t('common.cancel')}
         variant="danger"
       />
 
@@ -175,9 +177,9 @@ export default function WidgetLibraryNew({
         isOpen={showAlreadyExistsModal}
         onClose={() => setShowAlreadyExistsModal(false)}
         onConfirm={() => setShowAlreadyExistsModal(false)}
-        title="Widget Already Exists"
-        message="This widget is already on your dashboard. You can only add one instance of this widget type."
-        confirmText="OK"
+        title={t('dashboard.widgets.library.widgetAlreadyExists')}
+        message={t('dashboard.widgets.library.widgetAlreadyExistsMessage')}
+        confirmText={t('common.ok')}
         cancelText=""
         variant="info"
       />

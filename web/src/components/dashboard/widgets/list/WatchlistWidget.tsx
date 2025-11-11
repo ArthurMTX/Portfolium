@@ -113,7 +113,7 @@ export default function WatchlistWidget({ isPreview = false }: WatchlistWidgetPr
 
   return (
     <BaseWidget
-      title="watchlist.title"
+      title="dashboard.widgets.watchlist.name"
       icon={Eye}
       iconColor="text-fuchsia-600 dark:text-fuchsia-400"
       iconBgColor="bg-fuchsia-50 dark:bg-fuchsia-900/20"

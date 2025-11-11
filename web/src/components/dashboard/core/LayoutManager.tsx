@@ -26,6 +26,7 @@ import type {DashboardLayoutDTO,
 } from '../../../types/dashboard'
 import { Layout } from 'react-grid-layout'
 import { PREDEFINED_LAYOUTS } from '../utils/predefinedLayouts'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Compact layout vertically - removes gaps between widgets
@@ -115,8 +116,9 @@ export default function LayoutManager({
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saveDescription, setSaveDescription] = useState('')
-  const [importJson, setImportJson] = useState('')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   // Fetch saved layouts
   const { data: layouts, isLoading } = useQuery({
@@ -191,7 +193,7 @@ export default function LayoutManager({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-layouts'] })
       onLoadLayout(data)
-      setImportJson('')
+      setSelectedFile(null)
       setError(null)
       setActiveTab('saved') // Switch back to saved layouts tab
     },
@@ -200,9 +202,23 @@ export default function LayoutManager({
     },
   })
 
-  const handleImport = () => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      setError(null)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      setError('Please select a file to import')
+      return
+    }
+
     try {
-      const parsed = JSON.parse(importJson) as DashboardLayoutExport
+      const text = await selectedFile.text()
+      const parsed = JSON.parse(text) as DashboardLayoutExport
       
       // Validate structure
       if (!parsed.layout_config || !parsed.layout_config.lg || !parsed.layout_config.md || !parsed.layout_config.sm) {
@@ -221,7 +237,7 @@ export default function LayoutManager({
       
       importMutation.mutate(compactedLayout)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid JSON')
+      setError(err instanceof Error ? err.message : 'Invalid JSON file')
     }
   }
 
@@ -256,10 +272,10 @@ export default function LayoutManager({
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div>
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              Layout Manager
+              {t('dashboard.layouts.title')}
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              Save, load, and share your dashboard layouts
+              {t('dashboard.layouts.description')}
             </p>
           </div>
           <button
@@ -294,7 +310,7 @@ export default function LayoutManager({
             className="btn bg-pink-600 hover:bg-pink-700 text-white flex items-center gap-2 px-4 py-2"
           >
             <Save size={16} />
-            Save Current Layout
+            {t('dashboard.layouts.saveCurrentLayout')}
           </button>
         </div>
 
@@ -309,7 +325,7 @@ export default function LayoutManager({
             }`}
           >
             <Save size={16} className="inline mr-2" />
-            My Layouts
+            {t('dashboard.layouts.myLayouts')}
           </button>
           <button
             onClick={() => setActiveTab('templates')}
@@ -320,7 +336,7 @@ export default function LayoutManager({
             }`}
           >
             <Library size={16} className="inline mr-2" />
-            Templates
+            {t('dashboard.layouts.templates')}
           </button>
           <button
             onClick={() => setActiveTab('import')}
@@ -331,7 +347,7 @@ export default function LayoutManager({
             }`}
           >
             <Upload size={16} className="inline mr-2" />
-            Import JSON
+            {t('common.import')}
           </button>
         </div>
 
@@ -342,14 +358,14 @@ export default function LayoutManager({
           {isLoading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-pink-600 border-t-transparent" />
-              <p className="text-neutral-600 dark:text-neutral-400 mt-4">Loading layouts...</p>
+              <p className="text-neutral-600 dark:text-neutral-400 mt-4">{t('dashboard.layouts.loadingLayouts')}</p>
             </div>
           ) : !layouts || layouts.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="mx-auto text-neutral-400" size={48} />
-              <p className="text-neutral-600 dark:text-neutral-400 mt-4">No saved layouts yet</p>
+              <p className="text-neutral-600 dark:text-neutral-400 mt-4">{t('dashboard.layouts.noSavedLayouts')}</p>
               <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-2">
-                Save your current layout to get started
+                {t('dashboard.layouts.noSavedLayoutsInfo')}
               </p>
             </div>
           ) : (
@@ -366,7 +382,7 @@ export default function LayoutManager({
                       </h3>
                       {layout.is_default && (
                         <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full">
-                          Default
+                          {t('common.default')}
                         </span>
                       )}
                     </div>
@@ -376,7 +392,7 @@ export default function LayoutManager({
                       </p>
                     )}
                     <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-2">
-                      Updated: {new Date(layout.updated_at).toLocaleDateString()}
+                      {t('common.updatedAt', { date: new Date(layout.updated_at).toLocaleDateString() })}
                     </p>
                   </div>
 
@@ -396,14 +412,14 @@ export default function LayoutManager({
                         onLoadLayout(compactedLayout)
                       }}
                       className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title="Load this layout"
+                      title={t('dashboard.layouts.loadThisLayout')}
                     >
                       <Plus size={16} className="text-green-600 dark:text-green-400" />
                     </button>
                     <button
                       onClick={() => toggleDefault(layout)}
                       className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title={layout.is_default ? 'Remove as default' : 'Set as default'}
+                      title={layout.is_default ? t('dashboard.layouts.removeAsDefault') : t('dashboard.layouts.setAsDefault')}
                     >
                       {layout.is_default ? (
                         <Star size={16} className="text-yellow-500 fill-yellow-500" />
@@ -412,23 +428,23 @@ export default function LayoutManager({
                       )}
                     </button>
                     <button
-                      onClick={() => duplicateMutation.mutate({ id: layout.id, name: `${layout.name} (Copy)` })}
+                      onClick={() => duplicateMutation.mutate({ id: layout.id, name: `${layout.name} (${t('common.copy')})` })}
                       className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title="Duplicate"
+                      title={t('dashboard.layouts.duplicateLayout')}
                     >
                       <Copy size={16} className="text-blue-600 dark:text-blue-400" />
                     </button>
                     <button
                       onClick={() => handleExport(layout.id, layout.name)}
                       className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title="Export as JSON"
+                      title={t('common.export')}
                     >
                       <Download size={16} className="text-purple-600 dark:text-purple-400" />
                     </button>
                     <button
                       onClick={() => deleteMutation.mutate(layout.id)}
                       className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title="Delete"
+                      title={t('common.delete')}
                     >
                       <Trash2 size={16} className="text-red-600 dark:text-red-400" />
                     </button>
@@ -445,7 +461,7 @@ export default function LayoutManager({
             <>
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
-                  <strong>💡 Pro tip:</strong> These are professionally designed layouts optimized for different investment styles. Click "Load" to apply any template.
+                  <strong>{t('dashboard.proTip')}:</strong> {t('dashboard.layouts.proTipInfo')}
                 </p>
               </div>
               {PREDEFINED_LAYOUTS.map((template, index) => (
@@ -460,7 +476,7 @@ export default function LayoutManager({
                           {template.name}
                         </h3>
                         <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full">
-                          Template
+                          {t('dashboard.layouts.template')}
                         </span>
                       </div>
                       {template.description && (
@@ -491,18 +507,18 @@ export default function LayoutManager({
                         {importMutation.isPending ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                            Loading...
+                            {t('common.loading')}
                           </>
                         ) : (
                           <>
                             <Plus size={16} />
-                            Load
+                            {t('common.load')}
                           </>
                         )}
                       </button>
                       <button
                         className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                        title="Download JSON"
+                        title={t('common.export')}
                         onClick={(e) => {
                           e.preventDefault()
                           const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
@@ -530,44 +546,53 @@ export default function LayoutManager({
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
-                  Paste exported layout JSON below to import a custom layout.
+                  {t('dashboard.layouts.importLayoutInfo')}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Layout JSON
+                  {t('dashboard.layouts.selectLayoutFile')}
                 </label>
-                <textarea
-                  value={importJson}
-                  onChange={(e) => setImportJson(e.target.value)}
-                  placeholder='Paste exported JSON here (e.g., { "name": "My Layout", "layout_config": {...} })'
-                  className="w-full h-64 px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-mono text-sm"
-                />
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleFileSelect}
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 dark:file:bg-pink-900/30 dark:file:text-pink-300 dark:hover:file:bg-pink-900/50 cursor-pointer"
+                  />
+                </div>
+                {selectedFile && (
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
+                    {t('common.selected')}: <span className="font-medium">{selectedFile.name}</span> ({(selectedFile.size / 1024).toFixed(2)} KB)
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleImport}
-                  disabled={!importJson.trim() || importMutation.isPending}
+                  disabled={!selectedFile || importMutation.isPending}
                   className="btn bg-pink-600 hover:bg-pink-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 px-4 py-2"
                 >
                   {importMutation.isPending ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                      Importing...
+                      {t('common.importing')}
                     </>
                   ) : (
                     <>
                       <Upload size={16} />
-                      Import Layout
+                      {t('common.import')}
                     </>
                   )}
                 </button>
-                <button
-                  onClick={() => setImportJson('')}
-                  className="btn bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2"
-                >
-                  Clear
-                </button>
+                {selectedFile && (
+                  <button
+                    onClick={() => setSelectedFile(null)}
+                    className="btn bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600 px-4 py-2"
+                  >
+                    {t('common.clear')}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -578,29 +603,29 @@ export default function LayoutManager({
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-                Save Current Layout
+                {t('dashboard.layouts.saveCurrentLayout')}
               </h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Layout Name *
+                    {t('dashboard.layouts.layoutName')} *
                   </label>
                   <input
                     type="text"
                     value={saveName}
                     onChange={(e) => setSaveName(e.target.value)}
-                    placeholder="e.g., My Custom Dashboard"
+                    placeholder={t('dashboard.layouts.layoutNamePlaceholder')}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Description (optional)
+                    {t('dashboard.layouts.descriptionField')} ({t('common.optional')})
                   </label>
                   <textarea
                     value={saveDescription}
                     onChange={(e) => setSaveDescription(e.target.value)}
-                    placeholder="Describe this layout..."
+                    placeholder={t('dashboard.layouts.descriptionPlaceholder')}
                     rows={3}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   />
@@ -615,14 +640,14 @@ export default function LayoutManager({
                     }}
                     className="btn bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-4 py-2"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={saveMutation.isPending}
                     className="btn bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 disabled:opacity-50"
                   >
-                    {saveMutation.isPending ? 'Saving...' : 'Save Layout'}
+                    {saveMutation.isPending ? t('common.saving') : t('common.save')}
                   </button>
                 </div>
               </div>

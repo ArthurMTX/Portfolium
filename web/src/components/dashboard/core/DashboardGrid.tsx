@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import GridLayout, { Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+import { useTranslation } from 'react-i18next'
 
 const ResponsiveGridLayout = WidthProvider(GridLayout)
 import { Trash2 } from 'lucide-react'
@@ -67,6 +68,7 @@ export default function DashboardGrid({
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
+  const { t } = useTranslation()
 
   /**
    * Compact layout vertically - removes gaps between widgets
@@ -500,14 +502,14 @@ export default function DashboardGrid({
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
           <div className="text-6xl mb-4">📊</div>
           <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-            Your dashboard is feeling lonely!
+            {t('dashboard.emptyDashboard')}
           </h3>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6 max-w-md">
-            It's like a pizza without toppings. Click the "Edit" and "Add Widget" button to spice things up!
+            {t('dashboard.emptyDashboardInfo')}
           </p>
           <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-900/30 rounded-lg p-4 max-w-sm">
             <p className="text-sm text-pink-700 dark:text-pink-400">
-              💡 <strong>Pro tip:</strong> You can use the default layouts as a starting point!
+              💡 <strong>{t('dashboard.proTip')}:</strong> {t('dashboard.proTipInfo')}
             </p>
           </div>
         </div>
@@ -650,10 +652,10 @@ export default function DashboardGrid({
         isOpen={deleteConfirmWidget !== null}
         onClose={() => setDeleteConfirmWidget(null)}
         onConfirm={confirmDeleteWidget}
-        title="Remove Widget"
-        message="Are you sure you want to remove this widget from your dashboard?"
-        confirmText="Remove"
-        cancelText="Cancel"
+        title={t('dashboard.removeWidget')}
+        message={t('dashboard.removeWidgetMessage')}
+        confirmText={t('common.remove')}
+        cancelText={t('common.cancel')}
         variant="danger"
       />
       </div>

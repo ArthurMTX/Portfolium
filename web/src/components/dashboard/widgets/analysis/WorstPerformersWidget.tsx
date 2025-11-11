@@ -6,6 +6,7 @@ import { formatCurrency } from '../../../../lib/formatUtils'
 import { getAssetLogoUrl, handleLogoError } from '@/lib/logoUtils'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface WorstPerformersWidgetProps extends BaseWidgetProps {}
 
@@ -15,6 +16,7 @@ export default function WorstPerformersWidget({ isPreview = false }: WorstPerfor
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
   const shouldLoad = useWidgetVisibility('worst-performers')
+  const { t } = useTranslation()
 
   const { data: allPerformers, isLoading } = useQuery({
     queryKey: ['worst-performers', activePortfolioId],
@@ -30,7 +32,7 @@ export default function WorstPerformersWidget({ isPreview = false }: WorstPerfor
   if (isLoading) {
     return (
       <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">Loading...</p>
+        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
       </div>
     )
   }
@@ -42,13 +44,13 @@ export default function WorstPerformersWidget({ isPreview = false }: WorstPerfor
           <TrendingDown className="text-rose-600 dark:text-rose-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Worst Performers
+          {t('dashboard.widgets.worstPerformers.name')}
         </h3>
       </div>
 
       {performers.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
-          No performance data yet
+          {t('dashboard.widgets.worstPerformers.noPerformanceData')}
         </p>
       ) : (
         <div className="space-y-3">

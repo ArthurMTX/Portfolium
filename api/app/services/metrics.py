@@ -739,12 +739,29 @@ class MetricsService:
                 elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
                     # Calculate the proportion of position being sold
                     if holdings[tx.asset_id] > 0:
-                        sell_proportion = tx.quantity / holdings[tx.asset_id]
+                        # Prevent overselling - cap at 100% of holdings
+                        actual_quantity_sold = min(tx.quantity, holdings[tx.asset_id])
+                        if tx.quantity > holdings[tx.asset_id]:
+                            logger.warning(
+                                f"OVERSELLING detected on {current_date}: Asset {tx.asset_id}, "
+                                f"trying to sell {float(tx.quantity):.8f} but only have {float(holdings[tx.asset_id]):.8f}. "
+                                f"Capping at holdings amount."
+                            )
+                        
+                        sell_proportion = actual_quantity_sold / holdings[tx.asset_id]
+                        # Calculate the cost basis being removed
+                        cost_removed = cost_basis[tx.asset_id] * sell_proportion
                         # Reduce cost basis proportionally
-                        cost_basis[tx.asset_id] -= cost_basis[tx.asset_id] * sell_proportion
-                    holdings[tx.asset_id] -= tx.quantity
-                    # Subtract proceeds from invested amount (quantity * price - fees)
-                    total_invested -= (tx.quantity * tx.price) - tx.fees
+                        cost_basis[tx.asset_id] -= cost_removed
+                        # Subtract the cost basis (not proceeds) from invested amount
+                        total_invested -= cost_removed
+                        holdings[tx.asset_id] -= actual_quantity_sold
+                    else:
+                        # Trying to sell with no holdings - skip this transaction
+                        logger.warning(
+                            f"INVALID SELL on {current_date}: Asset {tx.asset_id}, "
+                            f"no holdings to sell (tried to sell {float(tx.quantity):.8f})"
+                        )
                 elif tx.type == TransactionType.SPLIT:
                     # Apply split to holdings (dashboard logic)
                     # Splits don't affect cost basis or invested amount
@@ -799,26 +816,42 @@ class MetricsService:
             # Calculate total cost basis of current holdings
             total_cost_basis = sum(cost_basis[asset_id] for asset_id in holdings.keys() if holdings[asset_id] > 0)
             
+            # DEBUG: Log cost_basis calculation for troubleshooting
+            if total_cost_basis == 0 and total_value > 0:
+                logger.warning(f"ZERO cost_basis on {current_date} despite having value €{float(total_value):.2f}")
+                logger.warning(f"  Holdings: {dict(holdings)}")
+                logger.warning(f"  Cost basis per asset: {dict(cost_basis)}")
+            
             # Calculate gain percentage (value vs invested, excluding deposits/withdrawals)
             gain_pct = None
             if total_invested > 0:
                 gain = total_value - total_invested
                 gain_pct = float((gain / total_invested) * 100)
+            elif total_invested < 0:
+                # This should never happen - log for debugging
+                logger.warning(f"NEGATIVE total_invested on {current_date}: {float(total_invested):.2f}, value: {float(total_value):.2f}")
+                # Set gain_pct to None to avoid invalid calculations
+                gain_pct = None
             
             # Calculate unrealized P&L percentage (current holdings only, matches Dashboard)
             unrealized_pnl_pct = None
             if total_cost_basis > 0:
                 unrealized_gain = total_value - total_cost_basis
                 unrealized_pnl_pct = float((unrealized_gain / total_cost_basis) * 100)
+            elif total_cost_basis < 0:
+                # This should never happen - log for debugging
+                logger.warning(f"NEGATIVE cost_basis on {current_date}: {float(total_cost_basis):.2f}, value: {float(total_value):.2f}")
+                unrealized_pnl_pct = None
             
-            history.append(PortfolioHistoryPoint(
+            point = PortfolioHistoryPoint(
                 date=current_date.isoformat(),
                 value=float(total_value),
                 invested=float(total_invested),
                 gain_pct=gain_pct,
                 cost_basis=float(total_cost_basis),
                 unrealized_pnl_pct=unrealized_pnl_pct
-            ))
+            )
+            history.append(point)
         
         if history:
             logger.info(f"Portfolio history final value: €{history[-1].value:.2f} on {history[-1].date}")

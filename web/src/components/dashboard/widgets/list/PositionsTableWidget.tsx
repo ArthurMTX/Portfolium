@@ -28,7 +28,7 @@ export default function PositionsTableWidget({
           <LayoutList className="text-cyan-600 dark:text-cyan-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Positions
+          {t('dashboard.widgets.positions.name')}
         </h3>
       </div>
       

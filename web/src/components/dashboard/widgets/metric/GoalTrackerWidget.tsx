@@ -3,6 +3,7 @@ import { Target, TrendingUp, Calendar, DollarSign } from 'lucide-react'
 import { BaseWidgetProps } from '../../types'
 import usePortfolioStore from '@/store/usePortfolioStore'
 import { formatCurrency } from '@/lib/formatUtils'
+import { useTranslation } from 'react-i18next'
 
 interface GoalTrackerWidgetProps extends BaseWidgetProps {
   metrics: {
@@ -15,6 +16,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
+  const { t } = useTranslation()
 
   // Load goal from localStorage
   const [goalAmount, setGoalAmount] = useState<number>(() => {
@@ -74,7 +76,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
             <Target className="text-emerald-600 dark:text-emerald-400" size={18} />
           </div>
           <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            Goal Tracker
+            {t('dashboard.widgets.goalTracker.name')}
           </h3>
         </div>
         {!isEditing && (
@@ -85,7 +87,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
             }}
             className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
           >
-            Edit Goal
+            {t('dashboard.widgets.goalTracker.editGoal')}
           </button>
         )}
       </div>
@@ -94,7 +96,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
       {isEditing ? (
         <div className="mb-4">
           <label className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
-            Target Amount
+            {t('dashboard.widgets.goalTracker.targetAmount')}
           </label>
           <div className="flex gap-2">
             <input
@@ -102,7 +104,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               className="flex-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm"
-              placeholder="Enter goal amount"
+              placeholder={t('dashboard.widgets.goalTracker.amountPlaceholder')}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSaveGoal()
@@ -113,7 +115,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
               onClick={handleSaveGoal}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm"
             >
-              Save
+              {t('common.save')}
             </button>
           </div>
         </div>
@@ -158,7 +160,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
             </span>
             {isGoalReached && (
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                Goal Reached! 🎉
+                {t('dashboard.widgets.goalTracker.goalReached')}
               </span>
             )}
           </div>
@@ -170,7 +172,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
           <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
             <div className="flex items-center gap-2">
               <DollarSign size={16} className="text-neutral-500" />
-              <span className="text-xs text-neutral-600 dark:text-neutral-400">Current</span>
+              <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('dashboard.widgets.goalTracker.current')}</span>
             </div>
             <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               {formatCurrency(currentValue, portfolioCurrency)}
@@ -181,7 +183,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
           <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
             <div className="flex items-center gap-2">
               <Target size={16} className="text-emerald-600 dark:text-emerald-400" />
-              <span className="text-xs text-emerald-700 dark:text-emerald-400">Goal</span>
+              <span className="text-xs text-emerald-700 dark:text-emerald-400">{t('dashboard.widgets.goalTracker.goal')}</span>
             </div>
             <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
               {formatCurrency(goalAmount, portfolioCurrency)}
@@ -194,7 +196,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
               <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={16} className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs text-blue-700 dark:text-blue-400">To Go</span>
+                  <span className="text-xs text-blue-700 dark:text-blue-400">{t('dashboard.widgets.goalTracker.toGo')}</span>
                 </div>
                 <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
                   {formatCurrency(remaining, portfolioCurrency)}
@@ -206,7 +208,7 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
                 <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-purple-600 dark:text-purple-400" />
-                    <span className="text-xs text-purple-700 dark:text-purple-400">Est. Time</span>
+                    <span className="text-xs text-purple-700 dark:text-purple-400">{t('dashboard.widgets.goalTracker.estTime')}</span>
                   </div>
                   <span className="text-sm font-semibold text-purple-900 dark:text-purple-100">
                     {timeToGoal}
@@ -222,10 +224,10 @@ export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
       <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
         <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
           {isGoalReached
-            ? 'Congratulations! Consider setting a new goal.'
+            ? t('dashboard.widgets.goalTracker.congratulations')
             : timeToGoal
-            ? 'Estimate assumes 8% annual growth'
-            : 'Set a realistic goal and track your progress'}
+            ? t('dashboard.widgets.goalTracker.estimates8PercentReturn')
+            : t('dashboard.widgets.goalTracker.setARealisticGoal')}
         </p>
       </div>
     </div>

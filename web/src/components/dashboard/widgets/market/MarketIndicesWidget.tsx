@@ -4,6 +4,8 @@ import { getMarketIndices } from '@/lib/api'
 import { getFlagUrl } from '@/lib/countryUtils'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
+import { t } from 'i18next'
 
 interface MarketIndex {
   symbol: string
@@ -14,28 +16,29 @@ interface MarketIndex {
 
 const marketIndices: MarketIndex[] = [
   // America
-  { symbol: '^GSPC', name: 'S&P 500', region: 'America', country: 'US' },
-  { symbol: '^DJI', name: 'Dow Jones', region: 'America', country: 'US' },
-  { symbol: '^IXIC', name: 'Nasdaq', region: 'America', country: 'US' },
-  { symbol: '^GSPTSE', name: 'TSX', region: 'America', country: 'Canada' },
-  
+  { symbol: '^GSPC', name: 'S&P 500', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'US' },
+  { symbol: '^DJI', name: 'Dow Jones', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'US' },
+  { symbol: '^IXIC', name: 'Nasdaq', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'US' },
+  { symbol: '^GSPTSE', name: 'TSX', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'Canada' },
+
   // Europe
-  { symbol: '^FTSE', name: 'FTSE 100', region: 'Europe', country: 'UK' },
-  { symbol: '^GDAXI', name: 'DAX', region: 'Europe', country: 'Germany' },
-  { symbol: '^FCHI', name: 'CAC 40', region: 'Europe', country: 'France' },
-  { symbol: 'FTSEMIB.MI', name: 'FTSE MIB', region: 'Europe', country: 'Italy' },
-  
+  { symbol: '^FTSE', name: 'FTSE 100', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'UK' },
+  { symbol: '^GDAXI', name: 'DAX', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'Germany' },
+  { symbol: '^FCHI', name: 'CAC 40', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'France' },
+  { symbol: 'FTSEMIB.MI', name: 'FTSE MIB', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'Italy' },
+
   // Asia
-  { symbol: '^N225', name: 'Nikkei 225', region: 'Asia', country: 'Japan' },
-  { symbol: '^HSI', name: 'Hang Seng', region: 'Asia', country: 'Hong Kong' },
-  { symbol: '000001.SS', name: 'SSE Composite', region: 'Asia', country: 'China' },
-  { symbol: '^AXJO', name: 'ASX 200', region: 'Asia', country: 'Australia' },
+  { symbol: '^N225', name: 'Nikkei 225', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'Japan' },
+  { symbol: '^HSI', name: 'Hang Seng', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'Hong Kong' },
+  { symbol: '000001.SS', name: 'SSE Composite', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'China' },
+  { symbol: '^AXJO', name: 'ASX 200', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'Australia' },
 ]
 
 interface MarketIndicesWidgetProps extends BaseWidgetProps {}
 
 export default function MarketIndicesWidget({ isPreview = false }: MarketIndicesWidgetProps) {
   const shouldLoad = useWidgetVisibility('market-indices')
+  const { t } = useTranslation()
 
   const { data: indices, isLoading, error } = useQuery({
     queryKey: ['market-indices'],
@@ -100,7 +103,7 @@ export default function MarketIndicesWidget({ isPreview = false }: MarketIndices
           <TrendingUp className="text-indigo-600 dark:text-indigo-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Market Indices
+          {t('dashboard.widgets.marketIndices.name')}
         </h3>
       </div>
 
@@ -111,7 +114,7 @@ export default function MarketIndicesWidget({ isPreview = false }: MarketIndices
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-8 flex-1">
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Failed to load market data
+            {t('dashboard.widgets.marketIndices.failedToLoad')}
           </p>
           <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
             {error instanceof Error ? error.message : String(error)}

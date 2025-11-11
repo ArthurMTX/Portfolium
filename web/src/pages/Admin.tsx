@@ -456,7 +456,7 @@ const AdminDashboard: React.FC = () => {
               <option value="active">{t('admin.active')}</option>
               <option value="inactive">{t('admin.inactive')}</option>
             </select>
-            <button onClick={() => { setSearch(''); setFilterRole('all'); setFilterStatus('all'); }} className="btn btn-secondary text-sm">{t('admin.clear')}</button>
+            <button onClick={() => { setSearch(''); setFilterRole('all'); setFilterStatus('all'); }} className="btn btn-secondary text-sm">{t('common.clear')}</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

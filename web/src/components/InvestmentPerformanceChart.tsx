@@ -62,7 +62,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
 
   // Calculate performance percentages
   // For ALL: show unrealized P&L % (current holdings only, matches Dashboard)
-  // For specific periods: show relative performance from the start of the period (normalized to 0%)
+  // For specific periods: show money-weighted returns accounting for cash flows
   const performanceData = history.map((point, index) => {
     // Get absolute performance at this point
     let absolutePerf = 0
@@ -82,24 +82,29 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       return absolutePerf
     }
     
-    // For specific periods, normalize to show change from start
-    // Calculate baseline from first point
+    // For specific periods, calculate money-weighted return from starting value
+    // This accounts for deposits/withdrawals during the period
     if (index === 0 || history.length === 0) {
       return 0 // First point is always 0 for period views
     }
     
     const firstPoint = history[0]
-    let baselinePerf = 0
-    if (firstPoint.unrealized_pnl_pct !== undefined && firstPoint.unrealized_pnl_pct !== null) {
-      baselinePerf = firstPoint.unrealized_pnl_pct
-    } else if (firstPoint.gain_pct !== undefined && firstPoint.gain_pct !== null) {
-      baselinePerf = firstPoint.gain_pct
-    } else if (firstPoint.invested && firstPoint.invested > 0) {
-      baselinePerf = ((firstPoint.value - firstPoint.invested) / firstPoint.invested) * 100
+    const startValue = firstPoint.value
+    const startInvested = firstPoint.invested || firstPoint.value
+    const currentValue = point.value
+    const currentInvested = point.invested || point.value
+    
+    // Calculate net capital change (deposits - withdrawals)
+    const capitalChange = currentInvested - startInvested
+    
+    // Calculate value change accounting for capital flows
+    // Period return = (End Value - Start Value - Net Deposits) / Start Value * 100
+    if (startValue > 0) {
+      const valueChange = currentValue - startValue - capitalChange
+      return (valueChange / startValue) * 100
     }
     
-    // Return the change from baseline
-    return absolutePerf - baselinePerf
+    return 0
   })
 
   const chartData = {

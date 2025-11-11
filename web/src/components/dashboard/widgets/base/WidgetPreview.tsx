@@ -1,5 +1,6 @@
 import { WidgetConfig, WidgetContext } from '../../types'
 import { MockDataProvider, mockPositions, mockMetrics } from '../../utils/mockDataProvider'
+import { useTranslation } from 'react-i18next'
 
 interface WidgetPreviewProps {
   widget: WidgetConfig
@@ -11,6 +12,7 @@ interface WidgetPreviewProps {
  */
 export function WidgetPreview({ widget, scale = 0.6 }: WidgetPreviewProps) {
   const WidgetComponent = widget.component
+  const { t } = useTranslation()
 
   // Calculate container dimensions based on widget size
   // Grid column width ≈ 80px, row height ≈ 50px (approximate)
@@ -30,7 +32,7 @@ export function WidgetPreview({ widget, scale = 0.6 }: WidgetPreviewProps) {
       >
         <div className="text-center text-neutral-400 dark:text-neutral-500">
           <widget.icon size={24} className="mx-auto mb-1 opacity-50" />
-          <p className="text-xs">Preview</p>
+          <p className="text-xs">{t('common.preview')}</p>
         </div>
       </div>
     )
@@ -62,7 +64,7 @@ export function WidgetPreview({ widget, scale = 0.6 }: WidgetPreviewProps) {
       >
         <div className="text-center text-neutral-400 dark:text-neutral-500">
           <widget.icon size={24} className="mx-auto mb-1 opacity-50" />
-          <p className="text-xs">Preview Error</p>
+          <p className="text-xs">{t('common.previewError')}</p>
         </div>
       </div>
     )

@@ -4,8 +4,10 @@ import { getRecentTransactions } from '../../../../lib/api'
 import usePortfolioStore from '../../../../store/usePortfolioStore'
 import { formatCurrency } from '../../../../lib/formatUtils'
 import { format, formatDistanceToNow } from 'date-fns'
+import { enUS, fr } from 'date-fns/locale'
 import { getAssetLogoUrl, handleLogoError } from '../../../../lib/logoUtils'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
+import { useTranslation } from 'react-i18next'
 
 interface ApiTransaction {
   id: number
@@ -39,6 +41,18 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
   const shouldLoad = useWidgetVisibility('recent-transactions')
+  const { t, i18n } = useTranslation()
+
+  // Get the appropriate date-fns locale based on the current language
+  const getDateLocale = () => {
+    switch (i18n.language) {
+      case 'fr':
+        return fr
+      case 'en':
+      default:
+        return enUS
+    }
+  }
 
   const { data: transactions, isLoading } = useQuery<ApiTransaction[]>({
     queryKey: ['recent-transactions', activePortfolioId],
@@ -54,13 +68,13 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
     
     switch (type.toLowerCase()) {
       case 'buy':
-        return 'Buy'
+        return t('dashboard.widgets.recentTransactions.buy')
       case 'sell':
-        return 'Sell'
+        return t('dashboard.widgets.recentTransactions.sell')
       case 'dividend':
-        return 'Dividend'
+        return t('dashboard.widgets.recentTransactions.dividend')
       case 'split':
-        return 'Split'
+        return t('dashboard.widgets.recentTransactions.split')
       default:
         return type
     }
@@ -107,7 +121,7 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
   if (isLoading || !transactions) {
     return (
       <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">Loading...</p>
+        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
       </div>
     )
   }
@@ -119,13 +133,13 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
           <Clock className="text-sky-600 dark:text-sky-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Recent Transactions
+          {t('dashboard.widgets.recentTransactions.name')}
         </h3>
       </div>
 
       {transactions.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
-          No transactions yet
+          {t('dashboard.widgets.recentTransactions.noTransactions')}
         </p>
       ) : (
         <div className="space-y-2.5 flex-1 overflow-y-auto scrollbar-hide">
@@ -192,7 +206,7 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
                     </span>
                     <span>
                       {transaction.tx_date 
-                        ? formatDistanceToNow(new Date(transaction.tx_date), { addSuffix: true })
+                        ? formatDistanceToNow(new Date(transaction.tx_date), { addSuffix: true, locale: getDateLocale() })
                         : ''
                       }
                     </span>

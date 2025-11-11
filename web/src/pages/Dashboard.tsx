@@ -371,10 +371,10 @@ export default function Dashboard() {
                 ? 'bg-pink-600 hover:bg-pink-700 text-white'
                 : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
             } flex items-center gap-2 px-3 py-2`}
-            title={isEditMode ? 'Exit Edit Mode' : 'Customize Layout'}
+            title={isEditMode ? t('dashboard.exitEditMode') : t('dashboard.customizeLayout')}
           >
             <Grid3x3 size={16} />
-            <span className="hidden sm:inline">{isEditMode ? 'Done' : 'Edit'}</span>
+            <span className="hidden sm:inline">{isEditMode ? t('common.save') : t('common.edit')}</span>
           </button>
           
           {/* Widget Library Button - Only show in edit mode */}
@@ -382,10 +382,10 @@ export default function Dashboard() {
             <button
               onClick={() => setIsWidgetLibraryOpen(true)}
               className="btn text-sm sm:text-base bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600 flex items-center gap-2 px-3 py-2"
-              title="Add/Remove Widgets"
+              title={t('dashboard.widgetsInfo')}
             >
               <Library size={16} />
-              <span className="hidden sm:inline">Widgets</span>
+              <span className="hidden sm:inline">{t('common.widgets')}</span>
             </button>
           )}
           
@@ -393,10 +393,10 @@ export default function Dashboard() {
           <button
             onClick={() => setIsLayoutManagerOpen(true)}
             className="btn text-sm sm:text-base bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 px-3 py-2"
-            title="Manage Layouts - Save, Load, Import/Export"
+            title={t('dashboard.layoutsInfo')}
           >
-            <Save size={16} />
-            <span className="hidden sm:inline">Layouts</span>
+            <Save size={16} /> 
+            <span className="hidden sm:inline">{t('common.layouts')}</span>
           </button>
           
           {/* Auto Refresh */}
@@ -438,7 +438,7 @@ export default function Dashboard() {
       {isEditMode && (
         <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
           <p className="text-sm text-pink-800 dark:text-pink-200">
-            <strong>Edit Mode:</strong> Drag widgets to reorder them or resize by dragging the corners. Click "Done" when finished.
+            <strong>{t('dashboard.editMode')}</strong> {t('dashboard.editModeInfo', { save: t('common.save') })}
           </p>
         </div>
       )}

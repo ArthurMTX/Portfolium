@@ -2,6 +2,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react'
 import MetricWidget from './MetricWidget'
 import { formatCurrency } from '../../../../lib/formatUtils'
 import { BaseWidgetProps } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface TotalReturnWidgetProps extends BaseWidgetProps {
   metrics: {
@@ -13,11 +14,12 @@ interface TotalReturnWidgetProps extends BaseWidgetProps {
 }
 
 export default function TotalReturnWidget({ metrics, isPreview = false }: TotalReturnWidgetProps) {
+  const { t } = useTranslation()
   
   if (!metrics) {
     return (
       <MetricWidget
-        title="Total Return"
+        title={t('dashboard.widgets.totalReturn.title')}
         value="N/A"
         icon={TrendingUp}
         iconBgColor="bg-indigo-100 dark:bg-indigo-900/30"
@@ -49,9 +51,9 @@ export default function TotalReturnWidget({ metrics, isPreview = false }: TotalR
 
   return (
     <MetricWidget
-      title="Total Return"
+      title={t('dashboard.widgets.totalReturn.name')}
       value={formatCurrency(totalReturn)}
-      subtitle="All gains & losses"
+      subtitle={t('dashboard.widgets.totalReturn.subtitle')}
       icon={icon}
       iconBgColor={iconBgColor}
       iconColor={iconColor}

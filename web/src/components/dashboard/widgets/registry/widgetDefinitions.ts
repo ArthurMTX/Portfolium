@@ -16,7 +16,7 @@ import {
   Layers,
 } from 'lucide-react'
 import { WidgetConfig, WidgetContext } from '../../types'
-import { mockPerformanceMetrics } from '../../utils/mockDataProvider'
+import { getWidgetSize } from '../../utils/widgetConstraints'
 
 // Import all widget components
 import MetricWidget from '../metric/MetricWidget'
@@ -46,17 +46,17 @@ export const widgetDefinitions: WidgetConfig[] = [
   // ===== METRIC WIDGETS =====
   {
     id: 'total-value',
-    name: 'dashboard.totalValue',
-    description: 'Display your total portfolio value',
+    name: 'dashboard.widgets.totalValue.name',
+    description: 'dashboard.widgets.totalValue.description',
     category: 'metrics',
     icon: DollarSign,
     iconColor: 'text-fuchsia-600 dark:text-fuchsia-400',
     iconBgColor: 'bg-fuchsia-50 dark:bg-fuchsia-900/20',
-    defaultSize: { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('total-value')!,
     allowMultiple: true,
     component: MetricWidget,
     getProps: (context: WidgetContext) => ({
-      title: 'dashboard.totalValue',
+      title: 'dashboard.widgets.totalValue.name',
       value: context.metrics
         ? `${context.portfolioCurrency === 'EUR' ? '€' : '$'}${Number(context.metrics.total_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : 'N/A',
@@ -68,13 +68,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'daily-gain',
-    name: 'dashboard.dailyGain',
-    description: 'Track daily portfolio changes',
+    name: 'dashboard.widgets.dailyGain.name',
+    description: 'dashboard.widgets.dailyGain.description',
     category: 'metrics',
     icon: TrendingDown,
     iconColor: 'text-red-600 dark:text-red-400',
     iconBgColor: 'bg-red-50 dark:bg-red-900/20',
-    defaultSize: { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('daily-gain')!,
     allowMultiple: true,
     component: MetricWidget,
     getProps: (context: WidgetContext) => {
@@ -93,7 +93,7 @@ export const widgetDefinitions: WidgetConfig[] = [
         : 'N/A'
 
       return {
-        title: 'dashboard.dailyGain',
+        title: 'dashboard.widgets.dailyGain.name',
         value: formattedValue,
         subtitle: dailyPct !== null
           ? `${dailyPct > 0 ? '+' : ''}${dailyPct.toFixed(2)}%`
@@ -108,13 +108,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'unrealized-pnl',
-    name: 'dashboard.unrealizedPnL',
-    description: 'Unrealized profit and loss',
+    name: 'dashboard.widgets.unrealizedPnL.name',
+    description: 'dashboard.widgets.unrealizedPnL.description',
     category: 'metrics',
     icon: TrendingUp,
     iconColor: 'text-green-600 dark:text-green-400',
     iconBgColor: 'bg-green-50 dark:bg-green-900/20',
-    defaultSize: { w: 2, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('unrealized-pnl')!,
     allowMultiple: true,
     component: MetricWidget,
     getProps: (context: WidgetContext) => {
@@ -132,7 +132,7 @@ export const widgetDefinitions: WidgetConfig[] = [
         : 'N/A'
 
       return {
-        title: 'dashboard.unrealizedPnL',
+        title: 'dashboard.widgets.unrealizedPnL.name',
         value: formattedValue,
         subtitle: `${unrealizedPct >= 0 ? '+' : ''}${unrealizedPct.toFixed(2)}%`,
         icon: isPositive ? TrendingUp : TrendingDown,
@@ -145,13 +145,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'realized-pnl',
-    name: 'dashboard.realizedPnL',
-    description: 'Realized profit and loss',
+    name: 'dashboard.widgets.realizedPnL.name',
+    description: 'dashboard.widgets.realizedPnL.description',
     category: 'metrics',
     icon: PiggyBank,
     iconColor: 'text-sky-600 dark:text-sky-400',
     iconBgColor: 'bg-sky-50 dark:bg-sky-900/20',
-    defaultSize: { w: 2, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('realized-pnl')!,
     allowMultiple: true,
     component: MetricWidget,
     getProps: (context: WidgetContext) => {
@@ -164,7 +164,7 @@ export const widgetDefinitions: WidgetConfig[] = [
         : 'N/A'
 
       return {
-        title: 'dashboard.realizedPnL',
+        title: 'dashboard.widgets.realizedPnL.name',
         value: formattedValue,
         icon: PiggyBank,
         iconBgColor: 'bg-sky-50 dark:bg-sky-900/20',
@@ -176,13 +176,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'dividends',
-    name: 'dashboard.dividends',
-    description: 'Total dividends and fees',
+    name: 'dashboard.widgets.dividends.name',
+    description: 'dashboard.widgets.dividends.description',
     category: 'metrics',
     icon: TrendingUp,
     iconColor: 'text-purple-600 dark:text-purple-400',
     iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    defaultSize: { w: 2, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('dividends')!,
     allowMultiple: true,
     component: MetricWidget,
     getProps: (context: WidgetContext) => {
@@ -195,7 +195,7 @@ export const widgetDefinitions: WidgetConfig[] = [
         : 0
 
       return {
-        title: 'dashboard.dividends',
+        title: 'dashboard.widgets.dividends.name',
         value: context.metrics
           ? `${symbol}${dividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : 'N/A',
@@ -211,13 +211,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   // ===== DATA WIDGETS =====
   {
     id: 'notifications',
-    name: 'Recent Notifications',
-    description: 'Latest 5 notifications',
+    name: 'dashboard.widgets.notifications.name',
+    description: 'dashboard.widgets.notifications.description',
     category: 'data',
     icon: Bell,
     iconColor: 'text-sky-600 dark:text-sky-400',
     iconBgColor: 'bg-sky-50 dark:bg-sky-900/20',
-    defaultSize: { w: 4, h: 3, minW: 4, minH: 2 },
+    defaultSize: getWidgetSize('notifications')!,
     allowMultiple: true,
     component: NotificationsWidget,
     getProps: (context: WidgetContext) => ({
@@ -226,13 +226,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'watchlist',
-    name: 'Watchlist',
-    description: 'Top 5 watchlist items',
+    name: 'dashboard.widgets.watchlist.name',
+    description: 'dashboard.widgets.watchlist.description',
     category: 'data',
     icon: Eye,
     iconColor: 'text-fuchsia-600 dark:text-fuchsia-400',
     iconBgColor: 'bg-fuchsia-50 dark:bg-fuchsia-900/20',
-    defaultSize: { w: 4, h: 3, minW: 4, minH: 2 },
+    defaultSize: getWidgetSize('watchlist')!,
     allowMultiple: true,
     component: WatchlistWidget,
     getProps: (context: WidgetContext) => ({
@@ -241,13 +241,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'positions',
-    name: 'Positions Table',
-    description: 'All your current and sold positions',
+    name: 'dashboard.widgets.positions.name',
+    description: 'dashboard.widgets.positions.description',
     category: 'data',
     icon: LayoutList,
     iconColor: 'text-cyan-600 dark:text-cyan-400',
     iconBgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
-    defaultSize: { w: 12, h: 12, minW: 8, minH: 6 },
+    defaultSize: getWidgetSize('positions')!,
     allowMultiple: true,
     component: PositionsTableWidget,
     getProps: (context: WidgetContext) => ({
@@ -261,13 +261,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   // ===== INSIGHT WIDGETS =====
   {
     id: 'total-return',
-    name: 'Total Return',
-    description: 'Combined return calculation (unrealized + realized + dividends - fees)',
+    name: 'dashboard.widgets.totalReturn.name',
+    description: 'dashboard.widgets.totalReturn.description',
     category: 'insights',
     icon: Target,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     iconBgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
-    defaultSize: { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('total-return')!,
     allowMultiple: true,
     component: TotalReturnWidget,
     getProps: (context: WidgetContext) => ({
@@ -282,13 +282,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'win-rate',
-    name: 'Win Rate',
-    description: 'Percentage of positions currently in profit',
+    name: 'dashboard.widgets.winRate.name',
+    description: 'dashboard.widgets.winRate.description',
     category: 'insights',
     icon: Target,
     iconColor: 'text-cyan-600 dark:text-cyan-400',
     iconBgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
-    defaultSize: { w: 3, h: 3, minW: 2, minH: 3 },
+    defaultSize: getWidgetSize('win-rate')!,
     allowMultiple: true,
     component: WinRateWidget,
     getProps: (context: WidgetContext) => ({
@@ -298,13 +298,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'concentration-risk',
-    name: 'Concentration Risk',
-    description: 'Shows allocation to top 3 positions with risk warning',
+    name: 'dashboard.widgets.concentrationRisk.name',
+    description: 'dashboard.widgets.concentrationRisk.description',
     category: 'insights',
     icon: Shield,
     iconColor: 'text-amber-600 dark:text-amber-400',
     iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
-    defaultSize: { w: 4, h: 5, minW: 3, minH: 5 },
+    defaultSize: getWidgetSize('concentration-risk')!,
     allowMultiple: true,
     component: ConcentrationRiskWidget,
     getProps: (context: WidgetContext) => ({
@@ -314,13 +314,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'best-worst-today',
-    name: 'Best/Worst Today',
-    description: 'Top gainer and loser positions today',
+    name: 'dashboard.widgets.bestWorstToday.name',
+    description: 'dashboard.widgets.bestWorstToday.description',
     category: 'insights',
     icon: AlertTriangle,
     iconColor: 'text-violet-600 dark:text-violet-400',
     iconBgColor: 'bg-violet-50 dark:bg-violet-900/20',
-    defaultSize: { w: 3, h: 4, minW: 3, minH: 4 },
+    defaultSize: getWidgetSize('best-worst-today')!,
     allowMultiple: true,
     component: BestWorstTodayWidget,
     getProps: (context: WidgetContext) => ({
@@ -330,33 +330,28 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'performance-metrics',
-    name: 'Week/Month/YTD Performance',
-    description: 'Performance overview for different time periods',
+    name: 'dashboard.widgets.performanceMetrics.name',
+    description: 'dashboard.widgets.performanceMetrics.description',
     category: 'insights',
     icon: Calendar,
     iconColor: 'text-lime-600 dark:text-lime-400',
     iconBgColor: 'bg-lime-50 dark:bg-lime-900/20',
-    defaultSize: { w: 3, h: 4, minW: 3, minH: 4 },
+    defaultSize: getWidgetSize('performance-metrics')!,
     allowMultiple: true,
     component: PerformanceMetricsWidget,
     getProps: (context: WidgetContext) => ({
-      metrics: context.isPreview ? mockPerformanceMetrics : {
-        weeklyReturn: undefined,
-        monthlyReturn: undefined,
-        ytdReturn: undefined,
-      },
       isPreview: context.isPreview,
     }),
   },
   {
     id: 'top-performers',
-    name: 'Top Performers',
-    description: 'Best 5 positions by return percentage',
+    name: 'dashboard.widgets.topPerformers.name',
+    description: 'dashboard.widgets.topPerformers.description',
     category: 'insights',
     icon: TrendingUp,
     iconColor: 'text-green-600 dark:text-green-400',
     iconBgColor: 'bg-green-50 dark:bg-green-900/20',
-    defaultSize: { w: 4, h: 7, minW: 3, minH: 3 },
+    defaultSize: getWidgetSize('top-performers')!,
     allowMultiple: true,
     component: TopPerformersWidget,
     getProps: (context: WidgetContext) => ({
@@ -365,13 +360,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'worst-performers',
-    name: 'Worst Performers',
-    description: 'Worst 5 positions by return percentage',
+    name: 'dashboard.widgets.worstPerformers.name',
+    description: 'dashboard.widgets.worstPerformers.description',
     category: 'insights',
     icon: TrendingDown,
     iconColor: 'text-red-600 dark:text-red-400',
     iconBgColor: 'bg-red-50 dark:bg-red-900/20',
-    defaultSize: { w: 4, h: 7, minW: 3, minH: 3 },
+    defaultSize: getWidgetSize('worst-performers')!,
     allowMultiple: true,
     component: WorstPerformersWidget,
     getProps: (context: WidgetContext) => ({
@@ -380,13 +375,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'largest-holdings',
-    name: 'Largest Holdings',
-    description: 'Top 5 positions by market value with allocation',
+    name: 'dashboard.widgets.largestHoldings.name',
+    description: 'dashboard.widgets.largestHoldings.description',
     category: 'insights',
     icon: PieChart,
     iconColor: 'text-purple-600 dark:text-purple-400',
     iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    defaultSize: { w: 4, h: 7, minW: 3, minH: 6 },
+    defaultSize: getWidgetSize('largest-holdings')!,
     allowMultiple: true,
     component: LargestHoldingsWidget,
     getProps: (context: WidgetContext) => ({
@@ -396,13 +391,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'recent-transactions',
-    name: 'Recent Transactions',
-    description: 'Last 5 transactions timeline',
+    name: 'dashboard.widgets.recentTransactions.name',
+    description: 'dashboard.widgets.recentTransactions.description',
     category: 'insights',
     icon: Clock,
     iconColor: 'text-slate-600 dark:text-slate-400',
     iconBgColor: 'bg-slate-50 dark:bg-slate-900/20',
-    defaultSize: { w: 4, h: 9, minW: 4, minH: 3 },
+    defaultSize: getWidgetSize('recent-transactions')!,
     allowMultiple: true,
     component: RecentTransactionsWidget,
     getProps: (context: WidgetContext) => ({
@@ -411,13 +406,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'market-status',
-    name: 'Market Status',
-    description: 'Current US market hours and status',
+    name: 'dashboard.widgets.marketStatus.name',
+    description: 'dashboard.widgets.marketStatus.description',
     category: 'insights',
     icon: Globe,
     iconColor: 'text-sky-600 dark:text-sky-400',
     iconBgColor: 'bg-sky-50 dark:bg-sky-900/20',
-    defaultSize: { w: 3, h: 5, minW: 2, minH: 5 },
+    defaultSize: getWidgetSize('market-status')!,
     allowMultiple: true,
     component: MarketStatusWidget,
     getProps: (context: WidgetContext) => ({
@@ -426,13 +421,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'market-indices',
-    name: 'Market Indices',
-    description: 'Major market indices by region (S&P 500, DAX, Nikkei, etc.)',
+    name: 'dashboard.widgets.marketIndices.name',
+    description: 'dashboard.widgets.marketIndices.description',
     category: 'insights',
     icon: TrendingUp,
     iconColor: 'text-indigo-600 dark:text-indigo-400',
     iconBgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
-    defaultSize: { w: 4, h: 7, minW: 3, minH: 6 },
+    defaultSize: getWidgetSize('market-indices')!,
     allowMultiple: true,
     component: MarketIndicesWidget,
     getProps: (context: WidgetContext) => ({
@@ -441,13 +436,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'asset-allocation',
-    name: 'Asset Allocation',
-    description: 'Visual breakdown of portfolio by sector, type, or country',
+    name: 'dashboard.widgets.assetAllocation.name',
+    description: 'dashboard.widgets.assetAllocation.description',
     category: 'insights',
     icon: PieChart,
     iconColor: 'text-purple-600 dark:text-purple-400',
     iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    defaultSize: { w: 4, h: 8, minW: 3, minH: 6 },
+    defaultSize: getWidgetSize('asset-allocation')!,
     allowMultiple: true,
     component: AssetAllocationWidget,
     getProps: (context: WidgetContext) => ({
@@ -456,13 +451,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'portfolio-heatmap',
-    name: 'Portfolio Heatmap',
-    description: 'Visual treemap of all positions with color-coded daily performance',
+    name: 'dashboard.widgets.portfolioHeatmap.name',
+    description: 'dashboard.widgets.portfolioHeatmap.description',
     category: 'insights',
     icon: Layers,
     iconColor: 'text-cyan-600 dark:text-cyan-400',
     iconBgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
-    defaultSize: { w: 6, h: 8, minW: 4, minH: 6 },
+    defaultSize: getWidgetSize('portfolio-heatmap')!,
     allowMultiple: true,
     component: PortfolioHeatmapWidget,
     getProps: (context: WidgetContext) => ({
@@ -471,13 +466,13 @@ export const widgetDefinitions: WidgetConfig[] = [
   },
   {
     id: 'goal-tracker',
-    name: 'Goal Tracker',
-    description: 'Track progress toward your portfolio value goal',
+    name: 'dashboard.widgets.goalTracker.name',
+    description: 'dashboard.widgets.goalTracker.description',
     category: 'metrics',
     icon: Target,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     iconBgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
-    defaultSize: { w: 3, h: 8, minW: 3, minH: 7 },
+    defaultSize: getWidgetSize('goal-tracker')!,
     allowMultiple: false,
     component: GoalTrackerWidget,
     getProps: (context: WidgetContext) => ({

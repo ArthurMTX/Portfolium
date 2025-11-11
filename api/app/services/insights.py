@@ -613,7 +613,9 @@ class InsightsService:
         """Get start and end dates for period"""
         end_date = datetime.utcnow().date()
         
-        if period == "1m":
+        if period == "1w":
+            start_date = end_date - timedelta(days=7)
+        elif period == "1m":
             start_date = end_date - timedelta(days=30)
         elif period == "3m":
             start_date = end_date - timedelta(days=90)

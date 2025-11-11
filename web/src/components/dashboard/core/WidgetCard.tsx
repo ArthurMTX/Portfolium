@@ -35,22 +35,22 @@ export function WidgetCard({ widget, currentLayout, onAdd, onRemove }: WidgetCar
               {t(widget.name)}
             </h4>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {widget.description}
+              {t(widget.description)}
             </p>
           </div>
         </div>
 
         {/* Preview - Scaled down widget */}
         <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg mb-3 flex items-center justify-center p-3 min-h-[160px]">
-          <WidgetPreview widget={widget} scale={0.65} />
+          <WidgetPreview widget={widget} scale={0.85} />
         </div>
 
         {/* Size indicator */}
         <div className="flex items-center justify-between text-xs text-neutral-400 mb-3">
-          <span>Size: {widget.defaultSize.w}x{widget.defaultSize.h}</span>
+          <span>{t('common.size')}: {widget.defaultSize.w}x{widget.defaultSize.h}</span>
           {widget.allowMultiple && (
             <span className="text-purple-600 dark:text-purple-400 font-medium">
-              Can add multiple
+              {t('common.canAddMultiple')}
             </span>
           )}
         </div>
@@ -62,7 +62,7 @@ export function WidgetCard({ widget, currentLayout, onAdd, onRemove }: WidgetCar
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white rounded-lg font-medium transition-colors"
           >
             <Plus size={16} />
-            Add
+            {t('common.add')}
           </button>
 
           {isOnDashboard && (
@@ -72,7 +72,7 @@ export function WidgetCard({ widget, currentLayout, onAdd, onRemove }: WidgetCar
                   key={instance.i}
                   onClick={() => onRemove(instance.i)}
                   className="px-2 py-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors"
-                  title={`Remove ${instance.i}`}
+                  title={`${t('common.remove')} ${instance.i}`}
                 >
                   <Trash2 size={16} />
                 </button>
