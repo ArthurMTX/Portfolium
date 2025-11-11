@@ -43,6 +43,20 @@ export const widgetSizes: Record<string, WidgetSizeConfig> = {
   'asset-allocation': { w: 4, h: 8, minW: 3, minH: 6 },
   'portfolio-heatmap': { w: 6, h: 8, minW: 4, minH: 6 },
   'goal-tracker': { w: 3, h: 8, minW: 3, minH: 7 },
+  
+  // Advanced metrics
+  'sharpe-ratio': { w: 3, h: 2, minW: 2, minH: 2 },
+  'volatility': { w: 3, h: 2, minW: 2, minH: 2 },
+  'max-drawdown': { w: 3, h: 2, minW: 2, minH: 2 },
+  'beta-correlation': { w: 3, h: 2, minW: 2, minH: 2 },
+  'value-at-risk': { w: 3, h: 2, minW: 2, minH: 2 },
+  'downside-deviation': { w: 3, h: 2, minW: 2, minH: 2 },
+  'hit-ratio': { w: 3, h: 2, minW: 2, minH: 2 },
+  'alpha': { w: 3, h: 2, minW: 2, minH: 2 },
+  'r-squared': { w: 3, h: 2, minW: 2, minH: 2 },
+  'avg-holding-period': { w: 3, h: 2, minW: 2, minH: 2 },
+  'diversification-score': { w: 3, h: 2, minW: 2, minH: 2 },
+  'bitcoin-pizza-index': { w: 3, h: 2, minW: 2, minH: 2 },
 }
 
 /**

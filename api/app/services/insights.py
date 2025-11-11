@@ -455,13 +455,16 @@ class InsightsService:
         var_index = int(len(sorted_returns) * 0.05)
         var_95 = Decimal(str(sorted_returns[var_index] * 100)) if var_index < len(sorted_returns) else None
         
+        # Beta calculation (vs SPY as market proxy)
+        beta = self._calculate_beta(portfolio_id, start_date, end_date, daily_returns, daily_values)
+        
         return RiskMetrics(
             period=period,
             volatility=Decimal(str(annualized_volatility * 100)),
             sharpe_ratio=Decimal(str(sharpe_ratio)) if sharpe_ratio else None,
             max_drawdown=max_drawdown,
             max_drawdown_date=max_drawdown_date,
-            beta=None,  # Would need benchmark data
+            beta=beta,
             var_95=var_95,
             downside_deviation=Decimal(str(downside_deviation * 100))
         )
@@ -764,6 +767,105 @@ class InsightsService:
         total_score = holdings_score + concentration_score
         return Decimal(str(min(total_score, 100)))
     
+    def _calculate_beta(
+        self,
+        portfolio_id: int,
+        start_date: date,
+        end_date: date,
+        portfolio_returns: List[float],
+        portfolio_values: List[Tuple[date, Decimal]]
+    ) -> Optional[Decimal]:
+        """
+        Calculate portfolio beta vs SPY (market proxy)
+        Beta = Covariance(Portfolio, Market) / Variance(Market)
+        """
+        # Get SPY (market benchmark) data
+        benchmark_symbol = "SPY"
+        benchmark_asset = self.db.query(Asset).filter(
+            Asset.symbol == benchmark_symbol
+        ).first()
+        
+        if not benchmark_asset:
+            # Create SPY asset if it doesn't exist
+            from app.crud.assets import create_asset
+            from app.schemas import AssetCreate
+            benchmark_asset = create_asset(
+                self.db,
+                AssetCreate(symbol=benchmark_symbol, name="SPDR S&P 500 ETF")
+            )
+        
+        # Ensure we have benchmark prices
+        try:
+            self.pricing_service.ensure_historical_prices(
+                benchmark_asset,
+                datetime.combine(start_date, datetime.min.time()),
+                datetime.combine(end_date, datetime.max.time())
+            )
+        except Exception as e:
+            logger.warning(f"Failed to fetch benchmark prices for beta calculation: {e}")
+            return None
+        
+        # Get benchmark prices
+        benchmark_prices = crud_prices.get_prices(
+            self.db,
+            benchmark_asset.id,
+            date_from=datetime.combine(start_date, datetime.min.time()),
+            date_to=datetime.combine(end_date, datetime.max.time()),
+            limit=10000
+        )
+        
+        if not benchmark_prices or len(benchmark_prices) < 2:
+            return None
+        
+        # Build benchmark price dictionary by date
+        benchmark_dict = {p.asof.date(): float(p.price) for p in benchmark_prices}
+        
+        # Calculate benchmark returns aligned with portfolio dates
+        # Only include returns where we have both portfolio and benchmark data
+        aligned_portfolio_returns = []
+        benchmark_returns = []
+        portfolio_dates = [d for d, _ in portfolio_values]
+        
+        for i in range(1, len(portfolio_dates)):
+            prev_date = portfolio_dates[i-1]
+            curr_date = portfolio_dates[i]
+            
+            prev_price = benchmark_dict.get(prev_date)
+            curr_price = benchmark_dict.get(curr_date)
+            
+            if prev_price and curr_price and prev_price > 0:
+                # We have matching benchmark data for this period
+                bench_ret = (curr_price - prev_price) / prev_price
+                benchmark_returns.append(bench_ret)
+                aligned_portfolio_returns.append(portfolio_returns[i-1])
+        
+        # Ensure we have enough data points
+        if len(benchmark_returns) < 2 or len(aligned_portfolio_returns) < 2:
+            logger.warning(f"Insufficient aligned returns for beta calculation: portfolio={len(aligned_portfolio_returns)}, benchmark={len(benchmark_returns)}")
+            return None
+        
+        # Calculate covariance and variance using aligned returns
+        portfolio_mean = sum(aligned_portfolio_returns) / len(aligned_portfolio_returns)
+        benchmark_mean = sum(benchmark_returns) / len(benchmark_returns)
+        
+        covariance = sum(
+            (p - portfolio_mean) * (b - benchmark_mean)
+            for p, b in zip(aligned_portfolio_returns, benchmark_returns)
+        ) / len(aligned_portfolio_returns)
+        
+        benchmark_variance = sum(
+            (b - benchmark_mean) ** 2
+            for b in benchmark_returns
+        ) / len(benchmark_returns)
+        
+        if benchmark_variance == 0:
+            logger.warning("Benchmark variance is zero, cannot calculate beta")
+            return None
+        
+        beta = covariance / benchmark_variance
+        logger.info(f"Calculated beta: {beta:.3f} (based on {len(aligned_portfolio_returns)} aligned returns)")
+        return Decimal(str(round(beta, 3)))
+    
     def _calculate_correlation(
         self,
         series1: List[TimeSeriesPoint],
@@ -824,3 +926,73 @@ class InsightsService:
             var_95=None,
             downside_deviation=Decimal(0)
         )
+    
+    def get_average_holding_period(self, portfolio_id: int) -> Optional[Decimal]:
+        """
+        Calculate average holding period in days.
+        - For completed positions: Uses FIFO matching of BUY/SELL transactions
+        - For currently held positions: Calculates from purchase date to today
+        - Returns weighted average of both
+        """
+        # Get all transactions for this portfolio, grouped by asset
+        transactions = (
+            self.db.query(Transaction)
+            .filter(Transaction.portfolio_id == portfolio_id)
+            .filter(Transaction.type.in_([TransactionType.BUY, TransactionType.SELL]))
+            .order_by(Transaction.asset_id, Transaction.tx_date, Transaction.created_at)
+            .all()
+        )
+        
+        if not transactions:
+            return None
+        
+        # Group transactions by asset
+        asset_transactions: Dict[int, List[Transaction]] = {}
+        for tx in transactions:
+            if tx.asset_id not in asset_transactions:
+                asset_transactions[tx.asset_id] = []
+            asset_transactions[tx.asset_id].append(tx)
+        
+        holding_periods = []
+        today = date.today()
+        
+        # For each asset, match BUYs with SELLs using FIFO (First In, First Out)
+        for asset_id, txs in asset_transactions.items():
+            buys = []  # Stack of (date, quantity) tuples
+            
+            for tx in txs:
+                if tx.type == TransactionType.BUY:
+                    # Add to buy stack
+                    buys.append((tx.tx_date, tx.quantity))
+                    
+                elif tx.type == TransactionType.SELL:
+                    # Match with oldest buys (FIFO)
+                    remaining_to_sell = tx.quantity
+                    
+                    while remaining_to_sell > 0 and buys:
+                        buy_date, buy_quantity = buys[0]
+                        
+                        if buy_quantity <= remaining_to_sell:
+                            # Fully sold this buy
+                            holding_days = (tx.tx_date - buy_date).days
+                            holding_periods.append(holding_days)
+                            remaining_to_sell -= buy_quantity
+                            buys.pop(0)
+                        else:
+                            # Partially sold this buy
+                            holding_days = (tx.tx_date - buy_date).days
+                            holding_periods.append(holding_days)
+                            buys[0] = (buy_date, buy_quantity - remaining_to_sell)
+                            remaining_to_sell = 0
+            
+            # Add holding periods for remaining buys (currently held positions)
+            for buy_date, quantity in buys:
+                holding_days = (today - buy_date).days
+                holding_periods.append(holding_days)
+        
+        if not holding_periods:
+            return None
+        
+        # Calculate average
+        avg_days = sum(holding_periods) / len(holding_periods)
+        return Decimal(str(round(avg_days, 1)))

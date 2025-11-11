@@ -14,6 +14,18 @@ import {
   PieChart,
   Globe,
   Layers,
+  Activity,
+  BarChart3,
+  ArrowDownCircle,
+  GitCompare,
+  Zap,
+  ArrowDown,
+  Crosshair,
+  TrendingUpDown,
+  Grid3x3,
+  Timer,
+  Network,
+  Pizza,
 } from 'lucide-react'
 import { WidgetConfig, WidgetContext } from '../../types'
 import { getWidgetSize } from '../../utils/widgetConstraints'
@@ -23,6 +35,10 @@ import MetricWidget from '../metric/MetricWidget'
 import TotalReturnWidget from '../metric/TotalReturnWidget'
 import WinRateWidget from '../metric/WinRateWidget'
 import GoalTrackerWidget from '../metric/GoalTrackerWidget'
+import RiskMetricWidget from '../metric/RiskMetricWidget'
+import BenchmarkMetricWidget from '../metric/BenchmarkMetricWidget'
+import HoldingPeriodWidget from '../metric/HoldingPeriodWidget'
+import BitcoinPizzaWidget from '../metric/BitcoinPizzaWidget'
 import NotificationsWidget from '../list/NotificationsWidget'
 import WatchlistWidget from '../list/WatchlistWidget'
 import PositionsTableWidget from '../list/PositionsTableWidget'
@@ -37,6 +53,7 @@ import AssetAllocationWidget from '../analysis/AssetAllocationWidget'
 import PortfolioHeatmapWidget from '../analysis/PortfolioHeatmapWidget'
 import MarketStatusWidget from '../market/MarketStatusWidget'
 import MarketIndicesWidget from '../market/MarketIndicesWidget'
+import { calculateHitRatio, calculateDiversificationScore } from '../utils/metricsCalculations'
 
 /**
  * Complete widget registry
@@ -479,6 +496,301 @@ export const widgetDefinitions: WidgetConfig[] = [
       metrics: context.metrics ? {
         total_value: context.metrics.total_value,
       } : null,
+      isPreview: context.isPreview,
+    }),
+  },
+
+  // ===== ADVANCED METRIC WIDGETS =====
+  {
+    id: 'sharpe-ratio',
+    name: 'dashboard.widgets.sharpeRatio.name',
+    description: 'dashboard.widgets.sharpeRatio.description',
+    category: 'insights',
+    icon: Activity,
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    defaultSize: getWidgetSize('sharpe-ratio')!,
+    allowMultiple: true,
+    component: RiskMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.sharpeRatio.name',
+      metricKey: 'sharpe_ratio' as const,
+      subtitle: 'Risk-adjusted returns',
+      icon: Activity,
+      iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      period: '1y',
+      formatter: (val: number) => val.toFixed(2),
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'volatility',
+    name: 'dashboard.widgets.volatility.name',
+    description: 'dashboard.widgets.volatility.description',
+    category: 'insights',
+    icon: BarChart3,
+    iconColor: 'text-orange-600 dark:text-orange-400',
+    iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
+    defaultSize: getWidgetSize('volatility')!,
+    allowMultiple: true,
+    component: RiskMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.volatility.name',
+      metricKey: 'volatility' as const,
+      subtitle: 'Annualized (1Y)',
+      icon: BarChart3,
+      iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
+      iconColor: 'text-orange-600 dark:text-orange-400',
+      period: '1y',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'max-drawdown',
+    name: 'dashboard.widgets.maxDrawdown.name',
+    description: 'dashboard.widgets.maxDrawdown.description',
+    category: 'insights',
+    icon: ArrowDownCircle,
+    iconColor: 'text-red-600 dark:text-red-400',
+    iconBgColor: 'bg-red-50 dark:bg-red-900/20',
+    defaultSize: getWidgetSize('max-drawdown')!,
+    allowMultiple: true,
+    component: RiskMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.maxDrawdown.name',
+      metricKey: 'max_drawdown' as const,
+      subtitle: 'Peak-to-trough (1Y)',
+      icon: ArrowDownCircle,
+      iconBgColor: 'bg-red-50 dark:bg-red-900/20',
+      iconColor: 'text-red-600 dark:text-red-400',
+      valueColor: 'text-red-600 dark:text-red-400',
+      period: '1y',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'beta-correlation',
+    name: 'dashboard.widgets.betaCorrelation.name',
+    description: 'dashboard.widgets.betaCorrelation.description',
+    category: 'insights',
+    icon: GitCompare,
+    iconColor: 'text-teal-600 dark:text-teal-400',
+    iconBgColor: 'bg-teal-50 dark:bg-teal-900/20',
+    defaultSize: getWidgetSize('beta-correlation')!,
+    allowMultiple: true,
+    component: RiskMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.betaCorrelation.name',
+      metricKey: 'beta' as const,
+      subtitle: 'vs Market (1Y)',
+      icon: GitCompare,
+      iconBgColor: 'bg-teal-50 dark:bg-teal-900/20',
+      iconColor: 'text-teal-600 dark:text-teal-400',
+      period: '1y',
+      formatter: (val: number) => val.toFixed(2),
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'value-at-risk',
+    name: 'dashboard.widgets.valueAtRisk.name',
+    description: 'dashboard.widgets.valueAtRisk.description',
+    category: 'insights',
+    icon: Zap,
+    iconColor: 'text-rose-600 dark:text-rose-400',
+    iconBgColor: 'bg-rose-50 dark:bg-rose-900/20',
+    defaultSize: getWidgetSize('value-at-risk')!,
+    allowMultiple: true,
+    component: RiskMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.valueAtRisk.name',
+      metricKey: 'var_95' as const,
+      subtitle: '95% confidence (1-day)',
+      icon: Zap,
+      iconBgColor: 'bg-rose-50 dark:bg-rose-900/20',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+      valueColor: 'text-rose-600 dark:text-rose-400',
+      period: '1y',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'downside-deviation',
+    name: 'dashboard.widgets.downsideDeviation.name',
+    description: 'dashboard.widgets.downsideDeviation.description',
+    category: 'insights',
+    icon: ArrowDown,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
+    defaultSize: getWidgetSize('downside-deviation')!,
+    allowMultiple: true,
+    component: RiskMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.downsideDeviation.name',
+      metricKey: 'downside_deviation' as const,
+      subtitle: 'Downside risk (1Y)',
+      icon: ArrowDown,
+      iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      period: '1y',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'hit-ratio',
+    name: 'dashboard.widgets.hitRatio.name',
+    description: 'dashboard.widgets.hitRatio.description',
+    category: 'insights',
+    icon: Crosshair,
+    iconColor: 'text-green-600 dark:text-green-400',
+    iconBgColor: 'bg-green-50 dark:bg-green-900/20',
+    defaultSize: getWidgetSize('hit-ratio')!,
+    allowMultiple: true,
+    component: MetricWidget,
+    getProps: (context: WidgetContext) => {
+      const hitRatio = calculateHitRatio(context.positions)
+      const profitableCount = context.positions.filter(pos => {
+        const unrealizedPnl = pos.unrealized_pnl !== null && pos.unrealized_pnl !== undefined
+          ? Number(pos.unrealized_pnl)
+          : 0
+        return unrealizedPnl > 0
+      }).length
+      
+      return {
+        title: 'dashboard.widgets.hitRatio.name',
+        value: hitRatio !== null ? `${hitRatio.toFixed(1)}%` : 'N/A',
+        subtitle: hitRatio !== null 
+          ? `${profitableCount} of ${context.positions.length} profitable`
+          : 'No positions',
+        icon: Crosshair,
+        iconBgColor: 'bg-green-50 dark:bg-green-900/20',
+        iconColor: 'text-green-600 dark:text-green-400',
+        valueColor: hitRatio !== null && hitRatio >= 50 
+          ? 'text-green-600 dark:text-green-400' 
+          : 'text-amber-600 dark:text-amber-400',
+        isPreview: context.isPreview,
+      }
+    },
+  },
+  {
+    id: 'alpha',
+    name: 'dashboard.widgets.alpha.name',
+    description: 'dashboard.widgets.alpha.description',
+    category: 'insights',
+    icon: TrendingUpDown,
+    iconColor: 'text-indigo-600 dark:text-indigo-400',
+    iconBgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+    defaultSize: getWidgetSize('alpha')!,
+    allowMultiple: true,
+    component: BenchmarkMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.alpha.name',
+      metricKey: 'alpha' as const,
+      subtitle: 'vs SPY (1Y)',
+      icon: TrendingUpDown,
+      iconBgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      benchmark: 'SPY',
+      period: '1y',
+      formatter: (val: number) => {
+        const numVal = typeof val === 'number' ? val : Number(val)
+        return isNaN(numVal) ? 'N/A' : `${numVal >= 0 ? '+' : ''}${numVal.toFixed(2)}%`
+      },
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'r-squared',
+    name: 'dashboard.widgets.rSquared.name',
+    description: 'dashboard.widgets.rSquared.description',
+    category: 'insights',
+    icon: Grid3x3,
+    iconColor: 'text-violet-600 dark:text-violet-400',
+    iconBgColor: 'bg-violet-50 dark:bg-violet-900/20',
+    defaultSize: getWidgetSize('r-squared')!,
+    allowMultiple: true,
+    component: BenchmarkMetricWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.rSquared.name',
+      metricKey: 'r_squared' as const,
+      subtitle: 'vs SPY (1Y)',
+      icon: Grid3x3,
+      iconBgColor: 'bg-violet-50 dark:bg-violet-900/20',
+      iconColor: 'text-violet-600 dark:text-violet-400',
+      benchmark: 'SPY',
+      period: '1y',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'avg-holding-period',
+    name: 'dashboard.widgets.avgHoldingPeriod.name',
+    description: 'dashboard.widgets.avgHoldingPeriod.description',
+    category: 'insights',
+    icon: Timer,
+    iconColor: 'text-slate-600 dark:text-slate-400',
+    iconBgColor: 'bg-slate-50 dark:bg-slate-900/20',
+    defaultSize: getWidgetSize('avg-holding-period')!,
+    allowMultiple: true,
+    component: HoldingPeriodWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.avgHoldingPeriod.name',
+      subtitle: 'FIFO method',
+      icon: Timer,
+      iconBgColor: 'bg-slate-50 dark:bg-slate-900/20',
+      iconColor: 'text-slate-600 dark:text-slate-400',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'diversification-score',
+    name: 'dashboard.widgets.diversificationScore.name',
+    description: 'dashboard.widgets.diversificationScore.description',
+    category: 'insights',
+    icon: Network,
+    iconColor: 'text-cyan-600 dark:text-cyan-400',
+    iconBgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
+    defaultSize: getWidgetSize('diversification-score')!,
+    allowMultiple: true,
+    component: MetricWidget,
+    getProps: (context: WidgetContext) => {
+      const score = calculateDiversificationScore(context.positions)
+      
+      return {
+        title: 'dashboard.widgets.diversificationScore.name',
+        value: score !== null ? `${score.toFixed(0)}/100` : 'N/A',
+        subtitle: score !== null 
+          ? `${context.positions.length} position${context.positions.length !== 1 ? 's' : ''}`
+          : 'No positions',
+        icon: Network,
+        iconBgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
+        iconColor: 'text-cyan-600 dark:text-cyan-400',
+        valueColor: score !== null 
+          ? (score >= 70 ? 'text-green-600 dark:text-green-400' 
+            : score >= 40 ? 'text-amber-600 dark:text-amber-400'
+            : 'text-red-600 dark:text-red-400')
+          : 'text-neutral-600 dark:text-neutral-400',
+        isPreview: context.isPreview,
+      }
+    },
+  },
+
+  // ===== FUN WIDGETS =====
+  {
+    id: 'bitcoin-pizza-index',
+    name: 'dashboard.widgets.bitcoinPizzaIndex.name',
+    description: 'dashboard.widgets.bitcoinPizzaIndex.description',
+    category: 'metrics',
+    icon: Pizza,
+    iconColor: 'text-orange-600 dark:text-orange-400',
+    iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
+    defaultSize: getWidgetSize('bitcoin-pizza-index') || { w: 3, h: 2, minW: 2, minH: 2 },
+    allowMultiple: false,
+    component: BitcoinPizzaWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.bitcoinPizzaIndex.name',
+      subtitle: '10,000 BTC (2 pizzas, 2010)',
       isPreview: context.isPreview,
     }),
   },

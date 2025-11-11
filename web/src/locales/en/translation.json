@@ -315,6 +315,54 @@
         "setARealisticGoal": "Set a realistic goal amount to track your investment progress.",
         "estimates8PercentReturn": "Based on an estimated 8% annual return."
       },
+      "sharpeRatio": {
+        "name": "Sharpe Ratio",
+        "description": "Measure risk-adjusted returns of your portfolio"
+      },
+      "volatility": {
+        "name": "Volatility",
+        "description": "Standard deviation of portfolio returns"
+      },
+      "maxDrawdown": {
+        "name": "Max Drawdown",
+        "description": "Largest peak-to-trough decline in portfolio value"
+      },
+      "betaCorrelation": {
+        "name": "Beta",
+        "description": "Portfolio correlation with market benchmark"
+      },
+      "valueAtRisk": {
+        "name": "Value at Risk (VaR)",
+        "description": "Potential loss at 95% confidence level"
+      },
+      "downsideDeviation": {
+        "name": "Downside Deviation",
+        "description": "Volatility of negative returns only"
+      },
+      "hitRatio": {
+        "name": "Hit Ratio",
+        "description": "Percentage of profitable trades"
+      },
+      "alpha": {
+        "name": "Alpha",
+        "description": "Excess returns above benchmark"
+      },
+      "rSquared": {
+        "name": "R-Squared",
+        "description": "Correlation strength with market"
+      },
+      "avgHoldingPeriod": {
+        "name": "Avg Holding Period",
+        "description": "Average duration of held positions"
+      },
+      "diversificationScore": {
+        "name": "Diversification Score",
+        "description": "Portfolio diversification measurement"
+      },
+      "bitcoinPizzaIndex": {
+        "name": "Bitcoin Pizza Index",
+        "description": "What 10,000 BTC is worth today (the famous pizza trade)"
+      },
       "categories": {
         "insights": {
           "label": "Charts & Insights",

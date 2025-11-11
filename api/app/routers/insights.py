@@ -161,3 +161,25 @@ async def get_top_performers(
     
     insights_service = InsightsService(db)
     return await insights_service.get_top_performers(portfolio_id, period, limit)
+
+
+@router.get("/{portfolio_id}/average-holding-period")
+async def get_average_holding_period(
+    portfolio_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get average holding period in days for completed positions"""
+    portfolio = crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if portfolio.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    
+    insights_service = InsightsService(db)
+    avg_days = insights_service.get_average_holding_period(portfolio_id)
+    
+    return {
+        "portfolio_id": portfolio_id,
+        "average_holding_period_days": avg_days
+    }

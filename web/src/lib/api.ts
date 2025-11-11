@@ -171,6 +171,32 @@ export interface PerformanceMetricsDTO {
   win_rate: number
 }
 
+export interface RiskMetricsDTO {
+  period: string
+  volatility: number
+  sharpe_ratio: number | null
+  max_drawdown: number
+  max_drawdown_date: string | null
+  beta: number | null
+  var_95: number | null
+  downside_deviation: number
+}
+
+export interface BenchmarkComparisonDTO {
+  benchmark_symbol: string
+  benchmark_name: string
+  period: string
+  portfolio_return: number
+  benchmark_return: number
+  alpha: number
+  correlation: number | null
+}
+
+export interface AverageHoldingPeriodDTO {
+  portfolio_id: number
+  average_holding_period_days: number | null
+}
+
 // Price Quote
 export interface PriceQuote {
   symbol: string
@@ -974,6 +1000,18 @@ class ApiClient {
 
   async getPerformanceMetrics(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
     return this.request<PerformanceMetricsDTO>(`/insights/${portfolioId}/performance?period=${period}`, { signal })
+  }
+
+  async getRiskMetrics(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<RiskMetricsDTO>(`/insights/${portfolioId}/risk?period=${period}`, { signal })
+  }
+
+  async getBenchmarkComparison(portfolioId: number, benchmark: string = 'SPY', period: string = '1y', signal?: AbortSignal) {
+    return this.request<BenchmarkComparisonDTO>(`/insights/${portfolioId}/benchmark?benchmark=${benchmark}&period=${period}`, { signal })
+  }
+
+  async getAverageHoldingPeriod(portfolioId: number, signal?: AbortSignal) {
+    return this.request<AverageHoldingPeriodDTO>(`/insights/${portfolioId}/average-holding-period`, { signal })
   }
 
   async getRecentTransactions(portfolioId: number, limit: number = 5, signal?: AbortSignal) {

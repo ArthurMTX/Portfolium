@@ -315,6 +315,54 @@
         "setARealisticGoal": "Définissez un montant d'objectif réaliste pour suivre vos progrès d'investissement.",
         "estimates8PercentReturn": "Basé sur un rendement annuel estimé de 8 %."
       },
+      "sharpeRatio": {
+        "name": "Ratio de Sharpe",
+        "description": "Mesure les rendements ajustés au risque de votre portefeuille"
+      },
+      "volatility": {
+        "name": "Volatilité",
+        "description": "Écart-type des rendements du portefeuille"
+      },
+      "maxDrawdown": {
+        "name": "Drawdown Maximum",
+        "description": "Plus grande baisse du pic au creux de la valeur du portefeuille"
+      },
+      "betaCorrelation": {
+        "name": "Bêta",
+        "description": "Corrélation du portefeuille avec l'indice de référence du marché"
+      },
+      "valueAtRisk": {
+        "name": "Valeur à Risque (VaR)",
+        "description": "Perte potentielle avec un niveau de confiance de 95 %"
+      },
+      "downsideDeviation": {
+        "name": "Écart à la Baisse",
+        "description": "Volatilité des rendements négatifs uniquement"
+      },
+      "hitRatio": {
+        "name": "Taux de Réussite",
+        "description": "Pourcentage de transactions rentables"
+      },
+      "alpha": {
+        "name": "Alpha",
+        "description": "Rendements excédentaires au-dessus de l'indice de référence"
+      },
+      "rSquared": {
+        "name": "R-Carré",
+        "description": "Force de corrélation avec le marché"
+      },
+      "avgHoldingPeriod": {
+        "name": "Période de Détention Moy.",
+        "description": "Durée moyenne des positions détenues"
+      },
+      "diversificationScore": {
+        "name": "Score de Diversification",
+        "description": "Mesure de la diversification du portefeuille"
+      },
+      "bitcoinPizzaIndex": {
+        "name": "Indice Pizza Bitcoin",
+        "description": "Valeur de 10 000 BTC aujourd'hui (le célèbre échange de pizza)"
+      },
       "categories": {
         "insights": {
           "label": "Graphiques & Analyses",
