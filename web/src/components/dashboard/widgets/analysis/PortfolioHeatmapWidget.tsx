@@ -82,7 +82,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
       </div>
 
       {/* Heatmap */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {loading ? (
           <div className="h-full flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600" />
