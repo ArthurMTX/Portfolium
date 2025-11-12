@@ -47,7 +47,6 @@ export default function VIXWidget({
   }, [isPreview])
 
   const { volatilityLevel, volatilityColor, bgColor, iconColor } = useMemo(() => {
-    const { t } = useTranslation()
     if (vixPrice === null) {
       return {
         volatilityLevel: t('common.unknown'),
@@ -90,7 +89,7 @@ export default function VIXWidget({
     }
 
     return { volatilityLevel, volatilityColor, bgColor, iconColor }
-  }, [vixPrice])
+  }, [vixPrice, t])
 
   return (
     <div className="card h-full flex flex-col p-5">

@@ -95,7 +95,7 @@ export default function DXYWidget({
     }
 
     return { strengthLevel, strengthColor, bgColor, iconColor }
-  }, [dxyPrice])
+  }, [dxyPrice, t])
 
   return (
     <div className="card h-full flex flex-col p-5">

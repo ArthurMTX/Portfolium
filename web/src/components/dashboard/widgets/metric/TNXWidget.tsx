@@ -47,7 +47,6 @@ export default function TNXWidget({
   }, [isPreview])
 
   const { yieldLevel, yieldColor, bgColor, iconColor } = useMemo(() => {
-    const { t } = useTranslation()
     if (tnxPrice === null) {
       return {
         yieldLevel: t('common.unknown'),
@@ -96,7 +95,7 @@ export default function TNXWidget({
     }
 
     return { yieldLevel, yieldColor, bgColor, iconColor }
-  }, [tnxPrice])
+  }, [tnxPrice, t])
 
   return (
     <div className="card h-full flex flex-col p-5">
