@@ -1115,6 +1115,48 @@ class ApiClient {
       smtp_configured: boolean
     }>('/admin/email/stats')
   }
+
+  // ============================================================================
+  // Market Data
+  // ============================================================================
+
+  async getStockMarketSentiment() {
+    return this.request<{
+      score: number
+      rating: string
+      previous_close: number
+      timestamp: string
+    }>('/market/sentiment/stock')
+  }
+
+  async getCryptoMarketSentiment() {
+    return this.request<{
+      score: number
+      rating: string
+      previous_value: number | null
+      timestamp: string
+    }>('/market/sentiment/crypto')
+  }
+
+  async getMarketSentiment(marketType: 'stock' | 'crypto') {
+    return this.request<{
+      score: number
+      rating: string
+      previous_close?: number
+      previous_value?: number | null
+      timestamp: string
+    }>(`/market/sentiment/${marketType}`)
+  }
+
+  async getVIXIndex() {
+    return this.request<{
+      price: number
+      change: number | null
+      change_pct: number | null
+      previous_close: number | null
+      timestamp: string
+    }>('/market/vix')
+  }
   
   // ============================================================================
   // Dashboard Layouts

@@ -363,6 +363,18 @@
         "name": "Indice Pizza Bitcoin",
         "description": "Valeur de 10 000 BTC aujourd'hui (le célèbre échange de pizza)"
       },
+      "marketSentiment": {
+        "name": "Sentiment du Marché boursier",
+        "description": "Indice CNN Fear & Greed - Sentiment du marché boursier"
+      },
+      "cryptoSentiment": {
+        "name": "Sentiment du Marché Crypto",
+        "description": "Indice Alternative.me Fear & Greed - Sentiment du marché crypto"
+      },
+      "vixIndex": {
+        "name": "Indice VIX",
+        "description": "Indice de Volatilité CBOE - Indicateur de volatilité du marché"
+      },
       "categories": {
         "insights": {
           "label": "Graphiques & Analyses",

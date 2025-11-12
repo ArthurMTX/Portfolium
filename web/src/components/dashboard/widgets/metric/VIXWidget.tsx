@@ -1,0 +1,142 @@
+import { useMemo, useState, useEffect } from 'react'
+import { Activity } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { BaseWidgetProps } from '../../types'
+import api from '@/lib/api'
+
+interface VIXWidgetProps extends BaseWidgetProps {
+  title: string
+  subtitle?: string
+}
+
+export default function VIXWidget({
+  title,
+  subtitle,
+  isPreview = false,
+}: VIXWidgetProps) {
+  const { t } = useTranslation()
+  const [vixPrice, setVixPrice] = useState<number | null>(null)
+  const [vixChange, setVixChange] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (isPreview) {
+      // Mock data for preview
+      setVixPrice(17.28)
+      setVixChange(-0.5)
+      return
+    }
+
+    const fetchVixData = async () => {
+      setLoading(true)
+      try {
+        const data = await api.getVIXIndex()
+        
+        setVixPrice(data.price)
+        setVixChange(data.change_pct)
+      } catch (error) {
+        console.error('Failed to fetch VIX data:', error)
+        setVixPrice(null)
+        setVixChange(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchVixData()
+  }, [isPreview])
+
+  const { volatilityLevel, volatilityColor, bgColor, iconColor } = useMemo(() => {
+    if (vixPrice === null) {
+      return {
+        volatilityLevel: 'Unknown',
+        volatilityColor: 'text-neutral-600 dark:text-neutral-400',
+        bgColor: 'bg-neutral-50 dark:bg-neutral-900/20',
+        iconColor: 'text-neutral-600 dark:text-neutral-400',
+      }
+    }
+
+    // VIX interpretation:
+    // < 12: Low volatility
+    // 12-20: Normal volatility
+    // 20-30: Elevated volatility
+    // > 30: High volatility
+    let volatilityLevel = ''
+    let volatilityColor = ''
+    let bgColor = ''
+    let iconColor = ''
+
+    if (vixPrice < 12) {
+      volatilityLevel = 'Low'
+      volatilityColor = 'text-green-600 dark:text-green-400'
+      bgColor = 'bg-green-50 dark:bg-green-900/20'
+      iconColor = 'text-green-600 dark:text-green-400'
+    } else if (vixPrice < 20) {
+      volatilityLevel = 'Normal'
+      volatilityColor = 'text-blue-600 dark:text-blue-400'
+      bgColor = 'bg-blue-50 dark:bg-blue-900/20'
+      iconColor = 'text-blue-600 dark:text-blue-400'
+    } else if (vixPrice < 30) {
+      volatilityLevel = 'Elevated'
+      volatilityColor = 'text-orange-600 dark:text-orange-400'
+      bgColor = 'bg-orange-50 dark:bg-orange-900/20'
+      iconColor = 'text-orange-600 dark:text-orange-400'
+    } else {
+      volatilityLevel = 'High'
+      volatilityColor = 'text-red-600 dark:text-red-400'
+      bgColor = 'bg-red-50 dark:bg-red-900/20'
+      iconColor = 'text-red-600 dark:text-red-400'
+    }
+
+    return { volatilityLevel, volatilityColor, bgColor, iconColor }
+  }, [vixPrice])
+
+  return (
+    <div className="card h-full flex flex-col p-5">
+      <div className="flex items-start gap-2.5 mb-4">
+        <div className={`w-9 h-9 ${bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
+          <Activity className={iconColor} size={18} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+            {t(title)}
+          </h3>
+          {subtitle && (
+            <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
+              {subtitle}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col justify-center -mt-2">
+        {loading ? (
+          <div className="flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-blue-500 rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-2">
+              <p className={`text-3xl font-bold ${volatilityColor}`}>
+                {vixPrice !== null ? vixPrice.toFixed(2) : 'N/A'}
+              </p>
+              {vixChange !== null && (
+                <span
+                  className={`text-xs font-medium ${
+                    vixChange >= 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-green-600 dark:text-green-400'
+                  }`}
+                >
+                  {vixChange >= 0 ? '+' : ''}{vixChange.toFixed(2)}%
+                </span>
+              )}
+            </div>
+            <p className={`text-sm font-semibold mt-1 ${volatilityColor}`}>
+              {volatilityLevel} Volatility
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

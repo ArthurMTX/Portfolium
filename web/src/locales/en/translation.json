@@ -363,6 +363,18 @@
         "name": "Bitcoin Pizza Index",
         "description": "What 10,000 BTC is worth today (the famous pizza trade)"
       },
+      "marketSentiment": {
+        "name": "Market Sentiment",
+        "description": "CNN Fear & Greed Index - Stock market sentiment"
+      },
+      "cryptoSentiment": {
+        "name": "Crypto Sentiment",
+        "description": "Alternative.me Fear & Greed Index - Crypto market sentiment"
+      },
+      "vixIndex": {
+        "name": "VIX Index",
+        "description": "CBOE Volatility Index - Market volatility indicator"
+      },
       "categories": {
         "insights": {
           "label": "Charts & Insights",

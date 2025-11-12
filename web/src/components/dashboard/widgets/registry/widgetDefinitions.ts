@@ -39,6 +39,8 @@ import RiskMetricWidget from '../metric/RiskMetricWidget'
 import BenchmarkMetricWidget from '../metric/BenchmarkMetricWidget'
 import HoldingPeriodWidget from '../metric/HoldingPeriodWidget'
 import BitcoinPizzaWidget from '../metric/BitcoinPizzaWidget'
+import SentimentWidget from '../metric/SentimentWidget'
+import VIXWidget from '../metric/VIXWidget'
 import NotificationsWidget from '../list/NotificationsWidget'
 import WatchlistWidget from '../list/WatchlistWidget'
 import PositionsTableWidget from '../list/PositionsTableWidget'
@@ -791,6 +793,63 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.bitcoinPizzaIndex.name',
       subtitle: '10,000 BTC (2 pizzas, 2010)',
+      isPreview: context.isPreview,
+    }),
+  },
+
+  // ===== MARKET SENTIMENT WIDGETS =====
+  {
+    id: 'market-sentiment',
+    name: 'dashboard.widgets.marketSentiment.name',
+    description: 'dashboard.widgets.marketSentiment.description',
+    category: 'metrics',
+    icon: TrendingUpDown,
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    defaultSize: getWidgetSize('market-sentiment') || { w: 3, h: 2, minW: 2, minH: 2 },
+    allowMultiple: false,
+    component: SentimentWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.marketSentiment.name',
+      subtitle: 'Stock Market',
+      market: 'stock',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'crypto-sentiment',
+    name: 'dashboard.widgets.cryptoSentiment.name',
+    description: 'dashboard.widgets.cryptoSentiment.description',
+    category: 'metrics',
+    icon: TrendingUpDown,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
+    defaultSize: getWidgetSize('crypto-sentiment') || { w: 3, h: 2, minW: 2, minH: 2 },
+    allowMultiple: false,
+    component: SentimentWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.cryptoSentiment.name',
+      subtitle: 'Crypto Market',
+      market: 'crypto',
+      isPreview: context.isPreview,
+    }),
+  },
+
+  // ===== VOLATILITY WIDGETS =====
+  {
+    id: 'vix-index',
+    name: 'dashboard.widgets.vixIndex.name',
+    description: 'dashboard.widgets.vixIndex.description',
+    category: 'metrics',
+    icon: Activity,
+    iconColor: 'text-purple-600 dark:text-purple-400',
+    iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
+    defaultSize: getWidgetSize('vix-index') || { w: 3, h: 2, minW: 2, minH: 2 },
+    allowMultiple: false,
+    component: VIXWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.vixIndex.name',
+      subtitle: 'CBOE Volatility Index',
       isPreview: context.isPreview,
     }),
   },
