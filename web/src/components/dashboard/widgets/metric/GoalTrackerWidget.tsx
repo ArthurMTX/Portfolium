@@ -11,27 +11,28 @@ interface GoalTrackerWidgetProps extends BaseWidgetProps {
   } | null
 }
 
-export default function GoalTrackerWidget({ metrics }: GoalTrackerWidgetProps) {
+export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTrackerWidgetProps) {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
   const { t } = useTranslation()
 
-  // Load goal from localStorage
+  // Load goal from localStorage (or use default in preview mode)
   const [goalAmount, setGoalAmount] = useState<number>(() => {
+    if (isPreview) return 15000 // Mock goal for preview
     const stored = localStorage.getItem(`portfolio-goal-${activePortfolioId}`)
     return stored ? parseFloat(stored) : 100000
   })
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(goalAmount.toString())
 
-  // Save goal to localStorage when it changes
+  // Save goal to localStorage when it changes (skip in preview mode)
   useEffect(() => {
-    if (activePortfolioId) {
+    if (!isPreview && activePortfolioId) {
       localStorage.setItem(`portfolio-goal-${activePortfolioId}`, goalAmount.toString())
     }
-  }, [goalAmount, activePortfolioId])
+  }, [goalAmount, activePortfolioId, isPreview])
 
   const currentValue = metrics?.total_value || 0
   const progress = goalAmount > 0 ? Math.min((currentValue / goalAmount) * 100, 100) : 0

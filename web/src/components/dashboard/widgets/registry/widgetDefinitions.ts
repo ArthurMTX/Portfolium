@@ -494,7 +494,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     iconBgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
     defaultSize: getWidgetSize('goal-tracker')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: GoalTrackerWidget,
     getProps: (context: WidgetContext) => ({
       metrics: context.metrics ? {
@@ -790,7 +790,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-orange-600 dark:text-orange-400',
     iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
     defaultSize: getWidgetSize('bitcoin-pizza-index')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: BitcoinPizzaWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.bitcoinPizzaIndex.name',
@@ -809,7 +809,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-blue-600 dark:text-blue-400',
     iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
     defaultSize: getWidgetSize('market-sentiment')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: SentimentWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.marketSentiment.name',
@@ -827,7 +827,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-amber-600 dark:text-amber-400',
     iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
     defaultSize: getWidgetSize('crypto-sentiment')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: SentimentWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.cryptoSentiment.name',
@@ -847,7 +847,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-purple-600 dark:text-purple-400',
     iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
     defaultSize: getWidgetSize('vix-index')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: VIXWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.vixIndex.name',
@@ -864,7 +864,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-blue-600 dark:text-blue-400',
     iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
     defaultSize: getWidgetSize('tnx-index')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: TNXWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.tnxIndex.name',
@@ -881,7 +881,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     iconBgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
     defaultSize: getWidgetSize('dxy-index')!,
-    allowMultiple: false,
+    allowMultiple: true,
     component: DXYWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.dxyIndex.name',

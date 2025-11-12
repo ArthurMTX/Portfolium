@@ -166,6 +166,7 @@ const mockTopPerformers = [
     symbol: 'NVDA',
     name: 'NVIDIA Corporation',
     return_pct: 27.79,
+    value: 5827.20,
     market_value: 5827.20,
     asset_type: 'STOCK',
   },
@@ -173,6 +174,7 @@ const mockTopPerformers = [
     symbol: 'MSFT',
     name: 'Microsoft Corporation',
     return_pct: 18.83,
+    value: 3042.00,
     market_value: 3042.00,
     asset_type: 'STOCK',
   },
@@ -180,6 +182,7 @@ const mockTopPerformers = [
     symbol: 'AAPL',
     name: 'Apple Inc.',
     return_pct: 17.00,
+    value: 1755.00,
     market_value: 1755.00,
     asset_type: 'STOCK',
   },
@@ -187,6 +190,7 @@ const mockTopPerformers = [
     symbol: 'GOOGL',
     name: 'Alphabet Inc.',
     return_pct: 5.78,
+    value: 2142.00,
     market_value: 2142.00,
     asset_type: 'STOCK',
   },
@@ -197,6 +201,7 @@ const mockWorstPerformers = [
     symbol: 'TSLA',
     name: 'Tesla Inc.',
     return_pct: -11.23,
+    value: 976.50,
     market_value: 976.50,
     asset_type: 'STOCK',
   },
@@ -428,6 +433,71 @@ export const mockCountriesDistribution = [
   },
 ]
 
+// Mock market indicator data
+export const mockVIXData = {
+  price: 17.28,
+  change_pct: -0.5,
+}
+
+export const mockTNXData = {
+  price: 4.32,
+  change_pct: 0.15,
+}
+
+export const mockDXYData = {
+  price: 103.45,
+  change_pct: -0.23,
+}
+
+export const mockBitcoinPizzaData = {
+  btc_price: 43250.80,
+  pizza_value: 432508000, // 10,000 BTC value
+}
+
+export const mockSentimentData = {
+  stock: {
+    sentiment: 'bullish',
+    score: 72,
+    fear_greed_index: 68,
+  },
+  crypto: {
+    sentiment: 'neutral',
+    score: 54,
+    fear_greed_index: 52,
+  },
+}
+
+// Mock risk metrics data
+export const mockRiskMetrics = {
+  volatility: 18.5,
+  sharpe_ratio: 1.42,
+  max_drawdown: -12.3,
+  var_95: -2.5,
+  downside_deviation: 12.1,
+  beta: 0.95,
+}
+
+// Mock benchmark comparison data
+export const mockBenchmarkData = {
+  alpha: 2.3,
+  r_squared: 85.4,
+}
+
+// Mock goal tracker data
+export const mockGoalData = {
+  target: 15000.00,
+  current: 11174.56,
+  percentage: 74.5,
+}
+
+// Mock holding period data
+export const mockHoldingPeriod = {
+  average_days: 127,
+  median_days: 95,
+  longest_days: 387,
+  shortest_days: 12,
+}
+
 
 
 /**
@@ -476,6 +546,33 @@ export function createMockQueryClient(): QueryClient {
           }
           if (key === 'countries-distribution' || key.includes('countries')) {
             return mockCountriesDistribution
+          }
+          if (key === 'vix' || key.includes('vix')) {
+            return mockVIXData
+          }
+          if (key === 'tnx' || key.includes('tnx')) {
+            return mockTNXData
+          }
+          if (key === 'dxy' || key.includes('dxy')) {
+            return mockDXYData
+          }
+          if (key === 'bitcoin-pizza' || key.includes('bitcoin')) {
+            return mockBitcoinPizzaData
+          }
+          if (key === 'sentiment' || key.includes('sentiment')) {
+            return mockSentimentData
+          }
+          if (key === 'risk-metrics' || key.includes('risk')) {
+            return mockRiskMetrics
+          }
+          if (key === 'benchmark' || key.includes('benchmark')) {
+            return mockBenchmarkData
+          }
+          if (key === 'goal' || key.includes('goal')) {
+            return mockGoalData
+          }
+          if (key === 'holding-period' || key.includes('holding')) {
+            return mockHoldingPeriod
           }
           
           // Default empty response
