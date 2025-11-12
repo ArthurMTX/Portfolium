@@ -88,6 +88,8 @@ export interface WidgetContext {
   userId?: number
   /** Is widget in preview mode */
   isPreview?: boolean
+  /** Batch data from useDashboardBatch (contains all widget data) */
+  batchData?: unknown
 }
 
 /**

@@ -122,7 +122,7 @@ async def get_risk_metrics(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     
     insights_service = InsightsService(db)
-    return insights_service.get_risk_metrics(portfolio_id, period)
+    return await insights_service.get_risk_metrics(portfolio_id, period)
 
 
 @router.get("/{portfolio_id}/benchmark", response_model=BenchmarkComparison)
@@ -141,7 +141,7 @@ async def compare_to_benchmark(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     
     insights_service = InsightsService(db)
-    return insights_service.compare_to_benchmark(portfolio_id, benchmark, period)
+    return await insights_service.compare_to_benchmark(portfolio_id, benchmark, period)
 
 
 @router.get("/{portfolio_id}/top-performers", response_model=List[TopPerformer])

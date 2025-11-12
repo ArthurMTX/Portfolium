@@ -22,7 +22,7 @@ const CACHE_DURATION = 60000 // 1 minute cache
  * Shared hook for fetching risk metrics
  * Uses caching to prevent multiple API calls for the same portfolio/period
  */
-export function useRiskMetrics(period: string = '1y', isPreview: boolean = false) {
+export function useRiskMetrics(period: string = '1y', isPreview: boolean = false, batchData?: unknown) {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const [data, setData] = useState<RiskMetrics | null>(null)
   const [loading, setLoading] = useState(false)
@@ -31,6 +31,13 @@ export function useRiskMetrics(period: string = '1y', isPreview: boolean = false
   useEffect(() => {
     if (isPreview || !activePortfolioId) {
       setData(null)
+      setLoading(false)
+      return
+    }
+
+    // Use batch data if available
+    if (batchData) {
+      setData(batchData as RiskMetrics)
       setLoading(false)
       return
     }
@@ -81,7 +88,7 @@ export function useRiskMetrics(period: string = '1y', isPreview: boolean = false
     }
 
     fetchRiskMetrics()
-  }, [activePortfolioId, period, isPreview])
+  }, [activePortfolioId, period, isPreview, batchData])
 
   return { data, loading, error }
 }
@@ -106,7 +113,7 @@ const pendingBenchmarkRequests: Map<string, Promise<{ alpha: number; benchmark_r
 /**
  * Hook for fetching benchmark comparison (for Alpha and R-Squared)
  */
-export function useBenchmarkComparison(benchmark: string = 'SPY', period: string = '1y', isPreview: boolean = false) {
+export function useBenchmarkComparison(benchmark: string = 'SPY', period: string = '1y', isPreview: boolean = false, batchData?: unknown) {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const [data, setData] = useState<{ alpha: number; correlation: number; r_squared: number } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -115,6 +122,14 @@ export function useBenchmarkComparison(benchmark: string = 'SPY', period: string
   useEffect(() => {
     if (isPreview || !activePortfolioId) {
       setData(null)
+      setLoading(false)
+      return
+    }
+
+    // Use batch data if available
+    if (batchData) {
+      const benchData = batchData as { alpha: number; correlation: number; r_squared: number }
+      setData(benchData)
       setLoading(false)
       return
     }
@@ -182,7 +197,7 @@ export function useBenchmarkComparison(benchmark: string = 'SPY', period: string
     }
 
     fetchBenchmark()
-  }, [activePortfolioId, benchmark, period, isPreview])
+  }, [activePortfolioId, benchmark, period, isPreview, batchData])
 
   return { data, loading, error }
 }

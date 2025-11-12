@@ -35,6 +35,7 @@ interface DashboardGridProps {
   onRefreshVisibility?: () => void
   userId?: number
   portfolioId?: number
+  batchData?: unknown // Batch data from useDashboardBatch
 }
 
 export default function DashboardGrid({ 
@@ -47,6 +48,7 @@ export default function DashboardGrid({
   onRefreshVisibility,
   userId,
   portfolioId,
+  batchData,
 }: DashboardGridProps) {
   // Initialize breakpoint based on current window size immediately
   const getInitialBreakpoint = (): 'lg' | 'md' | 'sm' => {
@@ -466,6 +468,7 @@ export default function DashboardGrid({
       portfolioId,
       userId,
       isPreview: false,
+      batchData, // Pass batch data to widgets
     }
     
     // Get widget props from config

@@ -12,6 +12,7 @@ import { Layout } from 'react-grid-layout'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import type { DashboardLayoutDTO } from '../types/dashboard'
+import { useDashboardBatch } from '../hooks/useDashboardBatch'
 
 export default function Dashboard() {
   const {
@@ -34,6 +35,24 @@ export default function Dashboard() {
     lg: loadLayout('lg', user?.id),
     md: loadLayout('md', user?.id),
     sm: loadLayout('sm', user?.id),
+  })
+  
+  // Get visible widgets from current layout
+  const visibleWidgets = useMemo(() => {
+    return currentLayout.map(item => item.i)
+  }, [currentLayout])
+  
+  // Batch fetch all dashboard data with smart widget filtering
+  const { 
+    data: batchData, 
+    isLoading: batchLoading,
+    isRefetching: batchRefetching,
+    error: batchError 
+  } = useDashboardBatch({
+    portfolioId: activePortfolioId || 0,
+    visibleWidgets,
+    includeSold: true,
+    enabled: !!activePortfolioId && visibleWidgets.length > 0,
   })
   
   // Reload layout when widget library opens (to sync with any changes from DashboardGrid)
@@ -135,35 +154,15 @@ export default function Dashboard() {
     }
   }, [portfoliosData, activePortfolioId, setPortfolios, setActivePortfolio])
 
-  // Load positions
-  const { data: positions, isLoading: positionsLoading } = useQuery({
-    queryKey: ['positions', activePortfolioId],
-    queryFn: () => api.getPortfolioPositions(activePortfolioId!),
-    enabled: !!activePortfolioId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-  })
-
-  // Load metrics
-  const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['metrics', activePortfolioId],
-    queryFn: () => api.getPortfolioMetrics(activePortfolioId!),
-    enabled: !!activePortfolioId,
-    staleTime: 10 * 1000,
-    gcTime: 2 * 60 * 1000,
-  })
-
-  // Load sold positions (always enabled when there's an active portfolio)
-  const { data: soldPositions, isLoading: soldPositionsLoading } = useQuery<PositionDTO[]>({
-    queryKey: ['soldPositions', activePortfolioId],
-    queryFn: async () => {
-      const data = await api.getSoldPositions(activePortfolioId!)
-      return data
-    },
-    enabled: !!activePortfolioId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000,
-  })
+  // Extract data from batch response
+  const positions = useMemo(() => batchData?.data.positions as PositionDTO[] | undefined, [batchData])
+  const metrics = useMemo(() => batchData?.data.metrics, [batchData])
+  const soldPositions = useMemo(() => batchData?.data.sold_positions as PositionDTO[] | undefined, [batchData])
+  
+  // Use batch loading state
+  const positionsLoading = batchLoading
+  const metricsLoading = batchLoading
+  const soldPositionsLoading = batchLoading
 
   // Batch price updates
   const { data: batchPrices, isRefetching: isPriceRefetching, error: priceError } = useQuery({
@@ -219,8 +218,7 @@ export default function Dashboard() {
     if (!activePortfolioId) return
     
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['positions', activePortfolioId] }),
-      queryClient.invalidateQueries({ queryKey: ['metrics', activePortfolioId] }),
+      queryClient.invalidateQueries({ queryKey: ['dashboard-batch', activePortfolioId] }),
       queryClient.invalidateQueries({ queryKey: ['batchPrices', activePortfolioId] }),
     ])
     
@@ -285,7 +283,7 @@ export default function Dashboard() {
 
 
   const isAutoRefreshEnabled = autoRefreshSettings.enabled
-  const isAnyRefreshing = isPriceRefetching
+  const isAnyRefreshing = isPriceRefetching || batchRefetching
 
   const [marketStatus, setMarketStatus] = useState<'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown'>('unknown')
 
@@ -425,6 +423,15 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Batch Error Alert */}
+      {batchError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm text-red-800 dark:text-red-200">
+            <strong>{t('common.error')}:</strong> {batchError.message || String(batchError)}
+          </p>
+        </div>
+      )}
+      
       {/* Price Error Alert */}
       {priceError && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -454,6 +461,7 @@ export default function Dashboard() {
         isLoading={positionsLoading || metricsLoading}
         userId={user?.id}
         portfolioId={activePortfolioId || undefined}
+        batchData={batchData?.data}
       />
 
       {/* Widget Library Modal */}

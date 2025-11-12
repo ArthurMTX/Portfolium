@@ -5,9 +5,11 @@ import usePortfolioStore from '@/store/usePortfolioStore'
 import api, { PortfolioHistoryPointDTO } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 
-interface PerformanceMetricsWidgetProps extends BaseWidgetProps {}
+interface PerformanceMetricsWidgetProps extends BaseWidgetProps {
+  batchData?: { performance_history?: unknown }
+}
 
-export default function PerformanceMetricsWidget({ isPreview = false }: PerformanceMetricsWidgetProps) {
+export default function PerformanceMetricsWidget({ isPreview = false, batchData }: PerformanceMetricsWidgetProps) {
   const { t } = useTranslation()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const [loading, setLoading] = useState(false)
@@ -27,8 +29,6 @@ export default function PerformanceMetricsWidget({ isPreview = false }: Performa
       })
       return
     }
-
-    if (!activePortfolioId) return
 
     const calculatePeriodPerformance = (history: PortfolioHistoryPointDTO[]) => {
       if (history.length === 0) return undefined
@@ -52,6 +52,20 @@ export default function PerformanceMetricsWidget({ isPreview = false }: Performa
       const valueChange = endValue - startValue - capitalChange
       return (valueChange / startValue) * 100
     }
+
+    // Check if batch data is available
+    if (batchData?.performance_history) {
+      const historyData = batchData.performance_history as Record<string, PortfolioHistoryPointDTO[]>
+      setMetrics({
+        weeklyReturn: historyData['1W'] ? calculatePeriodPerformance(historyData['1W']) : undefined,
+        monthlyReturn: historyData['1M'] ? calculatePeriodPerformance(historyData['1M']) : undefined,
+        ytdReturn: historyData['YTD'] ? calculatePeriodPerformance(historyData['YTD']) : undefined,
+      })
+      setLoading(false)
+      return
+    }
+
+    if (!activePortfolioId) return
 
     const fetchMetrics = async () => {
       setLoading(true)
@@ -78,7 +92,7 @@ export default function PerformanceMetricsWidget({ isPreview = false }: Performa
     }
 
     fetchMetrics()
-  }, [activePortfolioId, isPreview])
+  }, [activePortfolioId, isPreview, batchData])
 
   const periods = [
     { label: t('dashboard.widgets.performanceMetrics.weekly'), value: metrics.weeklyReturn, key: 'week' },

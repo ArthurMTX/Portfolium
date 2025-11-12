@@ -1,50 +1,47 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Activity } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '../../types'
 import api from '@/lib/api'
+import { useWidgetVisibility } from '@/contexts/DashboardContext'
 
 interface VIXWidgetProps extends BaseWidgetProps {
   title: string
   subtitle?: string
+  batchData?: { market_vix?: unknown }
 }
 
 export default function VIXWidget({
   title,
   subtitle,
   isPreview = false,
+  batchData,
 }: VIXWidgetProps) {
   const { t } = useTranslation()
-  const [vixPrice, setVixPrice] = useState<number | null>(null)
-  const [vixChange, setVixChange] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
+  const shouldLoad = useWidgetVisibility('vix-index')
 
-  useEffect(() => {
-    if (isPreview) {
-      // Mock data for preview
-      setVixPrice(17.28)
-      setVixChange(-0.5)
-      return
-    }
+  // Get data from batch if available
+  const hasBatchData = !!batchData?.market_vix
 
-    const fetchVixData = async () => {
-      setLoading(true)
-      try {
-        const data = await api.getVIXIndex()
-        
-        setVixPrice(data.price)
-        setVixChange(data.change_pct)
-      } catch (error) {
-        console.error('Failed to fetch VIX data:', error)
-        setVixPrice(null)
-        setVixChange(null)
-      } finally {
-        setLoading(false)
-      }
-    }
+  // React Query with caching and deduplication (only if no batch data)
+  const { data: queryData, isLoading: queryLoading } = useQuery({
+    queryKey: ['market-index', 'vix'],
+    queryFn: () => api.getVIXIndex(),
+    enabled: !isPreview && shouldLoad && !hasBatchData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: 60 * 1000,
+    retry: 2,
+  })
 
-    fetchVixData()
-  }, [isPreview])
+  // Use batch data if available, otherwise use query data
+  const data = (hasBatchData ? batchData.market_vix : queryData) as { price?: number; change_pct?: number } | undefined
+
+  // Use mock data for preview, real data otherwise
+  const vixPrice = isPreview ? 17.28 : data?.price ?? null
+  const vixChange = isPreview ? -0.5 : data?.change_pct ?? null
+  const loading = queryLoading && !isPreview && !hasBatchData
 
   const { volatilityLevel, volatilityColor, bgColor, iconColor } = useMemo(() => {
     if (vixPrice === null) {

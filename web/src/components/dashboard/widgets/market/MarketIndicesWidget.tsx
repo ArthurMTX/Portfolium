@@ -33,19 +33,28 @@ const marketIndices: MarketIndex[] = [
   { symbol: '^AXJO', name: 'ASX 200', regionKey: 'dashboard.widgets.marketIndices.regions.asia', country: 'Australia' },
 ]
 
-interface MarketIndicesWidgetProps extends BaseWidgetProps {}
+interface MarketIndicesWidgetProps extends BaseWidgetProps {
+  batchData?: { market_indices?: unknown }
+}
 
-export default function MarketIndicesWidget({ isPreview = false }: MarketIndicesWidgetProps) {
+export default function MarketIndicesWidget({ isPreview = false, batchData }: MarketIndicesWidgetProps) {
   const shouldLoad = useWidgetVisibility('market-indices')
   const { t } = useTranslation()
 
-  const { data: indices, isLoading, error } = useQuery({
+  // Get data from batch if available
+  const hasBatchData = !!batchData?.market_indices
+
+  const { data: queryData, isLoading: queryLoading, error } = useQuery({
     queryKey: ['market-indices'],
     queryFn: () => getMarketIndices(),
-    refetchInterval: isPreview ? false : 60000, // Refetch every minute (disabled in preview)
+    refetchInterval: isPreview ? false : 60000,
     retry: 2,
-    enabled: isPreview || shouldLoad, // In preview mode, MockDataProvider intercepts
+    enabled: (isPreview || shouldLoad) && !hasBatchData,
   })
+
+  // Use batch data if available, otherwise use query data
+  const indices = (hasBatchData ? batchData.market_indices : queryData) as Record<string, { current_price?: number; price?: number; percent_change?: number; daily_change_pct?: number }> | undefined
+  const isLoading = queryLoading && !isPreview && !hasBatchData
 
   const formatPrice = (price?: number) => {
     if (price === undefined || price === null) return '—'

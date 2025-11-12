@@ -1,50 +1,47 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { DollarSign } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '../../types'
 import api from '@/lib/api'
+import { useWidgetVisibility } from '@/contexts/DashboardContext'
 
 interface DXYWidgetProps extends BaseWidgetProps {
   title: string
   subtitle?: string
+  batchData?: { market_dxy?: unknown }
 }
 
 export default function DXYWidget({
   title,
   subtitle,
   isPreview = false,
+  batchData,
 }: DXYWidgetProps) {
   const { t } = useTranslation()
-  const [dxyPrice, setDxyPrice] = useState<number | null>(null)
-  const [dxyChange, setDxyChange] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
+  const shouldLoad = useWidgetVisibility('dxy-index')
 
-  useEffect(() => {
-    if (isPreview) {
-      // Mock data for preview
-      setDxyPrice(106.25)
-      setDxyChange(0.15)
-      return
-    }
+  // Get data from batch if available
+  const hasBatchData = !!batchData?.market_dxy
 
-    const fetchDxyData = async () => {
-      setLoading(true)
-      try {
-        const data = await api.getDXYIndex()
-        
-        setDxyPrice(data.price)
-        setDxyChange(data.change_pct)
-      } catch (error) {
-        console.error('Failed to fetch DXY data:', error)
-        setDxyPrice(null)
-        setDxyChange(null)
-      } finally {
-        setLoading(false)
-      }
-    }
+  // React Query with caching and deduplication (only if no batch data)
+  const { data: queryData, isLoading: queryLoading } = useQuery({
+    queryKey: ['market-index', 'dxy'],
+    queryFn: () => api.getDXYIndex(),
+    enabled: !isPreview && shouldLoad && !hasBatchData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: 60 * 1000,
+    retry: 2,
+  })
 
-    fetchDxyData()
-  }, [isPreview])
+  // Use batch data if available, otherwise use query data
+  const data = (hasBatchData ? batchData.market_dxy : queryData) as { price?: number; change_pct?: number } | undefined
+
+  // Use mock data for preview, real data otherwise
+  const dxyPrice = isPreview ? 106.25 : data?.price ?? null
+  const dxyChange = isPreview ? 0.15 : data?.change_pct ?? null
+  const loading = queryLoading && !isPreview && !hasBatchData
 
   const { strengthLevel, strengthColor, bgColor, iconColor } = useMemo(() => {
     if (dxyPrice === null) {

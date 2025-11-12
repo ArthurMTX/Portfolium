@@ -1,50 +1,47 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { TrendingUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '../../types'
 import api from '@/lib/api'
+import { useWidgetVisibility } from '@/contexts/DashboardContext'
 
 interface TNXWidgetProps extends BaseWidgetProps {
   title: string
   subtitle?: string
+  batchData?: { market_tnx?: unknown }
 }
 
 export default function TNXWidget({
   title,
   subtitle,
   isPreview = false,
+  batchData,
 }: TNXWidgetProps) {
   const { t } = useTranslation()
-  const [tnxPrice, setTnxPrice] = useState<number | null>(null)
-  const [tnxChange, setTnxChange] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
+  const shouldLoad = useWidgetVisibility('tnx-index')
 
-  useEffect(() => {
-    if (isPreview) {
-      // Mock data for preview
-      setTnxPrice(4.25)
-      setTnxChange(0.3)
-      return
-    }
+  // Get data from batch if available
+  const hasBatchData = !!batchData?.market_tnx
 
-    const fetchTnxData = async () => {
-      setLoading(true)
-      try {
-        const data = await api.getTNXIndex()
-        
-        setTnxPrice(data.price)
-        setTnxChange(data.change_pct)
-      } catch (error) {
-        console.error('Failed to fetch TNX data:', error)
-        setTnxPrice(null)
-        setTnxChange(null)
-      } finally {
-        setLoading(false)
-      }
-    }
+  // React Query with caching and deduplication (only if no batch data)
+  const { data: queryData, isLoading: queryLoading } = useQuery({
+    queryKey: ['market-index', 'tnx'],
+    queryFn: () => api.getTNXIndex(),
+    enabled: !isPreview && shouldLoad && !hasBatchData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: 60 * 1000,
+    retry: 2,
+  })
 
-    fetchTnxData()
-  }, [isPreview])
+  // Use batch data if available, otherwise use query data
+  const data = (hasBatchData ? batchData.market_tnx : queryData) as { price?: number; change_pct?: number } | undefined
+
+  // Use mock data for preview, real data otherwise
+  const tnxPrice = isPreview ? 4.25 : data?.price ?? null
+  const tnxChange = isPreview ? 0.3 : data?.change_pct ?? null
+  const loading = queryLoading && !isPreview && !hasBatchData
 
   const { yieldLevel, yieldColor, bgColor, iconColor } = useMemo(() => {
     if (tnxPrice === null) {

@@ -2,8 +2,8 @@
 Market data endpoints - Sentiment, indices, etc.
 """
 import logging
-from datetime import datetime
-from typing import Literal
+from datetime import datetime, timedelta
+from typing import Dict, Literal, Tuple, Any
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -12,11 +12,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/market", tags=["market"])
 
+# In-memory cache for market data (endpoint -> (data, timestamp))
+_market_cache: Dict[str, Tuple[Any, datetime]] = {}
+_CACHE_TTL = timedelta(minutes=5)  # Cache for 5 minutes
+
+
+def _get_cached_or_fetch(cache_key: str, fetch_func):
+    """
+    Generic cache wrapper for market data endpoints
+    Returns cached data if fresh, otherwise fetches new data
+    """
+    now = datetime.now()
+    
+    # Check cache
+    if cache_key in _market_cache:
+        data, timestamp = _market_cache[cache_key]
+        if now - timestamp < _CACHE_TTL:
+            logger.debug(f"Cache hit for {cache_key}")
+            return data
+    
+    # Cache miss or stale - fetch new data
+    logger.debug(f"Cache miss for {cache_key}, fetching fresh data")
+    data = fetch_func()
+    _market_cache[cache_key] = (data, now)
+    return data
+
 
 @router.get("/sentiment/stock")
 async def get_stock_market_sentiment():
     """
-    Get stock market sentiment from CNN Fear & Greed Index
+    Get stock market sentiment from CNN Fear & Greed Index (cached for 5 minutes)
     
     Returns:
         - score: 0-100 sentiment score
@@ -24,44 +49,47 @@ async def get_stock_market_sentiment():
         - previous_close: previous day's score
         - timestamp: when the data was collected
     """
-    try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        url = f"https://production.dataviz.cnn.io/index/fearandgreed/graphdata/{today}"
-        
-        # Add headers to mimic a browser request
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.cnn.com/",
-            "Origin": "https://www.cnn.com",
-        }
-        
-        async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            data = response.json()
+    def fetch_stock_sentiment():
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            url = f"https://production.dataviz.cnn.io/index/fearandgreed/graphdata/{today}"
             
-            fear_and_greed = data.get("fear_and_greed", {})
-            
-            return {
-                "score": round(fear_and_greed.get("score", 0)),
-                "rating": fear_and_greed.get("rating", "unknown").lower(),
-                "previous_close": round(fear_and_greed.get("previous_close", 0)),
-                "timestamp": fear_and_greed.get("timestamp"),
+            # Add headers to mimic a browser request
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://www.cnn.com/",
+                "Origin": "https://www.cnn.com",
             }
-    except httpx.HTTPError as e:
-        logger.error(f"Failed to fetch stock sentiment: {e}")
-        raise HTTPException(status_code=503, detail="Failed to fetch stock market sentiment data")
-    except Exception as e:
-        logger.error(f"Unexpected error fetching stock sentiment: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+            
+            with httpx.Client(timeout=10.0, headers=headers) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                data = response.json()
+                
+                fear_and_greed = data.get("fear_and_greed", {})
+                
+                return {
+                    "score": round(fear_and_greed.get("score", 0)),
+                    "rating": fear_and_greed.get("rating", "unknown").lower(),
+                    "previous_close": round(fear_and_greed.get("previous_close", 0)),
+                    "timestamp": fear_and_greed.get("timestamp"),
+                }
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch stock sentiment: {e}")
+            raise HTTPException(status_code=503, detail="Failed to fetch stock market sentiment data")
+        except Exception as e:
+            logger.error(f"Unexpected error fetching stock sentiment: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    return _get_cached_or_fetch("sentiment_stock", fetch_stock_sentiment)
 
 
 @router.get("/sentiment/crypto")
 async def get_crypto_market_sentiment():
     """
-    Get crypto market sentiment from Alternative.me Fear & Greed Index
+    Get crypto market sentiment from Alternative.me Fear & Greed Index (cached for 5 minutes)
     
     Returns:
         - score: 0-100 sentiment score
@@ -69,38 +97,41 @@ async def get_crypto_market_sentiment():
         - previous_value: previous day's score
         - timestamp: when the data was collected
     """
-    try:
-        url = "https://api.alternative.me/fng/?limit=2"
-        
-        # Add headers to mimic a browser request
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-        }
-        
-        async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            data = response.json()
+    def fetch_crypto_sentiment():
+        try:
+            url = "https://api.alternative.me/fng/?limit=2"
             
-            if not data.get("data") or len(data["data"]) == 0:
-                raise HTTPException(status_code=503, detail="No crypto sentiment data available")
-            
-            current = data["data"][0]
-            previous = data["data"][1] if len(data["data"]) > 1 else None
-            
-            return {
-                "score": int(current.get("value", 0)),
-                "rating": current.get("value_classification", "unknown").lower(),
-                "previous_value": int(previous.get("value", 0)) if previous else None,
-                "timestamp": current.get("timestamp"),
+            # Add headers to mimic a browser request
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json",
             }
-    except httpx.HTTPError as e:
-        logger.error(f"Failed to fetch crypto sentiment: {e}")
-        raise HTTPException(status_code=503, detail="Failed to fetch crypto market sentiment data")
-    except Exception as e:
-        logger.error(f"Unexpected error fetching crypto sentiment: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+            
+            with httpx.Client(timeout=10.0, headers=headers) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                data = response.json()
+                
+                if not data.get("data") or len(data["data"]) == 0:
+                    raise HTTPException(status_code=503, detail="No crypto sentiment data available")
+                
+                current = data["data"][0]
+                previous = data["data"][1] if len(data["data"]) > 1 else None
+                
+                return {
+                    "score": int(current.get("value", 0)),
+                    "rating": current.get("value_classification", "unknown").lower(),
+                    "previous_value": int(previous.get("value", 0)) if previous else None,
+                    "timestamp": current.get("timestamp"),
+                }
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch crypto sentiment: {e}")
+            raise HTTPException(status_code=503, detail="Failed to fetch crypto market sentiment data")
+        except Exception as e:
+            logger.error(f"Unexpected error fetching crypto sentiment: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    return _get_cached_or_fetch("sentiment_crypto", fetch_crypto_sentiment)
 
 
 @router.get("/sentiment/{market_type}")
@@ -125,7 +156,7 @@ async def get_market_sentiment(market_type: Literal["stock", "crypto"]):
 @router.get("/vix")
 async def get_vix_index():
     """
-    Get CBOE Volatility Index (VIX) data
+    Get CBOE Volatility Index (VIX) data (cached for 5 minutes)
     
     Returns:
         - price: Current VIX value
@@ -133,42 +164,45 @@ async def get_vix_index():
         - change_pct: Percentage change from previous close
         - timestamp: When the data was collected
     """
-    try:
-        import yfinance as yf
-        
-        # Fetch VIX data
-        vix = yf.Ticker("^VIX")
-        info = vix.info
-        
-        current_price = info.get("regularMarketPrice") or info.get("currentPrice")
-        previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
-        
-        if current_price is None:
-            raise HTTPException(status_code=503, detail="VIX data not available")
-        
-        change = None
-        change_pct = None
-        
-        if previous_close and previous_close > 0:
-            change = current_price - previous_close
-            change_pct = (change / previous_close) * 100
-        
-        return {
-            "price": round(current_price, 2),
-            "change": round(change, 2) if change is not None else None,
-            "change_pct": round(change_pct, 2) if change_pct is not None else None,
-            "previous_close": round(previous_close, 2) if previous_close else None,
-            "timestamp": datetime.now().isoformat(),
-        }
-    except Exception as e:
-        logger.error(f"Failed to fetch VIX data: {e}")
-        raise HTTPException(status_code=503, detail="Failed to fetch VIX data")
+    def fetch_vix():
+        try:
+            import yfinance as yf
+            
+            # Fetch VIX data
+            vix = yf.Ticker("^VIX")
+            info = vix.info
+            
+            current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+            previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+            
+            if current_price is None:
+                raise HTTPException(status_code=503, detail="VIX data not available")
+            
+            change = None
+            change_pct = None
+            
+            if previous_close and previous_close > 0:
+                change = current_price - previous_close
+                change_pct = (change / previous_close) * 100
+            
+            return {
+                "price": round(current_price, 2),
+                "change": round(change, 2) if change is not None else None,
+                "change_pct": round(change_pct, 2) if change_pct is not None else None,
+                "previous_close": round(previous_close, 2) if previous_close else None,
+                "timestamp": datetime.now().isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch VIX data: {e}")
+            raise HTTPException(status_code=503, detail="Failed to fetch VIX data")
+    
+    return _get_cached_or_fetch("index_vix", fetch_vix)
 
 
 @router.get("/tnx")
 async def get_tnx_index():
     """
-    Get 10-Year Treasury Note Yield (^TNX) data
+    Get 10-Year Treasury Note Yield (^TNX) data (cached for 5 minutes)
     
     Returns:
         - price: Current 10-Year Treasury yield value
@@ -176,42 +210,45 @@ async def get_tnx_index():
         - change_pct: Percentage change from previous close
         - timestamp: When the data was collected
     """
-    try:
-        import yfinance as yf
-        
-        # Fetch TNX data
-        tnx = yf.Ticker("^TNX")
-        info = tnx.info
-        
-        current_price = info.get("regularMarketPrice") or info.get("currentPrice")
-        previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
-        
-        if current_price is None:
-            raise HTTPException(status_code=503, detail="TNX data not available")
-        
-        change = None
-        change_pct = None
-        
-        if previous_close and previous_close > 0:
-            change = current_price - previous_close
-            change_pct = (change / previous_close) * 100
-        
-        return {
-            "price": round(current_price, 2),
-            "change": round(change, 2) if change is not None else None,
-            "change_pct": round(change_pct, 2) if change_pct is not None else None,
-            "previous_close": round(previous_close, 2) if previous_close else None,
-            "timestamp": datetime.now().isoformat(),
-        }
-    except Exception as e:
-        logger.error(f"Failed to fetch TNX data: {e}")
-        raise HTTPException(status_code=503, detail="Failed to fetch TNX data")
+    def fetch_tnx():
+        try:
+            import yfinance as yf
+            
+            # Fetch TNX data
+            tnx = yf.Ticker("^TNX")
+            info = tnx.info
+            
+            current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+            previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+            
+            if current_price is None:
+                raise HTTPException(status_code=503, detail="TNX data not available")
+            
+            change = None
+            change_pct = None
+            
+            if previous_close and previous_close > 0:
+                change = current_price - previous_close
+                change_pct = (change / previous_close) * 100
+            
+            return {
+                "price": round(current_price, 2),
+                "change": round(change, 2) if change is not None else None,
+                "change_pct": round(change_pct, 2) if change_pct is not None else None,
+                "previous_close": round(previous_close, 2) if previous_close else None,
+                "timestamp": datetime.now().isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch TNX data: {e}")
+            raise HTTPException(status_code=503, detail="Failed to fetch TNX data")
+    
+    return _get_cached_or_fetch("index_tnx", fetch_tnx)
 
 
 @router.get("/dxy")
 async def get_dxy_index():
     """
-    Get U.S. Dollar Index (DX-Y.NYB) data
+    Get U.S. Dollar Index (DX-Y.NYB) data (cached for 5 minutes)
     
     Returns:
         - price: Current U.S. Dollar Index value
@@ -219,33 +256,36 @@ async def get_dxy_index():
         - change_pct: Percentage change from previous close
         - timestamp: When the data was collected
     """
-    try:
-        import yfinance as yf
-        
-        # Fetch DXY data
-        dxy = yf.Ticker("DX-Y.NYB")
-        info = dxy.info
-        
-        current_price = info.get("regularMarketPrice") or info.get("currentPrice")
-        previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
-        
-        if current_price is None:
-            raise HTTPException(status_code=503, detail="DXY data not available")
-        
-        change = None
-        change_pct = None
-        
-        if previous_close and previous_close > 0:
-            change = current_price - previous_close
-            change_pct = (change / previous_close) * 100
-        
-        return {
-            "price": round(current_price, 2),
-            "change": round(change, 2) if change is not None else None,
-            "change_pct": round(change_pct, 2) if change_pct is not None else None,
-            "previous_close": round(previous_close, 2) if previous_close else None,
-            "timestamp": datetime.now().isoformat(),
-        }
-    except Exception as e:
-        logger.error(f"Failed to fetch DXY data: {e}")
-        raise HTTPException(status_code=503, detail="Failed to fetch DXY data")
+    def fetch_dxy():
+        try:
+            import yfinance as yf
+            
+            # Fetch DXY data
+            dxy = yf.Ticker("DX-Y.NYB")
+            info = dxy.info
+            
+            current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+            previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+            
+            if current_price is None:
+                raise HTTPException(status_code=503, detail="DXY data not available")
+            
+            change = None
+            change_pct = None
+            
+            if previous_close and previous_close > 0:
+                change = current_price - previous_close
+                change_pct = (change / previous_close) * 100
+            
+            return {
+                "price": round(current_price, 2),
+                "change": round(change, 2) if change is not None else None,
+                "change_pct": round(change_pct, 2) if change_pct is not None else None,
+                "previous_close": round(previous_close, 2) if previous_close else None,
+                "timestamp": datetime.now().isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch DXY data: {e}")
+            raise HTTPException(status_code=503, detail="Failed to fetch DXY data")
+    
+    return _get_cached_or_fetch("index_dxy", fetch_dxy)

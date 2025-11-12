@@ -14,6 +14,7 @@ interface RiskMetricWidgetProps extends BaseWidgetProps {
   period?: string
   valueColor?: string
   formatter?: (value: number) => string
+  batchData?: { risk_metrics?: unknown }
 }
 
 export default function RiskMetricWidget({
@@ -27,9 +28,10 @@ export default function RiskMetricWidget({
   valueColor = 'text-neutral-900 dark:text-neutral-100',
   formatter,
   isPreview = false,
+  batchData,
 }: RiskMetricWidgetProps) {
   const { t } = useTranslation()
-  const { data, loading } = useRiskMetrics(period, isPreview)
+  const { data, loading } = useRiskMetrics(period, isPreview, batchData?.risk_metrics)
 
   const value = useMemo(() => {
     // Use mock data in preview mode

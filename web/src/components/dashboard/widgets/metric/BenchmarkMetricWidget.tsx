@@ -15,6 +15,7 @@ interface BenchmarkMetricWidgetProps extends BaseWidgetProps {
   period?: string
   valueColor?: string
   formatter?: (value: number) => string
+  batchData?: { benchmark_comparison?: unknown }
 }
 
 export default function BenchmarkMetricWidget({
@@ -29,9 +30,10 @@ export default function BenchmarkMetricWidget({
   valueColor = 'text-neutral-900 dark:text-neutral-100',
   formatter,
   isPreview = false,
+  batchData,
 }: BenchmarkMetricWidgetProps) {
   const { t } = useTranslation()
-  const { data, loading } = useBenchmarkComparison(benchmark, period, isPreview)
+  const { data, loading } = useBenchmarkComparison(benchmark, period, isPreview, batchData?.benchmark_comparison)
 
   const value = useMemo(() => {
     // Use mock data in preview mode

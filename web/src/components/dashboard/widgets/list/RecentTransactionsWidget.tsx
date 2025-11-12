@@ -33,9 +33,11 @@ interface ApiTransaction {
 
 import { BaseWidgetProps } from '../../types'
 
-interface RecentTransactionsWidgetProps extends BaseWidgetProps {}
+interface RecentTransactionsWidgetProps extends BaseWidgetProps {
+  batchData?: { transactions?: unknown }
+}
 
-export default function RecentTransactionsWidget({ isPreview = false }: RecentTransactionsWidgetProps) {
+export default function RecentTransactionsWidget({ isPreview = false, batchData }: RecentTransactionsWidgetProps) {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
@@ -57,10 +59,16 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
   const { data: transactions, isLoading } = useQuery<ApiTransaction[]>({
     queryKey: ['recent-transactions', activePortfolioId],
     queryFn: async () => {
+      // Use batch data if available
+      if (batchData?.transactions) {
+        return batchData.transactions as ApiTransaction[]
+      }
       const data = await getRecentTransactions(activePortfolioId!, 5)
       return data as unknown as ApiTransaction[]
     },
     enabled: !isPreview && !!activePortfolioId && shouldLoad,
+    // If we have batch data, use it immediately without fetching
+    initialData: batchData?.transactions as ApiTransaction[] | undefined,
   })
 
   // Mock data for preview mode

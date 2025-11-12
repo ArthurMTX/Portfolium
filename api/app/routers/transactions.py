@@ -476,6 +476,11 @@ async def create_transaction(
             except Exception as e:
                 logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
+    # Invalidate analytics cache since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    invalidate_portfolio_analytics(portfolio_id)
+    logger.info(f"Invalidated analytics cache for portfolio {portfolio_id} after transaction")
+    
     # Create notification for transaction
     notification_service.create_transaction_notification(
         db=db,

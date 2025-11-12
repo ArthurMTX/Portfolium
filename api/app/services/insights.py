@@ -12,6 +12,7 @@ import hashlib
 import json
 
 from app.models import Transaction, Asset, TransactionType, Price
+from app.services.analytics_cache import get_cached_analytics
 from app.schemas import (
     PortfolioInsights,
     AssetAllocation,
@@ -388,8 +389,31 @@ class InsightsService:
             win_rate=win_rate
         )
     
-    def get_risk_metrics(self, portfolio_id: int, period: str) -> RiskMetrics:
-        """Calculate risk metrics"""
+    async def get_risk_metrics(self, portfolio_id: int, period: str) -> RiskMetrics:
+        """Calculate risk metrics with smart caching"""
+        # Get current positions for fingerprint (need to await since it's async)
+        positions = await self.metrics_service.get_positions(portfolio_id)
+        
+        # Get last transaction date
+        last_txn = self.db.query(func.max(Transaction.tx_date)).filter(
+            Transaction.portfolio_id == portfolio_id
+        ).scalar()
+        last_txn_str = last_txn.isoformat() if last_txn else None
+        
+        # Use smart cache
+        def calculator():
+            return self._calculate_risk_metrics(portfolio_id, period)
+        
+        return get_cached_analytics(
+            cache_key=f'risk_metrics_{period}',
+            portfolio_id=portfolio_id,
+            positions=positions,
+            last_transaction_date=last_txn_str,
+            calculator=calculator
+        )
+    
+    def _calculate_risk_metrics(self, portfolio_id: int, period: str) -> RiskMetrics:
+        """Internal method to calculate risk metrics (called only on cache miss)"""
         start_date, end_date = self._get_date_range(period, portfolio_id)
         daily_values = self._get_daily_portfolio_values(
             portfolio_id, start_date, end_date
@@ -469,13 +493,41 @@ class InsightsService:
             downside_deviation=Decimal(str(downside_deviation * 100))
         )
     
-    def compare_to_benchmark(
+    async def compare_to_benchmark(
         self, 
         portfolio_id: int, 
         benchmark_symbol: str, 
         period: str
     ) -> BenchmarkComparison:
-        """Compare portfolio performance to benchmark using investment performance calculation"""
+        """Compare portfolio performance to benchmark with smart caching"""
+        # Get current positions for fingerprint (need to await since it's async)
+        positions = await self.metrics_service.get_positions(portfolio_id)
+        
+        # Get last transaction date
+        last_txn = self.db.query(func.max(Transaction.tx_date)).filter(
+            Transaction.portfolio_id == portfolio_id
+        ).scalar()
+        last_txn_str = last_txn.isoformat() if last_txn else None
+        
+        # Use smart cache
+        def calculator():
+            return self._calculate_benchmark_comparison(portfolio_id, benchmark_symbol, period)
+        
+        return get_cached_analytics(
+            cache_key=f'benchmark_{benchmark_symbol}_{period}',
+            portfolio_id=portfolio_id,
+            positions=positions,
+            last_transaction_date=last_txn_str,
+            calculator=calculator
+        )
+    
+    def _calculate_benchmark_comparison(
+        self, 
+        portfolio_id: int, 
+        benchmark_symbol: str, 
+        period: str
+    ) -> BenchmarkComparison:
+        """Internal method to calculate benchmark comparison (called only on cache miss)"""
         start_date, end_date = self._get_date_range(period, portfolio_id)
         
         # Get portfolio performance data (value and invested amounts)

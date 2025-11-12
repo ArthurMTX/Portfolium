@@ -1,54 +1,50 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { TrendingUpDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import GaugeComponent from 'react-gauge-component'
 import { BaseWidgetProps } from '../../types'
 import api from '@/lib/api'
+import { useWidgetVisibility } from '@/contexts/DashboardContext'
 
 interface SentimentWidgetProps extends BaseWidgetProps {
   title: string
   market?: 'stock' | 'crypto'
+  batchData?: { sentiment_stock?: unknown; sentiment_crypto?: unknown }
 }
 
 export default function SentimentWidget({
   title,
   market = 'stock',
   isPreview = false,
+  batchData,
 }: SentimentWidgetProps) {
   const { t } = useTranslation()
-  const [score, setScore] = useState<number | null>(null)
-  const [rating, setRating] = useState<string>('')
-  const [previousScore, setPreviousScore] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
+  const shouldLoad = useWidgetVisibility(`sentiment-${market}`)
 
-  useEffect(() => {
-    if (isPreview) {
-      // Mock data for preview
-      setScore(30)
-      setRating('fear')
-      setPreviousScore(32)
-      return
-    }
+  // Get data from batch if available, otherwise fall back to individual query
+  const batchSentiment = market === 'stock' ? batchData?.sentiment_stock : batchData?.sentiment_crypto
+  const hasBatchData = !!batchSentiment
 
-    const fetchSentimentData = async () => {
-      setLoading(true)
-      try {
-        const data = await api.getMarketSentiment(market)
-        
-        setScore(data.score)
-        setRating(data.rating)
-        setPreviousScore(data.previous_close || data.previous_value || null)
-      } catch (error) {
-        console.error('Failed to fetch sentiment data:', error)
-        setScore(null)
-        setRating('')
-      } finally {
-        setLoading(false)
-      }
-    }
+  // React Query with caching and deduplication (only fetch if no batch data)
+  const { data: queryData, isLoading: queryLoading } = useQuery({
+    queryKey: ['market-sentiment', market],
+    queryFn: () => api.getMarketSentiment(market),
+    enabled: !isPreview && shouldLoad && !hasBatchData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    retry: 2,
+  })
 
-    fetchSentimentData()
-  }, [isPreview, market])
+  // Use batch data if available, otherwise use query data
+  const data = (hasBatchData ? batchSentiment : queryData) as { score?: number; rating?: string; previous_close?: number; previous_value?: number } | undefined
+
+  // Use mock data for preview, real data otherwise
+  const score = isPreview ? 30 : data?.score ?? null
+  const rating = isPreview ? 'fear' : data?.rating ?? ''
+  const previousScore = isPreview ? 32 : data?.previous_close ?? data?.previous_value ?? null
+  const loading = queryLoading && !isPreview && !hasBatchData
 
   const { displayRating } = useMemo(() => {
     const ratingLower = rating.toLowerCase()

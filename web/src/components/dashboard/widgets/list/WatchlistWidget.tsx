@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Eye, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react'
 import { api } from '../../../../lib/api'
 import { getAssetLogoUrl, handleLogoError } from '../../../../lib/logoUtils'
@@ -19,7 +19,9 @@ interface WatchlistItem {
   asset_type: string | null
 }
 
-interface WatchlistWidgetProps extends BaseWidgetProps {}
+interface WatchlistWidgetProps extends BaseWidgetProps {
+  batchData?: { watchlist?: unknown }
+}
 
 // Mock watchlist for preview mode
 const mockWatchlist: WatchlistItem[] = [
@@ -52,49 +54,57 @@ const mockWatchlist: WatchlistItem[] = [
   },
 ]
 
-export default function WatchlistWidget({ isPreview = false }: WatchlistWidgetProps) {
+export default function WatchlistWidget({ isPreview = false, batchData }: WatchlistWidgetProps) {
   const navigate = useNavigate()
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(isPreview ? mockWatchlist : [])
-  const [loading, setLoading] = useState(!isPreview)
   const { t } = useTranslation()
   const shouldLoad = useWidgetVisibility('watchlist')
 
-  useEffect(() => {
-    // Use mock data in preview mode, skip loading
-    if (isPreview) {
-      setLoading(false)
-      return
-    }
+  // Get data from batch if available
+  const hasBatchData = !!batchData?.watchlist
 
-    // Skip loading if widget not visible
-    if (!shouldLoad) {
-      setLoading(false)
-      return
-    }
+  // React Query with caching and deduplication (only if no batch data)
+  const { data: queryData, isLoading: queryLoading } = useQuery({
+    queryKey: ['watchlist-widget'],
+    queryFn: async () => {
+      const data = await api.getWatchlist()
+      // Take only first 5 items and ensure asset_type exists
+      return data.slice(0, 5).map(item => ({
+        id: item.id,
+        symbol: item.symbol,
+        name: item.name,
+        current_price: item.current_price,
+        daily_change_pct: item.daily_change_pct,
+        currency: item.currency,
+        asset_type: 'STOCK' as string | null
+      })) as WatchlistItem[]
+    },
+    enabled: !isPreview && shouldLoad && !hasBatchData,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchInterval: 60 * 1000,
+    retry: 2,
+  })
 
-    const loadWatchlist = async () => {
-      try {
-        setLoading(true)
-        const data = await api.getWatchlist()
-        // Take only first 5 items and ensure asset_type exists
-        const normalized = data.slice(0, 5).map(item => ({
-          id: item.id,
-          symbol: item.symbol,
-          name: item.name,
-          current_price: item.current_price,
-          daily_change_pct: item.daily_change_pct,
-          currency: item.currency,
-          asset_type: 'STOCK' as string | null
-        })) as WatchlistItem[]
-        setWatchlist(normalized)
-      } catch (err) {
-        console.error('Failed to load watchlist:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadWatchlist()
-  }, [shouldLoad, isPreview])
+  // Process batch data to match expected format
+  const batchWatchlistData = hasBatchData 
+    ? (batchData.watchlist as WatchlistItem[]).slice(0, 5).map(item => ({
+        id: item.id,
+        symbol: item.symbol,
+        name: item.name,
+        current_price: item.current_price,
+        daily_change_pct: item.daily_change_pct,
+        currency: item.currency,
+        asset_type: 'STOCK' as string | null
+      })) as WatchlistItem[]
+    : undefined
+
+  // Use batch data if available, otherwise use query data
+  const data = hasBatchData ? batchWatchlistData : queryData
+  const isLoading = queryLoading && !isPreview && !hasBatchData
+
+  // Use mock data for preview, real data otherwise
+  const watchlist = isPreview ? mockWatchlist : data ?? []
+  const loading = isLoading && !isPreview
 
   const handleViewAll = () => {
     navigate('/watchlist')

@@ -15,9 +15,15 @@ Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEleme
 type DistributionType = 'sector' | 'type' | 'country'
 type ChartType = 'pie' | 'donut' | 'bar'
 
-interface AssetAllocationWidgetProps extends BaseWidgetProps {}
+interface AssetAllocationWidgetProps extends BaseWidgetProps {
+  batchData?: { 
+    asset_allocation?: unknown
+    sector_allocation?: unknown
+    country_allocation?: unknown
+  }
+}
 
-export default function AssetAllocationWidget({ isPreview = false }: AssetAllocationWidgetProps) {
+export default function AssetAllocationWidget({ isPreview = false, batchData }: AssetAllocationWidgetProps) {
   const { t } = useTranslation()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
 
@@ -40,6 +46,32 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
           setDistributionData(mockCountriesDistribution)
           break
       }
+      return
+    }
+
+    // Check if batch data is available for current tab
+    const hasBatchData = (
+      (activeTab === 'sector' && batchData?.sector_allocation) ||
+      (activeTab === 'type' && batchData?.asset_allocation) ||
+      (activeTab === 'country' && batchData?.country_allocation)
+    )
+
+    if (hasBatchData) {
+      // Use batch data
+      let data: DistributionItemDTO[]
+      switch (activeTab) {
+        case 'sector':
+          data = batchData!.sector_allocation as DistributionItemDTO[]
+          break
+        case 'type':
+          data = batchData!.asset_allocation as DistributionItemDTO[]
+          break
+        case 'country':
+          data = batchData!.country_allocation as DistributionItemDTO[]
+          break
+      }
+      setDistributionData(data)
+      setLoading(false)
       return
     }
 
@@ -69,7 +101,7 @@ export default function AssetAllocationWidget({ isPreview = false }: AssetAlloca
     }
 
     fetchData()
-  }, [activePortfolioId, activeTab, isPreview])
+  }, [activePortfolioId, activeTab, isPreview, batchData])
 
   // Prepare chart data
   const chartData = {

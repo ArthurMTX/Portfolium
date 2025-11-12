@@ -259,6 +259,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: WatchlistWidget,
     getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -363,6 +364,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: PerformanceMetricsWidget,
     getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -424,6 +426,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: RecentTransactionsWidget,
     getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -454,6 +457,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: MarketIndicesWidget,
     getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -469,6 +473,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: AssetAllocationWidget,
     getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -527,6 +532,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       period: '1y',
       formatter: (val: number) => val.toFixed(2),
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -549,6 +555,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       iconColor: 'text-orange-600 dark:text-orange-400',
       period: '1y',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -572,6 +579,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       valueColor: 'text-red-600 dark:text-red-400',
       period: '1y',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -595,6 +603,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       period: '1y',
       formatter: (val: number) => val.toFixed(2),
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -618,6 +627,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       valueColor: 'text-rose-600 dark:text-rose-400',
       period: '1y',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -640,6 +650,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       iconColor: 'text-amber-600 dark:text-amber-400',
       period: '1y',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -706,6 +717,7 @@ export const widgetDefinitions: WidgetConfig[] = [
         return isNaN(numVal) ? 'N/A' : `${numVal >= 0 ? '+' : ''}${numVal.toFixed(2)}%`
       },
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -729,6 +741,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       benchmark: 'SPY',
       period: '1y',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -823,6 +836,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       title: 'dashboard.widgets.marketSentiment.name',
       market: 'stock',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -840,6 +854,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       title: 'dashboard.widgets.cryptoSentiment.name',
       market: 'crypto',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
 
@@ -859,6 +874,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       title: 'dashboard.widgets.vixIndex.name',
       subtitle: 'dashboard.widgets.vixIndex.subtitle',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -876,6 +892,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       title: 'dashboard.widgets.tnxIndex.name',
       subtitle: 'dashboard.widgets.tnxIndex.subtitle',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
   {
@@ -893,6 +910,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       title: 'dashboard.widgets.dxyIndex.name',
       subtitle: 'dashboard.widgets.dxyIndex.subtitle',
       isPreview: context.isPreview,
+      batchData: context.batchData,
     }),
   },
 ]
