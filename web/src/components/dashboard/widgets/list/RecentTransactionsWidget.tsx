@@ -60,8 +60,104 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
       const data = await getRecentTransactions(activePortfolioId!, 5)
       return data as unknown as ApiTransaction[]
     },
-    enabled: isPreview || (!!activePortfolioId && shouldLoad), // In preview mode, MockDataProvider intercepts
+    enabled: !isPreview && !!activePortfolioId && shouldLoad,
   })
+
+  // Mock data for preview mode
+  const mockTransactions: ApiTransaction[] = [
+    {
+      id: 1,
+      portfolio_id: 1,
+      asset_id: 1,
+      type: 'BUY',
+      tx_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      quantity: 10,
+      price: 175.50,
+      fees: 2.50,
+      notes: null,
+      metadata: null,
+      asset: {
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        asset_type: 'stock',
+      },
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      portfolio_id: 1,
+      asset_id: 2,
+      type: 'DIVIDEND',
+      tx_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      quantity: 1,
+      price: 125.00,
+      fees: 0,
+      notes: 'Quarterly dividend',
+      metadata: null,
+      asset: {
+        symbol: 'MSFT',
+        name: 'Microsoft Corporation',
+        asset_type: 'stock',
+      },
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 3,
+      portfolio_id: 1,
+      asset_id: 3,
+      type: 'SELL',
+      tx_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      quantity: 5,
+      price: 220.00,
+      fees: 1.50,
+      notes: null,
+      metadata: null,
+      asset: {
+        symbol: 'TSLA',
+        name: 'Tesla Inc.',
+        asset_type: 'stock',
+      },
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 4,
+      portfolio_id: 1,
+      asset_id: 4,
+      type: 'SPLIT',
+      tx_date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      quantity: 0,
+      price: 0,
+      fees: 0,
+      notes: '2-for-1 stock split',
+      metadata: { split: '2:1' },
+      asset: {
+        symbol: 'GOOGL',
+        name: 'Alphabet Inc.',
+        asset_type: 'stock',
+      },
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 5,
+      portfolio_id: 1,
+      asset_id: 5,
+      type: 'BUY',
+      tx_date: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+      quantity: 100,
+      price: 42.80,
+      fees: 5.00,
+      notes: null,
+      metadata: null,
+      asset: {
+        symbol: 'NVDA',
+        name: 'NVIDIA Corporation',
+        asset_type: 'stock',
+      },
+      created_at: new Date().toISOString(),
+    },
+  ]
+
+  const displayTransactions = isPreview ? mockTransactions : (transactions || [])
 
   const getTypeLabel = (type: string | null | undefined) => {
     if (!type) return 'Unknown'
@@ -118,7 +214,7 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
     }
   }
 
-  if (isLoading || !transactions) {
+  if (!isPreview && (isLoading || !transactions)) {
     return (
       <div className="card h-full flex items-center justify-center p-5">
         <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
@@ -137,13 +233,13 @@ export default function RecentTransactionsWidget({ isPreview = false }: RecentTr
         </h3>
       </div>
 
-      {transactions.length === 0 ? (
+      {displayTransactions.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
           {t('dashboard.widgets.recentTransactions.noTransactions')}
         </p>
       ) : (
         <div className="space-y-2.5 flex-1 overflow-y-auto scrollbar-hide">
-          {transactions.map((transaction) => (
+          {displayTransactions.map((transaction) => (
             <div
               key={transaction.id}
               className="flex items-start gap-3 p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"

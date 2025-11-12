@@ -21,10 +21,21 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
   const { data: performers, isLoading } = useQuery({
     queryKey: ['top-performers', activePortfolioId],
     queryFn: () => getTopPerformers(activePortfolioId!, '1y', 5),
-    enabled: isPreview || (!!activePortfolioId && shouldLoad), // In preview mode, MockDataProvider intercepts
+    enabled: !isPreview && !!activePortfolioId && shouldLoad,
   })
 
-  if (isLoading || !performers) {
+  // Mock data for preview mode
+  const mockPerformers = [
+    { symbol: 'NVDA', name: 'NVIDIA Corporation', asset_type: 'stock', return_pct: 85.5, value: 15420.30 },
+    { symbol: 'MSFT', name: 'Microsoft Corporation', asset_type: 'stock', return_pct: 42.8, value: 9622.50 },
+    { symbol: 'AAPL', name: 'Apple Inc.', asset_type: 'stock', return_pct: 25.3, value: 8775.00 },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', asset_type: 'stock', return_pct: 18.7, value: 6543.21 },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.', asset_type: 'stock', return_pct: 15.2, value: 5234.10 },
+  ]
+
+  const displayPerformers = isPreview ? mockPerformers : (performers || [])
+
+  if (!isPreview && (isLoading || !performers)) {
     return (
       <div className="card h-full flex items-center justify-center p-5">
         <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
@@ -43,13 +54,13 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
         </h3>
       </div>
 
-      {performers.length === 0 ? (
+      {displayPerformers.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
           {t('dashboard.widgets.topPerformers.noPerformanceData')}
         </p>
       ) : (
         <div className="space-y-3">
-          {performers.map((performer, idx) => (
+          {displayPerformers.map((performer, idx) => (
             <div
               key={performer.symbol}
               className="flex items-center justify-between p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg"

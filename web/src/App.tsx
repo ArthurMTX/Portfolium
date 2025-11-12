@@ -27,6 +27,7 @@ import Insights from './pages/Insights'
 import NotFound from './pages/NotFound'
 import AssetDebug from './pages/AssetDebug'
 import AssetsList from './pages/AssetsList'
+import WidgetDebug from './pages/WidgetDebug'
 
 // Configure React Query for optimal performance
 const queryClient = new QueryClient({
@@ -120,6 +121,14 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin>
                   <AssetsList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="dev/widgets"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <WidgetDebug />
                 </ProtectedRoute>
               }
             />
