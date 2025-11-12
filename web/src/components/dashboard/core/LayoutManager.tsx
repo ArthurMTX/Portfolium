@@ -100,7 +100,6 @@ interface LayoutManagerProps {
     md: Layout[]
     sm: Layout[]
   }
-  portfolioId?: number
   onLoadLayout: (layout: DashboardLayoutDTO) => void
 }
 
@@ -108,7 +107,6 @@ export default function LayoutManager({
   isOpen,
   onClose,
   currentLayout,
-  portfolioId,
   onLoadLayout,
 }: LayoutManagerProps) {
   const queryClient = useQueryClient()
@@ -120,10 +118,10 @@ export default function LayoutManager({
   const [error, setError] = useState<string | null>(null)
   const { t } = useTranslation()
 
-  // Fetch saved layouts
+  // Fetch saved layouts (now global across all portfolios)
   const { data: layouts, isLoading } = useQuery({
-    queryKey: ['dashboard-layouts', portfolioId],
-    queryFn: () => api.getDashboardLayouts(portfolioId),
+    queryKey: ['dashboard-layouts'],
+    queryFn: () => api.getDashboardLayouts(),
     enabled: isOpen,
   })
 
@@ -189,7 +187,7 @@ export default function LayoutManager({
   // Import layout
   const importMutation = useMutation({
     mutationFn: (data: DashboardLayoutExport) => 
-      api.importDashboardLayout(data, portfolioId),
+      api.importDashboardLayout(data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-layouts'] })
       onLoadLayout(data)
@@ -250,7 +248,7 @@ export default function LayoutManager({
     saveMutation.mutate({
       name: saveName.trim(),
       description: saveDescription.trim() || undefined,
-      portfolio_id: portfolioId,
+      portfolio_id: null, // Layouts are now global across all portfolios
       layout_config: currentLayout,
       is_default: false,
     })

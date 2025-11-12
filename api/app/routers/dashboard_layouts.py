@@ -173,11 +173,11 @@ def import_layout(
     Creates a new layout for the current user.
     """
     try:
-        # Create a new layout from the imported data
+        # Create a new layout from the imported data (global across all portfolios)
         layout_create = DashboardLayoutCreate(
             name=layout_export.name,
             description=layout_export.description or f"Imported on {layout_export.exported_at}",
-            portfolio_id=portfolio_id,
+            portfolio_id=None,  # Force NULL to make layout global
             is_default=False,
             is_shared=False,
             layout_config=layout_export.layout_config

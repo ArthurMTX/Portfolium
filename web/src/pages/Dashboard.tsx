@@ -27,21 +27,21 @@ export default function Dashboard() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isWidgetLibraryOpen, setIsWidgetLibraryOpen] = useState(false)
   const [isLayoutManagerOpen, setIsLayoutManagerOpen] = useState(false)
-  const [currentLayout, setCurrentLayout] = useState<Layout[]>(loadLayout('lg', user?.id, activePortfolioId || undefined))
+  const [currentLayout, setCurrentLayout] = useState<Layout[]>(loadLayout('lg', user?.id))
   const [currentBreakpoint, setCurrentBreakpoint] = useState<'lg' | 'md' | 'sm'>('lg')
   const [layoutVersion, setLayoutVersion] = useState(0) // Trigger re-renders
   const [currentLayouts, setCurrentLayouts] = useState<{lg: Layout[], md: Layout[], sm: Layout[]}>({
-    lg: loadLayout('lg', user?.id, activePortfolioId || undefined),
-    md: loadLayout('md', user?.id, activePortfolioId || undefined),
-    sm: loadLayout('sm', user?.id, activePortfolioId || undefined),
+    lg: loadLayout('lg', user?.id),
+    md: loadLayout('md', user?.id),
+    sm: loadLayout('sm', user?.id),
   })
   
   // Reload layout when widget library opens (to sync with any changes from DashboardGrid)
   useEffect(() => {
     if (isWidgetLibraryOpen) {
-      setCurrentLayout(loadLayout(currentBreakpoint, user?.id, activePortfolioId || undefined))
+      setCurrentLayout(loadLayout(currentBreakpoint, user?.id))
     }
-  }, [isWidgetLibraryOpen, currentBreakpoint, user?.id, activePortfolioId])
+  }, [isWidgetLibraryOpen, currentBreakpoint, user?.id])
   
   // Update breakpoint based on window size
   useEffect(() => {
@@ -50,14 +50,14 @@ export default function Dashboard() {
       const newBreakpoint = width >= 1024 ? 'lg' : width >= 768 ? 'md' : 'sm'
       if (newBreakpoint !== currentBreakpoint) {
         setCurrentBreakpoint(newBreakpoint)
-        setCurrentLayout(loadLayout(newBreakpoint, user?.id, activePortfolioId || undefined))
+        setCurrentLayout(loadLayout(newBreakpoint, user?.id))
       }
     }
 
     updateBreakpoint()
     window.addEventListener('resize', updateBreakpoint)
     return () => window.removeEventListener('resize', updateBreakpoint)
-  }, [currentBreakpoint, user?.id, activePortfolioId])
+  }, [currentBreakpoint, user?.id])
   
   // Load last update from localStorage
   const [lastUpdate, setLastUpdate] = useState<number>(() => {
@@ -246,10 +246,10 @@ export default function Dashboard() {
     const { lg, md, sm } = layout.layout_config
     setCurrentLayouts({ lg, md, sm })
     
-    // Save to localStorage
-    saveLayout(lg, 'lg', user?.id, activePortfolioId || undefined)
-    saveLayout(md, 'md', user?.id, activePortfolioId || undefined)
-    saveLayout(sm, 'sm', user?.id, activePortfolioId || undefined)
+    // Save to localStorage (layouts are now global across all portfolios)
+    saveLayout(lg, 'lg', user?.id)
+    saveLayout(md, 'md', user?.id)
+    saveLayout(sm, 'sm', user?.id)
     
     // Update current layout based on breakpoint
     setCurrentLayout(layout.layout_config[currentBreakpoint])
@@ -259,7 +259,7 @@ export default function Dashboard() {
     
     // Close the layout manager
     setIsLayoutManagerOpen(false)
-  }, [user?.id, activePortfolioId, currentBreakpoint])
+  }, [user?.id, currentBreakpoint])
 
   const formatLastUpdate = (timestamp: number) => {
     if (!timestamp) return t('common.never')
@@ -484,7 +484,6 @@ export default function Dashboard() {
         isOpen={isLayoutManagerOpen}
         onClose={() => setIsLayoutManagerOpen(false)}
         currentLayout={currentLayouts}
-        portfolioId={activePortfolioId || undefined}
         onLoadLayout={handleLoadLayout}
       />
     </div>

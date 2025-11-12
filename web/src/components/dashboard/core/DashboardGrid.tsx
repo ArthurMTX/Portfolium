@@ -59,9 +59,9 @@ export default function DashboardGrid({
 
   const [currentBreakpoint, setCurrentBreakpoint] = useState<'lg' | 'md' | 'sm'>(getInitialBreakpoint)
   const [layouts, setLayouts] = useState<Record<string, Layout[]>>({
-    lg: loadLayout('lg', userId, portfolioId),
-    md: loadLayout('md', userId, portfolioId),
-    sm: loadLayout('sm', userId, portfolioId),
+    lg: loadLayout('lg', userId),
+    md: loadLayout('md', userId),
+    sm: loadLayout('sm', userId),
   })
   const [deleteConfirmWidget, setDeleteConfirmWidget] = useState<string | null>(null)
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
@@ -183,42 +183,42 @@ export default function DashboardGrid({
     return compacted
   }, [cleanLayout])
 
-  // Reload layouts when userId or portfolioId changes
+  // Reload layouts when userId changes (layouts are now global across portfolios)
   useEffect(() => {
     const loadedLayouts = {
-      lg: compactLayoutUtil(loadLayout('lg', userId, portfolioId), 'lg'),
-      md: compactLayoutUtil(loadLayout('md', userId, portfolioId), 'md'),
-      sm: compactLayoutUtil(loadLayout('sm', userId, portfolioId), 'sm'),
+      lg: compactLayoutUtil(loadLayout('lg', userId), 'lg'),
+      md: compactLayoutUtil(loadLayout('md', userId), 'md'),
+      sm: compactLayoutUtil(loadLayout('sm', userId), 'sm'),
     }
     setLayouts(loadedLayouts)
     
     // Save the compacted layouts back to localStorage
-    saveLayout(loadedLayouts.lg, 'lg', userId, portfolioId)
-    saveLayout(loadedLayouts.md, 'md', userId, portfolioId)
-    saveLayout(loadedLayouts.sm, 'sm', userId, portfolioId)
-  }, [userId, portfolioId, compactLayoutUtil])
+    saveLayout(loadedLayouts.lg, 'lg', userId)
+    saveLayout(loadedLayouts.md, 'md', userId)
+    saveLayout(loadedLayouts.sm, 'sm', userId)
+  }, [userId, compactLayoutUtil])
 
   // Reload layouts when requested
   useEffect(() => {
     if (onRefreshVisibility) {
       const handleRefresh = () => {
         const loadedLayouts = {
-          lg: compactLayoutUtil(loadLayout('lg', userId, portfolioId), 'lg'),
-          md: compactLayoutUtil(loadLayout('md', userId, portfolioId), 'md'),
-          sm: compactLayoutUtil(loadLayout('sm', userId, portfolioId), 'sm'),
+          lg: compactLayoutUtil(loadLayout('lg', userId), 'lg'),
+          md: compactLayoutUtil(loadLayout('md', userId), 'md'),
+          sm: compactLayoutUtil(loadLayout('sm', userId), 'sm'),
         }
         setLayouts(loadedLayouts)
         
         // Save the compacted layouts back to localStorage
-        saveLayout(loadedLayouts.lg, 'lg', userId, portfolioId)
-        saveLayout(loadedLayouts.md, 'md', userId, portfolioId)
-        saveLayout(loadedLayouts.sm, 'sm', userId, portfolioId)
+        saveLayout(loadedLayouts.lg, 'lg', userId)
+        saveLayout(loadedLayouts.md, 'md', userId)
+        saveLayout(loadedLayouts.sm, 'sm', userId)
       }
       // Store the handler so parent can call it
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).__refreshDashboardVisibility = handleRefresh
     }
-  }, [onRefreshVisibility, userId, portfolioId, compactLayoutUtil])
+  }, [onRefreshVisibility, userId, compactLayoutUtil])
 
   // Determine breakpoint based on window width
   useEffect(() => {
@@ -382,7 +382,7 @@ export default function DashboardGrid({
         ...prev,
         [currentBreakpoint]: cleanedLayout
       }))
-      saveLayout(cleanedLayout, currentBreakpoint, userId, portfolioId)
+      saveLayout(cleanedLayout, currentBreakpoint, userId)
       
       setDraggedItem(null)
     }
@@ -399,7 +399,7 @@ export default function DashboardGrid({
         ...prev,
         [currentBreakpoint]: cleanedLayout
       }))
-      saveLayout(cleanedLayout, currentBreakpoint, userId, portfolioId)
+      saveLayout(cleanedLayout, currentBreakpoint, userId)
     }
   }
 
@@ -423,7 +423,7 @@ export default function DashboardGrid({
         ...prev,
         [currentBreakpoint]: newLayout
       }))
-      saveLayout(newLayout, currentBreakpoint, userId, portfolioId)
+      saveLayout(newLayout, currentBreakpoint, userId)
       setDeleteConfirmWidget(null)
     }
   }

@@ -141,7 +141,7 @@ These templates may be updated as new widgets are added to Portfolium. Check bac
 
 - **Start simple:** Begin with "Quick Glancer" and add complexity as needed
 - **Multiple layouts:** Create different layouts for different scenarios (morning check, deep dive, etc.)
-- **Portfolio-specific:** Each portfolio can have its own saved layouts
+- **User-specific:** Saved layouts are global and apply across all portfolios for the user
 - **Experiment:** Try different layouts to find what works best for your workflow
 
 ## 🐛 Issues?

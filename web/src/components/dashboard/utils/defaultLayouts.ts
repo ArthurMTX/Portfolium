@@ -59,11 +59,11 @@ export const mobileLayout: Layout[] = [
   { i: 'positions', x: 0, y: 20, w: 4, h: 10, minW: 4, minH: 4 },
 ]
 
-export const loadLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number, portfolioId?: number): Layout[] => {
-  // Create a storage key based on user and portfolio (if available)
+export const loadLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number): Layout[] => {
+  // Create a storage key based on user only (layouts are global across portfolios)
   let storageKey = `dashboard-layout-${breakpoint}`
-  if (userId && portfolioId) {
-    storageKey = `dashboard-layout-${userId}-${portfolioId}-${breakpoint}`
+  if (userId) {
+    storageKey = `dashboard-layout-${userId}-${breakpoint}`
   }
   
   const saved = localStorage.getItem(storageKey)
@@ -145,21 +145,21 @@ export const loadLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number, port
   }
 }
 
-export const saveLayout = (layout: Layout[], breakpoint: 'lg' | 'md' | 'sm', userId?: number, portfolioId?: number) => {
-  // Create a storage key based on user and portfolio (if available)
+export const saveLayout = (layout: Layout[], breakpoint: 'lg' | 'md' | 'sm', userId?: number) => {
+  // Create a storage key based on user only (layouts are global across portfolios)
   let storageKey = `dashboard-layout-${breakpoint}`
-  if (userId && portfolioId) {
-    storageKey = `dashboard-layout-${userId}-${portfolioId}-${breakpoint}`
+  if (userId) {
+    storageKey = `dashboard-layout-${userId}-${breakpoint}`
   }
   
   localStorage.setItem(storageKey, JSON.stringify(layout))
 }
 
-export const resetLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number, portfolioId?: number) => {
-  // Create a storage key based on user and portfolio (if available)
+export const resetLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number) => {
+  // Create a storage key based on user only (layouts are global across portfolios)
   let storageKey = `dashboard-layout-${breakpoint}`
-  if (userId && portfolioId) {
-    storageKey = `dashboard-layout-${userId}-${portfolioId}-${breakpoint}`
+  if (userId) {
+    storageKey = `dashboard-layout-${userId}-${breakpoint}`
   }
   
   localStorage.removeItem(storageKey)
