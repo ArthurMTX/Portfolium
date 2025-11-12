@@ -47,9 +47,10 @@ export default function TNXWidget({
   }, [isPreview])
 
   const { yieldLevel, yieldColor, bgColor, iconColor } = useMemo(() => {
+    const { t } = useTranslation()
     if (tnxPrice === null) {
       return {
-        yieldLevel: 'Unknown',
+        yieldLevel: t('common.unknown'),
         yieldColor: 'text-neutral-600 dark:text-neutral-400',
         bgColor: 'bg-neutral-50 dark:bg-neutral-900/20',
         iconColor: 'text-neutral-600 dark:text-neutral-400',
@@ -68,27 +69,27 @@ export default function TNXWidget({
     let iconColor = ''
 
     if (tnxPrice < 2) {
-      yieldLevel = 'Very Low'
+      yieldLevel = t('dashboard.widgets.tnxIndex.yieldLevels.veryLow')
       yieldColor = 'text-blue-600 dark:text-blue-400'
       bgColor = 'bg-blue-50 dark:bg-blue-900/20'
       iconColor = 'text-blue-600 dark:text-blue-400'
     } else if (tnxPrice < 3) {
-      yieldLevel = 'Low'
+      yieldLevel = t('dashboard.widgets.tnxIndex.yieldLevels.low')
       yieldColor = 'text-green-600 dark:text-green-400'
       bgColor = 'bg-green-50 dark:bg-green-900/20'
       iconColor = 'text-green-600 dark:text-green-400'
     } else if (tnxPrice < 4) {
-      yieldLevel = 'Normal'
+      yieldLevel = t('dashboard.widgets.tnxIndex.yieldLevels.normal')
       yieldColor = 'text-neutral-600 dark:text-neutral-400'
       bgColor = 'bg-neutral-50 dark:bg-neutral-900/20'
       iconColor = 'text-neutral-600 dark:text-neutral-400'
     } else if (tnxPrice < 5) {
-      yieldLevel = 'Elevated'
+      yieldLevel = t('dashboard.widgets.tnxIndex.yieldLevels.elevated')
       yieldColor = 'text-orange-600 dark:text-orange-400'
       bgColor = 'bg-orange-50 dark:bg-orange-900/20'
       iconColor = 'text-orange-600 dark:text-orange-400'
     } else {
-      yieldLevel = 'High'
+      yieldLevel = t('dashboard.widgets.tnxIndex.yieldLevels.high')
       yieldColor = 'text-red-600 dark:text-red-400'
       bgColor = 'bg-red-50 dark:bg-red-900/20'
       iconColor = 'text-red-600 dark:text-red-400'
@@ -109,7 +110,7 @@ export default function TNXWidget({
           </h3>
           {subtitle && (
             <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {subtitle}
+              {t(subtitle)}
             </div>
           )}
         </div>
@@ -138,7 +139,7 @@ export default function TNXWidget({
               )}
             </div>
             <p className={`text-sm font-semibold mt-1 ${yieldColor}`}>
-              {yieldLevel} Yield
+              {yieldLevel}
             </p>
           </>
         )}

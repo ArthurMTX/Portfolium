@@ -56,19 +56,19 @@ export default function SentimentWidget({
     let displayRating = 'Unknown'
 
     if (ratingLower.includes('extreme fear')) {
-      displayRating = 'Extreme Fear'
+      displayRating = t('market.sentiments.extremeFear')
     } else if (ratingLower.includes('fear')) {
-      displayRating = 'Fear'
+      displayRating = t('market.sentiments.fear')
     } else if (ratingLower.includes('neutral')) {
-      displayRating = 'Neutral'
+      displayRating = t('market.sentiments.neutral')
     } else if (ratingLower.includes('extreme greed')) {
-      displayRating = 'Extreme Greed'
+      displayRating = t('market.sentiments.extremeGreed')
     } else if (ratingLower.includes('greed')) {
-      displayRating = 'Greed'
+      displayRating = t('market.sentiments.greed')
     }
 
     return { displayRating }
-  }, [rating])
+  }, [rating, t])
 
   const change = useMemo(() => {
     if (score === null || previousScore === null) return null
@@ -107,11 +107,11 @@ export default function SentimentWidget({
                   colorArray: ['#ef4444', '#f97316', '#eab308', '#a3e635', '#22c55e'],
                   padding: 0.02,
                   subArcs: [
-                    { limit: 25, tooltip: { text: 'Extreme Fear'} },
-                    { limit: 45, tooltip: { text: 'Fear'} },
-                    { limit: 55, tooltip: { text: 'Neutral'} },
-                    { limit: 75, tooltip: { text: 'Greed'} },
-                    { limit: 100, tooltip: { text: 'Extreme Greed'} },
+                    { limit: 25, tooltip: { text: t('market.sentiments.extremeFear') } },
+                    { limit: 45, tooltip: { text: t('market.sentiments.fear') } },
+                    { limit: 55, tooltip: { text: t('market.sentiments.neutral') } },
+                    { limit: 75, tooltip: { text: t('market.sentiments.greed') } },
+                    { limit: 100, tooltip: { text: t('market.sentiments.extremeGreed') } },
                   ],
                 }}
                 pointer={{

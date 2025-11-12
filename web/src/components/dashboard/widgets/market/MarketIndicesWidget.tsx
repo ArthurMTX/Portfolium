@@ -5,33 +5,32 @@ import { getFlagUrl } from '@/lib/countryUtils'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
 import { BaseWidgetProps } from '../../types'
 import { useTranslation } from 'react-i18next'
-import { t } from 'i18next'
 
 interface MarketIndex {
   symbol: string
   name: string
-  region: string
+  regionKey: string
   country: string
 }
 
 const marketIndices: MarketIndex[] = [
   // America
-  { symbol: '^GSPC', name: 'S&P 500', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'US' },
-  { symbol: '^DJI', name: 'Dow Jones', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'US' },
-  { symbol: '^IXIC', name: 'Nasdaq', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'US' },
-  { symbol: '^GSPTSE', name: 'TSX', region: t('dashboard.widgets.marketIndices.regions.us'), country: 'Canada' },
+  { symbol: '^GSPC', name: 'S&P 500', regionKey: 'dashboard.widgets.marketIndices.regions.us', country: 'US' },
+  { symbol: '^DJI', name: 'Dow Jones', regionKey: 'dashboard.widgets.marketIndices.regions.us', country: 'US' },
+  { symbol: '^IXIC', name: 'Nasdaq', regionKey: 'dashboard.widgets.marketIndices.regions.us', country: 'US' },
+  { symbol: '^GSPTSE', name: 'TSX', regionKey: 'dashboard.widgets.marketIndices.regions.us', country: 'Canada' },
 
   // Europe
-  { symbol: '^FTSE', name: 'FTSE 100', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'UK' },
-  { symbol: '^GDAXI', name: 'DAX', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'Germany' },
-  { symbol: '^FCHI', name: 'CAC 40', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'France' },
-  { symbol: 'FTSEMIB.MI', name: 'FTSE MIB', region: t('dashboard.widgets.marketIndices.regions.europe'), country: 'Italy' },
+  { symbol: '^FTSE', name: 'FTSE 100', regionKey: 'dashboard.widgets.marketIndices.regions.europe', country: 'UK' },
+  { symbol: '^GDAXI', name: 'DAX', regionKey: 'dashboard.widgets.marketIndices.regions.europe', country: 'Germany' },
+  { symbol: '^FCHI', name: 'CAC 40', regionKey: 'dashboard.widgets.marketIndices.regions.europe', country: 'France' },
+  { symbol: 'FTSEMIB.MI', name: 'FTSE MIB', regionKey: 'dashboard.widgets.marketIndices.regions.europe', country: 'Italy' },
 
   // Asia
-  { symbol: '^N225', name: 'Nikkei 225', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'Japan' },
-  { symbol: '^HSI', name: 'Hang Seng', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'Hong Kong' },
-  { symbol: '000001.SS', name: 'SSE Composite', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'China' },
-  { symbol: '^AXJO', name: 'ASX 200', region: t('dashboard.widgets.marketIndices.regions.asia'), country: 'Australia' },
+  { symbol: '^N225', name: 'Nikkei 225', regionKey: 'dashboard.widgets.marketIndices.regions.asia', country: 'Japan' },
+  { symbol: '^HSI', name: 'Hang Seng', regionKey: 'dashboard.widgets.marketIndices.regions.asia', country: 'Hong Kong' },
+  { symbol: '000001.SS', name: 'SSE Composite', regionKey: 'dashboard.widgets.marketIndices.regions.asia', country: 'China' },
+  { symbol: '^AXJO', name: 'ASX 200', regionKey: 'dashboard.widgets.marketIndices.regions.asia', country: 'Australia' },
 ]
 
 interface MarketIndicesWidgetProps extends BaseWidgetProps {}
@@ -86,13 +85,13 @@ export default function MarketIndicesWidget({ isPreview = false }: MarketIndices
     return 'text-neutral-400'
   }
 
-  // Group indices by region
+  // Group indices by region (using regionKey for grouping, will translate when rendering)
   const groupedIndices = marketIndices.reduce((acc, index) => {
-    const region = index.region
-    if (!acc[region]) {
-      acc[region] = []
+    const regionKey = index.regionKey
+    if (!acc[regionKey]) {
+      acc[regionKey] = []
     }
-    acc[region].push(index)
+    acc[regionKey].push(index)
     return acc
   }, {} as Record<string, MarketIndex[]>)
 
@@ -122,10 +121,10 @@ export default function MarketIndicesWidget({ isPreview = false }: MarketIndices
         </div>
       ) : (
         <div className="space-y-4 flex-1 overflow-y-auto scrollbar-hide">
-          {Object.entries(groupedIndices).map(([region, regionIndices]) => (
-            <div key={region}>
+          {Object.entries(groupedIndices).map(([regionKey, regionIndices]) => (
+            <div key={regionKey}>
               <h4 className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">
-                {region}
+                {t(regionKey)}
               </h4>
               <div className="space-y-2">
                 {regionIndices.map((index) => {

@@ -220,7 +220,8 @@ export const widgetDefinitions: WidgetConfig[] = [
         value: context.metrics
           ? `${symbol}${dividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : 'N/A',
-        subtitle: `Fees: ${symbol}${fees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        subtitleKey: 'fields.fees',
+        subtitleValue: `${symbol}${fees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         icon: TrendingUp,
         iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
         iconColor: 'text-purple-600 dark:text-purple-400',
@@ -519,7 +520,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.sharpeRatio.name',
       metricKey: 'sharpe_ratio' as const,
-      subtitle: 'Risk-adjusted returns',
+      subtitle: 'dashboard.widgets.sharpeRatio.subtitle',
       icon: Activity,
       iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
       iconColor: 'text-blue-600 dark:text-blue-400',
@@ -542,7 +543,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.volatility.name',
       metricKey: 'volatility' as const,
-      subtitle: 'Annualized (1Y)',
+      subtitle: 'dashboard.widgets.volatility.subtitle',
       icon: BarChart3,
       iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
       iconColor: 'text-orange-600 dark:text-orange-400',
@@ -564,7 +565,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.maxDrawdown.name',
       metricKey: 'max_drawdown' as const,
-      subtitle: 'Peak-to-trough (1Y)',
+      subtitle: 'dashboard.widgets.maxDrawdown.subtitle',
       icon: ArrowDownCircle,
       iconBgColor: 'bg-red-50 dark:bg-red-900/20',
       iconColor: 'text-red-600 dark:text-red-400',
@@ -587,7 +588,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.betaCorrelation.name',
       metricKey: 'beta' as const,
-      subtitle: 'vs Market (1Y)',
+      subtitle: 'dashboard.widgets.betaCorrelation.subtitle',
       icon: GitCompare,
       iconBgColor: 'bg-teal-50 dark:bg-teal-900/20',
       iconColor: 'text-teal-600 dark:text-teal-400',
@@ -610,7 +611,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.valueAtRisk.name',
       metricKey: 'var_95' as const,
-      subtitle: '95% confidence (1-day)',
+      subtitle: 'dashboard.widgets.valueAtRisk.subtitle',
       icon: Zap,
       iconBgColor: 'bg-rose-50 dark:bg-rose-900/20',
       iconColor: 'text-rose-600 dark:text-rose-400',
@@ -633,7 +634,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.downsideDeviation.name',
       metricKey: 'downside_deviation' as const,
-      subtitle: 'Downside risk (1Y)',
+      subtitle: 'dashboard.widgets.downsideDeviation.subtitle',
       icon: ArrowDown,
       iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
       iconColor: 'text-amber-600 dark:text-amber-400',
@@ -664,9 +665,12 @@ export const widgetDefinitions: WidgetConfig[] = [
       return {
         title: 'dashboard.widgets.hitRatio.name',
         value: hitRatio !== null ? `${hitRatio.toFixed(1)}%` : 'N/A',
-        subtitle: hitRatio !== null 
-          ? `${profitableCount} of ${context.positions.length} profitable`
-          : 'No positions',
+        subtitleKey: hitRatio !== null 
+          ? 'dashboard.widgets.hitRatio.subtitle'
+          : 'dashboard.widgets.hitRatio.noTrades',
+        subtitleParams: hitRatio !== null
+          ? { profit: profitableCount, total: context.positions.length }
+          : undefined,
         icon: Crosshair,
         iconBgColor: 'bg-green-50 dark:bg-green-900/20',
         iconColor: 'text-green-600 dark:text-green-400',
@@ -691,7 +695,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.alpha.name',
       metricKey: 'alpha' as const,
-      subtitle: 'vs SPY (1Y)',
+      subtitle: 'dashboard.widgets.alpha.subtitle',
       icon: TrendingUpDown,
       iconBgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
       iconColor: 'text-indigo-600 dark:text-indigo-400',
@@ -718,7 +722,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.rSquared.name',
       metricKey: 'r_squared' as const,
-      subtitle: 'vs SPY (1Y)',
+      subtitle: 'dashboard.widgets.rSquared.subtitle',
       icon: Grid3x3,
       iconBgColor: 'bg-violet-50 dark:bg-violet-900/20',
       iconColor: 'text-violet-600 dark:text-violet-400',
@@ -740,7 +744,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: HoldingPeriodWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.avgHoldingPeriod.name',
-      subtitle: 'FIFO method',
+      subtitle: 'dashboard.widgets.avgHoldingPeriod.subtitle',
       icon: Timer,
       iconBgColor: 'bg-slate-50 dark:bg-slate-900/20',
       iconColor: 'text-slate-600 dark:text-slate-400',
@@ -760,13 +764,17 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: MetricWidget,
     getProps: (context: WidgetContext) => {
       const score = calculateDiversificationScore(context.positions)
+      const positionCount = context.positions.length
       
       return {
         title: 'dashboard.widgets.diversificationScore.name',
         value: score !== null ? `${score.toFixed(0)}/100` : 'N/A',
-        subtitle: score !== null 
-          ? `${context.positions.length} position${context.positions.length !== 1 ? 's' : ''}`
-          : 'No positions',
+        subtitleKey: score !== null 
+          ? 'dashboard.widgets.diversificationScore.subtitle'
+          : 'dashboard.widgets.diversificationScore.noPositions',
+        subtitleParams: score !== null
+          ? { count: positionCount, suffix: positionCount !== 1 ? 's' : '' }
+          : undefined,
         icon: Network,
         iconBgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
         iconColor: 'text-cyan-600 dark:text-cyan-400',
@@ -794,7 +802,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: BitcoinPizzaWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.bitcoinPizzaIndex.name',
-      subtitle: '10,000 BTC (2 pizzas, 2010)',
+      subtitle: 'dashboard.widgets.bitcoinPizzaIndex.subtitle',
       isPreview: context.isPreview,
     }),
   },
@@ -813,7 +821,6 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: SentimentWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.marketSentiment.name',
-      subtitle: 'Stock Market',
       market: 'stock',
       isPreview: context.isPreview,
     }),
@@ -831,7 +838,6 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: SentimentWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.cryptoSentiment.name',
-      subtitle: 'Crypto Market',
       market: 'crypto',
       isPreview: context.isPreview,
     }),
@@ -851,7 +857,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: VIXWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.vixIndex.name',
-      subtitle: 'CBOE Volatility Index',
+      subtitle: 'dashboard.widgets.vixIndex.subtitle',
       isPreview: context.isPreview,
     }),
   },
@@ -868,7 +874,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: TNXWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.tnxIndex.name',
-      subtitle: '10-Year Treasury Yield',
+      subtitle: 'dashboard.widgets.tnxIndex.subtitle',
       isPreview: context.isPreview,
     }),
   },
@@ -885,7 +891,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: DXYWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.dxyIndex.name',
-      subtitle: 'U.S. Dollar Index',
+      subtitle: 'dashboard.widgets.dxyIndex.subtitle',
       isPreview: context.isPreview,
     }),
   },

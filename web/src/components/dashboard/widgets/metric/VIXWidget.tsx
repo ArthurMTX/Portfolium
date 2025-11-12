@@ -47,9 +47,10 @@ export default function VIXWidget({
   }, [isPreview])
 
   const { volatilityLevel, volatilityColor, bgColor, iconColor } = useMemo(() => {
+    const { t } = useTranslation()
     if (vixPrice === null) {
       return {
-        volatilityLevel: 'Unknown',
+        volatilityLevel: t('common.unknown'),
         volatilityColor: 'text-neutral-600 dark:text-neutral-400',
         bgColor: 'bg-neutral-50 dark:bg-neutral-900/20',
         iconColor: 'text-neutral-600 dark:text-neutral-400',
@@ -67,22 +68,22 @@ export default function VIXWidget({
     let iconColor = ''
 
     if (vixPrice < 12) {
-      volatilityLevel = 'Low'
+      volatilityLevel = t('dashboard.widgets.vixIndex.volatilityLevels.low')
       volatilityColor = 'text-green-600 dark:text-green-400'
       bgColor = 'bg-green-50 dark:bg-green-900/20'
       iconColor = 'text-green-600 dark:text-green-400'
     } else if (vixPrice < 20) {
-      volatilityLevel = 'Normal'
+      volatilityLevel = t('dashboard.widgets.vixIndex.volatilityLevels.normal')
       volatilityColor = 'text-blue-600 dark:text-blue-400'
       bgColor = 'bg-blue-50 dark:bg-blue-900/20'
       iconColor = 'text-blue-600 dark:text-blue-400'
     } else if (vixPrice < 30) {
-      volatilityLevel = 'Elevated'
+      volatilityLevel = t('dashboard.widgets.vixIndex.volatilityLevels.elevated')
       volatilityColor = 'text-orange-600 dark:text-orange-400'
       bgColor = 'bg-orange-50 dark:bg-orange-900/20'
       iconColor = 'text-orange-600 dark:text-orange-400'
     } else {
-      volatilityLevel = 'High'
+      volatilityLevel = t('dashboard.widgets.vixIndex.volatilityLevels.high')
       volatilityColor = 'text-red-600 dark:text-red-400'
       bgColor = 'bg-red-50 dark:bg-red-900/20'
       iconColor = 'text-red-600 dark:text-red-400'
@@ -103,7 +104,7 @@ export default function VIXWidget({
           </h3>
           {subtitle && (
             <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {subtitle}
+              {t(subtitle)}
             </div>
           )}
         </div>
@@ -132,7 +133,7 @@ export default function VIXWidget({
               )}
             </div>
             <p className={`text-sm font-semibold mt-1 ${volatilityColor}`}>
-              {volatilityLevel} Volatility
+              {volatilityLevel}
             </p>
           </>
         )}

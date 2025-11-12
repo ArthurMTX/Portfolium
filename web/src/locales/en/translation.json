@@ -138,6 +138,13 @@
       "europe": "Europe",
       "asia": "Asia",
       "oceania": "Oceania"
+    },
+    "sentiments": {
+      "extremeFear": "Extreme Fear",
+      "fear": "Fear",
+      "neutral": "Neutral",
+      "greed": "Greed",
+      "extremeGreed": "Extreme Greed"
     }
   },
   "transaction": {
@@ -318,51 +325,65 @@
       },
       "sharpeRatio": {
         "name": "Sharpe Ratio",
-        "description": "Measure risk-adjusted returns of your portfolio"
+        "description": "Measure risk-adjusted returns of your portfolio",
+        "subtitle": "Risk-adjusted returns"
       },
       "volatility": {
         "name": "Volatility",
-        "description": "Standard deviation of portfolio returns"
+        "description": "Standard deviation of portfolio returns",
+        "subtitle": "Annualized (1Y)"
       },
       "maxDrawdown": {
         "name": "Max Drawdown",
-        "description": "Largest peak-to-trough decline in portfolio value"
+        "description": "Largest peak-to-trough decline in portfolio value",
+        "subtitle": "Peak-to-trough (1Y)"
       },
       "betaCorrelation": {
         "name": "Beta",
-        "description": "Portfolio correlation with market benchmark"
+        "description": "Portfolio correlation with market benchmark",
+        "subtitle": "vs Market (1Y)"
       },
       "valueAtRisk": {
         "name": "Value at Risk (VaR)",
-        "description": "Potential loss at 95% confidence level"
+        "description": "Potential loss at 95% confidence level",
+        "subtitle": "95% confidence (1-day)"
       },
       "downsideDeviation": {
         "name": "Downside Deviation",
-        "description": "Volatility of negative returns only"
+        "description": "Volatility of negative returns only",
+        "subtitle": "Downside risk (1Y)"
       },
       "hitRatio": {
         "name": "Hit Ratio",
-        "description": "Percentage of profitable trades"
+        "description": "Percentage of profitable trades",
+        "subtitle": "{{profit}} of {{total}} profitable",
+        "noTrades": "No positions"
       },
       "alpha": {
         "name": "Alpha",
-        "description": "Excess returns above benchmark"
+        "description": "Excess returns above benchmark",
+        "subtitle": "vs SPY (1Y)"
       },
       "rSquared": {
         "name": "R-Squared",
-        "description": "Correlation strength with market"
+        "description": "Correlation strength with market",
+        "subtitle": "vs SPY (1Y)"
       },
       "avgHoldingPeriod": {
         "name": "Avg Holding Period",
-        "description": "Average duration of held positions"
+        "description": "Average duration of held positions",
+        "subtitle": "FIFO method"
       },
       "diversificationScore": {
         "name": "Diversification Score",
-        "description": "Portfolio diversification measurement"
+        "description": "Portfolio diversification measurement",
+        "subtitle": "{{count}} position{{suffix}}",
+        "noPositions": "No positions"
       },
       "bitcoinPizzaIndex": {
         "name": "Bitcoin Pizza Index",
-        "description": "What 10,000 BTC is worth today (the famous pizza trade)"
+        "description": "What 10,000 BTC is worth today (the famous pizza trade)",
+        "subtitle": "10,000 BTC (2 pizzas, 2010)"
       },
       "marketSentiment": {
         "name": "Market Sentiment",
@@ -374,15 +395,38 @@
       },
       "vixIndex": {
         "name": "VIX Index",
-        "description": "CBOE Volatility Index - Market volatility indicator"
+        "description": "CBOE Volatility Index - Market volatility indicator",
+        "subtitle": "CBOE Volatility Index",
+        "volatilityLevels": {
+          "low": "Low Volatility",
+          "normal": "Normal Volatility",
+          "elevated": "Elevated Volatility",
+          "high": "High Volatility"
+        }
       },
       "tnxIndex": {
         "name": "TNX Index",
-        "description": "10-Year Treasury Yield - Key interest rate indicator"
+        "description": "10-Year Treasury Yield - Key interest rate indicator",
+        "subtitle": "10-Year Treasury Yield",
+        "yieldLevels": {
+          "veryLow": "Very Low Yield",
+          "low": "Low Yield",
+          "normal": "Normal Yield",
+          "elevated": "Elevated Yield",
+          "high": "High Yield"
+        }
       },
       "dxyIndex": {
         "name": "DXY Index",
-        "description": "U.S. Dollar Index - Dollar strength indicator"
+        "description": "U.S. Dollar Index - Dollar strength indicator",
+        "subtitle": "U.S. Dollar Index",
+        "strengthLevels": {
+          "veryWeak": "Very Weak Dollar",
+          "weak": "Weak Dollar",
+          "normal": "Normal Dollar",
+          "strong": "Strong Dollar",
+          "veryStrong": "Very Strong Dollar"
+        }
       },
       "categories": {
         "insights": {

@@ -51,7 +51,7 @@ export default function HoldingPeriodWidget({
           </h3>
           {subtitle && (
             <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {subtitle}
+              {t(subtitle)}
             </div>
           )}
         </div>

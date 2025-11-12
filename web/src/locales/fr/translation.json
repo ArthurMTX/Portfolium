@@ -138,6 +138,13 @@
       "europe": "Europe",
       "asia": "Asie",
       "oceania": "Océanie"
+    },
+    "sentiments": {
+      "extremeFear": "Peur extrême",
+      "fear": "Peur",
+      "neutral": "Neutre",
+      "greed": "Avidité",
+      "extremeGreed": "Avidité extrême"
     }
   },
   "transaction": {
@@ -318,51 +325,65 @@
       },
       "sharpeRatio": {
         "name": "Ratio de Sharpe",
-        "description": "Mesure les rendements ajustés au risque de votre portefeuille"
+        "description": "Mesure les rendements ajustés au risque de votre portefeuille",
+        "subtitle": "Rendements ajustés au risque"
       },
       "volatility": {
         "name": "Volatilité",
-        "description": "Écart-type des rendements du portefeuille"
+        "description": "Écart-type des rendements du portefeuille",
+        "subtitle": "Annualisé (1A)"
       },
       "maxDrawdown": {
         "name": "Drawdown Maximum",
-        "description": "Plus grande baisse du pic au creux de la valeur du portefeuille"
+        "description": "Plus grande baisse du pic au creux de la valeur du portefeuille",
+        "subtitle": "Pic au creux (1A)"
       },
       "betaCorrelation": {
         "name": "Bêta",
-        "description": "Corrélation du portefeuille avec l'indice de référence du marché"
+        "description": "Corrélation du portefeuille avec l'indice de référence du marché",
+        "subtitle": "vs Marché (1A)"
       },
       "valueAtRisk": {
         "name": "Valeur à Risque (VaR)",
-        "description": "Perte potentielle avec un niveau de confiance de 95 %"
+        "description": "Perte potentielle avec un niveau de confiance de 95 %",
+        "subtitle": "Confiance à 95 % (1 jour)"
       },
       "downsideDeviation": {
         "name": "Écart à la Baisse",
-        "description": "Volatilité des rendements négatifs uniquement"
+        "description": "Volatilité des rendements négatifs uniquement",
+        "subtitle": "Risque à la baisse (1A)"
       },
       "hitRatio": {
         "name": "Taux de Réussite",
-        "description": "Pourcentage de transactions rentables"
+        "description": "Pourcentage de transactions rentables",
+        "subtitle": "{{profit}} sur {{total}} gagnantes",
+        "noTrades": "Aucune position"
       },
       "alpha": {
         "name": "Alpha",
-        "description": "Rendements excédentaires au-dessus de l'indice de référence"
+        "description": "Rendements excédentaires au-dessus de l'indice de référence",
+        "subtitle": "vs SPY (1A)"
       },
       "rSquared": {
         "name": "R-Carré",
-        "description": "Force de corrélation avec le marché"
+        "description": "Force de corrélation avec le marché",
+        "subtitle": "vs SPY (1A)"
       },
       "avgHoldingPeriod": {
         "name": "Période de Détention Moy.",
-        "description": "Durée moyenne des positions détenues"
+        "description": "Durée moyenne des positions détenues",
+        "subtitle": "Méthode FIFO"
       },
       "diversificationScore": {
         "name": "Score de Diversification",
-        "description": "Mesure de la diversification du portefeuille"
+        "description": "Mesure de la diversification du portefeuille",
+        "subtitle": "{{count}} position{{suffix}}",
+        "noPositions": "Aucune position"
       },
       "bitcoinPizzaIndex": {
         "name": "Indice Pizza Bitcoin",
-        "description": "Valeur de 10 000 BTC aujourd'hui (le célèbre échange de pizza)"
+        "description": "Valeur de 10 000 BTC aujourd'hui (le célèbre achat de pizza)",
+        "subtitle": "10 000 BTC (2 pizzas, 2010)"
       },
       "marketSentiment": {
         "name": "Sentiment du Marché boursier",
@@ -374,15 +395,38 @@
       },
       "vixIndex": {
         "name": "Indice VIX",
-        "description": "Indice de Volatilité CBOE - Indicateur de volatilité du marché"
+        "description": "Indice de Volatilité CBOE - Indicateur de volatilité du marché",
+        "subtitle": "Indice de Volatilité CBOE",
+        "volatilityLevels": {
+          "low": "Faible volatilité",
+          "normal": "Volatilité normale",
+          "elevated": "Volatilité élevée",
+          "high": "Haute volatilité"
+        }
       },
       "tnxIndex": {
         "name": "Indice TNX",
-        "description": "Rendement du Trésor à 10 ans - Indicateur clé des taux d'intérêt"
+        "description": "Rendement du Trésor à 10 ans - Indicateur clé des taux d'intérêt",
+        "subtitle": "Rendement du Trésor à 10 ans",
+        "yieldLevels": {
+          "veryLow": "Rendement très faible",
+          "low": "Faible rendement",
+          "normal": "Rendement normal",
+          "elevated": "Rendement élevé",
+          "high": "Rendement très élevé"
+        }
       },
       "dxyIndex": {
         "name": "Indice DXY",
-        "description": "Indice du dollar américain - Indicateur de force du dollar"
+        "description": "Indice du dollar américain - Indicateur de force du dollar",
+        "subtitle": "Indice du dollar américain",
+        "strengthLevels": {
+          "veryWeak": "Dollar très faible",
+          "weak": "Dollar faible",
+          "normal": "Dollar normal",
+          "strong": "Dollar fort",
+          "veryStrong": "Dollar très fort"
+        }
       },
       "categories": {
         "insights": {

@@ -7,6 +7,9 @@ interface MetricWidgetProps extends BaseWidgetProps {
   title: string
   value: string | number
   subtitle?: string | ReactNode
+  subtitleKey?: string
+  subtitleValue?: string
+  subtitleParams?: Record<string, string | number>
   icon: LucideIcon
   iconBgColor: string
   iconColor: string
@@ -17,6 +20,9 @@ export default function MetricWidget({
   title,
   value,
   subtitle,
+  subtitleKey,
+  subtitleValue,
+  subtitleParams,
   icon: Icon,
   iconBgColor,
   iconColor,
@@ -24,6 +30,13 @@ export default function MetricWidget({
   isPreview = false,
 }: MetricWidgetProps) {
   const { t } = useTranslation()
+  
+  // Determine subtitle content based on what props are provided
+  const subtitleContent = subtitleKey && subtitleParams
+    ? t(subtitleKey, subtitleParams)  // Interpolated translation (e.g., "{{profit}} of {{total}} profitable")
+    : subtitleKey && subtitleValue
+    ? `${t(subtitleKey)}: ${subtitleValue}`  // Label: Value format (e.g., "Fees: $123.45")
+    : subtitle  // Plain text or ReactNode
   
   // isPreview can be used for future optimizations
   return (
@@ -36,9 +49,9 @@ export default function MetricWidget({
           <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
             {t(title)}
           </h3>
-          {subtitle && (
+          {subtitleContent && (
             <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {subtitle}
+              {subtitleContent}
             </div>
           )}
         </div>
