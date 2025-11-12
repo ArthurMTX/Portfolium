@@ -1157,6 +1157,26 @@ class ApiClient {
       timestamp: string
     }>('/market/vix')
   }
+
+  async getTNXIndex() {
+    return this.request<{
+      price: number
+      change: number | null
+      change_pct: number | null
+      previous_close: number | null
+      timestamp: string
+    }>('/market/tnx')
+  }
+
+  async getDXYIndex() {
+    return this.request<{
+      price: number
+      change: number | null
+      change_pct: number | null
+      previous_close: number | null
+      timestamp: string
+    }>('/market/dxy')
+  }
   
   // ============================================================================
   // Dashboard Layouts

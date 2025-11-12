@@ -41,6 +41,8 @@ import HoldingPeriodWidget from '../metric/HoldingPeriodWidget'
 import BitcoinPizzaWidget from '../metric/BitcoinPizzaWidget'
 import SentimentWidget from '../metric/SentimentWidget'
 import VIXWidget from '../metric/VIXWidget'
+import TNXWidget from '../metric/TNXWidget'
+import DXYWidget from '../metric/DXYWidget'
 import NotificationsWidget from '../list/NotificationsWidget'
 import WatchlistWidget from '../list/WatchlistWidget'
 import PositionsTableWidget from '../list/PositionsTableWidget'
@@ -787,7 +789,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     icon: Pizza,
     iconColor: 'text-orange-600 dark:text-orange-400',
     iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
-    defaultSize: getWidgetSize('bitcoin-pizza-index') || { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('bitcoin-pizza-index')!,
     allowMultiple: false,
     component: BitcoinPizzaWidget,
     getProps: (context: WidgetContext) => ({
@@ -806,7 +808,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     icon: TrendingUpDown,
     iconColor: 'text-blue-600 dark:text-blue-400',
     iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
-    defaultSize: getWidgetSize('market-sentiment') || { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('market-sentiment')!,
     allowMultiple: false,
     component: SentimentWidget,
     getProps: (context: WidgetContext) => ({
@@ -824,7 +826,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     icon: TrendingUpDown,
     iconColor: 'text-amber-600 dark:text-amber-400',
     iconBgColor: 'bg-amber-50 dark:bg-amber-900/20',
-    defaultSize: getWidgetSize('crypto-sentiment') || { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('crypto-sentiment')!,
     allowMultiple: false,
     component: SentimentWidget,
     getProps: (context: WidgetContext) => ({
@@ -844,12 +846,46 @@ export const widgetDefinitions: WidgetConfig[] = [
     icon: Activity,
     iconColor: 'text-purple-600 dark:text-purple-400',
     iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    defaultSize: getWidgetSize('vix-index') || { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultSize: getWidgetSize('vix-index')!,
     allowMultiple: false,
     component: VIXWidget,
     getProps: (context: WidgetContext) => ({
       title: 'dashboard.widgets.vixIndex.name',
       subtitle: 'CBOE Volatility Index',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'tnx-index',
+    name: 'dashboard.widgets.tnxIndex.name',
+    description: 'dashboard.widgets.tnxIndex.description',
+    category: 'metrics',
+    icon: TrendingUp,
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    defaultSize: getWidgetSize('tnx-index')!,
+    allowMultiple: false,
+    component: TNXWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.tnxIndex.name',
+      subtitle: '10-Year Treasury Yield',
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'dxy-index',
+    name: 'dashboard.widgets.dxyIndex.name',
+    description: 'dashboard.widgets.dxyIndex.description',
+    category: 'metrics',
+    icon: DollarSign,
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    iconBgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+    defaultSize: getWidgetSize('dxy-index')!,
+    allowMultiple: false,
+    component: DXYWidget,
+    getProps: (context: WidgetContext) => ({
+      title: 'dashboard.widgets.dxyIndex.name',
+      subtitle: 'U.S. Dollar Index',
       isPreview: context.isPreview,
     }),
   },

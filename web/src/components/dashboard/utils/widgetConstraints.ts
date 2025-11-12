@@ -57,6 +57,11 @@ export const widgetSizes: Record<string, WidgetSizeConfig> = {
   'avg-holding-period': { w: 3, h: 2, minW: 2, minH: 2 },
   'diversification-score': { w: 3, h: 2, minW: 2, minH: 2 },
   'bitcoin-pizza-index': { w: 3, h: 2, minW: 2, minH: 2 },
+  'market-sentiment': { w: 3, h: 4, minW: 2, minH: 3 },
+  'crypto-sentiment': { w: 3, h: 4, minW: 2, minH: 3 },
+  'vix-index': { w: 3, h: 3, minW: 2, minH: 3 },
+  'tnx-index': { w: 3, h: 3, minW: 2, minH: 3 },
+  'dxy-index': { w: 3, h: 3, minW: 2, minH: 3 },
 }
 
 /**

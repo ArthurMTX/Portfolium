@@ -163,3 +163,89 @@ async def get_vix_index():
     except Exception as e:
         logger.error(f"Failed to fetch VIX data: {e}")
         raise HTTPException(status_code=503, detail="Failed to fetch VIX data")
+
+
+@router.get("/tnx")
+async def get_tnx_index():
+    """
+    Get 10-Year Treasury Note Yield (^TNX) data
+    
+    Returns:
+        - price: Current 10-Year Treasury yield value
+        - change: Point change from previous close
+        - change_pct: Percentage change from previous close
+        - timestamp: When the data was collected
+    """
+    try:
+        import yfinance as yf
+        
+        # Fetch TNX data
+        tnx = yf.Ticker("^TNX")
+        info = tnx.info
+        
+        current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+        previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+        
+        if current_price is None:
+            raise HTTPException(status_code=503, detail="TNX data not available")
+        
+        change = None
+        change_pct = None
+        
+        if previous_close and previous_close > 0:
+            change = current_price - previous_close
+            change_pct = (change / previous_close) * 100
+        
+        return {
+            "price": round(current_price, 2),
+            "change": round(change, 2) if change is not None else None,
+            "change_pct": round(change_pct, 2) if change_pct is not None else None,
+            "previous_close": round(previous_close, 2) if previous_close else None,
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch TNX data: {e}")
+        raise HTTPException(status_code=503, detail="Failed to fetch TNX data")
+
+
+@router.get("/dxy")
+async def get_dxy_index():
+    """
+    Get U.S. Dollar Index (DX-Y.NYB) data
+    
+    Returns:
+        - price: Current U.S. Dollar Index value
+        - change: Point change from previous close
+        - change_pct: Percentage change from previous close
+        - timestamp: When the data was collected
+    """
+    try:
+        import yfinance as yf
+        
+        # Fetch DXY data
+        dxy = yf.Ticker("DX-Y.NYB")
+        info = dxy.info
+        
+        current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+        previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+        
+        if current_price is None:
+            raise HTTPException(status_code=503, detail="DXY data not available")
+        
+        change = None
+        change_pct = None
+        
+        if previous_close and previous_close > 0:
+            change = current_price - previous_close
+            change_pct = (change / previous_close) * 100
+        
+        return {
+            "price": round(current_price, 2),
+            "change": round(change, 2) if change is not None else None,
+            "change_pct": round(change_pct, 2) if change_pct is not None else None,
+            "previous_close": round(previous_close, 2) if previous_close else None,
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch DXY data: {e}")
+        raise HTTPException(status_code=503, detail="Failed to fetch DXY data")

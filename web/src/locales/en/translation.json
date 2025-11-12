@@ -375,6 +375,14 @@
         "name": "VIX Index",
         "description": "CBOE Volatility Index - Market volatility indicator"
       },
+      "tnxIndex": {
+        "name": "TNX Index",
+        "description": "10-Year Treasury Yield - Key interest rate indicator"
+      },
+      "dxyIndex": {
+        "name": "DXY Index",
+        "description": "U.S. Dollar Index - Dollar strength indicator"
+      },
       "categories": {
         "insights": {
           "label": "Charts & Insights",
