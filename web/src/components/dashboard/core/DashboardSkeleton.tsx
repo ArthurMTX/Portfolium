@@ -7,8 +7,15 @@ interface DashboardSkeletonProps {
 }
 
 export default function DashboardSkeleton({ layout, cols, rowHeight }: DashboardSkeletonProps) {
+  // Calculate the total height needed for the container
+  // Find the bottom-most widget (max y + h)
+  const totalHeight = layout.reduce((maxHeight, item) => {
+    const itemBottom = item.y * rowHeight + (item.y * 20) + item.h * rowHeight + ((item.h - 1) * 20)
+    return Math.max(maxHeight, itemBottom)
+  }, 400) // Minimum 400px
+  
   return (
-    <div className="relative w-full" style={{ minHeight: '400px' }}>
+    <div className="relative w-full" style={{ height: `${totalHeight}px`, minHeight: '400px' }}>
       {layout.map((item) => {
         // Calculate position and size based on grid layout
         const left = (item.x / cols) * 100

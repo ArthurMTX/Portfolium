@@ -343,8 +343,6 @@ async def _fetch_market_indices() -> Optional[Dict]:
         from app.services import pricing
         # Fetch major indices in parallel
         symbols = ['^GSPC', '^DJI', '^IXIC', '^FTSE', '^GDAXI', '^FCHI', '^N225', '^HSI']
-        # This would need to be implemented in your pricing service
-        # For now, return None to indicate it needs implementation
         logger.warning("Market indices batch fetch not yet implemented")
         return None
     except Exception as e:
@@ -370,53 +368,71 @@ async def _fetch_sentiment_crypto() -> Optional[Dict]:
         return None
 
 
-async def _fetch_asset_allocation(portfolio_id: int, db: Session) -> Optional[Dict]:
+async def _fetch_asset_allocation(portfolio_id: int, db: Session, metrics_service, current_user) -> Optional[Dict]:
     """Fetch asset type distribution"""
     try:
-        from app.crud import portfolios as crud_portfolios
-        return crud_portfolios.get_types_distribution(db, portfolio_id)
+        from app.routers import assets as assets_router
+        return await assets_router.get_types_distribution(
+            metrics_service=metrics_service,
+            portfolio_id=portfolio_id,
+            current_user=current_user,
+            db=db
+        )
     except Exception as e:
-        logger.error(f"Failed to fetch asset allocation: {e}")
+        logger.error(f"Failed to fetch asset allocation: {e}", exc_info=True)
         return None
 
 
-async def _fetch_sector_allocation(portfolio_id: int, db: Session) -> Optional[Dict]:
+async def _fetch_sector_allocation(portfolio_id: int, db: Session, metrics_service, current_user) -> Optional[Dict]:
     """Fetch sector distribution"""
     try:
-        from app.crud import portfolios as crud_portfolios
-        return crud_portfolios.get_sectors_distribution(db, portfolio_id)
+        from app.routers import assets as assets_router
+        return await assets_router.get_sectors_distribution(
+            metrics_service=metrics_service,
+            portfolio_id=portfolio_id,
+            current_user=current_user,
+            db=db
+        )
     except Exception as e:
-        logger.error(f"Failed to fetch sector allocation: {e}")
+        logger.error(f"Failed to fetch sector allocation: {e}", exc_info=True)
         return None
 
 
-async def _fetch_country_allocation(portfolio_id: int, db: Session) -> Optional[Dict]:
+async def _fetch_country_allocation(portfolio_id: int, db: Session, metrics_service, current_user) -> Optional[Dict]:
     """Fetch country distribution"""
     try:
-        from app.crud import portfolios as crud_portfolios
-        return crud_portfolios.get_countries_distribution(db, portfolio_id)
+        from app.routers import assets as assets_router
+        return await assets_router.get_countries_distribution(
+            metrics_service=metrics_service,
+            portfolio_id=portfolio_id,
+            current_user=current_user,
+            db=db
+        )
     except Exception as e:
-        logger.error(f"Failed to fetch country allocation: {e}")
+        logger.error(f"Failed to fetch country allocation: {e}", exc_info=True)
         return None
 
 
 async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional[Dict]:
     """Fetch portfolio performance history for different periods"""
     try:
-        from app.crud import portfolios as crud_portfolios
+        from app.services.metrics import MetricsService
+        metrics_service = MetricsService(db)
         # Fetch multiple periods in parallel
         periods = ['1W', '1M', 'YTD', '1Y']
         results = {}
         for period in periods:
             try:
-                history = crud_portfolios.get_portfolio_history(db, portfolio_id, period)
+                history = metrics_service.get_portfolio_history(portfolio_id, period)
                 results[period] = history
+                logger.debug(f"Fetched {period} history: {len(history) if history else 0} data points")
             except Exception as period_error:
-                logger.error(f"Failed to fetch {period} history: {period_error}")
+                logger.error(f"Failed to fetch {period} history: {period_error}", exc_info=True)
                 results[period] = None
+        logger.info(f"Performance history fetch complete. Periods with data: {[k for k,v in results.items() if v]}")
         return results
     except Exception as e:
-        logger.error(f"Failed to fetch performance history: {e}")
+        logger.error(f"Failed to fetch performance history: {e}", exc_info=True)
         return None
 
 
@@ -556,13 +572,13 @@ async def get_dashboard_batch(
         tasks['sentiment_crypto'] = _fetch_sentiment_crypto()
     
     if 'asset_allocation' in required_data:
-        tasks['asset_allocation'] = _fetch_asset_allocation(request.portfolio_id, db)
+        tasks['asset_allocation'] = _fetch_asset_allocation(request.portfolio_id, db, metrics_service, current_user)
     
     if 'sector_allocation' in required_data:
-        tasks['sector_allocation'] = _fetch_sector_allocation(request.portfolio_id, db)
+        tasks['sector_allocation'] = _fetch_sector_allocation(request.portfolio_id, db, metrics_service, current_user)
     
     if 'country_allocation' in required_data:
-        tasks['country_allocation'] = _fetch_country_allocation(request.portfolio_id, db)
+        tasks['country_allocation'] = _fetch_country_allocation(request.portfolio_id, db, metrics_service, current_user)
     
     if 'performance_history' in required_data:
         tasks['performance_history'] = _fetch_performance_history(request.portfolio_id, db)
