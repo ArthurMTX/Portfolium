@@ -6,15 +6,17 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from app.errors import PortfolioNotFoundError
 from app.db import get_db
-from app.auth import get_current_verified_user
-from app.models import User
+from app.auth import get_current_verified_user, verify_portfolio_access
+from app.models import User, Portfolio as PortfolioModel
 from app.crud import portfolios as crud_portfolios
 from app.routers import market
+from app.dependencies import MetricsServiceDep, InsightsServiceDep
 
 logger = logging.getLogger(__name__)
 
@@ -124,11 +126,9 @@ def _extract_required_data(visible_widgets: List[str]) -> Set[str]:
     return required
 
 
-async def _fetch_metrics(portfolio_id: int, db: Session) -> Optional[Dict]:
+async def _fetch_metrics(portfolio_id: int, metrics_service, db: Session) -> Optional[Dict]:
     """Fetch portfolio metrics"""
     try:
-        from app.services.metrics import MetricsService
-        metrics_service = MetricsService(db)
         metrics = await metrics_service.get_metrics(portfolio_id)
         # Convert Pydantic model to dict if needed
         if hasattr(metrics, 'model_dump'):
@@ -139,11 +139,9 @@ async def _fetch_metrics(portfolio_id: int, db: Session) -> Optional[Dict]:
         return None
 
 
-async def _fetch_positions(portfolio_id: int, db: Session) -> Optional[List]:
+async def _fetch_positions(portfolio_id: int, metrics_service, db: Session) -> Optional[List]:
     """Fetch current positions"""
     try:
-        from app.services.metrics import MetricsService
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_positions(portfolio_id)
         # Convert to list of dicts
         if positions and hasattr(positions[0], 'model_dump'):
@@ -154,11 +152,9 @@ async def _fetch_positions(portfolio_id: int, db: Session) -> Optional[List]:
         return None
 
 
-async def _fetch_sold_positions(portfolio_id: int, db: Session) -> Optional[List]:
+async def _fetch_sold_positions(portfolio_id: int, metrics_service, db: Session) -> Optional[List]:
     """Fetch sold positions"""
     try:
-        from app.services.metrics import MetricsService
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_sold_positions_only(portfolio_id)
         # Convert to list of dicts
         if positions and hasattr(positions[0], 'model_dump'):
@@ -301,11 +297,9 @@ async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional
         return None
 
 
-async def _fetch_risk_metrics(portfolio_id: int, db: Session, period: str = '1y') -> Optional[Dict]:
+async def _fetch_risk_metrics(portfolio_id: int, insights_service, db: Session, period: str = '1y') -> Optional[Dict]:
     """Fetch risk metrics"""
     try:
-        from app.services.insights import InsightsService
-        insights_service = InsightsService(db)
         metrics = await insights_service.get_risk_metrics(portfolio_id, period)
         # Convert Pydantic model to dict if needed
         if hasattr(metrics, 'model_dump'):
@@ -316,11 +310,9 @@ async def _fetch_risk_metrics(portfolio_id: int, db: Session, period: str = '1y'
         return None
 
 
-async def _fetch_benchmark_comparison(portfolio_id: int, db: Session, benchmark: str = 'SPY', period: str = '1y') -> Optional[Dict]:
+async def _fetch_benchmark_comparison(portfolio_id: int, insights_service, db: Session, benchmark: str = 'SPY', period: str = '1y') -> Optional[Dict]:
     """Fetch benchmark comparison"""
     try:
-        from app.services.insights import InsightsService
-        insights_service = InsightsService(db)
         comparison = await insights_service.compare_to_benchmark(portfolio_id, benchmark, period)
         # Convert Pydantic model to dict if needed
         if hasattr(comparison, 'model_dump'):
@@ -345,6 +337,8 @@ async def _fetch_transactions(portfolio_id: int, db: Session) -> Optional[List]:
 @router.post("/dashboard")
 async def get_dashboard_batch(
     request: DashboardBatchRequest,
+    metrics_service: MetricsServiceDep,
+    insights_service: InsightsServiceDep,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db)
 ):
@@ -363,7 +357,7 @@ async def get_dashboard_batch(
     # Verify user has access to portfolio
     portfolio = crud_portfolios.get_portfolio(db, request.portfolio_id)
     if not portfolio or portfolio.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
+        raise PortfolioNotFoundError()
     
     # Create cache key
     widget_key = ','.join(sorted(request.visible_widgets))
@@ -389,13 +383,13 @@ async def get_dashboard_batch(
     tasks = {}
     
     if 'metrics' in required_data:
-        tasks['metrics'] = _fetch_metrics(request.portfolio_id, db)
+        tasks['metrics'] = _fetch_metrics(request.portfolio_id, metrics_service, db)
     
     if 'positions' in required_data:
-        tasks['positions'] = _fetch_positions(request.portfolio_id, db)
+        tasks['positions'] = _fetch_positions(request.portfolio_id, metrics_service, db)
     
     if 'sold_positions' in required_data or request.include_sold:
-        tasks['sold_positions'] = _fetch_sold_positions(request.portfolio_id, db)
+        tasks['sold_positions'] = _fetch_sold_positions(request.portfolio_id, metrics_service, db)
     
     if 'watchlist' in required_data:
         tasks['watchlist'] = _fetch_watchlist(current_user, db)
@@ -434,10 +428,10 @@ async def get_dashboard_batch(
         tasks['performance_history'] = _fetch_performance_history(request.portfolio_id, db)
     
     if 'risk_metrics' in required_data:
-        tasks['risk_metrics'] = _fetch_risk_metrics(request.portfolio_id, db)
+        tasks['risk_metrics'] = _fetch_risk_metrics(request.portfolio_id, insights_service, db)
     
     if 'benchmark_comparison' in required_data:
-        tasks['benchmark_comparison'] = _fetch_benchmark_comparison(request.portfolio_id, db)
+        tasks['benchmark_comparison'] = _fetch_benchmark_comparison(request.portfolio_id, insights_service, db)
     
     if 'transactions' in required_data:
         tasks['transactions'] = _fetch_transactions(request.portfolio_id, db)

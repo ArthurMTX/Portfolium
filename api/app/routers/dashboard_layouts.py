@@ -2,9 +2,15 @@
 Dashboard layouts API endpoints
 """
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.errors import (
+    DashboardLayoutNotFoundError, 
+    FailedToCreateDashboardLayoutError,
+    FailedToImportDashboardLayoutError,
+    SourceLayoutNotFoundError
+)
 from app.db import get_db
 from app.auth import get_current_user
 from app.models import User
@@ -56,10 +62,7 @@ def get_layout(
     layout = crud.get_layout_by_id(db, layout_id, current_user.id)
     
     if not layout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dashboard layout not found"
-        )
+        raise DashboardLayoutNotFoundError(layout_id)
     
     return layout
 
@@ -74,10 +77,7 @@ def create_layout(
     try:
         return crud.create_layout(db, layout, current_user.id)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to create layout: {str(e)}"
-        )
+        raise FailedToCreateDashboardLayoutError(str(e))
 
 
 @router.put("/{layout_id}", response_model=DashboardLayoutResponse)
@@ -91,10 +91,7 @@ def update_layout(
     updated_layout = crud.update_layout(db, layout_id, current_user.id, layout_update)
     
     if not updated_layout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dashboard layout not found"
-        )
+        raise DashboardLayoutNotFoundError(layout_id)
     
     return updated_layout
 
@@ -109,10 +106,7 @@ def delete_layout(
     success = crud.delete_layout(db, layout_id, current_user.id)
     
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dashboard layout not found"
-        )
+        raise DashboardLayoutNotFoundError(layout_id)
     
     return None
 
@@ -128,10 +122,7 @@ def duplicate_layout(
     new_layout = crud.duplicate_layout(db, layout_id, current_user.id, new_name)
     
     if not new_layout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Source layout not found"
-        )
+        raise SourceLayoutNotFoundError(layout_id)
     
     return new_layout
 
@@ -149,10 +140,7 @@ def export_layout(
     layout = crud.get_layout_by_id(db, layout_id, current_user.id)
     
     if not layout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dashboard layout not found"
-        )
+        raise DashboardLayoutNotFoundError(layout_id)
     
     return DashboardLayoutExport(
         name=layout.name,
@@ -185,7 +173,4 @@ def import_layout(
         
         return crud.create_layout(db, layout_create, current_user.id)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to import layout: {str(e)}"
-        )
+        raise FailedToImportDashboardLayoutError(str(e))

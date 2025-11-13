@@ -8,10 +8,20 @@ from datetime import datetime, timedelta
 import json
 import csv
 from io import StringIO
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.errors import (
+    AssetNotFoundInDatabaseError,
+    FailedToParseWatchlistImportError, 
+    NotAuthorizedWatchlistAccessError,
+    PortfolioNotFoundError,
+    UnauthorizedPortfolioAccessError, 
+    WatchlistItemAlreadyExistsError, 
+    WatchlistItemNotFoundError,
+    WrongImportFormatError
+)
 from app.db import get_db
 from app.schemas import (
     WatchlistItem, WatchlistItemCreate, WatchlistItemCreateBySymbol, WatchlistItemUpdate,
@@ -24,13 +34,14 @@ from app.crud import assets as assets_crud
 logger = logging.getLogger(__name__)
 from app.auth import get_current_user
 from app.models import User, Asset
-from app.services.pricing import PricingService
+from app.dependencies import PricingServiceDep, MetricsServiceDep
 
 router = APIRouter()
 
 
 @router.get("", response_model=List[WatchlistItemWithPrice])
 async def get_watchlist(
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -39,9 +50,6 @@ async def get_watchlist(
     
     if not items:
         return []
-    
-    # Get pricing service
-    pricing_service = PricingService(db)
     
     # Get all symbols to fetch prices in batch
     symbols = [item.asset.symbol for item in items]
@@ -99,20 +107,14 @@ async def create_watchlist_item(
     # Check if asset exists
     asset = db.query(Asset).filter(Asset.id == item.asset_id).first()
     if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset with ID {item.asset_id} not found"
-        )
+        raise AssetNotFoundInDatabaseError(item.asset_id)
     
     # Check if already in watchlist
     existing = crud.get_watchlist_item_by_user_and_asset(
         db, current_user.id, item.asset_id
     )
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Asset {asset.symbol} is already in your watchlist"
-        )
+        raise WatchlistItemAlreadyExistsError(asset.symbol)
     
     return crud.create_watchlist_item(db, item, current_user.id)
 
@@ -121,6 +123,7 @@ async def create_watchlist_item(
 async def create_watchlist_item_by_symbol(
     symbol: str,
     item_data: WatchlistItemCreateBySymbol,
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -136,8 +139,6 @@ async def create_watchlist_item_by_symbol(
         
         # Try to enrich it with real data
         try:
-            from app.services.pricing import PricingService
-            pricing_service = PricingService(db)
             pricing_service.enrich_asset_info(asset)
         except Exception:
             pass  # Continue without enrichment
@@ -147,10 +148,7 @@ async def create_watchlist_item_by_symbol(
         db, current_user.id, asset.id
     )
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Asset {asset.symbol} is already in your watchlist"
-        )
+        raise WatchlistItemAlreadyExistsError(asset.symbol)
     
     # Create watchlist item with data from request body
     item = WatchlistItemCreate(
@@ -172,17 +170,11 @@ async def get_watchlist_item(
     """Get a specific watchlist item"""
     item = crud.get_watchlist_item(db, item_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Watchlist item {item_id} not found"
-        )
+        raise WatchlistItemNotFoundError(item_id)
     
     # Verify ownership
     if item.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this watchlist item"
-        )
+        raise NotAuthorizedWatchlistAccessError(item_id)
     
     return item
 
@@ -198,15 +190,9 @@ async def update_watchlist_item(
     # Verify ownership
     existing = crud.get_watchlist_item(db, item_id)
     if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Watchlist item {item_id} not found"
-        )
+        raise WatchlistItemNotFoundError(item_id)
     if existing.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this watchlist item"
-        )
+        raise NotAuthorizedWatchlistAccessError(item_id)
     
     updated = crud.update_watchlist_item(db, item_id, item)
     return updated
@@ -222,22 +208,13 @@ async def delete_watchlist_item(
     # Verify ownership
     existing = crud.get_watchlist_item(db, item_id)
     if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Watchlist item {item_id} not found"
-        )
+        raise WatchlistItemNotFoundError(item_id)
     if existing.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this watchlist item"
-        )
+        raise NotAuthorizedWatchlistAccessError(item_id)
     
     success = crud.delete_watchlist_item(db, item_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Watchlist item {item_id} not found"
-        )
+        raise WatchlistItemNotFoundError(item_id)
 
 
 @router.post("/{item_id}/convert-to-buy")
@@ -254,28 +231,16 @@ async def convert_to_buy(
     # Verify watchlist item ownership
     item = crud.get_watchlist_item(db, item_id)
     if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Watchlist item {item_id} not found"
-        )
+        raise WatchlistItemNotFoundError(item_id)
     if item.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this watchlist item"
-        )
+        raise NotAuthorizedWatchlistAccessError(item_id)
     
     # Verify portfolio ownership
     portfolio = db.query(Portfolio).filter(Portfolio.id == payload.portfolio_id).first()
     if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {payload.portfolio_id} not found"
-        )
+        raise PortfolioNotFoundError(payload.portfolio_id)
     if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
+        raise UnauthorizedPortfolioAccessError(payload.portfolio_id)
     
     # Parse transaction date
     if payload.tx_date:
@@ -319,10 +284,7 @@ async def import_watchlist_csv_stream(
     Returns a stream of JSON objects with progress updates
     """
     if not file.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a CSV"
-        )
+        raise WrongImportFormatError()
     
     # Read file content
     content = await file.read()
@@ -527,10 +489,7 @@ async def import_watchlist_csv(
     MSFT,Long term hold,300.00,false
     """
     if not file.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a CSV"
-        )
+        raise WrongImportFormatError()
     
     try:
         content = await file.read()
@@ -595,10 +554,7 @@ async def import_watchlist_csv(
         )
         
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to parse CSV: {str(e)}"
-        )
+        raise FailedToParseWatchlistImportError(str(e))
 
 
 @router.get("/export/csv")
@@ -640,6 +596,7 @@ async def export_watchlist_csv(
 
 @router.post("/refresh-prices")
 async def refresh_watchlist_prices(
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -651,9 +608,6 @@ async def refresh_watchlist_prices(
     
     if not items:
         return {"refreshed_count": 0}
-    
-    # Get pricing service
-    pricing_service = PricingService(db)
     
     # Force refresh prices for all watchlist assets
     count = 0

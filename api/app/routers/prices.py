@@ -2,13 +2,14 @@
 Prices router
 """
 from typing import List, Dict
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 from decimal import Decimal
 import yfinance as yf
 import asyncio
 
+from app.errors import InvalidPriceRequestError, PortfolioNotFoundError
 from app.db import get_db
 from app.schemas import PriceQuote
 from app.services.pricing import get_pricing_service, PricingService
@@ -35,16 +36,10 @@ async def get_prices(
     symbol_list = [s.strip().upper() for s in symbols.split(",")]
     
     if not symbol_list:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No symbols provided"
-        )
+        raise InvalidPriceRequestError("No symbols provided")
     
     if len(symbol_list) > 50:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Maximum 50 symbols per request"
-        )
+        raise InvalidPriceRequestError("Maximum 50 symbols per request")
     
     prices = await pricing_service.get_multiple_prices(symbol_list)
     
@@ -69,16 +64,10 @@ async def get_market_indices(
     symbol_list = [s.strip() for s in symbols.split(",")]
     
     if not symbol_list:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No symbols provided"
-        )
+        raise InvalidPriceRequestError("No symbols provided")
     
     if len(symbol_list) > 50:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Maximum 50 symbols per request"
-        )
+        raise InvalidPriceRequestError("Maximum 50 symbols per request")
     
     def fetch_index_price(symbol: str) -> tuple[str, PriceQuote | None]:
         """Fetch a single index price from yfinance"""
@@ -139,10 +128,7 @@ async def refresh_prices(
     # Verify portfolio exists
     portfolio = portfolio_crud.get_portfolio(pricing_service.db, portfolio_id)
     if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
+        raise PortfolioNotFoundError(portfolio_id)
     
     # Clear cache and refresh
     count = await pricing_service.refresh_all_portfolio_prices(portfolio_id)

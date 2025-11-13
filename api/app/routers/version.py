@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/version")
-async def get_version():
+def get_version():
     """
     Get API version information
     

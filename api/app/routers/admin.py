@@ -15,6 +15,30 @@ from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
 from app.tasks.scheduler import check_price_alerts, refresh_all_prices
 from app.crud import notifications as crud_notifications
+from app.errors import ( 
+    CannotDeactivateSuperAdminError, 
+    CannotDeleteSuperAdminError,
+    CannotGetPortfolioReportError, 
+    CannotRevokeSuperAdminError, 
+    EmailAlreadyRegisteredError,
+    EmailSendingError,
+    EmailSystemDisabledError,
+    FailedToCreateNotificationError, 
+    FailedToDeleteDataError,
+    FailedToGetEmailStatsError,
+    FailedToSendTestEmailError,
+    InvalidNotificationTypeError,
+    InvalidTestEmailTypeError, 
+    LogoCacheClearError, 
+    LogoCacheStatsError, 
+    PriceAlertTaskError, 
+    PriceRefreshTaskError,
+    SMTPConfigurationError, 
+    UserNotFoundError, 
+    AssetNotFoundError, 
+    UsernameAlreadyRegisteredError, 
+    UsernameOrEmailAlreadyRegisteredError
+)
 
 router = APIRouter(prefix="/admin")
 
@@ -56,10 +80,9 @@ def delete_all_data(
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete data: {str(e)}",
-        )
+        raise FailedToDeleteDataError(reason=str(e))
+    
+    
 @router.get("/users", response_model=list[UserSchema])
 def list_users(
     db: Session = Depends(get_db),
@@ -78,7 +101,7 @@ def create_user_admin(
 ):
     """Create a new user (admin only)"""
     if db.query(User).filter((User.email == payload.email) | (User.username == payload.username)).first():
-        raise HTTPException(status_code=400, detail="Email or username already exists")
+        raise UsernameOrEmailAlreadyRegisteredError(identifier=payload.email or payload.username)
     new_user = User(
         email=payload.email,
         username=payload.username,
@@ -104,7 +127,7 @@ def update_user_admin(
     """Update user status or admin flag (admin only)"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise UserNotFoundError(user_id=user_id)
     # Protect the first/primary admin account from deactivation or admin revocation
     def is_protected_first_admin(u: User) -> bool:
         try:
@@ -124,21 +147,21 @@ def update_user_admin(
     if is_protected_first_admin(user):
         incoming = payload.model_dump(exclude_unset=True)
         if 'is_admin' in incoming and incoming['is_admin'] is False:
-            raise HTTPException(status_code=400, detail="Cannot revoke admin from the first admin account")
+            raise CannotRevokeSuperAdminError()
         if 'is_active' in incoming and incoming['is_active'] is False:
-            raise HTTPException(status_code=400, detail="Cannot deactivate the first admin account")
+            raise CannotDeactivateSuperAdminError()
     data = payload.model_dump(exclude_unset=True)
     # Duplicate checks for email/username if they are being changed
     new_email = data.get('email')
     if new_email and new_email != user.email:
         existing = db.query(User).filter(User.email == new_email, User.id != user_id).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Email already in use")
+            raise EmailAlreadyRegisteredError(email=new_email)
     new_username = data.get('username')
     if new_username and new_username != user.username:
         existing = db.query(User).filter(User.username == new_username, User.id != user_id).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Username already in use")
+            raise UsernameAlreadyRegisteredError(username=new_username)
     if 'password' in data and data['password']:
         user.hashed_password = get_password_hash(data.pop('password'))
     for field, value in data.items():
@@ -157,7 +180,7 @@ def delete_user_admin(
     """Delete a user (admin only)"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise UserNotFoundError(user_id=user_id)
     # Also protect the first/primary admin from deletion
     def is_protected_first_admin(u: User) -> bool:
         try:
@@ -174,7 +197,7 @@ def delete_user_admin(
         return bool(first_admin and first_admin.id == u.id)
 
     if is_protected_first_admin(user):
-        raise HTTPException(status_code=400, detail="Cannot delete the first admin account")
+        raise CannotDeleteSuperAdminError()
     db.delete(user)
     db.commit()
     return
@@ -197,10 +220,7 @@ def trigger_price_alerts(
             "message": "Price alert check triggered successfully"
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to trigger price alerts: {str(e)}"
-        )
+        raise PriceAlertTaskError(reason=str(e))
 
 
 @router.post("/trigger/refresh-prices")
@@ -220,10 +240,7 @@ def trigger_refresh_prices(
             "message": "Price refresh triggered successfully"
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to trigger price refresh: {str(e)}"
-        )
+        raise PriceRefreshTaskError(reason=str(e))
 
 
 @router.get("/logo-cache/stats")
@@ -279,10 +296,7 @@ def get_logo_cache_stats(
             ]
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get logo cache stats: {str(e)}"
-        )
+        raise LogoCacheStatsError(reason=str(e))
 
 
 @router.delete("/logo-cache")
@@ -311,7 +325,7 @@ def clear_logo_cache(
             db.commit()
             
             if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail=f"Asset '{symbol}' not found")
+                raise AssetNotFoundError(symbol)
             
             return {
                 "success": True,
@@ -335,13 +349,10 @@ def clear_logo_cache(
                 "cleared_count": result.rowcount
             }
     except HTTPException:
-        raise
+        raise 
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to clear logo cache: {str(e)}"
-        )
+        raise LogoCacheClearError(reason=str(e))
 
 
 # ================================
@@ -527,10 +538,7 @@ async def test_email_connection(
     """
     # Check if email system is enabled
     if not settings.ENABLE_EMAIL:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email system is disabled. Please enable it in the email configuration before testing."
-        )
+        raise EmailSystemDisabledError()
     
     from app.services.email import email_service
     
@@ -696,15 +704,9 @@ async def test_email_connection(
                     language
                 )
             except ValueError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot generate report: {str(e)}"
-                )
+                raise CannotGetPortfolioReportError(portfolio_id=user.id, reason=str(e))
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid test_type: {test_request.test_type}. Use: simple, verification, password_reset, or daily_report"
-            )
+            raise InvalidTestEmailTypeError(test_type=test_request.test_type)
         
         if success:
             return {
@@ -716,17 +718,11 @@ async def test_email_connection(
                 "from_email": settings.FROM_EMAIL
             }
         else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send test email. Check logs for details."
-            )
+            raise FailedToSendTestEmailError()
             
     except ValueError as e:
         # SMTP configuration error
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise SMTPConfigurationError(reason=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -741,10 +737,7 @@ async def test_email_connection(
         else:
             detail = f"Email test failed: {error_msg}"
         
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=detail
-        )
+        raise EmailSendingError(detail=detail)
 
 
 @router.get("/email/stats")
@@ -790,10 +783,7 @@ def get_email_stats(
             "smtp_configured": bool(settings.SMTP_HOST and settings.SMTP_USER)
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get email stats: {str(e)}"
-        )
+        raise FailedToGetEmailStatsError(reason=str(e))
 
 
 # ================================
@@ -988,12 +978,6 @@ def create_test_notifications(
         }
     
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid notification type: {str(e)}"
-        )
+        raise InvalidNotificationTypeError(reason=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create test notifications: {str(e)}"
-        )
+        raise FailedToCreateNotificationError(reason=str(e))

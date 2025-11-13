@@ -6,7 +6,17 @@ from datetime import datetime, timedelta
 from typing import Dict, Literal, Tuple, Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+
+from app.errors import (
+    DXYDataFetchError,
+    ExternalServiceError, 
+    FailedToFetchCryptoSentimentError, 
+    FailedToFetchMarketSentimentError,
+    InvalidMarketSentimentTypeError,
+    TNXDataFetchError,
+    VIXDataFetchError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +88,10 @@ async def get_stock_market_sentiment():
                 }
         except httpx.HTTPError as e:
             logger.error(f"Failed to fetch stock sentiment: {e}")
-            raise HTTPException(status_code=503, detail="Failed to fetch stock market sentiment data")
+            raise FailedToFetchMarketSentimentError(str(e))
         except Exception as e:
             logger.error(f"Unexpected error fetching stock sentiment: {e}")
-            raise HTTPException(status_code=500, detail="Internal server error")
+            raise ExternalServiceError("stock market sentiment", str(e))
     
     return _get_cached_or_fetch("sentiment_stock", fetch_stock_sentiment)
 
@@ -113,7 +123,7 @@ async def get_crypto_market_sentiment():
                 data = response.json()
                 
                 if not data.get("data") or len(data["data"]) == 0:
-                    raise HTTPException(status_code=503, detail="No crypto sentiment data available")
+                    raise FailedToFetchCryptoSentimentError("No sentiment data returned")
                 
                 current = data["data"][0]
                 previous = data["data"][1] if len(data["data"]) > 1 else None
@@ -126,10 +136,10 @@ async def get_crypto_market_sentiment():
                 }
         except httpx.HTTPError as e:
             logger.error(f"Failed to fetch crypto sentiment: {e}")
-            raise HTTPException(status_code=503, detail="Failed to fetch crypto market sentiment data")
+            raise FailedToFetchCryptoSentimentError(str(e))
         except Exception as e:
             logger.error(f"Unexpected error fetching crypto sentiment: {e}")
-            raise HTTPException(status_code=500, detail="Internal server error")
+            raise ExternalServiceError("crypto market sentiment", str(e))
     
     return _get_cached_or_fetch("sentiment_crypto", fetch_crypto_sentiment)
 
@@ -150,7 +160,7 @@ async def get_market_sentiment(market_type: Literal["stock", "crypto"]):
     elif market_type == "crypto":
         return await get_crypto_market_sentiment()
     else:
-        raise HTTPException(status_code=400, detail="Invalid market type. Use 'stock' or 'crypto'")
+        raise InvalidMarketSentimentTypeError(market_type)
 
 
 @router.get("/vix")
@@ -176,7 +186,7 @@ async def get_vix_index():
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
             
             if current_price is None:
-                raise HTTPException(status_code=503, detail="VIX data not available")
+                raise VIXDataFetchError("VIX data not available")
             
             change = None
             change_pct = None
@@ -194,7 +204,7 @@ async def get_vix_index():
             }
         except Exception as e:
             logger.error(f"Failed to fetch VIX data: {e}")
-            raise HTTPException(status_code=503, detail="Failed to fetch VIX data")
+            raise VIXDataFetchError(str(e))
     
     return _get_cached_or_fetch("index_vix", fetch_vix)
 
@@ -222,7 +232,7 @@ async def get_tnx_index():
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
             
             if current_price is None:
-                raise HTTPException(status_code=503, detail="TNX data not available")
+                raise TNXDataFetchError("TNX data not available")
             
             change = None
             change_pct = None
@@ -240,7 +250,7 @@ async def get_tnx_index():
             }
         except Exception as e:
             logger.error(f"Failed to fetch TNX data: {e}")
-            raise HTTPException(status_code=503, detail="Failed to fetch TNX data")
+            raise TNXDataFetchError(str(e))
     
     return _get_cached_or_fetch("index_tnx", fetch_tnx)
 
@@ -268,7 +278,7 @@ async def get_dxy_index():
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
             
             if current_price is None:
-                raise HTTPException(status_code=503, detail="DXY data not available")
+                raise DXYDataFetchError("DXY data not available")
             
             change = None
             change_pct = None
@@ -286,6 +296,6 @@ async def get_dxy_index():
             }
         except Exception as e:
             logger.error(f"Failed to fetch DXY data: {e}")
-            raise HTTPException(status_code=503, detail="Failed to fetch DXY data")
+            raise DXYDataFetchError(str(e))
     
     return _get_cached_or_fetch("index_dxy", fetch_dxy)

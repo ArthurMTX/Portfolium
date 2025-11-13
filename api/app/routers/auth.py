@@ -4,7 +4,7 @@ Authentication routes - Register, Login, Verify Email, Password Reset
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -30,6 +30,17 @@ from app.schemas import (
 from app.crud import users as crud_users
 from app.services.email import email_service
 from app.services.notifications import notification_service
+from app.errors import (
+    EmailAlreadyRegisteredError,
+    EmailAlreadyVerifiedError,
+    EmailNotVerifiedError,
+    InactiveUserError,
+    IncorrectPasswordError,
+    InvalidCredentialsError,
+    InvalidTokenError,
+    UsernameAlreadyRegisteredError,
+    ValidationError
+)
 
 
 logger = logging.getLogger(__name__)
@@ -51,17 +62,11 @@ async def register(
     """
     # Check if email already exists
     if crud_users.get_user_by_email(db, user_create.email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        raise EmailAlreadyRegisteredError(user_create.email)
     
     # Check if username already exists
     if crud_users.get_user_by_username(db, user_create.username):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
-        )
+        raise ValidationError("username", "Username already taken")
     
     # Create user
     user = crud_users.create_user(db, user_create)
@@ -98,24 +103,14 @@ async def login(
     user = crud_users.get_user_by_email(db, form_data.username)
     
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidCredentialsError()
     
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive"
-        )
+        raise InactiveUserError()
     
     # Only check email verification if email is enabled
     if settings.ENABLE_EMAIL and not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please check your email and verify your account before logging in."
-        )
+        raise EmailNotVerifiedError()
     
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -181,20 +176,14 @@ async def update_current_user(
     if user_update.username and user_update.username != current_user.username:
         # Ensure username is unique
         if crud_users.get_user_by_username(db, user_update.username):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already taken"
-            )
+            raise UsernameAlreadyRegisteredError(user_update.username)
         current_user.username = user_update.username
 
     # Validate and apply email change
     if user_update.email and user_update.email != current_user.email:
         # Ensure email is unique
         if crud_users.get_user_by_email(db, user_update.email):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
+            raise EmailAlreadyRegisteredError(user_update.email)
         # Update email and mark unverified
         current_user.email = user_update.email
         current_user.is_verified = False
@@ -261,10 +250,7 @@ async def verify_email(
     user = crud_users.get_user_by_verification_token(db, token)
     
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token"
-        )
+        raise InvalidTokenError()
     
     # Verify email
     crud_users.verify_user_email(db, user)
@@ -301,10 +287,7 @@ async def resend_verification(
         return {"message": "If the email exists, a verification email has been sent"}
     
     if user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already verified"
-        )
+        raise EmailAlreadyVerifiedError()
     
     # Generate new verification token
     from datetime import datetime, timedelta
@@ -377,10 +360,7 @@ async def reset_password(
     user = crud_users.get_user_by_reset_token(db, password_reset_confirm.token)
     
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token"
-        )
+        raise InvalidTokenError()
     
     # Reset password
     crud_users.reset_user_password(db, user, password_reset_confirm.new_password)
@@ -404,10 +384,7 @@ async def change_password(
     """
     # Verify current password
     if not verify_password(password_change.current_password, current_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect current password"
-        )
+        raise IncorrectPasswordError()
     
     # Update password
     crud_users.reset_user_password(db, current_user, password_change.new_password)

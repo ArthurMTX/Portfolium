@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { getSectorIcon, getSectorColor } from '../lib/sectorIndustryUtils'
 import { getTranslatedSector } from '../lib/translationUtils'
 import { getCountryCode } from '../lib/countryUtils'
+import { handleLogoError } from '../lib/logoUtils'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -829,32 +830,7 @@ export default function Insights() {
                       src="/placeholder-logo.png"
                       alt={`${performer.symbol} logo`}
                       className="w-10 h-10 rounded object-contain"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement
-                        if (!img.dataset.resolverTried) {
-                          img.dataset.resolverTried = 'true'
-                          const params = new URLSearchParams()
-                          if (performer.name) params.set('name', performer.name)
-                          if (performer.asset_type) params.set('asset_type', performer.asset_type)
-                          fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
-                            .then((res) => {
-                              if (res.redirected) {
-                                img.src = res.url
-                              } else if (res.ok) {
-                                return res.blob().then((blob) => {
-                                  img.src = URL.createObjectURL(blob)
-                                })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            })
-                            .catch(() => {
-                              img.style.display = 'none'
-                            })
-                        } else {
-                          img.style.display = 'none'
-                        }
-                      }}
+                      onError={(e) => handleLogoError(e, performer.symbol, performer.name, performer.asset_type)}
                     />
                     <div>
                       <p className="font-semibold">{performer.symbol}</p>
@@ -904,32 +880,7 @@ export default function Insights() {
                       src="/placeholder-logo.png"
                       alt={`${performer.symbol} logo`}
                       className="w-10 h-10 rounded object-contain"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement
-                        if (!img.dataset.resolverTried) {
-                          img.dataset.resolverTried = 'true'
-                          const params = new URLSearchParams()
-                          if (performer.name) params.set('name', performer.name)
-                          if (performer.asset_type) params.set('asset_type', performer.asset_type)
-                          fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
-                            .then((res) => {
-                              if (res.redirected) {
-                                img.src = res.url
-                              } else if (res.ok) {
-                                return res.blob().then((blob) => {
-                                  img.src = URL.createObjectURL(blob)
-                                })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            })
-                            .catch(() => {
-                              img.style.display = 'none'
-                            })
-                        } else {
-                          img.style.display = 'none'
-                        }
-                      }}
+                      onError={(e) => handleLogoError(e, performer.symbol, performer.name, performer.asset_type)}
                     />
                     <div>
                       <p className="font-semibold">{performer.symbol}</p>

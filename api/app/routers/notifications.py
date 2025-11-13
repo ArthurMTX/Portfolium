@@ -3,9 +3,10 @@ Notifications router
 """
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.errors import NotAuthorizedNotificationAccessError, NotificationNotFoundError
 from app.db import get_db
 from app.schemas import Notification, NotificationUpdate
 from app.crud import notifications as crud
@@ -17,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/notifications", response_model=List[Notification])
-async def get_notifications(
+def get_notifications(
     skip: int = 0,
     limit: int = 50,
     unread_only: bool = False,
@@ -59,7 +60,7 @@ async def get_notifications(
 
 
 @router.get("/notifications/unread-count", response_model=dict)
-async def get_unread_count(
+def get_unread_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -71,7 +72,7 @@ async def get_unread_count(
 
 
 @router.put("/notifications/{notification_id}/read", response_model=Notification)
-async def mark_notification_as_read(
+def mark_notification_as_read(
     notification_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -82,17 +83,11 @@ async def mark_notification_as_read(
     notification = crud.get_notification(db, notification_id)
     
     if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Notification {notification_id} not found"
-        )
+        raise NotificationNotFoundError(notification_id)
     
     # Verify the notification belongs to the current user
     if notification.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this notification"
-        )
+        raise NotAuthorizedNotificationAccessError(notification_id)
     
     updated_notification = crud.mark_as_read(db, notification_id)
     
@@ -110,7 +105,7 @@ async def mark_notification_as_read(
 
 
 @router.put("/notifications/mark-all-read", response_model=dict)
-async def mark_all_notifications_as_read(
+def mark_all_notifications_as_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -125,7 +120,7 @@ async def mark_all_notifications_as_read(
     "/notifications/{notification_id}",
     status_code=status.HTTP_204_NO_CONTENT
 )
-async def delete_notification(
+def delete_notification(
     notification_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -136,16 +131,10 @@ async def delete_notification(
     notification = crud.get_notification(db, notification_id)
     
     if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Notification {notification_id} not found"
-        )
+        raise NotificationNotFoundError(notification_id)
     
     # Verify the notification belongs to the current user
     if notification.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this notification"
-        )
+        raise NotAuthorizedNotificationAccessError(notification_id)
     
     crud.delete_notification(db, notification_id)

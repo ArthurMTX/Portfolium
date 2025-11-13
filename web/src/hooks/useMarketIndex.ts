@@ -4,7 +4,10 @@ import { useWidgetVisibility } from '@/contexts/DashboardContext'
 
 interface MarketIndexData {
   price: number
-  change_pct: number
+  change_pct: number | null
+  change?: number | null
+  previous_close?: number | null
+  timestamp?: string
 }
 
 /**

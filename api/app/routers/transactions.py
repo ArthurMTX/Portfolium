@@ -5,17 +5,25 @@ import logging
 import json
 from typing import List, Optional
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.errors import (
+    CannotSellMoreThanOwnedError,
+    CannotSplitWithoutBuyError,
+    ImportTransactionsError, 
+    PriceNotFoundError, 
+    TransactionNotFoundError
+)
 from app.db import get_db
 from app.schemas import Transaction, TransactionCreate, CsvImportResult
 from app.crud import transactions as crud, portfolios as portfolio_crud
-from app.models import TransactionType, User
+from app.models import TransactionType, User, Portfolio as PortfolioModel
 from app.services.import_csv import get_csv_import_service, CsvImportService
 from app.services.notifications import notification_service
-from app.auth import get_current_user
+from app.auth import get_current_user, verify_portfolio_access
+from app.dependencies import PricingServiceDep
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -29,8 +37,10 @@ async def add_position_transaction(
     tx_date: date,
     tx_type: TransactionType,
     quantity: float,
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Add a position transaction to a portfolio with price fetched from yfinance for the given date.
@@ -39,19 +49,6 @@ async def add_position_transaction(
     - **tx_type**: BUY or SELL
     - **quantity**: Number of shares/units
     """
-    # Verify portfolio exists and belongs to the current user
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Find asset by ticker
     from app.crud.assets import get_asset_by_symbol, create_asset
     from app.schemas import AssetCreate
@@ -76,7 +73,7 @@ async def add_position_transaction(
     end_date = tx_date + timedelta(days=1)
     hist = yf_ticker.history(start=start_date, end=end_date)
     if hist.empty:
-        raise HTTPException(status_code=404, detail=f"No price found for {ticker} on {tx_date}")
+        raise PriceNotFoundError(ticker, tx_date)
     # Get the closest date's price and round to 8 decimal places
     price = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
 
@@ -87,11 +84,11 @@ async def add_position_transaction(
             from app.crud.transactions import get_position_quantity_at_date
             position_before_sell = get_position_quantity_at_date(db, portfolio_id, asset.id, tx_date)
             if quantity > position_before_sell:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {quantity} shares of {ticker} on {tx_date}. "
-                           f"Position at that date: {position_before_sell} shares. "
-                           f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
+                raise CannotSellMoreThanOwnedError(
+                    symbol=ticker,
+                    owned=position_before_sell,
+                    attempted_sell=quantity,
+                    tx_date=tx_date
                 )
     
     # Create transaction
@@ -118,8 +115,6 @@ async def add_position_transaction(
         logger.info(f"Updated first_transaction_date for {asset.symbol} to {tx_date}")
     
     # Auto-backfill historical prices from first transaction date to today
-    from app.services.pricing import PricingService
-    pricing_service = PricingService(db)
     start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
     end_date = datetime.utcnow()
     
@@ -150,7 +145,7 @@ async def get_transactions(
     skip: int = 0,
     limit: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get transactions for a portfolio with filters
@@ -161,19 +156,6 @@ async def get_transactions(
     - **date_to**: End date (inclusive)
     - **limit**: Maximum number of records to return (None for all)
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     transactions = crud.get_transactions(
         db=db,
         portfolio_id=portfolio_id,
@@ -193,7 +175,7 @@ async def get_transaction_metrics(
     portfolio_id: int,
     grouping: str = "monthly",  # "monthly" or "yearly"
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get aggregated transaction metrics grouped by month or year
@@ -206,19 +188,6 @@ async def get_transaction_metrics(
     - Max/Min/Avg total price per transaction
     - Difference between buy and sell totals
     """
-    # Verify portfolio exists and belongs to user
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     from sqlalchemy import func, extract, case
     from app.models import Transaction as TransactionModel
     from decimal import Decimal
@@ -347,28 +316,12 @@ async def get_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Get transaction by ID"""
-    # Verify portfolio access
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     transaction = crud.get_transaction(db, transaction_id)
     if not transaction or transaction.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
-        )
+        raise TransactionNotFoundError(transaction_id, portfolio_id)
     return transaction
 
 
@@ -380,8 +333,10 @@ async def get_transaction(
 async def create_transaction(
     portfolio_id: int,
     transaction: TransactionCreate,
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Create new transaction
@@ -394,18 +349,6 @@ async def create_transaction(
     - **SPLIT**: Stock split (use metadata.split for ratio, e.g., "2:1")
     - **TRANSFER_IN/OUT**: Transfer between portfolios
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
     
     # Validate SPLIT transactions - must have existing position transactions
     if transaction.type == TransactionType.SPLIT:
@@ -423,11 +366,7 @@ async def create_transaction(
             from app.crud.assets import get_asset
             asset = get_asset(db, transaction.asset_id)
             symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot record a split for {symbol} without any existing position transactions. "
-                       f"Please add at least one BUY transaction before recording a split."
-            )
+            raise CannotSplitWithoutBuyError(symbol=symbol)
     
     # Validate sell quantity if enabled
     from app.config import settings
@@ -441,18 +380,17 @@ async def create_transaction(
                 from app.crud.assets import get_asset
                 asset = get_asset(db, transaction.asset_id)
                 symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {transaction.quantity} shares of {symbol} on {transaction.tx_date}. "
-                           f"Position at that date: {position_before_sell} shares. "
-                           f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
+                raise CannotSellMoreThanOwnedError(
+                    symbol=symbol,
+                    owned=position_before_sell,
+                    attempted_sell=float(transaction.quantity),
+                    tx_date=transaction.tx_date
                 )
     
     created = crud.create_transaction(db, portfolio_id, transaction)
     
     # Auto-backfill historical prices from transaction date to today
     if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
-        from app.services.pricing import PricingService
         from app.crud.assets import get_asset
         from datetime import datetime
         
@@ -466,7 +404,6 @@ async def create_transaction(
                 logger.info(f"Updated first_transaction_date for {asset.symbol} to {transaction.tx_date}")
             
             # Backfill historical prices from first transaction date to today
-            pricing_service = PricingService(db)
             start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
             end_date = datetime.utcnow()
             
@@ -498,28 +435,13 @@ async def update_transaction(
     transaction_id: int,
     transaction: TransactionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Update existing transaction"""
-    # Verify portfolio access
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
-        )
+        raise TransactionNotFoundError(transaction_id, portfolio_id)
     
     # Validate SPLIT transactions - must have existing position transactions (excluding the current one being updated)
     if transaction.type == TransactionType.SPLIT:
@@ -536,11 +458,7 @@ async def update_transaction(
             from app.crud.assets import get_asset
             asset = get_asset(db, transaction.asset_id)
             symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot record a split for {symbol} without any existing position transactions. "
-                       f"Please add at least one BUY transaction before recording a split."
-            )
+            raise CannotSplitWithoutBuyError(symbol=symbol)
     
     # Validate sell quantity if enabled
     from app.config import settings
@@ -556,11 +474,11 @@ async def update_transaction(
                 from app.crud.assets import get_asset
                 asset = get_asset(db, transaction.asset_id)
                 symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {transaction.quantity} shares of {symbol} on {transaction.tx_date}. "
-                           f"Position at that date: {position_before_sell} shares. "
-                           f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
+                raise CannotSellMoreThanOwnedError(
+                    symbol=symbol,
+                    owned=position_before_sell,
+                    attempted_sell=float(transaction.quantity),
+                    tx_date=transaction.tx_date
                 )
     
     updated = crud.update_transaction(db, transaction_id, transaction)
@@ -584,28 +502,13 @@ async def delete_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Delete transaction"""
-    # Verify portfolio access
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
-        )
+        raise TransactionNotFoundError(transaction_id, portfolio_id)
     
     # Create notification for transaction deletion (before deleting)
     notification_service.create_transaction_notification(
@@ -623,7 +526,7 @@ async def import_csv_stream(
     portfolio_id: int,
     file: UploadFile = File(...),
     csv_service = Depends(get_csv_import_service),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Import transactions from CSV file with streaming progress updates
@@ -635,19 +538,6 @@ async def import_csv_stream(
     - total: int (total number of rows)
     - result: CsvImportResult (on completion)
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(csv_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Read file content
     content = await file.read()
     csv_content = content.decode("utf-8")
@@ -672,7 +562,7 @@ async def import_csv(
     portfolio_id: int,
     file: UploadFile = File(...),
     csv_service = Depends(get_csv_import_service),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Import transactions from CSV file
@@ -690,19 +580,6 @@ async def import_csv(
     2024-06-01,AAPL,SPLIT,2:1,2-for-1 stock split
     ```
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(csv_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Read file content
     content = await file.read()
     csv_content = content.decode("utf-8")
@@ -711,9 +588,6 @@ async def import_csv(
     result = csv_service.import_csv(portfolio_id, csv_content)
     
     if not result.success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"errors": result.errors, "imported": result.imported_count}
-        )
+        raise ImportTransactionsError(result.errors, result.imported_count)
     
     return result
