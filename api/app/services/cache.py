@@ -279,10 +279,12 @@ class CacheService:
         Returns number of keys deleted.
         """
         patterns = [
-            f"{CacheService.PREFIX_POSITION}{portfolio_id}:*",
+            f"{CacheService.PREFIX_POSITION}{portfolio_id}",  # Exact match for positions:N
+            f"{CacheService.PREFIX_POSITION}{portfolio_id}:*",  # Match any sub-keys
             f"{CacheService.PREFIX_METRICS}{portfolio_id}:*",
             f"{CacheService.PREFIX_ANALYTICS}*_{portfolio_id}_*",
             f"{CacheService.PREFIX_INSIGHTS}{portfolio_id}:*",
+            f"dashboard_batch:{portfolio_id}:*",  # Batch API cache
         ]
         
         total_deleted = 0

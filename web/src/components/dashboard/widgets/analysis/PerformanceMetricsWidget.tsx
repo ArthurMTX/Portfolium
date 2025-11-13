@@ -12,6 +12,7 @@ interface PerformanceMetricsWidgetProps extends BaseWidgetProps {
 export default function PerformanceMetricsWidget({ isPreview = false, batchData }: PerformanceMetricsWidgetProps) {
   const { t } = useTranslation()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const dataVersion = usePortfolioStore((state) => state.dataVersion)
   const [loading, setLoading] = useState(false)
   const [metrics, setMetrics] = useState<{
     weeklyReturn?: number
@@ -53,7 +54,9 @@ export default function PerformanceMetricsWidget({ isPreview = false, batchData 
       return (valueChange / startValue) * 100
     }
 
-    // Check if batch data is available
+    if (!activePortfolioId) return
+
+    // Check if batch data is available (but always refetch when dataVersion changes)
     if (batchData?.performance_history) {
       const historyData = batchData.performance_history as Record<string, PortfolioHistoryPointDTO[]>
       setMetrics({
@@ -64,8 +67,6 @@ export default function PerformanceMetricsWidget({ isPreview = false, batchData 
       setLoading(false)
       return
     }
-
-    if (!activePortfolioId) return
 
     const fetchMetrics = async () => {
       setLoading(true)
@@ -92,7 +93,7 @@ export default function PerformanceMetricsWidget({ isPreview = false, batchData 
     }
 
     fetchMetrics()
-  }, [activePortfolioId, isPreview, batchData])
+  }, [activePortfolioId, isPreview, batchData, dataVersion])
 
   const periods = [
     { label: t('dashboard.widgets.performanceMetrics.weekly'), value: metrics.weeklyReturn, key: 'week' },

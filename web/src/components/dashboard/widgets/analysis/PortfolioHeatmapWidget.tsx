@@ -11,6 +11,7 @@ interface PortfolioHeatmapWidgetProps extends BaseWidgetProps {}
 
 export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioHeatmapWidgetProps) {
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const dataVersion = usePortfolioStore((state) => state.dataVersion)
   const [positions, setPositions] = useState<PositionDTO[]>([])
   const [loading, setLoading] = useState(false)
   const { t } = useTranslation()
@@ -41,7 +42,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
     return () => {
       canceled = true
     }
-  }, [activePortfolioId, isPreview])
+  }, [activePortfolioId, isPreview, dataVersion])
 
   const totalValue = useMemo(() => {
     return positions.reduce((sum, p) => sum + (Number(p.market_value) || 0), 0)

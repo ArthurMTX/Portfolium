@@ -26,6 +26,7 @@ interface AssetAllocationWidgetProps extends BaseWidgetProps {
 export default function AssetAllocationWidget({ isPreview = false, batchData }: AssetAllocationWidgetProps) {
   const { t } = useTranslation()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const dataVersion = usePortfolioStore((state) => state.dataVersion)
 
   const [activeTab, setActiveTab] = useState<DistributionType>('sector')
   const [chartType, setChartType] = useState<ChartType>('donut')
@@ -49,31 +50,8 @@ export default function AssetAllocationWidget({ isPreview = false, batchData }: 
       return
     }
 
-    // Check if batch data is available for current tab
-    const hasBatchData = (
-      (activeTab === 'sector' && batchData?.sector_allocation) ||
-      (activeTab === 'type' && batchData?.asset_allocation) ||
-      (activeTab === 'country' && batchData?.country_allocation)
-    )
-
-    if (hasBatchData) {
-      // Use batch data
-      let data: DistributionItemDTO[]
-      switch (activeTab) {
-        case 'sector':
-          data = batchData!.sector_allocation as DistributionItemDTO[]
-          break
-        case 'type':
-          data = batchData!.asset_allocation as DistributionItemDTO[]
-          break
-        case 'country':
-          data = batchData!.country_allocation as DistributionItemDTO[]
-          break
-      }
-      setDistributionData(data)
-      setLoading(false)
-      return
-    }
+    // Always fetch fresh data directly from API to avoid stale batchData
+    // (batchData may be stale if widget wasn't visible during last batch fetch)
 
     if (!activePortfolioId) return
 
@@ -101,7 +79,7 @@ export default function AssetAllocationWidget({ isPreview = false, batchData }: 
     }
 
     fetchData()
-  }, [activePortfolioId, activeTab, isPreview, batchData])
+  }, [activePortfolioId, activeTab, isPreview, batchData, dataVersion])
 
   // Prepare chart data
   const chartData = {

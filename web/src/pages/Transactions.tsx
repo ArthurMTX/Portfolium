@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
@@ -44,11 +45,21 @@ type SortDir = 'asc' | 'desc'
 
 export default function Transactions() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
+  const incrementDataVersion = usePortfolioStore((state) => state.incrementDataVersion)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
+
+  // Helper to invalidate all portfolio-related caches
+  const invalidatePortfolioData = useCallback(async () => {
+    // Remove all queries from cache to force fresh fetch
+    queryClient.removeQueries()
+    // Increment data version to trigger useEffect re-fetches in widgets
+    incrementDataVersion()
+  }, [queryClient, incrementDataVersion])
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -309,6 +320,10 @@ export default function Transactions() {
         )
       }
 
+      // Clear caches immediately
+      await invalidatePortfolioData()
+      
+      // Refetch to get fresh data
       await fetchTransactions()
       closeModal()
     } catch (err: unknown) {
@@ -321,11 +336,22 @@ export default function Transactions() {
 
   const handleDelete = async (transactionId: number) => {
     try {
-      await api.deleteTransaction(activePortfolioId!, transactionId)
-      await fetchTransactions()
+      // Optimistically remove from local state immediately
+      setTransactions(prev => prev.filter(t => t.id !== transactionId))
       setDeleteConfirm(null)
+      
+      // Delete on backend
+      await api.deleteTransaction(activePortfolioId!, transactionId)
+      
+      // Clear all caches immediately (no delay needed with optimistic update)
+      await invalidatePortfolioData()
+      
+      // Refetch to ensure consistency
+      await fetchTransactions()
     } catch (err) {
       console.error("Failed to delete transaction:", err)
+      // Refetch on error to restore correct state
+      await fetchTransactions()
     }
   }
 
