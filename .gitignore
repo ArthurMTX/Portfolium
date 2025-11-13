@@ -43,3 +43,7 @@ postgres_data/
 site/
 .mkdocs_cache/
 web/public/docs/
+
+# Celery
+*celerybeat-schedule
+*celerybeat.pid
