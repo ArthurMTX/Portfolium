@@ -112,6 +112,7 @@ async def health_check(db: Session = Depends(get_db)):
     Verifies:
     - API is running
     - Database connection is healthy
+    - Redis connection is healthy
     - Returns current market status for all regions
     """
     # Test database connection
@@ -121,15 +122,40 @@ async def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
     
+    # Test Redis connection
+    from app.redis_client import get_redis_manager
+    redis_manager = get_redis_manager()
+    redis_status = "healthy" if redis_manager.is_healthy else "unavailable"
+    
     market_status = get_market_status()
     market_statuses = get_all_market_statuses()
     
+    # Overall status is OK if DB is healthy (Redis is optional)
+    overall_status = "ok" if db_status == "healthy" else "degraded"
+    
     return HealthCheck(
-        status="ok" if db_status == "healthy" else "degraded",
+        status=overall_status,
         timestamp=datetime.utcnow(),
         database=db_status,
+        redis=redis_status,
         version=__version__,
         market_status=market_status,
         market_statuses=market_statuses,
         email_enabled=settings.ENABLE_EMAIL
     )
+
+
+@router.get("/health/redis")
+async def redis_health():
+    """
+    Detailed Redis health check and statistics
+    """
+    from app.redis_client import get_redis_manager
+    from app.services.cache import CacheService
+    
+    redis_manager = get_redis_manager()
+    
+    return {
+        "connection": redis_manager.get_stats(),
+        "cache": CacheService.get_stats()
+    }

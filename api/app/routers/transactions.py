@@ -413,10 +413,33 @@ async def create_transaction(
             except Exception as e:
                 logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
-    # Invalidate analytics cache since portfolio data changed
+    # Invalidate all caches since portfolio data changed
     from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
-    logger.info(f"Invalidated analytics cache for portfolio {portfolio_id} after transaction")
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction")
+    
+    # Trigger background recalculation of metrics and insights
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            
+            # Queue async tasks to recalculate metrics and insights
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        # Don't fail the request if background task queueing fails
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
     
     # Create notification for transaction
     notification_service.create_transaction_notification(
@@ -483,6 +506,31 @@ async def update_transaction(
     
     updated = crud.update_transaction(db, transaction_id, transaction)
     
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction update")
+    
+    # Trigger background recalculation
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
+    
     # Create notification for transaction update
     notification_service.create_transaction_notification(
         db=db,
@@ -519,6 +567,31 @@ async def delete_transaction(
     )
     
     crud.delete_transaction(db, transaction_id)
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction deletion")
+    
+    # Trigger background recalculation
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
 
 
 @router.post("/import/csv/stream")

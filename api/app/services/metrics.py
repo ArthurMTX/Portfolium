@@ -14,20 +14,16 @@ from app.models import Transaction, Asset, TransactionType
 from app.schemas import Position, PortfolioMetrics
 from app.crud import prices as crud_prices
 from app.db import get_db
+from app.services.cache import CacheService, cache_positions, get_cached_positions, invalidate_positions
 
 logger = logging.getLogger(__name__)
 
 # Lock to prevent concurrent database access in async position calculations
 _db_lock = asyncio.Lock()
 
-# Two-level cache for position calculations:
-# 1. Task cache: Deduplicates concurrent requests (shares the same ongoing calculation)
-# 2. Result cache: Serves recent results to staggered requests (within TTL)
-from datetime import timedelta
-_ongoing_calculations: Dict[Tuple[int, bool], asyncio.Task] = {}  # Task-based deduplication
-_result_cache: Dict[Tuple[int, bool], Tuple[List, datetime]] = {}  # Result caching
+# Task cache for deduplicating concurrent position calculations
+_ongoing_calculations: Dict[Tuple[int, bool], asyncio.Task] = {}
 _cache_lock = asyncio.Lock()
-_RESULT_CACHE_TTL = timedelta(seconds=60)  # Cache results for 60 seconds
 
 
 class MetricsService:
@@ -38,9 +34,9 @@ class MetricsService:
     
     async def get_positions(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
         """
-        Calculate current positions for a portfolio with two-level caching:
-        1. Result cache: Serves recent results to staggered requests (within 10s TTL)
-        2. Task cache: Deduplicates truly concurrent requests (shares ongoing calculation)
+        Calculate current positions for a portfolio with Redis caching and task deduplication:
+        1. Redis cache: Serves recent results (10 min TTL), shared across instances
+        2. Task cache: Deduplicates concurrent requests (shares ongoing calculation)
         
         For each asset:
         - Net quantity (BUY/TRANSFER_IN - SELL/TRANSFER_OUT, adjusted for SPLIT)
@@ -53,29 +49,24 @@ class MetricsService:
             include_sold: If True, also return sold positions with realized P&L
         """
         cache_key = (portfolio_id, include_sold)
-        now = datetime.now()
+        
+        # Check Redis cache first
+        redis_cached = get_cached_positions(portfolio_id)
+        if redis_cached and not include_sold:  # Only use cache for active positions
+            logger.info(f"Using Redis cached positions for portfolio {portfolio_id}")
+            # Convert dict back to Position objects
+            return [Position(**pos) for pos in redis_cached]
         
         # Variable to track if we need to wait for an ongoing task
         ongoing_task = None
         
         async with _cache_lock:
-            # Level 1: Check result cache for recent calculations
-            if cache_key in _result_cache:
-                cached_result, cached_time = _result_cache[cache_key]
-                age = now - cached_time
-                if age < _RESULT_CACHE_TTL:
-                    logger.info(f"Using cached position calculation for portfolio {portfolio_id} (age: {age.total_seconds():.1f}s)")
-                    return cached_result
-                else:
-                    # Cache expired, remove it
-                    _result_cache.pop(cache_key, None)
-            
-            # Level 2: Check if calculation is already ongoing
+            # Check if calculation is already ongoing
             if cache_key in _ongoing_calculations:
                 ongoing_task = _ongoing_calculations[cache_key]
                 logger.info(f"Reusing ongoing position calculation for portfolio {portfolio_id}")
             else:
-                # Level 3: Start new calculation
+                # Start new calculation
                 logger.info(f"Starting new position calculation for portfolio {portfolio_id}")
                 ongoing_task = asyncio.create_task(self._calculate_positions_internal(portfolio_id, include_sold))
                 _ongoing_calculations[cache_key] = ongoing_task
@@ -84,10 +75,13 @@ class MetricsService:
         try:
             result = await ongoing_task
             
-            # Store result in cache with current timestamp
+            # Store result in Redis cache (only for active positions)
+            if not include_sold and result:
+                positions_data = [pos.model_dump() for pos in result]
+                cache_positions(portfolio_id, positions_data, CacheService.TTL_POSITION)
+            
+            # Remove from ongoing calculations
             async with _cache_lock:
-                _result_cache[cache_key] = (result, datetime.now())
-                # Remove from ongoing calculations only if it's still our task
                 if _ongoing_calculations.get(cache_key) == ongoing_task:
                     _ongoing_calculations.pop(cache_key, None)
             

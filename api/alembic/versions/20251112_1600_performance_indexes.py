@@ -109,7 +109,7 @@ def upgrade() -> None:
         if_not_exists=True
     )
     
-    print("✅ Performance indexes created successfully")
+    print("Performance indexes created successfully")
 
 
 def downgrade() -> None:
@@ -124,4 +124,4 @@ def downgrade() -> None:
     op.drop_index('idx_transactions_portfolio', table_name='transactions', schema='portfolio', if_exists=True)
     op.drop_index('idx_asset_metadata_user_asset', table_name='asset_metadata_overrides', schema='portfolio', if_exists=True)
     
-    print("✅ Performance indexes removed successfully")
+    print("Performance indexes removed successfully")

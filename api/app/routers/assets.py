@@ -5,6 +5,7 @@ from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 import logging
+import json
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from app.crud import assets as crud
 from app.auth import get_current_user
 from app.models import User
 from app.dependencies import MetricsServiceDep
+from app.services.cache import CacheService
 from app.errors import ( 
     AssetAlreadyExistsError,
     AssetNotFoundError,
@@ -29,6 +31,8 @@ from app.errors import (
 import yfinance as yf
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+cache_service = CacheService()
 logger = logging.getLogger(__name__)
 
 
@@ -218,10 +222,21 @@ async def get_held_assets(
     - Number of portfolios holding this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
     - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
+    
+    Cached until next transaction is created/updated/deleted.
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
     from decimal import Decimal
+    
+    # Check cache
+    cache_key = f"assets_held:{current_user.id}:{portfolio_id or 'all'}"
+    cached = cache_service.get(cache_key)
+    if cached:
+        logger.debug(f"Cache HIT for held assets: {cache_key}")
+        return json.loads(cached)
+    
+    logger.debug(f"Cache MISS for held assets: {cache_key}")
     
     # Get all assets that have transactions
     query = db.query(Transaction.asset_id.distinct())
@@ -295,12 +310,16 @@ async def get_held_assets(
                     "transaction_count": transaction_count,
                     "first_transaction_date": first_transaction_date.isoformat() if first_transaction_date else None,
                     "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
-                    "created_at": asset.created_at,
-                    "updated_at": asset.updated_at
+                    "created_at": asset.created_at.isoformat() if asset.created_at else None,
+                    "updated_at": asset.updated_at.isoformat() if asset.updated_at else None
                 })
     
     # Sort by symbol
     results.sort(key=lambda x: x["symbol"])
+    
+    # Cache for 1 hour (invalidated on transaction changes)
+    cache_service.set(cache_key, json.dumps(results), ttl=3600)
+    
     return results
 
 
@@ -319,10 +338,21 @@ async def get_sold_assets(
     - Number of portfolios that held this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
     - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
+    
+    Cached until next transaction is created/updated/deleted.
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
     from decimal import Decimal
+    
+    # Check cache
+    cache_key = f"assets_sold:{current_user.id}:{portfolio_id or 'all'}"
+    cached = cache_service.get(cache_key)
+    if cached:
+        logger.debug(f"Cache HIT for sold assets: {cache_key}")
+        return json.loads(cached)
+    
+    logger.debug(f"Cache MISS for sold assets: {cache_key}")
     
     # Get all assets that have transactions
     query = db.query(Transaction.asset_id.distinct())
@@ -396,12 +426,16 @@ async def get_sold_assets(
                     "transaction_count": transaction_count,
                     "first_transaction_date": first_transaction_date.isoformat() if first_transaction_date else None,
                     "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
-                    "created_at": asset.created_at,
-                    "updated_at": asset.updated_at
+                    "created_at": asset.created_at.isoformat() if asset.created_at else None,
+                    "updated_at": asset.updated_at.isoformat() if asset.updated_at else None
                 })
     
     # Sort by symbol
     results.sort(key=lambda x: x["symbol"])
+    
+    # Cache for 1 hour (invalidated on transaction changes)
+    cache_service.set(cache_key, json.dumps(results), ttl=3600)
+    
     return results
 
 
@@ -1456,7 +1490,7 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
     recommendations = []
     
     if status == "POOR" or coverage_pct < 60:
-        recommendations.append("⚠️ Price data coverage is low. Consider running a manual backfill.")
+        recommendations.append("Price data coverage is low. Consider running a manual backfill.")
         recommendations.append(f"Run: POST /portfolios/{{portfolio_id}}/backfill_history to fetch missing prices")
     
     if gap_count > 10:
@@ -1465,10 +1499,10 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
             recommendations.append("Consider re-fetching historical data from first transaction date.")
     
     if status == "EXCELLENT":
-        recommendations.append("✅ Price data coverage is excellent. No action needed.")
+        recommendations.append("Price data coverage is excellent. No action needed.")
     
     if not asset.first_transaction_date:
-        recommendations.append("⚠️ No first_transaction_date set. Historical backfill may not work correctly.")
+        recommendations.append("No first_transaction_date set. Historical backfill may not work correctly.")
     
     return recommendations
 

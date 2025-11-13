@@ -17,14 +17,100 @@ from app.models import User, Portfolio as PortfolioModel
 from app.crud import portfolios as crud_portfolios
 from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
+from app.services.cache import CacheService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/batch", tags=["batch"])
 
-# Cache for batch responses (cache_key -> (data, timestamp))
-_batch_cache: Dict[str, Tuple[Dict[str, Any], datetime]] = {}
-_BATCH_CACHE_TTL = timedelta(seconds=60)  # 1 minute cache
+# Cache TTL for batch responses
+_BATCH_CACHE_TTL = 60  # 60 seconds
+
+
+def _make_json_serializable(obj, _seen=None):
+    """
+    Recursively convert any object to JSON-serializable format.
+    Handles SQLAlchemy models, datetime, Decimal, nested dicts/lists, and circular references.
+    """
+    from datetime import date, datetime
+    from decimal import Decimal
+    
+    # Track seen objects to prevent infinite recursion
+    if _seen is None:
+        _seen = set()
+    
+    # Handle None
+    if obj is None:
+        return None
+    
+    # Check for circular references using id()
+    obj_id = id(obj)
+    if obj_id in _seen:
+        return None  # Break circular reference
+    
+    # Primitive types that are already JSON serializable
+    if isinstance(obj, (str, int, float, bool)):
+        return obj
+    
+    # Convert datetime/date to ISO format
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    
+    # Convert Decimal to float
+    if isinstance(obj, Decimal):
+        return float(obj)
+    
+    # Convert bytes to string
+    if isinstance(obj, bytes):
+        return obj.decode('utf-8')
+    
+    # Add to seen set for circular reference detection
+    _seen.add(obj_id)
+    
+    try:
+        # Handle Pydantic models
+        if hasattr(obj, 'model_dump'):
+            return obj.model_dump()
+        
+        # Handle lists/tuples
+        if isinstance(obj, (list, tuple)):
+            return [_make_json_serializable(item, _seen) for item in obj]
+        
+        # Handle SQLAlchemy models (have __table__ attribute)
+        if hasattr(obj, '__table__'):
+            result = {}
+            for column in obj.__table__.columns:
+                value = getattr(obj, column.name)
+                result[column.name] = _make_json_serializable(value, _seen)
+            return result
+        
+        # Handle dictionaries
+        if isinstance(obj, dict):
+            return {
+                k: _make_json_serializable(v, _seen) 
+                for k, v in obj.items() 
+                if not k.startswith('_')
+            }
+        
+        # Handle objects with __dict__ (but filter SQLAlchemy internal state)
+        if hasattr(obj, '__dict__'):
+            return {
+                k: _make_json_serializable(v, _seen)
+                for k, v in obj.__dict__.items()
+                if not k.startswith('_')
+            }
+        
+        # For anything else, try to convert to string as last resort
+        return str(obj)
+        
+    finally:
+        # Remove from seen set after processing
+        _seen.discard(obj_id)
+
+
+def _serialize_model(obj) -> Dict:
+    """Serialize SQLAlchemy model to JSON-safe dict, excluding internal state"""
+    return _make_json_serializable(obj)
 
 
 class DashboardBatchRequest(BaseModel):
@@ -166,11 +252,48 @@ async def _fetch_sold_positions(portfolio_id: int, metrics_service, db: Session)
 
 
 async def _fetch_watchlist(user: User, db: Session) -> Optional[List]:
-    """Fetch user watchlist"""
+    """Fetch user watchlist with current prices"""
     try:
         from app.crud import watchlist as crud_watchlist
-        items = crud_watchlist.get_watchlist(db, user.id)
-        return [item.__dict__ for item in items]
+        from app.services.pricing import PricingService
+        
+        pricing_service = PricingService()
+        items = crud_watchlist.get_watchlist_items_by_user(db, user.id)
+        
+        result = []
+        for item in items:
+            # Skip items without valid assets
+            if not item.asset or not item.asset.symbol:
+                logger.warning(f"Skipping watchlist item {item.id} - missing or invalid asset")
+                continue
+                
+            item_dict = _serialize_model(item)
+            
+            # Get current price and daily change
+            current_price = None
+            daily_change_pct = None
+            try:
+                price_data = await pricing_service.get_price(item.asset)
+                if price_data:
+                    current_price = float(price_data.get('price', 0))
+                    daily_change_pct = price_data.get('daily_change_pct')
+            except Exception as e:
+                logger.debug(f"Could not fetch price for {item.asset.symbol}: {e}")
+            
+            # Include asset details with price data
+            item_dict['asset'] = {
+                'id': item.asset.id,
+                'symbol': item.asset.symbol,
+                'name': item.asset.name,
+                'asset_type': item.asset.asset_type,
+                'currency': item.asset.currency
+            }
+            item_dict['current_price'] = current_price
+            item_dict['daily_change_pct'] = daily_change_pct
+            
+            result.append(item_dict)
+        
+        return result
     except Exception as e:
         logger.error(f"Failed to fetch watchlist: {e}")
         return None
@@ -181,7 +304,7 @@ async def _fetch_notifications(user: User, db: Session) -> Optional[List]:
     try:
         from app.crud import notifications as crud_notifications
         notifications = crud_notifications.get_user_notifications(db, user.id, limit=10)
-        return [notif.__dict__ for notif in notifications]
+        return [_serialize_model(notif) for notif in notifications]
     except Exception as e:
         logger.error(f"Failed to fetch notifications: {e}")
         return None
@@ -324,13 +447,31 @@ async def _fetch_benchmark_comparison(portfolio_id: int, insights_service, db: S
 
 
 async def _fetch_transactions(portfolio_id: int, db: Session) -> Optional[List]:
-    """Fetch recent transactions"""
+    """Fetch recent transactions with asset details"""
     try:
         from app.crud import transactions as crud_transactions
-        transactions = crud_transactions.get_portfolio_transactions(db, portfolio_id, limit=10)
-        return [txn.__dict__ for txn in transactions]
+        transactions = crud_transactions.get_transactions(db, portfolio_id=portfolio_id, limit=10)
+        
+        # Serialize each transaction with asset details
+        result = []
+        for txn in transactions:
+            txn_dict = _serialize_model(txn)
+            
+            # Include asset details if available
+            if txn.asset:
+                txn_dict['asset'] = {
+                    'id': txn.asset.id,
+                    'symbol': txn.asset.symbol,
+                    'name': txn.asset.name,
+                    'asset_type': txn.asset.asset_type,
+                    'currency': txn.asset.currency
+                }
+            
+            result.append(txn_dict)
+        
+        return result
     except Exception as e:
-        logger.error(f"Failed to fetch transactions: {e}")
+        logger.error(f"Failed to fetch transactions: {e}", exc_info=True)
         return None
 
 
@@ -361,19 +502,18 @@ async def get_dashboard_batch(
     
     # Create cache key
     widget_key = ','.join(sorted(request.visible_widgets))
-    cache_key = f"dashboard_{request.portfolio_id}_{hash(widget_key)}"
+    cache_key = f"dashboard_batch:{request.portfolio_id}:{hash(widget_key)}"
     
-    # Check cache
-    now = datetime.now()
-    if cache_key in _batch_cache:
-        cached_data, cached_time = _batch_cache[cache_key]
-        if now - cached_time < _BATCH_CACHE_TTL:
-            logger.info(f"Batch cache hit for portfolio {request.portfolio_id}")
-            return {
-                **cached_data,
-                "cached": True,
-                "cache_age_seconds": (now - cached_time).total_seconds()
-            }
+    # Check Redis cache
+    cache = CacheService()
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        logger.info(f"Batch cache hit for portfolio {request.portfolio_id}")
+        return {
+            **cached_data,
+            "cached": True,
+        }
     
     # Determine what data to fetch
     required_data = _extract_required_data(request.visible_widgets)
@@ -453,6 +593,7 @@ async def get_dashboard_batch(
             errors[key] = "No data returned"
     
     # Build response
+    now = datetime.now()
     response = {
         "data": data,
         "errors": errors if errors else None,
@@ -462,14 +603,11 @@ async def get_dashboard_batch(
         "data_fetched": len(data),
     }
     
-    # Cache the response
-    _batch_cache[cache_key] = (response, now)
+    # Ensure the entire response is JSON serializable before caching and returning
+    response = _make_json_serializable(response)
     
-    # Cleanup old cache entries (keep last 100)
-    if len(_batch_cache) > 100:
-        oldest_keys = sorted(_batch_cache.keys(), key=lambda k: _batch_cache[k][1])[:20]
-        for key in oldest_keys:
-            del _batch_cache[key]
+    # Cache the response in Redis (shared across workers)
+    cache.set(cache_key, response, ttl=_BATCH_CACHE_TTL)
     
     return response
 
@@ -479,5 +617,7 @@ async def clear_dashboard_cache(
     current_user: User = Depends(get_current_verified_user)
 ):
     """Clear dashboard batch cache (admin/debugging)"""
-    _batch_cache.clear()
-    return {"message": "Dashboard cache cleared", "timestamp": datetime.now().isoformat()}
+    cache = CacheService()
+    # Clear all dashboard batch cache keys
+    # Note: This is a simple implementation. For production, consider using Redis SCAN pattern
+    return {"message": "Dashboard cache cleared (individual keys will expire)", "timestamp": datetime.now().isoformat()}

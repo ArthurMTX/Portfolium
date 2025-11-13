@@ -467,7 +467,7 @@ class PDFReportService:
                 html += f"""
     <div class="portfolio-section">
         <div class="portfolio-header">💼 {portfolio.name}</div>
-        <div class="no-data">⚠️ Error generating report: {str(e)}</div>
+        <div class="no-data">Error generating report: {str(e)}</div>
     </div>
 """
         

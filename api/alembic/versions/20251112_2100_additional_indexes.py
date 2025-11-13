@@ -63,7 +63,7 @@ def upgrade() -> None:
         if_not_exists=True
     )
     
-    print("✅ Additional composite indexes created successfully")
+    print("Additional composite indexes created successfully")
 
 
 def downgrade() -> None:
@@ -74,4 +74,4 @@ def downgrade() -> None:
     op.drop_index('idx_prices_source', table_name='prices', schema='portfolio', if_exists=True)
     op.drop_index('idx_dashboard_layouts_user', table_name='dashboard_layouts', schema='portfolio', if_exists=True)
     
-    print("✅ Additional composite indexes removed successfully")
+    print("Additional composite indexes removed successfully")

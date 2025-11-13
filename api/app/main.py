@@ -12,7 +12,7 @@ from scalar_fastapi import get_scalar_api_reference
 
 from app.config import settings
 from app.db import engine, Base, SessionLocal
-from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch
+from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 from app.services.admin import ensure_admin_user, ensure_email_config
 from app.version import __version__, get_version_info
@@ -54,6 +54,15 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Portfolium API...")
     sys.stdout.flush()
     
+    # Initialize Redis connection
+    from app.redis_client import get_redis_manager
+    redis_manager = get_redis_manager()
+    if redis_manager.is_healthy:
+        logger.info("Redis connection established")
+    else:
+        logger.warning("Redis unavailable - application will run without caching")
+    sys.stdout.flush()
+    
     # Skip migrations in test mode
     skip_migrations = os.getenv("SKIP_MIGRATIONS", "false").lower() == "true"
     
@@ -69,7 +78,7 @@ async def lifespan(app: FastAPI):
             # Run synchronously - it's fast enough and avoids thread issues
             run_migrations()
             
-            logger.info("✓ Migration process completed")
+            logger.info("Migration process completed")
             sys.stdout.flush()
             
         except Exception as e:
@@ -92,7 +101,7 @@ async def lifespan(app: FastAPI):
         try:
             db = SessionLocal()
             ensure_email_config(db)
-            logger.info("✓ Email configuration initialized")
+            logger.info("Email configuration initialized")
             sys.stdout.flush()
         except Exception as e:
             logger.warning("Could not initialize email config (will retry later): %s", e)
@@ -111,7 +120,7 @@ async def lifespan(app: FastAPI):
         try:
             db = SessionLocal()
             ensure_admin_user(db)
-            logger.info("✓ Admin user check completed")
+            logger.info("Admin user check completed")
             sys.stdout.flush()
         except Exception as e:
             logger.warning("Could not ensure admin user (will retry on first request): %s", e)
@@ -133,13 +142,26 @@ async def lifespan(app: FastAPI):
         
         # Start background scheduler
         start_scheduler()
-        logger.info("✓ Price refresh scheduler started")
+        logger.info("Price refresh scheduler started")
+        
+        # Trigger cache warmup if enabled
+        if settings.ENABLE_BACKGROUND_TASKS and settings.CACHE_WARMUP_ON_STARTUP:
+            try:
+                from app.tasks.metrics_tasks import warmup_metrics_cache
+                from app.tasks.insights_tasks import warmup_insights_cache
+                
+                logger.info("Triggering startup cache warmup...")
+                warmup_metrics_cache.delay()
+                warmup_insights_cache.delay(periods=["1mo"])
+                logger.info("Cache warmup tasks queued")
+            except Exception as e:
+                logger.warning(f"Failed to queue cache warmup tasks: {e}")
     else:
         logger.info("Skipping scheduler startup (test mode)")
     
-    logger.info("=" * 80)
-    logger.info("✓✓✓ Portfolium API startup complete - ready to serve requests ✓✓✓")
-    logger.info("=" * 80)
+    logger.info("=" * 50)
+    logger.info("Portfolium API startup complete - ready to serve requests")
+    logger.info("=" * 50)
     sys.stdout.flush()
     sys.stderr.flush()
     
@@ -157,6 +179,12 @@ async def lifespan(app: FastAPI):
     sys.stderr.flush()
     if not skip_migrations:
         stop_scheduler()
+    
+    # Close Redis connection
+    from app.redis_client import close_redis_connection
+    close_redis_connection()
+    logger.info("Redis connection closed")
+    sys.stdout.flush()
 
 
 app = FastAPI(
@@ -192,6 +220,7 @@ app.include_router(insights.router, prefix="/insights", tags=["insights"])
 app.include_router(dashboard_layouts.router, tags=["dashboard-layouts"])
 app.include_router(market.router, tags=["market"])
 app.include_router(batch.router, tags=["batch"])
+app.include_router(tasks.router, tags=["tasks"])
 app.include_router(logs.router, prefix="/admin", tags=["admin"])
 
 

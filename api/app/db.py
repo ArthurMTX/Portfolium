@@ -36,3 +36,26 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+from contextlib import contextmanager
+
+@contextmanager
+def get_db_context():
+    """
+    Context manager for getting database session in Celery tasks
+    
+    Usage:
+        with get_db_context() as db:
+            # Use db session
+            pass
+    """
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

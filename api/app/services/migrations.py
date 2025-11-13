@@ -82,7 +82,7 @@ def run_migrations():
             sys.stdout.flush()
             raise RuntimeError(f"Migration failed: {result.stderr}")
         
-        logger.info("✓ Database migrations completed successfully")
+        logger.info("Database migrations completed successfully")
         sys.stdout.flush()
             
     except subprocess.TimeoutExpired:

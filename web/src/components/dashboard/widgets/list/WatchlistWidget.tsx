@@ -87,14 +87,14 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
 
   // Process batch data to match expected format
   const batchWatchlistData = hasBatchData 
-    ? (batchData.watchlist as WatchlistItem[]).slice(0, 5).map(item => ({
+    ? (batchData.watchlist as any[]).slice(0, 5).map(item => ({
         id: item.id,
-        symbol: item.symbol,
-        name: item.name,
-        current_price: item.current_price,
-        daily_change_pct: item.daily_change_pct,
-        currency: item.currency,
-        asset_type: 'STOCK' as string | null
+        symbol: item.asset?.symbol || item.symbol,
+        name: item.asset?.name || item.name,
+        current_price: item.current_price ?? null,
+        daily_change_pct: item.daily_change_pct ?? null,
+        currency: item.asset?.currency || item.currency || 'USD',
+        asset_type: item.asset?.asset_type || item.asset_type || 'STOCK'
       })) as WatchlistItem[]
     : undefined
 

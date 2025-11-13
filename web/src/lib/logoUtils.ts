@@ -52,6 +52,7 @@ export const validateLogoImage = (img: HTMLImageElement): boolean => {
  * Normalize ticker symbol for logo lookup by removing currency suffixes
  */
 export const normalizeTickerForLogo = (symbol: string): string => {
+  if (!symbol) return ''
   return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
 }
 
@@ -66,6 +67,7 @@ export const getAssetLogoUrl = (
   assetType?: string | null,
   assetName?: string | null
 ): string => {
+  if (!symbol) return ''
   const normalizedSymbol = normalizeTickerForLogo(symbol)
   
   // For ETFs and Cryptocurrencies, use the API endpoint directly with asset_type parameter

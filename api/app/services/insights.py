@@ -31,9 +31,7 @@ from app.crud import prices as crud_prices
 
 logger = logging.getLogger(__name__)
 
-# Simple in-memory cache for insights
-_insights_cache: Dict[str, Tuple[PortfolioInsights, datetime]] = {}
-_CACHE_DURATION = timedelta(minutes=5)  # Cache insights for 5 minutes
+from app.services.cache import CacheService
 
 
 class InsightsService:
@@ -46,29 +44,19 @@ class InsightsService:
     
     def _get_cache_key(self, portfolio_id: int, period: str, benchmark_symbol: str) -> str:
         """Generate cache key for insights"""
-        key_data = f"{portfolio_id}:{period}:{benchmark_symbol}"
-        return hashlib.md5(key_data.encode()).hexdigest()
+        return f"{CacheService.PREFIX_INSIGHTS}{portfolio_id}:{period}:{benchmark_symbol}"
     
     def _get_cached_insights(self, cache_key: str) -> Optional[PortfolioInsights]:
-        """Get insights from cache if available and not expired"""
-        if cache_key in _insights_cache:
-            insights, timestamp = _insights_cache[cache_key]
-            if datetime.utcnow() - timestamp < _CACHE_DURATION:
-                logger.info(f"Returning cached insights (age: {datetime.utcnow() - timestamp})")
-                return insights
-            else:
-                # Cache expired, remove it
-                del _insights_cache[cache_key]
+        """Get insights from Redis cache if available"""
+        cached = CacheService.get(cache_key)
+        if cached:
+            logger.info("Returning cached insights from Redis")
+            return PortfolioInsights(**cached)
         return None
     
     def _cache_insights(self, cache_key: str, insights: PortfolioInsights) -> None:
-        """Store insights in cache"""
-        _insights_cache[cache_key] = (insights, datetime.utcnow())
-        # Keep cache size reasonable (max 100 entries)
-        if len(_insights_cache) > 100:
-            # Remove oldest entry
-            oldest_key = min(_insights_cache.keys(), key=lambda k: _insights_cache[k][1])
-            del _insights_cache[oldest_key]
+        """Store insights in Redis cache"""
+        CacheService.set(cache_key, insights.model_dump(), CacheService.TTL_INSIGHTS)
     
     async def get_portfolio_insights(
         self,

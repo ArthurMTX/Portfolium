@@ -450,6 +450,7 @@ class HealthCheck(BaseModel):
     status: str
     timestamp: datetime
     database: str
+    redis: Optional[str] = None  # 'healthy', 'unavailable', or error message
     version: str
     market_status: str  # 'premarket', 'open', 'afterhours', or 'closed' (US markets)
     market_statuses: dict  # Status for all regions: {'us': str, 'europe': str, 'asia': str, 'oceania': str}

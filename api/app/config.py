@@ -56,6 +56,32 @@ class Settings(BaseSettings):
     # Brandfetch API (for fetching company logos)
     BRANDFETCH_API_KEY: str = ""  # Optional: Leave empty to disable logo fetching
     
+    # Redis Configuration
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""  # Optional: Leave empty if no password
+    REDIS_MAX_CONNECTIONS: int = 50
+    REDIS_SOCKET_TIMEOUT: int = 5
+    REDIS_SOCKET_CONNECT_TIMEOUT: int = 5
+    
+    # Celery Configuration
+    CELERY_BROKER_URL: str = ""  # Will be constructed from Redis settings if not provided
+    CELERY_RESULT_BACKEND: str = ""  # Will be constructed from Redis settings if not provided
+    CELERY_TASK_ALWAYS_EAGER: bool = False  # Set to True to run tasks synchronously (testing)
+    CELERY_TASK_TRACK_STARTED: bool = True
+    CELERY_TASK_TIME_LIMIT: int = 300  # 5 minutes max per task
+    CELERY_WORKER_PREFETCH_MULTIPLIER: int = 4
+    CELERY_WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    
+    # Background Task Configuration
+    ENABLE_BACKGROUND_TASKS: bool = True  # Set to False to disable background task scheduling
+    METRICS_REFRESH_INTERVAL_MINUTES: int = 5  # How often to refresh metrics
+    INSIGHTS_REFRESH_INTERVAL_MINUTES: int = 10  # How often to refresh insights
+    CACHE_WARMUP_ON_STARTUP: bool = True  # Pre-calculate metrics on startup
+    MARKET_HOURS_START: int = 9  # Market opens at 9 AM
+    MARKET_HOURS_END: int = 16  # Market closes at 4 PM
+    
     # CORS - can be comma-separated string or list
     CORS_ORIGINS: Union[List[str], str] = "http://localhost:5173,http://localhost:3000,http://localhost:8080"
 
@@ -112,7 +138,7 @@ class Settings(BaseSettings):
             if not self.FRONTEND_URL or self.FRONTEND_URL == "http://localhost:5173":
                 # Warning only, not critical
                 print(
-                    "⚠️  WARNING: FRONTEND_URL is using default localhost value. "
+                    "WARNING: FRONTEND_URL is using default localhost value. "
                     "Email links may not work in production."
                 )
         
@@ -156,7 +182,7 @@ class Settings(BaseSettings):
             )
         if self.ACCESS_TOKEN_EXPIRE_MINUTES > 60 * 24 * 365:  # 1 year
             print(
-                f"⚠️  WARNING: ACCESS_TOKEN_EXPIRE_MINUTES is set to {self.ACCESS_TOKEN_EXPIRE_MINUTES} minutes "
+                f"WARNING: ACCESS_TOKEN_EXPIRE_MINUTES is set to {self.ACCESS_TOKEN_EXPIRE_MINUTES} minutes "
                 f"({self.ACCESS_TOKEN_EXPIRE_MINUTES / 60 / 24:.0f} days). "
                 "This is very long and may pose a security risk."
             )
@@ -170,7 +196,7 @@ class Settings(BaseSettings):
         
         # 9. Validate CORS origins
         if not self.CORS_ORIGINS:
-            print("⚠️  WARNING: CORS_ORIGINS is empty. API will not accept requests from any frontend.")
+            print("WARNING: CORS_ORIGINS is empty. API will not accept requests from any frontend.")
         elif isinstance(self.CORS_ORIGINS, list):
             for origin in self.CORS_ORIGINS:
                 if not origin.startswith(('http://', 'https://')):
@@ -192,5 +218,24 @@ class Settings(BaseSettings):
             f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+    
+    @property
+    def redis_url(self) -> str:
+        """Construct Redis URL for Celery"""
+        if self.CELERY_BROKER_URL:
+            return self.CELERY_BROKER_URL
+        
+        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+    
+    @property
+    def celery_broker_url(self) -> str:
+        """Get Celery broker URL"""
+        return self.CELERY_BROKER_URL or self.redis_url
+    
+    @property
+    def celery_result_backend(self) -> str:
+        """Get Celery result backend URL"""
+        return self.CELERY_RESULT_BACKEND or self.redis_url
     
 settings = Settings()

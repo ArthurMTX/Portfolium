@@ -73,6 +73,7 @@ docker compose up -d
 # 3. Access
 # Frontend: http://localhost:5173
 # API Docs: http://localhost:8000/docs
+# Task Monitor: http://localhost:5555 (Flower)
 ```
 
 That's it!  Default admin credentials are in your `.env` file.
@@ -101,7 +102,11 @@ npm run dev
 
 **Monorepo Structure:**
 - **db**: PostgreSQL 15
+- **redis**: Redis 7 (caching & message broker)
 - **api**: FastAPI (Python 3.11) + yfinance + SQLAlchemy
+- **celery-worker**: Background task processing (4 threads)
+- **celery-beat**: Scheduled task scheduler
+- **flower**: Task monitoring UI
 - **web**: React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui
 
 **DevOps:** Docker • Docker Compose • GitHub Actions • Docker Hub
@@ -133,10 +138,13 @@ npm run dev
 ### 🌐 Production Ready
 - Docker containerized
 - PostgreSQL backend
+- Redis caching layer
+- Celery background tasks
 - Automatic price updates
 - Currency conversion
 - Email notifications (optional)
 - Admin dashboard
+- Task monitoring (Flower)
 
 ---
 
@@ -149,6 +157,8 @@ Comprehensive documentation is available in the [`docs/`](docs/) folder:
 - **[User Guide](docs/user-guide/dashboard.md)**  Feature walkthrough
 - **[Technical Docs](docs/technical/overview.md)**  Architecture & internals
 - **[Configuration](docs/getting-started/configuration.md)**  Environment variables & settings
+- **[Redis Integration](REDIS_INTEGRATION.md)** ⚡ Caching layer setup & monitoring
+- **[Celery Background Tasks](CELERY_TASKS.md)** 🔄 Async processing & scheduling
 
 ---
 
