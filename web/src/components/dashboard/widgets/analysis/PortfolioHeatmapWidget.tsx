@@ -116,7 +116,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
                       <img
                         src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
                         alt={`${position.symbol} logo`}
-                        className={`${isLarge ? 'w-8 h-8' : percentage >= 5 ? 'w-6 h-6' : 'w-5 h-5'} object-contain bg-white dark:bg-neutral-900 rounded flex-shrink-0`}
+                        className={`${isLarge ? 'w-8 h-8' : percentage >= 5 ? 'w-6 h-6' : 'w-5 h-5'} object-contain bg-white dark:bg-neutral-900 flex-shrink-0`}
                         onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
                       />
                       <div className="flex-1 min-w-0">

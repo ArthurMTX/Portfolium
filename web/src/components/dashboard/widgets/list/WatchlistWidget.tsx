@@ -145,7 +145,7 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
                   <img
                     src={getAssetLogoUrl(item.symbol, item.asset_type || 'STOCK')}
                     alt={item.symbol}
-                    className="w-8 h-8 rounded object-contain bg-white dark:bg-neutral-900"
+                    className="w-8 h-8  object-contain bg-white dark:bg-neutral-900"
                     onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                   />
                   <div className="flex-1 min-w-0">
