@@ -3,8 +3,8 @@ Tests for metrics calculation service
 """
 import pytest
 from decimal import Decimal
-from datetime import date
-from unittest.mock import Mock, MagicMock
+from datetime import date, datetime
+from unittest.mock import Mock, MagicMock, patch
 
 from app.services.metrics import MetricsService
 from app.models import Asset, Transaction, TransactionType, Portfolio
@@ -22,7 +22,8 @@ def metrics_service(mock_db):
     return MetricsService(mock_db)
 
 
-def test_calculate_position_simple_buy(metrics_service, mock_db):
+@pytest.mark.asyncio
+async def test_calculate_position_simple_buy(metrics_service, mock_db):
     """Test position calculation for simple BUY transaction"""
     asset = Asset(id=1, symbol="AAPL", name="Apple Inc.", currency="USD")
     
@@ -51,7 +52,7 @@ def test_calculate_position_simple_buy(metrics_service, mock_db):
             asof=datetime.utcnow()
         )
         
-        position = metrics_service._calculate_position(1, transactions)
+        position = await metrics_service._calculate_position(1, transactions)
         
         assert position is not None
         assert position.quantity == Decimal("10")
@@ -62,7 +63,8 @@ def test_calculate_position_simple_buy(metrics_service, mock_db):
         assert position.unrealized_pnl == Decimal("90.00")  # 1600 - 1510
 
 
-def test_calculate_position_buy_and_sell(metrics_service, mock_db):
+@pytest.mark.asyncio
+async def test_calculate_position_buy_and_sell(metrics_service, mock_db):
     """Test position calculation with BUY and SELL"""
     asset = Asset(id=1, symbol="AAPL", name="Apple Inc.", currency="USD")
     
@@ -100,7 +102,7 @@ def test_calculate_position_buy_and_sell(metrics_service, mock_db):
             asof=datetime.utcnow()
         )
         
-        position = metrics_service._calculate_position(1, transactions)
+        position = await metrics_service._calculate_position(1, transactions)
         
         assert position is not None
         assert position.quantity == Decimal("5")  # 10 - 5
@@ -109,7 +111,8 @@ def test_calculate_position_buy_and_sell(metrics_service, mock_db):
         assert position.avg_cost == Decimal("151.00")
 
 
-def test_calculate_position_with_split(metrics_service, mock_db):
+@pytest.mark.asyncio
+async def test_calculate_position_with_split(metrics_service, mock_db):
     """Test position calculation with stock split"""
     asset = Asset(id=1, symbol="AAPL", name="Apple Inc.", currency="USD")
     
@@ -149,7 +152,7 @@ def test_calculate_position_with_split(metrics_service, mock_db):
             asof=datetime.utcnow()
         )
         
-        position = metrics_service._calculate_position(1, transactions)
+        position = await metrics_service._calculate_position(1, transactions)
         
         assert position is not None
         assert position.quantity == Decimal("20")  # 10 * 2 (2:1 split)
@@ -163,8 +166,3 @@ def test_parse_split_ratio(metrics_service):
     assert metrics_service._parse_split_ratio("1:2") == Decimal("0.5")
     assert metrics_service._parse_split_ratio("3:1") == Decimal("3")
     assert metrics_service._parse_split_ratio("invalid") == Decimal("1")
-
-
-# Import datetime at module level for patches
-from datetime import datetime
-from unittest.mock import patch

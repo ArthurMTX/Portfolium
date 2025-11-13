@@ -54,72 +54,89 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Portfolium API...")
     sys.stdout.flush()
     
+    # Skip migrations in test mode
+    skip_migrations = os.getenv("SKIP_MIGRATIONS", "false").lower() == "true"
+    
     # Run database migrations synchronously
     # Migrations are fast (<1s typically) and running in separate thread causes hanging issues
-    try:
-        from app.services.migrations import run_migrations
-        
-        logger.info("Running database migrations...")
+    if not skip_migrations:
+        try:
+            from app.services.migrations import run_migrations
+            
+            logger.info("Running database migrations...")
+            sys.stdout.flush()
+            
+            # Run synchronously - it's fast enough and avoids thread issues
+            run_migrations()
+            
+            logger.info("✓ Migration process completed")
+            sys.stdout.flush()
+            
+        except Exception as e:
+            logger.exception("Failed to run database migrations: %s", e)
+            sys.stdout.flush()
+            raise  # Fail startup if migrations fail
+    else:
+        logger.info("Skipping database migrations (test mode)")
         sys.stdout.flush()
-        
-        # Run synchronously - it's fast enough and avoids thread issues
-        run_migrations()
-        
-        logger.info("✓ Migration process completed")
-        sys.stdout.flush()
-        
-    except Exception as e:
-        logger.exception("Failed to run database migrations: %s", e)
-        sys.stdout.flush()
-        raise  # Fail startup if migrations fail
     
     # Small delay to ensure migration transaction is fully committed
     await asyncio.sleep(0.5)
     
-    logger.info("Initializing email configuration...")
-    sys.stdout.flush()
-    
-    # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
-    try:
-        db = SessionLocal()
-        ensure_email_config(db)
-        logger.info("✓ Email configuration initialized")
+    # Skip email config and admin user setup in test mode
+    if not skip_migrations:
+        logger.info("Initializing email configuration...")
         sys.stdout.flush()
-    except Exception as e:
-        logger.warning("Could not initialize email config (will retry later): %s", e)
-        logger.exception("Email config error details:")
-        sys.stdout.flush()
-    finally:
+        
+        # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
         try:
-            db.close()
-        except Exception:
-            pass
-    
-    logger.info("Checking admin user...")
-    sys.stdout.flush()
-    
-    # Ensure admin user exists if configured
-    try:
-        db = SessionLocal()
-        ensure_admin_user(db)
-        logger.info("✓ Admin user check completed")
+            db = SessionLocal()
+            ensure_email_config(db)
+            logger.info("✓ Email configuration initialized")
+            sys.stdout.flush()
+        except Exception as e:
+            logger.warning("Could not initialize email config (will retry later): %s", e)
+            logger.exception("Email config error details:")
+            sys.stdout.flush()
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+        
+        logger.info("Checking admin user...")
         sys.stdout.flush()
-    except Exception as e:
-        logger.warning("Could not ensure admin user (will retry on first request): %s", e)
-        logger.exception("Admin user error details:")
-        sys.stdout.flush()
-    finally:
+        
+        # Ensure admin user exists if configured
         try:
-            db.close()
-        except Exception:
-            pass
+            db = SessionLocal()
+            ensure_admin_user(db)
+            logger.info("✓ Admin user check completed")
+            sys.stdout.flush()
+        except Exception as e:
+            logger.warning("Could not ensure admin user (will retry on first request): %s", e)
+            logger.exception("Admin user error details:")
+            sys.stdout.flush()
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+    else:
+        logger.info("Skipping email config and admin user setup (test mode)")
+        sys.stdout.flush()
 
-    logger.info("Starting background scheduler...")
-    sys.stdout.flush()
+    # Skip scheduler in test mode (SKIP_MIGRATIONS=true)
+    if not skip_migrations:
+        logger.info("Starting background scheduler...")
+        sys.stdout.flush()
+        
+        # Start background scheduler
+        start_scheduler()
+        logger.info("✓ Price refresh scheduler started")
+    else:
+        logger.info("Skipping scheduler startup (test mode)")
     
-    # Start background scheduler
-    start_scheduler()
-    logger.info("✓ Price refresh scheduler started")
     logger.info("=" * 80)
     logger.info("✓✓✓ Portfolium API startup complete - ready to serve requests ✓✓✓")
     logger.info("=" * 80)
@@ -138,7 +155,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
     sys.stdout.flush()
     sys.stderr.flush()
-    stop_scheduler()
+    if not skip_migrations:
+        stop_scheduler()
 
 
 app = FastAPI(

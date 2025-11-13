@@ -23,7 +23,8 @@ def pricing_service(mock_db):
     return PricingService(mock_db)
 
 
-def test_get_price_from_cache_when_fresh(pricing_service, mock_db):
+@pytest.mark.asyncio
+async def test_get_price_from_cache_when_fresh(pricing_service, mock_db):
     """Test that cached price is returned when fresh"""
     # Setup mock asset
     asset = Asset(id=1, symbol="AAPL", currency="USD")
@@ -40,7 +41,7 @@ def test_get_price_from_cache_when_fresh(pricing_service, mock_db):
     with patch('app.services.pricing.crud_prices') as mock_crud:
         mock_crud.get_latest_price.return_value = fresh_price
         
-        result = pricing_service.get_price("AAPL")
+        result = await pricing_service.get_price("AAPL")
         
         assert result is not None
         assert result.symbol == "AAPL"
@@ -48,7 +49,8 @@ def test_get_price_from_cache_when_fresh(pricing_service, mock_db):
         assert result.currency == "USD"
 
 
-def test_get_price_fetches_when_stale(pricing_service, mock_db):
+@pytest.mark.asyncio
+async def test_get_price_fetches_when_stale(pricing_service, mock_db):
     """Test that fresh price is fetched when cache is stale"""
     asset = Asset(id=1, symbol="AAPL", currency="USD")
     mock_db.query().filter().first.return_value = asset
@@ -71,14 +73,15 @@ def test_get_price_fetches_when_stale(pricing_service, mock_db):
             "volume": 1000000
         }
         
-        result = pricing_service.get_price("AAPL")
+        result = await pricing_service.get_price("AAPL")
         
         assert result is not None
         assert result.price == Decimal("152.30")
         mock_fetch.assert_called_once_with("AAPL")
 
 
-def test_get_price_fallback_on_fetch_failure(pricing_service, mock_db):
+@pytest.mark.asyncio
+async def test_get_price_fallback_on_fetch_failure(pricing_service, mock_db):
     """Test fallback to cached price when fetch fails"""
     asset = Asset(id=1, symbol="AAPL", currency="USD")
     mock_db.query().filter().first.return_value = asset
@@ -96,22 +99,24 @@ def test_get_price_fallback_on_fetch_failure(pricing_service, mock_db):
         mock_crud.get_latest_price.return_value = stale_price
         mock_fetch.return_value = None  # Simulate fetch failure
         
-        result = pricing_service.get_price("AAPL")
+        result = await pricing_service.get_price("AAPL")
         
         assert result is not None
         assert result.price == Decimal("145.00")  # Uses cached price
 
 
-def test_get_price_returns_none_for_unknown_symbol(pricing_service, mock_db):
+@pytest.mark.asyncio
+async def test_get_price_returns_none_for_unknown_symbol(pricing_service, mock_db):
     """Test that None is returned for unknown symbol"""
     mock_db.query().filter().first.return_value = None
     
-    result = pricing_service.get_price("UNKNOWN")
+    result = await pricing_service.get_price("UNKNOWN")
     
     assert result is None
 
 
-def test_get_multiple_prices(pricing_service):
+@pytest.mark.asyncio
+async def test_get_multiple_prices(pricing_service):
     """Test getting multiple prices at once"""
     with patch.object(pricing_service, 'get_price') as mock_get_price:
         from app.schemas import PriceQuote
@@ -122,7 +127,7 @@ def test_get_multiple_prices(pricing_service):
             None  # Failed to get price
         ]
         
-        result = pricing_service.get_multiple_prices(["AAPL", "MSFT", "INVALID"])
+        result = await pricing_service.get_multiple_prices(["AAPL", "MSFT", "INVALID"])
         
         assert len(result) == 2
         assert "AAPL" in result

@@ -110,14 +110,14 @@ class InsightsService:
         
         # Calculate risk metrics
         try:
-            risk = self.get_risk_metrics(portfolio_id, period)
+            risk = await self.get_risk_metrics(portfolio_id, period)
         except Exception as e:
             logger.warning(f"Failed to calculate risk metrics: {e}")
             risk = self._empty_risk_metrics(period)
         
         # Benchmark comparison
         try:
-            benchmark_comparison = self.compare_to_benchmark(
+            benchmark_comparison = await self.compare_to_benchmark(
                 portfolio_id, benchmark_symbol, period
             )
         except Exception as e:
