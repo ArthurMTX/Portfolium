@@ -220,7 +220,15 @@
       "priceAboveAvg": "Prix au-dessus de la moyenne",
       "targetPRU5Pct": "Cible: -5% PRU",
       "costBasis": "Coût de Base",
-      "assetType": "Type d'Actif"
+      "assetType": "Type d'Actif",
+      "30DayVolatility": "Volatilité 30 jours",
+      "30DayVolatilitySubtitle": "Variation quotidienne du prix (30j)",
+      "90DayVolatility": "Volatilité 90 jours",
+      "90DayVolatilitySubtitle": "Variation quotidienne du prix (90j)",
+      "beta": "Bêta",
+      "marketCorrelation": "Corrélation au marché",
+      "riskScore": "Score de risque",
+      "riskScoreSubtitle": "Évaluation composite du risque (0-100)"
     },
     "widgets": {
       "totalValue": {
@@ -501,6 +509,42 @@
       "layoutNamePlaceholder": "ex. Configuration de trading journalier, Vue retraite",
       "descriptionField": "Description de la mise en page",
       "descriptionPlaceholder": "Description optionnelle de cette mise en page"
+    },
+    "conclusions": {
+      "performance": {
+        "exceptionalOutlierPositive": "Performance exceptionnellement élevée - comportement hors norme (effet penny stock)",
+        "exceptionalOutlierNegative": "Sous-performance extrême - réévaluation immédiate recommandée",
+        "veryStrongLongTerm": "Leadership exceptionnel sur le long terme - niveau supérieur",
+        "veryStrongOtherPeriods": "Très forte performance sur {{period}} - dans le top du secteur",
+        "severeUnderperformance": "Sous-performance sévère - revoir la position",
+        "strongLongTerm": "Leadership solide - surperformance constante",
+        "strongShortTerm": "Surperformance notable - momentum positif",
+        "significantUnderperformance": "Sous-performance significative - tendance fragile",
+        "moderateOutperformance": "Surperformance modérée - momentum en amélioration",
+        "moderateUnderperformance": "Sous-performance modérée - surveillance recommandée",
+        "inLineWithBenchmark": "Aligné avec le secteur - suit le benchmark"
+      },
+      "volatility": {
+        "veryHigh": "Volatilité très élevée - comportement de prix extrêmement instable",
+        "high": "Volatilité élevée - variations de prix importantes à prévoir",
+        "moderate": "Volatilité modérée - fluctuations de prix occasionnelles",
+        "low": "Faible volatilité - comportement de prix relativement stable"
+      },
+      "beta": {
+        "high": "Volatilité élevée - évolue beaucoup plus que le benchmark",
+        "aboveAverage": "Risque supérieur à la moyenne - amplifie les mouvements du marché",
+        "marketLike": "Volatilité comparable au marché - évolue en ligne avec le benchmark",
+        "defensive": "Défensif - moins volatil que le benchmark",
+        "low": "Faible sensibilité au marché - corrélation réduite avec le benchmark",
+        "negative": "Corrélation négative - évolue souvent à l’opposé du benchmark"
+      },
+      "risk": {
+        "extreme": "Risque extrême - volatilité très élevée et structurellement instable",
+        "high": "Risque élevé - fortes fluctuations de prix et sensibilité accrue",
+        "moderate": "Risque modéré - profil équilibré mais sensible aux conditions de marché",
+        "low": "Risque faible - relatif maintien de stabilité avec une volatilité maîtrisée",
+        "veryLow": "Risque très faible - profil défensif avec une exposition au marché limitée"
+      }
     }
   },
   "portfolios": {
@@ -933,7 +977,7 @@
     "deletingAccount": "Suppression du compte...",
     "nothingToUpdate": "Rien à mettre à jour.",
     "profileUpdated": "Profil mis à jour avec succès.",
-    "profileUpdatedEmailChanged": "Profil mis à jour. Veuillez vérifier votre nouvelle adresse e-mail—email de vérification envoyé.",
+    "profileUpdatedEmailChanged": "Profil mis à jour. Veuillez vérifier votre nouvelle adresse e-mail-email de vérification envoyé.",
     "failedToUpdateProfile": "Échec de la mise à jour du profil. Veuillez réessayer.",
     "newPasswordMinLength": "Le nouveau mot de passe doit comporter au moins 8 caractères.",
     "newPasswordMismatch": "Le nouveau mot de passe et la confirmation ne correspondent pas.",

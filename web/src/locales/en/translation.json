@@ -220,7 +220,15 @@
       "priceAboveAvg": "Price above average",
       "targetPRU5Pct": "Target: -5% PRU",
       "costBasis": "Cost Basis",
-      "assetType": "Asset Type"
+      "assetType": "Asset Type",
+      "30DayVolatility": "30-Day Volatility",
+      "30DayVolatilitySubtitle": "Daily price variation (30d)",
+      "90DayVolatility": "90-Day Volatility",
+      "90DayVolatilitySubtitle": "Daily price variation (90d)",
+      "beta": "Beta",
+      "marketCorrelation": "Market correlation",
+      "riskScore": "Risk Score",
+      "riskScoreSubtitle": "Composite risk assessment (0-100)"
     },
     "widgets": {
       "totalValue": {
@@ -501,6 +509,42 @@
       "layoutNamePlaceholder": "e.g., Day Trading Setup, Retirement View",
       "descriptionField": "Layout Description",
       "descriptionPlaceholder": "Optional description about this layout"
+    },
+    "conclusions": {
+      "performance": {
+        "exceptionalOutlierPositive": "Exceptional high-performance outlier (penny stock effect)",
+        "exceptionalOutlierNegative": "Extreme underperformance - critical review needed",
+        "veryStrongLongTerm": "Exceptional long-term leadership - top tier",
+        "veryStrongOtherPeriods": "Very strong {{period}} performance - top quartile",
+        "severeUnderperformance": "Severe underperformance - reevaluate position",
+        "strongLongTerm": "Strong leadership - consistent outperformer",
+        "strongShortTerm": "Notable outperformance - positive momentum",
+        "significantUnderperformance": "Significant underperformance - trend is weak",
+        "moderateOutperformance": "Moderate outperformance - improving momentum",
+        "moderateUnderperformance": "Moderate underperformance - watch closely",
+        "inLineWithBenchmark": "In line with sector - tracking benchmark"
+      },
+      "volatility": {
+        "veryHigh": "Very high volatility - extremely unstable price behavior",
+        "high": "High volatility - expect significant price swings",
+        "moderate": "Moderate volatility - expect some price fluctuations",
+        "low": "Low volatility - relatively stable price"
+      },
+      "beta": {
+        "high": "High volatility - moves significantly more than benchmark",
+        "aboveAverage": "Above-average risk - amplifies market movements",
+        "marketLike": "Market-like volatility - moves in line with benchmark",
+        "defensive": "Defensive - less volatile than benchmark",
+        "low": "Low market sensitivity - weak correlation with benchmark",
+        "negative": "Negative correlation - often moves opposite to benchmark"
+      },
+      "risk": {
+        "extreme": "Extreme risk - highly volatile and structurally unstable",
+        "high": "High risk - strong price fluctuations and elevated sensitivity",
+        "moderate": "Moderate risk - balanced but affected by market conditions",
+        "low": "Low risk - relatively stable with controlled volatility",
+        "veryLow": "Very low risk - defensive profile with limited market exposure"
+      }
     }
   },
   "portfolios": {
@@ -934,7 +978,7 @@
     "deletingAccount": "Deleting account...",
     "nothingToUpdate": "Nothing to update.",
     "profileUpdated": "Profile updated successfully.",
-    "profileUpdatedEmailChanged": "Profile updated. Please verify your new email address—verification email sent.",
+    "profileUpdatedEmailChanged": "Profile updated. Please verify your new email address-verification email sent.",
     "failedToUpdateProfile": "Failed to update profile. Please try again.",
     "newPasswordMinLength": "New password must be at least 8 characters long.",
     "newPasswordMismatch": "New password and confirmation do not match.",

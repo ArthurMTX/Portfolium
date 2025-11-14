@@ -40,92 +40,92 @@ interface DetailedMetrics {
 }
 
 // Helper function to generate performance conclusion
-function getPerformanceConclusion(relativePerf: number, period: string, assetPerf: number | null): string {
+function getPerformanceConclusion(relativePerf: number, period: string, assetPerf: number | null, t: (key: string, params?: any) => string): string {
   // Exceptional outlier (penny stock or major disruption)
   if (Math.abs(relativePerf) > 500) {
     return assetPerf && assetPerf > 500 
-      ? "Exceptional high-performance outlier (penny stock effect)"
-      : "Extreme underperformance — critical review needed"
+      ? t("dashboard.conclusions.performance.exceptionalOutlierPositive")
+      : t("dashboard.conclusions.performance.exceptionalOutlierNegative")
   }
   
   // Very strong performance ranges
   if (relativePerf > 50) {
     return period === '1y' 
-      ? "Exceptional long-term leadership — top tier"
-      : `Very strong ${period} leadership — top quartile`
+      ? t("dashboard.conclusions.performance.veryStrongLongTerm")
+      : t("dashboard.conclusions.performance.veryStrongOtherPeriods", { period })
   }
   if (relativePerf < -50) {
-    return "Severe underperformance — reevaluate position"
+    return t("dashboard.conclusions.performance.severeUnderperformance")
   }
   
   // Strong performance ranges
   if (relativePerf > 20) {
     return period === 'ytd' || period === '1y'
-      ? "Strong leadership — consistent outperformer"
-      : "Notable outperformance — positive momentum"
+      ? t("dashboard.conclusions.performance.strongLongTerm")
+      : t("dashboard.conclusions.performance.strongShortTerm")
   }
   if (relativePerf < -20) {
-    return "Significant underperformance — trend is weak"
+    return t("dashboard.conclusions.performance.significantUnderperformance")
   }
   
   // Moderate ranges
   if (relativePerf > 5) {
-    return "Moderate outperformance — improving momentum"
+    return t("dashboard.conclusions.performance.moderateOutperformance")
   }
   if (relativePerf < -5) {
-    return "Moderate underperformance — watch closely"
+    return t("dashboard.conclusions.performance.moderateUnderperformance")
   }
   
   // In-line with benchmark
-  return "In line with sector — tracking benchmark"
+  return t("dashboard.conclusions.performance.inLineWithBenchmark")
 }
 
-function getVolatilityConclusion(vol: number): string {
+function getVolatilityConclusion(vol: number, t: (key: string, params?: any) => string): string {
 	if (vol > 60) {
-		return "Very high volatility — extremely unstable price behavior";
+		return t("dashboard.conclusions.volatility.veryHigh");
 	}
 	if (vol > 40) {
-		return "High volatility — expect significant price swings";
+		return t("dashboard.conclusions.volatility.high");
 	}
 	if (vol > 20) {
-		return "Moderate volatility — expect some price fluctuations";
+		return t("dashboard.conclusions.volatility.moderate");
 	}
-	return "Low volatility — relatively stable price";
+	return t("dashboard.conclusions.volatility.low");
 }
 
-function getBetaConclusion(beta: number): string {
+function getBetaConclusion(beta: number, t: (key: string, params?: any) => string): string {
   if (beta > 1.5) {
-    return "High volatility — moves significantly more than benchmark";
+    return t("dashboard.conclusions.beta.high");
   }
   if (beta > 1.2) {
-    return "Above-average risk — amplifies market movements";
+    return t("dashboard.conclusions.beta.aboveAverage");
   }
   if (beta >= 0.8 && beta <= 1.2) {
-    return "Market-like volatility — moves in line with benchmark";
+    return t("dashboard.conclusions.beta.marketLike");
   }
   if (beta >= 0.5 && beta < 0.8) {
-    return "Defensive — less volatile than benchmark";
+    return t("dashboard.conclusions.beta.defensive");
   }
   if (beta >= 0) {
-    return "Low market sensitivity — weak correlation with benchmark";
+    return t("dashboard.conclusions.beta.low");
   }
-  return "Negative correlation — often moves opposite to benchmark";
+  return t("dashboard.conclusions.beta.negative");
 }
 
-function getRiskScoreConclusion(score: number): string {
+function getRiskScoreConclusion(score: number, t: (key: string, params?: any) => string): string {
   if (score >= 80) {
-    return "Extreme risk — highly volatile and structurally unstable";
+    return t("dashboard.conclusions.risk.extreme");
   }
   if (score >= 60) {
-    return "High risk — strong price fluctuations and elevated sensitivity";
+    return t("dashboard.conclusions.risk.high");
   }
   if (score >= 40) {
-    return "Moderate risk — balanced but affected by market conditions";
+    return t("dashboard.conclusions.risk.moderate");
   }
   if (score >= 20) {
-    return "Low risk — relatively stable with controlled volatility";
+    return t("dashboard.conclusions.risk.low");
   }
-  return "Very low risk — defensive profile with limited market exposure";
+  return t("dashboard.conclusions.risk.veryLow");
 }
 
 export default function PositionDetailModal({ position, portfolioId, isOpen, onClose }: PositionDetailModalProps) {
@@ -219,7 +219,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
           {/* Content */}
           <div className="p-8 space-y-8">
-            {/* 📊 Performance Metrics */}
+            {/* Performance Metrics */}
             <section>
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
@@ -281,7 +281,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
               )}
             </section>
 
-            {/* 🎯 Trading Zones */}
+            {/* Trading Zones */}
             <section>
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
@@ -353,7 +353,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
               )}
             </section>
 
-            {/* 📊 Relative Performance vs Sector */}
+            {/* Relative Performance vs Sector */}
             {(loadingMetrics || (detailedMetrics && (position.sector || detailedMetrics.sector_etf) && (detailedMetrics.relative_perf_30d !== null || 
               detailedMetrics.relative_perf_90d !== null || detailedMetrics.relative_perf_ytd !== null || 
               detailedMetrics.relative_perf_1y !== null))) && (
@@ -381,45 +381,45 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                   <div className="grid grid-cols-2 gap-5">
                     {detailedMetrics.relative_perf_30d !== null && detailedMetrics.relative_perf_30d !== undefined && (
                       <MetricCard
-                        label="30 Days"
+                        label={t('charts.periods.1M')}
                         value={`${detailedMetrics.relative_perf_30d >= 0 ? '+' : ''}${formatNumber(detailedMetrics.relative_perf_30d, 2)}%`}
                         color={detailedMetrics.relative_perf_30d >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
                         icon={detailedMetrics.relative_perf_30d >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                         subtitle={`${position.symbol}: ${detailedMetrics.asset_perf_30d !== null && detailedMetrics.asset_perf_30d !== undefined ? (detailedMetrics.asset_perf_30d >= 0 ? '+' : '') + formatNumber(detailedMetrics.asset_perf_30d, 2) + '%' : 'N/A'} | ${detailedMetrics.sector_etf}: ${detailedMetrics.etf_perf_30d !== null && detailedMetrics.etf_perf_30d !== undefined ? (detailedMetrics.etf_perf_30d >= 0 ? '+' : '') + formatNumber(detailedMetrics.etf_perf_30d, 2) + '%' : 'N/A'}`}
-                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_30d, '30d', detailedMetrics.asset_perf_30d)}
+                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_30d, '30d', detailedMetrics.asset_perf_30d, t)}
                       />
                     )}
                     
                     {detailedMetrics.relative_perf_90d !== null && detailedMetrics.relative_perf_90d !== undefined && (
                       <MetricCard
-                        label="90 Days"
+                        label={t('charts.periods.3M')}
                         value={`${detailedMetrics.relative_perf_90d >= 0 ? '+' : ''}${formatNumber(detailedMetrics.relative_perf_90d, 2)}%`}
                         color={detailedMetrics.relative_perf_90d >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
                         icon={detailedMetrics.relative_perf_90d >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                         subtitle={`${position.symbol}: ${detailedMetrics.asset_perf_90d !== null && detailedMetrics.asset_perf_90d !== undefined ? (detailedMetrics.asset_perf_90d >= 0 ? '+' : '') + formatNumber(detailedMetrics.asset_perf_90d, 2) + '%' : 'N/A'} | ${detailedMetrics.sector_etf}: ${detailedMetrics.etf_perf_90d !== null && detailedMetrics.etf_perf_90d !== undefined ? (detailedMetrics.etf_perf_90d >= 0 ? '+' : '') + formatNumber(detailedMetrics.etf_perf_90d, 2) + '%' : 'N/A'}`}
-                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_90d, '90d', detailedMetrics.asset_perf_90d)}
+                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_90d, '90d', detailedMetrics.asset_perf_90d, t)}
                       />
                     )}
                     
                     {detailedMetrics.relative_perf_ytd !== null && detailedMetrics.relative_perf_ytd !== undefined && (
                       <MetricCard
-                        label="YTD"
+                        label={t('charts.periods.YTD')}
                         value={`${detailedMetrics.relative_perf_ytd >= 0 ? '+' : ''}${formatNumber(detailedMetrics.relative_perf_ytd, 2)}%`}
                         color={detailedMetrics.relative_perf_ytd >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
                         icon={detailedMetrics.relative_perf_ytd >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                         subtitle={`${position.symbol}: ${detailedMetrics.asset_perf_ytd !== null && detailedMetrics.asset_perf_ytd !== undefined ? (detailedMetrics.asset_perf_ytd >= 0 ? '+' : '') + formatNumber(detailedMetrics.asset_perf_ytd, 2) + '%' : 'N/A'} | ${detailedMetrics.sector_etf}: ${detailedMetrics.etf_perf_ytd !== null && detailedMetrics.etf_perf_ytd !== undefined ? (detailedMetrics.etf_perf_ytd >= 0 ? '+' : '') + formatNumber(detailedMetrics.etf_perf_ytd, 2) + '%' : 'N/A'}`}
-                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_ytd, 'ytd', detailedMetrics.asset_perf_ytd)}
+                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_ytd, 'ytd', detailedMetrics.asset_perf_ytd, t)}
                       />
                     )}
                     
                     {detailedMetrics.relative_perf_1y !== null && detailedMetrics.relative_perf_1y !== undefined && (
                       <MetricCard
-                        label="1 Year"
+                        label={t('charts.periods.1Y')}
                         value={`${detailedMetrics.relative_perf_1y >= 0 ? '+' : ''}${formatNumber(detailedMetrics.relative_perf_1y, 2)}%`}
                         color={detailedMetrics.relative_perf_1y >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
                         icon={detailedMetrics.relative_perf_1y >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                         subtitle={`${position.symbol}: ${detailedMetrics.asset_perf_1y !== null && detailedMetrics.asset_perf_1y !== undefined ? (detailedMetrics.asset_perf_1y >= 0 ? '+' : '') + formatNumber(detailedMetrics.asset_perf_1y, 2) + '%' : 'N/A'} | ${detailedMetrics.sector_etf}: ${detailedMetrics.etf_perf_1y !== null && detailedMetrics.etf_perf_1y !== undefined ? (detailedMetrics.etf_perf_1y >= 0 ? '+' : '') + formatNumber(detailedMetrics.etf_perf_1y, 2) + '%' : 'N/A'}`}
-                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_1y, '1y', detailedMetrics.asset_perf_1y)}
+                        conclusion={getPerformanceConclusion(detailedMetrics.relative_perf_1y, '1y', detailedMetrics.asset_perf_1y, t)}
                       />
                     )}
                   </div>
@@ -427,7 +427,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
               </section>
             )}
 
-            {/* ⚠️ Risk Metrics */}
+            {/* Risk Metrics */}
             {(loadingMetrics || (position.vol_contribution_pct !== null && position.vol_contribution_pct !== undefined) || 
              (detailedMetrics && (detailedMetrics.volatility_30d !== null || detailedMetrics.volatility_90d !== null))) ? (
               <section>
@@ -454,7 +454,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                 <div className="grid grid-cols-2 gap-5">
                   {position.vol_contribution_pct !== null && position.vol_contribution_pct !== undefined && (
                     <MetricCard
-                      label={t('positionDetail.volContribution')}
+                      label={t('dashboard.positionDetail.volContribution')}
                       value={`${formatNumber(position.vol_contribution_pct, 2)}%`}
                       color="text-orange-600 dark:text-orange-400"
                       subtitle={t('dashboard.positionDetail.portfolioVolatility')}
@@ -464,45 +464,45 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                   
                   {detailedMetrics && detailedMetrics.volatility_30d !== null && detailedMetrics.volatility_30d !== undefined && (
                     <MetricCard
-                      label="30-Day Volatility"
+                      label={t('dashboard.positionDetail.30DayVolatility')}
                       value={`${formatNumber(detailedMetrics.volatility_30d, 2)}%`}
                       color="text-orange-600 dark:text-orange-400"
-                      subtitle="Daily price variation (30d)"
+                      subtitle={t('dashboard.positionDetail.30DayVolatilitySubtitle')}
                       icon={<Activity size={16} />}
-											conclusion={getVolatilityConclusion(detailedMetrics.volatility_30d)}
+											conclusion={getVolatilityConclusion(detailedMetrics.volatility_30d, t)}
                     />
                   )}
                   
                   {detailedMetrics && detailedMetrics.volatility_90d !== null && detailedMetrics.volatility_90d !== undefined && (
                     <MetricCard
-                      label="90-Day Volatility"
+                      label={t('dashboard.positionDetail.90DayVolatility')}
                       value={`${formatNumber(detailedMetrics.volatility_90d, 2)}%`}
                       color="text-orange-600 dark:text-orange-400"
-                      subtitle="Daily price variation (90d)"
+                      subtitle={t('dashboard.positionDetail.90DayVolatilitySubtitle')}
                       icon={<Activity size={16} />}
-											conclusion={getVolatilityConclusion(detailedMetrics.volatility_90d)}
+											conclusion={getVolatilityConclusion(detailedMetrics.volatility_90d, t)}
                     />
                   )}
                   
                   {detailedMetrics && detailedMetrics.beta !== null && detailedMetrics.beta !== undefined && (
                     <MetricCard
-                      label="Beta"
+                      label={t('dashboard.positionDetail.beta')}
                       value={formatNumber(detailedMetrics.beta, 2)}
                       color="text-orange-600 dark:text-orange-400"
-                      subtitle={detailedMetrics.beta_benchmark ? `vs ${detailedMetrics.beta_benchmark}` : "Market correlation"}
+                      subtitle={detailedMetrics.beta_benchmark ? `vs ${detailedMetrics.beta_benchmark}` : t('dashboard.positionDetail.marketCorrelation')}
                       icon={<TrendingUp size={16} />}
-                      conclusion={getBetaConclusion(detailedMetrics.beta)}
+                      conclusion={getBetaConclusion(detailedMetrics.beta, t)}
                     />
                   )}
                   
                   {detailedMetrics && detailedMetrics.risk_score !== null && detailedMetrics.risk_score !== undefined && (
                     <MetricCard
-                      label="Risk Score"
+                      label={t('dashboard.positionDetail.riskScore')}
                       value={formatNumber(detailedMetrics.risk_score, 1)}
                       color="text-orange-600 dark:text-orange-400"
-                      subtitle="Composite risk assessment (0-100)"
+                      subtitle={t('dashboard.positionDetail.riskScoreSubtitle')}
                       icon={<AlertTriangle size={16} />}
-                      conclusion={getRiskScoreConclusion(detailedMetrics.risk_score)}
+                      conclusion={getRiskScoreConclusion(detailedMetrics.risk_score, t)}
                     />
                   )}
                 </div>
