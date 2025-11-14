@@ -264,6 +264,17 @@ class PricingService:
             )
             crud_prices.create_price(self.db, price_create)
             
+            # Trigger ATH update in background
+            try:
+                from app.tasks.ath_tasks import update_asset_ath
+                update_asset_ath.delay(
+                    asset_id=asset.id,
+                    current_price=float(price["price"]),
+                    price_date=price["asof"].isoformat() if price["asof"] else None
+                )
+            except Exception as e:
+                logger.warning(f"Failed to trigger ATH update for {symbol}: {e}")
+            
             return PriceQuote(
                 symbol=symbol,
                 price=price["price"],

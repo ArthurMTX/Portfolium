@@ -205,6 +205,23 @@
     "proTipInfo": "You can use the default layouts as a starting point!",
     "removeWidget": "Remove Widget",
     "removeWidgetMessage": "Are you sure you want to remove this widget from your dashboard?",
+    "positionDetail": {
+      "performance": "Performance Metrics",
+      "tradingZones": "Trading Zones",
+      "riskMetrics": "Risk Metrics",
+      "basicInfo": "Position Details",
+      "personalDrawdown": "Personal Drawdown",
+      "distanceToATH": "Distance to ATH",
+      "avgBuyZone": "Avg Buy Zone",
+      "costToAvgDown": "Cost to Avg Down",
+      "volContribution": "Volatility Contribution",
+      "portfolioVolatility": "of portfolio volatility",
+      "opportunityToBuy": "Buying opportunity",
+      "priceAboveAvg": "Price above average",
+      "targetPRU5Pct": "Target: -5% PRU",
+      "costBasis": "Cost Basis",
+      "assetType": "Asset Type"
+    },
     "widgets": {
       "totalValue": {
         "name": "Total Value",

@@ -396,6 +396,25 @@ class Position(BaseModel):
     daily_change_pct: Optional[Decimal]  # Daily price change percentage
     breakeven_gain_pct: Optional[Decimal] = None  # Gain % nécessaire pour revenir au prix d'achat (pour positions négatives)
     breakeven_target_price: Optional[Decimal] = None  # Prix cible à atteindre pour breakeven (pour positions négatives)
+    # Advanced metrics
+    distance_to_ath_pct: Optional[Decimal] = None  # Distance au plus haut historique
+    avg_buy_zone_pct: Optional[Decimal] = None  # Zone d'achat moyenne vs prix actuel
+    personal_drawdown_pct: Optional[Decimal] = None  # Drawdown personnel depuis achat
+    local_ath_price: Optional[Decimal] = None  # Local ATH (highest price since ownership)
+    local_ath_date: Optional[datetime] = None  # Date when local ATH was reached
+    vol_contribution_pct: Optional[Decimal] = None  # Contribution à la volatilité du portefeuille
+    cost_to_average_down: Optional[Decimal] = None  # Coût pour moyenner à la baisse (at target PRU)
+    ath_price: Optional[Decimal] = None  # All-time high price (converted to portfolio currency)
+    ath_price_native: Optional[Decimal] = None  # All-time high price (native currency)
+    ath_currency: Optional[str] = None  # Native currency of the ATH
+    ath_date: Optional[datetime] = None  # Date when ATH was reached
+    # Relative performance vs sector
+    relative_perf_30d: Optional[Decimal] = None  # 30-day relative performance vs sector ETF
+    relative_perf_90d: Optional[Decimal] = None  # 90-day relative performance vs sector ETF
+    relative_perf_ytd: Optional[Decimal] = None  # YTD relative performance vs sector ETF
+    relative_perf_1y: Optional[Decimal] = None  # 1-year relative performance vs sector ETF
+    sector: Optional[str] = None  # Asset sector for reference
+    sector_etf: Optional[str] = None  # Benchmark ETF symbol
     currency: str
     last_updated: Optional[datetime]
     asset_type: Optional[str] = None

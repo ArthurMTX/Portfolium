@@ -274,6 +274,7 @@ export const widgetDefinitions: WidgetConfig[] = [
     allowMultiple: true,
     component: PositionsTableWidget,
     getProps: (context: WidgetContext) => ({
+      portfolioId: context.portfolioId || 0,
       positions: context.positions,
       soldPositions: context.soldPositions,
       soldPositionsLoading: context.soldPositionsLoading,

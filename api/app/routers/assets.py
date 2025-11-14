@@ -118,7 +118,17 @@ def create_asset(
     if existing:
         raise AssetAlreadyExistsError(symbol=asset.symbol)
     
-    return crud.create_asset(db, asset)
+    new_asset = crud.create_asset(db, asset)
+    
+    # Trigger ATH fetch for the new asset in the background
+    try:
+        from app.tasks.ath_tasks import backfill_ath_from_yfinance
+        backfill_ath_from_yfinance.delay(asset_id=new_asset.id)
+        logger.info(f"Triggered ATH backfill for new asset: {new_asset.symbol}")
+    except Exception as e:
+        logger.warning(f"Failed to trigger ATH backfill for {new_asset.symbol}: {e}")
+    
+    return new_asset
 
 
 @router.put("/{asset_id}", response_model=Asset)

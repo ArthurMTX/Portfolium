@@ -67,6 +67,25 @@ export interface PositionDTO {
   daily_change_pct: number | null
   breakeven_gain_pct?: number | null
   breakeven_target_price?: number | null
+  // Advanced metrics
+  distance_to_ath_pct?: number | null
+  avg_buy_zone_pct?: number | null
+  personal_drawdown_pct?: number | null
+  local_ath_price?: number | null
+  local_ath_date?: string | null
+  vol_contribution_pct?: number | null
+  cost_to_average_down?: number | null
+  ath_price?: number | null // ATH in portfolio currency
+  ath_price_native?: number | null // ATH in native currency
+  ath_currency?: string | null // Native currency of the ATH
+  ath_date?: string | null
+  // Relative performance vs sector
+  relative_perf_30d?: number | null
+  relative_perf_90d?: number | null
+  relative_perf_ytd?: number | null
+  relative_perf_1y?: number | null
+  sector?: string | null
+  sector_etf?: string | null
   currency: string
   last_updated: string | null
 }
@@ -1240,6 +1259,16 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(layout),
     })
+  }
+
+  async getPositionDetailedMetrics(portfolioId: number, assetId: number) {
+    return this.request<{
+      relative_perf_30d: number | null
+      relative_perf_90d: number | null
+      relative_perf_ytd: number | null
+      relative_perf_1y: number | null
+      sector_etf: string | null
+    }>(`/portfolios/${portfolioId}/positions/${assetId}/detailed-metrics`)
   }
 }
 

@@ -4,17 +4,18 @@ Portfolio metrics calculation service (PRU, P&L, positions)
 import asyncio
 import logging
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import Depends
 
-from app.models import Transaction, Asset, TransactionType
+from app.models import Transaction, Asset, TransactionType, Price, Portfolio
 from app.schemas import Position, PortfolioMetrics
 from app.crud import prices as crud_prices
 from app.db import get_db
 from app.services.cache import CacheService, cache_positions, get_cached_positions, invalidate_positions
+from app.services.currency import CurrencyService
 
 logger = logging.getLogger(__name__)
 
@@ -493,6 +494,44 @@ class MetricsService:
                 # Target price to reach (it's simply the average cost)
                 breakeven_target_price = avg_cost
         
+        # Advanced metrics moved to lazy-loaded endpoint
+        distance_to_ath_pct = None
+        avg_buy_zone_pct = None
+        personal_drawdown_pct = None
+        local_ath_price = None
+        local_ath_date = None
+        vol_contribution_pct = None  # Will be calculated at portfolio level
+        cost_to_average_down = None
+        
+        # Convert ATH price to target currency for display
+        ath_price_display = asset.ath_price
+        if asset.ath_price and asset.currency != target_currency:
+            # Try historical rate first if date available
+            if asset.ath_date:
+                converted_ath_display = CurrencyService.convert_historical(
+                    asset.ath_price,
+                    from_currency=asset.currency,
+                    to_currency=target_currency,
+                    date=asset.ath_date
+                )
+                if not converted_ath_display:
+                    # Fallback to current rate
+                    converted_ath_display = CurrencyService.convert(
+                        asset.ath_price,
+                        from_currency=asset.currency,
+                        to_currency=target_currency
+                    )
+            else:
+                # No date, use current rate
+                converted_ath_display = CurrencyService.convert(
+                    asset.ath_price,
+                    from_currency=asset.currency,
+                    to_currency=target_currency
+                )
+            
+            if converted_ath_display:
+                ath_price_display = converted_ath_display
+        
         return Position(
             asset_id=asset_id,
             symbol=asset.symbol,
@@ -507,6 +546,23 @@ class MetricsService:
             daily_change_pct=daily_change_pct,
             breakeven_gain_pct=breakeven_gain_pct,
             breakeven_target_price=breakeven_target_price,
+            distance_to_ath_pct=distance_to_ath_pct,
+            avg_buy_zone_pct=avg_buy_zone_pct,
+            personal_drawdown_pct=personal_drawdown_pct,
+            local_ath_price=local_ath_price,
+            local_ath_date=local_ath_date,
+            vol_contribution_pct=vol_contribution_pct,
+            cost_to_average_down=cost_to_average_down,
+            ath_price=ath_price_display,  # Return ATH in target currency
+            ath_price_native=asset.ath_price,  # Return ATH in native currency
+            ath_currency=asset.currency,  # Asset's native currency
+            ath_date=asset.ath_date,
+            relative_perf_30d=None,  # Lazy-loaded via separate endpoint
+            relative_perf_90d=None,
+            relative_perf_ytd=None,
+            relative_perf_1y=None,
+            sector=asset.sector,
+            sector_etf=None,  # Will be populated on-demand
             currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,
             asset_type=asset.asset_type
@@ -882,6 +938,421 @@ class MetricsService:
         
         return history
 
+
+    @staticmethod
+    def clamp(value: float, min_value: float = 0.0, max_value: float = 1.0) -> float:
+        return max(min_value, min(max_value, value))
+
+    @staticmethod
+    def calculate_risk_score(metrics: Dict[str, Any]) -> Optional[float]:
+        """
+        Calculate a risk score (0-100) for a position based on various metrics.
+        The score combines multiple factors like volatility, beta, distance to ATH,
+        """
+
+        # Fetch raw metric values and convert to float for calculations
+        distance_to_ath_pct = metrics.get("distance_to_ath_pct")
+        personal_drawdown_pct = metrics.get("personal_drawdown_pct")
+        vol_30d = metrics.get("volatility_30d")
+        vol_90d = metrics.get("volatility_90d")
+        beta = metrics.get("beta")
+        rel_30d = metrics.get("relative_perf_30d")
+        rel_1y = metrics.get("relative_perf_1y")
+
+        # If no metrics available, return None
+        if all(v is None for v in [
+            distance_to_ath_pct, personal_drawdown_pct,
+            vol_30d, vol_90d, beta, rel_30d, rel_1y
+        ]):
+            return None
+        
+        # Convert Decimal types to float for calculations
+        if distance_to_ath_pct is not None:
+            distance_to_ath_pct = float(distance_to_ath_pct)
+        if personal_drawdown_pct is not None:
+            personal_drawdown_pct = float(personal_drawdown_pct)
+        if vol_30d is not None:
+            vol_30d = float(vol_30d)
+        if vol_90d is not None:
+            vol_90d = float(vol_90d)
+        if beta is not None:
+            beta = float(beta)
+        if rel_30d is not None:
+            rel_30d = float(rel_30d)
+        if rel_1y is not None:
+            rel_1y = float(rel_1y)
+
+        # Normalization of each factor to [0, 1]
+
+        # Volatility: use 30d if available, otherwise 90d
+        # Consider 80% annualized vol as "max risk"
+        vol_source = vol_30d if vol_30d is not None else vol_90d
+        if vol_source is None:
+            vol_norm = 0.5  # neutral if no data
+        else:
+            vol_norm = MetricsService.clamp(vol_source / 80.0, 0.0, 1.0)
+
+        # Beta: 0.8 => low neutral, 2.0 => very risky
+        if beta is None:
+            beta_norm = 0.5
+        else:
+            beta_norm = MetricsService.clamp((beta - 0.8) / 1.2, 0.0, 1.0)
+
+        # Distance to ATH: the farther away, the higher the structural risk
+        # Risk saturates beyond 60% below ATH.
+        if distance_to_ath_pct is None:
+            dist_norm = 0.5
+        else:
+            dist = abs(distance_to_ath_pct)   # -60% => 60
+            dist_norm = MetricsService.clamp(dist / 60.0, 0.0, 1.0)
+
+        # Personal drawdown: combine historical volatility + psychological pain
+        if personal_drawdown_pct is None:
+            dd_norm = 0.5
+        else:
+            dd_norm = MetricsService.clamp(abs(personal_drawdown_pct) / 50.0, 0.0, 1.0)
+
+        # Short-term momentum (30d):
+        # Consider -30% underperformance vs sector as max risk
+        if rel_30d is None:
+            mom30_norm = 0.5
+        else:
+            mom30_norm = MetricsService.clamp(-rel_30d / 30.0, 0.0, 1.0)
+
+        # Long-term momentum (1 year):
+        # Strong underperformance = risk, but extreme outperformance also (penny mania)
+        if rel_1y is None:
+            mom1y_norm = 0.5
+        else:
+            # We take underperformance + extreme outperformance as risk
+            mom1y_norm = MetricsService.clamp(abs(rel_1y) / 100.0, 0.0, 1.0)
+
+        # Weighting of factors (sum of weights = 1.0)
+        WEIGHTS = {
+            "vol": 0.30,
+            "beta": 0.25,
+            "dist_ath": 0.15,
+            "drawdown": 0.10,
+            "mom30": 0.15,
+            "mom1y": 0.05,
+        }
+
+        risk_0_1 = (
+            WEIGHTS["vol"] * vol_norm +
+            WEIGHTS["beta"] * beta_norm +
+            WEIGHTS["dist_ath"] * dist_norm +
+            WEIGHTS["drawdown"] * dd_norm +
+            WEIGHTS["mom30"] * mom30_norm +
+            WEIGHTS["mom1y"] * mom1y_norm
+        )
+
+        # Conversion to a 0–100 score 
+        risk_score = round(risk_0_1 * 100.0, 1)
+        return risk_score
+
+    async def get_position_detailed_metrics(
+        self,
+        portfolio_id: int,
+        asset_id: int
+    ) -> Optional[Dict]:
+        """
+        Get detailed metrics for a single position (lazy-loaded on-demand)
+        This includes expensive calculations like relative performance and advanced metrics
+        """
+        # Get the asset
+        asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            return None
+        
+        # Get portfolio to determine target currency
+        portfolio = self.db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+        target_currency = portfolio.base_currency if portfolio and portfolio.base_currency else asset.currency
+        
+        # Get current price
+        from app.services.pricing import PricingService
+        pricing_service = PricingService(self.db)
+        price_quote = await pricing_service.get_price(asset.symbol)
+        
+        if not price_quote or not price_quote.price:
+            return None
+        
+        current_price = Decimal(str(price_quote.price))
+        
+        # Convert price to target currency if needed
+        if asset.currency != target_currency:
+            converted_price = CurrencyService.convert(
+                current_price,
+                from_currency=asset.currency,
+                to_currency=target_currency
+            )
+            if converted_price:
+                current_price = converted_price
+        
+        # Get position data for advanced metrics
+        transactions = (
+            self.db.query(Transaction)
+            .filter(
+                Transaction.portfolio_id == portfolio_id,
+                Transaction.asset_id == asset_id
+            )
+            .order_by(Transaction.tx_date)
+            .all()
+        )
+        
+        if not transactions:
+            logger.warning(f"No transactions found for asset {asset_id} in portfolio {portfolio_id}")
+            return None
+        
+        # Calculate quantity and average cost from transactions
+        quantity = Decimal(0)
+        total_cost = Decimal(0)
+        total_shares_for_cost = Decimal(0)
+        
+        for tx in transactions:
+            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                quantity += tx.quantity
+                cost = (tx.quantity * tx.price) + tx.fees
+                total_cost += cost
+                total_shares_for_cost += tx.quantity
+            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                quantity -= tx.quantity
+                if total_shares_for_cost > 0:
+                    avg_cost_temp = total_cost / total_shares_for_cost
+                    cost_reduction = tx.quantity * avg_cost_temp
+                    total_cost -= cost_reduction
+                    total_shares_for_cost -= tx.quantity
+            elif tx.type == TransactionType.SPLIT:
+                split_ratio = self._parse_split_ratio(tx.meta_data.get("split", "1:1"))
+                quantity *= split_ratio
+                total_shares_for_cost *= split_ratio
+        
+        avg_cost = total_cost / total_shares_for_cost if total_shares_for_cost > 0 else Decimal(0)
+        
+        # Calculate advanced metrics
+        distance_to_ath_pct = None
+        avg_buy_zone_pct = None
+        personal_drawdown_pct = None
+        local_ath_price = None
+        local_ath_date = None
+        cost_to_average_down = None
+        volatility_30d = None
+        volatility_90d = None
+        
+        if current_price and current_price > 0:
+            # Average Buy Zone: how far is current price from avg cost
+            # Positive = opportunity (price below avg), Negative = price above avg
+            avg_buy_zone_pct = ((avg_cost - current_price) / current_price) * Decimal(100)
+            
+            # Personal Drawdown: how far is current price from the highest price since you owned the asset
+            if asset.first_transaction_date:
+                # Get the highest price and its date since first transaction
+                local_ath_record = (
+                    self.db.query(Price.price, Price.asof)
+                    .filter(
+                        Price.asset_id == asset_id,
+                        Price.asof >= asset.first_transaction_date
+                    )
+                    .order_by(Price.price.desc())
+                    .first()
+                )
+                
+                if local_ath_record:
+                    local_ath_native = Decimal(str(local_ath_record[0]))
+                    local_ath_date = local_ath_record[1]
+                    local_ath_price = local_ath_native
+                    
+                    # Convert local ATH to target currency if needed
+                    if asset.currency != target_currency:
+                        converted_local_ath = CurrencyService.convert(
+                            local_ath_native,
+                            from_currency=asset.currency,
+                            to_currency=target_currency
+                        )
+                        if converted_local_ath:
+                            local_ath_price = converted_local_ath
+                    
+                    # Calculate drawdown from local peak
+                    if local_ath_price and local_ath_price > 0:
+                        personal_drawdown_pct = ((current_price - local_ath_price) / local_ath_price) * Decimal(100)
+            
+            # Distance to ATH: how far is current price from all-time high
+            if asset.ath_price and asset.ath_price > 0:
+                # Convert ATH price to target currency
+                ath_price_converted = asset.ath_price
+                if asset.currency != target_currency:
+                    # Try historical rate first (most accurate)
+                    if asset.ath_date:
+                        converted_ath = CurrencyService.convert_historical(
+                            asset.ath_price,
+                            from_currency=asset.currency,
+                            to_currency=target_currency,
+                            date=asset.ath_date
+                        )
+                        if not converted_ath:
+                            # Fallback to current rate
+                            converted_ath = CurrencyService.convert(
+                                asset.ath_price,
+                                from_currency=asset.currency,
+                                to_currency=target_currency
+                            )
+                        if converted_ath:
+                            ath_price_converted = converted_ath
+                    else:
+                        # No ATH date available, use current rate
+                        converted_ath = CurrencyService.convert(
+                            asset.ath_price,
+                            from_currency=asset.currency,
+                            to_currency=target_currency
+                        )
+                        if converted_ath:
+                            ath_price_converted = converted_ath
+                
+                if ath_price_converted:
+                    distance_to_ath_pct = ((current_price - ath_price_converted) / ath_price_converted) * Decimal(100)
+            
+            # Cost to Average Down (target PRU = 95% of current avg_cost)
+            target_pru = avg_cost * Decimal("0.95")
+            if current_price < avg_cost and target_pru > current_price:
+                # Calculate shares needed to reach target PRU
+                shares_needed = (avg_cost - target_pru) * quantity / (target_pru - current_price)
+                cost_to_average_down = shares_needed * current_price
+        
+        # Calculate volatility (30d and 90d)
+        volatility_30d = None
+        volatility_90d = None
+        
+        from datetime import timedelta
+        import math
+        
+        now = datetime.utcnow()
+        
+        # Get 30-day price history
+        prices_30d = (
+            self.db.query(Price.price, Price.asof)
+            .filter(
+                Price.asset_id == asset_id,
+                Price.asof >= now - timedelta(days=30)
+            )
+            .order_by(Price.asof)
+            .all()
+        )
+        
+        if len(prices_30d) >= 2:
+            # Calculate daily returns
+            returns = []
+            for i in range(1, len(prices_30d)):
+                prev_price = Decimal(str(prices_30d[i-1][0]))
+                curr_price = Decimal(str(prices_30d[i][0]))
+                if prev_price > 0:
+                    daily_return = float((curr_price - prev_price) / prev_price)
+                    returns.append(daily_return)
+            
+            if returns:
+                # Calculate standard deviation (volatility)
+                mean_return = sum(returns) / len(returns)
+                variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+                volatility_30d = math.sqrt(variance) * math.sqrt(252) * 100  # Annualized volatility
+        
+        # Get 90-day price history
+        prices_90d = (
+            self.db.query(Price.price, Price.asof)
+            .filter(
+                Price.asset_id == asset_id,
+                Price.asof >= now - timedelta(days=90)
+            )
+            .order_by(Price.asof)
+            .all()
+        )
+        
+        if len(prices_90d) >= 2:
+            returns = []
+            for i in range(1, len(prices_90d)):
+                prev_price = Decimal(str(prices_90d[i-1][0]))
+                curr_price = Decimal(str(prices_90d[i][0]))
+                if prev_price > 0:
+                    daily_return = float((curr_price - prev_price) / prev_price)
+                    returns.append(daily_return)
+            
+            if returns:
+                mean_return = sum(returns) / len(returns)
+                variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+                volatility_90d = math.sqrt(variance) * math.sqrt(252) * 100  # Annualized volatility
+        
+        # Calculate relative performance vs sector and Beta
+        relative_perf_30d = None
+        relative_perf_90d = None
+        relative_perf_ytd = None
+        relative_perf_1y = None
+        asset_perf_30d = None
+        asset_perf_90d = None
+        asset_perf_ytd = None
+        asset_perf_1y = None
+        etf_perf_30d = None
+        etf_perf_90d = None
+        etf_perf_ytd = None
+        etf_perf_1y = None
+        sector_etf = None
+        beta = None
+        beta_benchmark = None
+        
+        if asset.sector:
+            from app.services.relative_performance import RelativePerformanceService
+            rel_perf_service = RelativePerformanceService(self.db)
+            
+            sector_etf = rel_perf_service.get_sector_etf(asset.sector)
+            if sector_etf:
+                rel_perf = rel_perf_service.calculate_relative_performance(
+                    asset.symbol,
+                    asset.sector,
+                    current_price
+                )
+                relative_perf_30d = rel_perf.get('30d')
+                relative_perf_90d = rel_perf.get('90d')
+                relative_perf_ytd = rel_perf.get('ytd')
+                relative_perf_1y = rel_perf.get('1y')
+                asset_perf_30d = rel_perf.get('asset_30d')
+                asset_perf_90d = rel_perf.get('asset_90d')
+                asset_perf_ytd = rel_perf.get('asset_ytd')
+                asset_perf_1y = rel_perf.get('asset_1y')
+                etf_perf_30d = rel_perf.get('etf_30d')
+                etf_perf_90d = rel_perf.get('etf_90d')
+                etf_perf_ytd = rel_perf.get('etf_ytd')
+                etf_perf_1y = rel_perf.get('etf_1y')
+            
+            # Calculate Beta
+            beta_benchmark = rel_perf_service.get_beta_benchmark(asset.sector)
+            beta = rel_perf_service.calculate_beta(asset_id, asset.sector, period_days=365)
+
+        metrics = {
+            'distance_to_ath_pct': float(distance_to_ath_pct) if distance_to_ath_pct is not None else None,
+            'avg_buy_zone_pct': float(avg_buy_zone_pct) if avg_buy_zone_pct is not None else None,
+            'personal_drawdown_pct': float(personal_drawdown_pct) if personal_drawdown_pct is not None else None,
+            'local_ath_price': float(local_ath_price) if local_ath_price is not None else None,
+            'local_ath_date': local_ath_date.isoformat() if local_ath_date else None,
+            'cost_to_average_down': float(cost_to_average_down) if cost_to_average_down is not None else None,
+            'volatility_30d': volatility_30d,
+            'volatility_90d': volatility_90d,
+            'beta': beta,
+            'beta_benchmark': beta_benchmark,
+            'relative_perf_30d': relative_perf_30d,
+            'relative_perf_90d': relative_perf_90d,
+            'relative_perf_ytd': relative_perf_ytd,
+            'relative_perf_1y': relative_perf_1y,
+            'asset_perf_30d': asset_perf_30d,
+            'asset_perf_90d': asset_perf_90d,
+            'asset_perf_ytd': asset_perf_ytd,
+            'asset_perf_1y': asset_perf_1y,
+            'etf_perf_30d': etf_perf_30d,
+            'etf_perf_90d': etf_perf_90d,
+            'etf_perf_ytd': etf_perf_ytd,
+            'etf_perf_1y': etf_perf_1y,
+            'sector_etf': sector_etf,
+        }
+
+        risk_score = MetricsService.calculate_risk_score(metrics)
+        metrics["risk_score"] = risk_score
+        
+        return metrics
 
 
 def get_metrics_service(db: Session = Depends(get_db)) -> MetricsService:

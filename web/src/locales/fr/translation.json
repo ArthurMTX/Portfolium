@@ -205,6 +205,23 @@
     "proTipInfo": "Vous pouvez utiliser les mises en page par défaut comme point de départ !",
     "removeWidget": "Supprimer le widget",
     "removeWidgetMessage": "Êtes-vous sûr de vouloir supprimer ce widget de votre tableau de bord ?",
+    "positionDetail": {
+      "performance": "Métriques de Performance",
+      "tradingZones": "Zones de Trading",
+      "riskMetrics": "Métriques de Risque",
+      "basicInfo": "Détails de la Position",
+      "personalDrawdown": "Drawdown Personnel",
+      "distanceToATH": "Distance au Plus Haut",
+      "avgBuyZone": "Zone d'Achat Moyenne",
+      "costToAvgDown": "Coût pour Moyenner",
+      "volContribution": "Contribution à la Volatilité",
+      "portfolioVolatility": "de la volatilité du portefeuille",
+      "opportunityToBuy": "Opportunité d'achat",
+      "priceAboveAvg": "Prix au-dessus de la moyenne",
+      "targetPRU5Pct": "Cible: -5% PRU",
+      "costBasis": "Coût de Base",
+      "assetType": "Type d'Actif"
+    },
     "widgets": {
       "totalValue": {
         "name": "Valeur Totale",

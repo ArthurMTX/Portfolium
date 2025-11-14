@@ -6,12 +6,14 @@ import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '../../types'
 
 interface PositionsTableWidgetProps extends BaseWidgetProps {
+  portfolioId: number
   positions: PositionDTO[]
   soldPositions?: PositionDTO[]
   soldPositionsLoading?: boolean
 }
 
 export default function PositionsTableWidget({ 
+  portfolioId,
   positions, 
   soldPositions,
   soldPositionsLoading,
@@ -69,7 +71,7 @@ export default function PositionsTableWidget({
       {/* Tab Content */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {activeTab === 'current' ? (
-          <PositionsTable positions={positions || []} />
+          <PositionsTable positions={positions || []} portfolioId={portfolioId} />
         ) : soldPositionsLoading ? (
           <div className="p-12 text-center">
             <p className="text-neutral-500 dark:text-neutral-400">
@@ -77,7 +79,7 @@ export default function PositionsTableWidget({
             </p>
           </div>
         ) : (
-          <PositionsTable positions={soldPositions || []} isSold={true} />
+          <PositionsTable positions={soldPositions || []} portfolioId={portfolioId} isSold={true} />
         )}
       </div>
     </div>

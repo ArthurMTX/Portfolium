@@ -102,6 +102,35 @@ async def get_portfolio_positions(
     return await metrics_service.get_positions(portfolio_id)
 
 
+@router.get("/{portfolio_id}/positions/{asset_id}/detailed-metrics")
+async def get_position_detailed_metrics(
+    portfolio_id: int,
+    asset_id: int,
+    metrics_service = Depends(get_metrics_service),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Get detailed metrics for a single position (lazy-loaded on-demand)
+    
+    This includes expensive calculations like:
+    - Relative performance vs sector (30d, 90d, YTD, 1y)
+    
+    These metrics are NOT included in the main positions list to keep
+    dashboard loading fast. They are only calculated when user opens
+    the position detail modal.
+    """
+    result = await metrics_service.get_position_detailed_metrics(portfolio_id, asset_id)
+    if not result:
+        return {
+            'relative_perf_30d': None,
+            'relative_perf_90d': None,
+            'relative_perf_ytd': None,
+            'relative_perf_1y': None,
+            'sector_etf': None
+        }
+    return result
+
+
 @router.get("/{portfolio_id}/sold-positions", response_model=List[Position])
 async def get_sold_positions(
     portfolio_id: int,
