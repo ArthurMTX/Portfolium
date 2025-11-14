@@ -185,6 +185,11 @@
     "currentPrice": "Prix actuel",
     "dailyChange": "Variation quotidienne",
     "marketValue": "Valeur marchande",
+    "breakeven": {
+      "gainNeeded": "Gain nécessaire",
+      "targetPrice": "Prix cible",
+      "toBreakeven": "pour revenir au prix d'achat"
+    },
     "noPositions": "Aucune position à afficher.",
     "noPositionsInfo": "Commencez par ajouter des transactions à votre portefeuille.",
     "editMode": "Mode d'édition",

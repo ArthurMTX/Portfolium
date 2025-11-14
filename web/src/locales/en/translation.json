@@ -185,6 +185,11 @@
     "currentPrice": "Current Price",
     "dailyChange": "Daily Change",
     "marketValue": "Market Value",
+    "breakeven": {
+      "gainNeeded": "Gain needed",
+      "targetPrice": "Target price",
+      "toBreakeven": "to break even"
+    },
     "noPositions": "No positions to display.",
     "noPositionsInfo": "Start by adding transactions to your portfolio.",
     "editMode": "Edit Mode",

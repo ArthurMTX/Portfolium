@@ -474,12 +474,24 @@ class MetricsService:
         market_value = quantity * current_price if current_price else None
         unrealized_pnl = None
         unrealized_pnl_pct = None
+        breakeven_gain_pct = None
+        breakeven_target_price = None
         
         if market_value:
             unrealized_pnl = market_value - total_cost
             unrealized_pnl_pct = (
                 (unrealized_pnl / total_cost * 100) if total_cost > 0 else Decimal(0)
             )
+            
+            # Calculate breakeven metrics for negative positions
+            if unrealized_pnl < 0 and current_price and current_price > 0:
+                # Gain % needed to return to average cost
+                # If current price is below avg cost, calculate required gain %
+                # Formula: ((avg_cost - current_price) / current_price) * 100
+                breakeven_gain_pct = ((avg_cost - current_price) / current_price) * Decimal(100)
+                
+                # Target price to reach (it's simply the average cost)
+                breakeven_target_price = avg_cost
         
         return Position(
             asset_id=asset_id,
@@ -493,6 +505,8 @@ class MetricsService:
             unrealized_pnl=unrealized_pnl,
             unrealized_pnl_pct=unrealized_pnl_pct,
             daily_change_pct=daily_change_pct,
+            breakeven_gain_pct=breakeven_gain_pct,
+            breakeven_target_price=breakeven_target_price,
             currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,
             asset_type=asset.asset_type

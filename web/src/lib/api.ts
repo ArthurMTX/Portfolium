@@ -65,6 +65,8 @@ export interface PositionDTO {
   unrealized_pnl: number | null
   unrealized_pnl_pct: number | null
   daily_change_pct: number | null
+  breakeven_gain_pct?: number | null
+  breakeven_target_price?: number | null
   currency: string
   last_updated: string | null
 }

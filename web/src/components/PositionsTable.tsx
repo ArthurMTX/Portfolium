@@ -17,6 +17,8 @@ interface Position {
   unrealized_pnl: number | string | null
   unrealized_pnl_pct: number | string | null
   daily_change_pct: number | string | null
+  breakeven_gain_pct?: number | string | null
+  breakeven_target_price?: number | string | null
   currency: string
   asset_type?: string // from backend/yfinance
 }
@@ -294,6 +296,18 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   </div>
                 </div>
               )}
+
+              {/* Breakeven metrics for negative positions (mobile only) */}
+              {!isSold && !isPositive && position.breakeven_gain_pct && (
+                <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
+                    📈 {t('dashboard.breakeven.gainNeeded')}
+                  </div>
+                  <div className="font-medium text-amber-600 dark:text-amber-400">
+                    +{formatNumber(position.breakeven_gain_pct, 2)}%
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
@@ -543,6 +557,12 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                             ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
                             : '-'}
                         </div>
+                        {/* Breakeven info for negative positions */}
+                        {!isPositive && position.breakeven_gain_pct && (
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                            ↗ +{formatNumber(position.breakeven_gain_pct, 2)}%
+                          </div>
+                        )}
                       </td>
                     </>
                   )}

@@ -394,6 +394,8 @@ class Position(BaseModel):
     unrealized_pnl: Optional[Decimal]
     unrealized_pnl_pct: Optional[Decimal]
     daily_change_pct: Optional[Decimal]  # Daily price change percentage
+    breakeven_gain_pct: Optional[Decimal] = None  # Gain % nécessaire pour revenir au prix d'achat (pour positions négatives)
+    breakeven_target_price: Optional[Decimal] = None  # Prix cible à atteindre pour breakeven (pour positions négatives)
     currency: str
     last_updated: Optional[datetime]
     asset_type: Optional[str] = None
