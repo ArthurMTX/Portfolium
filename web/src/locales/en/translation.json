@@ -87,7 +87,8 @@
     "load": "Load",
     "clear": "Clear",
     "selected": "Selected",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "confirmDelete": "Confirm Delete"
   },
   "fields": {
     "symbol": "Symbol",
@@ -456,6 +457,10 @@
       "title": "Layout Manager",
       "description": "Save, load, and share your dashboard layouts",
       "saveCurrentLayout": "Save Current Layout",
+      "saveAsNewLayout": "Save as New Layout",
+      "saveCurrentToThisLayout": "Save current dashboard to this layout",
+      "confirmSave": "Confirm Save",
+      "saveCurrentConfirm": "This will replace the layout configuration of \"{name}\" with your current dashboard. Continue?",
       "myLayouts": "My Layouts",
       "templates": "Templates",
       "template": "Template",
@@ -466,6 +471,7 @@
       "setAsDefault": "Set as Default Layout",
       "removeAsDefault": "Remove as Default Layout",
       "duplicateLayout": "Duplicate Layout",
+      "deleteLayoutConfirm": "Are you sure you want to delete \"{name}\"?",
       "proTipInfo": "These are professionally designed layouts optimized for different investment styles. Click \"Load\" to apply any template.",
       "importLayoutInfo": "Select an exported layout JSON file to import a custom layout.",
       "selectLayoutFile": "Select Layout File",

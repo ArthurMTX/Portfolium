@@ -87,7 +87,8 @@
     "load": "Charger",
     "clear": "Effacer",
     "selected": "Sélectionné",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "confirmDelete": "Confirmer la suppression"
   },
   "fields": {
     "symbol": "Symbole",
@@ -456,6 +457,10 @@
       "title": "Gestionnaire de Mise en Page",
       "description": "Enregistrer, charger et partager vos mises en page de tableau de bord",
       "saveCurrentLayout": "Enregistrer la mise en page actuelle",
+      "saveAsNewLayout": "Enregistrer comme nouvelle mise en page",
+      "saveCurrentToThisLayout": "Enregistrer le tableau de bord actuel dans cette mise en page",
+      "confirmSave": "Confirmer l'enregistrement",
+      "saveCurrentConfirm": "Cela remplacera la configuration de mise en page de \"{name}\" par votre tableau de bord actuel. Continuer ?",
       "myLayouts": "Mes Mises en Page",
       "templates": "Modèles",
       "template": "Modèle",
@@ -466,6 +471,7 @@
       "setAsDefault": "Définir comme mise en page par défaut",
       "removeAsDefault": "Retirer comme mise en page par défaut",
       "duplicateLayout": "Dupliquer la mise en page",
+      "deleteLayoutConfirm": "Êtes-vous sûr de vouloir supprimer \"{name}\" ?",
       "proTipInfo": "Ces mises en page sont conçues par des professionnels et optimisées pour différents styles d'investissement. Cliquez sur \"Charger\" pour appliquer un modèle.",
       "importLayoutInfo": "Sélectionnez un fichier JSON de mise en page exporté pour importer une mise en page personnalisée.",
       "selectLayoutFile": "Sélectionner le fichier de mise en page",

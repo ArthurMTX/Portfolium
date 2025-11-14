@@ -17,7 +17,9 @@ import {
   X,
   FileText,
   AlertTriangle,
-  Library
+  Library,
+  Edit2,
+  Check
 } from 'lucide-react'
 import api from '../../../lib/api'
 import type {DashboardLayoutDTO, 
@@ -27,6 +29,8 @@ import type {DashboardLayoutDTO,
 import { Layout } from 'react-grid-layout'
 import { PREDEFINED_LAYOUTS } from '../utils/predefinedLayouts'
 import { useTranslation } from 'react-i18next'
+import { loadLayout } from '../utils/defaultLayouts'
+import { useAuth } from '../../../contexts/AuthContext'
 
 /**
  * Compact layout vertically - removes gaps between widgets
@@ -110,12 +114,18 @@ export default function LayoutManager({
   onLoadLayout,
 }: LayoutManagerProps) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'saved' | 'templates' | 'import'>('saved')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saveDescription, setSaveDescription] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editingLayout, setEditingLayout] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+  const [saveConfirmId, setSaveConfirmId] = useState<number | null>(null)
   const { t } = useTranslation()
 
   // Fetch saved layouts (now global across all portfolios)
@@ -142,10 +152,15 @@ export default function LayoutManager({
 
   // Update layout
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: number; is_default?: boolean }) =>
+    mutationFn: ({ id, ...data }: { id: number; name?: string; description?: string; is_default?: boolean; layout_config?: { lg: Layout[]; md: Layout[]; sm: Layout[] } }) =>
       api.updateDashboardLayout(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-layouts'] })
+      setEditingLayout(null)
+      setError(null)
+    },
+    onError: (err: Error) => {
+      setError(err.message)
     },
   })
 
@@ -261,6 +276,70 @@ export default function LayoutManager({
     })
   }
 
+  const startEditing = (layout: DashboardLayoutDTO) => {
+    setEditingLayout(layout.id)
+    setEditName(layout.name)
+    setEditDescription(layout.description || '')
+    setError(null)
+  }
+
+  const cancelEditing = () => {
+    setEditingLayout(null)
+    setEditName('')
+    setEditDescription('')
+    setError(null)
+  }
+
+  const saveEditing = (layoutId: number) => {
+    if (!editName.trim()) {
+      setError('Please enter a layout name')
+      return
+    }
+
+    updateMutation.mutate({
+      id: layoutId,
+      name: editName.trim(),
+      description: editDescription.trim() || undefined,
+    })
+  }
+
+  const handleDelete = (layoutId: number) => {
+    deleteMutation.mutate(layoutId)
+    setDeleteConfirmId(null)
+  }
+
+  const handleSaveToLayout = (layoutId: number) => {
+    // Load the ACTUAL current layout from localStorage (the source of truth)
+    const actualCurrentLayout = {
+      lg: loadLayout('lg', user?.id),
+      md: loadLayout('md', user?.id),
+      sm: loadLayout('sm', user?.id),
+    }
+    
+    // Compact the layout before saving
+    const compactedLayout = {
+      lg: compactLayout(actualCurrentLayout.lg, 'lg'),
+      md: compactLayout(actualCurrentLayout.md, 'md'),
+      sm: compactLayout(actualCurrentLayout.sm, 'sm'),
+    }
+    
+    console.log('Saving layout config:', compactedLayout)
+    
+    updateMutation.mutate({
+      id: layoutId,
+      layout_config: compactedLayout,
+    }, {
+      onSuccess: () => {
+        console.log('Layout saved successfully')
+        setSaveConfirmId(null)
+      },
+      onError: (error) => {
+        console.error('Failed to save layout:', error)
+        setError(`Failed to save: ${error.message}`)
+      }
+    })
+  }
+
   if (!isOpen) return null
 
   return (
@@ -302,13 +381,13 @@ export default function LayoutManager({
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center gap-2 p-6 border-b border-neutral-200 dark:border-neutral-800 flex-wrap">
           <button
             onClick={() => setShowSaveDialog(true)}
             className="btn bg-pink-600 hover:bg-pink-700 text-white flex items-center gap-2 px-4 py-2"
           >
-            <Save size={16} />
-            {t('dashboard.layouts.saveCurrentLayout')}
+            <Plus size={16} />
+            {t('dashboard.layouts.saveAsNewLayout')}
           </button>
         </div>
 
@@ -372,82 +451,193 @@ export default function LayoutManager({
                 key={layout.id}
                 className="p-4 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:border-pink-300 dark:hover:border-pink-700 transition-colors"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
-                        {layout.name}
-                      </h3>
-                      {layout.is_default && (
-                        <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full">
-                          {t('common.default')}
-                        </span>
-                      )}
+                {editingLayout === layout.id ? (
+                  // Edit Mode
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                        {t('dashboard.layouts.layoutName')} *
+                      </label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                        autoFocus
+                      />
                     </div>
-                    {layout.description && (
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-                        {layout.description}
-                      </p>
-                    )}
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-2">
-                      {t('common.updatedAt', { date: new Date(layout.updated_at).toLocaleDateString() })}
-                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                        {t('dashboard.layouts.descriptionField')}
+                      </label>
+                      <textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={cancelEditing}
+                        className="px-3 py-1.5 text-sm bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        onClick={() => saveEditing(layout.id)}
+                        disabled={updateMutation.isPending}
+                        className="px-3 py-1.5 text-sm bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Check size={14} />
+                        {t('common.save')}
+                      </button>
+                    </div>
                   </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => {
-                        // Compact the layout before loading
-                        const compactedLayout: DashboardLayoutDTO = {
-                          ...layout,
-                          layout_config: {
-                            lg: compactLayout(layout.layout_config.lg, 'lg'),
-                            md: compactLayout(layout.layout_config.md, 'md'),
-                            sm: compactLayout(layout.layout_config.sm, 'sm'),
-                          }
-                        }
-                        onLoadLayout(compactedLayout)
-                      }}
-                      className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title={t('dashboard.layouts.loadThisLayout')}
-                    >
-                      <Plus size={16} className="text-green-600 dark:text-green-400" />
-                    </button>
-                    <button
-                      onClick={() => toggleDefault(layout)}
-                      className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title={layout.is_default ? t('dashboard.layouts.removeAsDefault') : t('dashboard.layouts.setAsDefault')}
-                    >
-                      {layout.is_default ? (
-                        <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                      ) : (
-                        <StarOff size={16} className="text-neutral-400" />
+                ) : (
+                  // View Mode
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
+                          {layout.name}
+                        </h3>
+                        {layout.is_default && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full">
+                            {t('common.default')}
+                          </span>
+                        )}
+                      </div>
+                      {layout.description && (
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                          {layout.description}
+                        </p>
                       )}
-                    </button>
-                    <button
-                      onClick={() => duplicateMutation.mutate({ id: layout.id, name: `${layout.name} (${t('common.copy')})` })}
-                      className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title={t('dashboard.layouts.duplicateLayout')}
-                    >
-                      <Copy size={16} className="text-blue-600 dark:text-blue-400" />
-                    </button>
-                    <button
-                      onClick={() => handleExport(layout.id, layout.name)}
-                      className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title={t('common.export')}
-                    >
-                      <Download size={16} className="text-purple-600 dark:text-purple-400" />
-                    </button>
-                    <button
-                      onClick={() => deleteMutation.mutate(layout.id)}
-                      className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                      title={t('common.delete')}
-                    >
-                      <Trash2 size={16} className="text-red-600 dark:text-red-400" />
-                    </button>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-2">
+                        {t('common.updatedAt', { date: new Date(layout.updated_at).toLocaleDateString() })}
+                      </p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          // Compact the layout before loading
+                          const compactedLayout: DashboardLayoutDTO = {
+                            ...layout,
+                            layout_config: {
+                              lg: compactLayout(layout.layout_config.lg, 'lg'),
+                              md: compactLayout(layout.layout_config.md, 'md'),
+                              sm: compactLayout(layout.layout_config.sm, 'sm'),
+                            }
+                          }
+                          onLoadLayout(compactedLayout)
+                        }}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                        title={t('dashboard.layouts.loadThisLayout')}
+                      >
+                        <Plus size={14} />
+                        {t('common.load')}
+                      </button>
+                      <button
+                        onClick={() => setSaveConfirmId(layout.id)}
+                        className="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                        title={t('dashboard.layouts.saveCurrentToThisLayout')}
+                      >
+                        <Save size={14} />
+                        {t('common.save')}
+                      </button>
+                      <div className="w-px h-6 bg-neutral-300 dark:bg-neutral-700" />
+                      <button
+                        onClick={() => startEditing(layout)}
+                        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                        title={t('common.edit')}
+                      >
+                        <Edit2 size={16} className="text-blue-600 dark:text-blue-400" />
+                      </button>
+                      <button
+                        onClick={() => toggleDefault(layout)}
+                        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                        title={layout.is_default ? t('dashboard.layouts.removeAsDefault') : t('dashboard.layouts.setAsDefault')}
+                      >
+                        {layout.is_default ? (
+                          <Star size={16} className="text-yellow-500 fill-yellow-500" />
+                        ) : (
+                          <StarOff size={16} className="text-neutral-400" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => duplicateMutation.mutate({ id: layout.id, name: `${layout.name} (${t('common.copy')})` })}
+                        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                        title={t('dashboard.layouts.duplicateLayout')}
+                      >
+                        <Copy size={16} className="text-blue-600 dark:text-blue-400" />
+                      </button>
+                      <button
+                        onClick={() => handleExport(layout.id, layout.name)}
+                        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                        title={t('common.export')}
+                      >
+                        <Download size={16} className="text-purple-600 dark:text-purple-400" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirmId(layout.id)}
+                        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                        title={t('common.delete')}
+                      >
+                        <Trash2 size={16} className="text-red-600 dark:text-red-400" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Save Confirmation */}
+                {saveConfirmId === layout.id && (
+                  <div className="mt-3 p-3 bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg">
+                    <p className="text-sm text-pink-900 dark:text-pink-100 mb-2">
+                      <strong>{t('dashboard.layouts.confirmSave')}</strong> {t('dashboard.layouts.saveCurrentConfirm').replace('{name}', layout.name)}
+                    </p>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setSaveConfirmId(null)}
+                        className="px-3 py-1.5 text-sm bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        onClick={() => handleSaveToLayout(layout.id)}
+                        disabled={updateMutation.isPending}
+                        className="px-3 py-1.5 text-sm bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {updateMutation.isPending ? t('common.saving') : t('common.save')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delete Confirmation */}
+                {deleteConfirmId === layout.id && (
+                  <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-sm text-red-900 dark:text-red-100 mb-2">
+                      <strong>{t('common.confirmDelete')}</strong> {t('dashboard.layouts.deleteLayoutConfirm').replace('{name}', layout.name)}
+                    </p>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setDeleteConfirmId(null)}
+                        className="px-3 py-1.5 text-sm bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(layout.id)}
+                        disabled={deleteMutation.isPending}
+                        className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -601,7 +791,7 @@ export default function LayoutManager({
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-                {t('dashboard.layouts.saveCurrentLayout')}
+                {t('dashboard.layouts.saveAsNewLayout')}
               </h3>
               <div className="space-y-4">
                 <div>
