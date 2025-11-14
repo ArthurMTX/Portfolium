@@ -250,119 +250,115 @@ class RelativePerformanceService:
         period_days: int = 365
     ) -> Optional[float]:
         """
-        Calculate Beta (volatility relative to benchmark)
-        Beta = Covariance(Asset, Benchmark) / Variance(Benchmark)
-        
-        Beta > 1: More volatile than benchmark
-        Beta = 1: Same volatility as benchmark  
-        Beta < 1: Less volatile than benchmark
+        Calculate Beta for an asset using yfinance for both
+        the asset and the benchmark.
         """
         benchmark_symbol = self.get_beta_benchmark(sector)
         if not benchmark_symbol:
             logger.warning(f"No beta benchmark for sector={sector}")
             return None
-        
+
         # Get asset from database
         asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
-        if not asset:
+        if not asset or not asset.symbol:
+            logger.warning(f"No symbol found for asset_id={asset_id}")
             return None
-        
-        from datetime import datetime, timedelta
-        start_date = datetime.utcnow() - timedelta(days=period_days)
-        
-        # Get historical prices for the asset (from database)
-        asset_prices = (
-            self.db.query(Price.price, Price.asof)
-            .filter(
-                Price.asset_id == asset_id,
-                Price.asof >= start_date
-            )
-            .order_by(Price.asof)
-            .all()
+
+        return self._calculate_beta_yf(
+            symbol=asset.symbol,
+            benchmark_symbol=benchmark_symbol,
+            period_days=period_days
         )
-        
-        if len(asset_prices) < 30:  # Need minimum data points
-            logger.warning(f"Insufficient price history for {asset.symbol} to calculate Beta")
-            return None
-        
+
+    def _calculate_beta_yf(
+        self,
+        symbol: str,
+        benchmark_symbol: str,
+        period_days: int = 365,
+        min_points: int = 60
+    ) -> Optional[float]:
+        """
+        Internal beta calc using yfinance only (asset + benchmark).
+        Beta = Cov(R_asset, R_benchmark) / Var(R_benchmark)
+        """
+        end = datetime.utcnow()
+        start = end - timedelta(days=period_days)
+
         try:
-            # Get benchmark prices from yfinance
-            ticker = yf.Ticker(benchmark_symbol)
-            hist = ticker.history(
-                start=start_date.strftime('%Y-%m-%d'),
-                end=datetime.utcnow().strftime('%Y-%m-%d')
+            # Asset history
+            asset_ticker = yf.Ticker(symbol)
+            asset_hist = asset_ticker.history(
+                start=start.strftime("%Y-%m-%d"),
+                end=end.strftime("%Y-%m-%d")
             )
-            
-            if hist.empty or len(hist) < 30:
-                logger.warning(f"Insufficient benchmark data for {benchmark_symbol}")
+
+            # Benchmark history
+            bench_ticker = yf.Ticker(benchmark_symbol)
+            bench_hist = bench_ticker.history(
+                start=start.strftime("%Y-%m-%d"),
+                end=end.strftime("%Y-%m-%d")
+            )
+
+            if asset_hist.empty or bench_hist.empty:
+                logger.warning(f"No history for {symbol} or {benchmark_symbol}")
                 return None
-            
+
             # Normalize timezone
-            hist.index = hist.index.tz_localize(None)
-            
-            # Convert asset prices to date → price dict
-            asset_dict = {
-                asof.date(): float(price)
-                for (price, asof) in asset_prices
-            }
-            
-            # Convert benchmark prices to date → price dict
-            benchmark_dict = {
-                idx.date(): float(hist.iloc[i]['Close'])
-                for i, idx in enumerate(hist.index)
-            }
-            
-            # Intersection of dates
-            shared_dates = sorted(set(asset_dict.keys()) & set(benchmark_dict.keys()))
-            
-            if len(shared_dates) < 30:
-                logger.warning("Not enough aligned dates for Beta calculation")
+            asset_hist.index = asset_hist.index.tz_localize(None)
+            bench_hist.index = bench_hist.index.tz_localize(None)
+
+            # Align on common dates
+            common_dates = sorted(set(asset_hist.index) & set(bench_hist.index))
+            if len(common_dates) < min_points:
+                logger.warning(
+                    f"Not enough common dates for beta {symbol} vs {benchmark_symbol} "
+                    f"({len(common_dates)} < {min_points})"
+                )
                 return None
-            
-            asset_returns: list[float] = []
-            benchmark_returns: list[float] = []
-            
-            for i in range(1, len(shared_dates)):
-                d0 = shared_dates[i - 1]
-                d1 = shared_dates[i]
-                
-                prev_asset = asset_dict[d0]
-                curr_asset = asset_dict[d1]
-                prev_bench = benchmark_dict[d0]
-                curr_bench = benchmark_dict[d1]
-                
-                if prev_asset > 0 and prev_bench > 0:
-                    r_asset = (curr_asset - prev_asset) / prev_asset
-                    r_bench = (curr_bench - prev_bench) / prev_bench
-                    asset_returns.append(r_asset)
-                    benchmark_returns.append(r_bench)
-            
-            if len(asset_returns) < 30:
-                logger.warning("Not enough valid return pairs for Beta calculation")
+
+            asset_prices = asset_hist.loc[common_dates]["Close"].astype(float).values
+            bench_prices = bench_hist.loc[common_dates]["Close"].astype(float).values
+
+            asset_returns = []
+            bench_returns = []
+
+            for i in range(1, len(common_dates)):
+                pa0, pa1 = asset_prices[i - 1], asset_prices[i]
+                pb0, pb1 = bench_prices[i - 1], bench_prices[i]
+
+                if pa0 > 0 and pb0 > 0:
+                    asset_returns.append((pa1 - pa0) / pa0)
+                    bench_returns.append((pb1 - pb0) / pb0)
+
+            if len(asset_returns) < min_points:
+                logger.warning(
+                    f"Not enough return pairs for beta {symbol} vs {benchmark_symbol} "
+                    f"({len(asset_returns)} < {min_points})"
+                )
                 return None
-            
-            asset_mean = sum(asset_returns) / len(asset_returns)
-            benchmark_mean = sum(benchmark_returns) / len(benchmark_returns)
-            
+
+            # Beta: sample covariance / variance
             n = len(asset_returns)
+            mean_a = sum(asset_returns) / n
+            mean_b = sum(bench_returns) / n
+
             covariance = sum(
-                (asset_returns[i] - asset_mean) * (benchmark_returns[i] - benchmark_mean)
+                (asset_returns[i] - mean_a) * (bench_returns[i] - mean_b)
                 for i in range(n)
             ) / (n - 1)
-            
-            benchmark_variance = sum(
-                (r - benchmark_mean) ** 2 for r in benchmark_returns
+
+            variance_b = sum(
+                (r - mean_b) ** 2 for r in bench_returns
             ) / (n - 1)
-            
-            if benchmark_variance == 0:
-                logger.warning(f"Benchmark variance is zero, cannot calculate Beta")
+
+            if variance_b == 0:
+                logger.warning(f"Zero variance for benchmark {benchmark_symbol}")
                 return None
-            
-            beta = covariance / benchmark_variance
-            
-            logger.info(f"Calculated Beta for {asset.symbol} vs {benchmark_symbol}: {beta:.2f}")
-            return beta
-        
+
+            beta = covariance / variance_b
+            logger.info(f"Calculated Beta (yfinance) for {symbol} vs {benchmark_symbol}: {beta:.2f}")
+            return float(beta)
+
         except Exception as e:
-            logger.error(f"Error calculating Beta for {asset.symbol}: {e}")
+            logger.error(f"Error calculating beta for {symbol} vs {benchmark_symbol}: {e}")
             return None
