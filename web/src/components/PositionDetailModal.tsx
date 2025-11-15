@@ -285,7 +285,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                         label={t('dashboard.positionDetail.revenueGrowth')}
                         value={`${detailedMetrics.revenue_growth >= 0 ? '+' : ''}${formatNumber(detailedMetrics.revenue_growth * 100, 2)}%`}
                         color={detailedMetrics.revenue_growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
-                        subtitle={getRevenueGrowthConclusion(detailedMetrics.revenue_growth, t)}
+                        subtitle={getRevenueGrowthConclusion(detailedMetrics.revenue_growth * 100, t)}
                         icon={detailedMetrics.revenue_growth >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                       />
                     )}
@@ -295,7 +295,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                         label={t('dashboard.positionDetail.earningsGrowth')}
                         value={`${detailedMetrics.earnings_growth >= 0 ? '+' : ''}${formatNumber(detailedMetrics.earnings_growth * 100, 2)}%`}
                         color={detailedMetrics.earnings_growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
-                        subtitle={getEarningsGrowthConclusion(detailedMetrics.earnings_growth, t)}
+                        subtitle={getEarningsGrowthConclusion(detailedMetrics.earnings_growth * 100, t)}
                         icon={detailedMetrics.earnings_growth >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                       />
                     )}
@@ -305,7 +305,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                         label={t('dashboard.positionDetail.netMargin')}
                         value={`${formatNumber(detailedMetrics.profit_margins * 100, 2)}%`}
                         color="text-neutral-900 dark:text-neutral-100"
-                        subtitle={getNetMarginConclusion(detailedMetrics.profit_margins, t)}
+                        subtitle={getNetMarginConclusion(detailedMetrics.profit_margins * 100, t)}
                         icon={<Activity size={16} />}
                       />
                     )}
@@ -315,7 +315,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                         label={t('dashboard.positionDetail.operatingMargin')}
                         value={`${formatNumber(detailedMetrics.operating_margins * 100, 2)}%`}
                         color="text-neutral-900 dark:text-neutral-100"
-                        subtitle={getOperatingMarginConclusion(detailedMetrics.operating_margins, t)}
+                        subtitle={getOperatingMarginConclusion(detailedMetrics.operating_margins * 100, t)}
                         icon={<Activity size={16} />}
                       />
                     )}
@@ -325,7 +325,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                         label={t('dashboard.positionDetail.roe')}
                         value={`${formatNumber(detailedMetrics.return_on_equity * 100, 2)}%`}
                         color="text-neutral-900 dark:text-neutral-100"
-                        subtitle={getRoeConclusion(detailedMetrics.return_on_equity, t)}
+                        subtitle={getRoeConclusion(detailedMetrics.return_on_equity * 100, t)}
                         icon={<TrendingUp size={16} />}
                       />
                     )}
