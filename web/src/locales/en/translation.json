@@ -216,6 +216,22 @@
       "peRatio": "P/E Ratio",
       "eps": "EPS",
       "liquidityScore": "Liquidity Score",
+      "growthProfitability": "Growth & Profitability",
+      "revenueGrowth": "Revenue Growth",
+      "earningsGrowth": "Earnings Growth",
+      "netMargin": "Net Margin",
+      "operatingMargin": "Operating Margin",
+      "roe": "ROE",
+      "balanceSheetHealth": "Balance Sheet Health",
+      "netCashPosition": "Net Cash Position",
+      "debtToEquity": "Debt-to-Equity",
+      "currentRatio": "Current Ratio",
+      "quickRatio": "Quick Ratio",
+      "analystViewValuation": "Analyst View & Valuation",
+      "consensus": "Consensus",
+      "analysts": "Analysts",
+      "targetMean": "Target (Mean)",
+      "impliedUpside": "Implied Upside",
       "personalDrawdown": "Personal Drawdown",
       "distanceToATH": "Distance to ATH",
       "avgBuyZone": "Avg Buy Zone",
@@ -583,6 +599,81 @@
         "average": "Average liquidity - normal trading conditions",
         "belowAverage": "Low liquidity - may have higher spreads",
         "poor": "Poor liquidity - difficult to trade, high transaction risks"
+      },
+      "growth": {
+        "revenue": {
+          "hyperGrowth": "Explosive growth - exceptional revenue momentum",
+          "strongGrowth": "Strong growth - solid commercial expansion",
+          "moderateGrowth": "Moderate growth - healthy trend",
+          "lowGrowth": "Low growth - stable but slowing",
+          "declining": "Declining revenue - potential weakness"
+        },
+        "earnings": {
+          "exceptional": "Exceptional earnings growth - highly profitable momentum",
+          "healthy": "Healthy earnings growth - improving profitability",
+          "mild": "Mild earnings growth - stable progress",
+          "declining": "Declining earnings - profitability under pressure"
+        }
+      },
+      "margins": {
+        "net": {
+          "excellent": "Excellent net profitability",
+          "good": "Good net profitability",
+          "moderate": "Moderate net margin",
+          "low": "Low profitability",
+          "negative": "Negative margin - company operating at a loss"
+        },
+        "operating": {
+          "highlyEfficient": "Highly efficient operations - strong cost control",
+          "good": "Good operating efficiency",
+          "low": "Low operating margin - profitability constrained",
+          "negative": "Negative operating margin - operating losses"
+        }
+      },
+      "roe": {
+        "excellent": "Exceptional return on equity",
+        "healthy": "Healthy return on equity",
+        "moderate": "Moderate return on equity",
+        "low": "Low return on equity",
+        "negative": "Negative return - destruction of shareholder value"
+      },
+      "balanceSheet": {
+        "netCash": "Strong net cash position - financial strength",
+        "neutral": "Neutral cash position",
+        "netDebt": "Net debt position - higher financial risk",
+        "dte": {
+          "lowLeverage": "Low leverage - healthy financial structure",
+          "moderateLeverage": "Moderate leverage - reasonable risk",
+          "highLeverage": "High leverage - financial risk elevated",
+          "veryHighLeverage": "Very high leverage - balance sheet under stress"
+        },
+        "current": {
+          "veryStrong": "Very strong liquidity - excellent short-term flexibility",
+          "healthy": "Healthy liquidity - short-term obligations covered",
+          "tight": "Tight liquidity - limited buffer",
+          "weak": "Weak liquidity - short-term risks increased"
+        },
+        "quick": {
+          "excellent": "Excellent immediate liquidity",
+          "adequate": "Adequate short-term liquidity",
+          "weak": "Weak quick ratio - low short-term buffer",
+          "veryWeak": "Very weak quick ratio - potential liquidity risk"
+        }
+      },
+      "analyst": {
+        "consensus": {
+          "strongBuy": "Highly positive analyst outlook",
+          "buy": "Favorable expectations",
+          "hold": "Neutral analyst sentiment",
+          "sell": "Declining confidence",
+          "strongSell": "Highly negative outlook"
+        },
+        "upside": {
+          "high": "High upside potential",
+          "moderate": "Moderate upside potential",
+          "limited": "Limited upside - fairly valued",
+          "downside": "Negative implied return - downside risk"
+        }
       }
     }
   },

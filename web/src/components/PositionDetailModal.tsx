@@ -1,9 +1,31 @@
 import React from 'react'
-import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3, Info } from 'lucide-react'
+import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3, Info, LineChart, Shield, Users } from 'lucide-react'
 import { PositionDTO, api } from '../lib/api'
 import { formatCurrency, formatNumber, formatLargeNumber, formatWithSeparators } from '../lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '@/lib/logoUtils'
+import {
+  getPerformanceConclusion,
+  getVolatilityConclusion,
+  getBetaConclusion,
+  getRiskScoreConclusion,
+  getMarketCapConclusion,
+  getPEConclusion,
+  getVolumeConclusion,
+  getEpsConclusion,
+  getLiquidityScoreConclusion,
+  getRevenueGrowthConclusion,
+  getEarningsGrowthConclusion,
+  getNetMarginConclusion,
+  getOperatingMarginConclusion,
+  getRoeConclusion,
+  getNetCashConclusion,
+  getDebtToEquityConclusion,
+  getCurrentRatioConclusion,
+  getQuickRatioConclusion,
+  getAnalystConsensusConclusion,
+  getImpliedUpsideConclusion,
+} from '../lib/conclusionUtils'
 
 interface PositionDetailModalProps {
   position: PositionDTO | null
@@ -44,172 +66,25 @@ interface DetailedMetrics {
   eps: number | null
   liquidity_score: number | null
   asset_currency: string | null
-}
-
-// Helper function to generate performance conclusion
-function getPerformanceConclusion(relativePerf: number, period: string, assetPerf: number | null, t: (key: string, params?: Record<string, unknown>) => string): string {
-  // Exceptional outlier (penny stock or major disruption)
-  if (Math.abs(relativePerf) > 500) {
-    return assetPerf && assetPerf > 500 
-      ? t("dashboard.conclusions.performance.exceptionalOutlierPositive")
-      : t("dashboard.conclusions.performance.exceptionalOutlierNegative")
-  }
-  
-  // Very strong performance ranges
-  if (relativePerf > 50) {
-    return period === '1y' 
-      ? t("dashboard.conclusions.performance.veryStrongLongTerm")
-      : t("dashboard.conclusions.performance.veryStrongOtherPeriods", { period })
-  }
-  if (relativePerf < -50) {
-    return t("dashboard.conclusions.performance.severeUnderperformance")
-  }
-  
-  // Strong performance ranges
-  if (relativePerf > 20) {
-    return period === 'ytd' || period === '1y'
-      ? t("dashboard.conclusions.performance.strongLongTerm")
-      : t("dashboard.conclusions.performance.strongShortTerm")
-  }
-  if (relativePerf < -20) {
-    return t("dashboard.conclusions.performance.significantUnderperformance")
-  }
-  
-  // Moderate ranges
-  if (relativePerf > 5) {
-    return t("dashboard.conclusions.performance.moderateOutperformance")
-  }
-  if (relativePerf < -5) {
-    return t("dashboard.conclusions.performance.moderateUnderperformance")
-  }
-  
-  // In-line with benchmark
-  return t("dashboard.conclusions.performance.inLineWithBenchmark")
-}
-
-function getVolatilityConclusion(vol: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-	if (vol > 60) {
-		return t("dashboard.conclusions.volatility.veryHigh");
-	}
-	if (vol > 40) {
-		return t("dashboard.conclusions.volatility.high");
-	}
-	if (vol > 20) {
-		return t("dashboard.conclusions.volatility.moderate");
-	}
-	return t("dashboard.conclusions.volatility.low");
-}
-
-function getBetaConclusion(beta: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (beta > 1.5) {
-    return t("dashboard.conclusions.beta.high");
-  }
-  if (beta > 1.2) {
-    return t("dashboard.conclusions.beta.aboveAverage");
-  }
-  if (beta >= 0.8 && beta <= 1.2) {
-    return t("dashboard.conclusions.beta.marketLike");
-  }
-  if (beta >= 0.5 && beta < 0.8) {
-    return t("dashboard.conclusions.beta.defensive");
-  }
-  if (beta >= 0) {
-    return t("dashboard.conclusions.beta.low");
-  }
-  return t("dashboard.conclusions.beta.negative");
-}
-
-function getRiskScoreConclusion(score: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (score >= 80) {
-    return t("dashboard.conclusions.risk.extreme");
-  }
-  if (score >= 60) {
-    return t("dashboard.conclusions.risk.high");
-  }
-  if (score >= 40) {
-    return t("dashboard.conclusions.risk.moderate");
-  }
-  if (score >= 20) {
-    return t("dashboard.conclusions.risk.low");
-  }
-  return t("dashboard.conclusions.risk.veryLow");
-}
-
-function getMarketCapConclusion(marketCap: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (marketCap >= 200_000_000_000) {
-    return t("dashboard.conclusions.marketCap.megacap");
-  }
-  if (marketCap >= 10_000_000_000) {
-    return t("dashboard.conclusions.marketCap.largecap");
-  }
-  if (marketCap >= 2_000_000_000) {
-    return t("dashboard.conclusions.marketCap.midcap");
-  }
-  if (marketCap >= 300_000_000) {
-    return t("dashboard.conclusions.marketCap.smallcap");
-  }
-  return t("dashboard.conclusions.marketCap.microcap");
-}
-
-function getPEConclusion(peRatio: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (peRatio < 0) {
-    return t("dashboard.conclusions.peRatio.nonProfitable");
-  }
-  return t("dashboard.conclusions.peRatio.profitable");
-}
-
-function getVolumeConclusion(volume: number, avgVolume: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (!volume || !avgVolume || avgVolume <= 0) {
-    return t("dashboard.conclusions.volume.unknown")
-  }
-
-  const ratio = volume / avgVolume
-
-  if (ratio >= 2) {
-    return t("dashboard.conclusions.volume.veryHigh")
-  }
-  if (ratio >= 1.2) {
-    return t("dashboard.conclusions.volume.aboveAverage")
-  }
-  if (ratio > 0.8) {
-    return t("dashboard.conclusions.volume.inLine")
-  }
-  if (ratio > 0.4) {
-    return t("dashboard.conclusions.volume.belowAverage")
-  }
-  return t("dashboard.conclusions.volume.veryLow")
-}
-
-function getEpsConclusion(eps: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (eps > 0.5) {
-    return t("dashboard.conclusions.eps.profitable");
-  }
-  if (eps >= -0.5 && eps <= 0.5) {
-    return t("dashboard.conclusions.eps.breakEven");
-  }
-  if (eps > -10) {
-    return t("dashboard.conclusions.eps.negative");
-  }
-  if (eps > -50) {
-    return t("dashboard.conclusions.eps.heavyLoss");
-  }
-  return t("dashboard.conclusions.eps.severeLoss");
-}
-
-function getLiquidityScoreConclusion(liquidityScore: number, t: (key: string, params?: Record<string, unknown>) => string): string {
-  if (liquidityScore >= 90) {
-    return t("dashboard.conclusions.liquidityScore.excellent");
-  }
-  if (liquidityScore >= 70) {
-    return t("dashboard.conclusions.liquidityScore.good");
-  }
-  if (liquidityScore >= 40) {
-    return t("dashboard.conclusions.liquidityScore.average");
-  }
-  if (liquidityScore >= 20) {
-    return t("dashboard.conclusions.liquidityScore.belowAverage");
-  }
-  return t("dashboard.conclusions.liquidityScore.poor");
+  // Growth & Profitability
+  revenue_growth: number | null
+  earnings_growth: number | null
+  profit_margins: number | null
+  operating_margins: number | null
+  return_on_equity: number | null
+  // Balance Sheet Health
+  net_cash: number | null
+  debt_to_equity: number | null
+  current_ratio: number | null
+  quick_ratio: number | null
+  // Analyst View & Valuation
+  recommendation_key: string | null
+  recommendation_mean: number | null
+  num_analysts: number | null
+  target_mean: number | null
+  target_high: number | null
+  target_low: number | null
+  implied_upside_pct: number | null
 }
 
 export default function PositionDetailModal({ position, portfolioId, isOpen, onClose }: PositionDetailModalProps) {
@@ -318,7 +193,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                 
                 {loadingMetrics ? (
                   <div className="grid grid-cols-2 gap-5">
-                    {[...Array(4)].map((_, i) => (
+                    {[...Array(5)].map((_, i) => (
                       <div key={i} className="p-5 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 animate-pulse">
                         <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
                         <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-32 mb-1"></div>
@@ -374,6 +249,220 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                         color="text-neutral-900 dark:text-neutral-100"
                         subtitle={getLiquidityScoreConclusion(detailedMetrics.liquidity_score, t)}
                         icon={<TrendingUp size={16} />}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            )}
+
+            {/* Growth & Profitability */}
+            {(loadingMetrics || (detailedMetrics && (detailedMetrics.revenue_growth !== null || detailedMetrics.earnings_growth !== null || 
+              detailedMetrics.profit_margins !== null || detailedMetrics.operating_margins !== null || detailedMetrics.return_on_equity !== null))) && (
+              <section>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                    <LineChart size={20} className="text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                    {t('dashboard.positionDetail.growthProfitability')}
+                  </h3>
+                </div>
+                
+                {loadingMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="p-5 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 animate-pulse">
+                        <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
+                        <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-32 mb-1"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : detailedMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {detailedMetrics.revenue_growth !== null && detailedMetrics.revenue_growth !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.revenueGrowth')}
+                        value={`${detailedMetrics.revenue_growth >= 0 ? '+' : ''}${formatNumber(detailedMetrics.revenue_growth * 100, 2)}%`}
+                        color={detailedMetrics.revenue_growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
+                        subtitle={getRevenueGrowthConclusion(detailedMetrics.revenue_growth, t)}
+                        icon={detailedMetrics.revenue_growth >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.earnings_growth !== null && detailedMetrics.earnings_growth !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.earningsGrowth')}
+                        value={`${detailedMetrics.earnings_growth >= 0 ? '+' : ''}${formatNumber(detailedMetrics.earnings_growth * 100, 2)}%`}
+                        color={detailedMetrics.earnings_growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
+                        subtitle={getEarningsGrowthConclusion(detailedMetrics.earnings_growth, t)}
+                        icon={detailedMetrics.earnings_growth >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.profit_margins !== null && detailedMetrics.profit_margins !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.netMargin')}
+                        value={`${formatNumber(detailedMetrics.profit_margins * 100, 2)}%`}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getNetMarginConclusion(detailedMetrics.profit_margins, t)}
+                        icon={<Activity size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.operating_margins !== null && detailedMetrics.operating_margins !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.operatingMargin')}
+                        value={`${formatNumber(detailedMetrics.operating_margins * 100, 2)}%`}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getOperatingMarginConclusion(detailedMetrics.operating_margins, t)}
+                        icon={<Activity size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.return_on_equity !== null && detailedMetrics.return_on_equity !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.roe')}
+                        value={`${formatNumber(detailedMetrics.return_on_equity * 100, 2)}%`}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getRoeConclusion(detailedMetrics.return_on_equity, t)}
+                        icon={<TrendingUp size={16} />}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            )}
+
+            {/* Balance Sheet Health */}
+            {(loadingMetrics || (detailedMetrics && (detailedMetrics.net_cash !== null || detailedMetrics.debt_to_equity !== null || 
+              detailedMetrics.current_ratio !== null || detailedMetrics.quick_ratio !== null))) && (
+              <section>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/20 rounded-lg flex items-center justify-center">
+                    <Shield size={20} className="text-cyan-600 dark:text-cyan-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                    {t('dashboard.positionDetail.balanceSheetHealth')}
+                  </h3>
+                </div>
+                
+                {loadingMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="p-5 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 animate-pulse">
+                        <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
+                        <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-32 mb-1"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : detailedMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {detailedMetrics.net_cash !== null && detailedMetrics.net_cash !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.netCashPosition')}
+                        value={`${formatLargeNumber(Math.abs(detailedMetrics.net_cash), 2)} ${detailedMetrics.asset_currency || 'USD'}`}
+                        color={detailedMetrics.net_cash > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
+                        subtitle={getNetCashConclusion(detailedMetrics.net_cash, t)}
+                        icon={<DollarSign size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.debt_to_equity !== null && detailedMetrics.debt_to_equity !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.debtToEquity')}
+                        value={formatNumber(detailedMetrics.debt_to_equity, 2)}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getDebtToEquityConclusion(detailedMetrics.debt_to_equity, t)}
+                        icon={<Activity size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.current_ratio !== null && detailedMetrics.current_ratio !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.currentRatio')}
+                        value={formatNumber(detailedMetrics.current_ratio, 2)}
+                        color={detailedMetrics.current_ratio >= 1.5 ? 'text-green-600 dark:text-green-400' : detailedMetrics.current_ratio >= 1 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
+                        subtitle={getCurrentRatioConclusion(detailedMetrics.current_ratio, t)}
+                        icon={<Activity size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.quick_ratio !== null && detailedMetrics.quick_ratio !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.quickRatio')}
+                        value={formatNumber(detailedMetrics.quick_ratio, 2)}
+                        color={detailedMetrics.quick_ratio >= 1 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}
+                        subtitle={getQuickRatioConclusion(detailedMetrics.quick_ratio, t)}
+                        icon={<Activity size={16} />}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            )}
+
+            {/* Analyst View & Valuation */}
+            {(loadingMetrics || (detailedMetrics && (detailedMetrics.recommendation_key !== null || detailedMetrics.num_analysts !== null || 
+              detailedMetrics.target_mean !== null || detailedMetrics.implied_upside_pct !== null))) && (
+              <section>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/20 rounded-lg flex items-center justify-center">
+                    <Users size={20} className="text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                    {t('dashboard.positionDetail.analystViewValuation')}
+                  </h3>
+                </div>
+                
+                {loadingMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="p-5 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 animate-pulse">
+                        <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
+                        <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-32 mb-1"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : detailedMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {detailedMetrics.recommendation_key !== null && detailedMetrics.recommendation_key !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.consensus')}
+                        value={detailedMetrics.recommendation_key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        color={detailedMetrics.recommendation_key.includes('buy') ? 'text-green-600 dark:text-green-400' : detailedMetrics.recommendation_key.includes('hold') ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
+                        subtitle={getAnalystConsensusConclusion(detailedMetrics.recommendation_mean, t) && formatNumber(detailedMetrics.recommendation_mean, 2) ? `${getAnalystConsensusConclusion(detailedMetrics.recommendation_mean, t)} · Score: ${formatNumber(detailedMetrics.recommendation_mean, 2)}` : getAnalystConsensusConclusion(detailedMetrics.recommendation_mean, t) || undefined }
+                        icon={<Users size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.num_analysts !== null && detailedMetrics.num_analysts !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.analysts')}
+                        value={detailedMetrics.num_analysts.toString()}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle="Covering"
+                        icon={<Users size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.target_mean !== null && detailedMetrics.target_mean !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.targetMean')}
+                        value={formatCurrency(detailedMetrics.target_mean, detailedMetrics.asset_currency || 'USD')}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={detailedMetrics.target_high && detailedMetrics.target_low ? `Range: ${formatCurrency(detailedMetrics.target_low, detailedMetrics.asset_currency || 'USD')} - ${formatCurrency(detailedMetrics.target_high, detailedMetrics.asset_currency || 'USD')}` : undefined}
+                        icon={<Target size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.implied_upside_pct !== null && detailedMetrics.implied_upside_pct !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.impliedUpside')}
+                        value={`${detailedMetrics.implied_upside_pct >= 0 ? '+' : ''}${formatNumber(detailedMetrics.implied_upside_pct, 2)}%`}
+                        color={detailedMetrics.implied_upside_pct >= 20 ? 'text-green-600 dark:text-green-400' : detailedMetrics.implied_upside_pct >= 0 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
+                        subtitle={getImpliedUpsideConclusion(detailedMetrics.implied_upside_pct, t)}
+                        icon={detailedMetrics.implied_upside_pct >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                       />
                     )}
                   </div>

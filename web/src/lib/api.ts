@@ -1274,6 +1274,22 @@ class ApiClient {
       pe_ratio: number | null
       eps: number | null
       asset_currency: string | null
+      revenue_growth: number | null
+      earnings_growth: number | null
+      profit_margins: number | null
+      operating_margins: number | null
+      return_on_equity: number | null
+      net_cash: number | null
+      debt_to_equity: number | null
+      current_ratio: number | null
+      quick_ratio: number | null
+      recommendation_key: string | null
+      recommendation_mean: number | null
+      num_analysts: number | null
+      target_mean: number | null
+      target_high: number | null
+      target_low: number | null
+      implied_upside_pct: number | null
     }>(`/portfolios/${portfolioId}/positions/${assetId}/detailed-metrics`)
   }
 }

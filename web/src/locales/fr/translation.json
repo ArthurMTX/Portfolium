@@ -216,6 +216,22 @@
       "peRatio": "Ratio C/B",
       "eps": "BPA",
       "liquidityScore": "Score de Liquidité",
+      "growthProfitability": "Croissance & Rentabilité",
+      "revenueGrowth": "Croissance du Revenu",
+      "earningsGrowth": "Croissance des Bénéfices",
+      "netMargin": "Marge Nette",
+      "operatingMargin": "Marge Opérationnelle",
+      "roe": "ROE",
+      "balanceSheetHealth": "Santé du Bilan",
+      "netCashPosition": "Position de Trésorerie Nette",
+      "debtToEquity": "Dette/Capitaux Propres",
+      "currentRatio": "Ratio de Liquidité Générale",
+      "quickRatio": "Ratio de Liquidité Réduite",
+      "analystViewValuation": "Avis des Analystes & Valorisation",
+      "consensus": "Consensus",
+      "analysts": "Analystes",
+      "targetMean": "Objectif (Moyen)",
+      "impliedUpside": "Potentiel Implicite",
       "personalDrawdown": "Drawdown Personnel",
       "distanceToATH": "Distance au Plus Haut",
       "avgBuyZone": "Zone d'Achat Moyenne",
@@ -583,6 +599,84 @@
         "average": "Liquidité moyenne - conditions normales",
         "belowAverage": "Liquidité faible - spreads plus élevés possibles",
         "poor": "Très faible liquidité - difficile à trader, risque accru"
+      },
+      "growth": {
+        "revenue": {
+          "hyperGrowth": "Croissance explosive - dynamique exceptionnelle",
+          "strongGrowth": "Forte croissance - expansion solide",
+          "moderateGrowth": "Croissance modérée - tendance saine",
+          "lowGrowth": "Croissance faible - rythme ralenti",
+          "declining": "Recul du chiffre d'affaires - possible faiblesse"
+        },
+
+        "earnings": {
+          "exceptional": "Croissance bénéficiaire exceptionnelle - forte rentabilité",
+          "healthy": "Croissance bénéficiaire solide - amélioration claire",
+          "mild": "Croissance bénéficiaire légère - progression stable",
+          "declining": "Bénéfices en baisse - pression sur la rentabilité"
+        }
+      },
+      "margins": {
+        "net": {
+          "excellent": "Excellente rentabilité nette",
+          "good": "Bonne rentabilité nette",
+          "moderate": "Marge nette modérée",
+          "low": "Rentabilité faible",
+          "negative": "Marge négative - entreprise déficitaire"
+        },
+
+        "operating": {
+          "highlyEfficient": "Très forte efficacité opérationnelle - maîtrise des coûts",
+          "good": "Bonne efficacité opérationnelle",
+          "low": "Marge opérationnelle faible - rentabilité contrainte",
+          "negative": "Marge opérationnelle négative - pertes d'exploitation"
+        }
+      },
+      "roe": {
+        "excellent": "Retour sur fonds propres exceptionnel",
+        "healthy": "Retour sur fonds propres solide",
+        "moderate": "Retour sur fonds propres modéré",
+        "low": "Retour sur fonds propres faible",
+        "negative": "Retour négatif - destruction de valeur"
+      },
+      "balanceSheet": {
+        "netCash": "Position nette de trésorerie positive - situation solide",
+        "neutral": "Position de trésorerie neutre",
+        "netDebt": "Endettement net - risque financier accru",
+
+        "dte": {
+          "lowLeverage": "Faible levier financier - structure saine",
+          "moderateLeverage": "Levier modéré - risque raisonnable",
+          "highLeverage": "Levier élevé - risque financier notable",
+          "veryHighLeverage": "Levier très élevé - bilan sous pression"
+        },
+        "current": {
+          "veryStrong": "Liquidité très forte - excellente flexibilité à court terme",
+          "healthy": "Liquidité saine - obligations court terme couvertes",
+          "tight": "Liquidité serrée - marge de manœuvre limitée",
+          "weak": "Liquidité faible - risques court terme accrus"
+        },
+        "quick": {
+          "excellent": "Liquidité immédiate excellente",
+          "adequate": "Liquidité immédiate adéquate",
+          "weak": "Liquidité immédiate faible - faible marge de sécurité",
+          "veryWeak": "Liquidité immédiate très faible - risque de trésorerie"
+        }
+      },
+      "analyst": {
+        "consensus": {
+          "strongBuy": "Opinion très positive",
+          "buy": "Perspectives favorables",
+          "hold": "Sentiment neutre",
+          "sell": "Confiance en baisse",
+          "strongSell": "Opinion   très négative"
+        },
+        "upside": {
+          "high": "Fort potentiel de hausse",
+          "moderate": "Potentiel de hausse modéré",
+          "limited": "Potentiel limité - valorisation correcte",
+          "downside": "Potentiel négatif - risque de baisse"
+        }
       }
     }
   },
