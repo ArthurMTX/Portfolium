@@ -461,7 +461,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
               return (
                 <tr
                   key={position.asset_id}
-                  className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors cursor-pointer"
+                  className="hover:bg-neutral-100 dark:hover:bg-neutral-800/70 transition-colors cursor-pointer"
                   onClick={() => {
                     setSelectedPosition(position)
                     setIsModalOpen(true)
