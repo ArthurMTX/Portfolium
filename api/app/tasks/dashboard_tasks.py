@@ -91,6 +91,12 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         metrics_service = MetricsService(db)
         insights_service = InsightsService(db)
         
+        # Fetch user object once (needed by multiple data fetchers)
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning(f"User {user_id} not found")
+            return {"success": False, "error": "User not found"}
+        
         # Fetch all required data
         async def fetch_all_data():
             tasks = {}
@@ -102,14 +108,10 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
                 tasks['positions'] = _fetch_positions(portfolio_id, metrics_service, db)
             
             if 'watchlist' in required_data:
-                user = db.query(User).filter(User.id == user_id).first()
-                if user:
-                    tasks['watchlist'] = _fetch_watchlist(user, db)
+                tasks['watchlist'] = _fetch_watchlist(user, db)
             
             if 'notifications' in required_data:
-                user = db.query(User).filter(User.id == user_id).first()
-                if user:
-                    tasks['notifications'] = _fetch_notifications(user, db)
+                tasks['notifications'] = _fetch_notifications(user, db)
             
             if 'market_tnx' in required_data:
                 tasks['market_tnx'] = _fetch_market_tnx()
@@ -130,13 +132,13 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
                 tasks['sentiment_crypto'] = _fetch_sentiment_crypto()
             
             if 'asset_allocation' in required_data:
-                tasks['asset_allocation'] = _fetch_asset_allocation(portfolio_id, db)
+                tasks['asset_allocation'] = _fetch_asset_allocation(portfolio_id, db, metrics_service, user)
             
             if 'sector_allocation' in required_data:
-                tasks['sector_allocation'] = _fetch_sector_allocation(portfolio_id, db)
+                tasks['sector_allocation'] = _fetch_sector_allocation(portfolio_id, db, metrics_service, user)
             
             if 'country_allocation' in required_data:
-                tasks['country_allocation'] = _fetch_country_allocation(portfolio_id, db)
+                tasks['country_allocation'] = _fetch_country_allocation(portfolio_id, db, metrics_service, user)
             
             if 'performance_history' in required_data:
                 tasks['performance_history'] = _fetch_performance_history(portfolio_id, db)

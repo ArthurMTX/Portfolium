@@ -83,16 +83,7 @@ export function useDashboardBatch({
     queryFn: async () => {
       // Use /api prefix (same as ApiClient) to go through proxy
       const baseURL = '/api'
-      const token = localStorage.getItem('auth_token')
-      
-      console.log('[useDashboardBatch] Fetching batch data:', {
-        portfolioId,
-        visibleWidgetsCount: visibleWidgets.length,
-        visibleWidgets: visibleWidgets.slice(0, 5), // Log first 5 for debugging
-        includeSold,
-        hasToken: !!token
-      })
-      
+      const token = localStorage.getItem('auth_token') 
       const response = await fetch(`${baseURL}/batch/dashboard`, {
         method: 'POST',
         headers: {
@@ -113,14 +104,6 @@ export function useDashboardBatch({
       }
       
       const data = await response.json() as DashboardBatchData
-      console.log('[useDashboardBatch] Success:', {
-        dataFetched: data.data_fetched,
-        widgetsRequested: data.widgets_requested,
-        cached: data.cached,
-        hasMetrics: !!data.data.metrics,
-        hasPositions: !!data.data.positions,
-        hasWatchlist: !!data.data.watchlist,
-      })
       
       return data
     },

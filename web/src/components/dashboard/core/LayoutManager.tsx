@@ -323,14 +323,11 @@ export default function LayoutManager({
       sm: compactLayout(actualCurrentLayout.sm, 'sm'),
     }
     
-    console.log('Saving layout config:', compactedLayout)
-    
     updateMutation.mutate({
       id: layoutId,
       layout_config: compactedLayout,
     }, {
       onSuccess: () => {
-        console.log('Layout saved successfully')
         setSaveConfirmId(null)
       },
       onError: (error) => {
