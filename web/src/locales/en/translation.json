@@ -210,6 +210,12 @@
       "tradingZones": "Trading Zones",
       "riskMetrics": "Risk Metrics",
       "basicInfo": "Position Details",
+      "fundamentalsLiquidity": "Fundamentals & Liquidity",
+      "marketCap": "Market Cap",
+      "volume": "Volume",
+      "peRatio": "P/E Ratio",
+      "eps": "EPS",
+      "liquidityScore": "Liquidity Score",
       "personalDrawdown": "Personal Drawdown",
       "distanceToATH": "Distance to ATH",
       "avgBuyZone": "Avg Buy Zone",
@@ -544,6 +550,39 @@
         "moderate": "Moderate risk - balanced but affected by market conditions",
         "low": "Low risk - relatively stable with controlled volatility",
         "veryLow": "Very low risk - defensive profile with limited market exposure"
+      },
+      "marketCap": {
+        "megacap": "Mega cap - very large, highly stable company",
+        "largecap": "Large cap - established, lower-risk company",
+        "midcap": "Mid cap - balanced growth and stability",
+        "smallcap": "Small cap - higher growth potential, higher risk",
+        "microcap": "Micro cap - very small company, high volatility"
+      },
+      "peRatio": {
+        "nonProfitable": "Not profitable - earnings are negative",
+        "profitable": "Profitable - positive earnings"
+      },
+      "volume": {
+        "veryHigh": "Exceptionally high volume - strong news- or flow-driven activity",
+        "aboveAverage": "Above-average volume - strong market activity",
+        "inLine": "Volume in line with the average - normal trading conditions",
+        "belowAverage": "Below-average volume - reduced market activity",
+        "veryLow": "Very low volume - thin market, execution may be difficult",
+        "unknown": "Insufficient data to assess trading volume"
+      },
+      "eps": {
+        "profitable": "Profitable - positive earnings",
+        "breakEven": "Near break-even - minimal profit or loss",
+        "negative": "Not profitable - negative earnings",
+        "heavyLoss": "Heavy losses - business under significant financial pressure",
+        "severeLoss": "Severe losses - likely due to exceptional charges"
+      },
+      "liquidityScore": {
+        "excellent": "Excellent liquidity - very easy to trade",
+        "good": "Good liquidity - healthy market activity",
+        "average": "Average liquidity - normal trading conditions",
+        "belowAverage": "Low liquidity - may have higher spreads",
+        "poor": "Poor liquidity - difficult to trade, high transaction risks"
       }
     }
   },

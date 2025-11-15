@@ -1049,6 +1049,47 @@ class MetricsService:
         # Conversion to a 0–100 score 
         risk_score = round(risk_0_1 * 100.0, 1)
         return risk_score
+    
+    def compute_liquidity_score(price: float, market_cap: float,
+                            volume: float, avg_volume: float) -> float:
+        volume_ratio = volume / avg_volume if avg_volume > 0 else 0.0
+
+        # Volume score
+        if volume_ratio >= 2:
+            score_v = 100
+        elif volume_ratio >= 1:
+            score_v = 80
+        elif volume_ratio >= 0.6:
+            score_v = 60
+        elif volume_ratio >= 0.3:
+            score_v = 30
+        else:
+            score_v = 10
+
+        # Market cap score
+        if market_cap >= 50e9:
+            score_mc = 100
+        elif market_cap >= 10e9:
+            score_mc = 80
+        elif market_cap >= 2e9:
+            score_mc = 60
+        elif market_cap >= 300e6:
+            score_mc = 30
+        else:
+            score_mc = 10
+
+        # Price score
+        if price >= 20:
+            score_p = 100
+        elif price >= 5:
+            score_p = 70
+        elif price >= 1:
+            score_p = 40
+        else:
+            score_p = 10
+
+        liquidity_score = score_v * 0.5 + score_mc * 0.3 + score_p * 0.2
+        return round(liquidity_score, 1)
 
     async def get_position_detailed_metrics(
         self,
@@ -1323,6 +1364,36 @@ class MetricsService:
             beta_benchmark = rel_perf_service.get_beta_benchmark(asset.sector)
             beta = rel_perf_service.calculate_beta(asset_id, asset.sector, period_days=365)
 
+        # Fetch fundamental data from yfinance
+        market_cap = None
+        volume = None
+        avg_volume = None
+        pe_ratio = None
+        eps = None
+        price = None
+        liquidity_score = None
+        
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(asset.symbol)
+            info = ticker.info
+            
+            if info:
+                market_cap = info.get('marketCap')
+                volume = info.get('volume')
+                avg_volume = info.get('averageVolume')
+                pe_ratio = info.get('trailingPE') or info.get('forwardPE')
+                eps = info.get('trailingEps')
+                price = info.get('currentPrice')
+                liquidity_score = MetricsService.compute_liquidity_score(
+                    price=price,
+                    volume=volume,
+                    avg_volume=avg_volume,
+                    market_cap=market_cap
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch yfinance fundamentals for {asset.symbol}: {str(e)}")
+        
         metrics = {
             'distance_to_ath_pct': float(distance_to_ath_pct) if distance_to_ath_pct is not None else None,
             'avg_buy_zone_pct': float(avg_buy_zone_pct) if avg_buy_zone_pct is not None else None,
@@ -1347,6 +1418,14 @@ class MetricsService:
             'etf_perf_ytd': etf_perf_ytd,
             'etf_perf_1y': etf_perf_1y,
             'sector_etf': sector_etf,
+            'market_cap': market_cap,
+            'volume': volume,
+            'avg_volume': avg_volume,
+            'pe_ratio': pe_ratio,
+            'eps': eps,
+            'price': price,
+            'liquidity_score': liquidity_score,
+            'asset_currency': asset.currency
         }
 
         risk_score = MetricsService.calculate_risk_score(metrics)

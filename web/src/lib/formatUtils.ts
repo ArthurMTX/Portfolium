@@ -84,3 +84,43 @@ export function formatAssetType(type: string | null): string {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
 }
+
+/**
+ * Format large numbers with abbreviations (K, M, B, T)
+ * For market cap and volume display
+ * e.g., 30665161 -> 30.67M
+ */
+export function formatLargeNumber(value: number | string | null, decimals: number = 2): string {
+  if (value === null || value === undefined) return '-'
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(numValue)) return '-'
+  
+  const absValue = Math.abs(numValue)
+  const sign = numValue < 0 ? '-' : ''
+  
+  if (absValue >= 1e12) {
+    return sign + (absValue / 1e12).toFixed(decimals) + 'T'
+  } else if (absValue >= 1e9) {
+    return sign + (absValue / 1e9).toFixed(decimals) + 'B'
+  } else if (absValue >= 1e6) {
+    return sign + (absValue / 1e6).toFixed(decimals) + 'M'
+  } else if (absValue >= 1e3) {
+    return sign + (absValue / 1e3).toFixed(decimals) + 'K'
+  }
+  
+  return sign + absValue.toFixed(decimals)
+}
+
+/**
+ * Format number with thousands separators
+ * e.g., 30665161 -> 30,665,161
+ */
+export function formatWithSeparators(value: number | string | null): string {
+  if (value === null || value === undefined) return '-'
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(numValue)) return '-'
+  
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0
+  }).format(numValue)
+}

@@ -210,6 +210,12 @@
       "tradingZones": "Zones de Trading",
       "riskMetrics": "Métriques de Risque",
       "basicInfo": "Détails de la Position",
+      "fundamentalsLiquidity": "Fondamentaux & Liquidité",
+      "marketCap": "Capitalisation",
+      "volume": "Volume",
+      "peRatio": "Ratio C/B",
+      "eps": "BPA",
+      "liquidityScore": "Score de Liquidité",
       "personalDrawdown": "Drawdown Personnel",
       "distanceToATH": "Distance au Plus Haut",
       "avgBuyZone": "Zone d'Achat Moyenne",
@@ -536,7 +542,7 @@
         "marketLike": "Volatilité comparable au marché - évolue en ligne avec le benchmark",
         "defensive": "Défensif - moins volatil que le benchmark",
         "low": "Faible sensibilité au marché - corrélation réduite avec le benchmark",
-        "negative": "Corrélation négative - évolue souvent à l’opposé du benchmark"
+        "negative": "Corrélation négative - évolue souvent à l'opposé du benchmark"
       },
       "risk": {
         "extreme": "Risque extrême - volatilité très élevée et structurellement instable",
@@ -544,6 +550,39 @@
         "moderate": "Risque modéré - profil équilibré mais sensible aux conditions de marché",
         "low": "Risque faible - relatif maintien de stabilité avec une volatilité maîtrisée",
         "veryLow": "Risque très faible - profil défensif avec une exposition au marché limitée"
+      },
+      "marketCap": {
+        "megacap": "Mega cap - entreprise très grande et très stable",
+        "largecap": "Large cap - entreprise établie avec un risque réduit",
+        "midcap": "Mid cap - équilibre entre croissance et stabilité",
+        "smallcap": "Small cap - fort potentiel de croissance, risque plus élevé",
+        "microcap": "Micro cap - très petite entreprise, volatilité élevée"
+      },
+      "peRatio": {
+        "nonProfitable": "Non rentable - bénéfices négatifs",
+        "profitable": "Rentable - bénéfices positifs"
+      },
+      "volume": {
+        "veryHigh": "Volume exceptionnellement élevé - forte activité liée aux flux ou aux nouvelles",
+        "aboveAverage": "Volume supérieur à la moyenne - forte activité de marché",
+        "inLine": "Volume conforme à la moyenne - conditions de marché normales",
+        "belowAverage": "Volume inférieur à la moyenne - activité réduite",
+        "veryLow": "Volume très faible - marché peu profond, exécution difficile",
+        "unknown": "Données insuffisantes pour évaluer le volume"
+      },
+      "eps": {
+        "profitable": "Rentable - bénéfices positifs",
+        "breakEven": "Proche de l'équilibre - profit ou perte minime",
+        "negative": "Non rentable - bénéfices négatifs",
+        "heavyLoss": "Pertes importantes - pression financière significative",
+        "severeLoss": "Pertes sévères - probablement dues à des charges exceptionnelles"
+      },
+      "liquidityScore": {
+        "excellent": "Liquidité excellente - très facile à trader",
+        "good": "Bonne liquidité - activité de marché saine",
+        "average": "Liquidité moyenne - conditions normales",
+        "belowAverage": "Liquidité faible - spreads plus élevés possibles",
+        "poor": "Très faible liquidité - difficile à trader, risque accru"
       }
     }
   },
@@ -1373,8 +1412,8 @@
       "text_report_item_3": "- Avoirs avec variations quotidiennes",
       "text_report_item_4": "- Transactions et activité récentes",
       "text_report_item_5": "- Répartition de l'allocation d'actifs",
-      "text_attachment": "Veuillez trouver votre rapport dÃ©taillÃ© en piÃ¨ce jointe au format PDF.",
-      "text_settings": "Pour gÃ©rer vos prÃ©fÃ©rences d'e-mail, visitez :"
+      "text_attachment": "Veuillez trouver votre rapport détaillé en pièce jointe au format PDF.",
+      "text_settings": "Pour gérer vos préférences d'e-mail, visitez :"
     }
   },
   "sectors": {

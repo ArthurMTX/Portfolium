@@ -1,7 +1,7 @@
 import React from 'react'
-import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3 } from 'lucide-react'
+import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3, Info } from 'lucide-react'
 import { PositionDTO, api } from '../lib/api'
-import { formatCurrency, formatNumber } from '../lib/formatUtils'
+import { formatCurrency, formatNumber, formatLargeNumber, formatWithSeparators } from '../lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '@/lib/logoUtils'
 
@@ -37,10 +37,17 @@ interface DetailedMetrics {
   etf_perf_1y: number | null
   sector_etf: string | null
   risk_score: number | null
+  market_cap: number | null
+  volume: number | null
+  avg_volume: number | null
+  pe_ratio: number | null
+  eps: number | null
+  liquidity_score: number | null
+  asset_currency: string | null
 }
 
 // Helper function to generate performance conclusion
-function getPerformanceConclusion(relativePerf: number, period: string, assetPerf: number | null, t: (key: string, params?: any) => string): string {
+function getPerformanceConclusion(relativePerf: number, period: string, assetPerf: number | null, t: (key: string, params?: Record<string, unknown>) => string): string {
   // Exceptional outlier (penny stock or major disruption)
   if (Math.abs(relativePerf) > 500) {
     return assetPerf && assetPerf > 500 
@@ -80,7 +87,7 @@ function getPerformanceConclusion(relativePerf: number, period: string, assetPer
   return t("dashboard.conclusions.performance.inLineWithBenchmark")
 }
 
-function getVolatilityConclusion(vol: number, t: (key: string, params?: any) => string): string {
+function getVolatilityConclusion(vol: number, t: (key: string, params?: Record<string, unknown>) => string): string {
 	if (vol > 60) {
 		return t("dashboard.conclusions.volatility.veryHigh");
 	}
@@ -93,7 +100,7 @@ function getVolatilityConclusion(vol: number, t: (key: string, params?: any) => 
 	return t("dashboard.conclusions.volatility.low");
 }
 
-function getBetaConclusion(beta: number, t: (key: string, params?: any) => string): string {
+function getBetaConclusion(beta: number, t: (key: string, params?: Record<string, unknown>) => string): string {
   if (beta > 1.5) {
     return t("dashboard.conclusions.beta.high");
   }
@@ -112,7 +119,7 @@ function getBetaConclusion(beta: number, t: (key: string, params?: any) => strin
   return t("dashboard.conclusions.beta.negative");
 }
 
-function getRiskScoreConclusion(score: number, t: (key: string, params?: any) => string): string {
+function getRiskScoreConclusion(score: number, t: (key: string, params?: Record<string, unknown>) => string): string {
   if (score >= 80) {
     return t("dashboard.conclusions.risk.extreme");
   }
@@ -126,6 +133,83 @@ function getRiskScoreConclusion(score: number, t: (key: string, params?: any) =>
     return t("dashboard.conclusions.risk.low");
   }
   return t("dashboard.conclusions.risk.veryLow");
+}
+
+function getMarketCapConclusion(marketCap: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (marketCap >= 200_000_000_000) {
+    return t("dashboard.conclusions.marketCap.megacap");
+  }
+  if (marketCap >= 10_000_000_000) {
+    return t("dashboard.conclusions.marketCap.largecap");
+  }
+  if (marketCap >= 2_000_000_000) {
+    return t("dashboard.conclusions.marketCap.midcap");
+  }
+  if (marketCap >= 300_000_000) {
+    return t("dashboard.conclusions.marketCap.smallcap");
+  }
+  return t("dashboard.conclusions.marketCap.microcap");
+}
+
+function getPEConclusion(peRatio: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (peRatio < 0) {
+    return t("dashboard.conclusions.peRatio.nonProfitable");
+  }
+  return t("dashboard.conclusions.peRatio.profitable");
+}
+
+function getVolumeConclusion(volume: number, avgVolume: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (!volume || !avgVolume || avgVolume <= 0) {
+    return t("dashboard.conclusions.volume.unknown")
+  }
+
+  const ratio = volume / avgVolume
+
+  if (ratio >= 2) {
+    return t("dashboard.conclusions.volume.veryHigh")
+  }
+  if (ratio >= 1.2) {
+    return t("dashboard.conclusions.volume.aboveAverage")
+  }
+  if (ratio > 0.8) {
+    return t("dashboard.conclusions.volume.inLine")
+  }
+  if (ratio > 0.4) {
+    return t("dashboard.conclusions.volume.belowAverage")
+  }
+  return t("dashboard.conclusions.volume.veryLow")
+}
+
+function getEpsConclusion(eps: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (eps > 0.5) {
+    return t("dashboard.conclusions.eps.profitable");
+  }
+  if (eps >= -0.5 && eps <= 0.5) {
+    return t("dashboard.conclusions.eps.breakEven");
+  }
+  if (eps > -10) {
+    return t("dashboard.conclusions.eps.negative");
+  }
+  if (eps > -50) {
+    return t("dashboard.conclusions.eps.heavyLoss");
+  }
+  return t("dashboard.conclusions.eps.severeLoss");
+}
+
+function getLiquidityScoreConclusion(liquidityScore: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (liquidityScore >= 90) {
+    return t("dashboard.conclusions.liquidityScore.excellent");
+  }
+  if (liquidityScore >= 70) {
+    return t("dashboard.conclusions.liquidityScore.good");
+  }
+  if (liquidityScore >= 40) {
+    return t("dashboard.conclusions.liquidityScore.average");
+  }
+  if (liquidityScore >= 20) {
+    return t("dashboard.conclusions.liquidityScore.belowAverage");
+  }
+  return t("dashboard.conclusions.liquidityScore.poor");
 }
 
 export default function PositionDetailModal({ position, portfolioId, isOpen, onClose }: PositionDetailModalProps) {
@@ -150,7 +234,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
       setLoadingMetrics(true)
       api.getPositionDetailedMetrics(portfolioId, position.asset_id)
         .then(data => {
-          setDetailedMetrics(data)
+          setDetailedMetrics(data as DetailedMetrics)
           setLoadingMetrics(false)
         })
         .catch(err => {
@@ -219,6 +303,84 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
           {/* Content */}
           <div className="p-8 space-y-8">
+            {/* Fundamentals & Liquidity */}
+            {(loadingMetrics || (detailedMetrics && (detailedMetrics.market_cap !== null || detailedMetrics.volume !== null || 
+              detailedMetrics.avg_volume !== null || detailedMetrics.pe_ratio !== null || detailedMetrics.eps !== null))) && (
+              <section>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center">
+                    <DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                    {t('dashboard.positionDetail.fundamentalsLiquidity')}
+                  </h3>
+                </div>
+                
+                {loadingMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="p-5 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 animate-pulse">
+                        <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
+                        <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-32 mb-1"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : detailedMetrics ? (
+                  <div className="grid grid-cols-2 gap-5">
+                    {detailedMetrics.market_cap !== null && detailedMetrics.market_cap !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.marketCap')}
+                        value={`${formatLargeNumber(detailedMetrics.market_cap, 2)} ${detailedMetrics.asset_currency || 'USD'}`}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getMarketCapConclusion(detailedMetrics.market_cap, t)}
+                        icon={<DollarSign size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.volume !== null && detailedMetrics.volume !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.volume')}
+                        value={formatWithSeparators(detailedMetrics.volume)}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={detailedMetrics.avg_volume ? getVolumeConclusion(detailedMetrics.volume, detailedMetrics.avg_volume, t) : undefined}
+                        icon={<BarChart3 size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.pe_ratio !== null && detailedMetrics.pe_ratio !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.peRatio')}
+                        value={formatNumber(detailedMetrics.pe_ratio, 2)}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getPEConclusion(detailedMetrics.pe_ratio, t)}
+                        icon={<Activity size={16} />}
+                      />
+                    )}
+                    
+                    {detailedMetrics.eps !== null && detailedMetrics.eps !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.eps')}
+                        value={formatCurrency(detailedMetrics.eps, detailedMetrics.asset_currency || 'USD')}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getEpsConclusion(detailedMetrics.eps, t)}
+                        icon={<TrendingUp size={16} />}
+                      />
+                    )}
+
+                    {detailedMetrics.liquidity_score !== null && detailedMetrics.liquidity_score !== undefined && (
+                      <MetricCard
+                        label={t('dashboard.positionDetail.liquidityScore')}
+                        value={formatNumber(detailedMetrics.liquidity_score, 2)}
+                        color="text-neutral-900 dark:text-neutral-100"
+                        subtitle={getLiquidityScoreConclusion(detailedMetrics.liquidity_score, t)}
+                        icon={<TrendingUp size={16} />}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            )}
+
             {/* Performance Metrics */}
             <section>
               <div className="flex items-center gap-3 mb-5">
@@ -377,7 +539,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : detailedMetrics ? (
                   <div className="grid grid-cols-2 gap-5">
                     {detailedMetrics.relative_perf_30d !== null && detailedMetrics.relative_perf_30d !== undefined && (
                       <MetricCard
@@ -423,7 +585,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                       />
                     )}
                   </div>
-                )}
+                ) : null}
               </section>
             )}
 
@@ -512,9 +674,14 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
             {/* Position Details */}
             <section>
-              <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-5">
-                {t('dashboard.positionDetail.basicInfo')}
-              </h3>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800/20 rounded-lg flex items-center justify-center">
+                  <Info size={20} className="text-neutral-600 dark:text-neutral-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                  {t('dashboard.positionDetail.basicInfo')}
+                </h3>
+              </div>
               
               <div className="grid grid-cols-2 gap-5">
                 <InfoRow label={t('fields.quantity')} value={formatNumber(position.quantity, 4)} />

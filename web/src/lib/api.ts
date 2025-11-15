@@ -1268,6 +1268,12 @@ class ApiClient {
       relative_perf_ytd: number | null
       relative_perf_1y: number | null
       sector_etf: string | null
+      market_cap: number | null
+      volume: number | null
+      avg_volume: number | null
+      pe_ratio: number | null
+      eps: number | null
+      asset_currency: string | null
     }>(`/portfolios/${portfolioId}/positions/${assetId}/detailed-metrics`)
   }
 }
