@@ -9,28 +9,19 @@ const docsPlugin = (): Plugin => ({
   configureServer(server) {
     server.middlewares.use((req, res, next) => {
       if (req.url?.startsWith('/docs')) {
-        // Handle /docs -> /docs/ redirect (to preserve base path for relative URLs)
-        if (req.url === '/docs') {
-          res.writeHead(301, { 'Location': '/docs/' })
-          res.end()
-          return
-        }
-        
-        // Handle /docs/ -> serve index.html
-        if (req.url === '/docs/') {
-          const indexPath = path.join(__dirname, 'public/docs/index.html')
-          if (fs.existsSync(indexPath)) {
-            res.setHeader('Content-Type', 'text/html')
-            res.end(fs.readFileSync(indexPath))
-            return
-          }
-        }
-        
         // Serve docs files directly
         let filePath = path.join(__dirname, 'public', req.url)
         
-        // Handle directory requests - serve index.html
+        // Handle directory requests - redirect to trailing slash or serve index.html
         if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+          // If URL doesn't end with /, redirect to add trailing slash
+          // This preserves the correct base path for relative URLs in HTML
+          if (!req.url.endsWith('/')) {
+            res.writeHead(301, { 'Location': req.url + '/' })
+            res.end()
+            return
+          }
+          // Otherwise serve the index.html from the directory
           filePath = path.join(filePath, 'index.html')
         }
         
