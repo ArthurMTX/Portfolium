@@ -30,7 +30,7 @@ This metric answers the question:
 
 ## How It's Calculated
 
-The Diversification Score is based on how your portfolio’s value is distributed across positions, using the **Herfindahl–Hirschman Index (HHI)**.
+The Diversification Score is based on how your portfolio's value is distributed across positions, using the **Herfindahl–Hirschman Index (HHI)**.
 
 ### 1. Total portfolio value
 

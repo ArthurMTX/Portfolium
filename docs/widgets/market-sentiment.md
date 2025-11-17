@@ -36,7 +36,7 @@ This widget answers the question:
 
 For **stock** market sentiment, Portfolium uses the **CNN Fear & Greed Index** via an official data endpoint:
 
-- The backend calls a CNN dataviz API for **today’s data**
+- The backend calls a CNN dataviz API for **today's data**
 - A browser-like user agent and headers are used to ensure reliable access
 - Results are cached server-side to avoid unnecessary external calls
 
@@ -44,7 +44,7 @@ The API returns:
 
 - `score` – current sentiment score (0–100)  
 - `rating` – textual rating (e.g. `extreme fear`, `fear`, `neutral`, `greed`, `extreme greed`)  
-- `previous_close` – previous day’s score  
+- `previous_close` – previous day's score  
 - `timestamp` – when the data was recorded  
 
 ### Widget logic
@@ -69,7 +69,7 @@ $$
 
 ## Example
 
-Suppose today’s CNN Fear & Greed data returns:
+Suppose today's CNN Fear & Greed data returns:
 
 - `score = 72`  
 - `rating = "greed"`  
@@ -77,7 +77,7 @@ Suppose today’s CNN Fear & Greed data returns:
 
 The widget will show:
 
-- Gauge pointer around **72** in the **“Greed”** (light green) zone  
+- Gauge pointer around **72** in the **"Greed"** (light green) zone  
 - Text label: **Greed**  
 - Change indicator: **`+4`** in green  
 
@@ -97,7 +97,7 @@ The Market Sentiment widget is useful for:
 - Complementing metrics like **Volatility**, **Drawdown**, and **Beta**  
 - Helping you avoid overreacting during **extreme fear** or **extreme greed** periods  
 
-It’s especially helpful when:
+It's especially helpful when:
 
 - You want to compare your portfolio behavior to **broader market mood**  
 - You are considering adding risk during **fear** or reducing exposure during **greed**

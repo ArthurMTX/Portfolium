@@ -1,7 +1,7 @@
 # VIX Index
 
 The **VIX Index** widget shows the current level of **implied volatility** in the US stock market, using the **CBOE Volatility Index (VIX)**.  
-The VIX is often called the market’s **"fear gauge"**: higher values mean traders expect larger price swings in the near term.
+The VIX is often called the market's **"fear gauge"**: higher values mean traders expect larger price swings in the near term.
 
 This widget gives macro context for the **overall risk environment**, independent of your portfolio.
 
@@ -32,7 +32,7 @@ Visual cues:
 
 If no data is available, the widget shows:
 
-- **N/A** and an **“Unknown”** volatility label
+- **N/A** and an **"Unknown"** volatility label
 
 This widget answers the question:  
 > "How nervous or calm is the equity market right now?"
@@ -53,7 +53,7 @@ The backend returns:
 - `price` – current VIX value  
 - `change` – point change vs previous close  
 - `change_pct` – percentage change vs previous close  
-- `previous_close` – yesterday’s VIX close  
+- `previous_close` – yesterday's VIX close  
 - `timestamp` – when the data was collected  
 
 If data cannot be fetched, an error is raised and the widget falls back to a safe display.
@@ -63,7 +63,7 @@ If data cannot be fetched, an error is raised and the widget falls back to a saf
 Backend logic:
 
 1. Get `current_price` (regular market price)  
-2. Get `previous_close` (previous day’s close)  
+2. Get `previous_close` (previous day's close)  
 3. Compute:
 
    - **Point change**  
@@ -137,7 +137,7 @@ The VIX Index widget is useful for:
   - Low VIX → calmer markets, but also potential complacency  
 - Complementing metrics like **Market Sentiment**, **Volatility**, and **Drawdown**
 
-It’s particularly helpful when:
+It's particularly helpful when:
 
 - You manage **equities or equity-linked products**  
 - You want to align risk-taking with the **macro volatility regime**
@@ -146,8 +146,8 @@ It’s particularly helpful when:
 
 ## Notes
 
-- The VIX measures **implied volatility** of S&P 500 options, not your portfolio’s own volatility  
+- The VIX measures **implied volatility** of S&P 500 options, not your portfolio's own volatility  
 - Values are **not** percentages; VIX ≈ 20 roughly implies a 20% annualized volatility expectation  
 - Data is **cached** and refreshed periodically to reduce external API calls  
-- If the VIX data source is temporarily unavailable, the widget may show **N/A** or an “Unknown” state  
+- If the VIX data source is temporarily unavailable, the widget may show **N/A** or an "Unknown" state  
 - This widget is for **contextual insight** and does not interact directly with your positions

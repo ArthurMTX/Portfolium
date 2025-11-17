@@ -13,7 +13,7 @@ The widget displays:
 
 - The **current value of 10,000 BTC** in USD, e.g. **$1,000,000,000**  
 - A small line with the current **BTC price**, e.g. `BTC @ $100,000`  
-- A short subtitle reminding you that this index is based on the original “Bitcoin pizza” trade
+- A short subtitle reminding you that this index is based on the original "Bitcoin pizza" trade
 
 Behavior:
 
@@ -22,7 +22,7 @@ Behavior:
 - If the BTC price cannot be retrieved, the value falls back to **`N/A`**
 
 This metric answers the question:  
-> "How much would the original 10,000 BTC pizza be worth at today’s BTC price?"
+> "How much would the original 10,000 BTC pizza be worth at today's BTC price?"
 
 ---
 

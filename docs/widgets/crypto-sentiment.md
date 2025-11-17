@@ -36,7 +36,7 @@ This widget answers the question:
 
 For **crypto** market sentiment, Portfolium uses the **Alternative.me Crypto Fear & Greed Index** via an official data endpoint:
 
-- The backend calls a Alternative.me API for **today’s data**
+- The backend calls a Alternative.me API for **today's data**
 - A browser-like user agent and headers are used to ensure reliable access
 - Results are cached server-side to avoid unnecessary external calls
 
@@ -74,7 +74,7 @@ $$
 
 ## Example
 
-Suppose today’s Alternative.me Crypto Fear & Greed Index data returns:
+Suppose today's Alternative.me Crypto Fear & Greed Index data returns:
 
 - `score = 72`  
 - `rating = "greed"`  
@@ -82,7 +82,7 @@ Suppose today’s Alternative.me Crypto Fear & Greed Index data returns:
 
 The widget will show:
 
-- Gauge pointer around **72** in the **“Greed”** (light green) zone  
+- Gauge pointer around **72** in the **"Greed"** (light green) zone  
 - Text label: **Greed**  
 - Change indicator: **`+4`** in green  
 
@@ -102,7 +102,7 @@ The Crypto Sentiment widget is useful for:
 - Complementing metrics like **Volatility**, **Drawdown**, and **Beta**  
 - Helping you avoid overreacting during **extreme fear** or **extreme greed** periods  
 
-It’s especially helpful when:
+It's especially helpful when:
 
 - You want to compare your portfolio behavior to **broader crypto market mood**  
 - You are considering adding risk during **fear** or reducing exposure during **greed**

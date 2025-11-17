@@ -34,7 +34,7 @@ The daily change badge:
 
 If no data is available, the widget shows:
 
-- **N/A** and an **“Unknown”** strength label
+- **N/A** and an **"Unknown"** strength label
 
 This widget answers the question:  
 > "How strong is the U.S. dollar right now, and is it getting stronger or weaker?"
@@ -55,10 +55,10 @@ The backend returns:
 - `price` – current DXY level  
 - `change` – point change vs previous close  
 - `change_pct` – percentage change vs previous close  
-- `previous_close` – yesterday’s DXY close  
+- `previous_close` – yesterday's DXY close  
 - `timestamp` – when the data was collected  
 
-If no current price is available, an error is raised and the widget falls back to an “Unknown” state.
+If no current price is available, an error is raised and the widget falls back to an "Unknown" state.
 
 ### Calculations
 

@@ -34,7 +34,7 @@ Visual cues:
 
 If data is not available, the widget shows:
 
-- **N/A** and an **“Unknown”** yield level
+- **N/A** and an **"Unknown"** yield level
 
 This widget answers the question:  
 > "Where are long-term interest rates right now, and are they moving up or down?"
@@ -55,7 +55,7 @@ The API response is processed into:
 - `price` – current 10-Year yield (in %)  
 - `change` – point change vs previous close  
 - `change_pct` – percentage change vs previous close  
-- `previous_close` – previous day’s yield  
+- `previous_close` – previous day's yield  
 - `timestamp` – time of data collection  
 
 If no current price is available, an error is raised and the widget falls back to an unknown state.
