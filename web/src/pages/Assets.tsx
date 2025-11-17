@@ -1019,6 +1019,7 @@ export default function Assets() {
                 assetId={priceChartAsset.id} 
                 symbol={priceChartAsset.symbol}
                 currency={priceChartAsset.currency}
+                portfolioId={activePortfolioId ?? undefined}
               />
             </div>
           </div>

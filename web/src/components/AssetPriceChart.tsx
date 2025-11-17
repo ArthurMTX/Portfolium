@@ -13,6 +13,7 @@ interface Props {
   assetId: number
   symbol: string
   currency?: string
+  portfolioId?: number
 }
 
 interface PricePoint {
@@ -53,7 +54,7 @@ interface SplitTransaction {
   notes: string | null
 }
 
-export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: Props) {
+export default function AssetPriceChart({ assetId, symbol, currency = 'USD', portfolioId }: Props) {
   const [period, setPeriod] = useState<PeriodOption>('1M')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PriceHistoryResponse | null>(null)
@@ -133,7 +134,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
       try {
         const [priceData, txData, splitData] = await Promise.all([
           api.getAssetPriceHistory(assetId, period),
-          api.getAssetTransactionHistory(assetId),
+          api.getAssetTransactionHistory(assetId, portfolioId),
           api.getAssetSplitHistory(assetId)
         ])
         if (!canceled) {
@@ -153,7 +154,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
     return () => {
       canceled = true
     }
-  }, [assetId, period])
+  }, [assetId, period, portfolioId])
 
   const chartData = {
     labels: history?.prices.map(p => {
