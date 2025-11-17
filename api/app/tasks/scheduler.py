@@ -569,9 +569,11 @@ async def send_daily_reports():
             from app.services.email import email_service
             from app.services.notifications import notification_service
             from app.services.pricing import _cleanup_stale_tasks
+            from zoneinfo import ZoneInfo
             
-            # Get yesterday's date (report for previous day)
-            report_date = (datetime.utcnow() - timedelta(days=1)).date()
+            # Get current date in EST timezone (report for the trading day that just ended)
+            # When this runs at 4:00 PM EST, it's for the current day's market close
+            report_date = datetime.now(ZoneInfo('America/New_York')).date()
             
             # Get all active users with daily reports enabled
             users = (

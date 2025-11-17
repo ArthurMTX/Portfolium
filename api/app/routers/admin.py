@@ -666,10 +666,12 @@ async def test_email_connection(
             
             from app.services.pdf_reports import PDFReportService
             from datetime import datetime, timedelta
+            from zoneinfo import ZoneInfo
             
             # Generate test report
             pdf_service = PDFReportService(db)
-            report_date = (datetime.utcnow() - timedelta(days=1)).date()
+            # Use current date in EST timezone (same as scheduled reports)
+            report_date = datetime.now(ZoneInfo('America/New_York')).date()
             
             try:
                 # Get user's portfolios to generate one PDF per portfolio
