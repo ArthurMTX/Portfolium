@@ -1264,6 +1264,7 @@
     "username": "Username",
     "language": "Language",
     "admin": "Admin",
+    "user": "User",
     "created": "Created",
     "actions": "Actions",
     "superuser": "Superuser",
