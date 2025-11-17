@@ -495,7 +495,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             }`}
             onClick={() => setPeriod(opt)}
           >
-            {t(`charts.period${opt}`)}
+            {t(`charts.periods.${opt}`)}
           </button>
         ))}
       </div>
