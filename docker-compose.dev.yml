@@ -66,6 +66,7 @@ services:
       ADMIN_IS_ACTIVE: ${ADMIN_IS_ACTIVE:-true}
       ADMIN_IS_VERIFIED: ${ADMIN_IS_VERIFIED:-true}
       PRICE_CACHE_TTL_SECONDS: ${PRICE_CACHE_TTL_SECONDS:-300}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       API_KEY: ${API_KEY:-dev-key-12345}
       BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}

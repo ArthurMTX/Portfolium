@@ -38,6 +38,7 @@ from app.errors import (
     IncorrectPasswordError,
     InvalidCredentialsError,
     InvalidTokenError,
+    RegistrationDisabledError,
     UsernameAlreadyRegisteredError,
     ValidationError
 )
@@ -60,6 +61,10 @@ async def register(
     - Sends verification email
     - User must verify email before full access
     """
+    # Check if registration is allowed
+    if not settings.ALLOW_REGISTRATION:
+        raise RegistrationDisabledError()
+    
     # Check if email already exists
     if crud_users.get_user_by_email(db, user_create.email):
         raise EmailAlreadyRegisteredError(user_create.email)

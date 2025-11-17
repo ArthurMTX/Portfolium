@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
+    # User Registration
+    ALLOW_REGISTRATION: bool = True  # Set to False to disable new user registration
+    
     # Email Configuration (SMTP)
     ENABLE_EMAIL: bool = False  # Set to True to enable email sending
     SMTP_HOST: str = "smtp.gmail.com"

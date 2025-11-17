@@ -550,6 +550,16 @@ class FailedToGetEmailStatsError(PortfoliumException):
             detail=f"Failed to get email statistics: {reason}"
         )
 
+
+class RegistrationDisabledError(PortfoliumException):
+    """Raised when user registration is disabled"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User registration is currently disabled"
+        )
+
 # Watchlist-related errors
 class WatchlistItemNotFoundError(PortfoliumException):
     """Raised when a watchlist item is not found"""
