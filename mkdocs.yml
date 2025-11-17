@@ -60,6 +60,8 @@ markdown_extensions:
   - md_in_html
   - toc:
       permalink: true
+  - pymdownx.arithmatex:
+      generic: true
 
 plugins:
   - search
@@ -82,10 +84,64 @@ nav:
       - Notifications: user-guide/notifications.md
       - Daily Reports: user-guide/daily-reports.md
       - Settings: user-guide/settings.md
+
+  - Widgets:
+      - Overview: widgets/index.md
+
+      - Metrics:
+          - Daily Gain: widgets/daily-gain.md
+          - Dividends: widgets/dividends.md
+          - Goal Tracker: widgets/goal-tracker.md
+          - Realized P&L: widgets/realized-pnl.md
+          - Total Value: widgets/total-value.md
+          - Unrealized P&L: widgets/unrealized-pnl.md
+          - Win Rate: widgets/win-rate.md
+
+      - Data:
+          - Positions: widgets/positions.md
+          - Recent Notifications: widgets/notifications.md
+          - Recent Transactions: widgets/transactions.md
+          - Watchlist: widgets/watchlist.md
+
+      - Insights:
+          - Alpha: widgets/alpha.md
+          - Asset Allocation: widgets/asset-allocation.md
+          - Average Holding Period: widgets/average-holding-period.md
+          - Beta: widgets/beta.md
+          - Best and Worst Daily Performers: widgets/best-worst-daily.md
+          - Concentration Risk: widgets/concentration-risk.md
+          - Diversification Score: widgets/diversification-score.md
+          - Downside Deviation: widgets/downside-deviation.md
+          - Hit Ratio: widgets/hit-ratio.md
+          - Largest Holdings: widgets/largest-holdings.md
+          - Max Drawdown: widgets/max-drawdown.md
+          - Performance Metrics: widgets/performance-metrics.md
+          - R-Squared: widgets/r-squared.md
+          - Sharpe Ratio: widgets/sharpe-ratio.md
+          - Top Performers: widgets/top-performers.md
+          - Total Return: widgets/total-return.md
+          - Value at Risk: widgets/var.md
+          - Volatility: widgets/volatility.md
+          - Worst Performers: widgets/worst-performers.md
+
+      - Market & Macro:
+          - Crypto Sentiment: widgets/crypto-sentiment.md
+          - DXY Index: widgets/dxy-index.md
+          - Market Indices: widgets/market-indices.md
+          - Market Sentiment: widgets/market-sentiment.md
+          - Market Status: widgets/market-status.md
+          - TNX Index: widgets/tnx-index.md
+          - VIX Index: widgets/vix-index.md
+
+      - Visual & Fun:
+          - Bitcoin Pizza Index: widgets/bitcoin-pizza-index.md
+          - Heatmap: widgets/heatmap.md
+
   - API Reference:
       - Overview: api/overview.md
       - Authentication: api/authentication.md
       - Endpoints: api/endpoints.md
+
   - Technical Reference:
       - Overview: technical/overview.md
       - Stock Splits: technical/stock-splits.md
@@ -94,10 +150,12 @@ nav:
       - Currency Conversion: technical/currency-conversion.md
       - Data Models: technical/data-models.md
       - Pricing Service: technical/pricing-service.md
+
   - Development:
       - Architecture: development/architecture.md
       - Contributing: development/contributing.md
       - Testing: development/testing.md
+
 
 extra:
   social:
@@ -106,3 +164,7 @@ extra:
   
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

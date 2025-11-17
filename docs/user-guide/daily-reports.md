@@ -43,14 +43,6 @@ All transactions from the report date:
 - Total amount
 - Fees (if applicable)
 
-### 🥧 Asset Allocation
-Visual representation showing:
-- Distribution of assets in your portfolio (no longer included in PDF)
-- This feature is available on the web dashboard
-
-!!! note "PDF Content Update"
-    The daily report PDF has been redesigned to focus on key metrics and daily changes. Asset allocation pie charts are available on the web dashboard's Portfolio page.
-
 ## Enabling Daily Reports
 
 ### For Users
