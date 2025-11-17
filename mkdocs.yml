@@ -137,6 +137,48 @@ nav:
           - Bitcoin Pizza Index: widgets/bitcoin-pizza-index.md
           - Heatmap: widgets/heatmap.md
 
+  - Detailed Metrics:
+      - Overview: detailed-metrics/index.md
+      
+      - Fundamentals & Liquidity:
+          - Market Cap: detailed-metrics/market-cap.md
+          - Volume: detailed-metrics/volume.md
+          - P/E Ratio: detailed-metrics/pe-ratio.md
+          - EPS: detailed-metrics/eps.md
+          - Liquidity Score: detailed-metrics/liquidity-score.md
+
+      - Growth & Profitability:
+          - Revenue Growth: detailed-metrics/revenue-growth.md
+          - Earnings Growth: detailed-metrics/earnings-growth.md
+          - Net Margin: detailed-metrics/net-margin.md
+          - Operating Margin: detailed-metrics/operating-margin.md
+          - ROE: detailed-metrics/roe.md
+
+      - Balance Sheet Health:
+          - Net Cash: detailed-metrics/net-cash.md
+          - Debt-to-Equity: detailed-metrics/debt-to-equity.md
+          - Current Ratio: detailed-metrics/current-ratio.md
+          - Quick Ratio: detailed-metrics/quick-ratio.md
+
+      - Analyst View & Valuation:
+          - Analyst Consensus: detailed-metrics/analyst-consensus.md
+          - Implied Upside: detailed-metrics/implied-upside.md
+
+      - Performance Metrics:
+          - Gain to Breakeven: detailed-metrics/gain-to-breakeven.md
+          - Personal Drawdown: detailed-metrics/personal-drawdown.md
+
+      - Trading Zones:
+          - Distance to ATH: detailed-metrics/distance-to-ath.md
+          - Avg Buy Zone: detailed-metrics/avg-buy-zone.md
+          - Relative Performance: detailed-metrics/relative-performance.md
+          - Cost to Average Down: detailed-metrics/cost-to-average-down.md
+
+      - Risk Metrics:
+          - Volatility: detailed-metrics/volatility.md
+          - Beta: detailed-metrics/beta.md
+          - Risk Score: detailed-metrics/risk-score.md  
+
   - API Reference:
       - Overview: api/overview.md
       - Authentication: api/authentication.md
@@ -166,5 +208,5 @@ extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
