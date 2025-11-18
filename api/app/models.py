@@ -26,6 +26,7 @@ from app.models import (
     Watchlist,
     Notification,
     DashboardLayout,
+    PortfolioGoal,
 )
 
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "Watchlist",
     "Notification",
     "DashboardLayout",
+    "PortfolioGoal",
 ]

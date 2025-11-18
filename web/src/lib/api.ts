@@ -263,6 +263,71 @@ export interface TransactionDTO {
   created_at: string
 }
 
+export interface PortfolioGoalDTO {
+  id: number
+  portfolio_id: number
+  title: string
+  target_amount: number
+  target_date: string | null
+  monthly_contribution: number
+  category: 'retirement' | 'house' | 'education' | 'vacation' | 'emergency' | 'other'
+  description: string | null
+  color: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PortfolioGoalCreate {
+  title: string
+  target_amount: number
+  target_date?: string | null
+  monthly_contribution?: number
+  category?: 'retirement' | 'house' | 'education' | 'vacation' | 'emergency' | 'other'
+  description?: string | null
+  color?: string | null
+  is_active?: boolean
+}
+
+export interface PortfolioGoalUpdate {
+  title?: string
+  target_amount?: number
+  target_date?: string | null
+  monthly_contribution?: number
+  category?: 'retirement' | 'house' | 'education' | 'vacation' | 'emergency' | 'other'
+  description?: string | null
+  color?: string | null
+  is_active?: boolean
+}
+
+export interface GoalScenario {
+  label: 'Pessimistic' | 'Median' | 'Optimistic'
+  return_rate: number
+  projected_months: number
+  projected_amount: number
+  quantile: number
+  color: string
+}
+
+export interface GoalMilestone {
+  percentage: number
+  amount: number
+  achieved: boolean
+  label: string
+}
+
+export interface GoalProjectionsDTO {
+  scenarios: GoalScenario[]
+  milestones: GoalMilestone[]
+  probability: number
+  historical_performance: {
+    annual_return: number
+    annual_volatility: number
+  }
+  is_past_target_date?: boolean
+  warning?: string
+}
+
 class ApiClient {
   // Admin
   async getAdminUsers() {
@@ -713,6 +778,48 @@ class ApiClient {
    */
   async getBatchPrices(portfolioId: number) {
     return this.request<BatchPricesResponseDTO>(`/portfolios/${portfolioId}/prices/batch`)
+  }
+
+  // Portfolio Goals
+  async getPortfolioGoals(portfolioId: number, activeOnly: boolean = false) {
+    const params = activeOnly ? '?active_only=true' : ''
+    return this.request<PortfolioGoalDTO[]>(`/portfolios/${portfolioId}/goals${params}`)
+  }
+
+  async getPortfolioGoal(portfolioId: number, goalId: number) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals/${goalId}`)
+  }
+
+  async createPortfolioGoal(portfolioId: number, goal: PortfolioGoalCreate) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals`, {
+      method: 'POST',
+      body: JSON.stringify(goal),
+    })
+  }
+
+  async updatePortfolioGoal(portfolioId: number, goalId: number, goal: PortfolioGoalUpdate) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals/${goalId}`, {
+      method: 'PUT',
+      body: JSON.stringify(goal),
+    })
+  }
+
+  async deletePortfolioGoal(portfolioId: number, goalId: number) {
+    return this.request<void>(`/portfolios/${portfolioId}/goals/${goalId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async deactivatePortfolioGoal(portfolioId: number, goalId: number) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals/${goalId}/deactivate`, {
+      method: 'PATCH',
+    })
+  }
+
+  async getGoalProjections(portfolioId: number, goalId: number) {
+    return this.request<GoalProjectionsDTO>(`/portfolios/${portfolioId}/goals/${goalId}/projections`, {
+      method: 'POST',
+    })
   }
 
   // Transactions

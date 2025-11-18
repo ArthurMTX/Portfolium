@@ -489,6 +489,49 @@ class PortfolioHistoryPoint(BaseModel):
 
 
 # ============================================================================
+# Portfolio Goal Schemas
+# ============================================================================
+
+class PortfolioGoalBase(BaseModel):
+    """Base portfolio goal schema"""
+    title: str = Field(..., min_length=1, max_length=200)
+    target_amount: Decimal = Field(gt=0, decimal_places=2)
+    target_date: Optional[date] = None
+    monthly_contribution: Decimal = Field(default=Decimal(0), ge=0, decimal_places=2)
+    category: str = Field(default="other", pattern="^(retirement|house|education|vacation|emergency|other)$")
+    description: Optional[str] = None
+    color: Optional[str] = None
+    is_active: bool = True
+
+
+class PortfolioGoalCreate(PortfolioGoalBase):
+    """Schema for creating a portfolio goal"""
+    pass
+
+
+class PortfolioGoalUpdate(BaseModel):
+    """Schema for updating a portfolio goal"""
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    target_amount: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
+    target_date: Optional[date] = None
+    monthly_contribution: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    category: Optional[str] = Field(None, pattern="^(retirement|house|education|vacation|emergency|other)$")
+    description: Optional[str] = None
+    color: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class PortfolioGoal(PortfolioGoalBase):
+    """Portfolio goal response schema"""
+    id: int
+    portfolio_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
 # Watchlist Schemas
 # ============================================================================
 

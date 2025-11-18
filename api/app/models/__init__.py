@@ -9,6 +9,7 @@ from app.models.price import Price
 from app.models.watchlist import Watchlist
 from app.models.notification import Notification
 from app.models.dashboard import DashboardLayout
+from app.models.goal import PortfolioGoal
 
 __all__ = [
     # Enums
@@ -25,4 +26,5 @@ __all__ = [
     "Watchlist",
     "Notification",
     "DashboardLayout",
+    "PortfolioGoal",
 ]

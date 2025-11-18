@@ -25,6 +25,7 @@ class Portfolio(Base):
     # Relationships
     user = relationship("User", back_populates="portfolios")
     transactions = relationship("Transaction", back_populates="portfolio", cascade="all, delete-orphan")
+    goals = relationship("PortfolioGoal", back_populates="portfolio", cascade="all, delete-orphan")
 
 
 class Transaction(Base):
