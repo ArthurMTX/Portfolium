@@ -27,7 +27,7 @@ export default function MetricWidget({
   iconBgColor,
   iconColor,
   valueColor = 'text-neutral-900 dark:text-neutral-100',
-  isPreview = false,
+  isPreview: _isPreview = false,
 }: MetricWidgetProps) {
   const { t } = useTranslation()
   

@@ -718,6 +718,12 @@ class RiskMetrics(BaseModel):
     max_drawdown_date: Optional[str]
     beta: Optional[Decimal]  # Sensitivity to market
     var_95: Optional[Decimal]  # Value at Risk (95% confidence)
+    var_99: Optional[Decimal]  # Value at Risk (99% confidence)
+    cvar_95: Optional[Decimal]  # Conditional VaR / Expected Shortfall (95%)
+    cvar_99: Optional[Decimal]  # Conditional VaR / Expected Shortfall (99%)
+    var_95_1w: Optional[Decimal]  # 1-week VaR (95%)
+    var_95_1m: Optional[Decimal]  # 1-month VaR (95%)
+    tail_exposure: Optional[Decimal]  # Probability of extreme outlier events (>3 sigma)
     downside_deviation: Decimal
 
 

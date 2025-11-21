@@ -17,7 +17,7 @@ export default function PositionsTableWidget({
   positions, 
   soldPositions,
   soldPositionsLoading,
-  isPreview = false 
+  isPreview: _isPreview = false 
 }: PositionsTableWidgetProps) {
   const [activeTab, setActiveTab] = useState<'current' | 'sold'>('current')
   const { t } = useTranslation()

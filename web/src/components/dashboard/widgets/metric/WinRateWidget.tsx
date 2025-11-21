@@ -7,7 +7,7 @@ interface WinRateWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
-export default function WinRateWidget({ positions, isPreview = false }: WinRateWidgetProps) {
+export default function WinRateWidget({ positions, isPreview: _isPreview = false }: WinRateWidgetProps) {
   const { t } = useTranslation()
   const positionsInProfit = positions.filter(
     (p) => p.unrealized_pnl !== null && p.unrealized_pnl > 0

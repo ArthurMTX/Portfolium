@@ -10,7 +10,7 @@ interface LargestHoldingsWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
-export default function LargestHoldingsWidget({ positions, isPreview = false }: LargestHoldingsWidgetProps) {
+export default function LargestHoldingsWidget({ positions, isPreview: _isPreview = false }: LargestHoldingsWidgetProps) {
   const { t } = useTranslation()  
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 interface Position {
   symbol: string
   name: string | null
-  asset_type?: string
+  asset_type?: string | null
   market_value: number | null
   unrealized_pnl_pct: number | null
   daily_change_pct: number | null

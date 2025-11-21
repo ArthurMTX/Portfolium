@@ -8,7 +8,7 @@ interface BestWorstTodayWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
-export default function BestWorstTodayWidget({ positions, isPreview = false }: BestWorstTodayWidgetProps) {
+export default function BestWorstTodayWidget({ positions, isPreview: _isPreview = false }: BestWorstTodayWidgetProps) {
   const { t } = useTranslation()
 
   // Filter positions with valid daily change

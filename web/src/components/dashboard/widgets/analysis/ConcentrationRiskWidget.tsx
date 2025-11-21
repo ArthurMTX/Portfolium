@@ -8,7 +8,7 @@ interface ConcentrationRiskWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
 }
 
-export default function ConcentrationRiskWidget({ positions, isPreview = false }: ConcentrationRiskWidgetProps) {
+export default function ConcentrationRiskWidget({ positions, isPreview: _isPreview = false }: ConcentrationRiskWidgetProps) {
   const { t } = useTranslation()
   
   // Calculate total portfolio value

@@ -41,7 +41,31 @@ class InsightsService:
         self.db = db
         self.metrics_service = MetricsService(db)
         self.pricing_service = PricingService(db)
+        self._risk_cache: Dict[Tuple[int, str], Tuple[datetime, RiskMetrics]] = {}
     
+    def _percentile(self, values: List[float], q: float) -> float:
+        """
+        Calculate the q-th percentile of the values using linear interpolation.
+        values: list of floats (will be sorted internally)
+        q: percentile in [0, 1]
+        """
+        if not values:
+            return 0.0
+        
+        sorted_values = sorted(values)
+        n = len(sorted_values)
+        position = q * (n - 1)
+        lower_idx = math.floor(position)
+        upper_idx = math.ceil(position)
+        
+        if lower_idx == upper_idx:
+            return sorted_values[int(lower_idx)]
+        
+        lower_val = sorted_values[int(lower_idx)]
+        upper_val = sorted_values[int(upper_idx)]
+        
+        return lower_val + (position - lower_idx) * (upper_val - lower_val)
+
     def _get_cache_key(self, portfolio_id: int, period: str, benchmark_symbol: str) -> str:
         """Generate cache key for insights"""
         return f"{CacheService.PREFIX_INSIGHTS}{portfolio_id}:{period}:{benchmark_symbol}"
@@ -402,22 +426,50 @@ class InsightsService:
     
     def _calculate_risk_metrics(self, portfolio_id: int, period: str) -> RiskMetrics:
         """Internal method to calculate risk metrics (called only on cache miss)"""
+        # Check in-memory cache
+        cache_key = (portfolio_id, period)
+        if cache_key in self._risk_cache:
+            cached_at, cached_metrics = self._risk_cache[cache_key]
+            if datetime.utcnow() - cached_at < timedelta(hours=1):
+                return cached_metrics
+
         start_date, end_date = self._get_date_range(period, portfolio_id)
-        daily_values = self._get_daily_portfolio_values(
+        
+        # Use performance data which includes invested amount to handle cash flows
+        performance_data = self._get_daily_portfolio_performance(
             portfolio_id, start_date, end_date
         )
         
-        if len(daily_values) < 2:
+        if len(performance_data) < 2:
             return self._empty_risk_metrics(period)
         
-        # Calculate daily returns
+        # Calculate daily returns adjusting for cash flows (Time-Weighted Return)
         daily_returns = []
-        for i in range(1, len(daily_values)):
-            prev_value = daily_values[i-1][1]
-            curr_value = daily_values[i][1]
-            if prev_value > 0:
-                ret = float((curr_value - prev_value) / prev_value)
+        equity_curve = [1.0]  # Start at 1.0 for drawdown calculation
+        
+        for i in range(1, len(performance_data)):
+            prev_date, prev_value, prev_invested = performance_data[i-1]
+            curr_date, curr_value, curr_invested = performance_data[i]
+            
+            # Convert to float for calculations
+            prev_val_f = float(prev_value)
+            curr_val_f = float(curr_value)
+            prev_inv_f = float(prev_invested)
+            curr_inv_f = float(curr_invested)
+            
+            # Calculate net flow (deposit/withdrawal)
+            flow = curr_inv_f - prev_inv_f
+            
+            # Adjusted return: (Value_t - Flow_t - Value_{t-1}) / Value_{t-1}
+            # We assume flows happen at the end of the day for this calculation
+            if prev_val_f > 0:
+                ret = (curr_val_f - flow - prev_val_f) / prev_val_f
                 daily_returns.append(ret)
+            else:
+                daily_returns.append(0.0)
+                
+            # Update equity curve
+            equity_curve.append(equity_curve[-1] * (1 + daily_returns[-1]))
         
         if not daily_returns:
             return self._empty_risk_metrics(period)
@@ -428,31 +480,44 @@ class InsightsService:
         daily_volatility = math.sqrt(variance)
         annualized_volatility = daily_volatility * math.sqrt(252)  # Trading days
         
-        # Sharpe ratio (assuming 2% risk-free rate)
-        risk_free_rate = 0.02
-        daily_rf = risk_free_rate / 252
-        excess_returns = [r - daily_rf for r in daily_returns]
-        avg_excess_return = sum(excess_returns) / len(excess_returns)
+        # Calculate annualized return (CAGR) from the equity curve
+        # Total return over period = Equity_final - 1
+        total_period_return = equity_curve[-1] - 1
+        
+        days_diff = (performance_data[-1][0] - performance_data[0][0]).days
+        years = days_diff / 365.25
+        
+        if years > 0:
+            # Geometric annualized return
+            annualized_return = (equity_curve[-1]) ** (1 / years) - 1
+        else:
+            annualized_return = total_period_return
+
+        risk_free_rate = 0.02  # 2%
+        excess_annual_return = annualized_return - risk_free_rate
         sharpe_ratio = (
-            (avg_excess_return / daily_volatility * math.sqrt(252))
-            if daily_volatility > 0 else None
+            excess_annual_return / annualized_volatility
+            if annualized_volatility > 0 else None
         )
         
-        # Maximum drawdown
-        max_drawdown = Decimal(0)
+        # Maximum drawdown based on Equity Curve (not raw values)
+        peak = equity_curve[0]
+        max_drawdown = 0
         max_drawdown_date = None
-        peak_value = daily_values[0][1]
-        
-        for curr_date, curr_value in daily_values:
-            if curr_value > peak_value:
-                peak_value = curr_value
+
+        # We need to zip with dates. equity_curve has N items, performance_data has N items.
+        for i, value in enumerate(equity_curve):
+            date_val = performance_data[i][0]
             
-            drawdown = (peak_value - curr_value) / peak_value if peak_value > 0 else Decimal(0)
+            if value > peak:
+                peak = value
+            
+            drawdown = (peak - value) / peak
             if drawdown > max_drawdown:
                 max_drawdown = drawdown
-                max_drawdown_date = curr_date.isoformat()
-        
-        max_drawdown = max_drawdown * 100  # Convert to percentage
+                max_drawdown_date = date_val.isoformat()
+
+        max_drawdown *= 100
         
         # Downside deviation (volatility of negative returns)
         negative_returns = [r for r in daily_returns if r < 0]
@@ -462,24 +527,59 @@ class InsightsService:
         )
         downside_deviation = math.sqrt(downside_variance) * math.sqrt(252)
         
-        # Value at Risk (95% confidence)
-        sorted_returns = sorted(daily_returns)
-        var_index = int(len(sorted_returns) * 0.05)
-        var_95 = Decimal(str(sorted_returns[var_index] * 100)) if var_index < len(sorted_returns) else None
+        # Value at Risk (95% confidence) using percentile helper
+        var_95_val = self._percentile(daily_returns, 0.05)
+        var_95 = Decimal(str(-var_95_val * 100))
         
-        # Beta calculation (vs SPY as market proxy)
+        # VaR 99%
+        var_99_val = self._percentile(daily_returns, 0.01)
+        var_99 = Decimal(str(-var_99_val * 100))
+        
+        # CVaR / Expected Shortfall (95%)
+        cvar_95_returns = [r for r in daily_returns if r <= var_95_val]
+        cvar_95_val = sum(cvar_95_returns) / len(cvar_95_returns) if cvar_95_returns else var_95_val
+        cvar_95 = Decimal(str(-cvar_95_val * 100))
+        
+        # CVaR / Expected Shortfall (99%)
+        cvar_99_returns = [r for r in daily_returns if r <= var_99_val]
+        cvar_99_val = sum(cvar_99_returns) / len(cvar_99_returns) if cvar_99_returns else var_99_val
+        cvar_99 = Decimal(str(-cvar_99_val * 100))
+        
+        # Time-scaled VaR
+        var_95_1w = Decimal(str(-var_95_val * math.sqrt(5) * 100))
+        var_95_1m = Decimal(str(-var_95_val * math.sqrt(21) * 100))
+        
+        # Tail Exposure
+        tail_cutoff = mean_return - (3 * daily_volatility)
+        tail_events = [r for r in daily_returns if r < tail_cutoff]
+        tail_exposure = Decimal(str((len(tail_events) / len(daily_returns)) * 100)) if daily_returns else Decimal(0)
+        
+        # Beta calculation
+        # Reconstruct daily_values for beta calculation compatibility
+        daily_values = [(d, v) for d, v, _ in performance_data]
         beta = self._calculate_beta(portfolio_id, start_date, end_date, daily_returns, daily_values)
         
-        return RiskMetrics(
+        metrics = RiskMetrics(
             period=period,
             volatility=Decimal(str(annualized_volatility * 100)),
-            sharpe_ratio=Decimal(str(sharpe_ratio)) if sharpe_ratio else None,
-            max_drawdown=max_drawdown,
+            sharpe_ratio=Decimal(str(sharpe_ratio)) if sharpe_ratio is not None else None,
+            max_drawdown=Decimal(str(max_drawdown)),
             max_drawdown_date=max_drawdown_date,
             beta=beta,
             var_95=var_95,
+            var_99=var_99,
+            cvar_95=cvar_95,
+            cvar_99=cvar_99,
+            var_95_1w=var_95_1w,
+            var_95_1m=var_95_1m,
+            tail_exposure=tail_exposure,
             downside_deviation=Decimal(str(downside_deviation * 100))
         )
+        
+        # Update cache
+        self._risk_cache[cache_key] = (datetime.utcnow(), metrics)
+        
+        return metrics
     
     async def compare_to_benchmark(
         self, 
@@ -860,43 +960,57 @@ class InsightsService:
         # Build benchmark price dictionary by date
         benchmark_dict = {p.asof.date(): float(p.price) for p in benchmark_prices}
         
-        # Calculate benchmark returns aligned with portfolio dates
-        # Only include returns where we have both portfolio and benchmark data
-        aligned_portfolio_returns = []
-        benchmark_returns = []
+        # Calculate benchmark returns
+        benchmark_returns_map = {}
+        sorted_bench_dates = sorted(benchmark_dict.keys())
+        for i in range(1, len(sorted_bench_dates)):
+            d_prev = sorted_bench_dates[i-1]
+            d_curr = sorted_bench_dates[i]
+            p_prev = benchmark_dict[d_prev]
+            p_curr = benchmark_dict[d_curr]
+            if p_prev > 0:
+                ret = (p_curr - p_prev) / p_prev
+                benchmark_returns_map[d_curr] = ret
+        
+        # Map portfolio returns to dates
+        # portfolio_values has dates. portfolio_returns are returns between values.
+        # daily_returns[i] corresponds to daily_values[i+1].date
         portfolio_dates = [d for d, _ in portfolio_values]
-        
-        for i in range(1, len(portfolio_dates)):
-            prev_date = portfolio_dates[i-1]
-            curr_date = portfolio_dates[i]
-            
-            prev_price = benchmark_dict.get(prev_date)
-            curr_price = benchmark_dict.get(curr_date)
-            
-            if prev_price and curr_price and prev_price > 0:
-                # We have matching benchmark data for this period
-                bench_ret = (curr_price - prev_price) / prev_price
-                benchmark_returns.append(bench_ret)
-                aligned_portfolio_returns.append(portfolio_returns[i-1])
-        
-        # Ensure we have enough data points
-        if len(benchmark_returns) < 2 or len(aligned_portfolio_returns) < 2:
-            logger.warning(f"Insufficient aligned returns for beta calculation: portfolio={len(aligned_portfolio_returns)}, benchmark={len(benchmark_returns)}")
+        if len(portfolio_dates) - 1 != len(portfolio_returns):
+            # Mismatch in lengths, cannot align reliably
             return None
+            
+        portfolio_returns_map = {}
+        for i in range(len(portfolio_returns)):
+            # The return at index i corresponds to the date at index i+1
+            d = portfolio_dates[i+1]
+            portfolio_returns_map[d] = portfolio_returns[i]
+            
+        # Intersect keys to find common dates
+        common_dates = sorted(set(portfolio_returns_map.keys()) & set(benchmark_returns_map.keys()))
+        
+        # If fewer than 30 points, return None
+        if len(common_dates) < 30:
+            logger.warning(f"Insufficient aligned returns for beta calculation: {len(common_dates)} points")
+            return None
+            
+        # Build aligned lists
+        aligned_portfolio_returns = [portfolio_returns_map[d] for d in common_dates]
+        aligned_benchmark_returns = [benchmark_returns_map[d] for d in common_dates]
         
         # Calculate covariance and variance using aligned returns
         portfolio_mean = sum(aligned_portfolio_returns) / len(aligned_portfolio_returns)
-        benchmark_mean = sum(benchmark_returns) / len(benchmark_returns)
+        benchmark_mean = sum(aligned_benchmark_returns) / len(aligned_benchmark_returns)
         
         covariance = sum(
             (p - portfolio_mean) * (b - benchmark_mean)
-            for p, b in zip(aligned_portfolio_returns, benchmark_returns)
+            for p, b in zip(aligned_portfolio_returns, aligned_benchmark_returns)
         ) / len(aligned_portfolio_returns)
         
         benchmark_variance = sum(
             (b - benchmark_mean) ** 2
-            for b in benchmark_returns
-        ) / len(benchmark_returns)
+            for b in aligned_benchmark_returns
+        ) / len(aligned_benchmark_returns)
         
         if benchmark_variance == 0:
             logger.warning("Benchmark variance is zero, cannot calculate beta")
@@ -964,6 +1078,12 @@ class InsightsService:
             max_drawdown_date=None,
             beta=None,
             var_95=None,
+            var_99=None,
+            cvar_95=None,
+            cvar_99=None,
+            var_95_1w=None,
+            var_95_1m=None,
+            tail_exposure=None,
             downside_deviation=Decimal(0)
         )
     

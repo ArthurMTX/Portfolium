@@ -1,4 +1,4 @@
-import { CategoryConfig } from '../types'
+import { CategoryConfig } from '../../types'
 
 /**
  * Widget category configurations
