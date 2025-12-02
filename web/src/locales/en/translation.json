@@ -574,6 +574,9 @@
       "descriptionPlaceholder": "Optional description about this layout"
     },
     "conclusions": {
+      "common": {
+        "insufficientData": "Insufficient data to provide a conclusion."
+      },
       "performance": {
         "exceptionalOutlierPositive": "Exceptional high-performance outlier (penny stock effect)",
         "exceptionalOutlierNegative": "Extreme underperformance - critical review needed",

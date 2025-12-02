@@ -33,5 +33,6 @@ COPY web/src/locales ./locales
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application with uvicorn (single worker for dev, use gunicorn for production)
+# --timeout-keep-alive handles slow clients, --backlog for connection queue
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "30", "--backlog", "100"]

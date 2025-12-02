@@ -257,7 +257,7 @@ async def _fetch_watchlist(user: User, db: Session) -> Optional[List]:
         from app.crud import watchlist as crud_watchlist
         from app.services.pricing import PricingService
         
-        pricing_service = PricingService()
+        pricing_service = PricingService(db)
         items = crud_watchlist.get_watchlist_items_by_user(db, user.id)
         
         result = []
@@ -273,10 +273,10 @@ async def _fetch_watchlist(user: User, db: Session) -> Optional[List]:
             current_price = None
             daily_change_pct = None
             try:
-                price_data = await pricing_service.get_price(item.asset)
+                price_data = await pricing_service.get_price(item.asset.symbol)
                 if price_data:
-                    current_price = float(price_data.get('price', 0))
-                    daily_change_pct = price_data.get('daily_change_pct')
+                    current_price = float(price_data.price) if price_data.price else 0
+                    daily_change_pct = float(price_data.daily_change_pct) if price_data.daily_change_pct else None
             except Exception as e:
                 logger.debug(f"Could not fetch price for {item.asset.symbol}: {e}")
             
@@ -513,8 +513,11 @@ async def get_dashboard_batch(
     """
     # Verify user has access to portfolio
     portfolio = crud_portfolios.get_portfolio(db, request.portfolio_id)
-    if not portfolio or portfolio.user_id != current_user.id:
-        raise PortfolioNotFoundError()
+    if not portfolio:
+        raise PortfolioNotFoundError(request.portfolio_id)
+    if portfolio.user_id != current_user.id:
+        from app.errors import UnauthorizedPortfolioAccessError
+        raise UnauthorizedPortfolioAccessError(request.portfolio_id)
     
     # Create cache key
     widget_key = ','.join(sorted(request.visible_widgets))

@@ -118,6 +118,7 @@ class PricingService:
         3. yfinance API - fallback
         
         Also deduplicates concurrent requests for the same symbol.
+        Includes timeout to prevent hanging on slow yfinance calls.
         """
         # Check Redis cache first (very fast, shared across instances)
         if not force_refresh:
@@ -143,7 +144,11 @@ class PricingService:
                     # Check if task's loop matches current loop
                     if existing_task._loop == current_loop:
                         logger.info(f"Reusing ongoing price fetch for {symbol}")
-                        return await existing_task
+                        try:
+                            return await asyncio.wait_for(existing_task, timeout=15.0)
+                        except asyncio.TimeoutError:
+                            logger.warning(f"Timeout waiting for ongoing fetch for {symbol}")
+                            return None
                     else:
                         # Task is from a different loop, remove it and create a new one
                         logger.warning(f"Removing stale task for {symbol} (different event loop)")
@@ -158,7 +163,8 @@ class PricingService:
             _ongoing_fetches[symbol] = task
         
         try:
-            result = await task
+            # Add timeout to prevent hanging
+            result = await asyncio.wait_for(task, timeout=20.0)
             
             # Update Redis cache
             if result:
@@ -171,6 +177,9 @@ class PricingService:
                 cache_price(symbol, result.model_dump(), ttl)
             
             return result
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout fetching price for {symbol}")
+            return None
         finally:
             # Remove from ongoing fetches
             async with _get_fetch_lock():
@@ -397,6 +406,11 @@ class PricingService:
         The previousClose includes after-hours trading and is the reference point for
         intraday percentage calculations that users expect to see.
         """
+        import socket
+        # Set socket timeout to prevent hanging on slow network
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(10.0)  # 10 second timeout
+        
         try:
             ticker = yf.Ticker(symbol)
             
@@ -453,6 +467,9 @@ class PricingService:
         except Exception as e:
             logger.error(f"Error fetching price for {symbol}: {e}")
             return None
+        finally:
+            # Restore original timeout
+            socket.setdefaulttimeout(old_timeout)
     
     def _is_price_fresh(self, asof: datetime) -> bool:
         """Check if price is within TTL"""

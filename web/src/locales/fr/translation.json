@@ -574,6 +574,9 @@
       "descriptionPlaceholder": "Description optionnelle de cette mise en page"
     },
     "conclusions": {
+      "common": {
+        "insufficientData": "Données insuffisantes pour une analyse complète"
+      },
       "performance": {
         "exceptionalOutlierPositive": "Performance exceptionnellement élevée - comportement hors norme (effet penny stock)",
         "exceptionalOutlierNegative": "Sous-performance extrême - réévaluation immédiate recommandée",
@@ -788,7 +791,7 @@
       "1M": "1M",
       "3M": "3M",
       "6M": "6M",
-      "YTD": "ACJ",
+      "YTD": "YTD",
       "1Y": "1A",
       "ALL": "TOUT"
     }

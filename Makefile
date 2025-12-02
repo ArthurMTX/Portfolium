@@ -1,4 +1,4 @@
-.PHONY: up down logs restart test clean
+.PHONY: up down logs restart test clean dev dev-backend
 
 up:
 	docker compose up -d
@@ -18,3 +18,12 @@ test:
 clean:
 	docker compose down -v
 	rm -rf api/__pycache__ web/node_modules web/dist
+
+# Hybrid development: backend in Docker, frontend local
+dev-backend:
+	docker compose -f docker-compose.dev.yml up -d api db redis celery-worker celery-beat flower
+
+dev:
+	@echo "Starting backend services in Docker..."
+	docker compose -f docker-compose.dev.yml up -d api db redis celery-worker celery-beat flower
+	@echo "Backend ready! Now run 'cd web && npm run dev' to start frontend locally"

@@ -49,6 +49,11 @@ const docsPlugin = (): Plugin => ({
   }
 })
 
+// Detect if running inside Docker or locally
+const isDocker = process.env.DOCKER_ENV === 'true'
+// Use 127.0.0.1 instead of localhost to avoid Windows DNS resolution issues
+const apiTarget = isDocker ? 'http://api:8000' : 'http://127.0.0.1:8000'
+
 export default defineConfig({
   plugins: [react(), docsPlugin()],
   publicDir: 'public',
@@ -56,24 +61,43 @@ export default defineConfig({
     host: true,
     port: 5173,
     watch: {
-      usePolling: true
+      // Only use polling inside Docker (needed for volume mounts)
+      usePolling: isDocker,
+      interval: 1000,
+      binaryInterval: 3000,
+    },
+    // HMR configuration
+    hmr: {
+      clientPort: 5173,
+      host: 'localhost',
+      timeout: 30000,
     },
     proxy: {
       // Dev proxy for API requests to backend
-      // Inside Docker container: use 'api:8000' (Docker service name)
       '/api': {
-        target: 'http://api:8000',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
+        timeout: 60000,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            console.log('[Proxy Error]', err.message);
+            if (res && 'writeHead' in res) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ detail: 'API temporarily unavailable' }));
+            }
+          });
+        },
       },
       // Dev proxy for logo requests - route through our API for ETF SVG support
       '/logos': {
-        target: 'http://api:8000',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/logos/, '/assets/logo'),
+        timeout: 30000,
       },
     },
   },

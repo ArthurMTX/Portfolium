@@ -105,7 +105,7 @@ services:
       dockerfile: ./api/Dockerfile
     container_name: portfolium-celery-worker
     restart: unless-stopped
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=1 -Q default,high,low
     env_file:
       - .env
     environment:
