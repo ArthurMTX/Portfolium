@@ -3,11 +3,11 @@
  * API client for Portfolium backend
  */
 
-import type { 
-  DashboardLayoutDTO, 
-  DashboardLayoutCreate, 
-  DashboardLayoutUpdate, 
-  DashboardLayoutExport 
+import type {
+  DashboardLayoutDTO,
+  DashboardLayoutCreate,
+  DashboardLayoutUpdate,
+  DashboardLayoutExport
 } from '../types/dashboard'
 
 // Use /api prefix so requests go through proxy (both dev and production)
@@ -49,6 +49,8 @@ export interface PortfolioDTO {
   name: string
   base_currency: string
   description: string | null
+  is_public: boolean
+  share_token: string
   created_at: string
 }
 
@@ -328,6 +330,62 @@ export interface GoalProjectionsDTO {
   warning?: string
 }
 
+export interface PublicTimeSeriesPoint {
+  date: string
+  value: number
+}
+
+export interface PublicPerformanceMetrics {
+  period: string
+  total_return_pct: number
+  annualized_return: number
+  best_day_date: string | null
+  worst_day_date: string | null
+  positive_days: number
+  negative_days: number
+  win_rate: number
+}
+
+export interface PublicRiskMetrics {
+  period: string
+  volatility: number
+  sharpe_ratio: number | null
+  max_drawdown: number
+  max_drawdown_date: string | null
+  beta: number | null
+}
+
+
+export interface PublicSectorAllocation {
+  sector: string
+  percentage: number
+}
+
+export interface PublicGeographicAllocation {
+  country: string
+  percentage: number
+}
+
+export interface PublicHolding {
+  symbol: string
+  name: string | null
+  sector: string | null
+  industry: string | null
+  weight_pct: number
+  asset_type: string | null
+}
+
+export interface PublicPortfolioInsights {
+  portfolio_id: number
+  portfolio_name: string
+  owner_username: string
+  as_of_date: string
+  period: string
+  sector_allocation: PublicSectorAllocation[]
+  geographic_allocation: PublicGeographicAllocation[]
+  holdings: PublicHolding[]
+}
+
 class ApiClient {
   // Admin
   async getAdminUsers() {
@@ -415,7 +473,7 @@ class ApiClient {
 
   // Health
   async healthCheck() {
-    return this.request<{ 
+    return this.request<{
       status: string
       timestamp: string
       database: string
@@ -585,7 +643,7 @@ class ApiClient {
     return this.request<Array<{
       id: number
       tx_date: string
-      metadata: { split?: string; [key: string]: unknown }
+      metadata: { split?: string;[key: string]: unknown }
       notes: string | null
     }>>(`/assets/${assetId}/splits${params}`)
   }
@@ -723,6 +781,7 @@ class ApiClient {
     name: string
     base_currency?: string
     description?: string
+    is_public?: boolean
   }) {
     return this.request<PortfolioDTO>('/portfolios', {
       method: 'POST',
@@ -734,6 +793,7 @@ class ApiClient {
     name: string
     base_currency?: string
     description?: string
+    is_public?: boolean
   }) {
     return this.request<PortfolioDTO>(`/portfolios/${portfolioId}`, {
       method: 'PUT',
@@ -807,12 +867,6 @@ class ApiClient {
   async deletePortfolioGoal(portfolioId: number, goalId: number) {
     return this.request<void>(`/portfolios/${portfolioId}/goals/${goalId}`, {
       method: 'DELETE',
-    })
-  }
-
-  async deactivatePortfolioGoal(portfolioId: number, goalId: number) {
-    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals/${goalId}/deactivate`, {
-      method: 'PATCH',
     })
   }
 
@@ -1158,9 +1212,9 @@ class ApiClient {
       '^FTSE', '^GDAXI', '^FCHI', 'FTSEMIB.MI',
       '^N225', '^HSI', '000001.SS', '^AXJO'
     ].join(',')
-    
+
     const response = await this.request<Record<string, PriceQuote>>(`/prices/indices?symbols=${symbols}`, { signal })
-    
+
     // Normalize the response to include percent_change
     const normalized: Record<string, PriceQuote> = {}
     for (const [symbol, data] of Object.entries(response)) {
@@ -1170,7 +1224,7 @@ class ApiClient {
         percent_change: data.daily_change_pct
       }
     }
-    
+
     return normalized
   }
 
@@ -1305,7 +1359,7 @@ class ApiClient {
       timestamp: string
     }>('/market/dxy')
   }
-  
+
   // ============================================================================
   // Dashboard Layouts
   // ============================================================================
@@ -1399,13 +1453,17 @@ class ApiClient {
       implied_upside_pct: number | null
     }>(`/portfolios/${portfolioId}/positions/${assetId}/detailed-metrics`)
   }
+  
+  async getPublicPortfolio(shareToken: string) {
+    return this.request<PublicPortfolioInsights>(`/public/portfolio/${shareToken}`)
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)
 export default api
 
 // Export convenience functions
-export const getTopPerformers = (portfolioId: number, period?: string, limit?: number, signal?: AbortSignal) => 
+export const getTopPerformers = (portfolioId: number, period?: string, limit?: number, signal?: AbortSignal) =>
   api.getTopPerformers(portfolioId, period, limit, signal)
 
 export const getRecentTransactions = (portfolioId: number, limit?: number, signal?: AbortSignal) =>

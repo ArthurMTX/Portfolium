@@ -562,6 +562,7 @@ class MetricsService:
             relative_perf_ytd=None,
             relative_perf_1y=None,
             sector=asset.sector,
+            industry=asset.industry,
             sector_etf=None,  # Will be populated on-demand
             currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,

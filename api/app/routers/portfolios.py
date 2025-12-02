@@ -16,7 +16,7 @@ from app.errors import (
     PortfolioNotFoundError
 )
 from app.db import get_db
-from app.schemas import Portfolio, PortfolioCreate, Position, PortfolioMetrics, PortfolioHistoryPoint
+from app.schemas import Portfolio, PortfolioCreate, PortfolioUpdate, Position, PortfolioMetrics, PortfolioHistoryPoint
 from app.crud import portfolios as crud
 from app.services.metrics import get_metrics_service, MetricsService
 from app.services.pricing import get_pricing_service
@@ -63,7 +63,7 @@ async def create_portfolio(
 @router.put("/{portfolio_id}", response_model=Portfolio)
 async def update_portfolio(
     portfolio_id: int,
-    portfolio_data: PortfolioCreate,
+    portfolio_data: PortfolioUpdate,
     db: Session = Depends(get_db),
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):

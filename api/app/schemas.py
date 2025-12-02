@@ -255,13 +255,20 @@ class PortfolioBase(BaseModel):
 
 class PortfolioCreate(PortfolioBase):
     """Schema for creating a portfolio"""
-    pass
+    is_public: bool = False
+
+
+class PortfolioUpdate(PortfolioBase):
+    """Schema for updating a portfolio"""
+    is_public: Optional[bool] = None
 
 
 class Portfolio(PortfolioBase):
     """Portfolio response schema"""
     id: int
     user_id: int
+    is_public: bool = False
+    share_token: str
     created_at: datetime
     updated_at: datetime
     
@@ -414,6 +421,7 @@ class Position(BaseModel):
     relative_perf_ytd: Optional[Decimal] = None  # YTD relative performance vs sector ETF
     relative_perf_1y: Optional[Decimal] = None  # 1-year relative performance vs sector ETF
     sector: Optional[str] = None  # Asset sector for reference
+    industry: Optional[str] = None  # Asset industry for reference
     sector_etf: Optional[str] = None  # Benchmark ETF symbol
     currency: str
     last_updated: Optional[datetime]

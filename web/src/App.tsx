@@ -28,6 +28,7 @@ import NotFound from './pages/NotFound'
 import AssetDebug from './pages/AssetDebug'
 import AssetsList from './pages/AssetsList'
 import WidgetDebug from './pages/WidgetDebug'
+import PublicPortfolio from './pages/PublicPortfolio'
 
 // Configure React Query for optimal performance
 const queryClient = new QueryClient({
@@ -36,16 +37,16 @@ const queryClient = new QueryClient({
       // Stale-while-revalidate strategy
       staleTime: 30 * 1000, // Consider data fresh for 30 seconds
       gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes (formerly cacheTime)
-      
+
       // Refetch behavior
       refetchOnWindowFocus: true, // Refresh when user returns to tab
       refetchOnReconnect: true, // Refresh when internet reconnects
       refetchOnMount: true, // Refresh when component mounts if data is stale
-      
+
       // Retry logic for failed requests
       retry: 1, // Only retry once for failed requests
       retryDelay: 1000, // Wait 1s before retrying
-      
+
       // Network mode
       networkMode: 'online', // Only fetch when online
     },
@@ -63,99 +64,100 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/p/:shareToken" element={<PublicPortfolio />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="portfolios" element={<Portfolios />} />
-            <Route path="charts" element={<Charts />} />
-            <Route path="insights" element={<Insights />} />
-            <Route path="transactions" element={<Transactions />} />
-            <Route path="transactions/metrics" element={<TransactionMetrics />} />
-            <Route path="assets" element={<Assets />} />
-            <Route path="watchlist" element={<Watchlist />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="profile" element={<Profile />} />
-            <Route
-              path="admin"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <Admin />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="dev"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <DevTools />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="dev/assets"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <AssetDebug />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="dev/assets-list"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <AssetsList />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="dev/widgets"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <WidgetDebug />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="icon-preview"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <IconPreview />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="flag-preview"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <FlagPreview />
-                </ProtectedRoute>
-              }
-            />
-            {/* 404 catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-    </LanguageProvider>
-  </QueryClientProvider>
+              {/* Protected routes */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="portfolios" element={<Portfolios />} />
+                <Route path="charts" element={<Charts />} />
+                <Route path="insights" element={<Insights />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="transactions/metrics" element={<TransactionMetrics />} />
+                <Route path="assets" element={<Assets />} />
+                <Route path="watchlist" element={<Watchlist />} />
+                <Route path="notifications" element={<Notifications />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="profile" element={<Profile />} />
+                <Route
+                  path="admin"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <Admin />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="dev"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <DevTools />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="dev/assets"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AssetDebug />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="dev/assets-list"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AssetsList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="dev/widgets"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <WidgetDebug />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="icon-preview"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <IconPreview />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="flag-preview"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <FlagPreview />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* 404 catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </LanguageProvider>
+    </QueryClientProvider>
   )
 }
 

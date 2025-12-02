@@ -2,11 +2,17 @@
 Portfolio and transaction models
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Numeric, Date, Text, JSON
+import uuid
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Numeric, Date, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
 
 from app.db import Base
 from app.models.enums import TransactionType
+
+
+def generate_share_token():
+    """Generate a unique share token for public portfolio access"""
+    return str(uuid.uuid4())
 
 
 class Portfolio(Base):
@@ -19,6 +25,8 @@ class Portfolio(Base):
     name = Column(String, nullable=False, index=True)
     base_currency = Column(String, default="EUR")
     description = Column(Text)
+    is_public = Column(Boolean, default=False, nullable=False)
+    share_token = Column(String(36), unique=True, index=True, default=generate_share_token)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
