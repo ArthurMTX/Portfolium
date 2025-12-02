@@ -538,7 +538,7 @@ const PublicPortfolio: React.FC = () => {
                         <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <div>
                                 <h3 className="text-xl font-semibold text-neutral-900 dark:text-white flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-pink-100 dark:bg-gradient-to-br dark:from-pink-500/20 dark:to-pink-600/10 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-pink-600/10 flex items-center justify-center border border-pink-200 dark:border-pink-500/20">
                                         <TrendingUp size={18} className="text-pink-500 dark:text-pink-400" />
                                     </div>
                                     {t('publicPortfolio.topHoldings')}
