@@ -1829,6 +1829,7 @@
     "notFoundDescription": "Le propriétaire a peut-être désactivé le partage public, ou le lien est incorrect.",
     "returnHome": "Retour à l'accueil",
     "signUp": "S'inscrire",
+    "goToDashboard": "Aller au tableau de bord",
     "lightMode": "Mode clair",
     "darkMode": "Mode sombre",
     "publicSnapshot": "Aperçu public",

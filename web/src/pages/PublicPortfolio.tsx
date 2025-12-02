@@ -16,9 +16,11 @@ import {
     BarChart3,
     Lock,
     ChevronRight,
-    ChevronDown
+    ChevronDown,
+    LayoutDashboard
 } from 'lucide-react'
 import api, { PublicPortfolioInsights } from '../lib/api'
+import { useAuth } from '../contexts/AuthContext'
 import { getFlagUrl } from '../lib/countryUtils'
 import {
     getSectorIcon,
@@ -69,6 +71,7 @@ const useAnimatedCounter = (end: number, duration: number = 1500, start: number 
 const PublicPortfolio: React.FC = () => {
     const { shareToken } = useParams<{ shareToken: string }>()
     const { t, i18n } = useTranslation()
+    const { user } = useAuth()
     const [data, setData] = useState<PublicPortfolioInsights | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -283,13 +286,23 @@ const PublicPortfolio: React.FC = () => {
                         >
                             {darkMode ? <Sun size={18} className="text-amber-500" /> : <Moon size={18} className="text-neutral-600" />}
                         </button>
-                        <Link
-                            to="/register"
-                            className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors text-sm"
-                        >
-                            <UserPlus size={16} />
-                            {t('publicPortfolio.signUp')}
-                        </Link>
+                        {user ? (
+                            <Link
+                                to="/"
+                                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors text-sm"
+                            >
+                                <LayoutDashboard size={16} />
+                                {t('publicPortfolio.goToDashboard')}
+                            </Link>
+                        ) : (
+                            <Link
+                                to="/register"
+                                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors text-sm"
+                            >
+                                <UserPlus size={16} />
+                                {t('publicPortfolio.signUp')}
+                            </Link>
+                        )}
                     </div>
                 </div>
             </header>
@@ -342,14 +355,25 @@ const PublicPortfolio: React.FC = () => {
 
                             {/* CTA buttons */}
                             <div className="flex flex-wrap items-center gap-4 pt-4">
-                                <Link
-                                    to="/register"
-                                    className="group inline-flex items-center gap-3 px-7 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors"
-                                >
-                                    <Zap size={20} />
-                                    {t('publicPortfolio.createYourOwn')}
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                                </Link>
+                                {user ? (
+                                    <Link
+                                        to="/"
+                                        className="group inline-flex items-center gap-3 px-7 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors"
+                                    >
+                                        <LayoutDashboard size={20} />
+                                        {t('publicPortfolio.goToDashboard')}
+                                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        to="/register"
+                                        className="group inline-flex items-center gap-3 px-7 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors"
+                                    >
+                                        <Zap size={20} />
+                                        {t('publicPortfolio.createYourOwn')}
+                                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+                                )}
                             </div>
                         </div>
 
@@ -419,7 +443,7 @@ const PublicPortfolio: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Allocation Sections - Bento grid style */}
+                {/* Allocation Sections */}
                 <section className="grid gap-6 lg:grid-cols-2">
                     {/* Sector Allocation */}
                     <AllocationCard
@@ -508,7 +532,7 @@ const PublicPortfolio: React.FC = () => {
                     </AllocationCard>
                 </section>
 
-                {/* Holdings Table - Modern design */}
+                {/* Holdings Table */}
                 <section>
                     <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden">
                         <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -759,14 +783,25 @@ const PublicPortfolio: React.FC = () => {
                             </div>
                             
                             {/* CTA button */}
-                            <Link
-                                to="/register"
-                                className="group inline-flex items-center gap-3 px-8 py-4 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-lg transition-colors text-lg"
-                            >
-                                <UserPlus size={24} />
-                                {t('publicPortfolio.getStarted')}
-                                <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                            </Link>
+                            {user ? (
+                                <Link
+                                    to="/"
+                                    className="group inline-flex items-center gap-3 px-8 py-4 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-lg transition-colors text-lg"
+                                >
+                                    <LayoutDashboard size={24} />
+                                    {t('publicPortfolio.goToDashboard')}
+                                    <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                </Link>
+                            ) : (
+                                <Link
+                                    to="/register"
+                                    className="group inline-flex items-center gap-3 px-8 py-4 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-lg transition-colors text-lg"
+                                >
+                                    <UserPlus size={24} />
+                                    {t('publicPortfolio.getStarted')}
+                                    <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                </Link>
+                            )}
                         </div>
                     </div>
                 </section>

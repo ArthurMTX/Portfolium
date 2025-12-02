@@ -1829,6 +1829,7 @@
     "notFoundDescription": "The owner may have disabled public sharing, or the link may be incorrect.",
     "returnHome": "Return Home",
     "signUp": "Sign Up",
+    "goToDashboard": "Go to Dashboard",
     "lightMode": "Light Mode",
     "darkMode": "Dark Mode",
     "publicSnapshot": "Public Snapshot",
