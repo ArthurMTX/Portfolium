@@ -1,4 +1,4 @@
-import { X, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react'
+import { X, TrendingUp, TrendingDown, ShoppingCart, ArrowRightLeft } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
@@ -140,8 +140,8 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
     return sorted
   }, [transactions, sortKey, sortDir])
 
-  const buyTransactions = sortedTransactions.filter(tx => tx.type === 'BUY')
-  const sellTransactions = sortedTransactions.filter(tx => tx.type === 'SELL')
+  const buyTransactions = sortedTransactions.filter(tx => tx.type === 'BUY' || tx.type === 'CONVERSION_IN')
+  const sellTransactions = sortedTransactions.filter(tx => tx.type === 'SELL' || tx.type === 'CONVERSION_OUT')
   
   // Check if any transactions have been split-adjusted
   const hasSplitAdjustments = transactions.some(tx => Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001)
@@ -280,9 +280,32 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                   </thead>
                   <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
                     {sortedTransactions.map((tx) => {
-                      const isBuy = tx.type === 'BUY'
+                      const isBuy = tx.type === 'BUY' || tx.type === 'CONVERSION_IN'
+                      const isConversion = tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT'
                       const total = tx.price && tx.quantity ? tx.price * tx.quantity + (tx.fees || 0) : null
                       const isSplitAdjusted = Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001
+                      
+                      // Determine the type label and color
+                      const getTypeLabel = () => {
+                        switch (tx.type) {
+                          case 'BUY': return t('transaction.types.buy')
+                          case 'SELL': return t('transaction.types.sell')
+                          case 'CONVERSION_IN': return t('transaction.types.conversionIn')
+                          case 'CONVERSION_OUT': return t('transaction.types.conversionOut')
+                          default: return tx.type
+                        }
+                      }
+                      
+                      // Use green for BUY/CONVERSION_IN, red for SELL/CONVERSION_OUT (consistent with Transactions page)
+                      const getTypeColor = () => {
+                        return isBuy ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }
+                      
+                      // Use ArrowRightLeft for conversions, TrendingUp/Down for buy/sell
+                      const getTypeIcon = () => {
+                        if (isConversion) return <ArrowRightLeft size={16} />
+                        return isBuy ? <TrendingUp size={16} /> : <TrendingDown size={16} />
+                      }
                       
                       return (
                         <tr
@@ -293,13 +316,9 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                             {formatDate(tx.tx_date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className={`flex items-center gap-2 text-sm font-medium ${isBuy ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {isBuy ? (
-                                <TrendingUp size={16} />
-                              ) : (
-                                <TrendingDown size={16} />
-                              )}
-                              {isBuy ? t('transaction.types.buy') : t('transaction.types.sell')}
+                            <div className={`flex items-center gap-2 text-sm font-medium ${getTypeColor()}`}>
+                              {getTypeIcon()}
+                              {getTypeLabel()}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">

@@ -17,7 +17,7 @@ from app.errors import (
     TransactionNotFoundError
 )
 from app.db import get_db
-from app.schemas import Transaction, TransactionCreate, CsvImportResult
+from app.schemas import Transaction, TransactionCreate, CsvImportResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
 from app.models import TransactionType, User, Portfolio as PortfolioModel
 from app.services.import_csv import get_csv_import_service, CsvImportService
@@ -80,7 +80,7 @@ async def add_position_transaction(
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
-        if tx_type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+        if tx_type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             from app.crud.transactions import get_position_quantity_at_date
             position_before_sell = get_position_quantity_at_date(db, portfolio_id, asset.id, tx_date)
             if quantity > position_before_sell:
@@ -161,6 +161,188 @@ async def add_position_transaction(
     )
     
     return transaction
+
+
+@router.post("/{portfolio_id}/conversions", response_model=ConversionResponse, status_code=status.HTTP_201_CREATED)
+async def create_conversion(
+    portfolio_id: int,
+    conversion: ConversionCreate,
+    pricing_service: PricingServiceDep,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Create a crypto conversion/swap transaction (e.g., BTC → ETH)
+    
+    This creates two linked transactions:
+    - **CONVERSION_OUT**: Removes the source asset from your portfolio
+    - **CONVERSION_IN**: Adds the target asset to your portfolio
+    
+    Both transactions are linked via a unique conversion_id in their metadata,
+    allowing you to track and manage conversions as a single operation.
+    
+    Example: Swapping 0.5 BTC for 8 ETH
+    - from_asset_id: BTC asset ID
+    - from_quantity: 0.5
+    - from_price: 40000 (BTC price at conversion time)
+    - to_asset_id: ETH asset ID  
+    - to_quantity: 8
+    - to_price: 2500 (ETH price at conversion time)
+    """
+    import uuid
+    from decimal import Decimal
+    from fastapi import HTTPException
+    
+    # Validate that source and target assets are different
+    if conversion.from_asset_id == conversion.to_asset_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot convert an asset to itself. Source and target assets must be different."
+        )
+    
+    # Get asset symbols for better notes
+    from app.crud.assets import get_asset
+    from_asset = get_asset(db, conversion.from_asset_id)
+    to_asset = get_asset(db, conversion.to_asset_id)
+    from_symbol = from_asset.symbol if from_asset else f"Asset #{conversion.from_asset_id}"
+    to_symbol = to_asset.symbol if to_asset else f"Asset #{conversion.to_asset_id}"
+    
+    # Generate unique conversion ID to link both transactions
+    conversion_id = str(uuid.uuid4())
+    
+    # Calculate conversion rate (how many target units per source unit)
+    conversion_rate = float(conversion.to_quantity) / float(conversion.from_quantity) if float(conversion.from_quantity) > 0 else 0
+    conversion_rate_str = f"{conversion.from_quantity}:{conversion.to_quantity}"
+    
+    # Validate that user has enough of the source asset
+    from app.config import settings
+    if settings.VALIDATE_SELL_QUANTITY:
+        position_before_conversion = crud.get_position_quantity_at_date(
+            db, portfolio_id, conversion.from_asset_id, conversion.tx_date
+        )
+        if float(conversion.from_quantity) > position_before_conversion:
+            from app.crud.assets import get_asset
+            asset = get_asset(db, conversion.from_asset_id)
+            symbol = asset.symbol if asset else f"Asset ID {conversion.from_asset_id}"
+            raise CannotSellMoreThanOwnedError(
+                symbol=symbol,
+                owned=position_before_conversion,
+                attempted_sell=float(conversion.from_quantity),
+                tx_date=conversion.tx_date
+            )
+    
+    # Create CONVERSION_OUT transaction (source asset leaving)
+    from_tx_data = TransactionCreate(
+        asset_id=conversion.from_asset_id,
+        tx_date=conversion.tx_date,
+        type=TransactionType.CONVERSION_OUT,
+        quantity=conversion.from_quantity,
+        price=conversion.from_price,
+        fees=conversion.fees,  # Fees typically applied to the outgoing side
+        currency=conversion.currency,
+        meta_data={
+            "conversion_id": conversion_id,
+            "conversion_to_asset_id": conversion.to_asset_id,
+            "conversion_to_symbol": to_symbol,
+            "conversion_to_quantity": str(conversion.to_quantity),
+            "conversion_rate": conversion_rate,
+            "conversion_rate_str": conversion_rate_str,
+        },
+        notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
+    )
+    from_transaction = crud.create_transaction(db, portfolio_id, from_tx_data)
+    
+    # Create CONVERSION_IN transaction (target asset arriving)
+    to_tx_data = TransactionCreate(
+        asset_id=conversion.to_asset_id,
+        tx_date=conversion.tx_date,
+        type=TransactionType.CONVERSION_IN,
+        quantity=conversion.to_quantity,
+        price=conversion.to_price,
+        fees=Decimal(0),  # Fees already captured in CONVERSION_OUT
+        currency=conversion.currency,
+        meta_data={
+            "conversion_id": conversion_id,
+            "conversion_from_asset_id": conversion.from_asset_id,
+            "conversion_from_symbol": from_symbol,
+            "conversion_from_quantity": str(conversion.from_quantity),
+            "conversion_rate": conversion_rate,
+            "conversion_rate_str": conversion_rate_str,
+        },
+        notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
+    )
+    to_transaction = crud.create_transaction(db, portfolio_id, to_tx_data)
+    
+    # Update first_transaction_date for the target asset if needed
+    from datetime import datetime
+    
+    # Refresh to_asset from DB (we already fetched it earlier for the symbol)
+    to_asset = get_asset(db, conversion.to_asset_id)
+    if to_asset:
+        if to_asset.first_transaction_date is None or conversion.tx_date < to_asset.first_transaction_date:
+            to_asset.first_transaction_date = conversion.tx_date
+            db.commit()
+            db.refresh(to_asset)
+            logger.info(f"Updated first_transaction_date for {to_asset.symbol} to {conversion.tx_date}")
+        
+        # Backfill historical prices for the target asset
+        start_date = datetime.combine(to_asset.first_transaction_date, datetime.min.time())
+        end_date = datetime.utcnow()
+        
+        try:
+            count = pricing_service.ensure_historical_prices(to_asset, start_date, end_date)
+            logger.info(f"Auto-backfilled {count} historical prices for {to_asset.symbol}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-backfill prices for {to_asset.symbol}: {e}")
+    
+    # Invalidate caches
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Created conversion {conversion_id} in portfolio {portfolio_id}")
+    
+    # Trigger background recalculation
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
+    
+    # Create notifications for both transactions
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=from_transaction,
+        action="created"
+    )
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=to_transaction,
+        action="created"
+    )
+    
+    # Refresh to get asset details
+    db.refresh(from_transaction)
+    db.refresh(to_transaction)
+    
+    return ConversionResponse(
+        conversion_id=conversion_id,
+        conversion_rate=conversion_rate_str,
+        from_transaction=from_transaction,
+        to_transaction=to_transaction
+    )
 
 
 @router.get("/{portfolio_id}/transactions", response_model=List[Transaction])
@@ -387,7 +569,7 @@ async def create_transaction(
             asset_id=transaction.asset_id
         )
         has_position_txs = any(
-            tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT]
+            tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]
             for tx in existing_txs
         )
         if not has_position_txs:
@@ -399,7 +581,7 @@ async def create_transaction(
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
-        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             position_before_sell = crud.get_position_quantity_at_date(
                 db, portfolio_id, transaction.asset_id, transaction.tx_date
             )
@@ -418,7 +600,7 @@ async def create_transaction(
     created = crud.create_transaction(db, portfolio_id, transaction)
     
     # Auto-backfill historical prices from transaction date to today
-    if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+    if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
         from app.crud.assets import get_asset
         from datetime import datetime
         
@@ -502,7 +684,7 @@ async def update_transaction(
             asset_id=transaction.asset_id
         )
         has_position_txs = any(
-            tx.id != transaction_id and tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT]
+            tx.id != transaction_id and tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]
             for tx in existing_txs
         )
         if not has_position_txs:
@@ -514,7 +696,7 @@ async def update_transaction(
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
-        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             # Calculate position at the transaction date, excluding the transaction being updated
             position_before_sell = crud.get_position_quantity_at_date(
                 db, portfolio_id, transaction.asset_id, transaction.tx_date,
@@ -582,10 +764,25 @@ async def delete_transaction(
     current_user: User = Depends(get_current_user),
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
-    """Delete transaction"""
+    """Delete transaction. If it's a conversion, also deletes the linked transaction."""
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
         raise TransactionNotFoundError(transaction_id, portfolio_id)
+    
+    # Check if this is a conversion transaction and find the linked one
+    linked_transaction = None
+    if existing.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
+        meta_data = existing.meta_data or {}
+        conversion_id = meta_data.get("conversion_id")
+        if conversion_id:
+            # Find the linked transaction with the same conversion_id
+            all_transactions = crud.get_transactions(db, portfolio_id)
+            for tx in all_transactions:
+                if tx.id != existing.id and tx.meta_data:
+                    tx_meta_data = tx.meta_data if isinstance(tx.meta_data, dict) else {}
+                    if tx_meta_data.get("conversion_id") == conversion_id:
+                        linked_transaction = tx
+                        break
     
     # Create notification for transaction deletion (before deleting)
     notification_service.create_transaction_notification(
@@ -595,7 +792,19 @@ async def delete_transaction(
         action="deleted"
     )
     
+    # Delete the main transaction
     crud.delete_transaction(db, transaction_id)
+    
+    # Delete the linked conversion transaction if it exists
+    if linked_transaction:
+        logger.info(f"Deleting linked conversion transaction {linked_transaction.id}")
+        notification_service.create_transaction_notification(
+            db=db,
+            user_id=current_user.id,
+            transaction=linked_transaction,
+            action="deleted"
+        )
+        crud.delete_transaction(db, linked_transaction.id)
     
     # Invalidate all caches since portfolio data changed
     from app.services.analytics_cache import invalidate_portfolio_analytics

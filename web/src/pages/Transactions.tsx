@@ -5,10 +5,11 @@ import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3 } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
+import ConversionModal from '../components/ConversionModal'
 import SortIcon from '../components/SortIcon'
 import { useTranslation } from 'react-i18next'
 
@@ -95,6 +96,7 @@ export default function Transactions() {
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [showConversionModal, setShowConversionModal] = useState(false)
 
   // Load portfolios if not already loaded
   useEffect(() => {
@@ -105,7 +107,7 @@ export default function Transactions() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (modalMode || deleteConfirm || showImportProgress) {
+    if (modalMode || deleteConfirm || showImportProgress || showConversionModal) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -113,7 +115,7 @@ export default function Transactions() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [modalMode, deleteConfirm, showImportProgress])
+  }, [modalMode, deleteConfirm, showImportProgress, showConversionModal])
 
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolioId) return
@@ -569,6 +571,8 @@ export default function Transactions() {
       'SPLIT': t('transaction.types.split'),
       'TRANSFER_IN': t('transaction.types.transferIn'),
       'TRANSFER_OUT': t('transaction.types.transferOut'),
+      'CONVERSION_IN': t('transaction.types.conversionIn'),
+      'CONVERSION_OUT': t('transaction.types.conversionOut'),
     }
     return typeMap[type.toUpperCase()] || type
   }
@@ -585,8 +589,10 @@ export default function Transactions() {
   const getTransactionIcon = (type: string) => {
     switch (type.toUpperCase()) {
       case 'BUY':
+      case 'CONVERSION_IN':
         return <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
       case 'SELL':
+      case 'CONVERSION_OUT':
         return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
       case 'SPLIT':
         return <Shuffle size={16} className="text-purple-600 dark:text-purple-400" />
@@ -598,8 +604,10 @@ export default function Transactions() {
   const getTransactionColor = (type: string) => {
     switch (type.toUpperCase()) {
       case 'BUY':
+      case 'CONVERSION_IN':
         return 'text-green-600 dark:text-green-400'
       case 'SELL':
+      case 'CONVERSION_OUT':
         return 'text-red-600 dark:text-red-400'
       case 'SPLIT':
         return 'text-purple-600 dark:text-purple-400'
@@ -650,6 +658,13 @@ export default function Transactions() {
           >
             <Download size={16} />
             <span className="hidden sm:inline">{t('common.export')}</span>
+          </button>
+          <button 
+            onClick={() => setShowConversionModal(true)}
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+          >
+            <RefreshCw size={16} />
+            <span className="hidden sm:inline">{t('conversion.convert')}</span>
           </button>
           <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm px-3 py-2">
             <PlusCircle size={16} />
@@ -1384,6 +1399,18 @@ export default function Transactions() {
         onComplete={handleImportComplete}
         portfolioId={activePortfolioId || 0}
         file={importFile}
+      />
+
+      {/* Conversion Modal */}
+      <ConversionModal
+        isOpen={showConversionModal}
+        onClose={() => setShowConversionModal(false)}
+        onSuccess={() => {
+          fetchTransactions()
+          invalidatePortfolioData()
+        }}
+        portfolioId={activePortfolioId || 0}
+        portfolioCurrency={portfolioCurrency}
       />
     </div>
   )

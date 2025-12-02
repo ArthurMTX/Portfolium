@@ -349,6 +349,43 @@ class Transaction(TransactionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ConversionCreate(BaseModel):
+    """
+    Schema for creating a crypto conversion/swap transaction.
+    A conversion creates two linked transactions:
+    - CONVERSION_OUT: Selling the source asset
+    - CONVERSION_IN: Buying the target asset
+    """
+    tx_date: date
+    from_asset_id: int = Field(..., description="Asset being converted FROM (e.g., BTC)")
+    from_quantity: Decimal = Field(..., ge=0, decimal_places=12, description="Quantity of source asset to convert")
+    from_price: Decimal = Field(..., ge=0, decimal_places=12, description="Price per unit of source asset at conversion")
+    to_asset_id: int = Field(..., description="Asset being converted TO (e.g., ETH)")
+    to_quantity: Decimal = Field(..., ge=0, decimal_places=12, description="Quantity of target asset received")
+    to_price: Decimal = Field(..., ge=0, decimal_places=12, description="Price per unit of target asset at conversion")
+    fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=12, description="Total fees for the conversion")
+    currency: str = Field(default="USD", description="Currency for prices and fees")
+    notes: Optional[str] = Field(default=None, description="Optional notes about the conversion")
+    
+    @field_validator('to_asset_id')
+    @classmethod
+    def validate_different_assets(cls, v: int, info) -> int:
+        """Ensure source and target assets are different"""
+        if hasattr(info, 'data') and info.data.get('from_asset_id') == v:
+            raise ValueError('Cannot convert an asset to itself. Source and target assets must be different.')
+        return v
+
+
+class ConversionResponse(BaseModel):
+    """Response for a conversion transaction"""
+    conversion_id: str = Field(..., description="Unique ID linking the two transactions")
+    conversion_rate: str = Field(..., description="Conversion rate (from_quantity:to_quantity)")
+    from_transaction: "Transaction"
+    to_transaction: "Transaction"
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================================================
 # Price Schemas
 # ============================================================================

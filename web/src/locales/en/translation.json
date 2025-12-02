@@ -89,7 +89,28 @@
     "clear": "Clear",
     "selected": "Selected",
     "unknown": "Unknown",
-    "confirmDelete": "Confirm Delete"
+    "confirmDelete": "Confirm Delete",
+    "processing": "Processing..."
+  },
+  "conversion": {
+    "title": "Convert Crypto",
+    "description": "Swap one cryptocurrency for another (e.g., BTC → ETH)",
+    "fromAsset": "From Crypto",
+    "toAsset": "To Crypto",
+    "selectFromPortfolio": "Select from your crypto holdings",
+    "searchAsset": "Search for cryptocurrency...",
+    "noAssetsInPortfolio": "No crypto assets in portfolio",
+    "youSend": "You Send",
+    "youReceive": "You Receive",
+    "youOwn": "You own",
+    "rate": "Rate",
+    "convert": "Convert",
+    "selectBothAssets": "Please select both source and target assets",
+    "sameAssetError": "Cannot convert an asset to itself",
+    "enterQuantities": "Please enter quantities for both assets",
+    "fetchCurrentPrice": "Fetch current price",
+    "notesPlaceholder": "e.g., Swapped on Binance",
+    "autoCalculated": "auto"
   },
   "fields": {
     "symbol": "Symbol",
@@ -101,6 +122,7 @@
     "type": "Type",
     "quantity": "Quantity",
     "price": "Price",
+    "pricePerUnit": "Price per unit",
     "fees": "Fees",
     "total": "Total",
     "notes": "Notes",
@@ -157,7 +179,10 @@
       "fee": "Fee",
       "transferIn": "Transfer In",
       "transferOut": "Transfer Out",
-      "split": "Split"
+      "split": "Split",
+      "conversionIn": "Conversion In",
+      "conversionOut": "Conversion Out",
+      "conversion": "Conversion"
     }
   },
   "dashboard": {

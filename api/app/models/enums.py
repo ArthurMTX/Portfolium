@@ -21,6 +21,8 @@ class TransactionType(str, enum.Enum):
     SPLIT = "SPLIT"
     TRANSFER_IN = "TRANSFER_IN"
     TRANSFER_OUT = "TRANSFER_OUT"
+    CONVERSION_OUT = "CONVERSION_OUT"  # Selling asset in a swap (e.g., BTC in BTC→ETH)
+    CONVERSION_IN = "CONVERSION_IN"    # Buying asset in a swap (e.g., ETH in BTC→ETH)
 
 
 class NotificationType(str, enum.Enum):

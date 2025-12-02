@@ -31,7 +31,7 @@ export function translateNotification(notification: Notification, t: TFunction):
       }
 
       let message: string
-      if (transactionType === 'BUY' || transactionType === 'SELL') {
+      if (transactionType === 'BUY' || transactionType === 'SELL' || transactionType === 'CONVERSION_IN' || transactionType === 'CONVERSION_OUT') {
         message = t('notifications.templates.transactionBuySell', {
           type: transactionType,
           quantity: quantity.toFixed(4),

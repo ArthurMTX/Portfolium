@@ -89,7 +89,28 @@
     "clear": "Effacer",
     "selected": "Sélectionné",
     "unknown": "Inconnu",
-    "confirmDelete": "Confirmer la suppression"
+    "confirmDelete": "Confirmer la suppression",
+    "processing": "Traitement..."
+  },
+  "conversion": {
+    "title": "Convertir Crypto",
+    "description": "Échanger une cryptomonnaie contre une autre (ex: BTC → ETH)",
+    "fromAsset": "Crypto source",
+    "toAsset": "Crypto cible",
+    "selectFromPortfolio": "Sélectionner parmi vos cryptos",
+    "searchAsset": "Rechercher une cryptomonnaie...",
+    "noAssetsInPortfolio": "Aucune crypto dans le portefeuille",
+    "youSend": "Vous envoyez",
+    "youReceive": "Vous recevez",
+    "youOwn": "Vous possédez",
+    "rate": "Taux",
+    "convert": "Convertir",
+    "selectBothAssets": "Veuillez sélectionner les deux actifs",
+    "sameAssetError": "Impossible de convertir un actif vers lui-même",
+    "enterQuantities": "Veuillez entrer les quantités pour les deux actifs",
+    "fetchCurrentPrice": "Récupérer le prix actuel",
+    "notesPlaceholder": "ex: Échangé sur Binance",
+    "autoCalculated": "auto"
   },
   "fields": {
     "symbol": "Symbole",
@@ -101,6 +122,7 @@
     "type": "Type",
     "quantity": "Quantité",
     "price": "Prix",
+    "pricePerUnit": "Prix unitaire",
     "fees": "Frais",
     "total": "Total",
     "notes": "Notes",
@@ -157,7 +179,10 @@
       "fee": "Frais",
       "transferIn": "Transfert entrant",
       "transferOut": "Transfert sortant",
-      "split": "Fractionnement"
+      "split": "Fractionnement",
+      "conversionIn": "Conversion entrante",
+      "conversionOut": "Conversion sortante",
+      "conversion": "Conversion"
     }
   },
   "dashboard":{

@@ -626,11 +626,26 @@ class ApiClient {
     return this.request<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
   }
 
+  async searchAssets(query: string, cryptoOnly: boolean = false) {
+    const params = new URLSearchParams({ query })
+    if (cryptoOnly) params.append('crypto_only', 'true')
+    return this.request<Array<{ symbol: string; name: string; type?: string }>>(`/assets/search?${params.toString()}`)
+  }
+
+  async getAssetBySymbol(symbol: string) {
+    return this.request<{ id: number; symbol: string; name: string; currency: string }>(`/assets/by-symbol/${encodeURIComponent(symbol)}`)
+  }
+
+  async getPriceQuote(symbol: string) {
+    return this.request<{ symbol: string; price: number; currency: string }>(`/prices/quote/${encodeURIComponent(symbol)}`)
+  }
+
   async createAsset(asset: {
     symbol: string
     name?: string
     currency?: string
     class?: string
+    asset_type?: string
   }) {
     return this.request<any>('/assets', {
       method: 'POST',
@@ -934,6 +949,29 @@ class ApiClient {
   async deleteTransaction(portfolioId: number, transactionId: number) {
     return this.request<void>(`/portfolios/${portfolioId}/transactions/${transactionId}`, {
       method: 'DELETE',
+    })
+  }
+
+  async createConversion(portfolioId: number, conversion: {
+    tx_date: string
+    from_asset_id: number
+    from_quantity: number
+    from_price: number
+    to_asset_id: number
+    to_quantity: number
+    to_price: number
+    fees?: number
+    currency?: string
+    notes?: string | null
+  }) {
+    return this.request<{
+      conversion_id: string
+      conversion_rate: string
+      from_transaction: any
+      to_transaction: any
+    }>(`/portfolios/${portfolioId}/conversions`, {
+      method: 'POST',
+      body: JSON.stringify(conversion),
     })
   }
 

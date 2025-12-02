@@ -67,14 +67,67 @@ async def search_ticker(query: str):
         if response.status_code != 200:
             raise SearchTickerError(status=response.status_code)
         data = response.json()
-        # Return top 10 results with symbol and name
+        # Return top 10 results with symbol, name, and type
         results = [
-            {"symbol": item["symbol"], "name": item.get("shortname", item.get("longname", ""))}
+            {
+                "symbol": item["symbol"], 
+                "name": item.get("shortname", item.get("longname", "")),
+                "type": item.get("quoteType", "")
+            }
             for item in data.get("quotes", [])[:10]
         ]
         return results
     except requests.RequestException as e:
         raise FailedToConnectToYahooError(reason=str(e))
+
+
+@router.get("/search")
+async def search_assets(query: str, crypto_only: bool = False):
+    """
+    Live search for assets using Yahoo Finance API
+    - **query**: Partial ticker or company name
+    - **crypto_only**: If True, only return cryptocurrency results
+    Returns simplified results for conversion/swap UI
+    """
+    import requests
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code != 200:
+            raise SearchTickerError(status=response.status_code)
+        data = response.json()
+        
+        quotes = data.get("quotes", [])
+        
+        # Filter for crypto only if requested
+        if crypto_only:
+            quotes = [q for q in quotes if q.get("quoteType", "").upper() == "CRYPTOCURRENCY"]
+        
+        # Return top 10 results with symbol, name, and type
+        results = [
+            {
+                "symbol": item["symbol"], 
+                "name": item.get("shortname", item.get("longname", "")),
+                "type": item.get("quoteType", "")
+            }
+            for item in quotes[:10]
+        ]
+        return results
+    except requests.RequestException as e:
+        raise FailedToConnectToYahooError(reason=str(e))
+
+
+@router.get("/by-symbol/{symbol}", response_model=Asset)
+def get_asset_by_symbol(symbol: str, db: Session = Depends(get_db)):
+    """Get asset by symbol"""
+    asset = crud.get_asset_by_symbol(db, symbol.upper())
+    if not asset:
+        raise AssetNotFoundError(symbol)
+    return asset
+
 
 @router.get("", response_model=List[Asset])
 def get_assets(
@@ -277,9 +330,9 @@ async def get_held_assets(
         for tx in transactions_for_calculation:
             portfolio_ids.add(tx.portfolio_id)
             
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                 total_quantity += tx.quantity
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 total_quantity -= tx.quantity
             elif tx.type == TransactionType.SPLIT:
                 # Apply split ratio to current quantity
@@ -290,9 +343,9 @@ async def get_held_assets(
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
-                # Count splits and buy/sell transactions (portfolio-specific if portfolio_id provided)
+                # Count splits and buy/sell/conversion transactions (portfolio-specific if portfolio_id provided)
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
-                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
+                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
                 
                 # Get first transaction date (earliest BUY transaction)
                 buy_transactions = [tx for tx in portfolio_transactions if tx.type == TransactionType.BUY]
@@ -393,9 +446,9 @@ async def get_sold_assets(
         for tx in transactions_for_calculation:
             portfolio_ids.add(tx.portfolio_id)
             
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                 total_quantity += tx.quantity
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 total_quantity -= tx.quantity
             elif tx.type == TransactionType.SPLIT:
                 # Apply split ratio to current quantity
@@ -408,7 +461,7 @@ async def get_sold_assets(
             if asset:
                 # Count splits and buy/sell transactions (portfolio-specific if portfolio_id provided)
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
-                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
+                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
                 
                 # Get first transaction date (earliest BUY transaction)
                 buy_transactions = [tx for tx in portfolio_transactions if tx.type == TransactionType.BUY]
@@ -629,16 +682,16 @@ def get_asset_transaction_history(
     if portfolio_id is not None:
         query = query.filter(Transaction.portfolio_id == portfolio_id)
     
-    # Get all transactions (BUY, SELL, and SPLIT) ordered chronologically
+    # Get all transactions (BUY, SELL, CONVERSION, and SPLIT) ordered chronologically
     all_transactions = query.order_by(Transaction.tx_date.asc()).all()
     
-    # Build query for BUY and SELL transactions with portfolio names
+    # Build query for BUY, SELL, and CONVERSION transactions with portfolio names
     tx_query = (
         db.query(Transaction, Portfolio.name)
         .join(Portfolio, Transaction.portfolio_id == Portfolio.id)
         .filter(
             Transaction.asset_id == asset_id,
-            Transaction.type.in_([TransactionType.BUY, TransactionType.SELL])
+            Transaction.type.in_([TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
         )
     )
     

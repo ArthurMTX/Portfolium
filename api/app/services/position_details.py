@@ -95,12 +95,12 @@ class PositionDetailsService:
         total_shares_for_cost = Decimal(0)
         
         for tx in transactions:
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                 quantity += tx.quantity
                 cost = (tx.quantity * tx.price) + tx.fees
                 total_cost += cost
                 total_shares_for_cost += tx.quantity
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 quantity -= tx.quantity
                 if total_shares_for_cost > 0:
                     avg_cost_temp = total_cost / total_shares_for_cost

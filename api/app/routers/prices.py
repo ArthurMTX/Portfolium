@@ -114,6 +114,47 @@ async def get_market_indices(
     return prices
 
 
+@router.get("/quote/{symbol}", response_model=PriceQuote)
+async def get_price_quote(
+    symbol: str,
+    pricing_service = Depends(get_pricing_service)
+):
+    """
+    Get current price for a single symbol
+    
+    - Fetches from Yahoo Finance
+    - Returns price quote with current price, currency, and daily change
+    
+    Example: `/prices/quote/BTC-USD`
+    """
+    symbol = symbol.strip().upper()
+    prices = await pricing_service.get_multiple_prices([symbol])
+    
+    if symbol not in prices or prices[symbol] is None:
+        # Try to fetch directly from yfinance
+        try:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period="2d")
+            if not hist.empty:
+                current_price = float(hist["Close"].iloc[-1])
+                prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else current_price
+                daily_change = ((current_price - prev_close) / prev_close * 100) if prev_close else 0
+                
+                return PriceQuote(
+                    symbol=symbol,
+                    price=Decimal(str(current_price)),
+                    currency="USD",
+                    daily_change_pct=Decimal(str(round(daily_change, 2))),
+                    asof=datetime.utcnow()
+                )
+        except Exception:
+            pass
+        
+        raise InvalidPriceRequestError(f"Could not fetch price for symbol: {symbol}")
+    
+    return prices[symbol]
+
+
 @router.post("/refresh")
 async def refresh_prices(
     portfolio_id: int = Query(..., description="Portfolio ID to refresh prices for"),

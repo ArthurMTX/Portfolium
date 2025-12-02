@@ -320,8 +320,8 @@ class MetricsService:
         position_currency = None
         
         for tx in transactions:
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
-                # Set position currency from first BUY transaction
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                # Set position currency from first BUY/CONVERSION_IN transaction
                 if position_currency is None:
                     position_currency = tx.currency
                 quantity += tx.quantity
@@ -332,7 +332,7 @@ class MetricsService:
                 total_buy_cost += cost
                 total_buy_shares += tx.quantity
                 
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 quantity -= tx.quantity
                 # Calculate realized P&L and reduce cost basis proportionally (FIFO simplification)
                 if total_shares_for_cost > 0:
@@ -795,13 +795,14 @@ class MetricsService:
             while tx_idx < len(transactions) and transactions[tx_idx].tx_date <= current_date:
                 tx = transactions[tx_idx]
                 
-                if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                     holdings[tx.asset_id] += tx.quantity
                     # Add to cost basis for this asset
                     cost_basis[tx.asset_id] += (tx.quantity * tx.price) + tx.fees
-                    # Add cost to invested amount (quantity * price + fees)
-                    total_invested += (tx.quantity * tx.price) + tx.fees
-                elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                    # Add cost to invested amount (quantity * price + fees) - but not for conversions (they're swaps)
+                    if tx.type != TransactionType.CONVERSION_IN:
+                        total_invested += (tx.quantity * tx.price) + tx.fees
+                elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                     # Calculate the proportion of position being sold
                     if holdings[tx.asset_id] > 0:
                         # Prevent overselling - cap at 100% of holdings
@@ -818,8 +819,9 @@ class MetricsService:
                         cost_removed = cost_basis[tx.asset_id] * sell_proportion
                         # Reduce cost basis proportionally
                         cost_basis[tx.asset_id] -= cost_removed
-                        # Subtract the cost basis (not proceeds) from invested amount
-                        total_invested -= cost_removed
+                        # Subtract the cost basis (not proceeds) from invested amount - but not for conversions
+                        if tx.type != TransactionType.CONVERSION_OUT:
+                            total_invested -= cost_removed
                         holdings[tx.asset_id] -= actual_quantity_sold
                     else:
                         # Trying to sell with no holdings - skip this transaction
