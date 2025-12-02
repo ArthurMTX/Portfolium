@@ -600,7 +600,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
                     }`}
                   >
                     <Icon size={20} className={isSelected ? `text-${cat.color}-600 dark:text-${cat.color}-400` : 'text-neutral-400'} />
-                    <span className="text-xs font-medium">{cat.label}</span>
+                    <span className="text-xs font-medium">{t(`dashboard.widgets.goalTracker.categories.${cat.id}`)}</span>
                   </button>
                 )
               })}
@@ -882,7 +882,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
             <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-xs font-medium text-amber-900 dark:text-amber-100 mb-1">
-                Target date is in the past
+                {t('dashboard.widgets.goalTracker.targetDateInPast')}
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 {goalProjections.warning}
@@ -896,7 +896,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
       {!goalMetrics?.isGoalReached && isLoadingProjections && (
         <div className="mt-4 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg flex items-center justify-center gap-2">
           <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={16} />
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">Calculating projections...</span>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('dashboard.widgets.goalTracker.calculatingProjections')}</span>
         </div>
       )}
 
@@ -907,10 +907,10 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
             <AlertTriangle size={16} className="text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-xs font-medium text-red-900 dark:text-red-100 mb-1">
-                Very Unlikely Goal
+                {t('dashboard.widgets.goalTracker.veryUnlikelyGoalTitle')}
               </p>
               <p className="text-xs text-red-700 dark:text-red-300">
-                This goal is very unlikely with the current monthly contribution. Consider increasing your monthly contributions or adjusting your target amount.
+                {t('dashboard.widgets.goalTracker.veryUnlikelyGoalMessage')}
               </p>
             </div>
           </div>
@@ -923,7 +923,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-purple-600 dark:text-purple-400" />
-              <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Achievement Probability</span>
+              <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">{t('dashboard.widgets.goalTracker.achievementProbability')}</span>
             </div>
             <span className="text-lg font-bold text-purple-900 dark:text-purple-100">
               {(goalMetrics.overallProbability * 100).toFixed(0)}%
@@ -952,10 +952,10 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
             )}
             <p className="text-xs text-neutral-600 dark:text-neutral-400">
               {goalMetrics.overallProbability >= 0.7
-                ? 'High confidence based on Monte Carlo simulation'
+                ? t('dashboard.widgets.goalTracker.highConfidence')
                 : goalMetrics.overallProbability >= 0.4
-                ? 'Moderate confidence - consider increasing contributions'
-                : 'Low confidence - significant adjustments needed'}
+                ? t('dashboard.widgets.goalTracker.moderateConfidence')
+                : t('dashboard.widgets.goalTracker.lowConfidence')}
             </p>
           </div>
         </div>
@@ -966,7 +966,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
         <div className="mt-4 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={14} className="text-blue-600 dark:text-blue-400" />
-            <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">Projection Scenarios</span>
+            <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">{t('dashboard.widgets.goalTracker.projectionsScenarios')}</span>
           </div>
           
           <div className="space-y-2">
@@ -976,10 +976,10 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full bg-${scenario.color}-500`} />
                     <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                      {scenario.label}
+                      {t(`dashboard.widgets.goalTracker.scenarios.${scenario.label.toLowerCase()}`)}
                     </span>
                     <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                      ({(scenario.return_rate * 100).toFixed(1)}% annual)
+                      ({t('dashboard.widgets.goalTracker.percentAnnualReturn', { percent: (scenario.return_rate * 100).toFixed(1) })})
                     </span>
                   </div>
                   <span className={`text-xs font-semibold ${
@@ -1006,7 +1006,10 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           
           <div className="mt-3 pt-2 border-t border-neutral-200 dark:border-neutral-700">
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Based on historical return of {(goalMetrics.historicalReturn * 100).toFixed(1)}% ± {(goalMetrics.volatility * 100).toFixed(1)}% volatility
+              {t('dashboard.widgets.goalTracker.basedOnVolatility', {
+                return: (goalMetrics.historicalReturn * 100).toFixed(1),
+                volatility: (goalMetrics.volatility * 100).toFixed(1),
+              })}
             </p>
           </div>
         </div>
@@ -1018,8 +1021,8 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           {goalMetrics?.isGoalReached
             ? t('dashboard.widgets.goalTracker.congratulations')
             : currentGoal?.monthlyContribution
-            ? 'Projections use historical performance and Monte Carlo simulation'
-            : 'Add monthly contributions to see detailed projections'}
+            ? t('dashboard.widgets.goalTracker.goalInfo')
+            : t('dashboard.widgets.goalTracker.addContribution')}
         </p>
       </div>
     </div>

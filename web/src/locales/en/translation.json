@@ -369,6 +369,19 @@
         "goalTitle": "Goal Title",
         "goalTitlePlaceholder": "e.g., Retirement Fund",
         "category": "Category",
+        "categories": {
+          "retirement": "Retirement",
+          "house": "House",
+          "education": "Education",
+          "vacation": "Vacation",
+          "emergency": "Emergency Fund",
+          "other": "Other"
+        },
+        "scenarios": {
+          "pessimistic": "Pessimistic",
+          "median": "Median",
+          "optimistic": "Optimistic"
+        },
         "targetAmount": "Target Amount",
         "amountPlaceholder": "Enter target amount",
         "targetDate": "Target Date",
@@ -389,7 +402,20 @@
         "estimates8PercentReturn": "Based on an estimated 8% annual return.",
         "withContributions": "Projections include monthly contributions with 8% annual return.",
         "tip": "Tip",
-        "contributionImpact": "Increase monthly contribution by {{amount}} to reach your goal {{months}} months earlier"
+        "contributionImpact": "Increase monthly contribution by {{amount}} to reach your goal {{months}} months earlier",
+        "targetDateInPast": "Target date is in the past. You may consider adjusting it.",
+        "calculatingProjections": "Calculating goal projections...",
+        "veryUnlikelyGoalTitle": "Very Unlikely Goal",
+        "veryUnlikelyGoalMessage": "Based on your current portfolio and contribution plan, reaching this goal by the target date is very unlikely. Consider increasing your contributions or adjusting your target date.",
+        "achievementProbability": "Achievement Probability",
+        "highConfidence": "High confidence based on Monte Carlo simulations.",
+        "moderateConfidence": "Moderate confidence, consider reviewing your plan.",
+        "lowConfidence": "Low confidence, significant adjustments may be needed.",
+        "projectionsScenarios": "Projections Scenarios",
+        "percentAnnualReturn": "{{percent}}% annual",
+        "basedOnVolatility": "Based on historical return of {{return}}% ± {{volatility}}% volatility",
+        "goalInfo": "Projections use historical performance and Monte Carlo simulation",
+        "addContribution": "Add monthly contributions to see detailed projections"
       },
       "sharpeRatio": {
         "name": "Sharpe Ratio",
@@ -705,7 +731,8 @@
     "currencyField": "Portfolio Currency",
     "descriptionField": "Portfolio Description",
     "descriptionPlaceholder": "Optional description about this portfolio",
-    "deleteConfirm": "Are you sure you want to delete this portfolio? All transactions and data will be permanently removed. This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete this portfolio? All transactions and data will be permanently removed. This action cannot be undone.",
+    "publicView": "Public View"
   },
   "auth": {
     "emailNotVerified": "Your email address has not been verified."
@@ -928,7 +955,7 @@
       "noTransactionData": "No transaction data available.",
       "startAddingTransactions": "Start adding transactions to see metrics here."
     }
-  }, 
+  },
   "assets": {
     "title": "Assets",
     "description": "Manage and analyze your held assets",
@@ -1147,12 +1174,12 @@
     "autoRefreshSettingsDescription": "Configure automatic price updates for your portfolio",
     "enableAutoRefresh": "Enable automatic price refresh",
     "refreshInterval": "Refresh Interval",
-    "refreshInterval15s" : "Every 15 seconds (testing)",
-    "refreshInterval30s" : "Every 30 seconds",
-    "refreshInterval1m" : "Every 1 minute",
-    "refreshInterval2m" : "Every 2 minutes",
-    "refreshInterval5m" : "Every 5 minutes",
-    "refreshInterval10m" : "Every 10 minutes",
+    "refreshInterval15s": "Every 15 seconds (testing)",
+    "refreshInterval30s": "Every 30 seconds",
+    "refreshInterval1m": "Every 1 minute",
+    "refreshInterval2m": "Every 2 minutes",
+    "refreshInterval5m": "Every 5 minutes",
+    "refreshInterval10m": "Every 10 minutes",
     "refreshIntervalWarning": "Shorter intervals may increase API usage",
     "note": "Note",
     "refreshIntervalNote": "Auto-refresh can be toggled on/off from the Dashboard using the lightning bolt button. Prices will also refresh automatically when you switch back to the tab.",

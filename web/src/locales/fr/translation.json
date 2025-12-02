@@ -369,6 +369,19 @@
         "goalTitle": "Titre de l'objectif",
         "goalTitlePlaceholder": "ex: Fonds de retraite",
         "category": "Catégorie",
+        "categories": {
+          "retirement": "Retraite",
+          "house": "Maison",
+          "education": "Éducation",
+          "vacation": "Vacances",
+          "emergency": "Fonds d'urgence",
+          "other": "Autre"
+        },
+        "scenarios": {
+          "pessimistic": "Pessimiste",
+          "median": "Médian",
+          "optimistic": "Optimiste"
+        },
         "targetAmount": "Montant cible",
         "amountPlaceholder": "Entrez le montant cible",
         "targetDate": "Date cible",
@@ -389,7 +402,20 @@
         "estimates8PercentReturn": "Basé sur un rendement annuel estimé de 8 %.",
         "withContributions": "Les projections incluent les contributions mensuelles avec un rendement annuel de 8 %.",
         "tip": "Astuce",
-        "contributionImpact": "Augmentez votre contribution mensuelle de {{amount}} pour atteindre votre objectif {{months}} mois plus tôt"
+        "contributionImpact": "Augmentez votre contribution mensuelle de {{amount}} pour atteindre votre objectif {{months}} mois plus tôt",
+        "targetDateInPast": "La date cible est dans le passé. Vous pouvez envisager de l'ajuster.",
+        "calculatingProjections": "Calcul des projections d'objectifs...",
+        "veryUnlikelyGoalTitle": "Objectif très improbable",
+        "veryUnlikelyGoalMessage": "En fonction de votre portefeuille actuel et de votre plan de contribution, atteindre cet objectif à la date cible est très improbable. Envisagez d'augmenter vos contributions ou d'ajuster votre date cible.",
+        "achievementProbability": "Probabilité de réalisation",
+        "highConfidence": "Haute confiance basée sur des simulations de Monte Carlo.",
+        "moderateConfidence": "Confiance modérée, envisagez de revoir votre plan.",
+        "lowConfidence": "Faible confiance, des ajustements significatifs peuvent être nécessaires.",
+        "projectionsScenarios": "Scénarios de projections",
+        "percentAnnualReturn": "{{percent}}% annuel",
+        "basedOnVolatility": "Basé sur un rendement historique de {{return}}% ± {{volatility}}% de volatilité",
+        "goalInfo": "Les projections utilisent la performance historique et la simulation de Monte Carlo",
+        "addContribution": "Ajoutez des contributions mensuelles pour voir des projections détaillées"
       },
       "sharpeRatio": {
         "name": "Ratio de Sharpe",
