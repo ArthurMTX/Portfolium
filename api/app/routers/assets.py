@@ -264,6 +264,10 @@ def set_metadata_overrides(
             country_override=overrides.country_override
         )
         
+        # Invalidate cache for held and sold assets since effective metadata changed
+        cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+        cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+        
         # Get the asset with effective metadata
         asset = crud.get_asset(db, asset_id)
         if not asset:
