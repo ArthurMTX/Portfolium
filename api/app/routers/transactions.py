@@ -19,7 +19,7 @@ from app.errors import (
 from app.db import get_db
 from app.schemas import Transaction, TransactionCreate, CsvImportResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
-from app.models import TransactionType, User, Portfolio as PortfolioModel
+from app.models import TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
 from app.services.import_csv import get_csv_import_service, CsvImportService
 from app.services.notifications import notification_service
 from app.auth import get_current_user, verify_portfolio_access
@@ -232,47 +232,101 @@ async def create_conversion(
                 tx_date=conversion.tx_date
             )
     
-    # Create CONVERSION_OUT transaction (source asset leaving)
-    from_tx_data = TransactionCreate(
-        asset_id=conversion.from_asset_id,
-        tx_date=conversion.tx_date,
-        type=TransactionType.CONVERSION_OUT,
-        quantity=conversion.from_quantity,
-        price=conversion.from_price,
-        fees=conversion.fees,  # Fees typically applied to the outgoing side
-        currency=conversion.currency,
-        meta_data={
-            "conversion_id": conversion_id,
-            "conversion_to_asset_id": conversion.to_asset_id,
-            "conversion_to_symbol": to_symbol,
-            "conversion_to_quantity": str(conversion.to_quantity),
-            "conversion_rate": conversion_rate,
-            "conversion_rate_str": conversion_rate_str,
-        },
-        notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
-    )
-    from_transaction = crud.create_transaction(db, portfolio_id, from_tx_data)
-    
-    # Create CONVERSION_IN transaction (target asset arriving)
-    to_tx_data = TransactionCreate(
-        asset_id=conversion.to_asset_id,
-        tx_date=conversion.tx_date,
-        type=TransactionType.CONVERSION_IN,
-        quantity=conversion.to_quantity,
-        price=conversion.to_price,
-        fees=Decimal(0),  # Fees already captured in CONVERSION_OUT
-        currency=conversion.currency,
-        meta_data={
-            "conversion_id": conversion_id,
-            "conversion_from_asset_id": conversion.from_asset_id,
-            "conversion_from_symbol": from_symbol,
-            "conversion_from_quantity": str(conversion.from_quantity),
-            "conversion_rate": conversion_rate,
-            "conversion_rate_str": conversion_rate_str,
-        },
-        notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
-    )
-    to_transaction = crud.create_transaction(db, portfolio_id, to_tx_data)
+    # Create both transactions atomically using a savepoint
+    # If either fails, both will be rolled back
+    try:
+        # Start a savepoint for atomic operation
+        savepoint = db.begin_nested()
+        
+        # Create CONVERSION_OUT transaction (source asset leaving)
+        from_tx_data = TransactionCreate(
+            asset_id=conversion.from_asset_id,
+            tx_date=conversion.tx_date,
+            type=TransactionType.CONVERSION_OUT,
+            quantity=conversion.from_quantity,
+            price=conversion.from_price,
+            fees=conversion.fees,  # Fees typically applied to the outgoing side
+            currency=conversion.currency,
+            meta_data={
+                "conversion_id": conversion_id,
+                "conversion_to_asset_id": conversion.to_asset_id,
+                "conversion_to_symbol": to_symbol,
+                "conversion_to_quantity": str(conversion.to_quantity),
+                "conversion_rate": conversion_rate,
+                "conversion_rate_str": conversion_rate_str,
+            },
+            notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
+        )
+        
+        # Create the transaction without committing
+        from_db_transaction = TransactionModel(
+            portfolio_id=portfolio_id,
+            asset_id=from_tx_data.asset_id,
+            tx_date=from_tx_data.tx_date,
+            type=from_tx_data.type,
+            quantity=from_tx_data.quantity,
+            price=from_tx_data.price,
+            fees=from_tx_data.fees,
+            currency=from_tx_data.currency,
+            meta_data=from_tx_data.meta_data,
+            notes=from_tx_data.notes
+        )
+        db.add(from_db_transaction)
+        db.flush()  # Flush to get the ID without committing
+        
+        # Create CONVERSION_IN transaction (target asset arriving)
+        to_tx_data = TransactionCreate(
+            asset_id=conversion.to_asset_id,
+            tx_date=conversion.tx_date,
+            type=TransactionType.CONVERSION_IN,
+            quantity=conversion.to_quantity,
+            price=conversion.to_price,
+            fees=Decimal(0),  # Fees already captured in CONVERSION_OUT
+            currency=conversion.currency,
+            meta_data={
+                "conversion_id": conversion_id,
+                "conversion_from_asset_id": conversion.from_asset_id,
+                "conversion_from_symbol": from_symbol,
+                "conversion_from_quantity": str(conversion.from_quantity),
+                "conversion_rate": conversion_rate,
+                "conversion_rate_str": conversion_rate_str,
+            },
+            notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
+        )
+        
+        # Create the transaction without committing
+        to_db_transaction = TransactionModel(
+            portfolio_id=portfolio_id,
+            asset_id=to_tx_data.asset_id,
+            tx_date=to_tx_data.tx_date,
+            type=to_tx_data.type,
+            quantity=to_tx_data.quantity,
+            price=to_tx_data.price,
+            fees=to_tx_data.fees,
+            currency=to_tx_data.currency,
+            meta_data=to_tx_data.meta_data,
+            notes=to_tx_data.notes
+        )
+        db.add(to_db_transaction)
+        db.flush()  # Flush to get the ID without committing
+        
+        # Both transactions created successfully, commit the savepoint
+        savepoint.commit()
+        db.commit()
+        db.refresh(from_db_transaction)
+        db.refresh(to_db_transaction)
+        
+        from_transaction = from_db_transaction
+        to_transaction = to_db_transaction
+        
+    except Exception as e:
+        # If anything fails, rollback both transactions
+        db.rollback()
+        logger.error(f"Failed to create conversion transactions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create conversion: {str(e)}"
+        )
     
     # Update first_transaction_date for the target asset if needed
     from datetime import datetime

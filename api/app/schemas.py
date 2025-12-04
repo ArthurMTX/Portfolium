@@ -284,9 +284,9 @@ class TransactionBase(BaseModel):
     asset_id: int
     tx_date: date
     type: TransactionType
-    quantity: Decimal = Field(ge=0, decimal_places=12)
-    price: Decimal = Field(ge=0, decimal_places=12)
-    fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=12)
+    quantity: Decimal = Field(ge=0)
+    price: Decimal = Field(ge=0)
+    fees: Decimal = Field(default=Decimal(0), ge=0)
     currency: str = "USD"
     notes: Optional[str] = None
 
@@ -358,12 +358,12 @@ class ConversionCreate(BaseModel):
     """
     tx_date: date
     from_asset_id: int = Field(..., description="Asset being converted FROM (e.g., BTC)")
-    from_quantity: Decimal = Field(..., ge=0, decimal_places=12, description="Quantity of source asset to convert")
-    from_price: Decimal = Field(..., ge=0, decimal_places=12, description="Price per unit of source asset at conversion")
+    from_quantity: Decimal = Field(..., gt=0, description="Quantity of source asset to convert (must be positive)")
+    from_price: Decimal = Field(..., ge=0, description="Price per unit of source asset at conversion")
     to_asset_id: int = Field(..., description="Asset being converted TO (e.g., ETH)")
-    to_quantity: Decimal = Field(..., ge=0, decimal_places=12, description="Quantity of target asset received")
-    to_price: Decimal = Field(..., ge=0, decimal_places=12, description="Price per unit of target asset at conversion")
-    fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=12, description="Total fees for the conversion")
+    to_quantity: Decimal = Field(..., gt=0, description="Quantity of target asset received (must be positive)")
+    to_price: Decimal = Field(..., ge=0, description="Price per unit of target asset at conversion")
+    fees: Decimal = Field(default=Decimal(0), ge=0, description="Total fees for the conversion")
     currency: str = Field(default="USD", description="Currency for prices and fees")
     notes: Optional[str] = Field(default=None, description="Optional notes about the conversion")
     

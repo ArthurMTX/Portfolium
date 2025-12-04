@@ -60,8 +60,13 @@ export default function ConversionModal({
   const [fetchingFromPrice, setFetchingFromPrice] = useState(false)
   const [fetchingToPrice, setFetchingToPrice] = useState(false)
 
-  // Auto-compute toQuantity when fromQuantity or prices change
+  // Auto-compute toQuantity when fromQuantity or prices change (only if toQuantity is empty or user hasn't manually edited it)
+  const [toQuantityManuallySet, setToQuantityManuallySet] = useState(false)
+  
   useEffect(() => {
+    // Only auto-calculate if user hasn't manually set the toQuantity
+    if (toQuantityManuallySet) return
+    
     const from = parseFloat(fromQuantity)
     const fPrice = parseFloat(fromPrice)
     const tPrice = parseFloat(toPrice)
@@ -72,7 +77,7 @@ export default function ConversionModal({
       const computed = totalValue / tPrice
       setToQuantity(computed.toFixed(8).replace(/\.?0+$/, ''))
     }
-  }, [fromQuantity, fromPrice, toPrice])
+  }, [fromQuantity, fromPrice, toPrice, toQuantityManuallySet])
 
   // Calculate conversion rate based on prices
   const getConversionRate = () => {
@@ -108,6 +113,7 @@ export default function ConversionModal({
       setFromSearchResults([])
       setToSearchResults([])
       setError('')
+      setToQuantityManuallySet(false)
     }
   }, [isOpen])
 
@@ -255,16 +261,29 @@ export default function ConversionModal({
       return
     }
     
+    const fromQty = parseFloat(fromQuantity)
+    const toQty = parseFloat(toQuantity)
+    
+    if (isNaN(fromQty) || fromQty <= 0) {
+      setError(t('conversion.invalidFromQuantity', 'Sending quantity must be greater than 0'))
+      return
+    }
+    
+    if (isNaN(toQty) || toQty <= 0) {
+      setError(t('conversion.invalidToQuantity', 'Receiving quantity must be greater than 0'))
+      return
+    }
+    
     setLoading(true)
     
     try {
       await api.createConversion(portfolioId, {
         tx_date: txDate,
         from_asset_id: fromAsset.id,
-        from_quantity: parseFloat(fromQuantity),
+        from_quantity: fromQty,
         from_price: parseFloat(fromPrice) || 0,
         to_asset_id: toAsset.id,
-        to_quantity: parseFloat(toQuantity),
+        to_quantity: toQty,
         to_price: parseFloat(toPrice) || 0,
         fees: parseFloat(fees) || 0,
         currency: portfolioCurrency,
@@ -532,15 +551,19 @@ export default function ConversionModal({
               <h4 className="font-medium text-green-700 dark:text-green-400">{t('conversion.youReceive')}</h4>
               <div>
                 <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
-                  {t('fields.quantity')} <span className="text-neutral-400">({t('conversion.autoCalculated')})</span>
+                  {t('fields.quantity')} {!toQuantityManuallySet && <span className="text-neutral-400">({t('conversion.autoCalculated')})</span>}
                 </label>
                 <input
                   type="number"
                   step="any"
                   value={toQuantity}
-                  readOnly
+                  onChange={(e) => {
+                    setToQuantity(e.target.value)
+                    setToQuantityManuallySet(true)
+                  }}
                   placeholder="0.00"
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-white cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  required
                 />
               </div>
               <div>
