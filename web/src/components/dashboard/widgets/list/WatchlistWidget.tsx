@@ -129,7 +129,7 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
       iconBgColor="bg-fuchsia-50 dark:bg-fuchsia-900/20"
       isLoading={loading && !isPreview}
       isEmpty={watchlist.length === 0}
-      emptyMessage="watchlist.noWatchlistItems"
+      emptyMessage="dashboard.widgets.watchlist.noWatchlistItems"
       emptyIcon={Eye}
       actions={viewAllAction}
       scrollable={false}

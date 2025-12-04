@@ -305,7 +305,8 @@
       },
       "watchlist": {
         "name": "Watchlist",
-        "description": "Track your watchlist assets"
+        "description": "Track your watchlist assets",
+        "noWatchlistItems": "No assets in watchlist"
       },
       "positions": {
         "name": "Positions Table",

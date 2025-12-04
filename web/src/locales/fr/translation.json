@@ -305,7 +305,8 @@
       },
       "watchlist": {
         "name": "Liste de surveillance",
-        "description": "Suivez vos actifs de la liste de surveillance"
+        "description": "Suivez vos actifs de la liste de surveillance",
+        "noWatchlistItems": "Aucun actif dans la liste de surveillance"
       },
       "positions": {
         "name": "Tableau des positions",
