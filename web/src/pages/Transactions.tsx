@@ -5,7 +5,7 @@ import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
@@ -39,7 +39,7 @@ interface Transaction {
   }
 }
 
-type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split'
+type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split' | 'conversion'
 type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
@@ -124,8 +124,20 @@ export default function Transactions() {
     
     setLoading(true)
     try {
-      const filters = activeTab !== 'all' ? { tx_type: activeTab.toUpperCase() } : undefined
-      const data = await api.getTransactions(activePortfolioId, filters)
+      // For conversion tab, we need to fetch all and filter client-side
+      // because conversions include both CONVERSION_IN and CONVERSION_OUT
+      const filters = activeTab !== 'all' && activeTab !== 'conversion' 
+        ? { tx_type: activeTab.toUpperCase() } 
+        : undefined
+      let data = await api.getTransactions(activePortfolioId, filters)
+      
+      // Filter for conversion types on client-side
+      if (activeTab === 'conversion') {
+        data = data.filter((tx: Transaction) => 
+          tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT'
+        )
+      }
+      
       setTransactions(data)
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
@@ -630,16 +642,19 @@ export default function Transactions() {
     { id: 'dividend', label: t('transaction.types.dividend') },
     { id: 'fee', label: t('transaction.types.fee') },
     { id: 'split', label: t('transaction.types.split') },
+    { id: 'conversion', label: t('transaction.types.conversion') },
   ]
 
   const getTransactionIcon = (type: string) => {
     switch (type.toUpperCase()) {
       case 'BUY':
-      case 'CONVERSION_IN':
         return <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
+      case 'CONVERSION_IN':
+        return <ArrowLeftRight size={16} className="text-green-600 dark:text-green-400" />
       case 'SELL':
-      case 'CONVERSION_OUT':
         return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
+      case 'CONVERSION_OUT':
+        return <ArrowLeftRight size={16} className="text-red-600 dark:text-red-400" />
       case 'SPLIT':
         return <Shuffle size={16} className="text-purple-600 dark:text-purple-400" />
       default:
