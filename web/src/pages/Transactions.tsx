@@ -667,7 +667,7 @@ export default function Transactions() {
           </button>
           <button 
             onClick={() => setShowConversionModal(true)}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
           >
             <RefreshCw size={16} />
             <span className="hidden sm:inline">{t('conversion.convert')}</span>

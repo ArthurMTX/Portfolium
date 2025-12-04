@@ -286,7 +286,7 @@ export default function ConversionModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -627,7 +627,7 @@ export default function ConversionModal({
             <button
               type="submit"
               disabled={loading || !fromAsset || !toAsset}
-              className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              className="px-6 py-2.5 text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 rounded-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
             >
               {loading ? (
                 <>
