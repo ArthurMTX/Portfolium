@@ -149,7 +149,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       
       const symbol = context.portfolioCurrency === 'EUR' ? '€' : '$'
       const formattedValue = context.metrics
-        ? `${unrealizedPnl >= 0 ? '+' : ''}${symbol}${Math.abs(unrealizedPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `${unrealizedPnl >= 0 ? '+' : '-'}${symbol}${Math.abs(unrealizedPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : 'N/A'
 
       return {
