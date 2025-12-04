@@ -904,6 +904,7 @@
     "splitRatioInfo": "Format : \"N:M\" où N est le nouveau nombre d'actions et M est l'ancien nombre d'actions. Exemples : \"2:1\" (double les actions), \"3:1\" (triple), \"1:2\" (fractionnement inverse divise par deux les actions)",
     "autoFetch": "Récupération automatique",
     "autoFetchInfo": "Laissez vide pour récupérer automatiquement le prix en USD, ou entrez le prix en {{currency}}.",
+    "priceConverted": "Prix converti de {{from}} en {{to}}",
     "empty": {
       "noTransactions": "Aucune transaction à afficher.",
       "noTransactionsInfo": "Commencez par ajouter des transactions pour les voir répertoriées ici.",

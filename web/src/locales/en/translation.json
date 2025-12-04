@@ -904,6 +904,7 @@
     "splitRatioInfo": "Format: \"N:M\" where N is new shares and M is old shares. Examples: \"2:1\" (doubles shares), \"3:1\" (triples), \"1:2\" (reverse split halves shares)",
     "autoFetch": "Auto-fetch",
     "autoFetchInfo": "Leave empty to auto-fetch price in USD, or enter price in {{currency}}.",
+    "priceConverted": "Price converted from {{from}} to {{to}}",
     "empty": {
       "noTransactions": "No transactions to display.",
       "noTransactionsInfo": "Start by adding transactions to see them listed here.",

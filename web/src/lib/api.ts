@@ -933,6 +933,26 @@ class ApiClient {
     )
   }
 
+  async fetchPriceForDate(
+    portfolioId: number,
+    ticker: string,
+    txDate: string
+  ): Promise<{
+    price: number
+    original_price: number
+    asset_currency: string
+    portfolio_currency: string
+    converted: boolean
+  }> {
+    const params = new URLSearchParams({
+      ticker,
+      tx_date: txDate,
+    })
+    return this.request(
+      `/portfolios/${portfolioId}/fetch_price?${params.toString()}`
+    )
+  }
+
   async createTransaction(portfolioId: number, transaction: any) {
     return this.request<any>(`/portfolios/${portfolioId}/transactions`, {
       method: 'POST',

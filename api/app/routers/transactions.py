@@ -29,6 +29,72 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 import yfinance as yf
 
+
+@router.get("/{portfolio_id}/fetch_price")
+async def fetch_price_for_date(
+    portfolio_id: int,
+    ticker: str,
+    tx_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Fetch the price for a ticker on a specific date, converted to portfolio currency.
+    Returns the price that would be used if auto-fetching.
+    """
+    from datetime import timedelta
+    from decimal import Decimal
+    from app.services.currency import CurrencyService
+    from app.crud.assets import get_asset_by_symbol
+    
+    # Fetch ticker info from yfinance
+    yf_ticker = yf.Ticker(ticker)
+    
+    # Try to get existing asset to know its currency, otherwise fetch from yfinance
+    asset = get_asset_by_symbol(db, ticker)
+    if asset and asset.currency:
+        asset_currency = asset.currency
+    else:
+        # Fetch currency from yfinance info
+        try:
+            info = yf_ticker.info
+            asset_currency = info.get('currency', 'USD') or 'USD'
+        except Exception:
+            asset_currency = 'USD'
+    
+    portfolio_currency = portfolio.base_currency or "EUR"
+    
+    # Fetch price from yfinance
+    start_date = tx_date - timedelta(days=5)  # Look back a few days in case of weekends/holidays
+    end_date = tx_date + timedelta(days=1)
+    hist = yf_ticker.history(start=start_date, end=end_date)
+    
+    if hist.empty:
+        raise PriceNotFoundError(ticker, tx_date)
+    
+    # Get the closest date's price
+    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    
+    # Convert to portfolio currency if needed
+    if asset_currency != portfolio_currency:
+        converted_price = CurrencyService.convert(price_in_asset_currency, asset_currency, portfolio_currency)
+        if converted_price is not None:
+            price = converted_price.quantize(Decimal('0.00000001'))
+        else:
+            price = price_in_asset_currency
+    else:
+        price = price_in_asset_currency
+    
+    return {
+        "price": float(price),
+        "original_price": float(price_in_asset_currency),
+        "asset_currency": asset_currency,
+        "portfolio_currency": portfolio_currency,
+        "converted": asset_currency != portfolio_currency
+    }
+
+
 # Add position transaction with live price from yfinance
 @router.post("/{portfolio_id}/add_position_transaction", response_model=Transaction, status_code=status.HTTP_201_CREATED)
 async def add_position_transaction(
@@ -53,13 +119,24 @@ async def add_position_transaction(
     from app.crud.assets import get_asset_by_symbol, create_asset
     from app.schemas import AssetCreate
     from app.models import AssetClass
+    
+    # Fetch ticker info from yfinance first (we'll need it for price anyway)
+    yf_ticker = yf.Ticker(ticker)
+    
     asset = get_asset_by_symbol(db, ticker)
     if not asset:
+        # Get currency from yfinance
+        try:
+            info = yf_ticker.info
+            asset_currency = info.get('currency', 'USD') or 'USD'
+        except Exception:
+            asset_currency = 'USD'
+        
         # Auto-create the asset - name will be fetched from yfinance
         asset_data = AssetCreate(
             symbol=ticker,
             name=None,  # Let create_asset fetch the proper name from yfinance
-            currency="USD",
+            currency=asset_currency,
             class_=AssetClass.STOCK
         )
         asset = create_asset(db, asset_data)
@@ -67,7 +144,8 @@ async def add_position_transaction(
     # Fetch price from yfinance for the given date
     from datetime import timedelta
     from decimal import Decimal
-    yf_ticker = yf.Ticker(ticker)
+    from app.services.currency import CurrencyService
+    
     # Add a day buffer to ensure we get data
     start_date = tx_date - timedelta(days=1)
     end_date = tx_date + timedelta(days=1)
@@ -75,7 +153,23 @@ async def add_position_transaction(
     if hist.empty:
         raise PriceNotFoundError(ticker, tx_date)
     # Get the closest date's price and round to 8 decimal places
-    price = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    
+    # Convert price from asset's currency to portfolio's base currency if different
+    asset_currency = asset.currency or "USD"
+    portfolio_currency = portfolio.base_currency or "EUR"
+    
+    if asset_currency != portfolio_currency:
+        converted_price = CurrencyService.convert(price_in_asset_currency, asset_currency, portfolio_currency)
+        if converted_price is not None:
+            price = converted_price.quantize(Decimal('0.00000001'))
+            logger.info(f"Converted price from {asset_currency} to {portfolio_currency}: {price_in_asset_currency} -> {price}")
+        else:
+            # Fall back to original price if conversion fails
+            logger.warning(f"Currency conversion from {asset_currency} to {portfolio_currency} failed, using original price")
+            price = price_in_asset_currency
+    else:
+        price = price_in_asset_currency
 
     # Validate sell quantity if enabled
     from app.config import settings
@@ -99,10 +193,10 @@ async def add_position_transaction(
         type=tx_type,
         quantity=quantity,
         price=price,
-        currency=asset.currency,
+        currency=portfolio_currency,  # Use portfolio currency since price was converted
         fees=0,
         meta_data={},
-        notes=f"Auto price from yfinance for {tx_date}"
+        notes=f"Auto price from yfinance for {tx_date}" + (f" (converted from {asset_currency})" if asset_currency != portfolio_currency else "")
     )
     from app.crud.transactions import create_transaction
     transaction = create_transaction(db, portfolio_id, tx_data)

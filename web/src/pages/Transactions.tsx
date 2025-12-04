@@ -90,6 +90,8 @@ export default function Transactions() {
   const [splitRatio, setSplitRatio] = useState("")
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState("")
+  const [priceLoading, setPriceLoading] = useState(false)
+  const [priceInfo, setPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
@@ -165,6 +167,42 @@ export default function Transactions() {
     setTicker(tickerInfo.symbol)
     setSearchResults([])
     setPrice("")
+    setPriceInfo(null)
+    // Auto-fetch price for the selected ticker and current date
+    if (activePortfolioId && txDate && txType !== 'SPLIT') {
+      fetchPriceForTicker(tickerInfo.symbol, txDate)
+    }
+  }
+
+  // Auto-fetch price when ticker or date changes
+  const fetchPriceForTicker = useCallback(async (symbol: string, date: string) => {
+    if (!activePortfolioId || !symbol || !date) return
+    
+    setPriceLoading(true)
+    setPriceInfo(null)
+    try {
+      const result = await api.fetchPriceForDate(activePortfolioId, symbol, date)
+      setPrice(formatDecimalForInput(result.price))
+      setPriceInfo({
+        converted: result.converted,
+        asset_currency: result.asset_currency
+      })
+    } catch (err) {
+      console.error("Failed to fetch price:", err)
+      // Don't show error - user can still enter price manually
+    } finally {
+      setPriceLoading(false)
+    }
+  }, [activePortfolioId])
+
+  // Handle date change - auto-fetch price if ticker is selected
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value
+    setTxDate(newDate)
+    // Auto-fetch price if we have a selected ticker and it's not a SPLIT
+    if (selectedTicker && txType !== 'SPLIT') {
+      fetchPriceForTicker(selectedTicker.symbol, newDate)
+    }
   }
 
   // Helper function to format decimal numbers, removing trailing zeros after decimal point only
@@ -224,6 +262,8 @@ export default function Transactions() {
     setSplitRatio("")
     setFormError("")
     setSearchResults([])
+    setPriceLoading(false)
+    setPriceInfo(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1218,7 +1258,8 @@ export default function Transactions() {
                   <input
                     type="date"
                     value={txDate}
-                    onChange={(e) => setTxDate(e.target.value)}
+                    onChange={handleDateChange}
+                    max={new Date().toISOString().split('T')[0]}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                     required
                   />
@@ -1285,21 +1326,34 @@ export default function Transactions() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {t('fields.price')} ({portfolioCurrency}) {modalMode === 'add' && `(${t('common.optional')})`}
+                      {t('fields.price')} ({portfolioCurrency})
+                      {priceLoading && (
+                        <span className="ml-2 text-pink-500 animate-pulse">{t('common.loading')}...</span>
+                      )}
                     </label>
-                    <input
-                      type="number"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                      min="0"
-                      step="any"
-                      placeholder={modalMode === 'add' ? t('transactions.autoFetch') : '0.00'}
-                      required={modalMode === 'edit'}
-                    />
-                    {modalMode === 'add' && (
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        {t('transactions.autoFetchInfo', { currency: portfolioCurrency })}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={price}
+                        onChange={(e) => {
+                          setPrice(e.target.value)
+                          setPriceInfo(null) // Clear conversion info when user manually edits
+                        }}
+                        className={`w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 ${priceLoading ? 'opacity-50' : ''}`}
+                        min="0"
+                        step="any"
+                        placeholder="0.00"
+                        disabled={priceLoading}
+                      />
+                      {priceLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <RefreshCw size={16} className="animate-spin text-pink-500" />
+                        </div>
+                      )}
+                    </div>
+                    {priceInfo?.converted && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        ✓ {t('transactions.priceConverted', { from: priceInfo.asset_currency, to: portfolioCurrency })}
                       </p>
                     )}
                   </div>
