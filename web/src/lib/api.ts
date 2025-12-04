@@ -1082,8 +1082,75 @@ class ApiClient {
     })
   }
 
+  // Watchlist Tags
+  async getWatchlistTags() {
+    return this.request<Array<{
+      id: number
+      user_id: number
+      name: string
+      icon: string
+      color: string
+      created_at: string
+      updated_at: string
+    }>>('/watchlist/tags')
+  }
+
+  async createWatchlistTag(data: {
+    name: string
+    icon?: string
+    color?: string
+  }) {
+    return this.request<{
+      id: number
+      user_id: number
+      name: string
+      icon: string
+      color: string
+      created_at: string
+      updated_at: string
+    }>('/watchlist/tags', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateWatchlistTag(tagId: number, data: {
+    name?: string
+    icon?: string
+    color?: string
+  }) {
+    return this.request<{
+      id: number
+      user_id: number
+      name: string
+      icon: string
+      color: string
+      created_at: string
+      updated_at: string
+    }>(`/watchlist/tags/${tagId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteWatchlistTag(tagId: number) {
+    return this.request<void>(`/watchlist/tags/${tagId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async updateWatchlistItemTags(itemId: number, tagIds: number[]) {
+    return this.request<any>(`/watchlist/${itemId}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tag_ids: tagIds }),
+    })
+  }
+
   // Watchlist
-  async getWatchlist() {
+  async getWatchlist(tagIds?: number[]) {
+    const params = tagIds && tagIds.length > 0 
+      ? `?tag_ids=${tagIds.join(',')}` 
+      : ''
     return this.request<Array<{
       id: number
       user_id: number
@@ -1096,9 +1163,19 @@ class ApiClient {
       current_price: number | string | null
       daily_change_pct: number | string | null
       currency: string
+      asset_type: string | null
       last_updated: string | null
       created_at: string
-    }>>('/watchlist')
+      tags: Array<{
+        id: number
+        user_id: number
+        name: string
+        icon: string
+        color: string
+        created_at: string
+        updated_at: string
+      }>
+    }>>(`/watchlist${params}`)
   }
 
   async addToWatchlist(data: {

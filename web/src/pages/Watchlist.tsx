@@ -1,12 +1,24 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
-import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown, Tag, Filter } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency } from '../lib/formatUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 import SortIcon from '../components/SortIcon'
+import WatchlistTagManager, { IconComponent } from '../components/WatchlistTagManager'
+import WatchlistTagSelector from '../components/WatchlistTagSelector'
 import { useTranslation } from 'react-i18next'
+
+interface WatchlistTag {
+  id: number
+  user_id: number
+  name: string
+  icon: string
+  color: string
+  created_at: string
+  updated_at: string
+}
 
 interface WatchlistItem {
   id: number
@@ -23,6 +35,7 @@ interface WatchlistItem {
   asset_type: string | null
   last_updated: string | null
   created_at: string
+  tags: WatchlistTag[]
 }
 
 interface Portfolio {
@@ -44,9 +57,12 @@ type SortDir = 'asc' | 'desc'
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const [tags, setTags] = useState<WatchlistTag[]>([])
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showTagManager, setShowTagManager] = useState(false)
   const [addSymbol, setAddSymbol] = useState('')
   const [addNotes, setAddNotes] = useState('')
   const [addFormError, setAddFormError] = useState<string | null>(null)
@@ -57,6 +73,7 @@ export default function Watchlist() {
   const [editNotes, setEditNotes] = useState('')
   const [editAlertPrice, setEditAlertPrice] = useState('')
   const [editAlertEnabled, setEditAlertEnabled] = useState(false)
+  const [editItemTags, setEditItemTags] = useState<number[]>([])
   const [showImportModal, setShowImportModal] = useState(false)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -75,7 +92,7 @@ export default function Watchlist() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm) {
+    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm || showTagManager) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -138,15 +155,16 @@ export default function Watchlist() {
     return isNaN(n) ? null : n
   }
 
-  const loadWatchlist = useCallback(async () => {
+  const loadWatchlist = useCallback(async (filterTagIds?: number[]) => {
     try {
       setLoading(true)
-      const data = await api.getWatchlist()
+      const data = await api.getWatchlist(filterTagIds)
       const normalized = data.map((d) => ({
         ...d,
         alert_target_price: toNumber(d.alert_target_price),
         current_price: toNumber(d.current_price),
         daily_change_pct: toNumber(d.daily_change_pct),
+        tags: d.tags || [],
       })) as unknown as WatchlistItem[]
       setWatchlist(normalized)
       setError(null)
@@ -154,6 +172,15 @@ export default function Watchlist() {
       setError(getErrorMessage(err, 'Failed to load watchlist'))
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const loadTags = useCallback(async () => {
+    try {
+      const data = await api.getWatchlistTags()
+      setTags(data)
+    } catch (err) {
+      console.error('Failed to load tags:', err)
     }
   }, [])
 
@@ -238,9 +265,28 @@ export default function Watchlist() {
   }
 
   useEffect(() => {
-    loadWatchlist()
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
     loadPortfolios()
-  }, [loadWatchlist, loadPortfolios])
+    loadTags()
+  }, [loadWatchlist, loadPortfolios, loadTags])
+
+  // Re-load watchlist when tag filter changes
+  useEffect(() => {
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
+  }, [selectedTagIds, loadWatchlist])
+
+  // Handle tag filter change
+  const handleTagFilterChange = (tagId: number) => {
+    setSelectedTagIds(prev => 
+      prev.includes(tagId) 
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    )
+  }
+
+  const clearTagFilter = () => {
+    setSelectedTagIds([])
+  }
 
   // Ticker search logic (like Transactions page)
   const handleTickerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,17 +357,21 @@ export default function Watchlist() {
     setEditNotes(item.notes || '')
     setEditAlertPrice(item.alert_target_price ? String(item.alert_target_price) : '')
     setEditAlertEnabled(item.alert_enabled)
+    setEditItemTags(item.tags?.map(t => t.id) || [])
   }
 
   const handleUpdate = async (id: number) => {
     try {
+      // Update the watchlist item
       await api.updateWatchlistItem(id, {
         notes: editNotes || null,  // Send null to clear, or the note text
         alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : null,  // Send null to clear
         alert_enabled: editAlertEnabled,
       })
+      // Update tags separately
+      await api.updateWatchlistItemTags(id, editItemTags)
       setEditingItem(null)
-      loadWatchlist()
+      loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
     } catch (err: unknown) {
       alert(getErrorMessage(err, 'Failed to update item'))
     }
@@ -552,6 +602,56 @@ export default function Watchlist() {
         </div>
       )}
 
+      {/* Tag Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3 pb-2">
+        <div className="flex items-center gap-2">
+          <Filter size={16} className="text-neutral-500" />
+          <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+            {t('watchlist.tags.filterByTags')}:
+          </span>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          {tags.map(tag => (
+            <button
+              key={tag.id}
+              onClick={() => handleTagFilterChange(tag.id)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                selectedTagIds.includes(tag.id)
+                  ? 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900'
+                  : 'opacity-70 hover:opacity-100'
+              }`}
+              style={{ 
+                backgroundColor: tag.color + '20', 
+                color: tag.color,
+                ...(selectedTagIds.includes(tag.id) ? { ringColor: tag.color } : {})
+              }}
+            >
+              <IconComponent name={tag.icon} size={12} />
+              {tag.name}
+            </button>
+          ))}
+          
+          {selectedTagIds.length > 0 && (
+            <button
+              onClick={clearTagFilter}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            >
+              <X size={12} />
+              {t('common.clear')}
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={() => setShowTagManager(true)}
+          className="ml-auto btn-secondary flex items-center gap-1.5 text-xs px-2.5 py-1.5"
+        >
+          <Tag size={14} />
+          {t('watchlist.tags.manageTags')}
+        </button>
+      </div>
+
       {/* Watchlist Table with Logo, Price, Daily Change */}
       <div>
         <>
@@ -677,9 +777,34 @@ export default function Watchlist() {
                             />
                             <span className="text-neutral-700 dark:text-neutral-300">{t('watchlist.alertEnabled')}</span>
                           </label>
+                          <div>
+                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
+                              {t('watchlist.tags.title')}
+                            </label>
+                            <WatchlistTagSelector
+                              availableTags={tags}
+                              selectedTagIds={editItemTags}
+                              onChange={setEditItemTags}
+                              placeholder={t('watchlist.tags.selectTags')}
+                            />
+                          </div>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 gap-y-2.5 text-sm">
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {item.tags.map(tag => (
+                                <span
+                                  key={tag.id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                                  style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                                >
+                                  <IconComponent name={tag.icon} size={10} />
+                                  {tag.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {item.notes && (
                             <div>
                               <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
@@ -789,6 +914,7 @@ export default function Watchlist() {
                   {t('watchlist.dailyChange')} <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.tags.title')}</th>
                 <th 
                   onClick={() => handleSort('alert_target_price')}
                   aria-sort={isActive('alert_target_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -802,7 +928,7 @@ export default function Watchlist() {
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
               {sortedWatchlist.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
+                  <td colSpan={9} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
                     {t('watchlist.empty.noWatchlistAssets')}
                   </td>
                 </tr>
@@ -859,6 +985,33 @@ export default function Watchlist() {
                         />
                       ) : (
                         <div className="text-sm text-neutral-500 dark:text-neutral-400">{item.notes || '-'}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {editingItem === item.id ? (
+                        <WatchlistTagSelector
+                          availableTags={tags}
+                          selectedTagIds={editItemTags}
+                          onChange={setEditItemTags}
+                          compact
+                        />
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {item.tags && item.tags.length > 0 ? (
+                            item.tags.map(tag => (
+                              <span
+                                key={tag.id}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                              >
+                                <IconComponent name={tag.icon} size={10} />
+                                {tag.name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-neutral-400 text-sm">-</span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -1297,6 +1450,16 @@ export default function Watchlist() {
           </div>
         </div>
       )}
+
+      {/* Tag Manager Modal */}
+      <WatchlistTagManager
+        isOpen={showTagManager}
+        onClose={() => setShowTagManager(false)}
+        onTagsUpdated={() => {
+          loadTags()
+          loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
+        }}
+      />
     </div>
   )
 }

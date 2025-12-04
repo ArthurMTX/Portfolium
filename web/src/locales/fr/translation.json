@@ -1160,6 +1160,20 @@
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet actif de votre liste de surveillance ? Cette action ne peut pas être annulée.",
     "empty": {
       "noWatchlistAssets": "Aucun actif dans votre liste de surveillance. Ajoutez des actifs pour commencer à suivre."
+    },
+    "tags": {
+      "title": "Étiquettes",
+      "filterByTags": "Filtrer par étiquettes",
+      "manageTags": "Gérer les étiquettes",
+      "manage": "Gérer les étiquettes",
+      "createNew": "Créer une nouvelle étiquette",
+      "existing": "Étiquettes existantes",
+      "noTags": "Aucune étiquette créée",
+      "select": "Sélectionner des étiquettes",
+      "selectTags": "Sélectionner des étiquettes...",
+      "nameRequired": "Le nom de l'étiquette est requis",
+      "createFailed": "Échec de la création de l'étiquette",
+      "namePlaceholder": "Nom de l'étiquette..."
     }
   },
   "profile": {

@@ -638,6 +638,7 @@ class WatchlistItemWithPrice(BaseModel):
     asset_type: Optional[str]
     last_updated: Optional[datetime]
     created_at: datetime
+    tags: List['WatchlistTagResponse'] = []
 
 
 class WatchlistImportItem(BaseModel):
@@ -668,6 +669,44 @@ class WatchlistConvertToBuy(BaseModel):
     tx_date: Optional[str] = None
     fees: Decimal = Field(default=Decimal(0))
     currency: Optional[str] = None  # If not provided, uses portfolio's base_currency
+
+
+# ============================================================================
+# Watchlist Tag Schemas
+# ============================================================================
+
+class WatchlistTagBase(BaseModel):
+    """Base watchlist tag schema"""
+    name: str = Field(..., min_length=1, max_length=100)
+    icon: str = Field(default='tag', max_length=50)
+    color: str = Field(default='#6366f1', max_length=20)
+
+
+class WatchlistTagCreate(WatchlistTagBase):
+    """Schema for creating a watchlist tag"""
+    pass
+
+
+class WatchlistTagUpdate(BaseModel):
+    """Schema for updating a watchlist tag"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    icon: Optional[str] = Field(None, max_length=50)
+    color: Optional[str] = Field(None, max_length=20)
+
+
+class WatchlistTagResponse(WatchlistTagBase):
+    """Watchlist tag response schema"""
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WatchlistItemTagsUpdate(BaseModel):
+    """Schema for updating tags on a watchlist item"""
+    tag_ids: List[int] = []
 
 
 # ============================================================================

@@ -611,6 +611,36 @@ class FailedToParseWatchlistImportError(PortfoliumException):
         )
 
 
+class WatchlistTagNotFoundError(PortfoliumException):
+    """Raised when a watchlist tag is not found"""
+    
+    def __init__(self, tag_id: int):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Watchlist tag {tag_id} not found"
+        )
+
+
+class WatchlistTagAlreadyExistsError(PortfoliumException):
+    """Raised when trying to create a tag with a name that already exists"""
+    
+    def __init__(self, name: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Tag '{name}' already exists"
+        )
+
+
+class NotAuthorizedWatchlistTagAccessError(PortfoliumException):
+    """Raised when a user tries to access a watchlist tag they don't own"""
+    
+    def __init__(self, tag_id: int):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Not authorized to access watchlist tag {tag_id}"
+        )
+
+
 # Notification-related errors
 class NotificationNotFoundError(PortfoliumException):
     """Raised when a notification is not found"""

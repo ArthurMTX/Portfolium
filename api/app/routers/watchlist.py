@@ -20,13 +20,17 @@ from app.errors import (
     UnauthorizedPortfolioAccessError, 
     WatchlistItemAlreadyExistsError, 
     WatchlistItemNotFoundError,
+    WatchlistTagAlreadyExistsError,
+    WatchlistTagNotFoundError,
+    NotAuthorizedWatchlistTagAccessError,
     WrongImportFormatError
 )
 from app.db import get_db
 from app.schemas import (
     WatchlistItem, WatchlistItemCreate, WatchlistItemCreateBySymbol, WatchlistItemUpdate,
     WatchlistItemWithPrice, WatchlistImportItem, WatchlistImportResult,
-    WatchlistConvertToBuy
+    WatchlistConvertToBuy, WatchlistTagCreate, WatchlistTagUpdate, WatchlistTagResponse,
+    WatchlistItemTagsUpdate
 )
 from app.crud import watchlist as crud
 from app.crud import assets as assets_crud
@@ -42,11 +46,23 @@ router = APIRouter()
 @router.get("", response_model=List[WatchlistItemWithPrice])
 async def get_watchlist(
     pricing_service: PricingServiceDep,
+    tag_ids: str = None,  # Comma-separated list of tag IDs
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all watchlist items for the current user with current prices"""
-    items = crud.get_watchlist_items_by_user(db, current_user.id)
+    """Get all watchlist items for the current user with current prices.
+    
+    Optionally filter by tags by passing comma-separated tag IDs.
+    """
+    # Parse tag_ids if provided
+    parsed_tag_ids = None
+    if tag_ids:
+        try:
+            parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(',') if tid.strip()]
+        except ValueError:
+            parsed_tag_ids = None
+    
+    items = crud.get_watchlist_items_by_user(db, current_user.id, tag_ids=parsed_tag_ids)
     
     if not items:
         return []
@@ -77,6 +93,19 @@ async def get_watchlist(
             daily_change_pct = quote.daily_change_pct
             last_updated = quote.asof
         
+        # Convert tags to response format
+        tags_response = [
+            WatchlistTagResponse(
+                id=tag.id,
+                user_id=tag.user_id,
+                name=tag.name,
+                icon=tag.icon,
+                color=tag.color,
+                created_at=tag.created_at,
+                updated_at=tag.updated_at
+            ) for tag in item.tags
+        ]
+        
         result.append(WatchlistItemWithPrice(
             id=item.id,
             user_id=item.user_id,
@@ -91,7 +120,8 @@ async def get_watchlist(
             currency=asset.currency,
             asset_type=asset.asset_type,
             last_updated=last_updated,
-            created_at=item.created_at
+            created_at=item.created_at,
+            tags=tags_response
         ))
     
     return result
@@ -160,6 +190,85 @@ async def create_watchlist_item_by_symbol(
     
     return crud.create_watchlist_item(db, item, current_user.id)
 
+
+# ============================================================================
+# Watchlist Tag Endpoints (must be defined before /{item_id} routes)
+# ============================================================================
+
+@router.get("/tags", response_model=List[WatchlistTagResponse])
+async def get_watchlist_tags(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all watchlist tags for the current user"""
+    return crud.get_tags_by_user(db, current_user.id)
+
+
+@router.post("/tags", response_model=WatchlistTagResponse, status_code=status.HTTP_201_CREATED)
+async def create_watchlist_tag(
+    tag: WatchlistTagCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new watchlist tag"""
+    # Check if tag with this name already exists
+    existing = crud.get_tag_by_name(db, current_user.id, tag.name)
+    if existing:
+        raise WatchlistTagAlreadyExistsError(tag.name)
+    
+    return crud.create_tag(db, tag, current_user.id)
+
+
+@router.put("/tags/{tag_id}", response_model=WatchlistTagResponse)
+async def update_watchlist_tag(
+    tag_id: int,
+    tag: WatchlistTagUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update a watchlist tag"""
+    # Verify ownership
+    existing = crud.get_tag(db, tag_id)
+    if not existing:
+        raise WatchlistTagNotFoundError(tag_id)
+    if existing.user_id != current_user.id:
+        raise NotAuthorizedWatchlistTagAccessError(tag_id)
+    
+    # Check if updating name to one that already exists
+    if tag.name and tag.name != existing.name:
+        name_exists = crud.get_tag_by_name(db, current_user.id, tag.name)
+        if name_exists:
+            raise WatchlistTagAlreadyExistsError(tag.name)
+    
+    updated = crud.update_tag(db, tag_id, tag)
+    if not updated:
+        raise WatchlistTagNotFoundError(tag_id)
+    
+    return updated
+
+
+@router.delete("/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_watchlist_tag(
+    tag_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a watchlist tag"""
+    # Verify ownership
+    existing = crud.get_tag(db, tag_id)
+    if not existing:
+        raise WatchlistTagNotFoundError(tag_id)
+    if existing.user_id != current_user.id:
+        raise NotAuthorizedWatchlistTagAccessError(tag_id)
+    
+    success = crud.delete_tag(db, tag_id)
+    if not success:
+        raise WatchlistTagNotFoundError(tag_id)
+
+
+# ============================================================================
+# Watchlist Item Routes (with /{item_id} path parameter)
+# ============================================================================
 
 @router.get("/{item_id}", response_model=WatchlistItem)
 async def get_watchlist_item(
@@ -625,3 +734,25 @@ async def refresh_watchlist_prices(
             pass  # Continue with other assets
     
     return {"refreshed_count": count}
+
+
+@router.put("/{item_id}/tags", response_model=WatchlistItem)
+async def update_watchlist_item_tags(
+    item_id: int,
+    tags_update: WatchlistItemTagsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update tags for a watchlist item"""
+    # Verify ownership
+    existing = crud.get_watchlist_item(db, item_id)
+    if not existing:
+        raise WatchlistItemNotFoundError(item_id)
+    if existing.user_id != current_user.id:
+        raise NotAuthorizedWatchlistAccessError(item_id)
+    
+    updated = crud.update_watchlist_item_tags(db, item_id, tags_update.tag_ids, current_user.id)
+    if not updated:
+        raise WatchlistItemNotFoundError(item_id)
+    
+    return updated

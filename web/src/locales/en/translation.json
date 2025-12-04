@@ -1161,6 +1161,20 @@
     "deleteConfirm": "Are you sure you want to delete this asset from your watchlist? This action cannot be undone.",
     "empty": {
       "noWatchlistAssets": "No assets in your watchlist. Add assets to start tracking."
+    },
+    "tags": {
+      "title": "Tags",
+      "filterByTags": "Filter by tags",
+      "manageTags": "Manage Tags",
+      "manage": "Manage Tags",
+      "createNew": "Create New Tag",
+      "existing": "Existing Tags",
+      "noTags": "No tags created yet",
+      "select": "Select tags",
+      "selectTags": "Select tags...",
+      "nameRequired": "Tag name is required",
+      "createFailed": "Failed to create tag",
+      "namePlaceholder": "Tag name..."
     }
   },
   "profile": {
