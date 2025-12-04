@@ -1138,6 +1138,7 @@ class ApiClient {
     price: number
     fees?: number
     tx_date?: string
+    currency?: string
   }) {
     return this.request<{ success: boolean; transaction_id: number; message: string }>(
       `/watchlist/${itemId}/convert-to-buy`,

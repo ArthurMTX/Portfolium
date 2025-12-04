@@ -248,6 +248,10 @@ async def convert_to_buy(
     else:
         transaction_date = date.today()
     
+    # Use provided currency or fall back to portfolio's base currency
+    # This matches the logic used in Transactions page
+    transaction_currency = payload.currency if payload.currency else portfolio.base_currency
+    
     # Create BUY transaction
     transaction = Transaction(
         portfolio_id=payload.portfolio_id,
@@ -257,7 +261,7 @@ async def convert_to_buy(
         quantity=payload.quantity,
         price=payload.price,
         fees=payload.fees,
-        currency=item.asset.currency,
+        currency=transaction_currency,
         notes=f"Converted from watchlist: {item.notes}" if item.notes else "Converted from watchlist"
     )
     

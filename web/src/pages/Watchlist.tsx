@@ -28,6 +28,7 @@ interface WatchlistItem {
 interface Portfolio {
   id: number
   name: string
+  base_currency: string
 }
 
 const sortableColumns = [
@@ -63,12 +64,14 @@ export default function Watchlist() {
   const [convertPortfolioId, setConvertPortfolioId] = useState<number | null>(null)
   const [convertQuantity, setConvertQuantity] = useState('')
   const [convertPrice, setConvertPrice] = useState('')
+  const [convertFees, setConvertFees] = useState('0')
+  const [convertDate, setConvertDate] = useState(new Date().toISOString().split('T')[0])
+  const [convertPriceLoading, setConvertPriceLoading] = useState(false)
+  const [convertPriceInfo, setConvertPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const { t, i18n } = useTranslation()
-
-  const currentLocale = i18n.language || 'en-US'
+  const { t } = useTranslation()
 
   // Prevent body scroll when modals are open
   useEffect(() => {
@@ -84,14 +87,39 @@ export default function Watchlist() {
 
   const openConvertModal = (item: WatchlistItem) => {
     setConvertItem(item)
+    // Reset convert modal state
+    setConvertDate(new Date().toISOString().split('T')[0])
+    setConvertPrice('')
+    setConvertPriceInfo(null)
     // Preselect first portfolio if not set
-    if (!convertPortfolioId && portfolios.length > 0) {
-      setConvertPortfolioId(portfolios[0].id)
+    const portfolioId = convertPortfolioId || (portfolios.length > 0 ? portfolios[0].id : null)
+    if (portfolioId) {
+      setConvertPortfolioId(portfolioId)
+      // Fetch price for selected portfolio and today's date
+      fetchConvertPrice(portfolioId, item.symbol, new Date().toISOString().split('T')[0])
     }
-    // Autofill current price if available
-    const p = toNumber(item.current_price)
-    setConvertPrice(p !== null ? String(p) : '')
   }
+
+  // Fetch price converted to portfolio currency (same logic as Transactions page)
+  const fetchConvertPrice = useCallback(async (portfolioId: number, symbol: string, date: string) => {
+    if (!portfolioId || !symbol || !date) return
+    
+    setConvertPriceLoading(true)
+    setConvertPriceInfo(null)
+    try {
+      const result = await api.fetchPriceForDate(portfolioId, symbol, date)
+      setConvertPrice(String(result.price))
+      setConvertPriceInfo({
+        converted: result.converted,
+        asset_currency: result.asset_currency
+      })
+    } catch (err) {
+      console.error("Failed to fetch price:", err)
+      // Don't show error - user can still enter price manually
+    } finally {
+      setConvertPriceLoading(false)
+    }
+  }, [])
 
   const getErrorMessage = (err: unknown, fallback = 'An unexpected error occurred') => {
     if (err instanceof Error) return err.message
@@ -345,19 +373,44 @@ export default function Watchlist() {
       return
     }
 
+    // Get the selected portfolio's currency
+    const selectedPortfolio = portfolios.find(p => p.id === convertPortfolioId)
+    const currency = selectedPortfolio?.base_currency || 'USD'
+
     try {
       await api.convertWatchlistToBuy(convertItem.id, {
         portfolio_id: convertPortfolioId,
         quantity: parseFloat(convertQuantity),
         price: parseFloat(convertPrice),
-        fees: 0,
+        fees: parseFloat(convertFees) || 0,
+        tx_date: convertDate,
+        currency: currency,
       })
       setConvertItem(null)
       setConvertPortfolioId(null)
       setConvertQuantity('')
       setConvertPrice('')
+      setConvertFees('0')
+      setConvertDate(new Date().toISOString().split('T')[0])
+      setConvertPriceInfo(null)
     } catch (err: unknown) {
       alert(getErrorMessage(err, 'Failed to convert to BUY'))
+    }
+  }
+
+  // Handle portfolio change - refetch price in new portfolio currency
+  const handleConvertPortfolioChange = (portfolioId: number) => {
+    setConvertPortfolioId(portfolioId)
+    if (convertItem) {
+      fetchConvertPrice(portfolioId, convertItem.symbol, convertDate)
+    }
+  }
+
+  // Handle date change - refetch price
+  const handleConvertDateChange = (newDate: string) => {
+    setConvertDate(newDate)
+    if (convertItem && convertPortfolioId) {
+      fetchConvertPrice(convertPortfolioId, convertItem.symbol, newDate)
     }
   }
 
@@ -964,6 +1017,8 @@ export default function Watchlist() {
                   setConvertPortfolioId(null)
                   setConvertQuantity('')
                   setConvertPrice('')
+                  setConvertDate(new Date().toISOString().split('T')[0])
+                  setConvertPriceInfo(null)
                 }}
                 className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
               >
@@ -998,17 +1053,29 @@ export default function Watchlist() {
                 <label className="block text-sm font-medium mb-1">{t('fields.portfolio')}</label>
                 <select
                   value={convertPortfolioId || ''}
-                  onChange={(e) => setConvertPortfolioId(Number(e.target.value))}
+                  onChange={(e) => handleConvertPortfolioChange(Number(e.target.value))}
                   className="input w-full"
                   required
                 >
                   {portfolios.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>{p.name} ({p.base_currency})</option>
                   ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('fields.date')}</label>
+                <input
+                  type="date"
+                  value={convertDate}
+                  onChange={(e) => handleConvertDateChange(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="input w-full"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('fields.quantity')}</label>
                   <input
@@ -1022,22 +1089,35 @@ export default function Watchlist() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('fields.price')} ({convertItem.currency})</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t('fields.price')} ({portfolios.find((p) => p.id === convertPortfolioId)?.base_currency || 'USD'})
+                    {convertPriceLoading && <span className="ml-2 text-xs text-neutral-500">...</span>}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     value={convertPrice}
                     onChange={(e) => setConvertPrice(e.target.value)}
                     className="input w-full"
-                    placeholder={toNumber(convertItem.current_price)?.toString() || '0.00'}
+                    placeholder="0.00"
                     required
                   />
-                  {toNumber(convertItem.current_price) !== null && (
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      {t('fields.current')}: {new Intl.NumberFormat(currentLocale, { style: 'currency', currency: convertItem.currency || 'USD' }).format(toNumber(convertItem.current_price) || 0)}
-                      {convertItem.last_updated ? ` • ${t('watchlist.updatedAt')} ${new Date(convertItem.last_updated).toLocaleString(currentLocale)}` : ''}
+                  {convertPriceInfo?.converted && (
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      ✓ {t('transactions.priceConverted', { from: convertPriceInfo.asset_currency, to: portfolios.find((p) => p.id === convertPortfolioId)?.base_currency || 'USD' })}
                     </div>
                   )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('fields.fees')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={convertFees}
+                    onChange={(e) => setConvertFees(e.target.value)}
+                    className="input w-full"
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
 
@@ -1048,6 +1128,9 @@ export default function Watchlist() {
                     setConvertPortfolioId(null)
                     setConvertQuantity('')
                     setConvertPrice('')
+                    setConvertFees('0')
+                    setConvertDate(new Date().toISOString().split('T')[0])
+                    setConvertPriceInfo(null)
                   }}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >

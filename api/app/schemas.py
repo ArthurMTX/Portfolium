@@ -667,6 +667,7 @@ class WatchlistConvertToBuy(BaseModel):
     price: Decimal
     tx_date: Optional[str] = None
     fees: Decimal = Field(default=Decimal(0))
+    currency: Optional[str] = None  # If not provided, uses portfolio's base_currency
 
 
 # ============================================================================
