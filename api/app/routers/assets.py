@@ -610,33 +610,43 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
             logo_data, content_type = cached
-            response = Response(content=logo_data, media_type=content_type)
-            # Cache for 30 days
-            response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
-            # Add ETag for cache validation
-            etag = hashlib.md5(logo_data).hexdigest()
-            response.headers["ETag"] = f'"{etag}"'
-            return response
+            # Don't use cached SVG fallbacks - try to fetch real logo instead
+            is_cached_svg = content_type == 'image/svg+xml'
+            if not is_cached_svg:
+                response = Response(content=logo_data, media_type=content_type)
+                # Cache for 30 days
+                response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+                # Add ETag for cache validation
+                etag = hashlib.md5(logo_data).hexdigest()
+                response.headers["ETag"] = f'"{etag}"'
+                return response
 
     # Fetch logo using the consolidated validation function
     # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
     logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
     
     # Determine content type based on data
-    if logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml'):
+    is_svg_fallback = logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml')
+    if is_svg_fallback:
         content_type = 'image/svg+xml'
-        cache_time = 604800  # 7 days for SVG
+        cache_time = 3600  # 1 hour for SVG fallbacks (so real logos can replace them)
     else:
         content_type = 'image/webp'
         cache_time = 2592000  # 30 days for real logos
     
-    # Cache in database if asset exists and not ETF/Crypto (they should be refetched each time)
-    if db_asset and not skip_cache:
+    # Only cache real logos in database, not SVG fallbacks
+    # SVG fallbacks should be regenerated so they can be replaced with real logos later
+    if db_asset and not skip_cache and not is_svg_fallback:
         crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
     
     # Return the logo
     response = Response(content=logo_data, media_type=content_type)
-    response.headers["Cache-Control"] = f"public, max-age={cache_time}, immutable"
+    if is_svg_fallback:
+        # For SVG fallbacks, use short cache with must-revalidate so real logos can replace them
+        response.headers["Cache-Control"] = "public, max-age=300, must-revalidate"
+    else:
+        # For real logos, use long cache with immutable
+        response.headers["Cache-Control"] = f"public, max-age={cache_time}, immutable"
     # Add ETag for cache validation
     etag = hashlib.md5(logo_data).hexdigest()
     response.headers["ETag"] = f'"{etag}"'

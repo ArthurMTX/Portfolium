@@ -410,9 +410,17 @@ export default function Transactions() {
       return
     }
 
-    // Create CSV content
-    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'split_ratio', 'notes']
-    const rows = transactions.map(tx => [
+    // Create CSV content with sequence for ordering and conversion_id for linked conversions
+    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'split_ratio', 'conversion_id', 'notes', 'sequence']
+    
+    // Sort by date and then by id to ensure consistent ordering
+    const sortedForExport = [...transactions].sort((a, b) => {
+      const dateCompare = new Date(a.tx_date).getTime() - new Date(b.tx_date).getTime()
+      if (dateCompare !== 0) return dateCompare
+      return a.id - b.id
+    })
+    
+    const rows = sortedForExport.map((tx, index) => [
       tx.tx_date,
       tx.asset.symbol,
       tx.type,
@@ -421,7 +429,9 @@ export default function Transactions() {
       tx.fees,
       tx.currency,
       tx.metadata?.split || '',
-      tx.notes || ''
+      tx.metadata?.conversion_id || '',
+      tx.notes || '',
+      index + 1  // Sequence number to preserve order
     ])
 
     const csvContent = [

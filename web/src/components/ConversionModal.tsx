@@ -2,14 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, ArrowRight, Search, Loader2, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '../lib/api'
-import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
-
-// Helper to clean crypto names by removing currency suffixes
-const cleanCryptoName = (name: string | null): string | null => {
-  if (!name) return null
-  // Remove common currency suffixes like " USD", " EUR", " CAD", etc.
-  return name.replace(/\s+(USD|EUR|GBP|CAD|AUD|JPY|CHF|CNY|USDT|BUSD)$/i, '')
-}
+import { getAssetLogoUrl, handleLogoError, cleanCryptoName } from '../lib/logoUtils'
 
 interface Asset {
   id: number
@@ -354,7 +347,7 @@ export default function ConversionModal({
               {fromAsset ? (
                 <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <img
-                    src={getAssetLogoUrl(fromAsset.symbol, 'CRYPTOCURRENCY', cleanCryptoName(fromAsset.name))}
+                    src={getAssetLogoUrl(fromAsset.symbol, 'CRYPTOCURRENCY', fromAsset.name)}
                     alt={fromAsset.symbol}
                     className="w-8 h-8 rounded-full"
                     onError={(e) => handleLogoError(e, fromAsset.symbol, cleanCryptoName(fromAsset.name), 'CRYPTOCURRENCY')}
@@ -392,7 +385,7 @@ export default function ConversionModal({
                           className="w-full flex items-center gap-3 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0"
                         >
                           <img
-                            src={getAssetLogoUrl(asset.symbol, asset.asset_type || 'CRYPTOCURRENCY', cleanCryptoName(asset.name))}
+                            src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
                             alt={asset.symbol}
                             className="w-6 h-6 rounded-full"
                             onError={(e) => handleLogoError(e, asset.symbol, cleanCryptoName(asset.name), asset.asset_type || 'CRYPTOCURRENCY')}
@@ -425,7 +418,7 @@ export default function ConversionModal({
               {toAsset ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <img
-                    src={getAssetLogoUrl(toAsset.symbol, toAsset.asset_type || 'CRYPTOCURRENCY', cleanCryptoName(toAsset.name))}
+                    src={getAssetLogoUrl(toAsset.symbol, toAsset.asset_type, toAsset.name)}
                     alt={toAsset.symbol}
                     className="w-8 h-8 rounded-full"
                     onError={(e) => handleLogoError(e, toAsset.symbol, cleanCryptoName(toAsset.name), toAsset.asset_type || 'CRYPTOCURRENCY')}
@@ -469,7 +462,7 @@ export default function ConversionModal({
                           className="w-full flex items-center gap-3 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-700 border-b border-neutral-100 dark:border-neutral-700 last:border-b-0"
                         >
                           <img
-                            src={getAssetLogoUrl(ticker.symbol, ticker.type || 'CRYPTOCURRENCY', cleanCryptoName(ticker.name))}
+                            src={getAssetLogoUrl(ticker.symbol, ticker.type, ticker.name)}
                             alt={ticker.symbol}
                             className="w-6 h-6 rounded-full"
                             onError={(e) => handleLogoError(e, ticker.symbol, cleanCryptoName(ticker.name), ticker.type || 'CRYPTOCURRENCY')}

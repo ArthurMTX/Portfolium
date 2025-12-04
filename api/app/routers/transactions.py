@@ -838,6 +838,7 @@ async def import_csv_stream(
     portfolio_id: int,
     file: UploadFile = File(...),
     csv_service = Depends(get_csv_import_service),
+    current_user: User = Depends(get_current_user),
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
@@ -854,10 +855,38 @@ async def import_csv_stream(
     content = await file.read()
     csv_content = content.decode("utf-8")
     
+    # Store user_id for use in generator
+    user_id = current_user.id
+    
     # Generator function to yield progress updates as JSON
     def generate_progress():
         for update in csv_service.import_csv_with_progress(portfolio_id, csv_content):
             yield json.dumps(update) + "\n"
+            
+            # On completion, invalidate caches
+            if update.get("type") == "complete":
+                from app.services.analytics_cache import invalidate_portfolio_analytics
+                from app.services.cache import invalidate_positions, CacheService
+                invalidate_portfolio_analytics(portfolio_id)
+                invalidate_positions(portfolio_id)
+                
+                # Invalidate assets cache (held/sold)
+                cache_service = CacheService()
+                cache_service.delete_pattern(f"assets_held:{user_id}:*")
+                cache_service.delete_pattern(f"assets_sold:{user_id}:*")
+                
+                logger.info(f"Invalidated caches for portfolio {portfolio_id}")
+                
+                # Trigger background recalculation
+                try:
+                    from app.config import settings
+                    if settings.ENABLE_BACKGROUND_TASKS:
+                        from app.tasks.metrics_tasks import calculate_portfolio_metrics
+                        from app.tasks.insights_tasks import calculate_insights_all_periods
+                        calculate_portfolio_metrics.delay(portfolio_id)
+                        calculate_insights_all_periods.delay(portfolio_id, user_id)
+                except Exception as e:
+                    logger.warning(f"Failed to queue background tasks: {e}")
     
     return StreamingResponse(
         generate_progress(),
@@ -874,6 +903,7 @@ async def import_csv(
     portfolio_id: int,
     file: UploadFile = File(...),
     csv_service = Depends(get_csv_import_service),
+    current_user: User = Depends(get_current_user),
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
@@ -901,5 +931,30 @@ async def import_csv(
     
     if not result.success:
         raise ImportTransactionsError(result.errors, result.imported_count)
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after CSV import")
+    
+    # Trigger background recalculation of metrics and insights
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id} after CSV import")
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
     
     return result

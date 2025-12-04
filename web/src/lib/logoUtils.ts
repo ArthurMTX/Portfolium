@@ -57,10 +57,18 @@ export const normalizeTickerForLogo = (symbol: string): string => {
 }
 
 /**
+ * Clean crypto asset names by removing currency suffixes like " USD", " EUR", etc.
+ * For example: "XRP USD" -> "XRP", "Bitcoin USD" -> "Bitcoin"
+ */
+export const cleanCryptoName = (name: string | null): string | null => {
+  if (!name) return null
+  return name.replace(/\s+(USD|EUR|GBP|CAD|AUD|JPY|CHF|CNY|USDT|BUSD)$/i, '')
+}
+
+/**
  * Get the appropriate logo URL for an asset
- * For ETFs and Cryptocurrencies, uses the API endpoint directly with asset_type parameter
- * to ensure proper logo fetching logic (avoiding incorrect ticker matches)
- * For other assets, uses static logos with API fallback on error
+ * For most assets, uses only the ticker symbol.
+ * For cryptocurrencies, includes asset_type and name to avoid ambiguity (e.g., ETH company vs Ethereum)
  */
 export const getAssetLogoUrl = (
   symbol: string,
@@ -70,22 +78,54 @@ export const getAssetLogoUrl = (
   if (!symbol) return ''
   const normalizedSymbol = normalizeTickerForLogo(symbol)
   
-  // For ETFs and Cryptocurrencies, use the API endpoint directly with asset_type parameter
-  // This ensures the backend skips ticker search and uses appropriate logo fetching strategy
+  // For crypto, always include type and name to avoid ambiguity
   const assetTypeUpper = assetType?.toUpperCase()
-  if (assetTypeUpper === 'ETF' || assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO') {
+  const isCrypto = assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO'
+  
+  if (isCrypto) {
     const params = new URLSearchParams()
-    if (assetType) {
-      params.set('asset_type', assetType)
-    }
+    params.set('asset_type', 'CRYPTOCURRENCY')
     if (assetName) {
-      params.set('name', assetName)
+      const cleanedName = cleanCryptoName(assetName)
+      if (cleanedName) {
+        params.set('name', cleanedName)
+      }
     }
     return `/api/assets/logo/${normalizedSymbol}?${params.toString()}`
   }
   
-  // For other asset types, use static logos (will fallback to API in onError)
-  return `/logos/${normalizedSymbol}`
+  // For non-crypto, just use the ticker
+  return `/api/assets/logo/${normalizedSymbol}`
+}
+
+/**
+ * Get a fallback logo URL with asset type and name for better SVG generation
+ * Use this only when the primary logo URL fails
+ */
+export const getFallbackLogoUrl = (
+  symbol: string,
+  assetType?: string | null,
+  assetName?: string | null
+): string => {
+  if (!symbol) return ''
+  const normalizedSymbol = normalizeTickerForLogo(symbol)
+  
+  const params = new URLSearchParams()
+  if (assetType) {
+    params.set('asset_type', assetType)
+  }
+  if (assetName) {
+    // Clean crypto names to remove currency suffixes like " USD"
+    const assetTypeUpper = assetType?.toUpperCase()
+    const isCrypto = assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO'
+    const cleanedName = isCrypto ? cleanCryptoName(assetName) : assetName
+    if (cleanedName) {
+      params.set('name', cleanedName)
+    }
+  }
+  
+  const queryString = params.toString()
+  return `/api/assets/logo/${normalizedSymbol}${queryString ? '?' + queryString : ''}`
 }
 
 /**
@@ -103,7 +143,13 @@ export const handleLogoError = (
   if (!img.dataset.resolverTried) {
     img.dataset.resolverTried = 'true'
     const params = new URLSearchParams()
-    if (assetName) params.set('name', assetName)
+    
+    // Clean crypto names to remove currency suffixes like " USD"
+    const assetTypeUpper = assetType?.toUpperCase()
+    const isCrypto = assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO'
+    const cleanedName = isCrypto ? cleanCryptoName(assetName) : assetName
+    
+    if (cleanedName) params.set('name', cleanedName)
     if (assetType) params.set('asset_type', assetType)
     
     fetch(`/api/assets/logo/${symbol}?${params.toString()}`, { redirect: 'follow' })

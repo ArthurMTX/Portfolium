@@ -496,7 +496,9 @@ class CsvImportRow(BaseModel):
     fees: Decimal = Field(default=Decimal(0))
     currency: str = "USD"
     split_ratio: Optional[str] = None  # e.g., "2:1"
+    conversion_id: Optional[str] = None  # Links CONVERSION_IN/OUT pairs
     notes: Optional[str] = None
+    sequence: Optional[int] = None  # Preserves order within same date
 
 
 class CsvImportResult(BaseModel):
