@@ -44,6 +44,7 @@ class PublicHolding(BaseModel):
     name: Optional[str]
     sector: Optional[str]
     industry: Optional[str]
+    country: Optional[str]
     weight_pct: Decimal
     asset_type: Optional[str]
 

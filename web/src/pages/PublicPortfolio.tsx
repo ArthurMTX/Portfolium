@@ -557,6 +557,7 @@ const PublicPortfolio: React.FC = () => {
                                 <thead className="bg-neutral-50 dark:bg-neutral-900/80 border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wider">
                                     <tr>
                                         <th className="px-6 py-4 font-medium">{t('publicPortfolio.asset')}</th>
+                                        <th className="px-6 py-4 font-medium hidden lg:table-cell">{t('publicPortfolio.country')}</th>
                                         <th className="px-6 py-4 font-medium hidden sm:table-cell">{t('publicPortfolio.sector')}</th>
                                         <th className="px-6 py-4 font-medium hidden md:table-cell">{t('publicPortfolio.industry')}</th>
                                         <th className="px-6 py-4 font-medium text-right">{t('publicPortfolio.weight')}</th>
@@ -579,7 +580,7 @@ const PublicPortfolio: React.FC = () => {
                                                             <img
                                                                 src={logoUrl}
                                                                 alt={holding.symbol}
-                                                                className="w-10 h-10 object-cover bg-neutral-100 dark:bg-neutral-800 rounded-lg"
+                                                                className="w-10 h-10 object-cover"
                                                                 onError={e => handleLogoError(e, holding.symbol, holding.name, holding.asset_type)}
                                                             />
                                                         </div>
@@ -592,6 +593,22 @@ const PublicPortfolio: React.FC = () => {
                                                             </p>
                                                         </div>
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4 hidden lg:table-cell">
+                                                    {holding.country ? (
+                                                        <span className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
+                                                            {getFlagUrl(holding.country) && (
+                                                                <img
+                                                                    src={getFlagUrl(holding.country, 'w20') || ''}
+                                                                    alt={holding.country}
+                                                                    className="w-5 h-auto rounded-sm"
+                                                                />
+                                                            )}
+                                                            <span>{holding.country}</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-neutral-400 dark:text-neutral-600">—</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 hidden sm:table-cell">
                                                     {holding.sector ? (

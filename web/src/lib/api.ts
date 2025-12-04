@@ -371,6 +371,7 @@ export interface PublicHolding {
   name: string | null
   sector: string | null
   industry: string | null
+  country: string | null
   weight_pct: number
   asset_type: string | null
 }

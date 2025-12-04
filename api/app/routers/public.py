@@ -6,6 +6,7 @@ from datetime import datetime
 from app.db import get_db
 from app.services.insights import InsightsService
 from app.services.metrics import MetricsService
+from app.crud import assets as crud_assets
 from app.schemas_public import (
     PublicPortfolioInsights,
     PublicPerformanceMetrics,
@@ -83,11 +84,24 @@ async def get_public_portfolio(
                 
             weight_pct = (p.market_value / total_value) * 100
             
+            # Get effective metadata (includes user overrides) for the asset
+            asset = crud_assets.get_asset(db, p.asset_id)
+            if asset:
+                effective_data = crud_assets.get_effective_asset_metadata(db, asset, user_id)
+                effective_sector = effective_data.get("effective_sector")
+                effective_industry = effective_data.get("effective_industry")
+                effective_country = effective_data.get("effective_country")
+            else:
+                effective_sector = p.sector
+                effective_industry = p.industry
+                effective_country = None
+            
             holdings.append(PublicHolding(
                 symbol=p.symbol,
                 name=p.name,
-                sector=p.sector,
-                industry=p.industry,
+                sector=effective_sector,
+                industry=effective_industry,
+                country=effective_country,
                 weight_pct=weight_pct,
                 asset_type=p.asset_type
             ))

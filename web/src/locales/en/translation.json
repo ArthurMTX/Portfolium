@@ -1876,6 +1876,7 @@
     "sector": "Sector",
     "industry": "Industry",
     "weight": "Weight",
+    "country": "Country",
     "buildYourStory": "Build your portfolio story",
     "trackInvestments": "Track your investments with beautiful analytics",
     "featureRealtime": "Real-time price tracking",
