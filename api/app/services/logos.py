@@ -500,10 +500,21 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
     else:
         logger.info(f"Skipping direct CDN fetch for cryptocurrency {ticker}")
     
-    # Strategy 2: Search API using normalized ticker as search term
+    # Strategy 2: Search by company name FIRST if provided (more reliable than ticker search)
+    # Ticker search can return wrong companies
+    if company_name:
+        logger.info(f"Direct ticker fetch failed for {ticker}, trying company name search: {company_name}")
+        brand_id = find_logo_path(company_name)
+        if brand_id:
+            logo_data = fetch_logo_by_brand_id(brand_id)
+            if logo_data:
+                logger.info(f"Successfully fetched logo via company name search for {ticker}")
+                return logo_data
+    
+    # Strategy 3: Search API using normalized ticker as search term (fallback if no company name)
     # Skip ticker search for cryptocurrencies to avoid matching company tickers (e.g., BTC matching companies named BTC)
     if not is_crypto:
-        logger.info(f"Direct ticker fetch failed for {ticker}, trying API search by ticker")
+        logger.info(f"Company name search failed for {ticker}, trying API search by ticker")
         normalized_ticker = _normalize_ticker_for_search(ticker)
         if normalized_ticker:
             results = brandfetch_search(normalized_ticker)
@@ -516,16 +527,6 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
                     return logo_data
     else:
         logger.info(f"Skipping ticker search for cryptocurrency {ticker}")
-    
-    # Strategy 3: Search by company name if provided
-    if company_name:
-        logger.info(f"Trying company name search for {ticker}: {company_name}")
-        brand_id = find_logo_path(company_name)
-        if brand_id:
-            logo_data = fetch_logo_by_brand_id(brand_id)
-            if logo_data:
-                logger.info(f"Successfully fetched logo via company name search for {ticker}")
-                return logo_data
     
     # Strategy 4: Generate SVG logo as final fallback
     logger.info(f"No logo found for {ticker}, generating SVG fallback")
