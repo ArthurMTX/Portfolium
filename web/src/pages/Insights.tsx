@@ -860,7 +860,7 @@ export default function Insights() {
                   <div key={`top-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
                     <div className="flex items-center gap-3">
                       <img
-                        src="/placeholder-logo.png"
+                        src=""
                         alt={`${performer.symbol} logo`}
                         className="w-10 h-10 rounded object-contain"
                         onError={(e) => handleLogoError(e, performer.symbol, performer.name, performer.asset_type)}
@@ -873,18 +873,18 @@ export default function Insights() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-green-600">
+                      <p className={`font-bold ${performersSortBy === 'percentage' ? (performer.return_pct > 0 ? 'text-green-600' : performer.return_pct < 0 ? 'text-red-600' : 'text-neutral-600') : (performer.unrealized_pnl > 0 ? 'text-green-600' : performer.unrealized_pnl < 0 ? 'text-red-600' : 'text-neutral-600')}`}>
                         {performersSortBy === 'percentage' ? (
-                          <>+{performer.return_pct.toFixed(2)}%</>
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
                         ) : (
-                          <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
                         )}
                       </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
                         {performersSortBy === 'percentage' ? (
-                          <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
                         ) : (
-                          <>+{performer.return_pct.toFixed(2)}%</>
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
                         )}
                       </p>
                     </div>
@@ -910,7 +910,7 @@ export default function Insights() {
                   <div key={`worst-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
                     <div className="flex items-center gap-3">
                       <img
-                        src="/placeholder-logo.png"
+                        src=""
                         alt={`${performer.symbol} logo`}
                         className="w-10 h-10 rounded object-contain"
                         onError={(e) => handleLogoError(e, performer.symbol, performer.name, performer.asset_type)}
@@ -923,18 +923,18 @@ export default function Insights() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-red-600">
+                      <p className={`font-bold ${performersSortBy === 'percentage' ? (performer.return_pct > 0 ? 'text-green-600' : performer.return_pct < 0 ? 'text-red-600' : 'text-neutral-600') : (performer.unrealized_pnl > 0 ? 'text-green-600' : performer.unrealized_pnl < 0 ? 'text-red-600' : 'text-neutral-600')}`}>
                         {performersSortBy === 'percentage' ? (
-                          <>{performer.return_pct.toFixed(2)}%</>
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
                         ) : (
-                          <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
                         )}
                       </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
                         {performersSortBy === 'percentage' ? (
-                          <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
                         ) : (
-                          <>{performer.return_pct.toFixed(2)}%</>
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
                         )}
                       </p>
                     </div>

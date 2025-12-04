@@ -97,8 +97,8 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
                 </div>
               </div>
               <div className="text-right ml-3">
-                <p className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  +{Number(performer.return_pct).toFixed(2)}%
+                <p className={`font-semibold ${Number(performer.return_pct) > 0 ? 'text-emerald-600 dark:text-emerald-400' : Number(performer.return_pct) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-neutral-600 dark:text-neutral-400'}`}>
+                  {Number(performer.return_pct) > 0 ? '+' : Number(performer.return_pct) < 0 ? '-' : ''}{Math.abs(Number(performer.return_pct)).toFixed(2)}%
                 </p>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   {formatCurrency(performer.value, portfolioCurrency)}
