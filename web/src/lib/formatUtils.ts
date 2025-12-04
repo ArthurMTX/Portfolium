@@ -24,10 +24,12 @@ export function getOptimalDecimalPlaces(price: number | string | null): number {
 /**
  * Format currency with adaptive precision based on the value
  * Small values get more decimal places to show meaningful data
+ * Values very close to zero (< 0.01) are treated as zero to avoid floating point noise
  */
 export function formatCurrency(
   value: number | string | null, 
-  currency: string = 'EUR'
+  currency: string = 'EUR',
+  locale?: string
 ): string {
   if (value === null || value === undefined) return '-'
   
@@ -35,9 +37,21 @@ export function formatCurrency(
   
   if (isNaN(numValue)) return '-'
   
-  const decimalPlaces = getOptimalDecimalPlaces(numValue)
+  // Treat very small values as zero to avoid displaying floating point noise like -0.000002
+  if (Math.abs(numValue) < 0.01) {
+    const userLocale = locale || navigator.language || 'en-US'
+    return new Intl.NumberFormat(userLocale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(0)
+  }
   
-  const formatted = new Intl.NumberFormat('fr-FR', {
+  const decimalPlaces = getOptimalDecimalPlaces(numValue)
+  const userLocale = locale || navigator.language || 'en-US'
+  
+  const formatted = new Intl.NumberFormat(userLocale, {
     style: 'currency',
     currency,
     minimumFractionDigits: decimalPlaces,
@@ -45,6 +59,36 @@ export function formatCurrency(
   }).format(numValue)
   
   return formatted
+}
+
+/**
+ * Format currency without unnecessary decimals (101,00 -> 101)
+ * Used for fees, totals, and other values where .00 is redundant
+ */
+export function formatCurrencyCompact(
+  value: number | string | null, 
+  currency: string = 'EUR',
+  locale?: string
+): string {
+  if (value === null || value === undefined) return '-'
+  
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  if (isNaN(numValue)) return '-'
+  if (numValue === 0) return '-'
+  
+  const userLocale = locale || navigator.language || 'en-US'
+  
+  // Check if value is effectively a whole number (handles floating point precision issues)
+  const rounded = Math.round(numValue * 100) / 100
+  const isWholeNumber = rounded === Math.floor(rounded)
+  
+  return new Intl.NumberFormat(userLocale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: isWholeNumber ? 0 : 2,
+    maximumFractionDigits: isWholeNumber ? 0 : 2,
+  }).format(rounded)
 }
 
 /**

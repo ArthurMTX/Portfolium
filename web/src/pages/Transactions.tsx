@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
-import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
+import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -552,10 +552,6 @@ export default function Transactions() {
 
   const availableSortOptions: SortKey[] = ['tx_date', 'symbol', 'type', 'quantity', 'price', 'fees', 'total']
 
-  const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
-    return formatCurrencyUtil(value, currency)
-  }
-
   const formatQuantity = (value: number | string | null) => {
     if (value === null || value === undefined) return '-'
     const numValue = typeof value === 'string' ? parseFloat(value) : value
@@ -897,7 +893,7 @@ export default function Transactions() {
                               {getTranslatedType(transaction.type)}
                             </div>
                             <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(total, transaction.currency)}
                             </div>
                           </div>
                         </div>
@@ -919,7 +915,7 @@ export default function Transactions() {
                           <div>
                             <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.fees')}</span>
                             <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
                             </div>
                           </div>
                           {transaction.asset.name && (
@@ -1084,7 +1080,7 @@ export default function Transactions() {
                               {transaction.asset.symbol}
                             </div>
                             {transaction.asset.name && (
-                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 max-w-[150px] truncate" title={transaction.asset.name}>
                                 {transaction.asset.name}
                               </div>
                             )}
@@ -1104,10 +1100,10 @@ export default function Transactions() {
                         {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(total, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
                         {(() => {
