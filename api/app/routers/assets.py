@@ -90,34 +90,66 @@ async def search_assets(query: str, crypto_only: bool = False):
     Returns simplified results for conversion/swap UI
     """
     import requests
-    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}"
+    import yfinance as yf
+    
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
+    
+    results = []
+    seen_symbols = set()
+    
+    # For crypto_only, also try direct symbol lookup with -USD suffix
+    if crypto_only:
+        # Try common crypto symbol patterns
+        crypto_symbols_to_try = [
+            f"{query.upper()}-USD",
+            f"{query.upper()}-USDT", 
+            f"{query.upper()}-EUR",
+            f"{query.upper()}-CAD",
+        ]
+        for crypto_symbol in crypto_symbols_to_try:
+            try:
+                ticker = yf.Ticker(crypto_symbol)
+                info = ticker.info
+                if info and info.get("quoteType") == "CRYPTOCURRENCY":
+                    symbol = info.get("symbol", crypto_symbol)
+                    if symbol not in seen_symbols:
+                        seen_symbols.add(symbol)
+                        results.append({
+                            "symbol": symbol,
+                            "name": info.get("shortName", info.get("longName", symbol)),
+                            "type": "CRYPTOCURRENCY"
+                        })
+            except Exception:
+                pass
+    
+    # Also do Yahoo Finance search API
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}"
     try:
         response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code != 200:
-            raise SearchTickerError(status=response.status_code)
-        data = response.json()
-        
-        quotes = data.get("quotes", [])
-        
-        # Filter for crypto only if requested
-        if crypto_only:
-            quotes = [q for q in quotes if q.get("quoteType", "").upper() == "CRYPTOCURRENCY"]
-        
-        # Return top 10 results with symbol, name, and type
-        results = [
-            {
-                "symbol": item["symbol"], 
-                "name": item.get("shortname", item.get("longname", "")),
-                "type": item.get("quoteType", "")
-            }
-            for item in quotes[:10]
-        ]
-        return results
-    except requests.RequestException as e:
-        raise FailedToConnectToYahooError(reason=str(e))
+        if response.status_code == 200:
+            data = response.json()
+            quotes = data.get("quotes", [])
+            
+            # Filter for crypto only if requested
+            if crypto_only:
+                quotes = [q for q in quotes if q.get("quoteType", "").upper() == "CRYPTOCURRENCY"]
+            
+            # Add results that we haven't seen yet
+            for item in quotes[:10]:
+                symbol = item["symbol"]
+                if symbol not in seen_symbols:
+                    seen_symbols.add(symbol)
+                    results.append({
+                        "symbol": symbol, 
+                        "name": item.get("shortname", item.get("longname", "")),
+                        "type": item.get("quoteType", "")
+                    })
+    except requests.RequestException:
+        pass  # If search fails, we still have direct lookup results
+    
+    return results[:10]
 
 
 @router.get("/by-symbol/{symbol}", response_model=Asset)
