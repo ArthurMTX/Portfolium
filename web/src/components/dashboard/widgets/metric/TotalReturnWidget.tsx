@@ -3,6 +3,7 @@ import MetricWidget from './MetricWidget'
 import { formatCurrency } from '../../../../lib/formatUtils'
 import { BaseWidgetProps } from '../../types'
 import { useTranslation } from 'react-i18next'
+import usePortfolioStore from '../../../../store/usePortfolioStore'
 
 interface TotalReturnWidgetProps extends BaseWidgetProps {
   metrics: {
@@ -15,6 +16,10 @@ interface TotalReturnWidgetProps extends BaseWidgetProps {
 
 export default function TotalReturnWidget({ metrics, isPreview = false }: TotalReturnWidgetProps) {
   const { t } = useTranslation()
+  const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const portfolios = usePortfolioStore((state) => state.portfolios)
+  const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
+  const portfolioCurrency = activePortfolio?.base_currency || 'USD'
   
   if (!metrics) {
     return (
@@ -52,7 +57,7 @@ export default function TotalReturnWidget({ metrics, isPreview = false }: TotalR
   return (
     <MetricWidget
       title={t('dashboard.widgets.totalReturn.name')}
-      value={formatCurrency(totalReturn)}
+      value={formatCurrency(totalReturn, portfolioCurrency)}
       subtitle={t('dashboard.widgets.totalReturn.subtitle')}
       icon={icon}
       iconBgColor={iconBgColor}
