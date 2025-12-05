@@ -1149,6 +1149,8 @@
     "buy": "Acheter",
     "targetPrice": "Prix cible",
     "convertToBuy": "Convertir en achat",
+    "editItem": "Modifier l'élément de la liste de surveillance",
+    "fromCurrent": "par rapport au prix actuel",
     "importTitle": "Importer la liste de surveillance",
     "importDescription": "Importez votre liste de surveillance à partir d'un fichier CSV. Cliquez sur le bouton ci-dessous pour sélectionner un fichier.",
     "importFormatInfo": "Format CSV",
@@ -1173,7 +1175,9 @@
       "selectTags": "Sélectionner des étiquettes...",
       "nameRequired": "Le nom de l'étiquette est requis",
       "createFailed": "Échec de la création de l'étiquette",
-      "namePlaceholder": "Nom de l'étiquette..."
+      "namePlaceholder": "Nom de l'étiquette...",
+      "any": "N'importe quel",
+      "all": "Tous"
     }
   },
   "profile": {

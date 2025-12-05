@@ -1150,6 +1150,8 @@
     "buy": "Buy",
     "targetPrice": "Target Price",
     "convertToBuy": "Convert to Buy Transaction",
+    "editItem": "Edit Watchlist Item",
+    "fromCurrent": "from current price",
     "importTitle": "Import Watchlist",
     "importDescription": "Import your watchlist from a CSV file. Click the button below to select a file.",
     "importFormatInfo": "CSV format",
@@ -1174,7 +1176,9 @@
       "selectTags": "Select tags...",
       "nameRequired": "Tag name is required",
       "createFailed": "Failed to create tag",
-      "namePlaceholder": "Tag name..."
+      "namePlaceholder": "Tag name...",
+      "any": "Any",
+      "all": "All"
     }
   },
   "profile": {

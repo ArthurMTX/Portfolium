@@ -47,12 +47,15 @@ router = APIRouter()
 async def get_watchlist(
     pricing_service: PricingServiceDep,
     tag_ids: str = None,  # Comma-separated list of tag IDs
+    tag_mode: str = "any",  # "any" (OR) or "all" (AND)
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get all watchlist items for the current user with current prices.
     
     Optionally filter by tags by passing comma-separated tag IDs.
+    Use tag_mode="any" to match items with ANY of the specified tags (OR).
+    Use tag_mode="all" to match items with ALL of the specified tags (AND).
     """
     # Parse tag_ids if provided
     parsed_tag_ids = None
@@ -62,7 +65,11 @@ async def get_watchlist(
         except ValueError:
             parsed_tag_ids = None
     
-    items = crud.get_watchlist_items_by_user(db, current_user.id, tag_ids=parsed_tag_ids)
+    # Validate tag_mode
+    if tag_mode not in ("any", "all"):
+        tag_mode = "any"
+    
+    items = crud.get_watchlist_items_by_user(db, current_user.id, tag_ids=parsed_tag_ids, tag_mode=tag_mode)
     
     if not items:
         return []
@@ -188,7 +195,15 @@ async def create_watchlist_item_by_symbol(
         alert_enabled=item_data.alert_enabled
     )
     
-    return crud.create_watchlist_item(db, item, current_user.id)
+    created_item = crud.create_watchlist_item(db, item, current_user.id)
+    
+    # Assign tags if provided
+    if item_data.tag_ids:
+        crud.update_watchlist_item_tags(db, created_item.id, item_data.tag_ids, current_user.id)
+        # Reload to get tags
+        created_item = crud.get_watchlist_item(db, created_item.id)
+    
+    return created_item
 
 
 # ============================================================================
@@ -520,8 +535,65 @@ async def import_watchlist_csv_stream(
                         alert_target_price=alert_target_price,
                         alert_enabled=alert_enabled
                     )
-                    crud.create_watchlist_item(db, item, current_user.id)
+                    created_item = crud.create_watchlist_item(db, item, current_user.id)
                     imported_count += 1
+                    
+                    # Process tags if present
+                    tags_str = row.get('tags', '').strip()
+                    if tags_str:
+                        tag_ids = []
+                        for tag_part in tags_str.split('|'):
+                            if not tag_part.strip():
+                                continue
+                            parts = tag_part.split(':')
+                            tag_name = parts[0].strip() if len(parts) > 0 else ''
+                            tag_icon = parts[1].strip() if len(parts) > 1 else 'tag'
+                            tag_color = parts[2].strip() if len(parts) > 2 else '#6366f1'
+                            
+                            if not tag_name:
+                                continue
+                            
+                            # Validate/normalize color - ensure it's a valid hex color
+                            import re
+                            if not re.match(r'^#[0-9A-Fa-f]{6}$', tag_color):
+                                tag_color = '#6366f1'  # Use default if invalid
+                            
+                            try:
+                                # Check if tag exists
+                                existing_tag = crud.get_tag_by_name(db, current_user.id, tag_name)
+                                if existing_tag:
+                                    tag_ids.append(existing_tag.id)
+                                else:
+                                    # Create new tag
+                                    new_tag = crud.create_tag(
+                                        db, 
+                                        WatchlistTagCreate(name=tag_name, icon=tag_icon, color=tag_color),
+                                        current_user.id
+                                    )
+                                    tag_ids.append(new_tag.id)
+                                    warning_msg = f"Row {row_num}: Created new tag '{tag_name}'"
+                                    warnings.append(warning_msg)
+                                    yield json.dumps({
+                                        "type": "log",
+                                        "message": warning_msg,
+                                        "current": row_num - 1,
+                                        "total": total_rows,
+                                        "row_num": row_num
+                                    }) + "\n"
+                            except Exception as tag_error:
+                                warning_msg = f"Row {row_num}: Failed to create tag '{tag_name}': {str(tag_error)}"
+                                warnings.append(warning_msg)
+                                yield json.dumps({
+                                    "type": "log",
+                                    "message": warning_msg,
+                                    "current": row_num - 1,
+                                    "total": total_rows,
+                                    "row_num": row_num
+                                }) + "\n"
+                        
+                        # Assign tags to the watchlist item
+                        if tag_ids:
+                            crud.update_watchlist_item_tags(db, created_item.id, tag_ids, current_user.id)
                     
                     yield json.dumps({
                         "type": "progress",
@@ -597,9 +669,9 @@ async def import_watchlist_csv(
     Import watchlist from CSV file
     
     Expected CSV format:
-    symbol,notes,alert_target_price,alert_enabled
-    AAPL,Watch for earnings,150.00,true
-    MSFT,Long term hold,300.00,false
+    symbol,notes,alert_target_price,alert_enabled,tags
+    AAPL,Watch for earnings,150.00,true,Tech:laptop:#3b82f6|Growth:trending-up:#22c55e
+    MSFT,Long term hold,300.00,false,
     """
     if not file.filename.endswith('.csv'):
         raise WrongImportFormatError()
@@ -653,8 +725,49 @@ async def import_watchlist_csv(
                     alert_target_price=alert_target_price,
                     alert_enabled=alert_enabled
                 )
-                crud.create_watchlist_item(db, item, current_user.id)
+                created_item = crud.create_watchlist_item(db, item, current_user.id)
                 imported_count += 1
+                
+                # Process tags if present
+                tags_str = row.get('tags', '').strip()
+                if tags_str:
+                    tag_ids = []
+                    for tag_part in tags_str.split('|'):
+                        if not tag_part.strip():
+                            continue
+                        parts = tag_part.split(':')
+                        tag_name = parts[0].strip() if len(parts) > 0 else ''
+                        tag_icon = parts[1].strip() if len(parts) > 1 else 'tag'
+                        tag_color = parts[2].strip() if len(parts) > 2 else '#6366f1'
+                        
+                        if not tag_name:
+                            continue
+                        
+                        # Validate/normalize color - ensure it's a valid hex color
+                        import re
+                        if not re.match(r'^#[0-9A-Fa-f]{6}$', tag_color):
+                            tag_color = '#6366f1'  # Use default if invalid
+                        
+                        try:
+                            # Check if tag exists
+                            existing_tag = crud.get_tag_by_name(db, current_user.id, tag_name)
+                            if existing_tag:
+                                tag_ids.append(existing_tag.id)
+                            else:
+                                # Create new tag
+                                new_tag = crud.create_tag(
+                                    db, 
+                                    WatchlistTagCreate(name=tag_name, icon=tag_icon, color=tag_color),
+                                    current_user.id
+                                )
+                                tag_ids.append(new_tag.id)
+                                warnings.append(f"Row {row_num}: Created new tag '{tag_name}'")
+                        except Exception as tag_error:
+                            warnings.append(f"Row {row_num}: Failed to create tag '{tag_name}': {str(tag_error)}")
+                    
+                    # Assign tags to the watchlist item
+                    if tag_ids:
+                        crud.update_watchlist_item_tags(db, created_item.id, tag_ids, current_user.id)
                 
             except Exception as e:
                 errors.append(f"Row {row_num}: {str(e)}")
@@ -675,24 +788,33 @@ async def export_watchlist_csv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Export watchlist as CSV file"""
+    """Export watchlist as CSV file with tags"""
     items = crud.get_watchlist_items_by_user(db, current_user.id)
     
     # Create CSV
     output = StringIO()
     writer = csv.writer(output)
     
-    # Header
-    writer.writerow(['symbol', 'name', 'notes', 'alert_target_price', 'alert_enabled', 'created_at'])
+    # Header - include tags column
+    writer.writerow(['symbol', 'name', 'notes', 'alert_target_price', 'alert_enabled', 'tags', 'created_at'])
     
     # Data
     for item in items:
+        # Build tags string: "name:icon:color|name:icon:color|..."
+        tags_str = ''
+        if item.tags:
+            tag_parts = []
+            for tag in item.tags:
+                tag_parts.append(f"{tag.name}:{tag.icon}:{tag.color}")
+            tags_str = '|'.join(tag_parts)
+        
         writer.writerow([
             item.asset.symbol,
             item.asset.name or '',
             item.notes or '',
             str(item.alert_target_price) if item.alert_target_price else '',
             'true' if item.alert_enabled else 'false',
+            tags_str,
             item.created_at.isoformat()
         ])
     

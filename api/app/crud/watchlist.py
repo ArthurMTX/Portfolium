@@ -3,6 +3,7 @@ CRUD operations for watchlist
 """
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_
 
 from app.models import Watchlist, WatchlistTag
 from app.schemas import WatchlistItemCreate, WatchlistItemUpdate, WatchlistTagCreate, WatchlistTagUpdate
@@ -23,9 +24,15 @@ def get_watchlist_items_by_user(
     user_id: int, 
     skip: int = 0, 
     limit: int = 100,
-    tag_ids: Optional[List[int]] = None
+    tag_ids: Optional[List[int]] = None,
+    tag_mode: str = "any"
 ) -> List[Watchlist]:
-    """Get all watchlist items for a user, optionally filtered by tags"""
+    """Get all watchlist items for a user, optionally filtered by tags.
+    
+    Args:
+        tag_mode: "any" returns items matching ANY tag (OR), 
+                  "all" returns items matching ALL tags (AND)
+    """
     query = db.query(Watchlist).options(
         joinedload(Watchlist.asset),
         joinedload(Watchlist.tags)
@@ -35,7 +42,13 @@ def get_watchlist_items_by_user(
     
     # Filter by tags if provided
     if tag_ids:
-        query = query.filter(Watchlist.tags.any(WatchlistTag.id.in_(tag_ids)))
+        if tag_mode == "all":
+            # AND logic: item must have ALL specified tags
+            for tag_id in tag_ids:
+                query = query.filter(Watchlist.tags.any(WatchlistTag.id == tag_id))
+        else:
+            # OR logic: item must have ANY of the specified tags
+            query = query.filter(Watchlist.tags.any(WatchlistTag.id.in_(tag_ids)))
     
     return query.offset(skip).limit(limit).all()
 

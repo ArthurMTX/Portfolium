@@ -1147,10 +1147,15 @@ class ApiClient {
   }
 
   // Watchlist
-  async getWatchlist(tagIds?: number[]) {
-    const params = tagIds && tagIds.length > 0 
-      ? `?tag_ids=${tagIds.join(',')}` 
-      : ''
+  async getWatchlist(tagIds?: number[], filterMode?: 'any' | 'all') {
+    const params = new URLSearchParams()
+    if (tagIds && tagIds.length > 0) {
+      params.append('tag_ids', tagIds.join(','))
+    }
+    if (filterMode) {
+      params.append('tag_mode', filterMode)
+    }
+    const queryString = params.toString() ? `?${params.toString()}` : ''
     return this.request<Array<{
       id: number
       user_id: number
@@ -1175,7 +1180,7 @@ class ApiClient {
         created_at: string
         updated_at: string
       }>
-    }>>(`/watchlist${params}`)
+    }>>(`/watchlist${queryString}`)
   }
 
   async addToWatchlist(data: {
@@ -1183,6 +1188,7 @@ class ApiClient {
     notes?: string
     alert_target_price?: number
     alert_enabled?: boolean
+    tag_ids?: number[]
   }) {
     const { symbol, ...rest } = data;
     const params = new URLSearchParams({ symbol });

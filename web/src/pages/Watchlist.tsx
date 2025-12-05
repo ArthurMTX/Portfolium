@@ -7,7 +7,7 @@ import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 import SortIcon from '../components/SortIcon'
 import WatchlistTagManager, { IconComponent } from '../components/WatchlistTagManager'
-import WatchlistTagSelector from '../components/WatchlistTagSelector'
+import WatchlistEditModal from '../components/WatchlistEditModal'
 import { useTranslation } from 'react-i18next'
 
 interface WatchlistTag {
@@ -59,21 +59,19 @@ export default function Watchlist() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [tags, setTags] = useState<WatchlistTag[]>([])
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
+  const [tagFilterMode, setTagFilterMode] = useState<'any' | 'all'>('any')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showTagManager, setShowTagManager] = useState(false)
   const [addSymbol, setAddSymbol] = useState('')
   const [addNotes, setAddNotes] = useState('')
+  const [addTagIds, setAddTagIds] = useState<number[]>([])
   const [addFormError, setAddFormError] = useState<string | null>(null)
   const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>([])
   const [selectedTicker, setSelectedTicker] = useState<{ symbol: string; name: string; type?: string; exchange?: string } | null>(null)
-  const [editingItem, setEditingItem] = useState<number | null>(null)
-  const [editNotes, setEditNotes] = useState('')
-  const [editAlertPrice, setEditAlertPrice] = useState('')
-  const [editAlertEnabled, setEditAlertEnabled] = useState(false)
-  const [editItemTags, setEditItemTags] = useState<number[]>([])
+  const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -92,7 +90,7 @@ export default function Watchlist() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm || showTagManager) {
+    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm || showTagManager || editingItem) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -155,10 +153,10 @@ export default function Watchlist() {
     return isNaN(n) ? null : n
   }
 
-  const loadWatchlist = useCallback(async (filterTagIds?: number[]) => {
+  const loadWatchlist = useCallback(async (filterTagIds?: number[], filterMode?: 'any' | 'all') => {
     try {
       setLoading(true)
-      const data = await api.getWatchlist(filterTagIds)
+      const data = await api.getWatchlist(filterTagIds, filterMode)
       const normalized = data.map((d) => ({
         ...d,
         alert_target_price: toNumber(d.alert_target_price),
@@ -265,15 +263,15 @@ export default function Watchlist() {
   }
 
   useEffect(() => {
-    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
     loadPortfolios()
     loadTags()
   }, [loadWatchlist, loadPortfolios, loadTags])
 
   // Re-load watchlist when tag filter changes
   useEffect(() => {
-    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
-  }, [selectedTagIds, loadWatchlist])
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
+  }, [selectedTagIds, tagFilterMode, loadWatchlist])
 
   // Handle tag filter change
   const handleTagFilterChange = (tagId: number) => {
@@ -322,12 +320,14 @@ export default function Watchlist() {
       await api.addToWatchlist({
         symbol: addSymbol.toUpperCase(),
         notes: addNotes || undefined,
+        tag_ids: addTagIds.length > 0 ? addTagIds : undefined,
       })
       
       // Success - close modal and clear form
       setShowAddModal(false)
       setAddSymbol('')
       setAddNotes('')
+      setAddTagIds([])
       setSelectedTicker(null)
       setSearchResults([])
       
@@ -353,28 +353,25 @@ export default function Watchlist() {
   }
 
   const startEdit = (item: WatchlistItem) => {
-    setEditingItem(item.id)
-    setEditNotes(item.notes || '')
-    setEditAlertPrice(item.alert_target_price ? String(item.alert_target_price) : '')
-    setEditAlertEnabled(item.alert_enabled)
-    setEditItemTags(item.tags?.map(t => t.id) || [])
+    setEditingItem(item)
   }
 
-  const handleUpdate = async (id: number) => {
-    try {
-      // Update the watchlist item
-      await api.updateWatchlistItem(id, {
-        notes: editNotes || null,  // Send null to clear, or the note text
-        alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : null,  // Send null to clear
-        alert_enabled: editAlertEnabled,
-      })
-      // Update tags separately
-      await api.updateWatchlistItemTags(id, editItemTags)
-      setEditingItem(null)
-      loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
-    } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to update item'))
-    }
+  const handleEditSave = async (id: number, data: {
+    notes: string | null
+    alert_target_price: number | null
+    alert_enabled: boolean
+    tag_ids: number[]
+  }) => {
+    // Update the watchlist item
+    await api.updateWatchlistItem(id, {
+      notes: data.notes,
+      alert_target_price: data.alert_target_price,
+      alert_enabled: data.alert_enabled,
+    })
+    // Update tags separately
+    await api.updateWatchlistItemTags(id, data.tag_ids)
+    // Reload watchlist
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
   }
 
   const handleImportClick = () => {
@@ -400,9 +397,10 @@ export default function Watchlist() {
   const handleImportClose = useCallback(() => {
     setShowImportProgress(false)
     setImportFile(null)
-    // Reload watchlist after modal closes
+    // Reload watchlist and tags after modal closes (import may create new tags)
     loadWatchlist()
-  }, [loadWatchlist])
+    loadTags()
+  }, [loadWatchlist, loadTags])
 
   const handleExportClick = async () => {
     try {
@@ -505,7 +503,7 @@ export default function Watchlist() {
         </div>
 
         {/* Table Skeleton */}
-        <div className="card overflow-hidden">
+        <div className="card">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
@@ -641,6 +639,35 @@ export default function Watchlist() {
               {t('common.clear')}
             </button>
           )}
+          
+          {/* AND/OR Toggle - only show when multiple tags selected */}
+          {selectedTagIds.length > 1 && (
+            <div className="flex items-center ml-2 pl-2 border-l border-neutral-200 dark:border-neutral-700">
+              <div className="flex rounded-md overflow-hidden border border-neutral-300 dark:border-neutral-600">
+                <button
+                  onClick={() => setTagFilterMode('any')}
+                  className={`px-2.5 py-1 text-xs font-medium transition-all ${
+                    tagFilterMode === 'any'
+                      ? 'bg-primary-500 text-white shadow-inner'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                  }`}
+                >
+                  {t('watchlist.tags.any')}
+                </button>
+                <div className="w-px bg-neutral-300 dark:bg-neutral-600" />
+                <button
+                  onClick={() => setTagFilterMode('all')}
+                  className={`px-2.5 py-1 text-xs font-medium transition-all ${
+                    tagFilterMode === 'all'
+                      ? 'bg-primary-500 text-white shadow-inner'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                  }`}
+                >
+                  {t('watchlist.tags.all')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <button
@@ -740,137 +767,68 @@ export default function Watchlist() {
                         </div>
                       </div>
 
-                      {/* Data Grid / Edit Form */}
-                      {editingItem === item.id ? (
-                        <div className="space-y-3 text-sm">
-                          <div>
-                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
-                              {t('fields.notes')}
-                            </label>
-                            <textarea
-                              placeholder={t('fields.notes')}
-                              value={editNotes}
-                              onChange={(e) => setEditNotes(e.target.value)}
-                              className="input w-full text-sm"
-                              rows={2}
-                            />
+                      {/* Data Grid */}
+                      <div className="grid grid-cols-1 gap-y-2.5 text-sm">
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {[...item.tags].sort((a, b) => a.name.localeCompare(b.name)).map(tag => (
+                              <span
+                                key={tag.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                              >
+                                <IconComponent name={tag.icon} size={10} />
+                                {tag.name}
+                              </span>
+                            ))}
                           </div>
+                        )}
+                        {item.notes && (
                           <div>
-                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
-                              {t('watchlist.alertTargetPrice')}
-                            </label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder={t('watchlist.alertTargetPrice')}
-                              value={editAlertPrice}
-                              onChange={(e) => setEditAlertPrice(e.target.value)}
-                              className="input w-full text-sm"
-                            />
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
+                            <div className="text-neutral-900 dark:text-neutral-100 mt-1">
+                              {item.notes}
+                            </div>
                           </div>
-                          <label className="flex items-center text-sm">
-                            <input
-                              type="checkbox"
-                              checked={editAlertEnabled}
-                              onChange={(e) => setEditAlertEnabled(e.target.checked)}
-                              className="mr-2"
-                            />
-                            <span className="text-neutral-700 dark:text-neutral-300">{t('watchlist.alertEnabled')}</span>
-                          </label>
+                        )}
+                        {item.alert_target_price && (
                           <div>
-                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
-                              {t('watchlist.tags.title')}
-                            </label>
-                            <WatchlistTagSelector
-                              availableTags={tags}
-                              selectedTagIds={editItemTags}
-                              onChange={setEditItemTags}
-                              placeholder={t('watchlist.tags.selectTags')}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-y-2.5 text-sm">
-                          {item.tags && item.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {item.tags.map(tag => (
-                                <span
-                                  key={tag.id}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                                  style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                                >
-                                  <IconComponent name={tag.icon} size={10} />
-                                  {tag.name}
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.alertPrice')}</span>
+                            <div className="text-neutral-900 dark:text-neutral-100 mt-1 flex items-center gap-2">
+                              {formatPrice(item.alert_target_price, item.currency)}
+                              {item.alert_enabled && (
+                                <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                                  {t('common.enabled')}
                                 </span>
-                              ))}
+                              )}
                             </div>
-                          )}
-                          {item.notes && (
-                            <div>
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
-                              <div className="text-neutral-900 dark:text-neutral-100 mt-1">
-                                {item.notes}
-                              </div>
-                            </div>
-                          )}
-                          {item.alert_target_price && (
-                            <div>
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.alertPrice')}</span>
-                              <div className="text-neutral-900 dark:text-neutral-100 mt-1 flex items-center gap-2">
-                                {formatPrice(item.alert_target_price, item.currency)}
-                                {item.alert_enabled && (
-                                  <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-                                    {t('common.enabled')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Actions */}
                       <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                        {editingItem === item.id ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdate(item.id)}
-                              className="btn-secondary text-xs px-3 py-2 bg-green-600 text-white hover:bg-green-700 flex items-center gap-1.5"
-                            >
-                              {t('common.save')}
-                            </button>
-                            <button
-                              onClick={() => setEditingItem(null)}
-                              className="btn-secondary text-xs px-3 py-2"
-                            >
-                              {t('common.cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => startEdit(item)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
-                            >
-                              <Pencil size={14} />
-                              {t('common.edit')}
-                            </button>
-                            <button
-                              onClick={() => openConvertModal(item)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
-                            >
-                              <ShoppingCart size={14} />
-                              {t('watchlist.buy')}
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(item.id)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 text-red-600 dark:text-red-400"
-                            >
-                              <Trash2 size={14} />
-                              {t('common.delete')}
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => startEdit(item)}
+                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                        >
+                          <Pencil size={14} />
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          onClick={() => openConvertModal(item)}
+                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                        >
+                          <ShoppingCart size={14} />
+                          {t('watchlist.buy')}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(item.id)}
+                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 text-red-600 dark:text-red-400"
+                        >
+                          <Trash2 size={14} />
+                          {t('common.delete')}
+                        </button>
                       </div>
                     </div>
                   )
@@ -880,7 +838,7 @@ export default function Watchlist() {
           </div>
 
           {/* Desktop: Table Layout */}
-          <div className="hidden lg:block card overflow-hidden">
+          <div className="hidden lg:block card">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
@@ -975,67 +933,28 @@ export default function Watchlist() {
                       })()}
                     </td>
                     <td className="px-6 py-4">
-                      {editingItem === item.id ? (
-                        <input
-                          type="text"
-                          placeholder={t('placeholders.enterNotes')}
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          className="input w-full text-sm"
-                        />
-                      ) : (
-                        <div className="text-sm text-neutral-500 dark:text-neutral-400">{item.notes || '-'}</div>
-                      )}
+                      <div className="text-sm text-neutral-500 dark:text-neutral-400">{item.notes || '-'}</div>
                     </td>
                     <td className="px-6 py-4">
-                      {editingItem === item.id ? (
-                        <WatchlistTagSelector
-                          availableTags={tags}
-                          selectedTagIds={editItemTags}
-                          onChange={setEditItemTags}
-                          compact
-                        />
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {item.tags && item.tags.length > 0 ? (
-                            item.tags.map(tag => (
-                              <span
-                                key={tag.id}
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
-                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                              >
-                                <IconComponent name={tag.icon} size={10} />
-                                {tag.name}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-neutral-400 text-sm">-</span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags && item.tags.length > 0 ? (
+                          [...item.tags].sort((a, b) => a.name.localeCompare(b.name)).map(tag => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                              style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                            >
+                              <IconComponent name={tag.icon} size={10} />
+                              {tag.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-neutral-400 text-sm">-</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {editingItem === item.id ? (
-                        <div className="space-y-1">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder={t('watchlist.targetPrice')}
-                            value={editAlertPrice}
-                            onChange={(e) => setEditAlertPrice(e.target.value)}
-                            className="input w-full text-sm"
-                          />
-                          <label className="flex items-center text-xs">
-                            <input
-                              type="checkbox"
-                              checked={editAlertEnabled}
-                              onChange={(e) => setEditAlertEnabled(e.target.checked)}
-                              className="mr-1"
-                            />
-                            {t('common.enabled')}
-                          </label>
-                        </div>
-                      ) : item.alert_enabled && item.alert_target_price !== null ? (
+                      {item.alert_enabled && item.alert_target_price !== null ? (
                         <div className="text-sm font-medium">
                           <div>{formatPrice(item.alert_target_price, item.currency)}</div>
                           {(() => {
@@ -1059,46 +978,27 @@ export default function Watchlist() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
-                        {editingItem === item.id ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdate(item.id)}
-                              className="btn-primary"
-                            >
-                              {t('common.save')}
-                            </button>
-                            <button
-                              onClick={() => setEditingItem(null)}
-                              className="btn"
-                            >
-                              {t('common.cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => startEdit(item)}
-                              className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                              title={t('common.edit')}
-                            >
-                              <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
-                            </button>
-                            <button
-                              onClick={() => openConvertModal(item)}
-                              className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
-                              title={t('watchlist.convertToBuy')}
-                            >
-                              <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(item.id)}
-                              className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
-                              title={t('common.delete')}
-                            >
-                              <Trash2 size={18} className="text-red-600 dark:text-red-400" />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => startEdit(item)}
+                          className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          title={t('common.edit')}
+                        >
+                          <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
+                        </button>
+                        <button
+                          onClick={() => openConvertModal(item)}
+                          className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
+                          title={t('watchlist.convertToBuy')}
+                        >
+                          <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(item.id)}
+                          className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 size={18} className="text-red-600 dark:text-red-400" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1110,6 +1010,15 @@ export default function Watchlist() {
           </div>
         </>
       </div>
+
+      {/* Edit Modal */}
+      <WatchlistEditModal
+        isOpen={editingItem !== null}
+        item={editingItem}
+        availableTags={tags}
+        onClose={() => setEditingItem(null)}
+        onSave={handleEditSave}
+      />
 
       {/* Import Modal */}
       {showImportModal && (
@@ -1342,6 +1251,7 @@ export default function Watchlist() {
                   setShowAddModal(false)
                   setAddSymbol('')
                   setAddNotes('')
+                  setAddTagIds([])
                   setSearchResults([])
                   setSelectedTicker(null)
                   setAddFormError(null)
@@ -1401,6 +1311,43 @@ export default function Watchlist() {
                 />
               </div>
 
+              {/* Tags Selector */}
+              {tags.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {t('watchlist.tags.title')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => {
+                          setAddTagIds(prev => 
+                            prev.includes(tag.id) 
+                              ? prev.filter(id => id !== tag.id)
+                              : [...prev, tag.id]
+                          )
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                          addTagIds.includes(tag.id)
+                            ? 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900'
+                            : 'opacity-60 hover:opacity-100'
+                        }`}
+                        style={{ 
+                          backgroundColor: tag.color + '20', 
+                          color: tag.color,
+                          ...(addTagIds.includes(tag.id) ? { ringColor: tag.color } : {})
+                        }}
+                      >
+                        <IconComponent name={tag.icon} size={12} />
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {addFormError && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
                   <div className="flex-shrink-0">
@@ -1430,6 +1377,7 @@ export default function Watchlist() {
                     setShowAddModal(false)
                     setAddSymbol('')
                     setAddNotes('')
+                    setAddTagIds([])
                     setSearchResults([])
                     setSelectedTicker(null)
                     setAddFormError(null)
@@ -1457,7 +1405,7 @@ export default function Watchlist() {
         onClose={() => setShowTagManager(false)}
         onTagsUpdated={() => {
           loadTags()
-          loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined)
+          loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
         }}
       />
     </div>

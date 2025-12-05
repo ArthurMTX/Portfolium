@@ -7,3 +7,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Type declarations for lucide-static
+declare module 'lucide-static/tags.json' {
+  const tags: Record<string, string[]>
+  export default tags
+}

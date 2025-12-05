@@ -600,6 +600,7 @@ class WatchlistItemCreateBySymbol(BaseModel):
     notes: Optional[str] = None
     alert_target_price: Optional[Decimal] = None
     alert_enabled: bool = False
+    tag_ids: Optional[List[int]] = None
 
 
 class WatchlistItemUpdate(BaseModel):
@@ -677,9 +678,17 @@ class WatchlistConvertToBuy(BaseModel):
 
 class WatchlistTagBase(BaseModel):
     """Base watchlist tag schema"""
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=30)
     icon: str = Field(default='tag', max_length=50)
-    color: str = Field(default='#6366f1', max_length=20)
+    color: str = Field(default='#6366f1', max_length=7)
+
+    @field_validator('color')
+    @classmethod
+    def validate_hex_color(cls, v: str) -> str:
+        import re
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
+            raise ValueError('Color must be a valid hex color (e.g., #FF5733)')
+        return v.upper()
 
 
 class WatchlistTagCreate(WatchlistTagBase):
@@ -689,9 +698,19 @@ class WatchlistTagCreate(WatchlistTagBase):
 
 class WatchlistTagUpdate(BaseModel):
     """Schema for updating a watchlist tag"""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    name: Optional[str] = Field(None, min_length=1, max_length=30)
     icon: Optional[str] = Field(None, max_length=50)
-    color: Optional[str] = Field(None, max_length=20)
+    color: Optional[str] = Field(None, max_length=7)
+
+    @field_validator('color')
+    @classmethod
+    def validate_hex_color(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        import re
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
+            raise ValueError('Color must be a valid hex color (e.g., #FF5733)')
+        return v.upper()
 
 
 class WatchlistTagResponse(WatchlistTagBase):

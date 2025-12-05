@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { X, Plus, Trash2, Check, Pencil, Tag, Search } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import iconTags from 'lucide-static/tags.json'
 
 interface WatchlistTag {
   id: number
@@ -14,62 +15,37 @@ interface WatchlistTag {
   updated_at: string
 }
 
-// Helper to convert PascalCase to kebab-case
-const pascalToKebab = (str: string): string => {
-  return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
-}
+// Get all icon names from lucide-static tags.json
+const ALL_ICONS = Object.keys(iconTags as Record<string, string[]>).sort()
 
-// Get all icon names from Lucide exports
-const getAllIconNames = (): string[] => {
-  const excludeList = new Set([
-    'createLucideIcon', 'default', 'icons', 'Icon', 'createElement', 
-    'forwardRef', 'memo', 'defaultAttributes', 'toKebabCase', 'mergeClasses',
-    'LucideIcon', 'IconNode'
-  ])
-  
-  const iconNames: string[] = []
-  
-  for (const key of Object.keys(LucideIcons)) {
-    // Skip non-icon exports
-    if (excludeList.has(key)) continue
-    // Icon components start with uppercase letter
-    if (!/^[A-Z]/.test(key)) continue
-    // Skip if key contains lowercase only after first char pattern that suggests it's not an icon
-    if (key === 'Icons') continue
-    
-    iconNames.push(pascalToKebab(key))
-  }
-  
-  // If extraction failed or got too few icons, return empty (will use POPULAR_ICONS only)
-  if (iconNames.length < 100) {
-    console.warn('Lucide icon extraction found only', iconNames.length, 'icons, expected 1000+')
-  }
-  
-  return iconNames.sort()
-}
+// Icon tags for search - from lucide-static
+const ICON_TAGS = iconTags as Record<string, string[]>
 
 // Popular icons to show first when not searching
 const POPULAR_ICONS = [
-  'tag', 'star', 'heart', 'bookmark', 'flag', 'zap', 'target', 'circle',
-  'dollar-sign', 'euro', 'trending-up', 'trending-down', 'bar-chart', 'pie-chart', 'activity', 'percent', 'wallet', 'credit-card',
-  'check-circle', 'alert-circle', 'clock', 'calendar', 'bell', 'eye', 'lock', 'shield',
-  'briefcase', 'building', 'store', 'shopping-cart', 'package', 'globe',
+  'tag', 'star', 'heart', 'bookmark', 'flag',
+  'zap', 'target', 'trending-up', 'trending-down', 'activity',
+  'bar-chart', 'pie-chart', 'percent', 'wallet', 'credit-card',
+  'dollar-sign', 'euro', 'banknote', 'bitcoin', 'piggy-bank',
+  'check-circle', 'alert-circle', 'alert-triangle', 'info', 'help-circle',
+  'bell', 'clock', 'calendar', 'hourglass', 'loader',
+  'eye', 'eye-off', 'lock', 'shield', 'key',
+  'briefcase', 'building', 'store', 'factory', 'warehouse',
+  'shopping-cart', 'package', 'truck', 'globe', 'map',
+  'map-pin', 'navigation', 'compass', 'plane',
   'sun', 'moon', 'leaf', 'flame', 'droplet',
-  'crown', 'diamond', 'gem', 'gift', 'trophy', 'award', 'rocket', 'lightbulb', 'sparkles',
-  'arrow-up', 'arrow-down', 'arrow-left', 'arrow-right', 'arrow-up-right', 'arrow-down-left',
-  'chevron-up', 'chevron-down', 'chevron-left', 'chevron-right',
-  'plus', 'minus', 'x', 'check', 'search', 'settings', 'user', 'users', 'home', 'mail',
-  'phone', 'camera', 'image', 'video', 'music', 'file', 'folder', 'download', 'upload', 'link',
-  'share', 'copy', 'trash', 'edit', 'save', 'refresh-cw', 'loader', 'filter', 'sort-asc', 'sort-desc',
-  'info', 'help-circle', 'alert-triangle', 'ban', 'power', 'battery', 'wifi', 'bluetooth', 'cpu', 'hard-drive',
-  'monitor', 'smartphone', 'tablet', 'laptop', 'printer', 'tv', 'speaker', 'headphones', 'mic', 'volume-2',
-  'play', 'pause', 'skip-forward', 'skip-back', 'repeat', 'shuffle', 'list', 'grid', 'layout', 'sidebar',
-  'map', 'map-pin', 'navigation', 'compass', 'anchor', 'plane', 'car', 'truck', 'bike', 'train',
-  'coffee', 'utensils', 'pizza', 'beer', 'wine', 'cake', 'apple', 'carrot', 'egg', 'fish',
-  'dog', 'cat', 'bird', 'bug', 'rabbit', 'turtle', 'github', 'gitlab', 'twitter', 'facebook',
-  'instagram', 'youtube', 'linkedin', 'slack', 'discord', 'figma', 'chrome', 'firefox', 'safari', 'code',
-  'terminal', 'database', 'server', 'cloud', 'key', 'fingerprint', 'scan', 'qr-code', 'barcode', 'hash'
-]
+  'rocket', 'lightbulb', 'sparkles', 'trophy', 'award',
+  'crown', 'diamond', 'gem', 'gift', 'medal',
+  'arrow-up', 'arrow-down', 'arrow-up-right',
+  'chevron-up', 'chevron-down', 'refresh-cw',
+  'plus', 'minus', 'x', 'check', 'search',
+  'settings', 'sliders-horizontal', 'filter', 'sort-asc', 'sort-desc',
+  'user', 'users', 'home', 'cpu', 'database',
+  'server', 'cloud', 'gauge', 'bar-chart-3',
+  'line-chart', 'list', 'grid-3x3', 'layout-dashboard', 'save',
+  'edit', 'copy', 'link', 'share-2', 'download', 'upload'
+].filter(icon => ALL_ICONS.includes(icon)) // Only keep icons that exist
+
 
 // Predefined colors
 const AVAILABLE_COLORS = [
@@ -96,8 +72,29 @@ const IconComponent = ({ name, size = 16, className = '' }: { name: string; size
   return <Icon size={size} className={className} />
 }
 
-// All available icons (computed once)
-const ALL_ICONS = getAllIconNames()
+// Search icons by name AND by tags (keywords)
+const searchIcons = (query: string): string[] => {
+  if (!query) return POPULAR_ICONS
+  
+  const lowerQuery = query.toLowerCase()
+  const results: string[] = []
+  
+  for (const iconName of ALL_ICONS) {
+    // Match by icon name
+    if (iconName.includes(lowerQuery)) {
+      results.push(iconName)
+      continue
+    }
+    
+    // Match by tags/keywords
+    const tags = ICON_TAGS[iconName]
+    if (tags && tags.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+      results.push(iconName)
+    }
+  }
+  
+  return results.slice(0, 100) // Limit results for performance
+}
 
 export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: WatchlistTagManagerProps) {
   const { t } = useTranslation()
@@ -221,13 +218,8 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
     }
   }
 
-  // Use ALL_ICONS if it has enough icons, otherwise fall back to POPULAR_ICONS for search
-  const searchableIcons = ALL_ICONS.length > 100 ? ALL_ICONS : POPULAR_ICONS
-  
-  // Filter icons based on search - show popular icons when no search, search all icons otherwise
-  const filteredIcons = iconSearch
-    ? searchableIcons.filter(icon => icon.toLowerCase().includes(iconSearch.toLowerCase())).slice(0, 100)
-    : POPULAR_ICONS
+  // Search icons by name AND tags - uses lucide-static tags.json
+  const filteredIcons = searchIcons(iconSearch)
 
   if (!isOpen) return null
 
@@ -297,7 +289,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                       type="text"
                       value={iconSearch}
                       onChange={(e) => setIconSearch(e.target.value)}
-                      placeholder={`Search ${searchableIcons.length} icons...`}
+                      placeholder={`Search ${ALL_ICONS.length} icons...`}
                       className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-700 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                     />
                   </div>
@@ -374,6 +366,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
               placeholder={t('watchlist.tags.namePlaceholder')}
+              maxLength={30}
               className="flex-1 px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -447,6 +440,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                           type="text"
                           value={editingTag.name}
                           onChange={(e) => setEditingTag({ ...editingTag, name: e.target.value })}
+                          maxLength={30}
                           className="flex-1 px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                           autoFocus
                         />
