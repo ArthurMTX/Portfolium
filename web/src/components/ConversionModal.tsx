@@ -168,13 +168,13 @@ export default function ConversionModal({
     return () => clearTimeout(timer)
   }, [toSearch, searchTickers])
 
-  // Fetch current price for an asset
+  // Fetch current price for an asset (converted to portfolio currency)
   const fetchPrice = async (symbol: string, isFrom: boolean) => {
     if (isFrom) setFetchingFromPrice(true)
     else setFetchingToPrice(true)
     
     try {
-      const priceData = await api.getPriceQuote(symbol)
+      const priceData = await api.getPriceQuote(symbol, portfolioCurrency)
       const price = priceData.price
       if (isFrom) {
         setFromPrice(price.toString())
@@ -203,7 +203,17 @@ export default function ConversionModal({
     
     // First, try to get existing asset from database
     try {
-      const asset = await api.getAssetBySymbol(ticker.symbol)
+      let asset = await api.getAssetBySymbol(ticker.symbol)
+      
+      // If it's a crypto with currency suffix in name, enrich it to fix the name
+      if (asset.name && /\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$/i.test(asset.name)) {
+        try {
+          asset = await api.enrichAsset(asset.id)
+        } catch {
+          // Ignore enrich errors, use existing asset
+        }
+      }
+      
       setToAsset({
         id: asset.id,
         symbol: asset.symbol,
@@ -437,7 +447,7 @@ export default function ConversionModal({
               {toAsset ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <img
-                    src={getAssetLogoUrl(toAsset.symbol, toAsset.asset_type, toAsset.name)}
+                    src={getAssetLogoUrl(toAsset.symbol, 'CRYPTOCURRENCY', toAsset.name)}
                     alt={toAsset.symbol}
                     className="w-8 h-8 rounded-full"
                     onError={(e) => handleLogoError(e, toAsset.symbol, cleanCryptoName(toAsset.name), toAsset.asset_type || 'CRYPTOCURRENCY')}

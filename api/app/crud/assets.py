@@ -67,19 +67,22 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
         # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
         if not asset.name or asset.name == asset.symbol:
             name = info.get('longName') or info.get('shortName') or asset.symbol
-            # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
-            if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
-                name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
         else:
             name = asset.name
+        # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
+        if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+            name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
     except Exception:
         # If yfinance fails, use provided values
         sector = None
         industry = None
-        asset_type = None
+        asset_type = asset.asset_type  # Use passed asset_type if yfinance fails
         country = None
         currency = asset.currency
         name = asset.name or asset.symbol
+        # Strip currency suffixes from cryptocurrency names even in exception path
+        if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+            name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
     
     db_asset = Asset(
         symbol=asset.symbol.upper(),
@@ -172,6 +175,9 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
                 if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
                     yf_name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', yf_name, flags=re.IGNORECASE)
                 db_asset.name = yf_name
+            elif is_crypto_with_suffix:
+                # If yfinance didn't return a name, just strip the suffix from existing name
+                db_asset.name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', db_asset.name, flags=re.IGNORECASE)
         db.commit()
         db.refresh(db_asset)
         return db_asset

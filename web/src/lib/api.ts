@@ -637,8 +637,9 @@ class ApiClient {
     return this.request<{ id: number; symbol: string; name: string; currency: string }>(`/assets/by-symbol/${encodeURIComponent(symbol)}`)
   }
 
-  async getPriceQuote(symbol: string) {
-    return this.request<{ symbol: string; price: number; currency: string }>(`/prices/quote/${encodeURIComponent(symbol)}`)
+  async getPriceQuote(symbol: string, targetCurrency?: string) {
+    const params = targetCurrency ? `?target_currency=${encodeURIComponent(targetCurrency)}` : ''
+    return this.request<{ symbol: string; price: number; currency: string }>(`/prices/quote/${encodeURIComponent(symbol)}${params}`)
   }
 
   async createAsset(asset: {

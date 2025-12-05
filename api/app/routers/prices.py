@@ -117,6 +117,7 @@ async def get_market_indices(
 @router.get("/quote/{symbol}", response_model=PriceQuote)
 async def get_price_quote(
     symbol: str,
+    target_currency: str = Query(None, description="Convert price to this currency (e.g., 'USD', 'EUR')"),
     pricing_service = Depends(get_pricing_service)
 ):
     """
@@ -124,10 +125,14 @@ async def get_price_quote(
     
     - Fetches from Yahoo Finance
     - Returns price quote with current price, currency, and daily change
+    - Optionally converts to target currency
     
-    Example: `/prices/quote/BTC-USD`
+    Example: `/prices/quote/BTC-USD` or `/prices/quote/ETH-EUR?target_currency=USD`
     """
+    from app.services.currency import CurrencyService
+    
     symbol = symbol.strip().upper()
+    target_currency = target_currency.upper() if target_currency else None
     prices = await pricing_service.get_multiple_prices([symbol])
     
     if symbol not in prices or prices[symbol] is None:
@@ -140,10 +145,26 @@ async def get_price_quote(
                 prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else current_price
                 daily_change = ((current_price - prev_close) / prev_close * 100) if prev_close else 0
                 
+                # Get actual currency from ticker info
+                try:
+                    info = ticker.info
+                    source_currency = info.get('currency', 'USD')
+                except:
+                    source_currency = 'USD'
+                
+                price = Decimal(str(current_price))
+                
+                # Convert to target currency if specified
+                if target_currency and target_currency != source_currency:
+                    converted_price = CurrencyService.convert(price, source_currency, target_currency)
+                    if converted_price is not None:
+                        price = converted_price
+                        source_currency = target_currency
+                
                 return PriceQuote(
                     symbol=symbol,
-                    price=Decimal(str(current_price)),
-                    currency="USD",
+                    price=price,
+                    currency=source_currency,
                     daily_change_pct=Decimal(str(round(daily_change, 2))),
                     asof=datetime.utcnow()
                 )
@@ -152,7 +173,21 @@ async def get_price_quote(
         
         raise InvalidPriceRequestError(f"Could not fetch price for symbol: {symbol}")
     
-    return prices[symbol]
+    price_quote = prices[symbol]
+    
+    # Convert to target currency if specified
+    if target_currency and price_quote.currency != target_currency:
+        converted_price = CurrencyService.convert(price_quote.price, price_quote.currency, target_currency)
+        if converted_price is not None:
+            return PriceQuote(
+                symbol=price_quote.symbol,
+                price=converted_price,
+                currency=target_currency,
+                daily_change_pct=price_quote.daily_change_pct,
+                asof=price_quote.asof
+            )
+    
+    return price_quote
 
 
 @router.post("/refresh")
