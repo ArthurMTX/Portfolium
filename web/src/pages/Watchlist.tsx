@@ -54,12 +54,30 @@ const sortableColumns = [
 type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
 
+// LocalStorage keys for persisting filter state
+const STORAGE_KEY_TAG_IDS = 'watchlist_filter_tag_ids'
+const STORAGE_KEY_TAG_MODE = 'watchlist_filter_tag_mode'
+
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [tags, setTags] = useState<WatchlistTag[]>([])
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
-  const [tagFilterMode, setTagFilterMode] = useState<'any' | 'all'>('any')
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TAG_IDS)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+  const [tagFilterMode, setTagFilterMode] = useState<'any' | 'all'>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TAG_MODE)
+      return saved === 'all' ? 'all' : 'any'
+    } catch {
+      return 'any'
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -272,6 +290,15 @@ export default function Watchlist() {
   useEffect(() => {
     loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
   }, [selectedTagIds, tagFilterMode, loadWatchlist])
+
+  // Persist tag filter to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TAG_IDS, JSON.stringify(selectedTagIds))
+  }, [selectedTagIds])
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TAG_MODE, tagFilterMode)
+  }, [tagFilterMode])
 
   // Handle tag filter change
   const handleTagFilterChange = (tagId: number) => {

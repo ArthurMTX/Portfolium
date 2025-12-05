@@ -229,7 +229,7 @@ export default function WatchlistEditModal({
             </div>
 
             {/* Alert Price */}
-            <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="grid grid-cols-2 gap-4 items-start">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                   {t('watchlist.alertTargetPrice')}
@@ -264,7 +264,7 @@ export default function WatchlistEditModal({
                   </p>
                 )}
               </div>
-              <div className="flex items-center justify-center h-[42px]">
+              <div className="pt-7">
                 <label className={`flex items-center gap-3 group ${!alertPrice ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                   {/* Toggle Switch */}
                   <button

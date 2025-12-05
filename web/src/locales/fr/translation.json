@@ -1177,7 +1177,10 @@
       "createFailed": "Échec de la création de l'étiquette",
       "namePlaceholder": "Nom de l'étiquette...",
       "any": "N'importe quel",
-      "all": "Tous"
+      "all": "Tous",
+      "chooseColor": "Choisir une couleur",
+      "chooseIcon": "Choisir une icône",
+      "searchIcons": "Rechercher {{count}} icônes..."
     }
   },
   "profile": {

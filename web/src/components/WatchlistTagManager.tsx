@@ -275,7 +275,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                 }}
                 className="w-11 h-11 flex items-center justify-center rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
                 style={{ color: newTagColor }}
-                title="Choose icon"
+                title={t('watchlist.tags.chooseIcon')}
               >
                 <IconComponent name={newTagIcon} size={20} />
               </button>
@@ -289,7 +289,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                       type="text"
                       value={iconSearch}
                       onChange={(e) => setIconSearch(e.target.value)}
-                      placeholder={`Search ${ALL_ICONS.length} icons...`}
+                      placeholder={t('watchlist.tags.searchIcons', { count: ALL_ICONS.length })}
                       className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-700 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                     />
                   </div>
@@ -333,7 +333,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                   setShowIconPicker(false)
                 }}
                 className="w-11 h-11 rounded-lg border border-neutral-300 dark:border-neutral-600 overflow-hidden hover:ring-2 hover:ring-pink-500 transition-all"
-                title="Choose color"
+                title={t('watchlist.tags.chooseColor')}
               >
                 <div className="w-full h-full" style={{ backgroundColor: newTagColor }} />
               </button>
@@ -447,14 +447,14 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                         <button
                           onClick={() => handleUpdateTag(editingTag)}
                           className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-md transition-colors"
-                          title="Save"
+                          title={t('common.save')}
                         >
                           <Check size={16} />
                         </button>
                         <button
                           onClick={() => setEditingTag(null)}
                           className="p-2 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-md transition-colors"
-                          title="Cancel"
+                          title={t('common.cancel')}
                         >
                           <X size={16} />
                         </button>
@@ -469,19 +469,19 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                           <IconComponent name={tag.icon} size={16} />
                         </div>
                         <span className="flex-1 text-sm text-red-600 dark:text-red-400">
-                          Delete "{tag.name}"?
+                          {t('common.delete')} "{tag.name}"?
                         </span>
                         <button
                           onClick={() => handleDeleteTag(tag.id)}
                           className="px-3 py-1.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors"
                         >
-                          Delete
+                          {t('common.delete')}
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(null)}
                           className="px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-300 bg-neutral-200 dark:bg-neutral-600 hover:bg-neutral-300 dark:hover:bg-neutral-500 rounded-md transition-colors"
                         >
-                          Cancel
+                          {t('common.cancel')}
                         </button>
                       </>
                     ) : (
@@ -500,14 +500,14 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                           <button
                             onClick={() => setEditingTag({ ...tag })}
                             className="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-md transition-colors"
-                            title="Edit"
+                            title={t('common.edit')}
                           >
                             <Pencil size={14} />
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(tag.id)}
                             className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                            title="Delete"
+                            title={t('common.delete')}
                           >
                             <Trash2 size={14} />
                           </button>

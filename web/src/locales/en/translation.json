@@ -1178,7 +1178,10 @@
       "createFailed": "Failed to create tag",
       "namePlaceholder": "Tag name...",
       "any": "Any",
-      "all": "All"
+      "all": "All",
+      "chooseColor": "Choose Color",
+      "chooseIcon": "Choose Icon",
+      "searchIcons": "Search {{count}} icons..."
     }
   },
   "profile": {
