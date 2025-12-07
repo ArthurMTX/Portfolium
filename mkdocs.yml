@@ -85,6 +85,7 @@ nav:
       - Notifications: user-guide/notifications.md
       - Daily Reports: user-guide/daily-reports.md
       - Settings: user-guide/settings.md
+      - Gallery: user-guide/gallery.md
 
   - Widgets:
       - Overview: widgets/index.md
