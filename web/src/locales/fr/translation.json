@@ -1525,6 +1525,9 @@
     "createNewAccount": "Créer un nouveau compte"
   },
   "emails": {
+    "common": {
+      "disclaimer": "You're receiving this email because you have a Portfolium account."
+    },
     "verification": {
       "subject": "Vérifiez votre e-mail - Portfolium",
       "header_emoji": "📧",

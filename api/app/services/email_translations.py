@@ -82,13 +82,27 @@ def get_all_translations(language: str, email_type: str) -> Dict[str, str]:
         Dictionary of all translations for the email type with converted placeholders
     """
     translations = load_translations(language)
-    email_translations = translations.get('emails', {}).get(email_type, {})
+    emails = translations.get('emails', {})
+    
+    # Get common translations
+    common_translations = emails.get('common', {})
+    
+    # Get specific email type translations
+    email_translations = emails.get(email_type, {})
     
     # Convert i18next placeholders {{var}} to Python format placeholders {var}
     converted = {}
+    
+    # First add common translations
+    for key, value in common_translations.items():
+        if isinstance(value, str):
+            converted[key] = value.replace('{{', '{').replace('}}', '}')
+        else:
+            converted[key] = value
+    
+    # Then add email-specific translations (these override common if there are duplicates)
     for key, value in email_translations.items():
         if isinstance(value, str):
-            # Replace {{variable}} with {variable}
             converted[key] = value.replace('{{', '{').replace('}}', '}')
         else:
             converted[key] = value

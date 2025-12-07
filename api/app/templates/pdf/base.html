@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Daily Portfolio Report{% endblock %}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            color: #1F2937;
+            line-height: 1.5;
+            background: #ffffff;
+        }
+        
+        .header {
+            text-align: left;
+            margin-bottom: 28px;
+            padding: 4px 0 16px 0;
+            border-bottom: 2px solid #ec4899;
+        }
+
+        .header-inner {
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            margin: 0 0 8px 0;
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            font-size: 11px;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .tagline {
+            margin-top: 8px;
+            font-size: 11px;
+            opacity: 0.9;
+        }
+        
+        .portfolio-section {
+            margin-bottom: 40px;
+            page-break-inside: avoid;
+        }
+        
+        .portfolio-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ec4899;
+            margin-bottom: 18px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #F9A8D4;
+            background: #FDF2F8;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .portfolio-header-badge {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: #ec4899;
+        }
+        
+        /* Metrics Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .metric-card {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            padding: 12px 10px;
+            text-align: center;
+            min-height: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .metric-label {
+            font-size: 9px;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+            line-height: 1.2;
+        }
+        
+        .metric-value {
+            font-size: 16px;
+            font-weight: bold;
+            line-height: 1.3;
+            margin: 4px 0;
+        }
+        
+        .metric-value.pink { color: #ec4899; }
+        .metric-value.green { color: #10B981; }
+        .metric-value.red { color: #DC2626; }
+        .metric-value.purple { color: #8B5CF6; }
+        
+        .metric-subvalue {
+            font-size: 9px;
+            color: #6B7280;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+        
+        /* Section Headers */
+        .section-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ec4899;
+            margin: 25px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #F3F4F6;
+        }
+        
+        /* Heatmap */
+        .heatmap {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 2px;
+            margin-bottom: 25px;
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .heatmap-tile {
+            border-radius: 3px;
+            padding: 5px 4px;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 45px;
+            overflow: visible;
+            box-sizing: border-box;
+        }
+        
+        .tile-header {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin-bottom: 2px;
+            flex-wrap: nowrap;
+        }
+        
+        .tile-logo {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+            padding: 1px;
+            flex-shrink: 0;
+        }
+        
+        .tile-symbol {
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 1.1;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .tile-footer {
+            font-size: 7px;
+            opacity: 0.95;
+            line-height: 1.3;
+            white-space: nowrap;
+        }
+        
+        /* Color scale matching website */
+        .bg-red-900 { background: #7f1d1d; }
+        .bg-red-800 { background: #991b1b; }
+        .bg-red-700 { background: #b91c1c; }
+        .bg-red-600 { background: #dc2626; }
+        .bg-red-500 { background: #ef4444; }
+        .bg-neutral-300 { background: #d1d5db; color: #374151; }
+        .bg-green-500 { background: #10b981; }
+        .bg-green-600 { background: #059669; }
+        .bg-green-700 { background: #047857; }
+        .bg-green-800 { background: #065f46; }
+        .bg-green-900 { background: #064e3b; }
+        
+        /* Grid spans */
+        .col-span-2 { grid-column: span 2; }
+        .col-span-3 { grid-column: span 3; }
+        .col-span-4 { grid-column: span 4; }
+        .col-span-6 { grid-column: span 6; }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            font-size: 11px;
+        }
+        
+        th {
+            background: #ec4899;
+            color: white;
+            font-weight: bold;
+            text-align: left;
+            padding: 10px 8px;
+            font-size: 11px;
+        }
+        
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        
+        tr:nth-child(even) {
+            background: #F9FAFB;
+        }
+        
+        tr:hover {
+            background: #F3F4F6;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-green {
+            color: #059669;
+            font-weight: bold;
+        }
+        
+        .text-red {
+            color: #DC2626;
+            font-weight: bold;
+        }
+        
+        .asset-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .asset-logo {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+        
+        .asset-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .asset-symbol {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .asset-name {
+            font-size: 9px;
+            color: #6B7280;
+        }
+        
+        /* No transactions message */
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            background: #F9FAFB;
+            border-radius: 8px;
+            color: #6B7280;
+            font-size: 13px;
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #E5E7EB;
+            color: #9CA3AF;
+            font-size: 9px;
+        }
+
+        .footer a {
+            color: #ec4899;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer .dot {
+            color: #ec4899;
+        }
+        
+        .logo {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>

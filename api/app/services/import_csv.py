@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import List, Optional, Callable, Dict, Any, Generator
 from sqlalchemy.orm import Session
 from fastapi import Depends
+import yfinance as yf
 
 from app.models import TransactionType
 from app.schemas import CsvImportRow, CsvImportResult, TransactionCreate
@@ -23,6 +24,32 @@ class CsvImportService:
     
     def __init__(self, db: Session):
         self.db = db
+    
+    def _validate_symbols_in_yfinance(self, symbols: List[str]) -> List[str]:
+        """
+        Validate that symbols exist in yfinance.
+        Returns list of invalid symbols.
+        """
+        invalid_symbols = []
+        
+        for symbol in symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                # Try to get basic info - if symbol doesn't exist, this will fail or return empty
+                info = ticker.info
+                
+                # Check if we got meaningful data back
+                # Valid tickers will have at least a symbol or regularMarketPrice
+                if not info or (not info.get('symbol') and not info.get('regularMarketPrice') and not info.get('previousClose')):
+                    logger.warning(f"Symbol {symbol} not found in yfinance")
+                    invalid_symbols.append(symbol)
+                else:
+                    logger.info(f"Symbol {symbol} validated successfully")
+            except Exception as e:
+                logger.warning(f"Failed to validate symbol {symbol}: {e}")
+                invalid_symbols.append(symbol)
+        
+        return invalid_symbols
     
     def import_csv_with_progress(
         self, 
@@ -64,6 +91,51 @@ class CsvImportService:
             yield {
                 "type": "log",
                 "message": f"Starting import of {total_rows} rows",
+                "current": 0,
+                "total": total_rows
+            }
+            
+            # Validation phase: Check all symbols exist in yfinance
+            yield {
+                "type": "log",
+                "message": "Validating symbols in yfinance...",
+                "current": 0,
+                "total": total_rows
+            }
+            
+            # Extract unique symbols from CSV
+            symbols_to_validate = set()
+            for row in rows:
+                symbol = row.get("symbol", "").strip().upper()
+                if symbol:
+                    symbols_to_validate.add(symbol)
+            
+            # Validate symbols
+            invalid_symbols = self._validate_symbols_in_yfinance(list(symbols_to_validate))
+            
+            if invalid_symbols:
+                error_msg = f"The following symbols do not exist in yfinance: {', '.join(sorted(invalid_symbols))}. Please check your CSV and correct the symbols before importing."
+                errors.append(error_msg)
+                
+                result = CsvImportResult(
+                    success=False,
+                    imported_count=0,
+                    errors=errors,
+                    warnings=warnings
+                )
+                
+                yield {
+                    "type": "error",
+                    "message": error_msg,
+                    "current": 0,
+                    "total": total_rows,
+                    "result": result.model_dump()
+                }
+                return
+            
+            yield {
+                "type": "log",
+                "message": f"All {len(symbols_to_validate)} symbols validated successfully",
                 "current": 0,
                 "total": total_rows
             }
@@ -298,6 +370,27 @@ class CsvImportService:
                 return int(seq) if seq else float('inf')
             
             rows.sort(key=get_sequence)
+            
+            # Validation phase: Check all symbols exist in yfinance
+            symbols_to_validate = set()
+            for row in rows:
+                symbol = row.get("symbol", "").strip().upper()
+                if symbol:
+                    symbols_to_validate.add(symbol)
+            
+            # Validate symbols
+            invalid_symbols = self._validate_symbols_in_yfinance(list(symbols_to_validate))
+            
+            if invalid_symbols:
+                error_msg = f"The following symbols do not exist in yfinance: {', '.join(sorted(invalid_symbols))}. Please check your CSV and correct the symbols before importing."
+                errors.append(error_msg)
+                
+                return CsvImportResult(
+                    success=False,
+                    imported_count=0,
+                    errors=errors,
+                    warnings=warnings
+                )
             
             for row_num, row in enumerate(rows, start=2):  # Start at 2 (header is 1)
                 try:

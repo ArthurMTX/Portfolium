@@ -68,7 +68,7 @@ export default function Layout() {
       <header className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-7 h-7 bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg" />
+            <img src="/favicon.svg" alt="Portfolium" className="w-7 h-7" />
             <h1 className="text-lg font-bold hidden sm:block">Portfolium</h1>
           </div>
 

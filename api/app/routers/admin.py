@@ -655,6 +655,14 @@ async def test_email_connection(
                 current_user.preferred_language or "en"
             )
             
+        elif test_request.test_type == "welcome":
+            # Test welcome email template using admin's preferred language
+            success = email_service.send_welcome_email(
+                test_request.to_email,
+                current_user.username,
+                current_user.preferred_language or "en"
+            )
+            
         elif test_request.test_type == "daily_report":
             # Test daily report email with PDF
             # Try to find the user by email, otherwise use current admin user for testing

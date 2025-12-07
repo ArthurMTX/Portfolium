@@ -92,7 +92,7 @@ const AdminDashboard: React.FC = () => {
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailTestResult, setEmailTestResult] = useState<{type: 'success' | 'error', message: string} | null>(null)
   const [testEmailAddress, setTestEmailAddress] = useState('')
-  const [testEmailType, setTestEmailType] = useState<'simple' | 'verification' | 'password_reset' | 'daily_report'>('simple')
+  const [testEmailType, setTestEmailType] = useState<'simple' | 'verification' | 'password_reset' | 'welcome' | 'daily_report'>('simple')
   const [emailTesting, setEmailTesting] = useState(false)
 
   const loadUsers = async () => {
@@ -897,12 +897,13 @@ const AdminDashboard: React.FC = () => {
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailType')}</label>
                     <select
                       value={testEmailType}
-                      onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'daily_report')}
+                      onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'welcome' | 'daily_report')}
                       className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
                     >
                       <option value="simple">{t('admin.simpleTest')}</option>
                       <option value="verification">{t('admin.verificationTest')}</option>
                       <option value="password_reset">{t('admin.passwordResetTest')}</option>
+                      <option value="welcome">{t('admin.welcomeTest')}</option>
                       <option value="daily_report">{t('admin.dailyReportTest')}</option>
                     </select>
                   </div>

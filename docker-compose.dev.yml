@@ -91,6 +91,7 @@ services:
     volumes:
       - ./api:/app
       - ./web/src/locales:/app/locales:ro
+      - ./web/public/favicon-96x96.png:/app/static/logo.png:ro
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s

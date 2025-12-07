@@ -229,10 +229,7 @@ const PublicPortfolio: React.FC = () => {
                 <div className="absolute inset-0 bg-white/80 dark:bg-neutral-950/70 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800/50" />
                 <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="relative w-9 h-9">
-                            <div className="absolute inset-0 bg-gradient-to-br from-pink-400 to-pink-600 rounded-xl rotate-3 opacity-80" />
-                            <div className="absolute inset-0 bg-gradient-to-br from-pink-400 to-pink-600 rounded-xl" />
-                        </div>
+                        <img src="/favicon.svg" alt="Portfolium" className="w-9 h-9" />
                         <span className="text-xl font-bold tracking-tight">
                             Portfolium
                         </span>
@@ -822,9 +819,7 @@ const PublicPortfolio: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="relative w-7 h-7">
-                                <div className="absolute inset-0 bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg" />
-                            </div>
+                            <img src="/favicon.svg" alt="Portfolium" className="w-7 h-7" />
                             <span className="font-bold">Portfolium</span>
                         </div>
                         <div className="flex items-center gap-4">

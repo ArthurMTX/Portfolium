@@ -16,15 +16,16 @@ interface Portfolio {
 
 export default function Portfolios() {
   const { t } = useTranslation()
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const portfolios = usePortfolioStore((state) => state.portfolios)
+  const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
+  const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const setActivePortfolio = usePortfolioStore((state) => state.setActivePortfolio)
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [shareModal, setShareModal] = useState<Portfolio | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
-  const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
-  const setActivePortfolio = usePortfolioStore((state) => state.setActivePortfolio)
 
   // Form state
   const [name, setName] = useState('')
@@ -54,7 +55,7 @@ export default function Portfolios() {
     setLoading(true)
     try {
       const data = await api.getPortfolios()
-      setPortfolios(data)
+      setPortfolios(data) // Update global store
 
       // Validate that activePortfolioId belongs to the current user's portfolios
       const portfolioIds = data.map(p => p.id)

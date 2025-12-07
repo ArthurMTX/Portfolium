@@ -439,7 +439,7 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit & { timeout?: number } = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     const headers = {
@@ -448,28 +448,43 @@ class ApiClient {
       ...options.headers,
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
+    const { timeout, ...fetchOptions } = options
+    const controller = new AbortController()
+    const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null
 
-    if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({
-        detail: 'An error occurred',
-      }))
-      throw new Error(
-        typeof error.detail === 'string'
-          ? error.detail
-          : JSON.stringify(error.detail)
-      )
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        signal: controller.signal,
+      })
+
+      if (timeoutId) clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const error: ApiError = await response.json().catch(() => ({
+          detail: 'An error occurred',
+        }))
+        throw new Error(
+          typeof error.detail === 'string'
+            ? error.detail
+            : JSON.stringify(error.detail)
+        )
+      }
+
+      // Handle 204 No Content responses (like DELETE operations)
+      if (response.status === 204) {
+        return undefined as T
+      }
+
+      return response.json()
+    } catch (err) {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error('Request timeout - the operation took too long')
+      }
+      throw err
     }
-
-    // Handle 204 No Content responses (like DELETE operations)
-    if (response.status === 204) {
-      return undefined as T
-    }
-
-    return response.json()
   }
 
   // Health
@@ -1415,6 +1430,8 @@ class ApiClient {
   }
 
   async testEmail(toEmail: string, testType: 'simple' | 'verification' | 'password_reset' | 'daily_report') {
+    // Daily reports can take longer to generate with many portfolios/transactions
+    const timeout = testType === 'daily_report' ? 300000 : 30000 // 5 minutes for daily report, 30s for others
     return this.request<{
       success: boolean
       message: string
@@ -1424,7 +1441,8 @@ class ApiClient {
       from_email: string
     }>('/admin/email/test', {
       method: 'POST',
-      body: JSON.stringify({ to_email: toEmail, test_type: testType })
+      body: JSON.stringify({ to_email: toEmail, test_type: testType }),
+      timeout
     })
   }
 

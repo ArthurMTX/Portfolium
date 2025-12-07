@@ -89,7 +89,7 @@ export default function ConcentrationRiskWidget({ positions, isPreview: _isPrevi
                         position.name
                       )}
                       alt={position.symbol || 'Unknown'}
-                      className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
+                      className="w-10 h-10 object-contain flex-shrink-0"
                       onError={(e) => handleLogoError(
                         e,
                         position.symbol || 'UNKNOWN',

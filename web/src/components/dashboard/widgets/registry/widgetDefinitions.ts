@@ -110,7 +110,7 @@ export const widgetDefinitions: WidgetConfig[] = [
       
       const symbol = context.portfolioCurrency === 'EUR' ? '€' : '$'
       const formattedValue = dailyValue !== null
-        ? `${dailyValue >= 0 ? '+' : ''}${symbol}${Math.abs(dailyValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `${dailyValue >= 0 ? '+' : '-'}${symbol}${Math.abs(dailyValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : 'N/A'
 
       return {
@@ -181,7 +181,7 @@ export const widgetDefinitions: WidgetConfig[] = [
         : 0
       const symbol = context.portfolioCurrency === 'EUR' ? '€' : '$'
       const formattedValue = context.metrics
-        ? `${symbol}${Math.abs(realizedPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ? `${realizedPnl >= 0 ? '+' : '-'}${symbol}${Math.abs(realizedPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : 'N/A'
 
       return {

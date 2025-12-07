@@ -30,6 +30,13 @@ COPY api/ .
 # Copy translation files from web directory (needed for email translations)
 COPY web/src/locales ./locales
 
+# Create static directory and copy logo for email templates
+RUN mkdir -p ./static
+COPY web/public/favicon-96x96.png ./static/logo.png
+
+# Copy email templates
+COPY api/app/templates ./app/templates
+
 # Expose port
 EXPOSE 8000
 

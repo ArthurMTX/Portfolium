@@ -1413,6 +1413,7 @@
     "simpleTest": "Simple Test Email",
     "verificationTest": "Email Verification",
     "passwordResetTest": "Password Reset",
+    "welcomeTest": "Welcome Email",
     "dailyReportTest": "Daily Report Email",
     "sendingTestEmail": "Sending test email...",
     "sendTestEmail": "Send Test Email",
@@ -1525,6 +1526,9 @@
     "createNewAccount": "Create new account"
   },
   "emails": {
+    "common": {
+      "disclaimer": "You're receiving this email because you have a Portfolium account."
+    },
     "verification": {
       "subject": "Verify Your Email - Portfolium",
       "header_emoji": "📧",
@@ -1543,7 +1547,7 @@
       "text_footer": "If you didn't create an account with Portfolium, you can safely ignore this email."
     },
     "passwordReset": {
-      "subject": "Password Reset Request",
+      "subject": "Password Reset Request - Portfolium",
       "header_emoji": "🔐",
       "header_title": "Password Reset Request",
       "greeting": "Hi <strong>{{username}}</strong>,",
@@ -1561,7 +1565,7 @@
       "text_security": "If you didn't request a password reset, please ignore this email and ensure your account is secure."
     },
     "welcome": {
-      "subject": "Welcome to Portfolium - Let's Get Started!",
+      "subject": "Welcome to Portfolium",
       "header_emoji": "🎉",
       "header_title": "Account Verified!",
       "greeting": "Hi <strong>{{username}}</strong>,",
@@ -1586,7 +1590,7 @@
       "text_help": "If you have any questions or need help getting started, feel free to reach out!"
     },
     "dailyReport": {
-      "subject": "Your Daily Portfolio Report - {{reportDate}}",
+      "subject": "Daily Portfolio Report - Portfolium",
       "header_emoji": "📊",
       "header_title": "Daily Portfolio Report",
       "greeting": "Hi <strong>{{username}}</strong>,",
