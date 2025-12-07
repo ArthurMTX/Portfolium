@@ -43,3 +43,11 @@ postgres_data/
 site/
 .mkdocs_cache/
 web/public/docs/
+
+# Celery
+*celerybeat-schedule
+*celerybeat.pid
+api/app/services/pricing.py
+
+# PowerShell
+dev.ps1

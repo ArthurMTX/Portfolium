@@ -4,6 +4,7 @@ import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, 
 import annotationPlugin from 'chartjs-plugin-annotation'
 import api from '../lib/api'
 import { useTranslation } from 'react-i18next'
+import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler, annotationPlugin)
 
@@ -13,6 +14,9 @@ interface Props {
   assetId: number
   symbol: string
   currency?: string
+  portfolioId?: number
+  assetType?: string | null
+  assetName?: string | null
 }
 
 interface PricePoint {
@@ -53,7 +57,7 @@ interface SplitTransaction {
   notes: string | null
 }
 
-export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: Props) {
+export default function AssetPriceChart({ assetId, symbol, currency = 'USD', portfolioId, assetType, assetName }: Props) {
   const [period, setPeriod] = useState<PeriodOption>('1M')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PriceHistoryResponse | null>(null)
@@ -133,7 +137,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
       try {
         const [priceData, txData, splitData] = await Promise.all([
           api.getAssetPriceHistory(assetId, period),
-          api.getAssetTransactionHistory(assetId),
+          api.getAssetTransactionHistory(assetId, portfolioId),
           api.getAssetSplitHistory(assetId)
         ])
         if (!canceled) {
@@ -153,7 +157,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
     return () => {
       canceled = true
     }
-  }, [assetId, period])
+  }, [assetId, period, portfolioId])
 
   const chartData = {
     labels: history?.prices.map(p => {
@@ -495,7 +499,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
             }`}
             onClick={() => setPeriod(opt)}
           >
-            {t(`charts.period${opt}`)}
+            {t(`charts.periods.${opt}`)}
           </button>
         ))}
       </div>
@@ -522,21 +526,10 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD' }: P
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
                   <img
-                    src={`/api/assets/logo/${symbol}`}
+                    src={getAssetLogoUrl(symbol, assetType, assetName || history.name)}
                     alt={symbol}
                     className="w-10 h-10 object-contain"
-                    onError={(e) => {
-                      const img = e.currentTarget as HTMLImageElement;
-                      // Try with name parameter as fallback
-                      if (!img.dataset.fallbackTried && history.name) {
-                        img.dataset.fallbackTried = 'true';
-                        const params = new URLSearchParams();
-                        params.set('name', history.name);
-                        img.src = `/api/assets/logo/${symbol}?${params.toString()}`;
-                      } else {
-                        img.style.display = 'none';
-                      }
-                    }}
+                    onError={(e) => handleLogoError(e, symbol, assetName || history.name, assetType)}
                   />
                 </div>
                 <div>

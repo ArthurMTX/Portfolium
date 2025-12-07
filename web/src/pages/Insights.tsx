@@ -4,10 +4,12 @@ import { api } from '../lib/api'
 import { getSectorIcon, getSectorColor } from '../lib/sectorIndustryUtils'
 import { getTranslatedSector } from '../lib/translationUtils'
 import { getCountryCode } from '../lib/countryUtils'
+import { handleLogoError } from '../lib/logoUtils'
 import usePortfolioStore from '../store/usePortfolioStore'
 import { Line } from 'react-chartjs-2'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt'
+import RiskOverview from '../components/insights/RiskOverview'
 import { useTranslation } from 'react-i18next'
 import {
   Chart as ChartJS,
@@ -105,6 +107,12 @@ interface RiskMetrics {
   max_drawdown_date: string | null
   beta: number | null
   var_95: number | null
+  var_99: number | null
+  cvar_95: number | null
+  cvar_99: number | null
+  var_95_1w: number | null
+  var_95_1m: number | null
+  tail_exposure: number | null
   downside_deviation: number
 }
 
@@ -146,6 +154,7 @@ export default function Insights() {
   const [performersSortBy, setPerformersSortBy] = useState<'percentage' | 'currency'>('percentage')
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const { t, i18n } = useTranslation()
+  const [activeTab, setActiveTab] = useState<'insights' | 'riskEngine'>('insights')
 
   // Get the current locale for date formatting
   const currentLocale = i18n.language || 'en-US'
@@ -153,7 +162,7 @@ export default function Insights() {
   // Get portfolio currency
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const currency = activePortfolio?.base_currency || 'EUR'
-  
+
   // Get currency symbol
   const getCurrencySymbol = (currencyCode: string) => {
     const symbols: Record<string, string> = {
@@ -191,7 +200,7 @@ export default function Insights() {
     setError('')
     try {
       const data = await api.getPortfolioInsights(activePortfolioId, period, benchmark, signal)
-      
+
       // Convert string decimals to numbers (Python Decimal serializes as strings)
       const normalizedData: PortfolioInsights = {
         ...data,
@@ -236,6 +245,12 @@ export default function Insights() {
           max_drawdown: Number(data.risk.max_drawdown),
           beta: data.risk.beta ? Number(data.risk.beta) : null,
           var_95: data.risk.var_95 ? Number(data.risk.var_95) : null,
+          var_99: data.risk.var_99 ? Number(data.risk.var_99) : null,
+          cvar_95: data.risk.cvar_95 ? Number(data.risk.cvar_95) : null,
+          cvar_99: data.risk.cvar_99 ? Number(data.risk.cvar_99) : null,
+          var_95_1w: data.risk.var_95_1w ? Number(data.risk.var_95_1w) : null,
+          var_95_1m: data.risk.var_95_1m ? Number(data.risk.var_95_1m) : null,
+          tail_exposure: data.risk.tail_exposure ? Number(data.risk.tail_exposure) : null,
           downside_deviation: Number(data.risk.downside_deviation)
         },
         benchmark_comparison: {
@@ -266,14 +281,14 @@ export default function Insights() {
           unrealized_pnl: Number(p.unrealized_pnl)
         }))
       }
-      
+
       setInsights(normalizedData)
     } catch (err) {
       // Ignore abort errors (user navigated away)
       if (err instanceof Error && err.name === 'AbortError') {
         return
       }
-      
+
       console.error('Failed to load insights:', err)
       const error = err as Error
       setError(error.message || 'Failed to load insights')
@@ -284,21 +299,21 @@ export default function Insights() {
 
   useEffect(() => {
     const abortController = new AbortController()
-    
+
     // Clear insights data immediately when portfolio changes to prevent showing stale data
     setInsights(null)
     setError('')
-    
+
     // Clear any pending debounce timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
     }
-    
+
     // Debounce the load to prevent rapid-fire requests when changing filters
     debounceTimerRef.current = setTimeout(() => {
       loadInsights(abortController.signal)
     }, 300)
-    
+
     return () => {
       abortController.abort()
       if (debounceTimerRef.current) {
@@ -400,14 +415,14 @@ export default function Insights() {
     if (error.includes('No portfolio data available') || error.includes('No transactions') || error.includes('No positions found')) {
       return <EmptyTransactionsPrompt pageType="insights" portfolioName={insights?.portfolio_name} />
     }
-    
+
     return (
       <div className="space-y-4">
         <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">{t('common.error')}</h3>
           <p className="text-red-800 dark:text-red-200">{error}</p>
         </div>
-        
+
         <button
           onClick={() => loadInsights()}
           className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
@@ -426,9 +441,9 @@ export default function Insights() {
   // Backend now returns performance percentages directly, no need to normalize
   const portfolioSeries = insights.benchmark_comparison.portfolio_series
   const benchmarkSeries = insights.benchmark_comparison.benchmark_series
-  
+
   const benchmarkChartData = {
-    labels: portfolioSeries.map(p => 
+    labels: portfolioSeries.map(p =>
       new Date(p.date).toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
     ),
     datasets: [
@@ -471,7 +486,7 @@ export default function Insights() {
         mode: 'index' as const,
         intersect: false,
         callbacks: {
-          label: function(context: { dataset: { label?: string }, parsed: { y: number | null } }) {
+          label: function (context: { dataset: { label?: string }, parsed: { y: number | null } }) {
             let label = context.dataset.label || ''
             if (label) {
               label += ': '
@@ -502,14 +517,14 @@ export default function Insights() {
         },
         ticks: {
           color: document.documentElement.classList.contains('dark') ? '#a3a3a3' : '#525252',
-          callback: function(value: string | number) {
+          callback: function (value: string | number) {
             return `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(0)}%`
           }
         },
         grid: {
           color: (context: { tick: { value: number } }) => {
             // Highlight the zero line
-            return context.tick.value === 0 
+            return context.tick.value === 0
               ? document.documentElement.classList.contains('dark') ? 'rgba(163,163,163,0.3)' : 'rgba(82,82,82,0.3)'
               : document.documentElement.classList.contains('dark') ? '#262626' : '#f5f5f5'
           },
@@ -565,93 +580,116 @@ export default function Insights() {
         </div>
       </div>
 
-      {/* Key Performance Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                {t('insights.totalReturn')}
-              </p>
-              <p className={`mt-2 text-2xl font-bold ${
-                insights.total_return >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {insights.total_return >= 0 ? '+' : ''}
-                {insights.total_return_pct.toFixed(2)}%
-              </p>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                {currencySymbol}{insights.total_return.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">
-              <Activity className="text-pink-600 dark:text-pink-400" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                {t('insights.annualizedReturn')}
-              </p>
-              <p className={`mt-2 text-2xl font-bold ${
-                insights.performance.annualized_return >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {insights.performance.annualized_return >= 0 ? '+' : ''}
-                {insights.performance.annualized_return.toFixed(2)}%
-              </p>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                {t('insights.period')}: {period.toUpperCase()}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-              <TrendingUp className="text-blue-600 dark:text-blue-400" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                {t('insights.sharpeRatio')}
-              </p>
-              <p className="mt-2 text-2xl font-bold">
-                {insights.risk.sharpe_ratio ? insights.risk.sharpe_ratio.toFixed(2) : 'N/A'}
-              </p>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                {t('insights.riskAdjustedReturn')}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-              <Shield className="text-purple-600 dark:text-purple-400" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                vs {insights.benchmark_comparison.benchmark_name}
-              </p>
-              <p className={`mt-2 text-2xl font-bold ${
-                insights.benchmark_comparison.alpha >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {insights.benchmark_comparison.alpha >= 0 ? '+' : ''}
-                {insights.benchmark_comparison.alpha.toFixed(2)}%
-              </p>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                {t('insights.alpha')} ({t('insights.outperformance')})
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-              <Target className="text-green-600 dark:text-green-400" size={24} />
-            </div>
-          </div>
+      {/* Tabs */}
+      <div className="mt-4">
+        <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800">
+          <button
+            onClick={() => setActiveTab('insights')}
+            className={`py-2 px-4 -mb-px ${activeTab === 'insights' ? 'border-b-2 border-pink-600 text-pink-600 font-semibold' : 'text-neutral-600 dark:text-neutral-400'}`}
+          >
+            {t('insights.title')}
+          </button>
+          <button
+            onClick={() => setActiveTab('riskEngine')}
+            className={`py-2 px-4 -mb-px ${activeTab === 'riskEngine' ? 'border-b-2 border-pink-600 text-pink-600 font-semibold' : 'text-neutral-600 dark:text-neutral-400'}`}
+          >
+            {t('insights.riskEngine') || 'Risk Engine'}
+          </button>
         </div>
       </div>
+
+      {/* Main content by tab */}
+      {activeTab === 'insights' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {t('insights.totalReturn')}
+                </p>
+                <p className={`mt-2 text-2xl font-bold ${insights.total_return >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                  {insights.total_return >= 0 ? '+' : ''}
+                  {insights.total_return_pct.toFixed(2)}%
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  {currencySymbol}{insights.total_return.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">
+                <Activity className="text-pink-600 dark:text-pink-400" size={24} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {t('insights.annualizedReturn')}
+                </p>
+                <p className={`mt-2 text-2xl font-bold ${insights.performance.annualized_return >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                  {insights.performance.annualized_return >= 0 ? '+' : ''}
+                  {insights.performance.annualized_return.toFixed(2)}%
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  {t('insights.period')}: {period.toUpperCase()}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                <TrendingUp className="text-blue-600 dark:text-blue-400" size={24} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {t('insights.sharpeRatio')}
+                </p>
+                <p className="mt-2 text-2xl font-bold">
+                  {insights.risk.sharpe_ratio ? insights.risk.sharpe_ratio.toFixed(2) : 'N/A'}
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  {t('insights.riskAdjustedReturn')}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                <Shield className="text-purple-600 dark:text-purple-400" size={24} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  vs {insights.benchmark_comparison.benchmark_name}
+                </p>
+                <p className={`mt-2 text-2xl font-bold ${insights.benchmark_comparison.alpha >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                  {insights.benchmark_comparison.alpha >= 0 ? '+' : ''}
+                  {insights.benchmark_comparison.alpha.toFixed(2)}%
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  {t('insights.alpha')} ({t('insights.outperformance')})
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                <Target className="text-green-600 dark:text-green-400" size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'riskEngine' && (
+        <div className="space-y-6">
+          <RiskOverview insights={insights} />
+        </div>
+      )}
 
       {/* Benchmark Comparison Chart */}
       <div className="card p-6">
@@ -665,18 +703,16 @@ export default function Insights() {
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-neutral-600 dark:text-neutral-400">{t('insights.portfolioReturn')}</p>
-            <p className={`font-semibold ${
-              insights.benchmark_comparison.portfolio_return >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <p className={`font-semibold ${insights.benchmark_comparison.portfolio_return >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
               {insights.benchmark_comparison.portfolio_return >= 0 ? '+' : ''}
               {insights.benchmark_comparison.portfolio_return.toFixed(2)}%
             </p>
           </div>
           <div>
             <p className="text-neutral-600 dark:text-neutral-400">{t('insights.benchmarkReturn')}</p>
-            <p className={`font-semibold ${
-              insights.benchmark_comparison.benchmark_return >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <p className={`font-semibold ${insights.benchmark_comparison.benchmark_return >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
               {insights.benchmark_comparison.benchmark_return >= 0 ? '+' : ''}
               {insights.benchmark_comparison.benchmark_return.toFixed(2)}%
             </p>
@@ -684,8 +720,8 @@ export default function Insights() {
           <div>
             <p className="text-neutral-600 dark:text-neutral-400">{t('insights.correlation')}</p>
             <p className="font-semibold">
-              {insights.benchmark_comparison.correlation 
-                ? insights.benchmark_comparison.correlation.toFixed(2) 
+              {insights.benchmark_comparison.correlation
+                ? insights.benchmark_comparison.correlation.toFixed(2)
                 : 'N/A'}
             </p>
           </div>
@@ -787,21 +823,19 @@ export default function Insights() {
           <div className="flex gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
             <button
               onClick={() => setPerformersSortBy('percentage')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                performersSortBy === 'percentage'
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${performersSortBy === 'percentage'
                   ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-medium shadow-sm'
                   : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-              }`}
+                }`}
             >
               {t('common.by').charAt(0).toUpperCase() + t('common.by').slice(1)} %
             </button>
             <button
               onClick={() => setPerformersSortBy('currency')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                performersSortBy === 'currency'
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${performersSortBy === 'currency'
                   ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-medium shadow-sm'
                   : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-              }`}
+                }`}
             >
               {t('common.by').charAt(0).toUpperCase() + t('common.by').slice(1)} {currencySymbol}
             </button>
@@ -817,70 +851,45 @@ export default function Insights() {
             </h2>
             <div className="space-y-3">
               {[...insights.top_performers]
-                .sort((a, b) => 
-                  performersSortBy === 'percentage' 
-                    ? b.return_pct - a.return_pct 
+                .sort((a, b) =>
+                  performersSortBy === 'percentage'
+                    ? b.return_pct - a.return_pct
                     : b.unrealized_pnl - a.unrealized_pnl
                 )
                 .map((performer) => (
-                <div key={`top-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/placeholder-logo.png"
-                      alt={`${performer.symbol} logo`}
-                      className="w-10 h-10 rounded object-contain"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement
-                        if (!img.dataset.resolverTried) {
-                          img.dataset.resolverTried = 'true'
-                          const params = new URLSearchParams()
-                          if (performer.name) params.set('name', performer.name)
-                          if (performer.asset_type) params.set('asset_type', performer.asset_type)
-                          fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
-                            .then((res) => {
-                              if (res.redirected) {
-                                img.src = res.url
-                              } else if (res.ok) {
-                                return res.blob().then((blob) => {
-                                  img.src = URL.createObjectURL(blob)
-                                })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            })
-                            .catch(() => {
-                              img.style.display = 'none'
-                            })
-                        } else {
-                          img.style.display = 'none'
-                        }
-                      }}
-                    />
-                    <div>
-                      <p className="font-semibold">{performer.symbol}</p>
+                  <div key={`top-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src=""
+                        alt={`${performer.symbol} logo`}
+                        className="w-10 h-10 rounded object-contain"
+                        onError={(e) => handleLogoError(e, performer.symbol, performer.name, performer.asset_type)}
+                      />
+                      <div>
+                        <p className="font-semibold">{performer.symbol}</p>
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {performer.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold ${performersSortBy === 'percentage' ? (performer.return_pct > 0 ? 'text-green-600' : performer.return_pct < 0 ? 'text-red-600' : 'text-neutral-600') : (performer.unrealized_pnl > 0 ? 'text-green-600' : performer.unrealized_pnl < 0 ? 'text-red-600' : 'text-neutral-600')}`}>
+                        {performersSortBy === 'percentage' ? (
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
+                        ) : (
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                        )}
+                      </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {performer.name}
+                        {performersSortBy === 'percentage' ? (
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                        ) : (
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
+                        )}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-green-600">
-                      {performersSortBy === 'percentage' ? (
-                        <>+{performer.return_pct.toFixed(2)}%</>
-                      ) : (
-                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
-                      )}
-                    </p>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {performersSortBy === 'percentage' ? (
-                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
-                      ) : (
-                        <>+{performer.return_pct.toFixed(2)}%</>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
 
@@ -892,70 +901,45 @@ export default function Insights() {
             </h2>
             <div className="space-y-3">
               {[...insights.worst_performers]
-                .sort((a, b) => 
-                  performersSortBy === 'percentage' 
-                    ? a.return_pct - b.return_pct 
+                .sort((a, b) =>
+                  performersSortBy === 'percentage'
+                    ? a.return_pct - b.return_pct
                     : a.unrealized_pnl - b.unrealized_pnl
                 )
                 .map((performer) => (
-                <div key={`worst-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/placeholder-logo.png"
-                      alt={`${performer.symbol} logo`}
-                      className="w-10 h-10 rounded object-contain"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement
-                        if (!img.dataset.resolverTried) {
-                          img.dataset.resolverTried = 'true'
-                          const params = new URLSearchParams()
-                          if (performer.name) params.set('name', performer.name)
-                          if (performer.asset_type) params.set('asset_type', performer.asset_type)
-                          fetch(`/api/assets/logo/${performer.symbol}?${params.toString()}`, { redirect: 'follow' })
-                            .then((res) => {
-                              if (res.redirected) {
-                                img.src = res.url
-                              } else if (res.ok) {
-                                return res.blob().then((blob) => {
-                                  img.src = URL.createObjectURL(blob)
-                                })
-                              } else {
-                                img.style.display = 'none'
-                              }
-                            })
-                            .catch(() => {
-                              img.style.display = 'none'
-                            })
-                        } else {
-                          img.style.display = 'none'
-                        }
-                      }}
-                    />
-                    <div>
-                      <p className="font-semibold">{performer.symbol}</p>
+                  <div key={`worst-${performer.symbol}-${performersSortBy}`} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src=""
+                        alt={`${performer.symbol} logo`}
+                        className="w-10 h-10 rounded object-contain"
+                        onError={(e) => handleLogoError(e, performer.symbol, performer.name, performer.asset_type)}
+                      />
+                      <div>
+                        <p className="font-semibold">{performer.symbol}</p>
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {performer.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold ${performersSortBy === 'percentage' ? (performer.return_pct > 0 ? 'text-green-600' : performer.return_pct < 0 ? 'text-red-600' : 'text-neutral-600') : (performer.unrealized_pnl > 0 ? 'text-green-600' : performer.unrealized_pnl < 0 ? 'text-red-600' : 'text-neutral-600')}`}>
+                        {performersSortBy === 'percentage' ? (
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
+                        ) : (
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                        )}
+                      </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {performer.name}
+                        {performersSortBy === 'percentage' ? (
+                          <>{performer.unrealized_pnl < 0 ? '-' : ''}{currencySymbol}{Math.abs(performer.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                        ) : (
+                          <>{performer.return_pct > 0 ? '+' : ''}{Math.abs(performer.return_pct).toFixed(2)}%</>
+                        )}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-red-600">
-                      {performersSortBy === 'percentage' ? (
-                        <>{performer.return_pct.toFixed(2)}%</>
-                      ) : (
-                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
-                      )}
-                    </p>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {performersSortBy === 'percentage' ? (
-                        <>{currencySymbol}{performer.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
-                      ) : (
-                        <>{performer.return_pct.toFixed(2)}%</>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         </div>

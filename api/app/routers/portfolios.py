@@ -4,16 +4,24 @@ Portfolios router
 """
 from typing import List, Annotated, Dict
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.errors import (
+    CannotGetPortfolioReportError,
+    CannotGetPortfolioHistoryError, 
+    CannotGetPortfolioMetricsError,
+    CannotGetPortfolioPricesError, 
+    PortfolioAlreadyExistsError, 
+    PortfolioNotFoundError
+)
 from app.db import get_db
-from app.schemas import Portfolio, PortfolioCreate, Position, PortfolioMetrics, PortfolioHistoryPoint
+from app.schemas import Portfolio, PortfolioCreate, PortfolioUpdate, Position, PortfolioMetrics, PortfolioHistoryPoint
 from app.crud import portfolios as crud
 from app.services.metrics import get_metrics_service, MetricsService
 from app.services.pricing import get_pricing_service
-from app.auth import get_current_user
-from app.models import User, Transaction, Asset, TransactionType
+from app.auth import get_current_user, verify_portfolio_access
+from app.models import User, Transaction, Asset, TransactionType, Portfolio as PortfolioModel
 
 router = APIRouter()
 
@@ -31,22 +39,9 @@ async def get_portfolios(
 @router.get("/{portfolio_id}", response_model=Portfolio)
 async def get_portfolio(
     portfolio_id: int, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Get portfolio by ID"""
-    portfolio = crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    # Verify the portfolio belongs to the current user
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
     return portfolio
 
 
@@ -60,10 +55,7 @@ async def create_portfolio(
     # Check if name already exists for this user
     existing = crud.get_portfolio_by_name_and_user(db, portfolio.name, current_user.id)
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Portfolio with name '{portfolio.name}' already exists"
-        )
+        raise PortfolioAlreadyExistsError(portfolio.name)
     
     return crud.create_portfolio(db, portfolio, user_id=current_user.id)
 
@@ -71,25 +63,12 @@ async def create_portfolio(
 @router.put("/{portfolio_id}", response_model=Portfolio)
 async def update_portfolio(
     portfolio_id: int,
-    portfolio: PortfolioCreate,
+    portfolio_data: PortfolioUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Update existing portfolio"""
-    # Verify the portfolio belongs to the current user
-    existing = crud.get_portfolio(db, portfolio_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if existing.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this portfolio"
-        )
-    
-    updated = crud.update_portfolio(db, portfolio_id, portfolio)
+    updated = crud.update_portfolio(db, portfolio_id, portfolio_data)
     return updated
 
 
@@ -97,35 +76,19 @@ async def update_portfolio(
 async def delete_portfolio(
     portfolio_id: int, 
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Delete portfolio"""
-    # Verify the portfolio belongs to the current user
-    existing = crud.get_portfolio(db, portfolio_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if existing.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this portfolio"
-        )
-    
     success = crud.delete_portfolio(db, portfolio_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
+        raise PortfolioNotFoundError(portfolio_id)
 
 
 @router.get("/{portfolio_id}/positions", response_model=List[Position])
 async def get_portfolio_positions(
     portfolio_id: int,
     metrics_service = Depends(get_metrics_service),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get current positions for a portfolio
@@ -136,28 +99,43 @@ async def get_portfolio_positions(
     - Market value
     - Unrealized P&L
     """
-    # Verify portfolio exists
-    portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    # Verify the portfolio belongs to the current user
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     return await metrics_service.get_positions(portfolio_id)
+
+
+@router.get("/{portfolio_id}/positions/{asset_id}/detailed-metrics")
+async def get_position_detailed_metrics(
+    portfolio_id: int,
+    asset_id: int,
+    metrics_service = Depends(get_metrics_service),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Get detailed metrics for a single position (lazy-loaded on-demand)
+    
+    This includes expensive calculations like:
+    - Relative performance vs sector (30d, 90d, YTD, 1y)
+    
+    These metrics are NOT included in the main positions list to keep
+    dashboard loading fast. They are only calculated when user opens
+    the position detail modal.
+    """
+    result = await metrics_service.get_position_detailed_metrics(portfolio_id, asset_id)
+    if not result:
+        return {
+            'relative_perf_30d': None,
+            'relative_perf_90d': None,
+            'relative_perf_ytd': None,
+            'relative_perf_1y': None,
+            'sector_etf': None
+        }
+    return result
 
 
 @router.get("/{portfolio_id}/sold-positions", response_model=List[Position])
 async def get_sold_positions(
     portfolio_id: int,
     metrics_service = Depends(get_metrics_service),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get sold positions for a portfolio with realized P&L
@@ -166,20 +144,6 @@ async def get_sold_positions(
     - Symbol and name
     - Realized P&L from the sales
     """
-    # Verify portfolio exists
-    portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    # Verify the portfolio belongs to the current user
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Get only sold positions (optimized)
     sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
     
@@ -190,7 +154,7 @@ async def get_sold_positions(
 async def get_portfolio_metrics(
     portfolio_id: int,
     metrics_service = Depends(get_metrics_service),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get aggregated metrics for a portfolio
@@ -203,26 +167,10 @@ async def get_portfolio_metrics(
     - Dividends
     - Fees
     """
-    # Verify the portfolio belongs to the current user
-    portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     try:
         return await metrics_service.get_metrics(portfolio_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise CannotGetPortfolioMetricsError(portfolio_id, str(e))
 
 
 # New endpoint: portfolio value history over time
@@ -231,7 +179,7 @@ async def get_portfolio_history(
     portfolio_id: int,
     period: str = "1M",  # 1W, 1M, 3M, 6M, YTD, 1Y, ALL
     metrics_service = Depends(get_metrics_service),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get portfolio value history for charting
@@ -249,33 +197,18 @@ async def get_portfolio_history(
     - 1Y: Last year
     - ALL: All available data
     """
-    # Verify the portfolio belongs to the current user
-    portfolio = crud.get_portfolio(metrics_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     try:
         return metrics_service.get_portfolio_history(portfolio_id, period)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise CannotGetPortfolioHistoryError(portfolio_id, str(e))
 
 
 @router.post("/{portfolio_id}/generate-report")
 async def generate_portfolio_report(
     portfolio_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Generate a daily PDF report for a specific portfolio (for testing/preview)
@@ -286,19 +219,6 @@ async def generate_portfolio_report(
     from fastapi.responses import Response
     from app.services.pdf_reports import PDFReportService
     from datetime import datetime, timedelta
-    
-    # Verify the portfolio belongs to the current user
-    portfolio = crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
     
     try:
         # Generate report for yesterday (or today if you prefer)
@@ -322,17 +242,14 @@ async def generate_portfolio_report(
         )
     
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate report: {str(e)}"
-        )
+        raise CannotGetPortfolioReportError(portfolio_id, str(e))
 
 
 @router.get("/{portfolio_id}/prices/batch")
 async def get_batch_prices(
     portfolio_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     **Ultra-fast endpoint for price-only updates** 🚀
@@ -380,19 +297,6 @@ async def get_batch_prices(
     from app.services.currency import CurrencyService
     
     logger = logging.getLogger(__name__)
-    
-    # Verify the portfolio belongs to the current user
-    portfolio = crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
     
     try:
         # Get portfolio base currency for conversion
@@ -480,8 +384,5 @@ async def get_batch_prices(
     
     except Exception as e:
         logger.error(f"Failed to fetch batch prices for portfolio {portfolio_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch prices: {str(e)}"
-        )
+        raise CannotGetPortfolioPricesError(portfolio_id, str(e))
 

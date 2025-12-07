@@ -1,16 +1,29 @@
 """
 CRUD operations for portfolios
 """
-from typing import List, Optional
+from typing import List, Optional, Union
 from sqlalchemy.orm import Session
 
 from app.models import Portfolio
-from app.schemas import PortfolioCreate
+from app.schemas import PortfolioCreate, PortfolioUpdate
 
 
 def get_portfolio(db: Session, portfolio_id: int) -> Optional[Portfolio]:
     """Get portfolio by ID"""
     return db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+
+
+def get_portfolio_by_share_token(db: Session, share_token: str) -> Optional[Portfolio]:
+    """Get portfolio by share token"""
+    return db.query(Portfolio).filter(Portfolio.share_token == share_token).first()
+
+
+def get_public_portfolio_by_share_token(db: Session, share_token: str) -> Optional[Portfolio]:
+    """Get public portfolio by share token (only if is_public=True)"""
+    return db.query(Portfolio).filter(
+        Portfolio.share_token == share_token,
+        Portfolio.is_public == True
+    ).first()
 
 
 def get_portfolio_by_name(db: Session, name: str) -> Optional[Portfolio]:
@@ -44,6 +57,7 @@ def create_portfolio(db: Session, portfolio: PortfolioCreate, user_id: int = Non
         name=portfolio.name,
         base_currency=portfolio.base_currency,
         description=portfolio.description,
+        is_public=portfolio.is_public,
         user_id=user_id
     )
     db.add(db_portfolio)
@@ -60,7 +74,7 @@ def create_portfolio_for_user(db: Session, portfolio: PortfolioCreate, user_id: 
 def update_portfolio(
     db: Session, 
     portfolio_id: int, 
-    portfolio: PortfolioCreate
+    portfolio: Union[PortfolioCreate, PortfolioUpdate]
 ) -> Optional[Portfolio]:
     """Update existing portfolio"""
     db_portfolio = get_portfolio(db, portfolio_id)
@@ -70,6 +84,10 @@ def update_portfolio(
     db_portfolio.name = portfolio.name
     db_portfolio.base_currency = portfolio.base_currency
     db_portfolio.description = portfolio.description
+    
+    # Handle is_public field (PortfolioUpdate may have None)
+    if hasattr(portfolio, 'is_public') and portfolio.is_public is not None:
+        db_portfolio.is_public = portfolio.is_public
     
     db.commit()
     db.refresh(db_portfolio)

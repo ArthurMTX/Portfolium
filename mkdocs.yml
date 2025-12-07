@@ -60,6 +60,8 @@ markdown_extensions:
   - md_in_html
   - toc:
       permalink: true
+  - pymdownx.arithmatex:
+      generic: true
 
 plugins:
   - search
@@ -73,18 +75,117 @@ nav:
   - User Guide:
       - Portfolios: user-guide/portfolios.md
       - Dashboard: user-guide/dashboard.md
+      - Example Layouts: user-guide/example-layouts.md
       - Charts: user-guide/charts.md
       - Transactions: user-guide/transactions.md
+      - Crypto Conversions: user-guide/crypto-conversions.md
       - Assets: user-guide/assets.md
       - Watchlist: user-guide/watchlist.md
       - Insights: user-guide/insights.md
       - Notifications: user-guide/notifications.md
       - Daily Reports: user-guide/daily-reports.md
       - Settings: user-guide/settings.md
+      - Gallery: user-guide/gallery.md
+
+  - Widgets:
+      - Overview: widgets/index.md
+
+      - Metrics:
+          - Daily Gain: widgets/daily-gain.md
+          - Dividends: widgets/dividends.md
+          - Goal Tracker: widgets/goal-tracker.md
+          - Realized P&L: widgets/realized-pnl.md
+          - Total Value: widgets/total-value.md
+          - Unrealized P&L: widgets/unrealized-pnl.md
+          - Win Rate: widgets/win-rate.md
+
+      - Data:
+          - Positions: widgets/positions.md
+          - Recent Notifications: widgets/notifications.md
+          - Recent Transactions: widgets/transactions.md
+          - Watchlist: widgets/watchlist.md
+
+      - Insights:
+          - Alpha: widgets/alpha.md
+          - Asset Allocation: widgets/asset-allocation.md
+          - Average Holding Period: widgets/average-holding-period.md
+          - Beta: widgets/beta.md
+          - Best and Worst Daily Performers: widgets/best-worst-daily.md
+          - Concentration Risk: widgets/concentration-risk.md
+          - Diversification Score: widgets/diversification-score.md
+          - Downside Deviation: widgets/downside-deviation.md
+          - Hit Ratio: widgets/hit-ratio.md
+          - Largest Holdings: widgets/largest-holdings.md
+          - Max Drawdown: widgets/max-drawdown.md
+          - Performance Metrics: widgets/performance-metrics.md
+          - R-Squared: widgets/r-squared.md
+          - Sharpe Ratio: widgets/sharpe-ratio.md
+          - Top Performers: widgets/top-performers.md
+          - Total Return: widgets/total-return.md
+          - Value at Risk: widgets/var.md
+          - Volatility: widgets/volatility.md
+          - Worst Performers: widgets/worst-performers.md
+
+      - Market & Macro:
+          - Crypto Sentiment: widgets/crypto-sentiment.md
+          - DXY Index: widgets/dxy-index.md
+          - Market Indices: widgets/market-indices.md
+          - Market Sentiment: widgets/market-sentiment.md
+          - Market Status: widgets/market-status.md
+          - TNX Index: widgets/tnx-index.md
+          - VIX Index: widgets/vix-index.md
+
+      - Visual & Fun:
+          - Bitcoin Pizza Index: widgets/bitcoin-pizza-index.md
+          - Heatmap: widgets/heatmap.md
+
+  - Detailed Metrics:
+      - Overview: detailed-metrics/index.md
+      
+      - Fundamentals & Liquidity:
+          - Market Cap: detailed-metrics/market-cap.md
+          - Volume: detailed-metrics/volume.md
+          - P/E Ratio: detailed-metrics/pe-ratio.md
+          - EPS: detailed-metrics/eps.md
+          - Liquidity Score: detailed-metrics/liquidity-score.md
+
+      - Growth & Profitability:
+          - Revenue Growth: detailed-metrics/revenue-growth.md
+          - Earnings Growth: detailed-metrics/earnings-growth.md
+          - Net Margin: detailed-metrics/net-margin.md
+          - Operating Margin: detailed-metrics/operating-margin.md
+          - ROE: detailed-metrics/roe.md
+
+      - Balance Sheet Health:
+          - Net Cash: detailed-metrics/net-cash.md
+          - Debt-to-Equity: detailed-metrics/debt-to-equity.md
+          - Current Ratio: detailed-metrics/current-ratio.md
+          - Quick Ratio: detailed-metrics/quick-ratio.md
+
+      - Analyst View & Valuation:
+          - Analyst Consensus: detailed-metrics/analyst-consensus.md
+          - Implied Upside: detailed-metrics/implied-upside.md
+
+      - Performance Metrics:
+          - Gain to Breakeven: detailed-metrics/gain-to-breakeven.md
+          - Personal Drawdown: detailed-metrics/personal-drawdown.md
+
+      - Trading Zones:
+          - Distance to ATH: detailed-metrics/distance-to-ath.md
+          - Avg Buy Zone: detailed-metrics/avg-buy-zone.md
+          - Relative Performance: detailed-metrics/relative-performance.md
+          - Cost to Average Down: detailed-metrics/cost-to-average-down.md
+
+      - Risk Metrics:
+          - Volatility: detailed-metrics/volatility.md
+          - Beta: detailed-metrics/beta.md
+          - Risk Score: detailed-metrics/risk-score.md  
+
   - API Reference:
       - Overview: api/overview.md
       - Authentication: api/authentication.md
       - Endpoints: api/endpoints.md
+
   - Technical Reference:
       - Overview: technical/overview.md
       - Stock Splits: technical/stock-splits.md
@@ -93,10 +194,12 @@ nav:
       - Currency Conversion: technical/currency-conversion.md
       - Data Models: technical/data-models.md
       - Pricing Service: technical/pricing-service.md
+
   - Development:
       - Architecture: development/architecture.md
       - Contributing: development/contributing.md
       - Testing: development/testing.md
+
 
 extra:
   social:
@@ -105,3 +208,7 @@ extra:
   
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

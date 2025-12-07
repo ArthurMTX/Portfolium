@@ -255,13 +255,20 @@ class PortfolioBase(BaseModel):
 
 class PortfolioCreate(PortfolioBase):
     """Schema for creating a portfolio"""
-    pass
+    is_public: bool = False
+
+
+class PortfolioUpdate(PortfolioBase):
+    """Schema for updating a portfolio"""
+    is_public: Optional[bool] = None
 
 
 class Portfolio(PortfolioBase):
     """Portfolio response schema"""
     id: int
     user_id: int
+    is_public: bool = False
+    share_token: str
     created_at: datetime
     updated_at: datetime
     
@@ -277,9 +284,9 @@ class TransactionBase(BaseModel):
     asset_id: int
     tx_date: date
     type: TransactionType
-    quantity: Decimal = Field(ge=0, decimal_places=12)
-    price: Decimal = Field(ge=0, decimal_places=12)
-    fees: Decimal = Field(default=Decimal(0), ge=0, decimal_places=12)
+    quantity: Decimal = Field(ge=0)
+    price: Decimal = Field(ge=0)
+    fees: Decimal = Field(default=Decimal(0), ge=0)
     currency: str = "USD"
     notes: Optional[str] = None
 
@@ -342,6 +349,43 @@ class Transaction(TransactionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ConversionCreate(BaseModel):
+    """
+    Schema for creating a crypto conversion/swap transaction.
+    A conversion creates two linked transactions:
+    - CONVERSION_OUT: Selling the source asset
+    - CONVERSION_IN: Buying the target asset
+    """
+    tx_date: date
+    from_asset_id: int = Field(..., description="Asset being converted FROM (e.g., BTC)")
+    from_quantity: Decimal = Field(..., gt=0, description="Quantity of source asset to convert (must be positive)")
+    from_price: Decimal = Field(..., ge=0, description="Price per unit of source asset at conversion")
+    to_asset_id: int = Field(..., description="Asset being converted TO (e.g., ETH)")
+    to_quantity: Decimal = Field(..., gt=0, description="Quantity of target asset received (must be positive)")
+    to_price: Decimal = Field(..., ge=0, description="Price per unit of target asset at conversion")
+    fees: Decimal = Field(default=Decimal(0), ge=0, description="Total fees for the conversion")
+    currency: str = Field(default="USD", description="Currency for prices and fees")
+    notes: Optional[str] = Field(default=None, description="Optional notes about the conversion")
+    
+    @field_validator('to_asset_id')
+    @classmethod
+    def validate_different_assets(cls, v: int, info) -> int:
+        """Ensure source and target assets are different"""
+        if hasattr(info, 'data') and info.data.get('from_asset_id') == v:
+            raise ValueError('Cannot convert an asset to itself. Source and target assets must be different.')
+        return v
+
+
+class ConversionResponse(BaseModel):
+    """Response for a conversion transaction"""
+    conversion_id: str = Field(..., description="Unique ID linking the two transactions")
+    conversion_rate: str = Field(..., description="Conversion rate (from_quantity:to_quantity)")
+    from_transaction: "Transaction"
+    to_transaction: "Transaction"
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================================================
 # Price Schemas
 # ============================================================================
@@ -394,6 +438,28 @@ class Position(BaseModel):
     unrealized_pnl: Optional[Decimal]
     unrealized_pnl_pct: Optional[Decimal]
     daily_change_pct: Optional[Decimal]  # Daily price change percentage
+    breakeven_gain_pct: Optional[Decimal] = None  # Gain % nécessaire pour revenir au prix d'achat (pour positions négatives)
+    breakeven_target_price: Optional[Decimal] = None  # Prix cible à atteindre pour breakeven (pour positions négatives)
+    # Advanced metrics
+    distance_to_ath_pct: Optional[Decimal] = None  # Distance au plus haut historique
+    avg_buy_zone_pct: Optional[Decimal] = None  # Zone d'achat moyenne vs prix actuel
+    personal_drawdown_pct: Optional[Decimal] = None  # Drawdown personnel depuis achat
+    local_ath_price: Optional[Decimal] = None  # Local ATH (highest price since ownership)
+    local_ath_date: Optional[datetime] = None  # Date when local ATH was reached
+    vol_contribution_pct: Optional[Decimal] = None  # Contribution à la volatilité du portefeuille
+    cost_to_average_down: Optional[Decimal] = None  # Coût pour moyenner à la baisse (at target PRU)
+    ath_price: Optional[Decimal] = None  # All-time high price (converted to portfolio currency)
+    ath_price_native: Optional[Decimal] = None  # All-time high price (native currency)
+    ath_currency: Optional[str] = None  # Native currency of the ATH
+    ath_date: Optional[datetime] = None  # Date when ATH was reached
+    # Relative performance vs sector
+    relative_perf_30d: Optional[Decimal] = None  # 30-day relative performance vs sector ETF
+    relative_perf_90d: Optional[Decimal] = None  # 90-day relative performance vs sector ETF
+    relative_perf_ytd: Optional[Decimal] = None  # YTD relative performance vs sector ETF
+    relative_perf_1y: Optional[Decimal] = None  # 1-year relative performance vs sector ETF
+    sector: Optional[str] = None  # Asset sector for reference
+    industry: Optional[str] = None  # Asset industry for reference
+    sector_etf: Optional[str] = None  # Benchmark ETF symbol
     currency: str
     last_updated: Optional[datetime]
     asset_type: Optional[str] = None
@@ -430,7 +496,9 @@ class CsvImportRow(BaseModel):
     fees: Decimal = Field(default=Decimal(0))
     currency: str = "USD"
     split_ratio: Optional[str] = None  # e.g., "2:1"
+    conversion_id: Optional[str] = None  # Links CONVERSION_IN/OUT pairs
     notes: Optional[str] = None
+    sequence: Optional[int] = None  # Preserves order within same date
 
 
 class CsvImportResult(BaseModel):
@@ -450,8 +518,10 @@ class HealthCheck(BaseModel):
     status: str
     timestamp: datetime
     database: str
+    redis: Optional[str] = None  # 'healthy', 'unavailable', or error message
     version: str
-    market_status: str  # 'premarket', 'open', 'afterhours', or 'closed'
+    market_status: str  # 'premarket', 'open', 'afterhours', or 'closed' (US markets)
+    market_statuses: dict  # Status for all regions: {'us': str, 'europe': str, 'asia': str, 'oceania': str}
     email_enabled: bool  # Whether email system is enabled
 
 
@@ -463,6 +533,49 @@ class PortfolioHistoryPoint(BaseModel):
     gain_pct: Optional[float] = None  # Percentage gain/loss vs. total invested (includes sold positions)
     cost_basis: Optional[float] = None  # Cost basis of current holdings only
     unrealized_pnl_pct: Optional[float] = None  # Unrealized P&L % of current holdings (matches Dashboard)
+
+
+# ============================================================================
+# Portfolio Goal Schemas
+# ============================================================================
+
+class PortfolioGoalBase(BaseModel):
+    """Base portfolio goal schema"""
+    title: str = Field(..., min_length=1, max_length=200)
+    target_amount: Decimal = Field(gt=0, decimal_places=2)
+    target_date: Optional[date] = None
+    monthly_contribution: Decimal = Field(default=Decimal(0), ge=0, decimal_places=2)
+    category: str = Field(default="other", pattern="^(retirement|house|education|vacation|emergency|other)$")
+    description: Optional[str] = None
+    color: Optional[str] = None
+    is_active: bool = True
+
+
+class PortfolioGoalCreate(PortfolioGoalBase):
+    """Schema for creating a portfolio goal"""
+    pass
+
+
+class PortfolioGoalUpdate(BaseModel):
+    """Schema for updating a portfolio goal"""
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    target_amount: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
+    target_date: Optional[date] = None
+    monthly_contribution: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    category: Optional[str] = Field(None, pattern="^(retirement|house|education|vacation|emergency|other)$")
+    description: Optional[str] = None
+    color: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class PortfolioGoal(PortfolioGoalBase):
+    """Portfolio goal response schema"""
+    id: int
+    portfolio_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -487,6 +600,7 @@ class WatchlistItemCreateBySymbol(BaseModel):
     notes: Optional[str] = None
     alert_target_price: Optional[Decimal] = None
     alert_enabled: bool = False
+    tag_ids: Optional[List[int]] = None
 
 
 class WatchlistItemUpdate(BaseModel):
@@ -525,6 +639,7 @@ class WatchlistItemWithPrice(BaseModel):
     asset_type: Optional[str]
     last_updated: Optional[datetime]
     created_at: datetime
+    tags: List['WatchlistTagResponse'] = []
 
 
 class WatchlistImportItem(BaseModel):
@@ -554,6 +669,63 @@ class WatchlistConvertToBuy(BaseModel):
     price: Decimal
     tx_date: Optional[str] = None
     fees: Decimal = Field(default=Decimal(0))
+    currency: Optional[str] = None  # If not provided, uses portfolio's base_currency
+
+
+# ============================================================================
+# Watchlist Tag Schemas
+# ============================================================================
+
+class WatchlistTagBase(BaseModel):
+    """Base watchlist tag schema"""
+    name: str = Field(..., min_length=1, max_length=30)
+    icon: str = Field(default='tag', max_length=50)
+    color: str = Field(default='#6366f1', max_length=7)
+
+    @field_validator('color')
+    @classmethod
+    def validate_hex_color(cls, v: str) -> str:
+        import re
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
+            raise ValueError('Color must be a valid hex color (e.g., #FF5733)')
+        return v.upper()
+
+
+class WatchlistTagCreate(WatchlistTagBase):
+    """Schema for creating a watchlist tag"""
+    pass
+
+
+class WatchlistTagUpdate(BaseModel):
+    """Schema for updating a watchlist tag"""
+    name: Optional[str] = Field(None, min_length=1, max_length=30)
+    icon: Optional[str] = Field(None, max_length=50)
+    color: Optional[str] = Field(None, max_length=7)
+
+    @field_validator('color')
+    @classmethod
+    def validate_hex_color(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        import re
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
+            raise ValueError('Color must be a valid hex color (e.g., #FF5733)')
+        return v.upper()
+
+
+class WatchlistTagResponse(WatchlistTagBase):
+    """Watchlist tag response schema"""
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WatchlistItemTagsUpdate(BaseModel):
+    """Schema for updating tags on a watchlist item"""
+    tag_ids: List[int] = []
 
 
 # ============================================================================
@@ -652,6 +824,12 @@ class RiskMetrics(BaseModel):
     max_drawdown_date: Optional[str]
     beta: Optional[Decimal]  # Sensitivity to market
     var_95: Optional[Decimal]  # Value at Risk (95% confidence)
+    var_99: Optional[Decimal]  # Value at Risk (99% confidence)
+    cvar_95: Optional[Decimal]  # Conditional VaR / Expected Shortfall (95%)
+    cvar_99: Optional[Decimal]  # Conditional VaR / Expected Shortfall (99%)
+    var_95_1w: Optional[Decimal]  # 1-week VaR (95%)
+    var_95_1m: Optional[Decimal]  # 1-month VaR (95%)
+    tail_exposure: Optional[Decimal]  # Probability of extreme outlier events (>3 sigma)
     downside_deviation: Decimal
 
 
@@ -711,3 +889,76 @@ class PortfolioInsights(BaseModel):
     total_return: Decimal
     total_return_pct: Decimal
     diversification_score: Optional[Decimal]  # 0-100, higher is more diversified
+
+
+# ============================================================================
+# Dashboard Layout Schemas
+# ============================================================================
+
+class LayoutItemSchema(BaseModel):
+    """Individual widget layout configuration (react-grid-layout format)"""
+    i: str  # Widget ID
+    x: int
+    y: int
+    w: int
+    h: int
+    minW: Optional[int] = None
+    minH: Optional[int] = None
+    maxW: Optional[int] = None
+    maxH: Optional[int] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LayoutConfigSchema(BaseModel):
+    """Complete layout configuration for all breakpoints"""
+    lg: List[LayoutItemSchema]
+    md: List[LayoutItemSchema]
+    sm: List[LayoutItemSchema]
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardLayoutBase(BaseModel):
+    """Base dashboard layout schema"""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    portfolio_id: Optional[int] = None
+    is_default: bool = False
+    is_shared: bool = False
+
+
+class DashboardLayoutCreate(DashboardLayoutBase):
+    """Schema for creating a dashboard layout"""
+    layout_config: LayoutConfigSchema
+
+
+class DashboardLayoutUpdate(BaseModel):
+    """Schema for updating a dashboard layout"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    is_default: Optional[bool] = None
+    is_shared: Optional[bool] = None
+    layout_config: Optional[LayoutConfigSchema] = None
+
+
+class DashboardLayoutResponse(DashboardLayoutBase):
+    """Schema for dashboard layout response"""
+    id: int
+    user_id: int
+    layout_config: LayoutConfigSchema
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardLayoutExport(BaseModel):
+    """Schema for exporting/importing dashboard layouts"""
+    name: str
+    description: Optional[str] = None
+    layout_config: LayoutConfigSchema
+    version: str = "1.0"  # For future compatibility
+    exported_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    model_config = ConfigDict(from_attributes=True)

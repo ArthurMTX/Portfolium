@@ -1,0 +1,212 @@
+{
+  "name": "Quick Glancer",
+  "description": "Simple, clean layout with only essential metrics for quick portfolio checks",
+  "layout_config": {
+    "lg": [
+      {
+        "i": "total-value",
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "daily-gain",
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "unrealized-pnl",
+        "x": 6,
+        "y": 0,
+        "w": 2,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "realized-pnl",
+        "x": 8,
+        "y": 0,
+        "w": 2,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "dividends",
+        "x": 10,
+        "y": 0,
+        "w": 2,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "positions",
+        "x": 0,
+        "y": 2,
+        "w": 12,
+        "h": 12,
+        "minW": 8,
+        "minH": 6,
+        "maxW": null,
+        "maxH": null
+      }
+    ],
+    "md": [
+      {
+        "i": "total-value",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "daily-gain",
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "unrealized-pnl",
+        "x": 0,
+        "y": 2,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "realized-pnl",
+        "x": 4,
+        "y": 2,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "dividends",
+        "x": 0,
+        "y": 4,
+        "w": 8,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "positions",
+        "x": 0,
+        "y": 6,
+        "w": 8,
+        "h": 12,
+        "minW": 8,
+        "minH": 6,
+        "maxW": null,
+        "maxH": null
+      }
+    ],
+    "sm": [
+      {
+        "i": "total-value",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "daily-gain",
+        "x": 0,
+        "y": 2,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "unrealized-pnl",
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "realized-pnl",
+        "x": 0,
+        "y": 6,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "dividends",
+        "x": 0,
+        "y": 8,
+        "w": 4,
+        "h": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": null,
+        "maxH": null
+      },
+      {
+        "i": "positions",
+        "x": 0,
+        "y": 10,
+        "w": 4,
+        "h": 10,
+        "minW": 8,
+        "minH": 6,
+        "maxW": null,
+        "maxH": null
+      }
+    ]
+  },
+  "version": "1.0",
+  "exported_at": "2025-12-07T20:29:42.137674"
+}

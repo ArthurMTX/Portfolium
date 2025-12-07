@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import List, Optional, Callable, Dict, Any, Generator
 from sqlalchemy.orm import Session
 from fastapi import Depends
+import yfinance as yf
 
 from app.models import TransactionType
 from app.schemas import CsvImportRow, CsvImportResult, TransactionCreate
@@ -23,6 +24,32 @@ class CsvImportService:
     
     def __init__(self, db: Session):
         self.db = db
+    
+    def _validate_symbols_in_yfinance(self, symbols: List[str]) -> List[str]:
+        """
+        Validate that symbols exist in yfinance.
+        Returns list of invalid symbols.
+        """
+        invalid_symbols = []
+        
+        for symbol in symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                # Try to get basic info - if symbol doesn't exist, this will fail or return empty
+                info = ticker.info
+                
+                # Check if we got meaningful data back
+                # Valid tickers will have at least a symbol or regularMarketPrice
+                if not info or (not info.get('symbol') and not info.get('regularMarketPrice') and not info.get('previousClose')):
+                    logger.warning(f"Symbol {symbol} not found in yfinance")
+                    invalid_symbols.append(symbol)
+                else:
+                    logger.info(f"Symbol {symbol} validated successfully")
+            except Exception as e:
+                logger.warning(f"Failed to validate symbol {symbol}: {e}")
+                invalid_symbols.append(symbol)
+        
+        return invalid_symbols
     
     def import_csv_with_progress(
         self, 
@@ -47,15 +74,68 @@ class CsvImportService:
         total_rows = 0
         
         try:
-            # First pass: count total rows
+            # First pass: count total rows and parse for sorting
             csv_file = StringIO(csv_content)
             reader = csv.DictReader(csv_file, delimiter=delimiter)
             rows = list(reader)
             total_rows = len(rows)
             
+            # Sort rows by sequence if present, to preserve original order
+            # This is important for same-day transactions
+            def get_sequence(row):
+                seq = row.get("sequence", "").strip()
+                return int(seq) if seq else float('inf')
+            
+            rows.sort(key=get_sequence)
+            
             yield {
                 "type": "log",
                 "message": f"Starting import of {total_rows} rows",
+                "current": 0,
+                "total": total_rows
+            }
+            
+            # Validation phase: Check all symbols exist in yfinance
+            yield {
+                "type": "log",
+                "message": "Validating symbols in yfinance...",
+                "current": 0,
+                "total": total_rows
+            }
+            
+            # Extract unique symbols from CSV
+            symbols_to_validate = set()
+            for row in rows:
+                symbol = row.get("symbol", "").strip().upper()
+                if symbol:
+                    symbols_to_validate.add(symbol)
+            
+            # Validate symbols
+            invalid_symbols = self._validate_symbols_in_yfinance(list(symbols_to_validate))
+            
+            if invalid_symbols:
+                error_msg = f"The following symbols do not exist in yfinance: {', '.join(sorted(invalid_symbols))}. Please check your CSV and correct the symbols before importing."
+                errors.append(error_msg)
+                
+                result = CsvImportResult(
+                    success=False,
+                    imported_count=0,
+                    errors=errors,
+                    warnings=warnings
+                )
+                
+                yield {
+                    "type": "error",
+                    "message": error_msg,
+                    "current": 0,
+                    "total": total_rows,
+                    "result": result.model_dump()
+                }
+                return
+            
+            yield {
+                "type": "log",
+                "message": f"All {len(symbols_to_validate)} symbols validated successfully",
                 "current": 0,
                 "total": total_rows
             }
@@ -85,6 +165,13 @@ class CsvImportService:
                     # Validate SPLIT transactions
                     if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
                         raise ValueError(f'SPLIT transactions must include a split_ratio (e.g., "2:1")')
+                    
+                    # Validate CONVERSION transactions must have conversion_id
+                    if import_row.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
+                        if not import_row.conversion_id:
+                            raise ValueError(
+                                f'{import_row.type.value} transactions require a conversion_id to link pairs'
+                            )
                     
                     # Get or create asset
                     asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
@@ -122,10 +209,12 @@ class CsvImportService:
                             "row_num": row_num
                         }
                     
-                    # Handle SPLIT metadata
+                    # Handle SPLIT metadata and conversion_id
                     meta_data = {}
                     if import_row.type == TransactionType.SPLIT and import_row.split_ratio:
                         meta_data["split"] = import_row.split_ratio
+                    if import_row.conversion_id:
+                        meta_data["conversion_id"] = import_row.conversion_id
                     
                     # Create transaction
                     tx_create = TransactionCreate(
@@ -261,6 +350,8 @@ class CsvImportService:
         - currency (optional, defaults to USD)
         - notes (optional)
         - split_ratio (optional, for SPLIT type, e.g., "2:1")
+        - conversion_id (optional, links CONVERSION_IN/OUT pairs)
+        - sequence (optional, preserves order within same date)
         """
         errors = []
         warnings = []
@@ -270,8 +361,38 @@ class CsvImportService:
             # Parse CSV
             csv_file = StringIO(csv_content)
             reader = csv.DictReader(csv_file, delimiter=delimiter)
+            rows = list(reader)
             
-            for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is 1)
+            # Sort rows by sequence if present, to preserve original order
+            # This is important for same-day transactions
+            def get_sequence(row):
+                seq = row.get("sequence", "").strip()
+                return int(seq) if seq else float('inf')
+            
+            rows.sort(key=get_sequence)
+            
+            # Validation phase: Check all symbols exist in yfinance
+            symbols_to_validate = set()
+            for row in rows:
+                symbol = row.get("symbol", "").strip().upper()
+                if symbol:
+                    symbols_to_validate.add(symbol)
+            
+            # Validate symbols
+            invalid_symbols = self._validate_symbols_in_yfinance(list(symbols_to_validate))
+            
+            if invalid_symbols:
+                error_msg = f"The following symbols do not exist in yfinance: {', '.join(sorted(invalid_symbols))}. Please check your CSV and correct the symbols before importing."
+                errors.append(error_msg)
+                
+                return CsvImportResult(
+                    success=False,
+                    imported_count=0,
+                    errors=errors,
+                    warnings=warnings
+                )
+            
+            for row_num, row in enumerate(rows, start=2):  # Start at 2 (header is 1)
                 try:
                     # Parse row
                     import_row = self._parse_row(row)
@@ -279,6 +400,13 @@ class CsvImportService:
                     # Validate SPLIT transactions
                     if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
                         raise ValueError(f'SPLIT transactions must include a split_ratio (e.g., "2:1")')
+                    
+                    # Validate CONVERSION transactions must have conversion_id
+                    if import_row.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
+                        if not import_row.conversion_id:
+                            raise ValueError(
+                                f'{import_row.type.value} transactions require a conversion_id to link pairs'
+                            )
                     
                     # Get or create asset
                     asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
@@ -299,10 +427,12 @@ class CsvImportService:
                         asset = crud_assets.create_asset(self.db, asset_create)
                         warnings.append(f"Row {row_num}: Auto-created asset {import_row.symbol}")
                     
-                    # Handle SPLIT metadata
+                    # Handle SPLIT metadata and conversion_id
                     meta_data = {}
                     if import_row.type == TransactionType.SPLIT and import_row.split_ratio:
                         meta_data["split"] = import_row.split_ratio
+                    if import_row.conversion_id:
+                        meta_data["conversion_id"] = import_row.conversion_id
                     
                     # Create transaction
                     tx_create = TransactionCreate(
@@ -392,7 +522,12 @@ class CsvImportService:
         fees = Decimal(row.get("fees", "0").strip() or "0")
         currency = row.get("currency", "USD").strip().upper()
         split_ratio = row.get("split_ratio", "").strip() or None
+        conversion_id = row.get("conversion_id", "").strip() or None
         notes = row.get("notes", "").strip() or None
+        
+        # Parse sequence number for ordering
+        sequence_str = row.get("sequence", "").strip()
+        sequence = int(sequence_str) if sequence_str else None
         
         return CsvImportRow(
             date=tx_date,
@@ -403,7 +538,9 @@ class CsvImportService:
             fees=fees,
             currency=currency,
             split_ratio=split_ratio,
-            notes=notes
+            conversion_id=conversion_id,
+            notes=notes,
+            sequence=sequence
         )
 
 

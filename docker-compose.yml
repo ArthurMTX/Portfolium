@@ -21,6 +21,23 @@ services:
     networks:
       - portfolium
 
+  redis:
+    image: redis:7-alpine
+    container_name: portfolium-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portfolium
+
   api:
     image: arthurmtx/portfolium-api:latest
     container_name: portfolium-api
@@ -33,6 +50,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
       POSTGRES_HOST: ${POSTGRES_HOST:-db}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       API_HOST: ${API_HOST:-0.0.0.0}
       API_PORT: ${API_PORT:-8000}
       ADMIN_AUTO_CREATE: ${ADMIN_AUTO_CREATE:-true}
@@ -43,6 +64,7 @@ services:
       ADMIN_IS_ACTIVE: ${ADMIN_IS_ACTIVE:-true}
       ADMIN_IS_VERIFIED: ${ADMIN_IS_VERIFIED:-true}
       PRICE_CACHE_TTL_SECONDS: ${PRICE_CACHE_TTL_SECONDS:-300}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       API_KEY: ${API_KEY:-dev-key-12345}
       BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
@@ -54,16 +76,80 @@ services:
       FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
       FROM_NAME: ${FROM_NAME:-Portfolium}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      ENABLE_BACKGROUND_TASKS: ${ENABLE_BACKGROUND_TASKS:-true}
+      METRICS_REFRESH_INTERVAL_MINUTES: ${METRICS_REFRESH_INTERVAL_MINUTES:-5}
+      INSIGHTS_REFRESH_INTERVAL_MINUTES: ${INSIGHTS_REFRESH_INTERVAL_MINUTES:-10}
     ports:
       - "8000:8000"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - portfolium
+
+  celery-worker:
+    image: arthurmtx/portfolium-api:latest
+    container_name: portfolium-celery-worker
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
+      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ENABLE_BACKGROUND_TASKS: ${ENABLE_BACKGROUND_TASKS:-true}
+      METRICS_REFRESH_INTERVAL_MINUTES: ${METRICS_REFRESH_INTERVAL_MINUTES:-5}
+      INSIGHTS_REFRESH_INTERVAL_MINUTES: ${INSIGHTS_REFRESH_INTERVAL_MINUTES:-10}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
+      BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - portfolium
+
+  celery-beat:
+    image: arthurmtx/portfolium-api:latest
+    container_name: portfolium-celery-beat
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
+      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ENABLE_BACKGROUND_TASKS: ${ENABLE_BACKGROUND_TASKS:-true}
+      METRICS_REFRESH_INTERVAL_MINUTES: ${METRICS_REFRESH_INTERVAL_MINUTES:-5}
+      INSIGHTS_REFRESH_INTERVAL_MINUTES: ${INSIGHTS_REFRESH_INTERVAL_MINUTES:-10}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - portfolium
 
@@ -84,6 +170,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   portfolium:

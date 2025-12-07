@@ -30,8 +30,16 @@ COPY api/ .
 # Copy translation files from web directory (needed for email translations)
 COPY web/src/locales ./locales
 
+# Create static directory and copy logo for email templates
+RUN mkdir -p ./static
+COPY web/public/favicon-96x96.png ./static/logo.png
+
+# Copy email templates
+COPY api/app/templates ./app/templates
+
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run application with uvicorn (single worker for dev, use gunicorn for production)
+# --timeout-keep-alive handles slow clients, --backlog for connection queue
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "30", "--backlog", "100"]

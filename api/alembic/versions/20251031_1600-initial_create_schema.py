@@ -316,7 +316,7 @@ def upgrade() -> None:
         schema=None  # config table is in public schema
     )
     
-    print("✓ Database schema creation complete!", flush=True)
+    print("Database schema creation complete!", flush=True)
     sys.stdout.flush()
 
 

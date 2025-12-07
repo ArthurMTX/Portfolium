@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-07
+
+### Features
+
+* add conversion transaction types and UI for crypto conversions with CONVERSION_IN and CONVERSION_OUT support ([5d4f80b](https://github.com/ArthurMTX/Portfolium/commit/5d4f80b))
+* implement conversion tab and update transaction fetching logic to handle conversion types ([ccd7f7a](https://github.com/ArthurMTX/Portfolium/commit/ccd7f7a))
+* add price fetching functionality for transactions with currency conversion and loading state ([6d7bd0f](https://github.com/ArthurMTX/Portfolium/commit/6d7bd0f))
+* enhance watchlist conversion functionality with currency handling and fees ([da3fed3](https://github.com/ArthurMTX/Portfolium/commit/da3fed3))
+* add watchlist tags feature with management UI and selector component ([be1e343](https://github.com/ArthurMTX/Portfolium/commit/be1e343))
+* enhance watchlist functionality with tag filtering and editing capabilities ([5c11da4](https://github.com/ArthurMTX/Portfolium/commit/5c11da4))
+* implement localStorage persistence for watchlist tag filters and enhance UI translations ([24c619b](https://github.com/ArthurMTX/Portfolium/commit/24c619b))
+* add public sharing functionality for portfolios with unique share tokens and visibility settings ([9ce88e7](https://github.com/ArthurMTX/Portfolium/commit/9ce88e7))
+* update PublicPortfolio component to use favicon and enhance email templates with base HTML and PDF templates ([e483423](https://github.com/ArthurMTX/Portfolium/commit/e483423))
+* add portfolio goals feature with CRUD operations, projections using Monte Carlo simulation, and goal tracking widget ([62fcef1](https://github.com/ArthurMTX/Portfolium/commit/62fcef1))
+* add portfolio insights page, risk analysis, dashboard widgets, and i18n support ([336da3f](https://github.com/ArthurMTX/Portfolium/commit/336da3f))
+* enhance GoalTrackerWidget with internationalization support for categories, scenarios, and messages ([3ae19d2](https://github.com/ArthurMTX/Portfolium/commit/3ae19d2))
+* add fundamental data service and enhance position metrics calculations with market cap, revenue growth, earnings growth, and liquidity score ([1098374](https://github.com/ArthurMTX/Portfolium/commit/1098374))
+* add liquidity and fundamental metrics to PositionDetailModal and API; enhance formatting utilities and translations ([c06eeba](https://github.com/ArthurMTX/Portfolium/commit/c06eeba))
+* implement detailed metrics and background tasks for updating and backfilling ATH prices; add PositionDetailModal component ([2aa6504](https://github.com/ArthurMTX/Portfolium/commit/2aa6504))
+* add breakeven metrics for negative positions and update translations ([6de8d6b](https://github.com/ArthurMTX/Portfolium/commit/6de8d6b))
+* add layout editing functionality and enhance translation strings ([69fdb1b](https://github.com/ArthurMTX/Portfolium/commit/69fdb1b))
+* enhance dashboard widget height calculation and adjust widget constraints ([43f0d9a](https://github.com/ArthurMTX/Portfolium/commit/43f0d9a))
+* add user registration feature with configuration option ([a438f63](https://github.com/ArthurMTX/Portfolium/commit/a438f63))
+* enhance CSV import and export functionality with sequence and conversion ID support ([04858a3](https://github.com/ArthurMTX/Portfolium/commit/04858a3))
+* add development commands for Docker management ([03f814d](https://github.com/ArthurMTX/Portfolium/commit/03f814d))
+* enhance asset search to include direct cryptocurrency lookups ([2b3d4e7](https://github.com/ArthurMTX/Portfolium/commit/2b3d4e7))
+* enhance currency formatting functions for improved precision and usability ([3e0e454](https://github.com/ArthurMTX/Portfolium/commit/3e0e454))
+* add country field to public holdings and update related components for enhanced asset metadata display ([3e30b6c](https://github.com/ArthurMTX/Portfolium/commit/3e30b6c))
+* update footer to include GitHub link and improve disclaimer presentation ([8a17b7f](https://github.com/ArthurMTX/Portfolium/commit/8a17b7f))
+* add "Go to Dashboard" translation and update links in PublicPortfolio component ([b4df528](https://github.com/ArthurMTX/Portfolium/commit/b4df528))
+
+### Bug Fixes
+
+* enhance ConversionModal and WatchlistEditModal for improved search functionality and logo validation ([2e358da](https://github.com/ArthurMTX/Portfolium/commit/2e358da))
+* enhance price quote functionality with target currency conversion and asset enrichment ([c1813fd](https://github.com/ArthurMTX/Portfolium/commit/c1813fd))
+* correct sign for unrealized PnL formatting in widgetDefinitions ([a9c8c5b](https://github.com/ArthurMTX/Portfolium/commit/a9c8c5b))
+* improve logo fetching strategy by prioritizing company name search over ticker search ([def6181](https://github.com/ArthurMTX/Portfolium/commit/def6181))
+* implement atomic transaction creation for conversions and enhance validation in ConversionModal ([92fe6d5](https://github.com/ArthurMTX/Portfolium/commit/92fe6d5))
+* enhance styling in ConversionModal and Transactions components for improved user experience ([cc6924c](https://github.com/ArthurMTX/Portfolium/commit/cc6924c))
+* add modal-overlay class to LayoutManager for improved styling ([f7bca90](https://github.com/ArthurMTX/Portfolium/commit/f7bca90))
+* update performance metrics display in TopPerformers and WorstPerformers widgets for improved clarity ([b015c65](https://github.com/ArthurMTX/Portfolium/commit/b015c65))
+* enhance TotalReturnWidget to display currency based on active portfolio ([0d0fb38](https://github.com/ArthurMTX/Portfolium/commit/0d0fb38))
+* invalidate cache for held and sold assets on metadata override change ([4aeb8a9](https://github.com/ArthurMTX/Portfolium/commit/4aeb8a9))
+* update watchlist empty state messages for improved user experience ([b837bfe](https://github.com/ArthurMTX/Portfolium/commit/b837bfe))
+* update styling for top holdings section in PublicPortfolio component ([2314b22](https://github.com/ArthurMTX/Portfolium/commit/2314b22))
+* update Docker and development configurations for improved performance and error handling ([d0638ce](https://github.com/ArthurMTX/Portfolium/commit/d0638ce))
+* add portfolioId prop to AssetPriceChart and pass activePortfolioId from Assets ([c0bad39](https://github.com/ArthurMTX/Portfolium/commit/c0bad39))
+* correct translation key for chart period buttons ([1e11b84](https://github.com/ArthurMTX/Portfolium/commit/1e11b84))
+* improve handling of /docs requests to ensure proper redirection and file serving ([83bc723](https://github.com/ArthurMTX/Portfolium/commit/83bc723))
+* add translation for 'User' in English and French locales ([07642c3](https://github.com/ArthurMTX/Portfolium/commit/07642c3))
+* update report date calculation to use current date in EST timezone for accurate daily reports ([9bd86d3](https://github.com/ArthurMTX/Portfolium/commit/9bd86d3))
+* update growth and margin metrics to display percentage values in PositionDetailModal ([30cb911](https://github.com/ArthurMTX/Portfolium/commit/30cb911))
+* update hover styles for PositionsTable to enhance user experience ([b544ff0](https://github.com/ArthurMTX/Portfolium/commit/b544ff0))
+* optimize dashboard data fetching by reducing redundant user queries and removing debug logs ([00fb484](https://github.com/ArthurMTX/Portfolium/commit/00fb484))
+* refactor Beta calculation to use yfinance for asset and benchmark data retrieval ([2bd9d5c](https://github.com/ArthurMTX/Portfolium/commit/2bd9d5c))
+* enhance PositionDetailModal with internationalization support for performance and risk metrics ([e0d86a2](https://github.com/ArthurMTX/Portfolium/commit/e0d86a2))
+* remove unnecessary class from image elements in PortfolioHeatmapWidget and WatchlistWidget ([fedd331](https://github.com/ArthurMTX/Portfolium/commit/fedd331))
+
+### Documentation
+
+* add web app manifest and associated icons for PWA support ([775b6dc](https://github.com/ArthurMTX/Portfolium/commit/775b6dc))
+* improving readme and adding medias ([2efe149](https://github.com/ArthurMTX/Portfolium/commit/2efe149))
+* add Crypto Conversions section to user guide for enhanced portfolio management ([c2bf99e](https://github.com/ArthurMTX/Portfolium/commit/c2bf99e))
+* add detailed metrics navigation and MathJax fix integration for enhanced documentation ([c35d8b3](https://github.com/ArthurMTX/Portfolium/commit/c35d8b3))
+* added documentation for metrics ([67ac4c5](https://github.com/ArthurMTX/Portfolium/commit/67ac4c5))
+* added documentation for widgets ([caf4c86](https://github.com/ArthurMTX/Portfolium/commit/caf4c86))
+* add volume for public documentation in development environment ([650f87e](https://github.com/ArthurMTX/Portfolium/commit/650f87e))
+
 ## [0.2.1] - 2025-11-06
 
 ### Features

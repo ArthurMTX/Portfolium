@@ -283,6 +283,8 @@ export default function TransactionMetrics() {
       'SPLIT': t('transaction.types.split'),
       'TRANSFER_IN': t('transaction.types.transferIn'),
       'TRANSFER_OUT': t('transaction.types.transferOut'),
+      'CONVERSION_IN': t('transaction.types.conversionIn'),
+      'CONVERSION_OUT': t('transaction.types.conversionOut'),
     }
     return typeMap[type.toUpperCase()] || type
   }

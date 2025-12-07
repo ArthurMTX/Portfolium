@@ -7,8 +7,8 @@
 - 📊 **Portfolio Management** - Track multiple portfolios with detailed analytics
 - 💹 **Real-time Price Updates** - Get live market data for your assets
 - 📈 **Advanced Charts** - Visualize your portfolio performance with interactive charts
-- � **Daily PDF Reports** - Receive beautiful PDF reports via email every weekday at market close
-- �🔔 **Smart Notifications** - Stay informed with customizable alerts and delivery confirmations
+- 📄 **Daily PDF Reports** - Receive beautiful PDF reports via email every weekday at market close
+- 🔔 **Smart Notifications** - Stay informed with customizable alerts and delivery confirmations
 - 💼 **Multi-Asset Support** - Stocks, ETFs, and more
 - 📱 **Responsive Design** - Beautiful interface that works on all devices
 - 🔐 **Secure Authentication** - JWT-based authentication with user management

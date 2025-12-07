@@ -12,7 +12,7 @@ from scalar_fastapi import get_scalar_api_reference
 
 from app.config import settings
 from app.db import engine, Base, SessionLocal
-from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version
+from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 from app.services.admin import ensure_admin_user, ensure_email_config
 from app.version import __version__, get_version_info
@@ -54,75 +54,114 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Portfolium API...")
     sys.stdout.flush()
     
+    # Initialize Redis connection
+    from app.redis_client import get_redis_manager
+    redis_manager = get_redis_manager()
+    if redis_manager.is_healthy:
+        logger.info("Redis connection established")
+    else:
+        logger.warning("Redis unavailable - application will run without caching")
+    sys.stdout.flush()
+    
+    # Skip migrations in test mode
+    skip_migrations = os.getenv("SKIP_MIGRATIONS", "false").lower() == "true"
+    
     # Run database migrations synchronously
     # Migrations are fast (<1s typically) and running in separate thread causes hanging issues
-    try:
-        from app.services.migrations import run_migrations
-        
-        logger.info("Running database migrations...")
+    if not skip_migrations:
+        try:
+            from app.services.migrations import run_migrations
+            
+            logger.info("Running database migrations...")
+            sys.stdout.flush()
+            
+            # Run synchronously - it's fast enough and avoids thread issues
+            run_migrations()
+            
+            logger.info("Migration process completed")
+            sys.stdout.flush()
+            
+        except Exception as e:
+            logger.exception("Failed to run database migrations: %s", e)
+            sys.stdout.flush()
+            raise  # Fail startup if migrations fail
+    else:
+        logger.info("Skipping database migrations (test mode)")
         sys.stdout.flush()
-        
-        # Run synchronously - it's fast enough and avoids thread issues
-        run_migrations()
-        
-        logger.info("✓ Migration process completed")
-        sys.stdout.flush()
-        
-    except Exception as e:
-        logger.exception("Failed to run database migrations: %s", e)
-        sys.stdout.flush()
-        raise  # Fail startup if migrations fail
     
     # Small delay to ensure migration transaction is fully committed
     await asyncio.sleep(0.5)
     
-    logger.info("Initializing email configuration...")
-    sys.stdout.flush()
-    
-    # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
-    try:
-        db = SessionLocal()
-        ensure_email_config(db)
-        logger.info("✓ Email configuration initialized")
+    # Skip email config and admin user setup in test mode
+    if not skip_migrations:
+        logger.info("Initializing email configuration...")
         sys.stdout.flush()
-    except Exception as e:
-        logger.warning("Could not initialize email config (will retry later): %s", e)
-        logger.exception("Email config error details:")
-        sys.stdout.flush()
-    finally:
+        
+        # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
         try:
-            db.close()
-        except Exception:
-            pass
-    
-    logger.info("Checking admin user...")
-    sys.stdout.flush()
-    
-    # Ensure admin user exists if configured
-    try:
-        db = SessionLocal()
-        ensure_admin_user(db)
-        logger.info("✓ Admin user check completed")
+            db = SessionLocal()
+            ensure_email_config(db)
+            logger.info("Email configuration initialized")
+            sys.stdout.flush()
+        except Exception as e:
+            logger.warning("Could not initialize email config (will retry later): %s", e)
+            logger.exception("Email config error details:")
+            sys.stdout.flush()
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+        
+        logger.info("Checking admin user...")
         sys.stdout.flush()
-    except Exception as e:
-        logger.warning("Could not ensure admin user (will retry on first request): %s", e)
-        logger.exception("Admin user error details:")
-        sys.stdout.flush()
-    finally:
+        
+        # Ensure admin user exists if configured
         try:
-            db.close()
-        except Exception:
-            pass
+            db = SessionLocal()
+            ensure_admin_user(db)
+            logger.info("Admin user check completed")
+            sys.stdout.flush()
+        except Exception as e:
+            logger.warning("Could not ensure admin user (will retry on first request): %s", e)
+            logger.exception("Admin user error details:")
+            sys.stdout.flush()
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+    else:
+        logger.info("Skipping email config and admin user setup (test mode)")
+        sys.stdout.flush()
 
-    logger.info("Starting background scheduler...")
-    sys.stdout.flush()
+    # Skip scheduler in test mode (SKIP_MIGRATIONS=true)
+    if not skip_migrations:
+        logger.info("Starting background scheduler...")
+        sys.stdout.flush()
+        
+        # Start background scheduler
+        start_scheduler()
+        logger.info("Price refresh scheduler started")
+        
+        # Trigger cache warmup if enabled
+        if settings.ENABLE_BACKGROUND_TASKS and settings.CACHE_WARMUP_ON_STARTUP:
+            try:
+                from app.tasks.metrics_tasks import warmup_metrics_cache
+                from app.tasks.insights_tasks import warmup_insights_cache
+                
+                logger.info("Triggering startup cache warmup...")
+                warmup_metrics_cache.delay()
+                warmup_insights_cache.delay(periods=["1mo"])
+                logger.info("Cache warmup tasks queued")
+            except Exception as e:
+                logger.warning(f"Failed to queue cache warmup tasks: {e}")
+    else:
+        logger.info("Skipping scheduler startup (test mode)")
     
-    # Start background scheduler
-    start_scheduler()
-    logger.info("✓ Price refresh scheduler started")
-    logger.info("=" * 80)
-    logger.info("✓✓✓ Portfolium API startup complete - ready to serve requests ✓✓✓")
-    logger.info("=" * 80)
+    logger.info("=" * 50)
+    logger.info("Portfolium API startup complete - ready to serve requests")
+    logger.info("=" * 50)
     sys.stdout.flush()
     sys.stderr.flush()
     
@@ -138,7 +177,14 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
     sys.stdout.flush()
     sys.stderr.flush()
-    stop_scheduler()
+    if not skip_migrations:
+        stop_scheduler()
+    
+    # Close Redis connection
+    from app.redis_client import close_redis_connection
+    close_redis_connection()
+    logger.info("Redis connection closed")
+    sys.stdout.flush()
 
 
 app = FastAPI(
@@ -166,12 +212,18 @@ app.include_router(admin.router, tags=["admin"])
 app.include_router(settings_router.router, tags=["settings"])
 app.include_router(assets.router, prefix="/assets", tags=["assets"])
 app.include_router(portfolios.router, prefix="/portfolios", tags=["portfolios"])
+app.include_router(goals.router, tags=["goals"])
 app.include_router(transactions.router, prefix="/portfolios", tags=["transactions"])
 app.include_router(prices.router, prefix="/prices", tags=["prices"])
 app.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 app.include_router(notifications.router, tags=["notifications"])
 app.include_router(insights.router, prefix="/insights", tags=["insights"])
+app.include_router(dashboard_layouts.router, tags=["dashboard-layouts"])
+app.include_router(market.router, tags=["market"])
+app.include_router(batch.router, tags=["batch"])
+app.include_router(tasks.router, tags=["tasks"])
 app.include_router(logs.router, prefix="/admin", tags=["admin"])
+app.include_router(public.router, prefix="/public", tags=["public"])
 
 
 @app.get("/")

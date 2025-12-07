@@ -4,11 +4,11 @@ import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logo
 import { formatCurrency, formatNumber, formatQuantity } from '../lib/formatUtils'
 import SortIcon from './SortIcon'
 import { useTranslation } from 'react-i18next'
+import PositionDetailModal from './PositionDetailModal'
+import { PositionDTO } from '../lib/api'
 
-interface Position {
-  asset_id: number
-  symbol: string
-  name: string | null
+// Position interface that allows both number and string for backward compatibility
+interface Position extends Omit<PositionDTO, 'quantity' | 'avg_cost' | 'current_price' | 'market_value' | 'cost_basis' | 'unrealized_pnl' | 'unrealized_pnl_pct' | 'daily_change_pct' | 'breakeven_gain_pct' | 'breakeven_target_price' | 'distance_to_ath_pct' | 'avg_buy_zone_pct' | 'personal_drawdown_pct' | 'vol_contribution_pct' | 'cost_to_average_down'> {
   quantity: number | string
   avg_cost: number | string
   current_price: number | string | null
@@ -17,12 +17,18 @@ interface Position {
   unrealized_pnl: number | string | null
   unrealized_pnl_pct: number | string | null
   daily_change_pct: number | string | null
-  currency: string
-  asset_type?: string // from backend/yfinance
+  breakeven_gain_pct?: number | string | null
+  breakeven_target_price?: number | string | null
+  distance_to_ath_pct?: number | string | null
+  avg_buy_zone_pct?: number | string | null
+  personal_drawdown_pct?: number | string | null
+  vol_contribution_pct?: number | string | null
+  cost_to_average_down?: number | string | null
 }
 
 interface PositionsTableProps {
   positions: Position[]
+  portfolioId: number
   isSold?: boolean  // If true, shows realized P&L and hides market data
 }
 
@@ -41,10 +47,12 @@ const sortableColumns = [
 type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
 
-export default function PositionsTable({ positions, isSold = false }: PositionsTableProps) {
+export default function PositionsTable({ positions, portfolioId, isSold = false }: PositionsTableProps) {
   const { t } = useTranslation()
   const [sortKey, setSortKey] = useState<SortKey>(isSold ? 'unrealized_pnl' : 'market_value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Calculate total portfolio value for % of wallet
   const totalPortfolioValue = useMemo(() => {
@@ -117,7 +125,7 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
       if (isNaN(nb)) return -1
       return (na - nb) * dir
     })
-  }, [positions, sortKey, sortDir])
+  }, [positions, sortKey, sortDir, totalPortfolioValue])
 
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
@@ -186,7 +194,14 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
             : '-'
 
           return (
-            <div key={position.asset_id} className="card p-4">
+            <div 
+              key={position.asset_id} 
+              className="card p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              onClick={() => {
+                setSelectedPosition(position)
+                setIsModalOpen(true)
+              }}
+            >
               {/* Header: Logo, Symbol, Name */}
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -294,6 +309,18 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                   </div>
                 </div>
               )}
+
+              {/* Breakeven metrics for negative positions (mobile only) */}
+              {!isSold && !isPositive && position.breakeven_gain_pct && (
+                <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
+                    📈 {t('dashboard.breakeven.gainNeeded')}
+                  </div>
+                  <div className="font-medium text-amber-600 dark:text-amber-400">
+                    +{formatNumber(position.breakeven_gain_pct, 2)}%
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
@@ -308,11 +335,10 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
       </div>
 
       {/* Desktop Table Layout */}
-      <div className="hidden lg:block card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
-              <tr>
+      <div className="hidden lg:block overflow-x-auto h-full -mt-px">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 sticky top-0 z-10 shadow-sm">
+            <tr>
                 <th
                   onClick={() => handleSort('symbol')}
                   aria-sort={sortKey === 'symbol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -435,7 +461,11 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
               return (
                 <tr
                   key={position.asset_id}
-                  className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+                  className="hover:bg-neutral-100 dark:hover:bg-neutral-800/70 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedPosition(position)
+                    setIsModalOpen(true)
+                  }}
                 >
                   <td className="px-3 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -544,6 +574,12 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
                             ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
                             : '-'}
                         </div>
+                        {/* Breakeven info for negative positions */}
+                        {!isPositive && position.breakeven_gain_pct && (
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                            ↗ +{formatNumber(position.breakeven_gain_pct, 2)}%
+                          </div>
+                        )}
                       </td>
                     </>
                   )}
@@ -560,7 +596,30 @@ export default function PositionsTable({ positions, isSold = false }: PositionsT
           </div>
         )}
       </div>
-    </div>
+
+      <PositionDetailModal
+        position={selectedPosition ? {
+          ...selectedPosition,
+          quantity: Number(selectedPosition.quantity),
+          avg_cost: Number(selectedPosition.avg_cost),
+          current_price: selectedPosition.current_price !== null ? Number(selectedPosition.current_price) : null,
+          market_value: selectedPosition.market_value !== null ? Number(selectedPosition.market_value) : null,
+          cost_basis: Number(selectedPosition.cost_basis),
+          unrealized_pnl: selectedPosition.unrealized_pnl !== null ? Number(selectedPosition.unrealized_pnl) : null,
+          unrealized_pnl_pct: selectedPosition.unrealized_pnl_pct !== null ? Number(selectedPosition.unrealized_pnl_pct) : null,
+          daily_change_pct: selectedPosition.daily_change_pct !== null ? Number(selectedPosition.daily_change_pct) : null,
+          breakeven_gain_pct: selectedPosition.breakeven_gain_pct ? Number(selectedPosition.breakeven_gain_pct) : null,
+          breakeven_target_price: selectedPosition.breakeven_target_price ? Number(selectedPosition.breakeven_target_price) : null,
+          distance_to_ath_pct: selectedPosition.distance_to_ath_pct ? Number(selectedPosition.distance_to_ath_pct) : null,
+          avg_buy_zone_pct: selectedPosition.avg_buy_zone_pct ? Number(selectedPosition.avg_buy_zone_pct) : null,
+          personal_drawdown_pct: selectedPosition.personal_drawdown_pct ? Number(selectedPosition.personal_drawdown_pct) : null,
+          vol_contribution_pct: selectedPosition.vol_contribution_pct ? Number(selectedPosition.vol_contribution_pct) : null,
+          cost_to_average_down: selectedPosition.cost_to_average_down ? Number(selectedPosition.cost_to_average_down) : null,
+        } : null}
+        portfolioId={portfolioId}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </>
   )
 }

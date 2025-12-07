@@ -6,7 +6,7 @@ from typing import Optional
 import secrets
 import hashlib
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 import bcrypt
@@ -16,6 +16,15 @@ from app.config import settings
 from app.db import get_db
 from app.models import User
 from app.schemas import TokenData
+from app.errors import (
+    EmailNotVerifiedError,
+    InactiveUserError,
+    InvalidTokenError,
+    NotEnoughPermissionsError,
+    UserNotFoundError,
+    UnauthorizedPortfolioAccessError,
+    PortfolioNotFoundError
+)
 
 
 # OAuth2 scheme for token authentication
@@ -80,33 +89,24 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """Get current authenticated user from JWT token"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: int = payload.get("user_id")
         email: str = payload.get("email")
         is_admin: bool = payload.get("is_admin", False)
         if user_id is None or email is None:
-            raise credentials_exception
+            raise InvalidTokenError("Could not validate credentials")
         token_data = TokenData(user_id=user_id, email=email)
     except JWTError:
-        raise credentials_exception
+        raise InvalidTokenError("Could not validate credentials")
     
     user = db.query(User).filter(User.id == token_data.user_id).first()
     
     if user is None:
-        raise credentials_exception
+        raise UserNotFoundError(user_id=token_data.user_id)
     
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user account"
-        )
+        raise InactiveUserError()
     
     return user
 
@@ -116,10 +116,7 @@ async def get_current_active_user(
 ) -> User:
     """Get current active user"""
     if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
-        )
+        raise InactiveUserError()
     return current_user
 
 
@@ -128,10 +125,7 @@ async def get_current_verified_user(
 ) -> User:
     """Get current verified user"""
     if not current_user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please verify your email address."
-        )
+        raise EmailNotVerifiedError()
     return current_user
 
 
@@ -140,10 +134,7 @@ async def get_current_superuser(
 ) -> User:
     """Get current superuser"""
     if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+        raise NotEnoughPermissionsError()
     return current_user
 
 
@@ -153,8 +144,33 @@ async def get_current_admin_user(
 ) -> User:
     """Get current admin user"""
     if not (getattr(current_user, "is_admin", False) or getattr(current_user, "is_superuser", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+        raise NotEnoughPermissionsError()
     return current_user
+
+
+# Portfolio access verification dependency
+async def verify_portfolio_access(
+    portfolio_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Verify that the current user has access to the specified portfolio.
+    Returns the portfolio if access is granted, raises HTTPException otherwise.
+    
+    Usage in routers:
+        @router.get("/{portfolio_id}/something")
+        async def endpoint(portfolio = Depends(verify_portfolio_access)):
+            # portfolio is already verified and can be used directly
+            return portfolio
+    """
+    from app.crud import portfolios as crud
+    
+    portfolio = crud.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise PortfolioNotFoundError(portfolio_id)
+    
+    if portfolio.user_id != current_user.id:
+        raise UnauthorizedPortfolioAccessError(portfolio_id)
+    
+    return portfolio

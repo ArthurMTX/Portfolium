@@ -4,30 +4,27 @@ Portfolio metrics calculation service (PRU, P&L, positions)
 import asyncio
 import logging
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import Depends
 
-from app.models import Transaction, Asset, TransactionType
+from app.models import Transaction, Asset, TransactionType, Price, Portfolio
 from app.schemas import Position, PortfolioMetrics
 from app.crud import prices as crud_prices
 from app.db import get_db
+from app.services.cache import CacheService, cache_positions, get_cached_positions, invalidate_positions
+from app.services.currency import CurrencyService
 
 logger = logging.getLogger(__name__)
 
 # Lock to prevent concurrent database access in async position calculations
 _db_lock = asyncio.Lock()
 
-# Two-level cache for position calculations:
-# 1. Task cache: Deduplicates concurrent requests (shares the same ongoing calculation)
-# 2. Result cache: Serves recent results to staggered requests (within TTL)
-from datetime import timedelta
-_ongoing_calculations: Dict[Tuple[int, bool], asyncio.Task] = {}  # Task-based deduplication
-_result_cache: Dict[Tuple[int, bool], Tuple[List, datetime]] = {}  # Result caching
+# Task cache for deduplicating concurrent position calculations
+_ongoing_calculations: Dict[Tuple[int, bool], asyncio.Task] = {}
 _cache_lock = asyncio.Lock()
-_RESULT_CACHE_TTL = timedelta(seconds=60)  # Cache results for 60 seconds
 
 
 class MetricsService:
@@ -38,9 +35,9 @@ class MetricsService:
     
     async def get_positions(self, portfolio_id: int, include_sold: bool = False) -> List[Position]:
         """
-        Calculate current positions for a portfolio with two-level caching:
-        1. Result cache: Serves recent results to staggered requests (within 10s TTL)
-        2. Task cache: Deduplicates truly concurrent requests (shares ongoing calculation)
+        Calculate current positions for a portfolio with Redis caching and task deduplication:
+        1. Redis cache: Serves recent results (10 min TTL), shared across instances
+        2. Task cache: Deduplicates concurrent requests (shares ongoing calculation)
         
         For each asset:
         - Net quantity (BUY/TRANSFER_IN - SELL/TRANSFER_OUT, adjusted for SPLIT)
@@ -53,29 +50,24 @@ class MetricsService:
             include_sold: If True, also return sold positions with realized P&L
         """
         cache_key = (portfolio_id, include_sold)
-        now = datetime.now()
+        
+        # Check Redis cache first
+        redis_cached = get_cached_positions(portfolio_id)
+        if redis_cached and not include_sold:  # Only use cache for active positions
+            logger.info(f"Using Redis cached positions for portfolio {portfolio_id}")
+            # Convert dict back to Position objects
+            return [Position(**pos) for pos in redis_cached]
         
         # Variable to track if we need to wait for an ongoing task
         ongoing_task = None
         
         async with _cache_lock:
-            # Level 1: Check result cache for recent calculations
-            if cache_key in _result_cache:
-                cached_result, cached_time = _result_cache[cache_key]
-                age = now - cached_time
-                if age < _RESULT_CACHE_TTL:
-                    logger.info(f"Using cached position calculation for portfolio {portfolio_id} (age: {age.total_seconds():.1f}s)")
-                    return cached_result
-                else:
-                    # Cache expired, remove it
-                    _result_cache.pop(cache_key, None)
-            
-            # Level 2: Check if calculation is already ongoing
+            # Check if calculation is already ongoing
             if cache_key in _ongoing_calculations:
                 ongoing_task = _ongoing_calculations[cache_key]
                 logger.info(f"Reusing ongoing position calculation for portfolio {portfolio_id}")
             else:
-                # Level 3: Start new calculation
+                # Start new calculation
                 logger.info(f"Starting new position calculation for portfolio {portfolio_id}")
                 ongoing_task = asyncio.create_task(self._calculate_positions_internal(portfolio_id, include_sold))
                 _ongoing_calculations[cache_key] = ongoing_task
@@ -84,10 +76,13 @@ class MetricsService:
         try:
             result = await ongoing_task
             
-            # Store result in cache with current timestamp
+            # Store result in Redis cache (only for active positions)
+            if not include_sold and result:
+                positions_data = [pos.model_dump() for pos in result]
+                cache_positions(portfolio_id, positions_data, CacheService.TTL_POSITION)
+            
+            # Remove from ongoing calculations
             async with _cache_lock:
-                _result_cache[cache_key] = (result, datetime.now())
-                # Remove from ongoing calculations only if it's still our task
                 if _ongoing_calculations.get(cache_key) == ongoing_task:
                     _ongoing_calculations.pop(cache_key, None)
             
@@ -325,8 +320,8 @@ class MetricsService:
         position_currency = None
         
         for tx in transactions:
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
-                # Set position currency from first BUY transaction
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                # Set position currency from first BUY/CONVERSION_IN transaction
                 if position_currency is None:
                     position_currency = tx.currency
                 quantity += tx.quantity
@@ -337,7 +332,7 @@ class MetricsService:
                 total_buy_cost += cost
                 total_buy_shares += tx.quantity
                 
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 quantity -= tx.quantity
                 # Calculate realized P&L and reduce cost basis proportionally (FIFO simplification)
                 if total_shares_for_cost > 0:
@@ -480,12 +475,62 @@ class MetricsService:
         market_value = quantity * current_price if current_price else None
         unrealized_pnl = None
         unrealized_pnl_pct = None
+        breakeven_gain_pct = None
+        breakeven_target_price = None
         
         if market_value:
             unrealized_pnl = market_value - total_cost
             unrealized_pnl_pct = (
                 (unrealized_pnl / total_cost * 100) if total_cost > 0 else Decimal(0)
             )
+            
+            # Calculate breakeven metrics for negative positions
+            if unrealized_pnl < 0 and current_price and current_price > 0:
+                # Gain % needed to return to average cost
+                # If current price is below avg cost, calculate required gain %
+                # Formula: ((avg_cost - current_price) / current_price) * 100
+                breakeven_gain_pct = ((avg_cost - current_price) / current_price) * Decimal(100)
+                
+                # Target price to reach (it's simply the average cost)
+                breakeven_target_price = avg_cost
+        
+        # Advanced metrics moved to lazy-loaded endpoint
+        distance_to_ath_pct = None
+        avg_buy_zone_pct = None
+        personal_drawdown_pct = None
+        local_ath_price = None
+        local_ath_date = None
+        vol_contribution_pct = None  # Will be calculated at portfolio level
+        cost_to_average_down = None
+        
+        # Convert ATH price to target currency for display
+        ath_price_display = asset.ath_price
+        if asset.ath_price and asset.currency != target_currency:
+            # Try historical rate first if date available
+            if asset.ath_date:
+                converted_ath_display = CurrencyService.convert_historical(
+                    asset.ath_price,
+                    from_currency=asset.currency,
+                    to_currency=target_currency,
+                    date=asset.ath_date
+                )
+                if not converted_ath_display:
+                    # Fallback to current rate
+                    converted_ath_display = CurrencyService.convert(
+                        asset.ath_price,
+                        from_currency=asset.currency,
+                        to_currency=target_currency
+                    )
+            else:
+                # No date, use current rate
+                converted_ath_display = CurrencyService.convert(
+                    asset.ath_price,
+                    from_currency=asset.currency,
+                    to_currency=target_currency
+                )
+            
+            if converted_ath_display:
+                ath_price_display = converted_ath_display
         
         return Position(
             asset_id=asset_id,
@@ -499,6 +544,26 @@ class MetricsService:
             unrealized_pnl=unrealized_pnl,
             unrealized_pnl_pct=unrealized_pnl_pct,
             daily_change_pct=daily_change_pct,
+            breakeven_gain_pct=breakeven_gain_pct,
+            breakeven_target_price=breakeven_target_price,
+            distance_to_ath_pct=distance_to_ath_pct,
+            avg_buy_zone_pct=avg_buy_zone_pct,
+            personal_drawdown_pct=personal_drawdown_pct,
+            local_ath_price=local_ath_price,
+            local_ath_date=local_ath_date,
+            vol_contribution_pct=vol_contribution_pct,
+            cost_to_average_down=cost_to_average_down,
+            ath_price=ath_price_display,  # Return ATH in target currency
+            ath_price_native=asset.ath_price,  # Return ATH in native currency
+            ath_currency=asset.currency,  # Asset's native currency
+            ath_date=asset.ath_date,
+            relative_perf_30d=None,  # Lazy-loaded via separate endpoint
+            relative_perf_90d=None,
+            relative_perf_ytd=None,
+            relative_perf_1y=None,
+            sector=asset.sector,
+            industry=asset.industry,
+            sector_etf=None,  # Will be populated on-demand
             currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,
             asset_type=asset.asset_type
@@ -730,21 +795,40 @@ class MetricsService:
             while tx_idx < len(transactions) and transactions[tx_idx].tx_date <= current_date:
                 tx = transactions[tx_idx]
                 
-                if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                     holdings[tx.asset_id] += tx.quantity
                     # Add to cost basis for this asset
                     cost_basis[tx.asset_id] += (tx.quantity * tx.price) + tx.fees
-                    # Add cost to invested amount (quantity * price + fees)
-                    total_invested += (tx.quantity * tx.price) + tx.fees
-                elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                    # Add cost to invested amount (quantity * price + fees) - but not for conversions (they're swaps)
+                    if tx.type != TransactionType.CONVERSION_IN:
+                        total_invested += (tx.quantity * tx.price) + tx.fees
+                elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                     # Calculate the proportion of position being sold
                     if holdings[tx.asset_id] > 0:
-                        sell_proportion = tx.quantity / holdings[tx.asset_id]
+                        # Prevent overselling - cap at 100% of holdings
+                        actual_quantity_sold = min(tx.quantity, holdings[tx.asset_id])
+                        if tx.quantity > holdings[tx.asset_id]:
+                            logger.warning(
+                                f"OVERSELLING detected on {current_date}: Asset {tx.asset_id}, "
+                                f"trying to sell {float(tx.quantity):.8f} but only have {float(holdings[tx.asset_id]):.8f}. "
+                                f"Capping at holdings amount."
+                            )
+                        
+                        sell_proportion = actual_quantity_sold / holdings[tx.asset_id]
+                        # Calculate the cost basis being removed
+                        cost_removed = cost_basis[tx.asset_id] * sell_proportion
                         # Reduce cost basis proportionally
-                        cost_basis[tx.asset_id] -= cost_basis[tx.asset_id] * sell_proportion
-                    holdings[tx.asset_id] -= tx.quantity
-                    # Subtract proceeds from invested amount (quantity * price - fees)
-                    total_invested -= (tx.quantity * tx.price) - tx.fees
+                        cost_basis[tx.asset_id] -= cost_removed
+                        # Subtract the cost basis (not proceeds) from invested amount - but not for conversions
+                        if tx.type != TransactionType.CONVERSION_OUT:
+                            total_invested -= cost_removed
+                        holdings[tx.asset_id] -= actual_quantity_sold
+                    else:
+                        # Trying to sell with no holdings - skip this transaction
+                        logger.warning(
+                            f"INVALID SELL on {current_date}: Asset {tx.asset_id}, "
+                            f"no holdings to sell (tried to sell {float(tx.quantity):.8f})"
+                        )
                 elif tx.type == TransactionType.SPLIT:
                     # Apply split to holdings (dashboard logic)
                     # Splits don't affect cost basis or invested amount
@@ -799,26 +883,42 @@ class MetricsService:
             # Calculate total cost basis of current holdings
             total_cost_basis = sum(cost_basis[asset_id] for asset_id in holdings.keys() if holdings[asset_id] > 0)
             
+            # DEBUG: Log cost_basis calculation for troubleshooting
+            if total_cost_basis == 0 and total_value > 0:
+                logger.warning(f"ZERO cost_basis on {current_date} despite having value €{float(total_value):.2f}")
+                logger.warning(f"  Holdings: {dict(holdings)}")
+                logger.warning(f"  Cost basis per asset: {dict(cost_basis)}")
+            
             # Calculate gain percentage (value vs invested, excluding deposits/withdrawals)
             gain_pct = None
             if total_invested > 0:
                 gain = total_value - total_invested
                 gain_pct = float((gain / total_invested) * 100)
+            elif total_invested < 0:
+                # This should never happen - log for debugging
+                logger.warning(f"NEGATIVE total_invested on {current_date}: {float(total_invested):.2f}, value: {float(total_value):.2f}")
+                # Set gain_pct to None to avoid invalid calculations
+                gain_pct = None
             
             # Calculate unrealized P&L percentage (current holdings only, matches Dashboard)
             unrealized_pnl_pct = None
             if total_cost_basis > 0:
                 unrealized_gain = total_value - total_cost_basis
                 unrealized_pnl_pct = float((unrealized_gain / total_cost_basis) * 100)
+            elif total_cost_basis < 0:
+                # This should never happen - log for debugging
+                logger.warning(f"NEGATIVE cost_basis on {current_date}: {float(total_cost_basis):.2f}, value: {float(total_value):.2f}")
+                unrealized_pnl_pct = None
             
-            history.append(PortfolioHistoryPoint(
+            point = PortfolioHistoryPoint(
                 date=current_date.isoformat(),
                 value=float(total_value),
                 invested=float(total_invested),
                 gain_pct=gain_pct,
                 cost_basis=float(total_cost_basis),
                 unrealized_pnl_pct=unrealized_pnl_pct
-            ))
+            )
+            history.append(point)
         
         if history:
             logger.info(f"Portfolio history final value: €{history[-1].value:.2f} on {history[-1].date}")
@@ -841,6 +941,22 @@ class MetricsService:
         
         return history
 
+
+    async def get_position_detailed_metrics(
+        self,
+        portfolio_id: int,
+        asset_id: int
+    ) -> Optional[Dict]:
+        """
+        Get detailed metrics for a single position (lazy-loaded on-demand)
+        This includes expensive calculations like relative performance and advanced metrics
+        
+        Delegates to PositionDetailsService for the actual calculation
+        """
+        from app.services.position_details import PositionDetailsService
+        
+        position_details_service = PositionDetailsService(self.db)
+        return await position_details_service.get_position_detailed_metrics(portfolio_id, asset_id)
 
 
 def get_metrics_service(db: Session = Depends(get_db)) -> MetricsService:

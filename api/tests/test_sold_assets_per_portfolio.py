@@ -25,11 +25,13 @@ def setup_multi_portfolio_scenario(test_db: Session):
     user = User(
         id=1,
         email="test@example.com",
+        username="testuser",
         hashed_password="hashed",
-        is_active=True,
-        role="user"
+        is_active=True
     )
     test_db.add(user)
+    test_db.commit()
+    test_db.refresh(user)
     
     # Create portfolios
     portfolio1 = Portfolio(
@@ -52,7 +54,7 @@ def setup_multi_portfolio_scenario(test_db: Session):
         symbol="CSSPX.MI",
         name="iShares Core S&P 500 UCITS ETF",
         currency="EUR",
-        class_=AssetClass.EQUITY,
+        class_=AssetClass.ETF,
         asset_type="etf",
         sector="Technology",
         industry="Financial Services"
@@ -105,7 +107,8 @@ def setup_multi_portfolio_scenario(test_db: Session):
     }
 
 
-def test_sold_asset_in_one_portfolio_appears_as_sold(setup_multi_portfolio_scenario, test_db):
+@pytest.mark.asyncio
+async def test_sold_asset_in_one_portfolio_appears_as_sold(setup_multi_portfolio_scenario, test_db):
     """
     Test that an asset sold in one portfolio appears in the sold list for that portfolio,
     even if it's still held in another portfolio.
@@ -118,7 +121,7 @@ def test_sold_asset_in_one_portfolio_appears_as_sold(setup_multi_portfolio_scena
     asset = data["asset"]
     
     # Get sold assets for portfolio 1
-    sold_assets = get_sold_assets(
+    sold_assets = await get_sold_assets(
         portfolio_id=portfolio1.id,
         current_user=user,
         db=test_db
@@ -130,7 +133,7 @@ def test_sold_asset_in_one_portfolio_appears_as_sold(setup_multi_portfolio_scena
     assert sold_assets[0]["total_quantity"] == 0  # Fully sold in this portfolio
     
     # Get held assets for portfolio 1
-    held_assets = get_held_assets(
+    held_assets = await get_held_assets(
         portfolio_id=portfolio1.id,
         current_user=user,
         db=test_db
@@ -140,7 +143,8 @@ def test_sold_asset_in_one_portfolio_appears_as_sold(setup_multi_portfolio_scena
     assert len(held_assets) == 0
 
 
-def test_held_asset_in_another_portfolio_appears_as_held(setup_multi_portfolio_scenario, test_db):
+@pytest.mark.asyncio
+async def test_held_asset_in_another_portfolio_appears_as_held(setup_multi_portfolio_scenario, test_db):
     """
     Test that an asset still held in one portfolio appears in the held list for that portfolio.
     """
@@ -152,7 +156,7 @@ def test_held_asset_in_another_portfolio_appears_as_held(setup_multi_portfolio_s
     asset = data["asset"]
     
     # Get held assets for portfolio 2
-    held_assets = get_held_assets(
+    held_assets = await get_held_assets(
         portfolio_id=portfolio2.id,
         current_user=user,
         db=test_db
@@ -164,7 +168,7 @@ def test_held_asset_in_another_portfolio_appears_as_held(setup_multi_portfolio_s
     assert held_assets[0]["total_quantity"] == 5  # Still held in this portfolio
     
     # Get sold assets for portfolio 2
-    sold_assets = get_sold_assets(
+    sold_assets = await get_sold_assets(
         portfolio_id=portfolio2.id,
         current_user=user,
         db=test_db
@@ -174,7 +178,8 @@ def test_held_asset_in_another_portfolio_appears_as_held(setup_multi_portfolio_s
     assert len(sold_assets) == 0
 
 
-def test_global_view_shows_held_asset(setup_multi_portfolio_scenario, test_db):
+@pytest.mark.asyncio
+async def test_global_view_shows_held_asset(setup_multi_portfolio_scenario, test_db):
     """
     Test that the global view (no portfolio_id) shows the asset as held
     because it's still held in at least one portfolio.
@@ -185,7 +190,7 @@ def test_global_view_shows_held_asset(setup_multi_portfolio_scenario, test_db):
     user = data["user"]
     
     # Get held assets globally (no portfolio_id)
-    held_assets = get_held_assets(
+    held_assets = await get_held_assets(
         portfolio_id=None,
         current_user=user,
         db=test_db
@@ -199,7 +204,7 @@ def test_global_view_shows_held_asset(setup_multi_portfolio_scenario, test_db):
     # So it should be: 10 (p1 buy) - 10 (p1 sell) + 5 (p2 buy) = 5
     
     # Get sold assets globally
-    sold_assets = get_sold_assets(
+    sold_assets = await get_sold_assets(
         portfolio_id=None,
         current_user=user,
         db=test_db

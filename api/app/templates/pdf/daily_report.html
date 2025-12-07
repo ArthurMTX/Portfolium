@@ -1,0 +1,190 @@
+{% extends "pdf/base.html" %}
+
+{% block title %}Daily Portfolio Report - {{ report_date }}{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <div class="header-inner">
+            {% if portfolium_logo %}
+            <img src="{{ portfolium_logo }}" class="logo" alt="Portfolium Logo" />
+            {% endif %}
+            <div class="product-name">Portfolium</div>
+            <div class="title">Daily Portfolio Report</div>
+            <div class="subtitle">{{ report_date }} • {{ user_name }}</div>
+            <div class="tagline">A daily snapshot of your portfolio's performance</div>
+        </div>
+    </div>
+
+    {% for portfolio_data in portfolios %}
+    <div class="portfolio-section">
+        <div class="portfolio-header">
+            <span class="portfolio-header-badge"></span>
+            💼 {{ portfolio_data.name }}
+        </div>
+        
+        {% if portfolio_data.error %}
+        <div class="no-data">Error generating report: {{ portfolio_data.error }}</div>
+        {% else %}
+        
+        <!-- Metrics Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Total Value</div>
+                <div class="metric-value pink">{{ portfolio_data.currency }} {{ "{:,.2f}".format(portfolio_data.metrics.total_value) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Daily Gain</div>
+                <div class="metric-value {{ 'green' if portfolio_data.metrics.daily_change_value >= 0 else 'red' }}">
+                    {{ portfolio_data.currency }} {{ "{:+,.2f}".format(portfolio_data.metrics.daily_change_value) }}
+                </div>
+                <div class="metric-subvalue">
+                    {{ "{:+.2f}".format(portfolio_data.metrics.daily_change_pct) }}%
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Unrealized P&L</div>
+                <div class="metric-value {{ 'green' if portfolio_data.metrics.unrealized_pnl >= 0 else 'red' }}">
+                    {{ portfolio_data.currency }} {{ "{:+,.2f}".format(portfolio_data.metrics.unrealized_pnl) }}
+                </div>
+                <div class="metric-subvalue">
+                    {{ "{:+.2f}".format(portfolio_data.metrics.unrealized_pnl_pct) }}%
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">P&L %</div>
+                <div class="metric-value {{ 'green' if portfolio_data.metrics.unrealized_pnl_pct >= 0 else 'red' }}">
+                    {{ "{:+.2f}".format(portfolio_data.metrics.unrealized_pnl_pct) }}%
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Realized P&L</div>
+                <div class="metric-value {{ 'green' if portfolio_data.metrics.realized_pnl >= 0 else 'red' }}">
+                    {{ portfolio_data.currency }} {{ "{:+,.2f}".format(portfolio_data.metrics.realized_pnl) }}
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Dividends</div>
+                <div class="metric-value purple">{{ portfolio_data.currency }} {{ "{:,.2f}".format(portfolio_data.metrics.dividends) }}</div>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        {% if portfolio_data.heatmap %}
+        <div class="section-header">Daily Performance Heatmap</div>
+        <div class="heatmap">
+            {% for tile in portfolio_data.heatmap %}
+            <div class="heatmap-tile {{ tile.color_class }} {{ tile.col_span }}">
+                <div class="tile-header">
+                    {% if tile.logo_url %}
+                    <img class="tile-logo" src="{{ tile.logo_url }}" alt="{{ tile.symbol }}">
+                    {% endif %}
+                    <span class="tile-symbol">{{ tile.symbol }}</span>
+                </div>
+                <div class="tile-footer">
+                    {{ tile.percentage }}% | {{ tile.daily_pct }}%
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Holdings Table -->
+        <div class="section-header">Holdings & Daily Changes</div>
+        {% if portfolio_data.positions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th class="text-right">Quantity</th>
+                    <th class="text-right">Avg Cost</th>
+                    <th class="text-right">Current</th>
+                    <th class="text-right">Value</th>
+                    <th class="text-right">P&L %</th>
+                    <th class="text-right">Daily Δ%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in portfolio_data.positions %}
+                <tr>
+                    <td>
+                        <div class="asset-cell">
+                            {% if position.logo_url %}
+                            <img class="asset-logo" src="{{ position.logo_url }}" alt="{{ position.symbol }}">
+                            {% endif %}
+                            <div class="asset-info">
+                                <div class="asset-symbol">{{ position.symbol }}</div>
+                                {% if position.name %}
+                                <div class="asset-name">{{ position.name }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-right">{{ "%.4f"|format(position.quantity) }}</td>
+                    <td class="text-right">{{ "%.2f"|format(position.avg_cost) }}</td>
+                    <td class="text-right">{{ "%.2f"|format(position.current_price) }}</td>
+                    <td class="text-right">{{ "{:,.2f}".format(position.market_value) }}</td>
+                    <td class="text-right {{ 'text-green' if position.unrealized_pnl_pct >= 0 else 'text-red' }}">
+                        {{ "{:+.2f}".format(position.unrealized_pnl_pct) }}%
+                    </td>
+                    <td class="text-right {{ 'text-green' if position.daily_change_pct and position.daily_change_pct >= 0 else 'text-red' }}">
+                        {{ ("{:+.2f}".format(position.daily_change_pct) if position.daily_change_pct else 'N/A') }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="no-data">No holdings found.</div>
+        {% endif %}
+
+        <!-- Transactions -->
+        <div class="section-header">Daily Transactions</div>
+        {% if portfolio_data.transactions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th class="text-center">Type</th>
+                    <th class="text-right">Quantity</th>
+                    <th class="text-right">Price</th>
+                    <th class="text-right">Total</th>
+                    <th class="text-right">Fees</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in portfolio_data.transactions %}
+                <tr>
+                    <td>
+                        <div class="asset-cell">
+                            {% if tx.logo_url %}
+                            <img class="asset-logo" src="{{ tx.logo_url }}" alt="{{ tx.symbol }}">
+                            {% endif %}
+                            <div class="asset-symbol">{{ tx.symbol }}</div>
+                        </div>
+                    </td>
+                    <td class="text-center">{{ tx.type_display|safe }}</td>
+                    <td class="text-right">{{ tx.quantity }}</td>
+                    <td class="text-right">{{ tx.price }}</td>
+                    <td class="text-right">{{ tx.total }}</td>
+                    <td class="text-right">{{ tx.fees }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="no-data">No transactions recorded on {{ report_date }}.</div>
+        {% endif %}
+        
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+        <div>
+            Generated by <strong>Portfolium</strong> • {{ generation_time }} UTC
+        </div>
+        <div style="margin-top: 4px;">
+            <a href="https://github.com/ArthurMTX/Portfolium">Portfolium</a> — for informational purposes only, not investment advice.
+        </div>
+    </div>
+{% endblock %}

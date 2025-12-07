@@ -7,6 +7,9 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
+from email.mime.image import MIMEImage
+import os
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.config import settings
 from app.services.email_translations import get_all_translations
@@ -28,6 +31,13 @@ class EmailService:
         self.from_email = settings.FROM_EMAIL
         self.from_name = settings.FROM_NAME
         self.use_tls = settings.SMTP_TLS
+        
+        # Setup Jinja2 template environment
+        template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'emails')
+        self.jinja_env = Environment(
+            loader=FileSystemLoader(template_dir),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
     
     def _load_settings(self):
         """Load or reload settings from database"""
@@ -66,19 +76,11 @@ class EmailService:
         text_content: Optional[str] = None,
         attachment_data: Optional[bytes] = None,
         attachment_filename: Optional[str] = None,
-        attachments: Optional[List[Tuple[str, bytes]]] = None
+        attachments: Optional[List[Tuple[str, bytes]]] = None,
+        embed_logo: bool = True
     ) -> bool:
         """
-        Send an email via SMTP with optional PDF attachment(s)
-        
-        Args:
-            to_email: Recipient email
-            subject: Email subject
-            html_content: HTML email body
-            text_content: Plain text email body
-            attachment_data: Single attachment data (deprecated, use attachments)
-            attachment_filename: Single attachment filename (deprecated, use attachments)
-            attachments: List of tuples (filename, data) for multiple attachments
+        Send an email via SMTP with optional PDF attachment(s) and embedded logo
         """
         if not settings.ENABLE_EMAIL:
             logger.info(f"Email disabled. Would send to {to_email}: {subject}")
@@ -97,56 +99,103 @@ class EmailService:
             raise ValueError(error_msg)
         
         try:
-            # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
-            msg['To'] = to_email
-            
-            # Add text and HTML parts
+            # Root message: mixed = html+cid + attachments
+            msg_root = MIMEMultipart("mixed")
+            msg_root["Subject"] = subject
+            msg_root["From"] = f"{self.from_name} <{self.from_email}>"
+            msg_root["To"] = to_email
+
+            # related = html + inline images (CID)
+            msg_related = MIMEMultipart("related")
+
+            # alternative = text/plain + text/html
+            msg_alt = MIMEMultipart("alternative")
+
+            # Plain text part
             if text_content:
-                part1 = MIMEText(text_content, 'plain')
-                msg.attach(part1)
-            
-            part2 = MIMEText(html_content, 'html')
-            msg.attach(part2)
-            
-            # Add single PDF attachment if provided (backward compatibility)
+                part_text = MIMEText(text_content, "plain", "utf-8")
+                msg_alt.attach(part_text)
+
+            # HTML part
+            part_html = MIMEText(html_content, "html", "utf-8")
+            msg_alt.attach(part_html)
+
+            # Attach alternative (text + html) to related
+            msg_related.attach(msg_alt)
+
+            # Embed logo as CID attachment if requested
+            if embed_logo:
+                # Try Docker/production path first, then development path
+                logo_paths = [
+                    os.path.join(os.path.dirname(__file__), "..", "..", "static", "logo.png"),
+                    os.path.join(os.path.dirname(__file__), "..", "..", "..", "web", "public", "favicon-96x96.png"),
+                ]
+                logo_path = None
+                for path in logo_paths:
+                    if os.path.exists(path):
+                        logo_path = path
+                        break
+                
+                if logo_path:
+                    with open(logo_path, "rb") as logo_file:
+                        logo_data = logo_file.read()
+                        logo_image = MIMEImage(logo_data, _subtype="png")
+                        logo_image.add_header("Content-ID", "<portfolium-logo>")
+                        logo_image.add_header(
+                            "Content-Disposition",
+                            "inline",
+                            filename="logo.png",
+                        )
+                        msg_related.attach(logo_image)
+                else:
+                    logger.warning(f"Logo file not found in any of the expected paths: {logo_paths}")
+
+            # Attach the related (html + cid) to root
+            msg_root.attach(msg_related)
+
+            # Single PDF attachment (backward compatibility)
             if attachment_data and attachment_filename:
-                pdf_part = MIMEApplication(attachment_data, _subtype='pdf')
-                pdf_part.add_header('Content-Disposition', 'attachment', filename=attachment_filename)
-                msg.attach(pdf_part)
-            
-            # Add multiple PDF attachments if provided
+                pdf_part = MIMEApplication(attachment_data, _subtype="pdf")
+                pdf_part.add_header(
+                    "Content-Disposition",
+                    "attachment",
+                    filename=attachment_filename,
+                )
+                msg_root.attach(pdf_part)
+
+            # Multiple PDF attachments
             if attachments:
                 for filename, data in attachments:
-                    pdf_part = MIMEApplication(data, _subtype='pdf')
-                    pdf_part.add_header('Content-Disposition', 'attachment', filename=filename)
-                    msg.attach(pdf_part)
+                    pdf_part = MIMEApplication(data, _subtype="pdf")
+                    pdf_part.add_header(
+                        "Content-Disposition",
+                        "attachment",
+                        filename=filename,
+                    )
+                    msg_root.attach(pdf_part)
                     logger.info(f"Added attachment: {filename} ({len(data)} bytes)")
-            
+
             # Send email - use SSL for port 465, TLS for other ports
             if self.smtp_port == 465:
-                # Use SMTP_SSL for port 465 (implicit SSL)
                 with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10) as server:
                     if self.smtp_user and self.smtp_password:
                         server.login(self.smtp_user, self.smtp_password)
-                    server.send_message(msg)
+                    server.send_message(msg_root)
             else:
-                # Use SMTP with STARTTLS for other ports (587, 25, etc.)
                 with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10) as server:
                     if self.use_tls:
                         server.starttls()
                     if self.smtp_user and self.smtp_password:
                         server.login(self.smtp_user, self.smtp_password)
-                    server.send_message(msg)
+                    server.send_message(msg_root)
             
             logger.info(f"Email sent successfully to {to_email}")
             return True
-            
+
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {str(e)}")
+            logger.exception(f"Failed to send email to {to_email}")
             return False
+        
     
     def send_verification_email(
         self, 
@@ -164,52 +213,15 @@ class EmailService:
         
         subject = t['subject']
         
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb;">
-            <div style="max-width: 600px; margin: 0 auto;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">{t['header_emoji']}</div>
-                    <h1 style="margin: 0; font-size: 28px; font-weight: 600;">{t['header_title']}</h1>
-                </div>
-                
-                <!-- Content -->
-                <div style="background-color: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                    <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px;">{t['greeting'].format(username=username)}</p>
-                    
-                    <p style="margin: 0 0 20px 0; color: #4b5563;">{t['intro']}</p>
-                    
-                    <!-- CTA Button -->
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{verification_url}" style="display: inline-block; padding: 14px 40px; background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(236, 72, 153, 0.3);">{t['button_text']}</a>
-                    </div>
-                    
-                    <!-- Alternative Link -->
-                    <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
-                        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">{t['alt_link_text']}</p>
-                        <p style="margin: 0; word-break: break-all; color: #ec4899; font-size: 12px; font-family: 'Courier New', monospace;">{verification_url}</p>
-                    </div>
-                    
-                    <!-- Warning Box -->
-                    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 4px;">
-                        <p style="margin: 0; color: #92400e; font-size: 14px;">{t['expiry_warning']}</p>
-                    </div>
-                    
-                    <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px;">{t['footer_text']}</p>
-                    
-                    <!-- Footer -->
-                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-                        <p style="margin: 0;">{t['company_name']}</p>
-                        <p style="margin: 5px 0 0 0;">{t['copyright']}</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Render HTML template
+        template = self.jinja_env.get_template('verification.html')
+        html_content = template.render(
+            t=t,
+            username=username,
+            verification_url=verification_url
+        )
         
+        # Text fallback
         text_content = f"""
         {t['header_title']}
         
@@ -244,56 +256,15 @@ class EmailService:
         
         subject = t['subject']
         
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb;">
-            <div style="max-width: 600px; margin: 0 auto;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">{t['header_emoji']}</div>
-                    <h1 style="margin: 0; font-size: 28px; font-weight: 600;">{t['header_title']}</h1>
-                </div>
-                
-                <!-- Content -->
-                <div style="background-color: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                    <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px;">{t['greeting'].format(username=username)}</p>
-                    
-                    <p style="margin: 0 0 20px 0; color: #4b5563;">{t['intro']}</p>
-                    
-                    <!-- CTA Button -->
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{reset_url}" style="display: inline-block; padding: 14px 40px; background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);">{t['button_text']}</a>
-                    </div>
-                    
-                    <!-- Alternative Link -->
-                    <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
-                        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">{t['alt_link_text']}</p>
-                        <p style="margin: 0; word-break: break-all; color: #dc2626; font-size: 12px; font-family: 'Courier New', monospace;">{reset_url}</p>
-                    </div>
-                    
-                    <!-- Warning Box -->
-                    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 4px;">
-                        <p style="margin: 0; color: #92400e; font-size: 14px;">{t['expiry_warning']}</p>
-                    </div>
-                    
-                    <!-- Security Notice -->
-                    <div style="background-color: #fee2e2; border-left: 4px solid #dc2626; padding: 16px; margin: 20px 0; border-radius: 4px;">
-                        <p style="margin: 0 0 8px 0; color: #991b1b; font-weight: 600; font-size: 14px;">{t['security_title']}</p>
-                        <p style="margin: 0; color: #991b1b; font-size: 14px;">{t['security_text']}</p>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-                        <p style="margin: 0;">{t['company_name']}</p>
-                        <p style="margin: 5px 0 0 0;">{t['copyright']}</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Render HTML template
+        template = self.jinja_env.get_template('password_reset.html')
+        html_content = template.render(
+            t=t,
+            username=username,
+            reset_url=reset_url
+        )
         
+        # Text fallback
         text_content = f"""
         {t['header_title']}
         
@@ -316,63 +287,17 @@ class EmailService:
         """Send welcome email after successful verification"""
         t = get_all_translations(language, 'welcome')
         subject = t['subject']
+        dashboard_url = f"{settings.FRONTEND_URL.rstrip('/')}/dashboard"
         
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb;">
-            <div style="max-width: 600px; margin: 0 auto;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">{t['header_emoji']}</div>
-                    <h1 style="margin: 0; font-size: 28px; font-weight: 600;">{t['header_title']}</h1>
-                </div>
-                
-                <!-- Content -->
-                <div style="background-color: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                    <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px;">{t['greeting'].format(username=username)}</p>
-                    
-                    <p style="margin: 0 0 20px 0; color: #4b5563;">{t['intro']}</p>
-                    
-                    <!-- Features Box -->
-                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 20px; margin: 20px 0;">
-                        <h3 style="margin: 0 0 15px 0; color: #065f46; font-size: 18px; font-weight: 600;">{t['features_title']}</h3>
-                        <div style="margin: 10px 0;">
-                            <div style="display: inline-block; width: 30px; color: #10b981; font-size: 20px;">✅</div>
-                            <span style="color: #065f46; font-size: 15px;">{t['feature_1']}</span>
-                        </div>
-                        <div style="margin: 10px 0;">
-                            <div style="display: inline-block; width: 30px; color: #10b981; font-size: 20px;">✅</div>
-                            <span style="color: #065f46; font-size: 15px;">{t['feature_2']}</span>
-                        </div>
-                        <div style="margin: 10px 0;">
-                            <div style="display: inline-block; width: 30px; color: #10b981; font-size: 20px;">✅</div>
-                            <span style="color: #065f46; font-size: 15px;">{t['feature_3']}</span>
-                        </div>
-                        <div style="margin: 10px 0;">
-                            <div style="display: inline-block; width: 30px; color: #10b981; font-size: 20px;">✅</div>
-                            <span style="color: #065f46; font-size: 15px;">{t['feature_4']}</span>
-                        </div>
-                    </div>
-                    
-                    <!-- CTA Button -->
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{settings.FRONTEND_URL.rstrip('/')}/dashboard" style="display: inline-block; padding: 14px 40px; background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(236, 72, 153, 0.3);">{t['button_text']}</a>
-                    </div>
-                    
-                    <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px; text-align: center;">{t['help_text']}</p>
-                    
-                    <!-- Footer -->
-                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-                        <p style="margin: 0;">{t['company_name']}</p>
-                        <p style="margin: 5px 0 0 0;">{t['copyright']}</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Render HTML template
+        template = self.jinja_env.get_template('welcome.html')
+        html_content = template.render(
+            t=t,
+            username=username,
+            dashboard_url=dashboard_url
+        )
         
+        # Text fallback
         text_content = f"""
         {t['header_title']}
         
@@ -386,7 +311,7 @@ class EmailService:
         {t['text_feature_3']}
         {t['text_feature_4']}
         
-        {t['text_dashboard']} {settings.FRONTEND_URL.rstrip('/')}/dashboard
+        {t['text_dashboard']} {dashboard_url}
         
         {t['text_help']}
         
@@ -420,82 +345,19 @@ class EmailService:
         portfolios_count = len(pdf_attachments)
         portfolios_text = f"{portfolios_count} portfolio{'s' if portfolios_count > 1 else ''}"
         
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb;">
-            <div style="max-width: 600px; margin: 0 auto;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">{t['header_emoji']}</div>
-                    <h1 style="margin: 0; font-size: 28px; font-weight: 600;">{t['header_title']}</h1>
-                </div>
-                
-                <!-- Content -->
-                <div style="background-color: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                    <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px;">{t['greeting'].format(username=username)}</p>
-                    
-                    <p style="margin: 0 0 20px 0; color: #4b5563;">{t['intro'].format(reportDate=report_date)}</p>
-                    
-                    <!-- Report Info Box -->
-                    <div style="background: linear-gradient(135deg, #eef2ff 0%, #fce7f3 100%); border: 1px solid #e9d5ff; border-radius: 6px; padding: 20px; margin: 20px 0;">
-                        <h3 style="margin: 0 0 15px 0; color: #6b21a8; font-size: 18px; font-weight: 600;">{t['report_title']}</h3>
-                        <div style="margin: 8px 0;">
-                            <div style="display: inline-block; width: 30px; color: #ec4899; font-size: 18px;">📈</div>
-                            <span style="color: #4b5563; font-size: 15px;">{t['report_item_1']}</span>
-                        </div>
-                        <div style="margin: 8px 0;">
-                            <div style="display: inline-block; width: 30px; color: #ec4899; font-size: 18px;">🗺️</div>
-                            <span style="color: #4b5563; font-size: 15px;">{t['report_item_2']}</span>
-                        </div>
-                        <div style="margin: 8px 0;">
-                            <div style="display: inline-block; width: 30px; color: #ec4899; font-size: 18px;">💰</div>
-                            <span style="color: #4b5563; font-size: 15px;">{t['report_item_3']}</span>
-                        </div>
-                        <div style="margin: 8px 0;">
-                            <div style="display: inline-block; width: 30px; color: #ec4899; font-size: 18px;">📋</div>
-                            <span style="color: #4b5563; font-size: 15px;">{t['report_item_4']}</span>
-                        </div>
-                        <div style="margin: 8px 0;">
-                            <div style="display: inline-block; width: 30px; color: #ec4899; font-size: 18px;">🥧</div>
-                            <span style="color: #4b5563; font-size: 15px;">{t['report_item_5']}</span>
-                        </div>
-                    </div>
-                    
-                    <p style="margin: 20px 0; color: #4b5563;">{t['attachment_text']}</p>
-                    
-                    <!-- Attachments Info -->
-                    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
-                        <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">
-                            📎 {portfolios_count} PDF Attachment{'s' if portfolios_count > 1 else ''} Included
-                        </p>
-                        <p style="margin: 4px 0 0 0; color: #92400e; font-size: 13px;">
-                            You'll find a separate detailed report for each of your {portfolios_text}.
-                        </p>
-                    </div>
-                    
-                    <!-- Settings Link -->
-                    <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0; text-align: center;">
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                            {t['settings_text_1']} 
-                            <a href="{settings.FRONTEND_URL.rstrip('/')}/settings" style="color: #ec4899; text-decoration: none; font-weight: 600;">{t['settings_link']}</a>
-                        </p>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-                        <p style="margin: 0;">{t['company_name']}</p>
-                        <p style="margin: 5px 0 0 0;">{t['copyright']}</p>
-                        <p style="margin: 10px 0 0 0;">
-                            <a href="{settings.FRONTEND_URL.rstrip('/')}" style="color: #ec4899; text-decoration: none;">{t['visit_dashboard']}</a>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Render HTML template
+        template = self.jinja_env.get_template('daily_report.html')
+        html_content = template.render(
+            t=t,
+            username=username,
+            report_date=report_date,
+            portfolios_count=portfolios_count,
+            portfolios_text=portfolios_text,
+            settings_url=f"{settings.FRONTEND_URL.rstrip('/')}/settings",
+            dashboard_url=settings.FRONTEND_URL.rstrip('/')
+        )
         
+        # Text fallback
         text_content = f"""
         {t['header_title']}
         

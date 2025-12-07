@@ -127,7 +127,7 @@ def get_current_position_quantity(
 ) -> float:
     """
     Calculate the current quantity held for an asset in a portfolio.
-    Takes into account BUY, SELL, TRANSFER_IN, TRANSFER_OUT, and SPLIT transactions.
+    Takes into account BUY, SELL, TRANSFER_IN, TRANSFER_OUT, CONVERSION_IN, CONVERSION_OUT, and SPLIT transactions.
     
     Returns:
         Current quantity (can be 0 or negative in edge cases)
@@ -149,9 +149,9 @@ def get_current_position_quantity(
     quantity = Decimal(0)
     
     for tx in transactions:
-        if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+        if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
             quantity += tx.quantity
-        elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+        elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             quantity -= tx.quantity
         elif tx.type == TransactionType.SPLIT:
             # Handle stock split (e.g., 2:1 means double shares)
@@ -204,9 +204,9 @@ def get_position_quantity_at_date(
     quantity = Decimal(0)
     
     for tx in transactions:
-        if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+        if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
             quantity += tx.quantity
-        elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+        elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             quantity -= tx.quantity
         elif tx.type == TransactionType.SPLIT:
             # Handle stock split (e.g., 2:1 means double shares)

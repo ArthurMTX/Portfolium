@@ -53,6 +53,8 @@ interface Portfolio {
   name: string
   base_currency: string
   description: string | null
+  is_public: boolean
+  share_token: string
   created_at: string
 }
 
@@ -65,6 +67,7 @@ interface PortfolioStore {
   transactions: Transaction[]
   loading: boolean
   error: string | null
+  dataVersion: number // Increments when transactions are added/edited/deleted
 
   // Actions
   setPortfolios: (portfolios: Portfolio[]) => void
@@ -74,6 +77,7 @@ interface PortfolioStore {
   setTransactions: (transactions: Transaction[]) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  incrementDataVersion: () => void // Call this when data changes
   reset: () => void
 }
 
@@ -88,6 +92,7 @@ const usePortfolioStore = create<PortfolioStore>()(
       transactions: [],
       loading: false,
       error: null,
+      dataVersion: 0,
 
       // Actions
       setPortfolios: (portfolios) => set({ portfolios }),
@@ -104,6 +109,7 @@ const usePortfolioStore = create<PortfolioStore>()(
       setTransactions: (transactions) => set({ transactions }),
       setLoading: (loading) => set({ loading }),
       setError: (error) => set({ error }),
+      incrementDataVersion: () => set((state) => ({ dataVersion: state.dataVersion + 1 })),
       reset: () =>
         set({
           activePortfolioId: null,
@@ -112,6 +118,7 @@ const usePortfolioStore = create<PortfolioStore>()(
           transactions: [],
           loading: false,
           error: null,
+          dataVersion: 0,
         }),
     }),
     {

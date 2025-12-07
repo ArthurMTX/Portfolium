@@ -1,12 +1,24 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../lib/api'
-import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown, Tag, Filter } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency } from '../lib/formatUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 import SortIcon from '../components/SortIcon'
+import WatchlistTagManager, { IconComponent } from '../components/WatchlistTagManager'
+import WatchlistEditModal from '../components/WatchlistEditModal'
 import { useTranslation } from 'react-i18next'
+
+interface WatchlistTag {
+  id: number
+  user_id: number
+  name: string
+  icon: string
+  color: string
+  created_at: string
+  updated_at: string
+}
 
 interface WatchlistItem {
   id: number
@@ -23,11 +35,13 @@ interface WatchlistItem {
   asset_type: string | null
   last_updated: string | null
   created_at: string
+  tags: WatchlistTag[]
 }
 
 interface Portfolio {
   id: number
   name: string
+  base_currency: string
 }
 
 const sortableColumns = [
@@ -40,22 +54,42 @@ const sortableColumns = [
 type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
 
+// LocalStorage keys for persisting filter state
+const STORAGE_KEY_TAG_IDS = 'watchlist_filter_tag_ids'
+const STORAGE_KEY_TAG_MODE = 'watchlist_filter_tag_mode'
+
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const [tags, setTags] = useState<WatchlistTag[]>([])
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TAG_IDS)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+  const [tagFilterMode, setTagFilterMode] = useState<'any' | 'all'>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TAG_MODE)
+      return saved === 'all' ? 'all' : 'any'
+    } catch {
+      return 'any'
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showTagManager, setShowTagManager] = useState(false)
   const [addSymbol, setAddSymbol] = useState('')
   const [addNotes, setAddNotes] = useState('')
+  const [addTagIds, setAddTagIds] = useState<number[]>([])
   const [addFormError, setAddFormError] = useState<string | null>(null)
   const [addFormSuccess, setAddFormSuccess] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>([])
   const [selectedTicker, setSelectedTicker] = useState<{ symbol: string; name: string; type?: string; exchange?: string } | null>(null)
-  const [editingItem, setEditingItem] = useState<number | null>(null)
-  const [editNotes, setEditNotes] = useState('')
-  const [editAlertPrice, setEditAlertPrice] = useState('')
-  const [editAlertEnabled, setEditAlertEnabled] = useState(false)
+  const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -63,16 +97,18 @@ export default function Watchlist() {
   const [convertPortfolioId, setConvertPortfolioId] = useState<number | null>(null)
   const [convertQuantity, setConvertQuantity] = useState('')
   const [convertPrice, setConvertPrice] = useState('')
+  const [convertFees, setConvertFees] = useState('0')
+  const [convertDate, setConvertDate] = useState(new Date().toISOString().split('T')[0])
+  const [convertPriceLoading, setConvertPriceLoading] = useState(false)
+  const [convertPriceInfo, setConvertPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const { t, i18n } = useTranslation()
-
-  const currentLocale = i18n.language || 'en-US'
+  const { t } = useTranslation()
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm) {
+    if (showAddModal || showImportModal || showImportProgress || convertItem || deleteConfirm || showTagManager || editingItem) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -84,14 +120,39 @@ export default function Watchlist() {
 
   const openConvertModal = (item: WatchlistItem) => {
     setConvertItem(item)
+    // Reset convert modal state
+    setConvertDate(new Date().toISOString().split('T')[0])
+    setConvertPrice('')
+    setConvertPriceInfo(null)
     // Preselect first portfolio if not set
-    if (!convertPortfolioId && portfolios.length > 0) {
-      setConvertPortfolioId(portfolios[0].id)
+    const portfolioId = convertPortfolioId || (portfolios.length > 0 ? portfolios[0].id : null)
+    if (portfolioId) {
+      setConvertPortfolioId(portfolioId)
+      // Fetch price for selected portfolio and today's date
+      fetchConvertPrice(portfolioId, item.symbol, new Date().toISOString().split('T')[0])
     }
-    // Autofill current price if available
-    const p = toNumber(item.current_price)
-    setConvertPrice(p !== null ? String(p) : '')
   }
+
+  // Fetch price converted to portfolio currency (same logic as Transactions page)
+  const fetchConvertPrice = useCallback(async (portfolioId: number, symbol: string, date: string) => {
+    if (!portfolioId || !symbol || !date) return
+    
+    setConvertPriceLoading(true)
+    setConvertPriceInfo(null)
+    try {
+      const result = await api.fetchPriceForDate(portfolioId, symbol, date)
+      setConvertPrice(String(result.price))
+      setConvertPriceInfo({
+        converted: result.converted,
+        asset_currency: result.asset_currency
+      })
+    } catch (err) {
+      console.error("Failed to fetch price:", err)
+      // Don't show error - user can still enter price manually
+    } finally {
+      setConvertPriceLoading(false)
+    }
+  }, [])
 
   const getErrorMessage = (err: unknown, fallback = 'An unexpected error occurred') => {
     if (err instanceof Error) return err.message
@@ -110,15 +171,16 @@ export default function Watchlist() {
     return isNaN(n) ? null : n
   }
 
-  const loadWatchlist = useCallback(async () => {
+  const loadWatchlist = useCallback(async (filterTagIds?: number[], filterMode?: 'any' | 'all') => {
     try {
       setLoading(true)
-      const data = await api.getWatchlist()
+      const data = await api.getWatchlist(filterTagIds, filterMode)
       const normalized = data.map((d) => ({
         ...d,
         alert_target_price: toNumber(d.alert_target_price),
         current_price: toNumber(d.current_price),
         daily_change_pct: toNumber(d.daily_change_pct),
+        tags: d.tags || [],
       })) as unknown as WatchlistItem[]
       setWatchlist(normalized)
       setError(null)
@@ -126,6 +188,15 @@ export default function Watchlist() {
       setError(getErrorMessage(err, 'Failed to load watchlist'))
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const loadTags = useCallback(async () => {
+    try {
+      const data = await api.getWatchlistTags()
+      setTags(data)
+    } catch (err) {
+      console.error('Failed to load tags:', err)
     }
   }, [])
 
@@ -210,9 +281,37 @@ export default function Watchlist() {
   }
 
   useEffect(() => {
-    loadWatchlist()
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
     loadPortfolios()
-  }, [loadWatchlist, loadPortfolios])
+    loadTags()
+  }, [loadWatchlist, loadPortfolios, loadTags])
+
+  // Re-load watchlist when tag filter changes
+  useEffect(() => {
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
+  }, [selectedTagIds, tagFilterMode, loadWatchlist])
+
+  // Persist tag filter to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TAG_IDS, JSON.stringify(selectedTagIds))
+  }, [selectedTagIds])
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TAG_MODE, tagFilterMode)
+  }, [tagFilterMode])
+
+  // Handle tag filter change
+  const handleTagFilterChange = (tagId: number) => {
+    setSelectedTagIds(prev => 
+      prev.includes(tagId) 
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    )
+  }
+
+  const clearTagFilter = () => {
+    setSelectedTagIds([])
+  }
 
   // Ticker search logic (like Transactions page)
   const handleTickerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,12 +347,14 @@ export default function Watchlist() {
       await api.addToWatchlist({
         symbol: addSymbol.toUpperCase(),
         notes: addNotes || undefined,
+        tag_ids: addTagIds.length > 0 ? addTagIds : undefined,
       })
       
       // Success - close modal and clear form
       setShowAddModal(false)
       setAddSymbol('')
       setAddNotes('')
+      setAddTagIds([])
       setSelectedTicker(null)
       setSearchResults([])
       
@@ -279,24 +380,25 @@ export default function Watchlist() {
   }
 
   const startEdit = (item: WatchlistItem) => {
-    setEditingItem(item.id)
-    setEditNotes(item.notes || '')
-    setEditAlertPrice(item.alert_target_price ? String(item.alert_target_price) : '')
-    setEditAlertEnabled(item.alert_enabled)
+    setEditingItem(item)
   }
 
-  const handleUpdate = async (id: number) => {
-    try {
-      await api.updateWatchlistItem(id, {
-        notes: editNotes || null,  // Send null to clear, or the note text
-        alert_target_price: editAlertPrice ? parseFloat(editAlertPrice) : null,  // Send null to clear
-        alert_enabled: editAlertEnabled,
-      })
-      setEditingItem(null)
-      loadWatchlist()
-    } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to update item'))
-    }
+  const handleEditSave = async (id: number, data: {
+    notes: string | null
+    alert_target_price: number | null
+    alert_enabled: boolean
+    tag_ids: number[]
+  }) => {
+    // Update the watchlist item
+    await api.updateWatchlistItem(id, {
+      notes: data.notes,
+      alert_target_price: data.alert_target_price,
+      alert_enabled: data.alert_enabled,
+    })
+    // Update tags separately
+    await api.updateWatchlistItemTags(id, data.tag_ids)
+    // Reload watchlist
+    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
   }
 
   const handleImportClick = () => {
@@ -322,9 +424,10 @@ export default function Watchlist() {
   const handleImportClose = useCallback(() => {
     setShowImportProgress(false)
     setImportFile(null)
-    // Reload watchlist after modal closes
+    // Reload watchlist and tags after modal closes (import may create new tags)
     loadWatchlist()
-  }, [loadWatchlist])
+    loadTags()
+  }, [loadWatchlist, loadTags])
 
   const handleExportClick = async () => {
     try {
@@ -345,19 +448,44 @@ export default function Watchlist() {
       return
     }
 
+    // Get the selected portfolio's currency
+    const selectedPortfolio = portfolios.find(p => p.id === convertPortfolioId)
+    const currency = selectedPortfolio?.base_currency || 'USD'
+
     try {
       await api.convertWatchlistToBuy(convertItem.id, {
         portfolio_id: convertPortfolioId,
         quantity: parseFloat(convertQuantity),
         price: parseFloat(convertPrice),
-        fees: 0,
+        fees: parseFloat(convertFees) || 0,
+        tx_date: convertDate,
+        currency: currency,
       })
       setConvertItem(null)
       setConvertPortfolioId(null)
       setConvertQuantity('')
       setConvertPrice('')
+      setConvertFees('0')
+      setConvertDate(new Date().toISOString().split('T')[0])
+      setConvertPriceInfo(null)
     } catch (err: unknown) {
       alert(getErrorMessage(err, 'Failed to convert to BUY'))
+    }
+  }
+
+  // Handle portfolio change - refetch price in new portfolio currency
+  const handleConvertPortfolioChange = (portfolioId: number) => {
+    setConvertPortfolioId(portfolioId)
+    if (convertItem) {
+      fetchConvertPrice(portfolioId, convertItem.symbol, convertDate)
+    }
+  }
+
+  // Handle date change - refetch price
+  const handleConvertDateChange = (newDate: string) => {
+    setConvertDate(newDate)
+    if (convertItem && convertPortfolioId) {
+      fetchConvertPrice(convertPortfolioId, convertItem.symbol, newDate)
     }
   }
 
@@ -402,7 +530,7 @@ export default function Watchlist() {
         </div>
 
         {/* Table Skeleton */}
-        <div className="card overflow-hidden">
+        <div className="card">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
@@ -499,6 +627,85 @@ export default function Watchlist() {
         </div>
       )}
 
+      {/* Tag Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3 pb-2">
+        <div className="flex items-center gap-2">
+          <Filter size={16} className="text-neutral-500" />
+          <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+            {t('watchlist.tags.filterByTags')}:
+          </span>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          {tags.map(tag => (
+            <button
+              key={tag.id}
+              onClick={() => handleTagFilterChange(tag.id)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                selectedTagIds.includes(tag.id)
+                  ? 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900'
+                  : 'opacity-70 hover:opacity-100'
+              }`}
+              style={{ 
+                backgroundColor: tag.color + '20', 
+                color: tag.color,
+                ...(selectedTagIds.includes(tag.id) ? { ringColor: tag.color } : {})
+              }}
+            >
+              <IconComponent name={tag.icon} size={12} />
+              {tag.name}
+            </button>
+          ))}
+          
+          {selectedTagIds.length > 0 && (
+            <button
+              onClick={clearTagFilter}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            >
+              <X size={12} />
+              {t('common.clear')}
+            </button>
+          )}
+          
+          {/* AND/OR Toggle - only show when multiple tags selected */}
+          {selectedTagIds.length > 1 && (
+            <div className="flex items-center ml-2 pl-2 border-l border-neutral-200 dark:border-neutral-700">
+              <div className="flex rounded-md overflow-hidden border border-neutral-300 dark:border-neutral-600">
+                <button
+                  onClick={() => setTagFilterMode('any')}
+                  className={`px-2.5 py-1 text-xs font-medium transition-all ${
+                    tagFilterMode === 'any'
+                      ? 'bg-primary-500 text-white shadow-inner'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                  }`}
+                >
+                  {t('watchlist.tags.any')}
+                </button>
+                <div className="w-px bg-neutral-300 dark:bg-neutral-600" />
+                <button
+                  onClick={() => setTagFilterMode('all')}
+                  className={`px-2.5 py-1 text-xs font-medium transition-all ${
+                    tagFilterMode === 'all'
+                      ? 'bg-primary-500 text-white shadow-inner'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                  }`}
+                >
+                  {t('watchlist.tags.all')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => setShowTagManager(true)}
+          className="ml-auto btn-secondary flex items-center gap-1.5 text-xs px-2.5 py-1.5"
+        >
+          <Tag size={14} />
+          {t('watchlist.tags.manageTags')}
+        </button>
+      </div>
+
       {/* Watchlist Table with Logo, Price, Daily Change */}
       <div>
         <>
@@ -587,112 +794,68 @@ export default function Watchlist() {
                         </div>
                       </div>
 
-                      {/* Data Grid / Edit Form */}
-                      {editingItem === item.id ? (
-                        <div className="space-y-3 text-sm">
-                          <div>
-                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
-                              {t('fields.notes')}
-                            </label>
-                            <textarea
-                              placeholder={t('fields.notes')}
-                              value={editNotes}
-                              onChange={(e) => setEditNotes(e.target.value)}
-                              className="input w-full text-sm"
-                              rows={2}
-                            />
+                      {/* Data Grid */}
+                      <div className="grid grid-cols-1 gap-y-2.5 text-sm">
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {[...item.tags].sort((a, b) => a.name.localeCompare(b.name)).map(tag => (
+                              <span
+                                key={tag.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                              >
+                                <IconComponent name={tag.icon} size={10} />
+                                {tag.name}
+                              </span>
+                            ))}
                           </div>
+                        )}
+                        {item.notes && (
                           <div>
-                            <label className="text-neutral-500 dark:text-neutral-400 text-xs block mb-1">
-                              {t('watchlist.alertTargetPrice')}
-                            </label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder={t('watchlist.alertTargetPrice')}
-                              value={editAlertPrice}
-                              onChange={(e) => setEditAlertPrice(e.target.value)}
-                              className="input w-full text-sm"
-                            />
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
+                            <div className="text-neutral-900 dark:text-neutral-100 mt-1">
+                              {item.notes}
+                            </div>
                           </div>
-                          <label className="flex items-center text-sm">
-                            <input
-                              type="checkbox"
-                              checked={editAlertEnabled}
-                              onChange={(e) => setEditAlertEnabled(e.target.checked)}
-                              className="mr-2"
-                            />
-                            <span className="text-neutral-700 dark:text-neutral-300">{t('watchlist.alertEnabled')}</span>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-y-2.5 text-sm">
-                          {item.notes && (
-                            <div>
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
-                              <div className="text-neutral-900 dark:text-neutral-100 mt-1">
-                                {item.notes}
-                              </div>
+                        )}
+                        {item.alert_target_price && (
+                          <div>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.alertPrice')}</span>
+                            <div className="text-neutral-900 dark:text-neutral-100 mt-1 flex items-center gap-2">
+                              {formatPrice(item.alert_target_price, item.currency)}
+                              {item.alert_enabled && (
+                                <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                                  {t('common.enabled')}
+                                </span>
+                              )}
                             </div>
-                          )}
-                          {item.alert_target_price && (
-                            <div>
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.alertPrice')}</span>
-                              <div className="text-neutral-900 dark:text-neutral-100 mt-1 flex items-center gap-2">
-                                {formatPrice(item.alert_target_price, item.currency)}
-                                {item.alert_enabled && (
-                                  <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-                                    {t('common.enabled')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Actions */}
                       <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                        {editingItem === item.id ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdate(item.id)}
-                              className="btn-secondary text-xs px-3 py-2 bg-green-600 text-white hover:bg-green-700 flex items-center gap-1.5"
-                            >
-                              {t('common.save')}
-                            </button>
-                            <button
-                              onClick={() => setEditingItem(null)}
-                              className="btn-secondary text-xs px-3 py-2"
-                            >
-                              {t('common.cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => startEdit(item)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
-                            >
-                              <Pencil size={14} />
-                              {t('common.edit')}
-                            </button>
-                            <button
-                              onClick={() => openConvertModal(item)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
-                            >
-                              <ShoppingCart size={14} />
-                              {t('watchlist.buy')}
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(item.id)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 text-red-600 dark:text-red-400"
-                            >
-                              <Trash2 size={14} />
-                              {t('common.delete')}
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => startEdit(item)}
+                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                        >
+                          <Pencil size={14} />
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          onClick={() => openConvertModal(item)}
+                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                        >
+                          <ShoppingCart size={14} />
+                          {t('watchlist.buy')}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(item.id)}
+                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 text-red-600 dark:text-red-400"
+                        >
+                          <Trash2 size={14} />
+                          {t('common.delete')}
+                        </button>
                       </div>
                     </div>
                   )
@@ -702,7 +865,7 @@ export default function Watchlist() {
           </div>
 
           {/* Desktop: Table Layout */}
-          <div className="hidden lg:block card overflow-hidden">
+          <div className="hidden lg:block card">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
@@ -736,6 +899,7 @@ export default function Watchlist() {
                   {t('watchlist.dailyChange')} <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.tags.title')}</th>
                 <th 
                   onClick={() => handleSort('alert_target_price')}
                   aria-sort={isActive('alert_target_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -749,7 +913,7 @@ export default function Watchlist() {
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
               {sortedWatchlist.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
+                  <td colSpan={9} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
                     {t('watchlist.empty.noWatchlistAssets')}
                   </td>
                 </tr>
@@ -796,40 +960,28 @@ export default function Watchlist() {
                       })()}
                     </td>
                     <td className="px-6 py-4">
-                      {editingItem === item.id ? (
-                        <input
-                          type="text"
-                          placeholder={t('placeholders.enterNotes')}
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          className="input w-full text-sm"
-                        />
-                      ) : (
-                        <div className="text-sm text-neutral-500 dark:text-neutral-400">{item.notes || '-'}</div>
-                      )}
+                      <div className="text-sm text-neutral-500 dark:text-neutral-400">{item.notes || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags && item.tags.length > 0 ? (
+                          [...item.tags].sort((a, b) => a.name.localeCompare(b.name)).map(tag => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                              style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                            >
+                              <IconComponent name={tag.icon} size={10} />
+                              {tag.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-neutral-400 text-sm">-</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {editingItem === item.id ? (
-                        <div className="space-y-1">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder={t('watchlist.targetPrice')}
-                            value={editAlertPrice}
-                            onChange={(e) => setEditAlertPrice(e.target.value)}
-                            className="input w-full text-sm"
-                          />
-                          <label className="flex items-center text-xs">
-                            <input
-                              type="checkbox"
-                              checked={editAlertEnabled}
-                              onChange={(e) => setEditAlertEnabled(e.target.checked)}
-                              className="mr-1"
-                            />
-                            {t('common.enabled')}
-                          </label>
-                        </div>
-                      ) : item.alert_enabled && item.alert_target_price !== null ? (
+                      {item.alert_enabled && item.alert_target_price !== null ? (
                         <div className="text-sm font-medium">
                           <div>{formatPrice(item.alert_target_price, item.currency)}</div>
                           {(() => {
@@ -853,46 +1005,27 @@ export default function Watchlist() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
-                        {editingItem === item.id ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdate(item.id)}
-                              className="btn-primary"
-                            >
-                              {t('common.save')}
-                            </button>
-                            <button
-                              onClick={() => setEditingItem(null)}
-                              className="btn"
-                            >
-                              {t('common.cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => startEdit(item)}
-                              className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                              title={t('common.edit')}
-                            >
-                              <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
-                            </button>
-                            <button
-                              onClick={() => openConvertModal(item)}
-                              className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
-                              title={t('watchlist.convertToBuy')}
-                            >
-                              <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(item.id)}
-                              className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
-                              title={t('common.delete')}
-                            >
-                              <Trash2 size={18} className="text-red-600 dark:text-red-400" />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => startEdit(item)}
+                          className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          title={t('common.edit')}
+                        >
+                          <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
+                        </button>
+                        <button
+                          onClick={() => openConvertModal(item)}
+                          className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
+                          title={t('watchlist.convertToBuy')}
+                        >
+                          <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(item.id)}
+                          className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 size={18} className="text-red-600 dark:text-red-400" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -904,6 +1037,15 @@ export default function Watchlist() {
           </div>
         </>
       </div>
+
+      {/* Edit Modal */}
+      <WatchlistEditModal
+        isOpen={editingItem !== null}
+        item={editingItem}
+        availableTags={tags}
+        onClose={() => setEditingItem(null)}
+        onSave={handleEditSave}
+      />
 
       {/* Import Modal */}
       {showImportModal && (
@@ -964,6 +1106,8 @@ export default function Watchlist() {
                   setConvertPortfolioId(null)
                   setConvertQuantity('')
                   setConvertPrice('')
+                  setConvertDate(new Date().toISOString().split('T')[0])
+                  setConvertPriceInfo(null)
                 }}
                 className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
               >
@@ -998,17 +1142,29 @@ export default function Watchlist() {
                 <label className="block text-sm font-medium mb-1">{t('fields.portfolio')}</label>
                 <select
                   value={convertPortfolioId || ''}
-                  onChange={(e) => setConvertPortfolioId(Number(e.target.value))}
+                  onChange={(e) => handleConvertPortfolioChange(Number(e.target.value))}
                   className="input w-full"
                   required
                 >
                   {portfolios.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>{p.name} ({p.base_currency})</option>
                   ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('fields.date')}</label>
+                <input
+                  type="date"
+                  value={convertDate}
+                  onChange={(e) => handleConvertDateChange(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="input w-full"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('fields.quantity')}</label>
                   <input
@@ -1022,22 +1178,35 @@ export default function Watchlist() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('fields.price')} ({convertItem.currency})</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t('fields.price')} ({portfolios.find((p) => p.id === convertPortfolioId)?.base_currency || 'USD'})
+                    {convertPriceLoading && <span className="ml-2 text-xs text-neutral-500">...</span>}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     value={convertPrice}
                     onChange={(e) => setConvertPrice(e.target.value)}
                     className="input w-full"
-                    placeholder={toNumber(convertItem.current_price)?.toString() || '0.00'}
+                    placeholder="0.00"
                     required
                   />
-                  {toNumber(convertItem.current_price) !== null && (
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      {t('fields.current')}: {new Intl.NumberFormat(currentLocale, { style: 'currency', currency: convertItem.currency || 'USD' }).format(toNumber(convertItem.current_price) || 0)}
-                      {convertItem.last_updated ? ` • ${t('watchlist.updatedAt')} ${new Date(convertItem.last_updated).toLocaleString(currentLocale)}` : ''}
+                  {convertPriceInfo?.converted && (
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      ✓ {t('transactions.priceConverted', { from: convertPriceInfo.asset_currency, to: portfolios.find((p) => p.id === convertPortfolioId)?.base_currency || 'USD' })}
                     </div>
                   )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('fields.fees')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={convertFees}
+                    onChange={(e) => setConvertFees(e.target.value)}
+                    className="input w-full"
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
 
@@ -1048,6 +1217,9 @@ export default function Watchlist() {
                     setConvertPortfolioId(null)
                     setConvertQuantity('')
                     setConvertPrice('')
+                    setConvertFees('0')
+                    setConvertDate(new Date().toISOString().split('T')[0])
+                    setConvertPriceInfo(null)
                   }}
                   className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                 >
@@ -1106,6 +1278,7 @@ export default function Watchlist() {
                   setShowAddModal(false)
                   setAddSymbol('')
                   setAddNotes('')
+                  setAddTagIds([])
                   setSearchResults([])
                   setSelectedTicker(null)
                   setAddFormError(null)
@@ -1165,6 +1338,43 @@ export default function Watchlist() {
                 />
               </div>
 
+              {/* Tags Selector */}
+              {tags.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {t('watchlist.tags.title')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => {
+                          setAddTagIds(prev => 
+                            prev.includes(tag.id) 
+                              ? prev.filter(id => id !== tag.id)
+                              : [...prev, tag.id]
+                          )
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                          addTagIds.includes(tag.id)
+                            ? 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900'
+                            : 'opacity-60 hover:opacity-100'
+                        }`}
+                        style={{ 
+                          backgroundColor: tag.color + '20', 
+                          color: tag.color,
+                          ...(addTagIds.includes(tag.id) ? { ringColor: tag.color } : {})
+                        }}
+                      >
+                        <IconComponent name={tag.icon} size={12} />
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {addFormError && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
                   <div className="flex-shrink-0">
@@ -1194,6 +1404,7 @@ export default function Watchlist() {
                     setShowAddModal(false)
                     setAddSymbol('')
                     setAddNotes('')
+                    setAddTagIds([])
                     setSearchResults([])
                     setSelectedTicker(null)
                     setAddFormError(null)
@@ -1214,6 +1425,16 @@ export default function Watchlist() {
           </div>
         </div>
       )}
+
+      {/* Tag Manager Modal */}
+      <WatchlistTagManager
+        isOpen={showTagManager}
+        onClose={() => setShowTagManager(false)}
+        onTagsUpdated={() => {
+          loadTags()
+          loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
+        }}
+      />
     </div>
   )
 }

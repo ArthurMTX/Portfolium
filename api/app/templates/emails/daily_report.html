@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t.subject.format(reportDate=report_date) }}{% endblock %}
+
+{% block header_title %}{{ t.header_title }}{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 14px 0; color:#4b5563; font-size:15px;">
+    {{ t.greeting.format(username=username) | safe }}
+</p>
+
+<p style="margin:0 0 18px 0; color:#4b5563; font-size:14px;">
+    {{ t.intro.format(reportDate=report_date) | safe }}
+</p>
+
+<!-- Report Info Box -->
+<div style="
+    margin:18px 0 22px 0;
+    padding:14px 14px 10px 14px;
+    border-radius:12px;
+    border:1px solid #e9d5ff;
+    background:linear-gradient(135deg,#eef2ff 0%,#fce7f3 40%,#ffffff 100%);
+">
+    <h3 style="margin:0 0 10px 0; color:#6b21a8; font-size:15px; font-weight:600;">
+        {{ t.report_title }}
+    </h3>
+
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">📈</span>
+        <span style="color:#6b21a8; font-size:14px;">{{ t.report_item_1 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">🗺️</span>
+        <span style="color:#6b21a8; font-size:14px;">{{ t.report_item_2 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">💰</span>
+        <span style="color:#6b21a8; font-size:14px;">{{ t.report_item_3 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">📋</span>
+        <span style="color:#6b21a8; font-size:14px;">{{ t.report_item_4 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">🥧</span>
+        <span style="color:#6b21a8; font-size:14px;">{{ t.report_item_5 }}</span>
+    </div>
+</div>
+
+<!-- Attachments Info -->
+<div style="
+    padding:12px 14px;
+    border-radius:8px;
+    border-left:3px solid #f59e0b;
+    background-color:#fffbeb;
+    margin:18px 0;
+">
+    <p style="margin:0 0 4px 0; color:#92400e; font-size:13px; font-weight:600;">
+        📎 {{ portfolios_count }} PDF Attachment{% if portfolios_count > 1 %}s{% endif %} Included
+    </p>
+    <p style="margin:0; color:#92400e; font-size:12px;">
+        You'll find a separate detailed report for each of your {{ portfolios_text }}.
+    </p>
+</div>
+
+<p style="margin:18px 0 0 0; font-size:12px; color:#9ca3af; text-align:center;">
+    {{ t.settings_text_1 }} 
+    <a href="{{ settings_url }}" style="color:#ec4899; text-decoration:none; font-weight:600;">{{ t.settings_link }}</a>
+</p>
+{% endblock %}
+
+{% block footer_extra %}
+<p style="margin:10px 0 0 0;">
+    <a href="{{ dashboard_url }}" style="color:#ec4899; text-decoration:none;">{{ t.visit_dashboard }}</a>
+</p>
+{% endblock %}

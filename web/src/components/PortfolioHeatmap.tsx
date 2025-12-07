@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 interface Position {
   symbol: string
   name: string | null
-  asset_type?: string
+  asset_type?: string | null
   market_value: number | null
   unrealized_pnl_pct: number | null
   daily_change_pct: number | null
@@ -306,7 +306,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
   if (positions.length === 0) {
     return (
       <div className="p-8">
-        <p className="text-center text-neutral-500 dark:text-neutral-400">No positions to display</p>
+        <p className="text-center text-neutral-500 dark:text-neutral-400">{t('dashboard.noPositions')}</p>
       </div>
     )
   }

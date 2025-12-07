@@ -205,6 +205,32 @@ export default function DevTools() {
         </div>
       </div>
 
+      {/* Widget Debugger Link */}
+      <div className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg shadow-sm border border-violet-200 dark:border-violet-900 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
+              <Palette className="text-violet-600" size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                Widget Debugger
+              </h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
+                Test all dashboard widgets with translations, mock data, and configuration details
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/dev/widgets')}
+            className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
+          >
+            <Palette size={16} />
+            Debug Widgets
+          </button>
+        </div>
+      </div>
+
       {/* Asset Debug Link */}
       <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm border border-purple-200 dark:border-purple-900 p-6">
         <div className="flex items-center justify-between">

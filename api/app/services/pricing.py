@@ -1,5 +1,5 @@
 """
-Pricing service using yfinance with caching
+Pricing service using yfinance with Redis caching
 """
 import asyncio
 import logging
@@ -15,6 +15,7 @@ from app.models import Asset, Price
 from app.crud import prices as crud_prices
 from app.schemas import PriceCreate, PriceQuote
 from app.db import get_db
+from app.services.cache import CacheService, cache_price, get_cached_price
 
 logger = logging.getLogger(__name__)
 
@@ -112,20 +113,19 @@ class PricingService:
         Get current price for a symbol (async to avoid blocking)
         
         Uses multi-level caching:
-        1. In-memory cache (30 seconds TTL) - fastest, prevents duplicate fetches
-        2. Database cache (configured TTL) - persistent across requests
+        1. Redis cache (30-60 seconds TTL) - fastest, shared across instances
+        2. Database cache (configured TTL) - persistent across restarts
         3. yfinance API - fallback
         
         Also deduplicates concurrent requests for the same symbol.
+        Includes timeout to prevent hanging on slow yfinance calls.
         """
-        # Check in-memory cache first (very fast)
+        # Check Redis cache first (very fast, shared across instances)
         if not force_refresh:
-            async with _get_memory_lock():
-                if symbol in _price_memory_cache:
-                    quote, cached_at = _price_memory_cache[symbol]
-                    if datetime.utcnow() - cached_at < _MEMORY_CACHE_TTL:
-                        logger.debug(f"Using in-memory cached price for {symbol}")
-                        return quote
+            cached = get_cached_price(symbol)
+            if cached:
+                logger.debug(f"Using Redis cached price for {symbol}")
+                return PriceQuote(**cached)
         
         # Get the current event loop to ensure task is created in the right loop
         try:
@@ -144,7 +144,11 @@ class PricingService:
                     # Check if task's loop matches current loop
                     if existing_task._loop == current_loop:
                         logger.info(f"Reusing ongoing price fetch for {symbol}")
-                        return await existing_task
+                        try:
+                            return await asyncio.wait_for(existing_task, timeout=15.0)
+                        except asyncio.TimeoutError:
+                            logger.warning(f"Timeout waiting for ongoing fetch for {symbol}")
+                            return None
                     else:
                         # Task is from a different loop, remove it and create a new one
                         logger.warning(f"Removing stale task for {symbol} (different event loop)")
@@ -159,14 +163,23 @@ class PricingService:
             _ongoing_fetches[symbol] = task
         
         try:
-            result = await task
+            # Add timeout to prevent hanging
+            result = await asyncio.wait_for(task, timeout=20.0)
             
-            # Update in-memory cache
+            # Update Redis cache
             if result:
-                async with _get_memory_lock():
-                    _price_memory_cache[symbol] = (result, datetime.utcnow())
+                # Cache with shorter TTL during market hours, longer after close
+                now = datetime.utcnow()
+                # Market hours: 14:30-21:00 UTC (9:30-16:00 EST)
+                is_market_hours = 14 <= now.hour < 21 and now.weekday() < 5
+                ttl = 60 if is_market_hours else 300  # 1 min or 5 min
+                
+                cache_price(symbol, result.model_dump(), ttl)
             
             return result
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout fetching price for {symbol}")
+            return None
         finally:
             # Remove from ongoing fetches
             async with _get_fetch_lock():
@@ -259,6 +272,17 @@ class PricingService:
                 source="yfinance"
             )
             crud_prices.create_price(self.db, price_create)
+            
+            # Trigger ATH update in background
+            try:
+                from app.tasks.ath_tasks import update_asset_ath
+                update_asset_ath.delay(
+                    asset_id=asset.id,
+                    current_price=float(price["price"]),
+                    price_date=price["asof"].isoformat() if price["asof"] else None
+                )
+            except Exception as e:
+                logger.warning(f"Failed to trigger ATH update for {symbol}: {e}")
             
             return PriceQuote(
                 symbol=symbol,
@@ -382,6 +406,11 @@ class PricingService:
         The previousClose includes after-hours trading and is the reference point for
         intraday percentage calculations that users expect to see.
         """
+        import socket
+        # Set socket timeout to prevent hanging on slow network
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(10.0)  # 10 second timeout
+        
         try:
             ticker = yf.Ticker(symbol)
             
@@ -438,6 +467,9 @@ class PricingService:
         except Exception as e:
             logger.error(f"Error fetching price for {symbol}: {e}")
             return None
+        finally:
+            # Restore original timeout
+            socket.setdefaulttimeout(old_timeout)
     
     def _is_price_fresh(self, asof: datetime) -> bool:
         """Check if price is within TTL"""

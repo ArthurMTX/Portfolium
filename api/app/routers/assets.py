@@ -1,11 +1,12 @@
 """
 Assets router
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -14,9 +15,24 @@ from app.schemas import Asset, AssetCreate, AssetMetadataOverride, AssetWithOver
 from app.crud import assets as crud
 from app.auth import get_current_user
 from app.models import User
+from app.dependencies import MetricsServiceDep
+from app.services.cache import CacheService
+from app.errors import ( 
+    AssetAlreadyExistsError,
+    AssetNotFoundError,
+    AssetNotFoundInDatabaseError,
+    FailedToConnectToYahooError,
+    FailedToFetchYahooFinanceDataError,
+    InvalidAssetIDOrSymbolError,
+    InvalidPriceHistoryPeriodError,
+    SearchTickerError,
+    SetMetadataError
+)
 import yfinance as yf
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+cache_service = CacheService()
 logger = logging.getLogger(__name__)
 
 
@@ -49,20 +65,104 @@ async def search_ticker(query: str):
     try:
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code != 200:
-            raise HTTPException(status_code=500, detail=f"Yahoo Finance search failed with status {response.status_code}")
+            raise SearchTickerError(status=response.status_code)
         data = response.json()
-        # Return top 10 results with symbol and name
+        # Return top 10 results with symbol, name, and type
         results = [
-            {"symbol": item["symbol"], "name": item.get("shortname", item.get("longname", ""))}
+            {
+                "symbol": item["symbol"], 
+                "name": item.get("shortname", item.get("longname", "")),
+                "type": item.get("quoteType", "")
+            }
             for item in data.get("quotes", [])[:10]
         ]
         return results
     except requests.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Failed to connect to Yahoo Finance: {str(e)}")
+        raise FailedToConnectToYahooError(reason=str(e))
+
+
+@router.get("/search")
+async def search_assets(query: str, crypto_only: bool = False):
+    """
+    Live search for assets using Yahoo Finance API
+    - **query**: Partial ticker or company name
+    - **crypto_only**: If True, only return cryptocurrency results
+    Returns simplified results for conversion/swap UI
+    """
+    import requests
+    import yfinance as yf
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    
+    results = []
+    seen_symbols = set()
+    
+    # For crypto_only, also try direct symbol lookup with -USD suffix
+    if crypto_only:
+        # Try common crypto symbol patterns
+        crypto_symbols_to_try = [
+            f"{query.upper()}-USD",
+            f"{query.upper()}-USDT", 
+            f"{query.upper()}-EUR",
+            f"{query.upper()}-CAD",
+        ]
+        for crypto_symbol in crypto_symbols_to_try:
+            try:
+                ticker = yf.Ticker(crypto_symbol)
+                info = ticker.info
+                if info and info.get("quoteType") == "CRYPTOCURRENCY":
+                    symbol = info.get("symbol", crypto_symbol)
+                    if symbol not in seen_symbols:
+                        seen_symbols.add(symbol)
+                        results.append({
+                            "symbol": symbol,
+                            "name": info.get("shortName", info.get("longName", symbol)),
+                            "type": "CRYPTOCURRENCY"
+                        })
+            except Exception:
+                pass
+    
+    # Also do Yahoo Finance search API
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}"
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            quotes = data.get("quotes", [])
+            
+            # Filter for crypto only if requested
+            if crypto_only:
+                quotes = [q for q in quotes if q.get("quoteType", "").upper() == "CRYPTOCURRENCY"]
+            
+            # Add results that we haven't seen yet
+            for item in quotes[:10]:
+                symbol = item["symbol"]
+                if symbol not in seen_symbols:
+                    seen_symbols.add(symbol)
+                    results.append({
+                        "symbol": symbol, 
+                        "name": item.get("shortname", item.get("longname", "")),
+                        "type": item.get("quoteType", "")
+                    })
+    except requests.RequestException:
+        pass  # If search fails, we still have direct lookup results
+    
+    return results[:10]
+
+
+@router.get("/by-symbol/{symbol}", response_model=Asset)
+def get_asset_by_symbol(symbol: str, db: Session = Depends(get_db)):
+    """Get asset by symbol"""
+    asset = crud.get_asset_by_symbol(db, symbol.upper())
+    if not asset:
+        raise AssetNotFoundError(symbol)
+    return asset
 
 
 @router.get("", response_model=List[Asset])
-async def get_assets(
+def get_assets(
     query: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
@@ -80,19 +180,16 @@ async def get_assets(
 
 
 @router.get("/{asset_id}", response_model=Asset)
-async def get_asset(asset_id: int, db: Session = Depends(get_db)):
+def get_asset(asset_id: int, db: Session = Depends(get_db)):
     """Get asset by ID"""
     asset = crud.get_asset(db, asset_id)
     if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     return asset
 
 
 @router.post("", response_model=Asset, status_code=status.HTTP_201_CREATED)
-async def create_asset(
+def create_asset(
     asset: AssetCreate,
     db: Session = Depends(get_db)
 ):
@@ -104,16 +201,23 @@ async def create_asset(
     # Check if symbol already exists
     existing = crud.get_asset_by_symbol(db, asset.symbol)
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Asset with symbol {asset.symbol} already exists"
-        )
+        raise AssetAlreadyExistsError(symbol=asset.symbol)
     
-    return crud.create_asset(db, asset)
+    new_asset = crud.create_asset(db, asset)
+    
+    # Trigger ATH fetch for the new asset in the background
+    try:
+        from app.tasks.ath_tasks import backfill_ath_from_yfinance
+        backfill_ath_from_yfinance.delay(asset_id=new_asset.id)
+        logger.info(f"Triggered ATH backfill for new asset: {new_asset.symbol}")
+    except Exception as e:
+        logger.warning(f"Failed to trigger ATH backfill for {new_asset.symbol}: {e}")
+    
+    return new_asset
 
 
 @router.put("/{asset_id}", response_model=Asset)
-async def update_asset(
+def update_asset(
     asset_id: int,
     asset: AssetCreate,
     db: Session = Depends(get_db)
@@ -121,15 +225,12 @@ async def update_asset(
     """Update existing asset"""
     updated = crud.update_asset(db, asset_id, asset)
     if not updated:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     return updated
 
 
 @router.patch("/{asset_id}/metadata-overrides", response_model=AssetWithOverrides)
-async def set_metadata_overrides(
+def set_metadata_overrides(
     asset_id: int,
     overrides: AssetMetadataOverride,
     current_user: User = Depends(get_current_user),
@@ -163,13 +264,14 @@ async def set_metadata_overrides(
             country_override=overrides.country_override
         )
         
+        # Invalidate cache for held and sold assets since effective metadata changed
+        cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+        cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+        
         # Get the asset with effective metadata
         asset = crud.get_asset(db, asset_id)
         if not asset:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Asset {asset_id} not found"
-            )
+            raise AssetNotFoundError(id=asset_id)
         
         # Get effective metadata for response
         effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
@@ -193,21 +295,15 @@ async def set_metadata_overrides(
         return response_data
         
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise SetMetadataError(symbol=asset.symbol)
 
 
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_asset(asset_id: int, db: Session = Depends(get_db)):
+def delete_asset(asset_id: int, db: Session = Depends(get_db)):
     """Delete asset"""
     success = crud.delete_asset(db, asset_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
 
 
 @router.get("/held/all")
@@ -225,10 +321,21 @@ async def get_held_assets(
     - Number of portfolios holding this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
     - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
+    
+    Cached until next transaction is created/updated/deleted.
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
     from decimal import Decimal
+    
+    # Check cache
+    cache_key = f"assets_held:{current_user.id}:{portfolio_id or 'all'}"
+    cached = cache_service.get(cache_key)
+    if cached:
+        logger.debug(f"Cache HIT for held assets: {cache_key}")
+        return json.loads(cached)
+    
+    logger.debug(f"Cache MISS for held assets: {cache_key}")
     
     # Get all assets that have transactions
     query = db.query(Transaction.asset_id.distinct())
@@ -259,9 +366,9 @@ async def get_held_assets(
         for tx in transactions_for_calculation:
             portfolio_ids.add(tx.portfolio_id)
             
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                 total_quantity += tx.quantity
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 total_quantity -= tx.quantity
             elif tx.type == TransactionType.SPLIT:
                 # Apply split ratio to current quantity
@@ -272,9 +379,9 @@ async def get_held_assets(
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
-                # Count splits and buy/sell transactions (portfolio-specific if portfolio_id provided)
+                # Count splits and buy/sell/conversion transactions (portfolio-specific if portfolio_id provided)
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
-                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
+                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
                 
                 # Get first transaction date (earliest BUY transaction)
                 buy_transactions = [tx for tx in portfolio_transactions if tx.type == TransactionType.BUY]
@@ -302,12 +409,16 @@ async def get_held_assets(
                     "transaction_count": transaction_count,
                     "first_transaction_date": first_transaction_date.isoformat() if first_transaction_date else None,
                     "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
-                    "created_at": asset.created_at,
-                    "updated_at": asset.updated_at
+                    "created_at": asset.created_at.isoformat() if asset.created_at else None,
+                    "updated_at": asset.updated_at.isoformat() if asset.updated_at else None
                 })
     
     # Sort by symbol
     results.sort(key=lambda x: x["symbol"])
+    
+    # Cache for 1 hour (invalidated on transaction changes)
+    cache_service.set(cache_key, json.dumps(results), ttl=3600)
+    
     return results
 
 
@@ -326,10 +437,21 @@ async def get_sold_assets(
     - Number of portfolios that held this asset
     - Portfolio-specific split_count and transaction_count if portfolio_id is provided
     - User-specific metadata overrides (effective_sector, effective_industry, effective_country)
+    
+    Cached until next transaction is created/updated/deleted.
     """
     from sqlalchemy import func
     from app.models import Asset, Transaction, TransactionType
     from decimal import Decimal
+    
+    # Check cache
+    cache_key = f"assets_sold:{current_user.id}:{portfolio_id or 'all'}"
+    cached = cache_service.get(cache_key)
+    if cached:
+        logger.debug(f"Cache HIT for sold assets: {cache_key}")
+        return json.loads(cached)
+    
+    logger.debug(f"Cache MISS for sold assets: {cache_key}")
     
     # Get all assets that have transactions
     query = db.query(Transaction.asset_id.distinct())
@@ -360,9 +482,9 @@ async def get_sold_assets(
         for tx in transactions_for_calculation:
             portfolio_ids.add(tx.portfolio_id)
             
-            if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                 total_quantity += tx.quantity
-            elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 total_quantity -= tx.quantity
             elif tx.type == TransactionType.SPLIT:
                 # Apply split ratio to current quantity
@@ -375,7 +497,7 @@ async def get_sold_assets(
             if asset:
                 # Count splits and buy/sell transactions (portfolio-specific if portfolio_id provided)
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
-                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL])
+                transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
                 
                 # Get first transaction date (earliest BUY transaction)
                 buy_transactions = [tx for tx in portfolio_transactions if tx.type == TransactionType.BUY]
@@ -403,17 +525,21 @@ async def get_sold_assets(
                     "transaction_count": transaction_count,
                     "first_transaction_date": first_transaction_date.isoformat() if first_transaction_date else None,
                     "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
-                    "created_at": asset.created_at,
-                    "updated_at": asset.updated_at
+                    "created_at": asset.created_at.isoformat() if asset.created_at else None,
+                    "updated_at": asset.updated_at.isoformat() if asset.updated_at else None
                 })
     
     # Sort by symbol
     results.sort(key=lambda x: x["symbol"])
+    
+    # Cache for 1 hour (invalidated on transaction changes)
+    cache_service.set(cache_key, json.dumps(results), ttl=3600)
+    
     return results
 
 
 @router.post("/enrich/all")
-async def enrich_all_assets(db: Session = Depends(get_db)):
+def enrich_all_assets(db: Session = Depends(get_db)):
     """
     Enrich all assets with metadata from Yahoo Finance
     
@@ -429,7 +555,7 @@ async def enrich_all_assets(db: Session = Depends(get_db)):
 
 
 @router.post("/enrich/{asset_id}", response_model=Asset)
-async def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
+def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
     """
     Enrich a single asset with metadata from Yahoo Finance
     
@@ -437,10 +563,7 @@ async def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
     """
     enriched = crud.enrich_asset_metadata(db, asset_id)
     if not enriched:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     return enriched
 
 
@@ -491,33 +614,43 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
             logo_data, content_type = cached
-            response = Response(content=logo_data, media_type=content_type)
-            # Cache for 30 days
-            response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
-            # Add ETag for cache validation
-            etag = hashlib.md5(logo_data).hexdigest()
-            response.headers["ETag"] = f'"{etag}"'
-            return response
+            # Don't use cached SVG fallbacks - try to fetch real logo instead
+            is_cached_svg = content_type == 'image/svg+xml'
+            if not is_cached_svg:
+                response = Response(content=logo_data, media_type=content_type)
+                # Cache for 30 days
+                response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+                # Add ETag for cache validation
+                etag = hashlib.md5(logo_data).hexdigest()
+                response.headers["ETag"] = f'"{etag}"'
+                return response
 
     # Fetch logo using the consolidated validation function
     # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
     logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
     
     # Determine content type based on data
-    if logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml'):
+    is_svg_fallback = logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml')
+    if is_svg_fallback:
         content_type = 'image/svg+xml'
-        cache_time = 604800  # 7 days for SVG
+        cache_time = 3600  # 1 hour for SVG fallbacks (so real logos can replace them)
     else:
         content_type = 'image/webp'
         cache_time = 2592000  # 30 days for real logos
     
-    # Cache in database if asset exists and not ETF/Crypto (they should be refetched each time)
-    if db_asset and not skip_cache:
+    # Only cache real logos in database, not SVG fallbacks
+    # SVG fallbacks should be regenerated so they can be replaced with real logos later
+    if db_asset and not skip_cache and not is_svg_fallback:
         crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
     
     # Return the logo
     response = Response(content=logo_data, media_type=content_type)
-    response.headers["Cache-Control"] = f"public, max-age={cache_time}, immutable"
+    if is_svg_fallback:
+        # For SVG fallbacks, use short cache with must-revalidate so real logos can replace them
+        response.headers["Cache-Control"] = "public, max-age=300, must-revalidate"
+    else:
+        # For real logos, use long cache with immutable
+        response.headers["Cache-Control"] = f"public, max-age={cache_time}, immutable"
     # Add ETag for cache validation
     etag = hashlib.md5(logo_data).hexdigest()
     response.headers["ETag"] = f'"{etag}"'
@@ -526,7 +659,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
 
 
 @router.get("/{asset_id}/splits")
-async def get_asset_split_history(
+def get_asset_split_history(
     asset_id: int, 
     portfolio_id: int | None = None,
     db: Session = Depends(get_db)
@@ -542,10 +675,7 @@ async def get_asset_split_history(
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)
     if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     
     # Build query
     query = db.query(Transaction).filter(
@@ -571,7 +701,7 @@ async def get_asset_split_history(
 
 
 @router.get("/{asset_id}/transactions")
-async def get_asset_transaction_history(
+def get_asset_transaction_history(
     asset_id: int, 
     portfolio_id: int | None = None,
     db: Session = Depends(get_db)
@@ -589,10 +719,7 @@ async def get_asset_transaction_history(
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)
     if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     
     # Build query for all transactions
     query = db.query(Transaction).filter(Transaction.asset_id == asset_id)
@@ -601,16 +728,16 @@ async def get_asset_transaction_history(
     if portfolio_id is not None:
         query = query.filter(Transaction.portfolio_id == portfolio_id)
     
-    # Get all transactions (BUY, SELL, and SPLIT) ordered chronologically
+    # Get all transactions (BUY, SELL, CONVERSION, and SPLIT) ordered chronologically
     all_transactions = query.order_by(Transaction.tx_date.asc()).all()
     
-    # Build query for BUY and SELL transactions with portfolio names
+    # Build query for BUY, SELL, and CONVERSION transactions with portfolio names
     tx_query = (
         db.query(Transaction, Portfolio.name)
         .join(Portfolio, Transaction.portfolio_id == Portfolio.id)
         .filter(
             Transaction.asset_id == asset_id,
-            Transaction.type.in_([TransactionType.BUY, TransactionType.SELL])
+            Transaction.type.in_([TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
         )
     )
     
@@ -655,6 +782,7 @@ async def get_asset_transaction_history(
 
 @router.get("/distribution/sectors")
 async def get_sectors_distribution(
+    metrics_service: MetricsServiceDep,
     portfolio_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -675,7 +803,6 @@ async def get_sectors_distribution(
     
     Optionally filter by portfolio_id to get sector distribution for a specific portfolio.
     """
-    from app.services.metrics import MetricsService
     from collections import defaultdict
     
     # Get all held assets (with optional portfolio filter and user-specific overrides)
@@ -684,7 +811,6 @@ async def get_sectors_distribution(
     # If we have a portfolio_id, get positions for that portfolio
     positions_map = {}
     if portfolio_id is not None:
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_positions(portfolio_id)
         # Also get sold positions which might still have data
         sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
@@ -761,6 +887,7 @@ async def get_sectors_distribution(
 
 @router.get("/distribution/countries")
 async def get_countries_distribution(
+    metrics_service: MetricsServiceDep,
     portfolio_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -781,14 +908,12 @@ async def get_countries_distribution(
     
     Optionally filter by portfolio_id to get country distribution for a specific portfolio.
     """
-    from app.services.metrics import MetricsService
     from collections import defaultdict
     
     held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     positions_map = {}
     if portfolio_id is not None:
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_positions(portfolio_id)
         sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
         all_positions = positions + sold_positions
@@ -878,6 +1003,7 @@ async def get_countries_distribution(
 
 @router.get("/distribution/types")
 async def get_types_distribution(
+    metrics_service: MetricsServiceDep,
     portfolio_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -896,14 +1022,12 @@ async def get_types_distribution(
     
     Optionally filter by portfolio_id to get type distribution for a specific portfolio.
     """
-    from app.services.metrics import MetricsService
     from collections import defaultdict
     
     held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
     
     positions_map = {}
     if portfolio_id is not None:
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_positions(portfolio_id)
         sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
         all_positions = positions + sold_positions
@@ -992,6 +1116,7 @@ async def get_types_distribution(
 
 @router.get("/distribution/industries")
 async def get_industries_distribution(
+    metrics_service: MetricsServiceDep,
     portfolio_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1012,7 +1137,6 @@ async def get_industries_distribution(
     
     Optionally filter by portfolio_id to get industry distribution for a specific portfolio.
     """
-    from app.services.metrics import MetricsService
     from collections import defaultdict
     
     # Get all held assets (with optional portfolio filter and user-specific overrides)
@@ -1021,7 +1145,6 @@ async def get_industries_distribution(
     # If we have a portfolio_id, get positions for that portfolio
     positions_map = {}
     if portfolio_id is not None:
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_positions(portfolio_id)
         # Also get sold positions which might still have data
         sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
@@ -1098,7 +1221,8 @@ async def get_industries_distribution(
 
 @router.get("/distribution/sectors/{sector_name}/industries")
 async def get_sector_industries_distribution(
-    sector_name: str, 
+    sector_name: str,
+    metrics_service: MetricsServiceDep,
     portfolio_id: int | None = None, 
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1117,7 +1241,6 @@ async def get_sector_industries_distribution(
     
     Optionally filter by portfolio_id.
     """
-    from app.services.metrics import MetricsService
     from collections import defaultdict
     from urllib.parse import unquote
     
@@ -1136,7 +1259,6 @@ async def get_sector_industries_distribution(
     # If we have a portfolio_id, get positions for that portfolio
     positions_map = {}
     if portfolio_id is not None:
-        metrics_service = MetricsService(db)
         positions = await metrics_service.get_positions(portfolio_id)
         sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
         all_positions = positions + sold_positions
@@ -1227,7 +1349,7 @@ async def get_sector_industries_distribution(
 
 
 @router.get("/{asset_id}/prices")
-async def get_asset_price_history(
+def get_asset_price_history(
     asset_id: int,
     period: str = "1M",
     db: Session = Depends(get_db)
@@ -1252,10 +1374,7 @@ async def get_asset_price_history(
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)
     if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     
     # Determine date range based on period
     end_date = datetime.utcnow()
@@ -1282,10 +1401,7 @@ async def get_asset_price_history(
         else:
             start_date = asset.created_at
     else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid period '{period}'. Valid values: 1W, 1M, 3M, 6M, YTD, 1Y, ALL"
-        )
+        raise InvalidPriceHistoryPeriodError(period=period)
     
     # Fetch prices from database
     prices = crud_prices.get_prices(
@@ -1342,7 +1458,7 @@ async def get_asset_price_history(
 
 
 @router.get("/{asset_id}/health")
-async def get_asset_price_health(asset_id: int, db: Session = Depends(get_db)):
+def get_asset_price_health(asset_id: int, db: Session = Depends(get_db)):
     """
     Get health metrics for asset price data
     
@@ -1363,10 +1479,7 @@ async def get_asset_price_health(asset_id: int, db: Session = Depends(get_db)):
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)
     if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset {asset_id} not found"
-        )
+        raise AssetNotFoundError(id=asset_id)
     
     # Get all prices for this asset
     all_prices = crud_prices.get_prices(
@@ -1486,7 +1599,7 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
     recommendations = []
     
     if status == "POOR" or coverage_pct < 60:
-        recommendations.append("⚠️ Price data coverage is low. Consider running a manual backfill.")
+        recommendations.append("Price data coverage is low. Consider running a manual backfill.")
         recommendations.append(f"Run: POST /portfolios/{{portfolio_id}}/backfill_history to fetch missing prices")
     
     if gap_count > 10:
@@ -1495,16 +1608,16 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
             recommendations.append("Consider re-fetching historical data from first transaction date.")
     
     if status == "EXCELLENT":
-        recommendations.append("✅ Price data coverage is excellent. No action needed.")
+        recommendations.append("Price data coverage is excellent. No action needed.")
     
     if not asset.first_transaction_date:
-        recommendations.append("⚠️ No first_transaction_date set. Historical backfill may not work correctly.")
+        recommendations.append("No first_transaction_date set. Historical backfill may not work correctly.")
     
     return recommendations
 
 
 @router.get("/{asset_id}/yfinance")
-async def get_yfinance_data(
+def get_yfinance_data(
     asset_id: int = None, 
     symbol: Optional[str] = None,
     db: Session = Depends(get_db)
@@ -1527,18 +1640,12 @@ async def get_yfinance_data(
         # Try to get asset from database
         asset_in_db = crud.get_asset(db, asset_id)
         if not asset_in_db and not symbol:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Asset {asset_id} not found in database"
-            )
+            raise AssetNotFoundInDatabaseError(id=asset_id)
         if asset_in_db:
             fetch_symbol = asset_in_db.symbol
     
     if not fetch_symbol:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either valid asset_id or symbol parameter is required"
-        )
+        raise InvalidAssetIDOrSymbolError()
     
     try:
         # Fetch ticker info from yfinance
@@ -1707,10 +1814,7 @@ async def get_yfinance_data(
         }
     except Exception as e:
         logger.error(f"Failed to fetch yfinance data for {fetch_symbol}: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch yfinance data: {str(e)}"
-        )
+        raise FailedToFetchYahooFinanceDataError(symbol=fetch_symbol, reason=str(e))
 
 
 

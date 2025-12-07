@@ -1,13 +1,14 @@
 """
 Logs API router for Portfolium
 """
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import os
 import re
 from typing import List, Optional
 
+from app.errors import LogFileNotFoundError
 from app.auth import get_current_admin_user
 from app.models import User
 from app.db import get_db
@@ -28,7 +29,7 @@ def get_logs(
 ):
     """Fetch logs from the log file with optional filtering and pagination (admin only)."""
     if not os.path.exists(LOG_FILE):
-        raise HTTPException(status_code=404, detail="Log file not found.")
+        raise LogFileNotFoundError()
     
     logs: List[str] = []
     with open(LOG_FILE, encoding="utf-8") as f:

@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
-import { formatCurrency as formatCurrencyUtil } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3 } from 'lucide-react'
+import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
+import ConversionModal from '../components/ConversionModal'
 import SortIcon from '../components/SortIcon'
 import { useTranslation } from 'react-i18next'
 
@@ -37,18 +39,28 @@ interface Transaction {
   }
 }
 
-type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split'
+type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split' | 'conversion'
 type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
 
 export default function Transactions() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
+  const incrementDataVersion = usePortfolioStore((state) => state.incrementDataVersion)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
+
+  // Helper to invalidate all portfolio-related caches
+  const invalidatePortfolioData = useCallback(async () => {
+    // Remove all queries from cache to force fresh fetch
+    queryClient.removeQueries()
+    // Increment data version to trigger useEffect re-fetches in widgets
+    incrementDataVersion()
+  }, [queryClient, incrementDataVersion])
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,12 +90,15 @@ export default function Transactions() {
   const [splitRatio, setSplitRatio] = useState("")
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState("")
+  const [priceLoading, setPriceLoading] = useState(false)
+  const [priceInfo, setPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [showConversionModal, setShowConversionModal] = useState(false)
 
   // Load portfolios if not already loaded
   useEffect(() => {
@@ -94,7 +109,7 @@ export default function Transactions() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (modalMode || deleteConfirm || showImportProgress) {
+    if (modalMode || deleteConfirm || showImportProgress || showConversionModal) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -102,15 +117,27 @@ export default function Transactions() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [modalMode, deleteConfirm, showImportProgress])
+  }, [modalMode, deleteConfirm, showImportProgress, showConversionModal])
 
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolioId) return
     
     setLoading(true)
     try {
-      const filters = activeTab !== 'all' ? { tx_type: activeTab.toUpperCase() } : undefined
-      const data = await api.getTransactions(activePortfolioId, filters)
+      // For conversion tab, we need to fetch all and filter client-side
+      // because conversions include both CONVERSION_IN and CONVERSION_OUT
+      const filters = activeTab !== 'all' && activeTab !== 'conversion' 
+        ? { tx_type: activeTab.toUpperCase() } 
+        : undefined
+      let data = await api.getTransactions(activePortfolioId, filters)
+      
+      // Filter for conversion types on client-side
+      if (activeTab === 'conversion') {
+        data = data.filter((tx: Transaction) => 
+          tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT'
+        )
+      }
+      
       setTransactions(data)
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
@@ -152,6 +179,42 @@ export default function Transactions() {
     setTicker(tickerInfo.symbol)
     setSearchResults([])
     setPrice("")
+    setPriceInfo(null)
+    // Auto-fetch price for the selected ticker and current date
+    if (activePortfolioId && txDate && txType !== 'SPLIT') {
+      fetchPriceForTicker(tickerInfo.symbol, txDate)
+    }
+  }
+
+  // Auto-fetch price when ticker or date changes
+  const fetchPriceForTicker = useCallback(async (symbol: string, date: string) => {
+    if (!activePortfolioId || !symbol || !date) return
+    
+    setPriceLoading(true)
+    setPriceInfo(null)
+    try {
+      const result = await api.fetchPriceForDate(activePortfolioId, symbol, date)
+      setPrice(formatDecimalForInput(result.price))
+      setPriceInfo({
+        converted: result.converted,
+        asset_currency: result.asset_currency
+      })
+    } catch (err) {
+      console.error("Failed to fetch price:", err)
+      // Don't show error - user can still enter price manually
+    } finally {
+      setPriceLoading(false)
+    }
+  }, [activePortfolioId])
+
+  // Handle date change - auto-fetch price if ticker is selected
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value
+    setTxDate(newDate)
+    // Auto-fetch price if we have a selected ticker and it's not a SPLIT
+    if (selectedTicker && txType !== 'SPLIT') {
+      fetchPriceForTicker(selectedTicker.symbol, newDate)
+    }
   }
 
   // Helper function to format decimal numbers, removing trailing zeros after decimal point only
@@ -211,6 +274,8 @@ export default function Transactions() {
     setSplitRatio("")
     setFormError("")
     setSearchResults([])
+    setPriceLoading(false)
+    setPriceInfo(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -309,6 +374,10 @@ export default function Transactions() {
         )
       }
 
+      // Clear caches immediately
+      await invalidatePortfolioData()
+      
+      // Refetch to get fresh data
       await fetchTransactions()
       closeModal()
     } catch (err: unknown) {
@@ -321,11 +390,22 @@ export default function Transactions() {
 
   const handleDelete = async (transactionId: number) => {
     try {
-      await api.deleteTransaction(activePortfolioId!, transactionId)
-      await fetchTransactions()
+      // Optimistically remove from local state immediately
+      setTransactions(prev => prev.filter(t => t.id !== transactionId))
       setDeleteConfirm(null)
+      
+      // Delete on backend
+      await api.deleteTransaction(activePortfolioId!, transactionId)
+      
+      // Clear all caches immediately (no delay needed with optimistic update)
+      await invalidatePortfolioData()
+      
+      // Refetch to ensure consistency
+      await fetchTransactions()
     } catch (err) {
       console.error("Failed to delete transaction:", err)
+      // Refetch on error to restore correct state
+      await fetchTransactions()
     }
   }
 
@@ -382,9 +462,17 @@ export default function Transactions() {
       return
     }
 
-    // Create CSV content
-    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'split_ratio', 'notes']
-    const rows = transactions.map(tx => [
+    // Create CSV content with sequence for ordering and conversion_id for linked conversions
+    const headers = ['date', 'symbol', 'type', 'quantity', 'price', 'fees', 'currency', 'split_ratio', 'conversion_id', 'notes', 'sequence']
+    
+    // Sort by date and then by id to ensure consistent ordering
+    const sortedForExport = [...transactions].sort((a, b) => {
+      const dateCompare = new Date(a.tx_date).getTime() - new Date(b.tx_date).getTime()
+      if (dateCompare !== 0) return dateCompare
+      return a.id - b.id
+    })
+    
+    const rows = sortedForExport.map((tx, index) => [
       tx.tx_date,
       tx.asset.symbol,
       tx.type,
@@ -393,7 +481,9 @@ export default function Transactions() {
       tx.fees,
       tx.currency,
       tx.metadata?.split || '',
-      tx.notes || ''
+      tx.metadata?.conversion_id || '',
+      tx.notes || '',
+      index + 1  // Sequence number to preserve order
     ])
 
     const csvContent = [
@@ -514,10 +604,6 @@ export default function Transactions() {
 
   const availableSortOptions: SortKey[] = ['tx_date', 'symbol', 'type', 'quantity', 'price', 'fees', 'total']
 
-  const formatCurrency = (value: number | string | null, currency: string = 'EUR') => {
-    return formatCurrencyUtil(value, currency)
-  }
-
   const formatQuantity = (value: number | string | null) => {
     if (value === null || value === undefined) return '-'
     const numValue = typeof value === 'string' ? parseFloat(value) : value
@@ -543,6 +629,8 @@ export default function Transactions() {
       'SPLIT': t('transaction.types.split'),
       'TRANSFER_IN': t('transaction.types.transferIn'),
       'TRANSFER_OUT': t('transaction.types.transferOut'),
+      'CONVERSION_IN': t('transaction.types.conversionIn'),
+      'CONVERSION_OUT': t('transaction.types.conversionOut'),
     }
     return typeMap[type.toUpperCase()] || type
   }
@@ -554,14 +642,19 @@ export default function Transactions() {
     { id: 'dividend', label: t('transaction.types.dividend') },
     { id: 'fee', label: t('transaction.types.fee') },
     { id: 'split', label: t('transaction.types.split') },
+    { id: 'conversion', label: t('transaction.types.conversion') },
   ]
 
   const getTransactionIcon = (type: string) => {
     switch (type.toUpperCase()) {
       case 'BUY':
         return <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
+      case 'CONVERSION_IN':
+        return <ArrowLeftRight size={16} className="text-green-600 dark:text-green-400" />
       case 'SELL':
         return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
+      case 'CONVERSION_OUT':
+        return <ArrowLeftRight size={16} className="text-red-600 dark:text-red-400" />
       case 'SPLIT':
         return <Shuffle size={16} className="text-purple-600 dark:text-purple-400" />
       default:
@@ -572,8 +665,10 @@ export default function Transactions() {
   const getTransactionColor = (type: string) => {
     switch (type.toUpperCase()) {
       case 'BUY':
+      case 'CONVERSION_IN':
         return 'text-green-600 dark:text-green-400'
       case 'SELL':
+      case 'CONVERSION_OUT':
         return 'text-red-600 dark:text-red-400'
       case 'SPLIT':
         return 'text-purple-600 dark:text-purple-400'
@@ -624,6 +719,13 @@ export default function Transactions() {
           >
             <Download size={16} />
             <span className="hidden sm:inline">{t('common.export')}</span>
+          </button>
+          <button 
+            onClick={() => setShowConversionModal(true)}
+            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
+          >
+            <RefreshCw size={16} />
+            <span className="hidden sm:inline">{t('conversion.convert')}</span>
           </button>
           <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm px-3 py-2">
             <PlusCircle size={16} />
@@ -846,7 +948,7 @@ export default function Transactions() {
                               {getTranslatedType(transaction.type)}
                             </div>
                             <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(total, transaction.currency)}
                             </div>
                           </div>
                         </div>
@@ -868,7 +970,7 @@ export default function Transactions() {
                           <div>
                             <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.fees')}</span>
                             <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
+                              {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
                             </div>
                           </div>
                           {transaction.asset.name && (
@@ -1033,7 +1135,7 @@ export default function Transactions() {
                               {transaction.asset.symbol}
                             </div>
                             {transaction.asset.name && (
-                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 max-w-[150px] truncate" title={transaction.asset.name}>
                                 {transaction.asset.name}
                               </div>
                             )}
@@ -1053,10 +1155,10 @@ export default function Transactions() {
                         {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.fees, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(total, transaction.currency)}
+                        {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(total, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
                         {(() => {
@@ -1171,7 +1273,8 @@ export default function Transactions() {
                   <input
                     type="date"
                     value={txDate}
-                    onChange={(e) => setTxDate(e.target.value)}
+                    onChange={handleDateChange}
+                    max={new Date().toISOString().split('T')[0]}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                     required
                   />
@@ -1238,21 +1341,34 @@ export default function Transactions() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {t('fields.price')} ({portfolioCurrency}) {modalMode === 'add' && `(${t('common.optional')})`}
+                      {t('fields.price')} ({portfolioCurrency})
+                      {priceLoading && (
+                        <span className="ml-2 text-pink-500 animate-pulse">{t('common.loading')}...</span>
+                      )}
                     </label>
-                    <input
-                      type="number"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                      min="0"
-                      step="any"
-                      placeholder={modalMode === 'add' ? t('transactions.autoFetch') : '0.00'}
-                      required={modalMode === 'edit'}
-                    />
-                    {modalMode === 'add' && (
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        {t('transactions.autoFetchInfo', { currency: portfolioCurrency })}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={price}
+                        onChange={(e) => {
+                          setPrice(e.target.value)
+                          setPriceInfo(null) // Clear conversion info when user manually edits
+                        }}
+                        className={`w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 ${priceLoading ? 'opacity-50' : ''}`}
+                        min="0"
+                        step="any"
+                        placeholder="0.00"
+                        disabled={priceLoading}
+                      />
+                      {priceLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <RefreshCw size={16} className="animate-spin text-pink-500" />
+                        </div>
+                      )}
+                    </div>
+                    {priceInfo?.converted && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        ✓ {t('transactions.priceConverted', { from: priceInfo.asset_currency, to: portfolioCurrency })}
                       </p>
                     )}
                   </div>
@@ -1358,6 +1474,18 @@ export default function Transactions() {
         onComplete={handleImportComplete}
         portfolioId={activePortfolioId || 0}
         file={importFile}
+      />
+
+      {/* Conversion Modal */}
+      <ConversionModal
+        isOpen={showConversionModal}
+        onClose={() => setShowConversionModal(false)}
+        onSuccess={() => {
+          fetchTransactions()
+          invalidatePortfolioData()
+        }}
+        portfolioId={activePortfolioId || 0}
+        portfolioCurrency={portfolioCurrency}
       />
     </div>
   )

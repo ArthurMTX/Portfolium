@@ -3,6 +3,13 @@
  * API client for Portfolium backend
  */
 
+import type {
+  DashboardLayoutDTO,
+  DashboardLayoutCreate,
+  DashboardLayoutUpdate,
+  DashboardLayoutExport
+} from '../types/dashboard'
+
 // Use /api prefix so requests go through proxy (both dev and production)
 // Vite dev proxy and nginx will forward /api/* to the backend
 const API_BASE_URL = '/api'
@@ -42,6 +49,8 @@ export interface PortfolioDTO {
   name: string
   base_currency: string
   description: string | null
+  is_public: boolean
+  share_token: string
   created_at: string
 }
 
@@ -49,6 +58,7 @@ export interface PositionDTO {
   asset_id: number
   symbol: string
   name: string | null
+  asset_type?: string | null
   quantity: number
   avg_cost: number
   current_price: number | null
@@ -57,6 +67,27 @@ export interface PositionDTO {
   unrealized_pnl: number | null
   unrealized_pnl_pct: number | null
   daily_change_pct: number | null
+  breakeven_gain_pct?: number | null
+  breakeven_target_price?: number | null
+  // Advanced metrics
+  distance_to_ath_pct?: number | null
+  avg_buy_zone_pct?: number | null
+  personal_drawdown_pct?: number | null
+  local_ath_price?: number | null
+  local_ath_date?: string | null
+  vol_contribution_pct?: number | null
+  cost_to_average_down?: number | null
+  ath_price?: number | null // ATH in portfolio currency
+  ath_price_native?: number | null // ATH in native currency
+  ath_currency?: string | null // Native currency of the ATH
+  ath_date?: string | null
+  // Relative performance vs sector
+  relative_perf_30d?: number | null
+  relative_perf_90d?: number | null
+  relative_perf_ytd?: number | null
+  relative_perf_1y?: number | null
+  sector?: string | null
+  sector_etf?: string | null
   currency: string
   last_updated: string | null
 }
@@ -133,6 +164,229 @@ export interface IndustryItemDTO {
   asset_ids: number[]
 }
 
+// Insights Types
+export interface TopPerformerDTO {
+  symbol: string
+  name: string | null
+  return_pct: number
+  value: number
+  unrealized_pnl: number
+  period: string
+  logo_url?: string | null
+  asset_type?: string | null
+}
+
+export interface PerformanceMetricsDTO {
+  period: string
+  total_return: number
+  total_return_pct: number
+  annualized_return: number
+  start_value: number
+  end_value: number
+  total_invested: number
+  total_withdrawn: number
+  best_day: number | null
+  best_day_date: string | null
+  worst_day: number | null
+  worst_day_date: string | null
+  positive_days: number
+  negative_days: number
+  win_rate: number
+}
+
+export interface RiskMetricsDTO {
+  period: string
+  volatility: number
+  sharpe_ratio: number | null
+  max_drawdown: number
+  max_drawdown_date: string | null
+  beta: number | null
+  var_95: number | null
+  downside_deviation: number
+}
+
+export interface BenchmarkComparisonDTO {
+  benchmark_symbol: string
+  benchmark_name: string
+  period: string
+  portfolio_return: number
+  benchmark_return: number
+  alpha: number
+  correlation: number | null
+}
+
+export interface AverageHoldingPeriodDTO {
+  portfolio_id: number
+  average_holding_period_days: number | null
+}
+
+// Price Quote
+export interface PriceQuote {
+  symbol: string
+  current_price: number
+  price: number
+  asof: string
+  currency: string
+  daily_change_pct?: number
+  percent_change?: number
+}
+
+// Market Status
+export interface MarketStatusDTO {
+  status: string
+  timestamp: string
+  database: string
+  version: string
+  market_status: string
+  market_statuses?: {
+    us: string
+    europe: string
+    asia: string
+    oceania: string
+  }
+  email_enabled: boolean
+  is_open?: boolean
+  next_open?: string
+  current_time?: string
+}
+
+export interface TransactionDTO {
+  id: number
+  portfolio_id: number
+  asset_id: number
+  transaction_type: string
+  transaction_date: string
+  quantity: number
+  price: number
+  fees: number
+  notes: string | null
+  symbol: string
+  asset_name: string | null
+  created_at: string
+}
+
+export interface PortfolioGoalDTO {
+  id: number
+  portfolio_id: number
+  title: string
+  target_amount: number
+  target_date: string | null
+  monthly_contribution: number
+  category: 'retirement' | 'house' | 'education' | 'vacation' | 'emergency' | 'other'
+  description: string | null
+  color: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PortfolioGoalCreate {
+  title: string
+  target_amount: number
+  target_date?: string | null
+  monthly_contribution?: number
+  category?: 'retirement' | 'house' | 'education' | 'vacation' | 'emergency' | 'other'
+  description?: string | null
+  color?: string | null
+  is_active?: boolean
+}
+
+export interface PortfolioGoalUpdate {
+  title?: string
+  target_amount?: number
+  target_date?: string | null
+  monthly_contribution?: number
+  category?: 'retirement' | 'house' | 'education' | 'vacation' | 'emergency' | 'other'
+  description?: string | null
+  color?: string | null
+  is_active?: boolean
+}
+
+export interface GoalScenario {
+  label: 'Pessimistic' | 'Median' | 'Optimistic'
+  return_rate: number
+  projected_months: number
+  projected_amount: number
+  quantile: number
+  color: string
+}
+
+export interface GoalMilestone {
+  percentage: number
+  amount: number
+  achieved: boolean
+  label: string
+}
+
+export interface GoalProjectionsDTO {
+  scenarios: GoalScenario[]
+  milestones: GoalMilestone[]
+  probability: number
+  historical_performance: {
+    annual_return: number
+    annual_volatility: number
+  }
+  is_past_target_date?: boolean
+  warning?: string
+}
+
+export interface PublicTimeSeriesPoint {
+  date: string
+  value: number
+}
+
+export interface PublicPerformanceMetrics {
+  period: string
+  total_return_pct: number
+  annualized_return: number
+  best_day_date: string | null
+  worst_day_date: string | null
+  positive_days: number
+  negative_days: number
+  win_rate: number
+}
+
+export interface PublicRiskMetrics {
+  period: string
+  volatility: number
+  sharpe_ratio: number | null
+  max_drawdown: number
+  max_drawdown_date: string | null
+  beta: number | null
+}
+
+
+export interface PublicSectorAllocation {
+  sector: string
+  percentage: number
+}
+
+export interface PublicGeographicAllocation {
+  country: string
+  percentage: number
+}
+
+export interface PublicHolding {
+  symbol: string
+  name: string | null
+  sector: string | null
+  industry: string | null
+  country: string | null
+  weight_pct: number
+  asset_type: string | null
+}
+
+export interface PublicPortfolioInsights {
+  portfolio_id: number
+  portfolio_name: string
+  owner_username: string
+  as_of_date: string
+  period: string
+  sector_allocation: PublicSectorAllocation[]
+  geographic_allocation: PublicGeographicAllocation[]
+  holdings: PublicHolding[]
+}
+
 class ApiClient {
   // Admin
   async getAdminUsers() {
@@ -185,7 +439,7 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit & { timeout?: number } = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     const headers = {
@@ -194,33 +448,48 @@ class ApiClient {
       ...options.headers,
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
+    const { timeout, ...fetchOptions } = options
+    const controller = new AbortController()
+    const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null
 
-    if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({
-        detail: 'An error occurred',
-      }))
-      throw new Error(
-        typeof error.detail === 'string'
-          ? error.detail
-          : JSON.stringify(error.detail)
-      )
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        signal: controller.signal,
+      })
+
+      if (timeoutId) clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const error: ApiError = await response.json().catch(() => ({
+          detail: 'An error occurred',
+        }))
+        throw new Error(
+          typeof error.detail === 'string'
+            ? error.detail
+            : JSON.stringify(error.detail)
+        )
+      }
+
+      // Handle 204 No Content responses (like DELETE operations)
+      if (response.status === 204) {
+        return undefined as T
+      }
+
+      return response.json()
+    } catch (err) {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error('Request timeout - the operation took too long')
+      }
+      throw err
     }
-
-    // Handle 204 No Content responses (like DELETE operations)
-    if (response.status === 204) {
-      return undefined as T
-    }
-
-    return response.json()
   }
 
   // Health
   async healthCheck() {
-    return this.request<{ 
+    return this.request<{
       status: string
       timestamp: string
       database: string
@@ -373,11 +642,27 @@ class ApiClient {
     return this.request<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
   }
 
+  async searchAssets(query: string, cryptoOnly: boolean = false) {
+    const params = new URLSearchParams({ query })
+    if (cryptoOnly) params.append('crypto_only', 'true')
+    return this.request<Array<{ symbol: string; name: string; type?: string }>>(`/assets/search?${params.toString()}`)
+  }
+
+  async getAssetBySymbol(symbol: string) {
+    return this.request<{ id: number; symbol: string; name: string; currency: string }>(`/assets/by-symbol/${encodeURIComponent(symbol)}`)
+  }
+
+  async getPriceQuote(symbol: string, targetCurrency?: string) {
+    const params = targetCurrency ? `?target_currency=${encodeURIComponent(targetCurrency)}` : ''
+    return this.request<{ symbol: string; price: number; currency: string }>(`/prices/quote/${encodeURIComponent(symbol)}${params}`)
+  }
+
   async createAsset(asset: {
     symbol: string
     name?: string
     currency?: string
     class?: string
+    asset_type?: string
   }) {
     return this.request<any>('/assets', {
       method: 'POST',
@@ -390,7 +675,7 @@ class ApiClient {
     return this.request<Array<{
       id: number
       tx_date: string
-      metadata: { split?: string; [key: string]: unknown }
+      metadata: { split?: string;[key: string]: unknown }
       notes: string | null
     }>>(`/assets/${assetId}/splits${params}`)
   }
@@ -528,6 +813,7 @@ class ApiClient {
     name: string
     base_currency?: string
     description?: string
+    is_public?: boolean
   }) {
     return this.request<PortfolioDTO>('/portfolios', {
       method: 'POST',
@@ -539,6 +825,7 @@ class ApiClient {
     name: string
     base_currency?: string
     description?: string
+    is_public?: boolean
   }) {
     return this.request<PortfolioDTO>(`/portfolios/${portfolioId}`, {
       method: 'PUT',
@@ -585,6 +872,42 @@ class ApiClient {
     return this.request<BatchPricesResponseDTO>(`/portfolios/${portfolioId}/prices/batch`)
   }
 
+  // Portfolio Goals
+  async getPortfolioGoals(portfolioId: number, activeOnly: boolean = false) {
+    const params = activeOnly ? '?active_only=true' : ''
+    return this.request<PortfolioGoalDTO[]>(`/portfolios/${portfolioId}/goals${params}`)
+  }
+
+  async getPortfolioGoal(portfolioId: number, goalId: number) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals/${goalId}`)
+  }
+
+  async createPortfolioGoal(portfolioId: number, goal: PortfolioGoalCreate) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals`, {
+      method: 'POST',
+      body: JSON.stringify(goal),
+    })
+  }
+
+  async updatePortfolioGoal(portfolioId: number, goalId: number, goal: PortfolioGoalUpdate) {
+    return this.request<PortfolioGoalDTO>(`/portfolios/${portfolioId}/goals/${goalId}`, {
+      method: 'PUT',
+      body: JSON.stringify(goal),
+    })
+  }
+
+  async deletePortfolioGoal(portfolioId: number, goalId: number) {
+    return this.request<void>(`/portfolios/${portfolioId}/goals/${goalId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getGoalProjections(portfolioId: number, goalId: number) {
+    return this.request<GoalProjectionsDTO>(`/portfolios/${portfolioId}/goals/${goalId}/projections`, {
+      method: 'POST',
+    })
+  }
+
   // Transactions
   async getTransactions(
     portfolioId: number,
@@ -626,6 +949,26 @@ class ApiClient {
     )
   }
 
+  async fetchPriceForDate(
+    portfolioId: number,
+    ticker: string,
+    txDate: string
+  ): Promise<{
+    price: number
+    original_price: number
+    asset_currency: string
+    portfolio_currency: string
+    converted: boolean
+  }> {
+    const params = new URLSearchParams({
+      ticker,
+      tx_date: txDate,
+    })
+    return this.request(
+      `/portfolios/${portfolioId}/fetch_price?${params.toString()}`
+    )
+  }
+
   async createTransaction(portfolioId: number, transaction: any) {
     return this.request<any>(`/portfolios/${portfolioId}/transactions`, {
       method: 'POST',
@@ -643,6 +986,29 @@ class ApiClient {
   async deleteTransaction(portfolioId: number, transactionId: number) {
     return this.request<void>(`/portfolios/${portfolioId}/transactions/${transactionId}`, {
       method: 'DELETE',
+    })
+  }
+
+  async createConversion(portfolioId: number, conversion: {
+    tx_date: string
+    from_asset_id: number
+    from_quantity: number
+    from_price: number
+    to_asset_id: number
+    to_quantity: number
+    to_price: number
+    fees?: number
+    currency?: string
+    notes?: string | null
+  }) {
+    return this.request<{
+      conversion_id: string
+      conversion_rate: string
+      from_transaction: any
+      to_transaction: any
+    }>(`/portfolios/${portfolioId}/conversions`, {
+      method: 'POST',
+      body: JSON.stringify(conversion),
     })
   }
 
@@ -732,8 +1098,80 @@ class ApiClient {
     })
   }
 
+  // Watchlist Tags
+  async getWatchlistTags() {
+    return this.request<Array<{
+      id: number
+      user_id: number
+      name: string
+      icon: string
+      color: string
+      created_at: string
+      updated_at: string
+    }>>('/watchlist/tags')
+  }
+
+  async createWatchlistTag(data: {
+    name: string
+    icon?: string
+    color?: string
+  }) {
+    return this.request<{
+      id: number
+      user_id: number
+      name: string
+      icon: string
+      color: string
+      created_at: string
+      updated_at: string
+    }>('/watchlist/tags', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateWatchlistTag(tagId: number, data: {
+    name?: string
+    icon?: string
+    color?: string
+  }) {
+    return this.request<{
+      id: number
+      user_id: number
+      name: string
+      icon: string
+      color: string
+      created_at: string
+      updated_at: string
+    }>(`/watchlist/tags/${tagId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteWatchlistTag(tagId: number) {
+    return this.request<void>(`/watchlist/tags/${tagId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async updateWatchlistItemTags(itemId: number, tagIds: number[]) {
+    return this.request<any>(`/watchlist/${itemId}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tag_ids: tagIds }),
+    })
+  }
+
   // Watchlist
-  async getWatchlist() {
+  async getWatchlist(tagIds?: number[], filterMode?: 'any' | 'all') {
+    const params = new URLSearchParams()
+    if (tagIds && tagIds.length > 0) {
+      params.append('tag_ids', tagIds.join(','))
+    }
+    if (filterMode) {
+      params.append('tag_mode', filterMode)
+    }
+    const queryString = params.toString() ? `?${params.toString()}` : ''
     return this.request<Array<{
       id: number
       user_id: number
@@ -746,9 +1184,19 @@ class ApiClient {
       current_price: number | string | null
       daily_change_pct: number | string | null
       currency: string
+      asset_type: string | null
       last_updated: string | null
       created_at: string
-    }>>('/watchlist')
+      tags: Array<{
+        id: number
+        user_id: number
+        name: string
+        icon: string
+        color: string
+        created_at: string
+        updated_at: string
+      }>
+    }>>(`/watchlist${queryString}`)
   }
 
   async addToWatchlist(data: {
@@ -756,6 +1204,7 @@ class ApiClient {
     notes?: string
     alert_target_price?: number
     alert_enabled?: boolean
+    tag_ids?: number[]
   }) {
     const { symbol, ...rest } = data;
     const params = new URLSearchParams({ symbol });
@@ -788,6 +1237,7 @@ class ApiClient {
     price: number
     fees?: number
     tx_date?: string
+    currency?: string
   }) {
     return this.request<{ success: boolean; transaction_id: number; message: string }>(
       `/watchlist/${itemId}/convert-to-buy`,
@@ -885,6 +1335,58 @@ class ApiClient {
     return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`, { signal })
   }
 
+  async getTopPerformers(portfolioId: number, period: string = '1y', limit: number = 5, signal?: AbortSignal) {
+    return this.request<TopPerformerDTO[]>(`/insights/${portfolioId}/top-performers?period=${period}&limit=${limit}`, { signal })
+  }
+
+  async getPerformanceMetrics(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<PerformanceMetricsDTO>(`/insights/${portfolioId}/performance?period=${period}`, { signal })
+  }
+
+  async getRiskMetrics(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<RiskMetricsDTO>(`/insights/${portfolioId}/risk?period=${period}`, { signal })
+  }
+
+  async getBenchmarkComparison(portfolioId: number, benchmark: string = 'SPY', period: string = '1y', signal?: AbortSignal) {
+    return this.request<BenchmarkComparisonDTO>(`/insights/${portfolioId}/benchmark?benchmark=${benchmark}&period=${period}`, { signal })
+  }
+
+  async getAverageHoldingPeriod(portfolioId: number, signal?: AbortSignal) {
+    return this.request<AverageHoldingPeriodDTO>(`/insights/${portfolioId}/average-holding-period`, { signal })
+  }
+
+  async getRecentTransactions(portfolioId: number, limit: number = 5, signal?: AbortSignal) {
+    return this.request<TransactionDTO[]>(`/portfolios/${portfolioId}/transactions?limit=${limit}`, { signal })
+  }
+
+  // Market Status
+  async getMarketStatus(signal?: AbortSignal) {
+    return this.request<MarketStatusDTO>('/health', { signal })
+  }
+
+  // Market Indices
+  async getMarketIndices(signal?: AbortSignal) {
+    const symbols = [
+      '^GSPC', '^DJI', '^IXIC', '^GSPTSE',
+      '^FTSE', '^GDAXI', '^FCHI', 'FTSEMIB.MI',
+      '^N225', '^HSI', '000001.SS', '^AXJO'
+    ].join(',')
+
+    const response = await this.request<Record<string, PriceQuote>>(`/prices/indices?symbols=${symbols}`, { signal })
+
+    // Normalize the response to include percent_change
+    const normalized: Record<string, PriceQuote> = {}
+    for (const [symbol, data] of Object.entries(response)) {
+      normalized[symbol] = {
+        ...data,
+        current_price: data.price,
+        percent_change: data.daily_change_pct
+      }
+    }
+
+    return normalized
+  }
+
   // Admin Email Configuration
   async getEmailConfig() {
     return this.request<{
@@ -927,7 +1429,9 @@ class ApiClient {
     })
   }
 
-  async testEmail(toEmail: string, testType: 'simple' | 'verification' | 'password_reset' | 'daily_report') {
+  async testEmail(toEmail: string, testType: 'simple' | 'verification' | 'password_reset' | 'daily_report' | 'welcome') {
+    // Daily reports can take longer to generate with many portfolios/transactions
+    const timeout = testType === 'daily_report' ? 300000 : 30000 // 5 minutes for daily report, 30s for others
     return this.request<{
       success: boolean
       message: string
@@ -937,7 +1441,8 @@ class ApiClient {
       from_email: string
     }>('/admin/email/test', {
       method: 'POST',
-      body: JSON.stringify({ to_email: toEmail, test_type: testType })
+      body: JSON.stringify({ to_email: toEmail, test_type: testType }),
+      timeout
     })
   }
 
@@ -954,7 +1459,180 @@ class ApiClient {
       smtp_configured: boolean
     }>('/admin/email/stats')
   }
+
+  // ============================================================================
+  // Market Data
+  // ============================================================================
+
+  async getStockMarketSentiment() {
+    return this.request<{
+      score: number
+      rating: string
+      previous_close: number
+      timestamp: string
+    }>('/market/sentiment/stock')
+  }
+
+  async getCryptoMarketSentiment() {
+    return this.request<{
+      score: number
+      rating: string
+      previous_value: number | null
+      timestamp: string
+    }>('/market/sentiment/crypto')
+  }
+
+  async getMarketSentiment(marketType: 'stock' | 'crypto') {
+    return this.request<{
+      score: number
+      rating: string
+      previous_close?: number
+      previous_value?: number | null
+      timestamp: string
+    }>(`/market/sentiment/${marketType}`)
+  }
+
+  async getVIXIndex() {
+    return this.request<{
+      price: number
+      change: number | null
+      change_pct: number | null
+      previous_close: number | null
+      timestamp: string
+    }>('/market/vix')
+  }
+
+  async getTNXIndex() {
+    return this.request<{
+      price: number
+      change: number | null
+      change_pct: number | null
+      previous_close: number | null
+      timestamp: string
+    }>('/market/tnx')
+  }
+
+  async getDXYIndex() {
+    return this.request<{
+      price: number
+      change: number | null
+      change_pct: number | null
+      previous_close: number | null
+      timestamp: string
+    }>('/market/dxy')
+  }
+
+  // ============================================================================
+  // Dashboard Layouts
+  // ============================================================================
+
+  async getDashboardLayouts(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : ''
+    return this.request<DashboardLayoutDTO[]>(`/dashboard-layouts/${params}`)
+  }
+
+  async getDefaultDashboardLayout(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : ''
+    try {
+      return await this.request<DashboardLayoutDTO>(`/dashboard-layouts/default${params}`)
+    } catch (error) {
+      // Return null if no default layout exists (404)
+      return null
+    }
+  }
+
+  async getDashboardLayout(layoutId: number) {
+    return this.request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutId}`)
+  }
+
+  async createDashboardLayout(layout: DashboardLayoutCreate) {
+    return this.request<DashboardLayoutDTO>('/dashboard-layouts/', {
+      method: 'POST',
+      body: JSON.stringify(layout),
+    })
+  }
+
+  async updateDashboardLayout(layoutId: number, update: DashboardLayoutUpdate) {
+    return this.request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutId}`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  async deleteDashboardLayout(layoutId: number) {
+    return this.request<void>(`/dashboard-layouts/${layoutId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async duplicateDashboardLayout(layoutId: number, newName: string) {
+    return this.request<DashboardLayoutDTO>(
+      `/dashboard-layouts/${layoutId}/duplicate?new_name=${encodeURIComponent(newName)}`,
+      { method: 'POST' }
+    )
+  }
+
+  async exportDashboardLayout(layoutId: number) {
+    return this.request<DashboardLayoutExport>(`/dashboard-layouts/${layoutId}/export`)
+  }
+
+  async importDashboardLayout(layout: DashboardLayoutExport, portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : ''
+    return this.request<DashboardLayoutDTO>(`/dashboard-layouts/import${params}`, {
+      method: 'POST',
+      body: JSON.stringify(layout),
+    })
+  }
+
+  async getPositionDetailedMetrics(portfolioId: number, assetId: number) {
+    return this.request<{
+      relative_perf_30d: number | null
+      relative_perf_90d: number | null
+      relative_perf_ytd: number | null
+      relative_perf_1y: number | null
+      sector_etf: string | null
+      market_cap: number | null
+      volume: number | null
+      avg_volume: number | null
+      pe_ratio: number | null
+      eps: number | null
+      asset_currency: string | null
+      revenue_growth: number | null
+      earnings_growth: number | null
+      profit_margins: number | null
+      operating_margins: number | null
+      return_on_equity: number | null
+      net_cash: number | null
+      debt_to_equity: number | null
+      current_ratio: number | null
+      quick_ratio: number | null
+      recommendation_key: string | null
+      recommendation_mean: number | null
+      num_analysts: number | null
+      target_mean: number | null
+      target_high: number | null
+      target_low: number | null
+      implied_upside_pct: number | null
+    }>(`/portfolios/${portfolioId}/positions/${assetId}/detailed-metrics`)
+  }
+  
+  async getPublicPortfolio(shareToken: string) {
+    return this.request<PublicPortfolioInsights>(`/public/portfolio/${shareToken}`)
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)
 export default api
+
+// Export convenience functions
+export const getTopPerformers = (portfolioId: number, period?: string, limit?: number, signal?: AbortSignal) =>
+  api.getTopPerformers(portfolioId, period, limit, signal)
+
+export const getRecentTransactions = (portfolioId: number, limit?: number, signal?: AbortSignal) =>
+  api.getRecentTransactions(portfolioId, limit, signal)
+
+export const getMarketStatus = (signal?: AbortSignal) =>
+  api.getMarketStatus(signal)
+
+export const getMarketIndices = (signal?: AbortSignal) =>
+  api.getMarketIndices(signal)

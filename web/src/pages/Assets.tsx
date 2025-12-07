@@ -69,7 +69,7 @@ export default function Assets() {
   });
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [transactionHistoryAsset, setTransactionHistoryAsset] = useState<{ id: number; symbol: string } | null>(null);
-  const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string } | null>(null);
+  const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string; assetType?: string | null; name?: string | null } | null>(null);
   const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [editAsset, setEditAsset] = useState<HeldAsset | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -683,7 +683,7 @@ export default function Assets() {
                             </button>
                           )}
                           <button
-                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency })}
+                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency, assetType: asset.asset_type, name: asset.name })}
                             className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
                             title="View Price Chart"
                           >
@@ -900,7 +900,7 @@ export default function Assets() {
                         {/* Price Chart Button - Show for all assets with transactions */}
                         {(asset.transaction_count ?? 0) > 0 && (
                           <button
-                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD' })}
+                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD', assetType: asset.asset_type, name: asset.name })}
                             className="p-2 text-pink-600 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-900/20 rounded transition-colors"
                             title={t('assets.viewPriceChart')}
                           >
@@ -1019,6 +1019,9 @@ export default function Assets() {
                 assetId={priceChartAsset.id} 
                 symbol={priceChartAsset.symbol}
                 currency={priceChartAsset.currency}
+                portfolioId={activePortfolioId ?? undefined}
+                assetType={priceChartAsset.assetType}
+                assetName={priceChartAsset.name}
               />
             </div>
           </div>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t.subject }}{% endblock %}
+
+{% block header_title %}{{ t.header_title }}{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 14px 0; color:#4b5563; font-size:15px;">
+    {{ t.greeting.format(username=username) | safe }}
+</p>
+
+<p style="margin:0 0 18px 0; color:#4b5563; font-size:14px;">
+    {{ t.intro }}
+</p>
+
+<!-- Features Box -->
+<div style="
+    margin:18px 0 22px 0;
+    padding:14px 14px 10px 14px;
+    border-radius:12px;
+    border:1px solid #bbf7d0;
+    background:linear-gradient(135deg,#ecfdf5 0%,#f0fdf4 40%,#ffffff 100%);
+">
+    <h3 style="margin:0 0 10px 0; color:#065f46; font-size:15px; font-weight:600;">
+        {{ t.features_title }}
+    </h3>
+
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">✅ </span>
+        <span style="color:#065f46; font-size:14px;">{{ t.feature_1 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">✅ </span>
+        <span style="color:#065f46; font-size:14px;">{{ t.feature_2 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">✅ </span>
+        <span style="color:#065f46; font-size:14px;">{{ t.feature_3 }}</span>
+    </div>
+    <div style="margin:6px 0; display:flex; align-items:flex-start; gap:8px;">
+        <span style="font-size:16px; line-height:1.2;">✅ </span>
+        <span style="color:#065f46; font-size:14px;">{{ t.feature_4 }}</span>
+    </div>
+</div>
+
+<!-- CTA Button -->
+<div style="text-align:center; margin:24px 0 14px 0;">
+    <a href="{{ dashboard_url }}" style="
+        display:inline-block;
+        padding:12px 32px;
+        background:linear-gradient(135deg,#10b981 0%,#059669 100%);
+        color:#ffffff;
+        text-decoration:none;
+        border-radius:999px;
+        font-weight:600;
+        font-size:14px;
+        box-shadow:0 10px 20px rgba(16,185,129,0.35);
+        letter-spacing:0.02em;
+    ">
+        {{ t.button_text }}
+    </a>
+</div>
+
+<p style="margin:6px 0 0 0; color:#6b7280; font-size:13px; text-align:center;">
+    {{ t.help_text }}
+</p>
+{% endblock %}

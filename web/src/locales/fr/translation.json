@@ -57,6 +57,7 @@
     "of": "sur",
     "and": "et",
     "or": "ou",
+    "all": "Tout",
     "create": "Créer",
     "creating": "Création...",
     "update": "Mettre à jour",
@@ -70,7 +71,46 @@
     "wallet": "Portefeuille",
     "portfolio": "ce portefeuille",
     "priceUpdateError": "Erreur de mise à jour des prix",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "widgets": "Widgets",
+    "layouts": "Mises en page",
+    "preview": "Aperçu",
+    "previewError": "Erreur de l'aperçu",
+    "canAddMultiple": "Peut ajouter plusieurs",
+    "size": "Taille",
+    "remove": "Retirer",
+    "reset": "Réinitialiser",
+    "resetToDefault": "Réinitialiser par défaut",
+    "default": "Par défaut",
+    "updatedAt": "Mis à jour le {{date}}",
+    "copy": "Copier",
+    "copied": "Copié !",
+    "load": "Charger",
+    "clear": "Effacer",
+    "selected": "Sélectionné",
+    "unknown": "Inconnu",
+    "confirmDelete": "Confirmer la suppression",
+    "processing": "Traitement..."
+  },
+  "conversion": {
+    "title": "Convertir Crypto",
+    "description": "Échanger une cryptomonnaie contre une autre (ex: BTC → ETH)",
+    "fromAsset": "Crypto source",
+    "toAsset": "Crypto cible",
+    "selectFromPortfolio": "Sélectionner parmi vos cryptos",
+    "searchAsset": "Rechercher une cryptomonnaie...",
+    "noAssetsInPortfolio": "Aucune crypto dans le portefeuille",
+    "youSend": "Vous envoyez",
+    "youReceive": "Vous recevez",
+    "youOwn": "Vous possédez",
+    "rate": "Taux",
+    "convert": "Convertir",
+    "selectBothAssets": "Veuillez sélectionner les deux actifs",
+    "sameAssetError": "Impossible de convertir un actif vers lui-même",
+    "enterQuantities": "Veuillez entrer les quantités pour les deux actifs",
+    "fetchCurrentPrice": "Récupérer le prix actuel",
+    "notesPlaceholder": "ex: Échangé sur Binance",
+    "autoCalculated": "auto"
   },
   "fields": {
     "symbol": "Symbole",
@@ -82,6 +122,7 @@
     "type": "Type",
     "quantity": "Quantité",
     "price": "Prix",
+    "pricePerUnit": "Prix unitaire",
     "fees": "Frais",
     "total": "Total",
     "notes": "Notes",
@@ -115,6 +156,19 @@
       "afterhours": "Après-marché",
       "closed": "Marché fermé",
       "unknown": "Inconnu"
+    },
+    "regions": {
+      "us": "USA",
+      "europe": "Europe",
+      "asia": "Asie",
+      "oceania": "Océanie"
+    },
+    "sentiments": {
+      "extremeFear": "Peur extrême",
+      "fear": "Peur",
+      "neutral": "Neutre",
+      "greed": "Avidité",
+      "extremeGreed": "Avidité extrême"
     }
   },
   "transaction": {
@@ -125,7 +179,10 @@
       "fee": "Frais",
       "transferIn": "Transfert entrant",
       "transferOut": "Transfert sortant",
-      "split": "Fractionnement"
+      "split": "Fractionnement",
+      "conversionIn": "Conversion entrante",
+      "conversionOut": "Conversion sortante",
+      "conversion": "Conversion"
     }
   },
   "dashboard":{
@@ -154,8 +211,545 @@
     "currentPrice": "Prix actuel",
     "dailyChange": "Variation quotidienne",
     "marketValue": "Valeur marchande",
+    "breakeven": {
+      "gainNeeded": "Gain nécessaire",
+      "targetPrice": "Prix cible",
+      "toBreakeven": "pour revenir au prix d'achat"
+    },
     "noPositions": "Aucune position à afficher.",
-    "noPositionsInfo": "Commencez par ajouter des transactions à votre portefeuille."
+    "noPositionsInfo": "Commencez par ajouter des transactions à votre portefeuille.",
+    "editMode": "Mode d'édition",
+    "editModeInfo": "Faites glisser les widgets pour les réorganiser ou redimensionnez-les en faisant glisser les coins. Cliquez sur {{save}} à nouveau pour enregistrer la mise en page.",
+    "widgetsInfo": "Ajouter/Retirer des widgets",
+    "layoutsInfo": "Gérer les mises en page - Enregistrer, Charger, Importer/Exporter",
+    "customizeLayout": "Personnaliser la mise en page",
+    "exitEditMode": "Quitter le mode d'édition",
+    "marketStatus": "Statut du marché",
+    "emptyDashboard": "Votre tableau de bord se sent seul !",
+    "emptyDashboardInfo": "C'est comme une pizza sans garniture. Cliquez sur les boutons \"Modifier\" et \"Widgets\" pour pimenter les choses !",
+    "proTip": "Astuce Pro",
+    "proTipInfo": "Vous pouvez utiliser les mises en page par défaut comme point de départ !",
+    "removeWidget": "Supprimer le widget",
+    "removeWidgetMessage": "Êtes-vous sûr de vouloir supprimer ce widget de votre tableau de bord ?",
+    "positionDetail": {
+      "performance": "Métriques de Performance",
+      "tradingZones": "Zones de Trading",
+      "riskMetrics": "Métriques de Risque",
+      "basicInfo": "Détails de la Position",
+      "fundamentalsLiquidity": "Fondamentaux & Liquidité",
+      "marketCap": "Capitalisation",
+      "volume": "Volume",
+      "peRatio": "Ratio C/B",
+      "eps": "BPA",
+      "liquidityScore": "Score de Liquidité",
+      "growthProfitability": "Croissance & Rentabilité",
+      "revenueGrowth": "Croissance du Revenu",
+      "earningsGrowth": "Croissance des Bénéfices",
+      "netMargin": "Marge Nette",
+      "operatingMargin": "Marge Opérationnelle",
+      "roe": "ROE",
+      "balanceSheetHealth": "Santé du Bilan",
+      "netCashPosition": "Position de Trésorerie Nette",
+      "debtToEquity": "Dette/Capitaux Propres",
+      "currentRatio": "Ratio de Liquidité Générale",
+      "quickRatio": "Ratio de Liquidité Réduite",
+      "analystViewValuation": "Avis des Analystes & Valorisation",
+      "consensus": "Consensus",
+      "analysts": "Analystes",
+      "targetMean": "Objectif (Moyen)",
+      "impliedUpside": "Potentiel Implicite",
+      "personalDrawdown": "Drawdown Personnel",
+      "distanceToATH": "Distance au Plus Haut",
+      "avgBuyZone": "Zone d'Achat Moyenne",
+      "costToAvgDown": "Coût pour Moyenner",
+      "volContribution": "Contribution à la Volatilité",
+      "portfolioVolatility": "de la volatilité du portefeuille",
+      "opportunityToBuy": "Opportunité d'achat",
+      "priceAboveAvg": "Prix au-dessus de la moyenne",
+      "targetPRU5Pct": "Cible: -5% PRU",
+      "costBasis": "Coût de Base",
+      "assetType": "Type d'Actif",
+      "30DayVolatility": "Volatilité 30 jours",
+      "30DayVolatilitySubtitle": "Variation quotidienne du prix (30j)",
+      "90DayVolatility": "Volatilité 90 jours",
+      "90DayVolatilitySubtitle": "Variation quotidienne du prix (90j)",
+      "beta": "Bêta",
+      "marketCorrelation": "Corrélation au marché",
+      "riskScore": "Score de risque",
+      "riskScoreSubtitle": "Évaluation composite du risque (0-100)"
+    },
+    "widgets": {
+      "totalValue": {
+        "name": "Valeur Totale",
+        "description": "Afficher la valeur totale de votre portefeuille"
+      },
+      "dailyGain": {
+        "name": "Gain Quotidien",
+        "description": "Afficher le gain/perte quotidien de votre portefeuille"
+      },
+      "unrealizedPnL": {
+        "name": "P&L non réalisé",
+        "description": "Afficher le P&L non réalisé de votre portefeuille"
+      },
+      "realizedPnL": {
+        "name": "P&L réalisé",
+        "description": "Afficher le P&L réalisé de votre portefeuille"
+      },
+      "dividends": {
+        "name": "Dividendes",
+        "description": "Afficher les dividendes totaux reçus"
+      },
+      "notifications": {
+        "name": "Notifications récentes",
+        "description": "Afficher les notifications récentes du système"
+      },
+      "watchlist": {
+        "name": "Liste de surveillance",
+        "description": "Suivez vos actifs de la liste de surveillance",
+        "noWatchlistItems": "Aucun actif dans la liste de surveillance"
+      },
+      "positions": {
+        "name": "Tableau des positions",
+        "description": "Afficher toutes vos positions actuelles et vendues"
+      },
+      "totalReturn": {
+        "name": "Retour total",
+        "description": "Afficher le retour total de votre portefeuille (non réalisé + réalisé + dividendes - frais)",
+        "subtitle": "Tous les gains et pertes"
+      },
+      "winRate": {
+        "name": "Taux de réussite",
+        "description": "Afficher le pourcentage de positions gagnantes dans votre portefeuille",
+        "positionsInProfit": "positions gagnantes",
+        "profitOutOfTotal": "{{profit}} sur {{total}} au total"
+      },
+      "concentrationRisk": {
+        "name": "Risque de concentration",
+        "description": "Analyser le risque de sur-concentration dans votre portefeuille"
+      },
+      "bestWorstToday": {
+        "name": "Meilleurs/Pires aujourd'hui",
+        "description": "Mettre en évidence vos meilleurs et pires actifs performants aujourd'hui"
+      },
+      "performanceMetrics": {
+        "name": "Performance Hebdomadaire/Mensuelle/YTD",
+        "description": "Afficher la performance de votre portefeuille sur différentes périodes",
+        "weekly": "Performance Hebdomadaire",
+        "monthly": "Performance Mensuelle",
+        "ytd": "Performance Annuelle"
+      },
+      "topPerformers": {
+        "name": "Meilleurs Performeurs",
+        "description": "Meilleures 5 positions par pourcentage de retour",
+        "noPerformanceData": "Aucune donnée de performance disponible."
+      },
+      "worstPerformers": {
+        "name": "Pires Performeurs",
+        "description": "Pires 5 positions par pourcentage de retour",
+        "noPerformanceData": "Aucune donnée de performance disponible."
+      },
+      "largestHoldings": {
+        "name": "Plus Grandes Positions",
+        "description": "Top 5 positions par valeur marchande avec allocation",
+        "noHoldingsData": "Aucune donnée de positions disponible."
+      },
+      "recentTransactions": {
+        "name": "Transactions Récentes",
+        "description": "Chronologie des 5 dernières transactions",
+        "noTransactions": "Aucune transaction récente à afficher.",
+        "buy": "Achat",
+        "sell": "Vente",
+        "dividend": "Dividende",
+        "split": "Fractionnement"
+      },
+      "marketStatus": {
+        "name": "Statut du Marché",
+        "description": "Statuts actuels du marché pour les principales régions"
+      },
+      "marketIndices": {
+        "name": "Indices du Marché",
+        "description": "Principaux indices boursiers par région (S&P 500, DAX, Nikkei, etc.)",
+        "failedToLoad": "Échec du chargement des indices du marché.",
+        "regions": {
+          "us": "USA",
+          "europe": "Europe",
+          "asia": "Asie"
+        }
+      },
+      "assetAllocation": {
+        "name": "Répartition des Actifs",
+        "description": "Répartition visuelle du portefeuille par secteur, type ou pays",
+        "donutChart": "Graphique en anneau",
+        "pieChart": "Graphique en secteurs",
+        "barChart": "Graphique en barres",
+        "noAllocationData": "Aucune donnée de répartition disponible."
+      },
+      "portfolioHeatmap": {
+        "name": "Carte de Chaleur du Portefeuille",
+        "description": "Carte de chaleur visuelle de toutes les positions avec performance quotidienne codée par couleur"
+      },
+      "goalTracker": {
+        "name": "Suivi des Objectifs",
+        "description": "Suivez vos progrès vers vos objectifs d'investissement",
+        "editGoal": "Modifier l'objectif",
+        "addGoal": "Ajouter un objectif",
+        "goalTitle": "Titre de l'objectif",
+        "goalTitlePlaceholder": "ex: Fonds de retraite",
+        "category": "Catégorie",
+        "categories": {
+          "retirement": "Retraite",
+          "house": "Maison",
+          "education": "Éducation",
+          "vacation": "Vacances",
+          "emergency": "Fonds d'urgence",
+          "other": "Autre"
+        },
+        "scenarios": {
+          "pessimistic": "Pessimiste",
+          "median": "Médian",
+          "optimistic": "Optimiste"
+        },
+        "targetAmount": "Montant cible",
+        "amountPlaceholder": "Entrez le montant cible",
+        "targetDate": "Date cible",
+        "monthlyContribution": "Contribution mensuelle",
+        "monthlyContributionHelp": "Dépôts mensuels prévus pour cet objectif",
+        "createGoal": "Créer l'objectif",
+        "goalReached": "Objectif atteint !",
+        "current": "Actuel",
+        "goal": "Objectif",
+        "toGo": "Restant",
+        "monthly": "Mensuel",
+        "estTime": "Temps estimé",
+        "noGoals": "Aucun objectif",
+        "noGoalsDescription": "Créez votre premier objectif financier pour commencer à suivre vos progrès",
+        "addFirstGoal": "Ajouter votre premier objectif",
+        "congratulations": "Félicitations ! Vous avez atteint votre objectif d'investissement.",
+        "setARealisticGoal": "Définissez un montant d'objectif réaliste pour suivre vos progrès d'investissement.",
+        "estimates8PercentReturn": "Basé sur un rendement annuel estimé de 8 %.",
+        "withContributions": "Les projections incluent les contributions mensuelles avec un rendement annuel de 8 %.",
+        "tip": "Astuce",
+        "contributionImpact": "Augmentez votre contribution mensuelle de {{amount}} pour atteindre votre objectif {{months}} mois plus tôt",
+        "targetDateInPast": "La date cible est dans le passé. Vous pouvez envisager de l'ajuster.",
+        "calculatingProjections": "Calcul des projections d'objectifs...",
+        "veryUnlikelyGoalTitle": "Objectif très improbable",
+        "veryUnlikelyGoalMessage": "En fonction de votre portefeuille actuel et de votre plan de contribution, atteindre cet objectif à la date cible est très improbable. Envisagez d'augmenter vos contributions ou d'ajuster votre date cible.",
+        "achievementProbability": "Probabilité de réalisation",
+        "highConfidence": "Haute confiance basée sur des simulations de Monte Carlo.",
+        "moderateConfidence": "Confiance modérée, envisagez de revoir votre plan.",
+        "lowConfidence": "Faible confiance, des ajustements significatifs peuvent être nécessaires.",
+        "projectionsScenarios": "Scénarios de projections",
+        "percentAnnualReturn": "{{percent}}% annuel",
+        "basedOnVolatility": "Basé sur un rendement historique de {{return}}% ± {{volatility}}% de volatilité",
+        "goalInfo": "Les projections utilisent la performance historique et la simulation de Monte Carlo",
+        "addContribution": "Ajoutez des contributions mensuelles pour voir des projections détaillées"
+      },
+      "sharpeRatio": {
+        "name": "Ratio de Sharpe",
+        "description": "Mesure les rendements ajustés au risque de votre portefeuille",
+        "subtitle": "Rendements ajustés au risque"
+      },
+      "volatility": {
+        "name": "Volatilité",
+        "description": "Écart-type des rendements du portefeuille",
+        "subtitle": "Annualisé (1A)"
+      },
+      "maxDrawdown": {
+        "name": "Drawdown Maximum",
+        "description": "Plus grande baisse du pic au creux de la valeur du portefeuille",
+        "subtitle": "Pic au creux (1A)"
+      },
+      "betaCorrelation": {
+        "name": "Bêta",
+        "description": "Corrélation du portefeuille avec l'indice de référence du marché",
+        "subtitle": "vs Marché (1A)"
+      },
+      "valueAtRisk": {
+        "name": "Valeur à Risque (VaR)",
+        "description": "Perte potentielle avec un niveau de confiance de 95 %",
+        "subtitle": "Confiance à 95 % (1 jour)"
+      },
+      "downsideDeviation": {
+        "name": "Écart à la Baisse",
+        "description": "Volatilité des rendements négatifs uniquement",
+        "subtitle": "Risque à la baisse (1A)"
+      },
+      "hitRatio": {
+        "name": "Taux de Réussite",
+        "description": "Pourcentage de transactions rentables",
+        "subtitle": "{{profit}} sur {{total}} gagnantes",
+        "noTrades": "Aucune position"
+      },
+      "alpha": {
+        "name": "Alpha",
+        "description": "Rendements excédentaires au-dessus de l'indice de référence",
+        "subtitle": "vs SPY (1A)"
+      },
+      "rSquared": {
+        "name": "R-Carré",
+        "description": "Force de corrélation avec le marché",
+        "subtitle": "vs SPY (1A)"
+      },
+      "avgHoldingPeriod": {
+        "name": "Période de Détention Moy.",
+        "description": "Durée moyenne des positions détenues",
+        "subtitle": "Méthode FIFO"
+      },
+      "diversificationScore": {
+        "name": "Score de Diversification",
+        "description": "Mesure de la diversification du portefeuille",
+        "subtitle": "{{count}} position{{suffix}}",
+        "noPositions": "Aucune position"
+      },
+      "bitcoinPizzaIndex": {
+        "name": "Indice Pizza Bitcoin",
+        "description": "Valeur de 10 000 BTC aujourd'hui (le célèbre achat de pizza)",
+        "subtitle": "10 000 BTC (2 pizzas, 2010)"
+      },
+      "marketSentiment": {
+        "name": "Sentiment du Marché boursier",
+        "description": "Indice CNN Fear & Greed - Sentiment du marché boursier"
+      },
+      "cryptoSentiment": {
+        "name": "Sentiment du Marché Crypto",
+        "description": "Indice Alternative.me Fear & Greed - Sentiment du marché crypto"
+      },
+      "vixIndex": {
+        "name": "Indice VIX",
+        "description": "Indice de Volatilité CBOE - Indicateur de volatilité du marché",
+        "subtitle": "Indice de Volatilité CBOE",
+        "volatilityLevels": {
+          "low": "Faible volatilité",
+          "normal": "Volatilité normale",
+          "elevated": "Volatilité élevée",
+          "high": "Haute volatilité"
+        }
+      },
+      "tnxIndex": {
+        "name": "Indice TNX",
+        "description": "Rendement du Trésor à 10 ans - Indicateur clé des taux d'intérêt",
+        "subtitle": "Rendement du Trésor à 10 ans",
+        "yieldLevels": {
+          "veryLow": "Rendement très faible",
+          "low": "Faible rendement",
+          "normal": "Rendement normal",
+          "elevated": "Rendement élevé",
+          "high": "Rendement très élevé"
+        }
+      },
+      "dxyIndex": {
+        "name": "Indice DXY",
+        "description": "Indice du dollar américain - Indicateur de force du dollar",
+        "subtitle": "Indice du dollar américain",
+        "strengthLevels": {
+          "veryWeak": "Dollar très faible",
+          "weak": "Dollar faible",
+          "normal": "Dollar normal",
+          "strong": "Dollar fort",
+          "veryStrong": "Dollar très fort"
+        }
+      },
+      "categories": {
+        "insights": {
+          "label": "Graphiques & Analyses",
+          "description": "Analytique visuelle et données de performance"
+        },
+        "metrics": {
+          "label": "Indicateurs Clés",
+          "description": "Statistiques et valeurs essentielles du portefeuille"
+        },
+        "data": {
+          "label": "Données & Listes",
+          "description": "Données tabulaires et vues en liste"
+        }
+      },
+      "library": {
+        "title": "Bibliothèque de Widgets",
+        "description": "Cliquez pour ajouter des widgets à votre tableau de bord",
+        "widgetsCount": "{{count}} widgets actifs",
+        "resetDashboard": "Réinitialiser le tableau de bord",
+        "resetDashboardMessage": "Réinitialiser le tableau de bord à la mise en page par défaut ? Cela supprimera toutes vos personnalisations et widgets.",
+        "widgetAlreadyExists": "Le widget existe déjà",
+        "widgetAlreadyExistsMessage": "Ce widget est déjà sur votre tableau de bord. Vous ne pouvez ajouter qu'une seule instance de ce type de widget."
+      }
+    },
+    "layouts": {
+      "title": "Gestionnaire de Mise en Page",
+      "description": "Enregistrer, charger et partager vos mises en page de tableau de bord",
+      "saveCurrentLayout": "Enregistrer la mise en page actuelle",
+      "saveAsNewLayout": "Enregistrer comme nouvelle mise en page",
+      "saveCurrentToThisLayout": "Enregistrer le tableau de bord actuel dans cette mise en page",
+      "confirmSave": "Confirmer l'enregistrement",
+      "saveCurrentConfirm": "Cela remplacera la configuration de mise en page de \"{name}\" par votre tableau de bord actuel. Continuer ?",
+      "myLayouts": "Mes Mises en Page",
+      "templates": "Modèles",
+      "template": "Modèle",
+      "loadingLayouts": "Chargement des mises en page...",
+      "noSavedLayouts": "Aucune mise en page enregistrée pour le moment",
+      "noSavedLayoutsInfo": "Enregistrez votre mise en page actuelle pour commencer.",
+      "loadThisLayout": "Charger cette mise en page",
+      "setAsDefault": "Définir comme mise en page par défaut",
+      "removeAsDefault": "Retirer comme mise en page par défaut",
+      "duplicateLayout": "Dupliquer la mise en page",
+      "deleteLayoutConfirm": "Êtes-vous sûr de vouloir supprimer \"{name}\" ?",
+      "proTipInfo": "Ces mises en page sont conçues par des professionnels et optimisées pour différents styles d'investissement. Cliquez sur \"Charger\" pour appliquer un modèle.",
+      "importLayoutInfo": "Sélectionnez un fichier JSON de mise en page exporté pour importer une mise en page personnalisée.",
+      "selectLayoutFile": "Sélectionner le fichier de mise en page",
+      "layoutName": "Nom de la mise en page",
+      "layoutNamePlaceholder": "ex. Configuration de trading journalier, Vue retraite",
+      "descriptionField": "Description de la mise en page",
+      "descriptionPlaceholder": "Description optionnelle de cette mise en page"
+    },
+    "conclusions": {
+      "common": {
+        "insufficientData": "Données insuffisantes pour une analyse complète"
+      },
+      "performance": {
+        "exceptionalOutlierPositive": "Performance exceptionnellement élevée - comportement hors norme (effet penny stock)",
+        "exceptionalOutlierNegative": "Sous-performance extrême - réévaluation immédiate recommandée",
+        "veryStrongLongTerm": "Leadership exceptionnel sur le long terme - niveau supérieur",
+        "veryStrongOtherPeriods": "Très forte performance sur {{period}} - dans le top du secteur",
+        "severeUnderperformance": "Sous-performance sévère - revoir la position",
+        "strongLongTerm": "Leadership solide - surperformance constante",
+        "strongShortTerm": "Surperformance notable - momentum positif",
+        "significantUnderperformance": "Sous-performance significative - tendance fragile",
+        "moderateOutperformance": "Surperformance modérée - momentum en amélioration",
+        "moderateUnderperformance": "Sous-performance modérée - surveillance recommandée",
+        "inLineWithBenchmark": "Aligné avec le secteur - suit le benchmark"
+      },
+      "volatility": {
+        "veryHigh": "Volatilité très élevée - comportement de prix extrêmement instable",
+        "high": "Volatilité élevée - variations de prix importantes à prévoir",
+        "moderate": "Volatilité modérée - fluctuations de prix occasionnelles",
+        "low": "Faible volatilité - comportement de prix relativement stable"
+      },
+      "beta": {
+        "high": "Volatilité élevée - évolue beaucoup plus que le benchmark",
+        "aboveAverage": "Risque supérieur à la moyenne - amplifie les mouvements du marché",
+        "marketLike": "Volatilité comparable au marché - évolue en ligne avec le benchmark",
+        "defensive": "Défensif - moins volatil que le benchmark",
+        "low": "Faible sensibilité au marché - corrélation réduite avec le benchmark",
+        "negative": "Corrélation négative - évolue souvent à l'opposé du benchmark"
+      },
+      "risk": {
+        "extreme": "Risque extrême - volatilité très élevée et structurellement instable",
+        "high": "Risque élevé - fortes fluctuations de prix et sensibilité accrue",
+        "moderate": "Risque modéré - profil équilibré mais sensible aux conditions de marché",
+        "low": "Risque faible - relatif maintien de stabilité avec une volatilité maîtrisée",
+        "veryLow": "Risque très faible - profil défensif avec une exposition au marché limitée"
+      },
+      "marketCap": {
+        "megacap": "Mega cap - entreprise très grande et très stable",
+        "largecap": "Large cap - entreprise établie avec un risque réduit",
+        "midcap": "Mid cap - équilibre entre croissance et stabilité",
+        "smallcap": "Small cap - fort potentiel de croissance, risque plus élevé",
+        "microcap": "Micro cap - très petite entreprise, volatilité élevée"
+      },
+      "peRatio": {
+        "nonProfitable": "Non rentable - bénéfices négatifs",
+        "profitable": "Rentable - bénéfices positifs"
+      },
+      "volume": {
+        "veryHigh": "Volume exceptionnellement élevé - forte activité liée aux flux ou aux nouvelles",
+        "aboveAverage": "Volume supérieur à la moyenne - forte activité de marché",
+        "inLine": "Volume conforme à la moyenne - conditions de marché normales",
+        "belowAverage": "Volume inférieur à la moyenne - activité réduite",
+        "veryLow": "Volume très faible - marché peu profond, exécution difficile",
+        "unknown": "Données insuffisantes pour évaluer le volume"
+      },
+      "eps": {
+        "profitable": "Rentable - bénéfices positifs",
+        "breakEven": "Proche de l'équilibre - profit ou perte minime",
+        "negative": "Non rentable - bénéfices négatifs",
+        "heavyLoss": "Pertes importantes - pression financière significative",
+        "severeLoss": "Pertes sévères - probablement dues à des charges exceptionnelles"
+      },
+      "liquidityScore": {
+        "excellent": "Liquidité excellente - très facile à trader",
+        "good": "Bonne liquidité - activité de marché saine",
+        "average": "Liquidité moyenne - conditions normales",
+        "belowAverage": "Liquidité faible - spreads plus élevés possibles",
+        "poor": "Très faible liquidité - difficile à trader, risque accru"
+      },
+      "growth": {
+        "revenue": {
+          "hyperGrowth": "Croissance explosive - dynamique exceptionnelle",
+          "strongGrowth": "Forte croissance - expansion solide",
+          "moderateGrowth": "Croissance modérée - tendance saine",
+          "lowGrowth": "Croissance faible - rythme ralenti",
+          "declining": "Recul du chiffre d'affaires - possible faiblesse"
+        },
+
+        "earnings": {
+          "exceptional": "Croissance bénéficiaire exceptionnelle - forte rentabilité",
+          "healthy": "Croissance bénéficiaire solide - amélioration claire",
+          "mild": "Croissance bénéficiaire légère - progression stable",
+          "declining": "Bénéfices en baisse - pression sur la rentabilité"
+        }
+      },
+      "margins": {
+        "net": {
+          "excellent": "Excellente rentabilité nette",
+          "good": "Bonne rentabilité nette",
+          "moderate": "Marge nette modérée",
+          "low": "Rentabilité faible",
+          "negative": "Marge négative - entreprise déficitaire"
+        },
+
+        "operating": {
+          "highlyEfficient": "Très forte efficacité opérationnelle - maîtrise des coûts",
+          "good": "Bonne efficacité opérationnelle",
+          "low": "Marge opérationnelle faible - rentabilité contrainte",
+          "negative": "Marge opérationnelle négative - pertes d'exploitation"
+        }
+      },
+      "roe": {
+        "excellent": "Retour sur fonds propres exceptionnel",
+        "healthy": "Retour sur fonds propres solide",
+        "moderate": "Retour sur fonds propres modéré",
+        "low": "Retour sur fonds propres faible",
+        "negative": "Retour négatif - destruction de valeur"
+      },
+      "balanceSheet": {
+        "netCash": "Position nette de trésorerie positive - situation solide",
+        "neutral": "Position de trésorerie neutre",
+        "netDebt": "Endettement net - risque financier accru",
+
+        "dte": {
+          "lowLeverage": "Faible levier financier - structure saine",
+          "moderateLeverage": "Levier modéré - risque raisonnable",
+          "highLeverage": "Levier élevé - risque financier notable",
+          "veryHighLeverage": "Levier très élevé - bilan sous pression"
+        },
+        "current": {
+          "veryStrong": "Liquidité très forte - excellente flexibilité à court terme",
+          "healthy": "Liquidité saine - obligations court terme couvertes",
+          "tight": "Liquidité serrée - marge de manœuvre limitée",
+          "weak": "Liquidité faible - risques court terme accrus"
+        },
+        "quick": {
+          "excellent": "Liquidité immédiate excellente",
+          "adequate": "Liquidité immédiate adéquate",
+          "weak": "Liquidité immédiate faible - faible marge de sécurité",
+          "veryWeak": "Liquidité immédiate très faible - risque de trésorerie"
+        }
+      },
+      "analyst": {
+        "consensus": {
+          "strongBuy": "Opinion très positive",
+          "buy": "Perspectives favorables",
+          "hold": "Sentiment neutre",
+          "sell": "Confiance en baisse",
+          "strongSell": "Opinion   très négative"
+        },
+        "upside": {
+          "high": "Fort potentiel de hausse",
+          "moderate": "Potentiel de hausse modéré",
+          "limited": "Potentiel limité - valorisation correcte",
+          "downside": "Potentiel négatif - risque de baisse"
+        }
+      }
+    }
   },
   "portfolios": {
     "title": "Portefeuilles",
@@ -169,8 +763,19 @@
     "currencyField": "Devise du portefeuille",
     "descriptionField": "Description du portefeuille",
     "descriptionPlaceholder": "Description optionnelle de ce portefeuille",
-    "delete" : "Supprimer le portefeuille",
-    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce portefeuille ? Toutes les transactions et données seront définitivement supprimées. Cette action est irréversible."
+    "delete": "Supprimer le portefeuille",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce portefeuille ? Toutes les transactions et données seront définitivement supprimées. Cette action est irréversible.",
+    "publicView": "Vue publique",
+    "publicSharing": "Partage public",
+    "publicSharingHint": "Permettre à quiconque ayant le lien de voir ce portefeuille",
+    "publicEnabled": "Partage public activé",
+    "publicDisabled": "Partage public désactivé",
+    "publicEnabledHint": "Toute personne ayant le lien peut voir les allocations et positions",
+    "publicDisabledHint": "Seul vous pouvez voir ce portefeuille",
+    "sharePortfolio": "Partager le portefeuille",
+    "shareLink": "Lien de partage",
+    "shareLinkHint": "Partagez ce lien pour montrer vos allocations de portefeuille",
+    "previewPublicPage": "Aperçu de la page publique"
   },
   "auth": {
     "emailNotVerified": "Votre adresse e-mail n'a pas été vérifiée."
@@ -224,7 +829,7 @@
       "1M": "1M",
       "3M": "3M",
       "6M": "6M",
-      "YTD": "ACJ",
+      "YTD": "YTD",
       "1Y": "1A",
       "ALL": "TOUT"
     }
@@ -299,6 +904,7 @@
     "splitRatioInfo": "Format : \"N:M\" où N est le nouveau nombre d'actions et M est l'ancien nombre d'actions. Exemples : \"2:1\" (double les actions), \"3:1\" (triple), \"1:2\" (fractionnement inverse divise par deux les actions)",
     "autoFetch": "Récupération automatique",
     "autoFetchInfo": "Laissez vide pour récupérer automatiquement le prix en USD, ou entrez le prix en {{currency}}.",
+    "priceConverted": "Prix converti de {{from}} en {{to}}",
     "empty": {
       "noTransactions": "Aucune transaction à afficher.",
       "noTransactionsInfo": "Commencez par ajouter des transactions pour les voir répertoriées ici.",
@@ -543,6 +1149,8 @@
     "buy": "Acheter",
     "targetPrice": "Prix cible",
     "convertToBuy": "Convertir en achat",
+    "editItem": "Modifier l'élément de la liste de surveillance",
+    "fromCurrent": "par rapport au prix actuel",
     "importTitle": "Importer la liste de surveillance",
     "importDescription": "Importez votre liste de surveillance à partir d'un fichier CSV. Cliquez sur le bouton ci-dessous pour sélectionner un fichier.",
     "importFormatInfo": "Format CSV",
@@ -550,9 +1158,29 @@
     "selectFile": "Sélectionner un fichier CSV",
     "updatedAt": "Mis à jour le",
     "deleteWatchlistAsset": "Supprimer l'actif de la liste de surveillance",
+    "viewAll": "Voir tous les actifs de la liste de surveillance",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet actif de votre liste de surveillance ? Cette action ne peut pas être annulée.",
     "empty": {
       "noWatchlistAssets": "Aucun actif dans votre liste de surveillance. Ajoutez des actifs pour commencer à suivre."
+    },
+    "tags": {
+      "title": "Étiquettes",
+      "filterByTags": "Filtrer par étiquettes",
+      "manageTags": "Gérer les étiquettes",
+      "manage": "Gérer les étiquettes",
+      "createNew": "Créer une nouvelle étiquette",
+      "existing": "Étiquettes existantes",
+      "noTags": "Aucune étiquette créée",
+      "select": "Sélectionner des étiquettes",
+      "selectTags": "Sélectionner des étiquettes...",
+      "nameRequired": "Le nom de l'étiquette est requis",
+      "createFailed": "Échec de la création de l'étiquette",
+      "namePlaceholder": "Nom de l'étiquette...",
+      "any": "N'importe quel",
+      "all": "Tous",
+      "chooseColor": "Choisir une couleur",
+      "chooseIcon": "Choisir une icône",
+      "searchIcons": "Rechercher {{count}} icônes..."
     }
   },
   "profile": {
@@ -586,7 +1214,7 @@
     "deletingAccount": "Suppression du compte...",
     "nothingToUpdate": "Rien à mettre à jour.",
     "profileUpdated": "Profil mis à jour avec succès.",
-    "profileUpdatedEmailChanged": "Profil mis à jour. Veuillez vérifier votre nouvelle adresse e-mail—email de vérification envoyé.",
+    "profileUpdatedEmailChanged": "Profil mis à jour. Veuillez vérifier votre nouvelle adresse e-mail-email de vérification envoyé.",
     "failedToUpdateProfile": "Échec de la mise à jour du profil. Veuillez réessayer.",
     "newPasswordMinLength": "Le nouveau mot de passe doit comporter au moins 8 caractères.",
     "newPasswordMismatch": "Le nouveau mot de passe et la confirmation ne correspondent pas.",
@@ -743,6 +1371,7 @@
     "username": "Nom d'utilisateur",
     "language": "Langue",
     "admin": "Admin",
+    "user": "Utilisateur",
     "created": "Créé",
     "actions": "Actions",
     "superuser": "Superutilisateur",
@@ -896,6 +1525,9 @@
     "createNewAccount": "Créer un nouveau compte"
   },
   "emails": {
+    "common": {
+      "disclaimer": "You're receiving this email because you have a Portfolium account."
+    },
     "verification": {
       "subject": "Vérifiez votre e-mail - Portfolium",
       "header_emoji": "📧",
@@ -982,8 +1614,8 @@
       "text_report_item_3": "- Avoirs avec variations quotidiennes",
       "text_report_item_4": "- Transactions et activité récentes",
       "text_report_item_5": "- Répartition de l'allocation d'actifs",
-      "text_attachment": "Veuillez trouver votre rapport dÃ©taillÃ© en piÃ¨ce jointe au format PDF.",
-      "text_settings": "Pour gÃ©rer vos prÃ©fÃ©rences d'e-mail, visitez :"
+      "text_attachment": "Veuillez trouver votre rapport détaillé en pièce jointe au format PDF.",
+      "text_settings": "Pour gérer vos préférences d'e-mail, visitez :"
     }
   },
   "sectors": {
@@ -1240,5 +1872,44 @@
     "step4": "Regardez votre portefeuille prendre vie avec des données en temps réel !",
     "proTipTitle": "💡 Astuce Pro : Importation en masse",
     "proTipMessage": "Vous suivez déjà votre portefeuille ailleurs ? Utilisez la fonctionnalité d'importation CSV sur la page Transactions pour ajouter rapidement tous vos avoirs en une fois."
+  },
+  "publicPortfolio": {
+    "loading": "Chargement du portefeuille...",
+    "unavailable": "Portefeuille indisponible",
+    "notFoundMessage": "Ce portefeuille n'existe pas ou n'est pas partagé publiquement.",
+    "notFoundDescription": "Le propriétaire a peut-être désactivé le partage public, ou le lien est incorrect.",
+    "returnHome": "Retour à l'accueil",
+    "signUp": "S'inscrire",
+    "goToDashboard": "Aller au tableau de bord",
+    "lightMode": "Mode clair",
+    "darkMode": "Mode sombre",
+    "publicSnapshot": "Aperçu public",
+    "amountsHidden": "Montants masqués pour la confidentialité",
+    "sharedBy": "Partagé par",
+    "description": "Découvre comment <1>{{user}}</1> diversifie ses investissements à travers les secteurs et les marchés. Consulte sa stratégie d'allocation sans révéler de données financières sensibles.",
+    "createYourOwn": "Créez votre propre portefeuille",
+    "quickOverview": "Aperçu rapide",
+    "topSector": "Secteur principal",
+    "mainExposure": "Exposition principale",
+    "positions": "Positions",
+    "diversified": "Diversifié",
+    "assets": "Actifs",
+    "sectorAllocation": "Répartition sectorielle",
+    "geographicAllocation": "Répartition géographique",
+    "topHoldings": "Principales positions",
+    "asset": "Actif",
+    "sector": "Secteur",
+    "industry": "Industrie",
+    "weight": "Poids",
+    "country": "Pays",
+    "buildYourStory": "Construis l'histoire de ton portfolio",
+    "trackInvestments": "Suis tes investissements avec de magnifiques analyses",
+    "featureRealtime": "Suivi des prix en temps réel",
+    "featureDiversification": "Analyse de la diversification",
+    "featureMultiple": "Gestion multi-portefeuilles",
+    "featurePrivacy": "Partage pensé pour la confidentialité",
+    "getStarted": "Commencer l'aventure",
+    "disclaimer": "À titre informatif uniquement",
+    "notAdvice": "Ne constitue pas un conseil en investissement"
   }
 }

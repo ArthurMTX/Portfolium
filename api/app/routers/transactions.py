@@ -5,21 +5,95 @@ import logging
 import json
 from typing import List, Optional
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.errors import (
+    CannotSellMoreThanOwnedError,
+    CannotSplitWithoutBuyError,
+    ImportTransactionsError, 
+    PriceNotFoundError, 
+    TransactionNotFoundError
+)
 from app.db import get_db
-from app.schemas import Transaction, TransactionCreate, CsvImportResult
+from app.schemas import Transaction, TransactionCreate, CsvImportResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
-from app.models import TransactionType, User
+from app.models import TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
 from app.services.import_csv import get_csv_import_service, CsvImportService
 from app.services.notifications import notification_service
-from app.auth import get_current_user
+from app.auth import get_current_user, verify_portfolio_access
+from app.dependencies import PricingServiceDep
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 import yfinance as yf
+
+
+@router.get("/{portfolio_id}/fetch_price")
+async def fetch_price_for_date(
+    portfolio_id: int,
+    ticker: str,
+    tx_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Fetch the price for a ticker on a specific date, converted to portfolio currency.
+    Returns the price that would be used if auto-fetching.
+    """
+    from datetime import timedelta
+    from decimal import Decimal
+    from app.services.currency import CurrencyService
+    from app.crud.assets import get_asset_by_symbol
+    
+    # Fetch ticker info from yfinance
+    yf_ticker = yf.Ticker(ticker)
+    
+    # Try to get existing asset to know its currency, otherwise fetch from yfinance
+    asset = get_asset_by_symbol(db, ticker)
+    if asset and asset.currency:
+        asset_currency = asset.currency
+    else:
+        # Fetch currency from yfinance info
+        try:
+            info = yf_ticker.info
+            asset_currency = info.get('currency', 'USD') or 'USD'
+        except Exception:
+            asset_currency = 'USD'
+    
+    portfolio_currency = portfolio.base_currency or "EUR"
+    
+    # Fetch price from yfinance
+    start_date = tx_date - timedelta(days=5)  # Look back a few days in case of weekends/holidays
+    end_date = tx_date + timedelta(days=1)
+    hist = yf_ticker.history(start=start_date, end=end_date)
+    
+    if hist.empty:
+        raise PriceNotFoundError(ticker, tx_date)
+    
+    # Get the closest date's price
+    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    
+    # Convert to portfolio currency if needed
+    if asset_currency != portfolio_currency:
+        converted_price = CurrencyService.convert(price_in_asset_currency, asset_currency, portfolio_currency)
+        if converted_price is not None:
+            price = converted_price.quantize(Decimal('0.00000001'))
+        else:
+            price = price_in_asset_currency
+    else:
+        price = price_in_asset_currency
+    
+    return {
+        "price": float(price),
+        "original_price": float(price_in_asset_currency),
+        "asset_currency": asset_currency,
+        "portfolio_currency": portfolio_currency,
+        "converted": asset_currency != portfolio_currency
+    }
+
 
 # Add position transaction with live price from yfinance
 @router.post("/{portfolio_id}/add_position_transaction", response_model=Transaction, status_code=status.HTTP_201_CREATED)
@@ -29,8 +103,10 @@ async def add_position_transaction(
     tx_date: date,
     tx_type: TransactionType,
     quantity: float,
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Add a position transaction to a portfolio with price fetched from yfinance for the given date.
@@ -39,30 +115,28 @@ async def add_position_transaction(
     - **tx_type**: BUY or SELL
     - **quantity**: Number of shares/units
     """
-    # Verify portfolio exists and belongs to the current user
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Find asset by ticker
     from app.crud.assets import get_asset_by_symbol, create_asset
     from app.schemas import AssetCreate
     from app.models import AssetClass
+    
+    # Fetch ticker info from yfinance first (we'll need it for price anyway)
+    yf_ticker = yf.Ticker(ticker)
+    
     asset = get_asset_by_symbol(db, ticker)
     if not asset:
+        # Get currency from yfinance
+        try:
+            info = yf_ticker.info
+            asset_currency = info.get('currency', 'USD') or 'USD'
+        except Exception:
+            asset_currency = 'USD'
+        
         # Auto-create the asset - name will be fetched from yfinance
         asset_data = AssetCreate(
             symbol=ticker,
             name=None,  # Let create_asset fetch the proper name from yfinance
-            currency="USD",
+            currency=asset_currency,
             class_=AssetClass.STOCK
         )
         asset = create_asset(db, asset_data)
@@ -70,28 +144,45 @@ async def add_position_transaction(
     # Fetch price from yfinance for the given date
     from datetime import timedelta
     from decimal import Decimal
-    yf_ticker = yf.Ticker(ticker)
+    from app.services.currency import CurrencyService
+    
     # Add a day buffer to ensure we get data
     start_date = tx_date - timedelta(days=1)
     end_date = tx_date + timedelta(days=1)
     hist = yf_ticker.history(start=start_date, end=end_date)
     if hist.empty:
-        raise HTTPException(status_code=404, detail=f"No price found for {ticker} on {tx_date}")
+        raise PriceNotFoundError(ticker, tx_date)
     # Get the closest date's price and round to 8 decimal places
-    price = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    
+    # Convert price from asset's currency to portfolio's base currency if different
+    asset_currency = asset.currency or "USD"
+    portfolio_currency = portfolio.base_currency or "EUR"
+    
+    if asset_currency != portfolio_currency:
+        converted_price = CurrencyService.convert(price_in_asset_currency, asset_currency, portfolio_currency)
+        if converted_price is not None:
+            price = converted_price.quantize(Decimal('0.00000001'))
+            logger.info(f"Converted price from {asset_currency} to {portfolio_currency}: {price_in_asset_currency} -> {price}")
+        else:
+            # Fall back to original price if conversion fails
+            logger.warning(f"Currency conversion from {asset_currency} to {portfolio_currency} failed, using original price")
+            price = price_in_asset_currency
+    else:
+        price = price_in_asset_currency
 
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
-        if tx_type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+        if tx_type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             from app.crud.transactions import get_position_quantity_at_date
             position_before_sell = get_position_quantity_at_date(db, portfolio_id, asset.id, tx_date)
             if quantity > position_before_sell:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {quantity} shares of {ticker} on {tx_date}. "
-                           f"Position at that date: {position_before_sell} shares. "
-                           f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
+                raise CannotSellMoreThanOwnedError(
+                    symbol=ticker,
+                    owned=position_before_sell,
+                    attempted_sell=quantity,
+                    tx_date=tx_date
                 )
     
     # Create transaction
@@ -102,10 +193,10 @@ async def add_position_transaction(
         type=tx_type,
         quantity=quantity,
         price=price,
-        currency=asset.currency,
+        currency=portfolio_currency,  # Use portfolio currency since price was converted
         fees=0,
         meta_data={},
-        notes=f"Auto price from yfinance for {tx_date}"
+        notes=f"Auto price from yfinance for {tx_date}" + (f" (converted from {asset_currency})" if asset_currency != portfolio_currency else "")
     )
     from app.crud.transactions import create_transaction
     transaction = create_transaction(db, portfolio_id, tx_data)
@@ -118,8 +209,6 @@ async def add_position_transaction(
         logger.info(f"Updated first_transaction_date for {asset.symbol} to {tx_date}")
     
     # Auto-backfill historical prices from first transaction date to today
-    from app.services.pricing import PricingService
-    pricing_service = PricingService(db)
     start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
     end_date = datetime.utcnow()
     
@@ -128,6 +217,34 @@ async def add_position_transaction(
         logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {asset.first_transaction_date} to today")
     except Exception as e:
         logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction")
+    
+    # Trigger background recalculation of metrics and insights
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            
+            # Queue async tasks to recalculate metrics and insights
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        # Don't fail the request if background task queueing fails
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
     
     # Create notification for transaction
     notification_service.create_transaction_notification(
@@ -140,6 +257,242 @@ async def add_position_transaction(
     return transaction
 
 
+@router.post("/{portfolio_id}/conversions", response_model=ConversionResponse, status_code=status.HTTP_201_CREATED)
+async def create_conversion(
+    portfolio_id: int,
+    conversion: ConversionCreate,
+    pricing_service: PricingServiceDep,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Create a crypto conversion/swap transaction (e.g., BTC → ETH)
+    
+    This creates two linked transactions:
+    - **CONVERSION_OUT**: Removes the source asset from your portfolio
+    - **CONVERSION_IN**: Adds the target asset to your portfolio
+    
+    Both transactions are linked via a unique conversion_id in their metadata,
+    allowing you to track and manage conversions as a single operation.
+    
+    Example: Swapping 0.5 BTC for 8 ETH
+    - from_asset_id: BTC asset ID
+    - from_quantity: 0.5
+    - from_price: 40000 (BTC price at conversion time)
+    - to_asset_id: ETH asset ID  
+    - to_quantity: 8
+    - to_price: 2500 (ETH price at conversion time)
+    """
+    import uuid
+    from decimal import Decimal
+    from fastapi import HTTPException
+    
+    # Validate that source and target assets are different
+    if conversion.from_asset_id == conversion.to_asset_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot convert an asset to itself. Source and target assets must be different."
+        )
+    
+    # Get asset symbols for better notes
+    from app.crud.assets import get_asset
+    from_asset = get_asset(db, conversion.from_asset_id)
+    to_asset = get_asset(db, conversion.to_asset_id)
+    from_symbol = from_asset.symbol if from_asset else f"Asset #{conversion.from_asset_id}"
+    to_symbol = to_asset.symbol if to_asset else f"Asset #{conversion.to_asset_id}"
+    
+    # Generate unique conversion ID to link both transactions
+    conversion_id = str(uuid.uuid4())
+    
+    # Calculate conversion rate (how many target units per source unit)
+    conversion_rate = float(conversion.to_quantity) / float(conversion.from_quantity) if float(conversion.from_quantity) > 0 else 0
+    conversion_rate_str = f"{conversion.from_quantity}:{conversion.to_quantity}"
+    
+    # Validate that user has enough of the source asset
+    from app.config import settings
+    if settings.VALIDATE_SELL_QUANTITY:
+        position_before_conversion = crud.get_position_quantity_at_date(
+            db, portfolio_id, conversion.from_asset_id, conversion.tx_date
+        )
+        if float(conversion.from_quantity) > position_before_conversion:
+            from app.crud.assets import get_asset
+            asset = get_asset(db, conversion.from_asset_id)
+            symbol = asset.symbol if asset else f"Asset ID {conversion.from_asset_id}"
+            raise CannotSellMoreThanOwnedError(
+                symbol=symbol,
+                owned=position_before_conversion,
+                attempted_sell=float(conversion.from_quantity),
+                tx_date=conversion.tx_date
+            )
+    
+    # Create both transactions atomically using a savepoint
+    # If either fails, both will be rolled back
+    try:
+        # Start a savepoint for atomic operation
+        savepoint = db.begin_nested()
+        
+        # Create CONVERSION_OUT transaction (source asset leaving)
+        from_tx_data = TransactionCreate(
+            asset_id=conversion.from_asset_id,
+            tx_date=conversion.tx_date,
+            type=TransactionType.CONVERSION_OUT,
+            quantity=conversion.from_quantity,
+            price=conversion.from_price,
+            fees=conversion.fees,  # Fees typically applied to the outgoing side
+            currency=conversion.currency,
+            meta_data={
+                "conversion_id": conversion_id,
+                "conversion_to_asset_id": conversion.to_asset_id,
+                "conversion_to_symbol": to_symbol,
+                "conversion_to_quantity": str(conversion.to_quantity),
+                "conversion_rate": conversion_rate,
+                "conversion_rate_str": conversion_rate_str,
+            },
+            notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
+        )
+        
+        # Create the transaction without committing
+        from_db_transaction = TransactionModel(
+            portfolio_id=portfolio_id,
+            asset_id=from_tx_data.asset_id,
+            tx_date=from_tx_data.tx_date,
+            type=from_tx_data.type,
+            quantity=from_tx_data.quantity,
+            price=from_tx_data.price,
+            fees=from_tx_data.fees,
+            currency=from_tx_data.currency,
+            meta_data=from_tx_data.meta_data,
+            notes=from_tx_data.notes
+        )
+        db.add(from_db_transaction)
+        db.flush()  # Flush to get the ID without committing
+        
+        # Create CONVERSION_IN transaction (target asset arriving)
+        to_tx_data = TransactionCreate(
+            asset_id=conversion.to_asset_id,
+            tx_date=conversion.tx_date,
+            type=TransactionType.CONVERSION_IN,
+            quantity=conversion.to_quantity,
+            price=conversion.to_price,
+            fees=Decimal(0),  # Fees already captured in CONVERSION_OUT
+            currency=conversion.currency,
+            meta_data={
+                "conversion_id": conversion_id,
+                "conversion_from_asset_id": conversion.from_asset_id,
+                "conversion_from_symbol": from_symbol,
+                "conversion_from_quantity": str(conversion.from_quantity),
+                "conversion_rate": conversion_rate,
+                "conversion_rate_str": conversion_rate_str,
+            },
+            notes=conversion.notes or f"Swapped {conversion.from_quantity} {from_symbol} → {conversion.to_quantity} {to_symbol}"
+        )
+        
+        # Create the transaction without committing
+        to_db_transaction = TransactionModel(
+            portfolio_id=portfolio_id,
+            asset_id=to_tx_data.asset_id,
+            tx_date=to_tx_data.tx_date,
+            type=to_tx_data.type,
+            quantity=to_tx_data.quantity,
+            price=to_tx_data.price,
+            fees=to_tx_data.fees,
+            currency=to_tx_data.currency,
+            meta_data=to_tx_data.meta_data,
+            notes=to_tx_data.notes
+        )
+        db.add(to_db_transaction)
+        db.flush()  # Flush to get the ID without committing
+        
+        # Both transactions created successfully, commit the savepoint
+        savepoint.commit()
+        db.commit()
+        db.refresh(from_db_transaction)
+        db.refresh(to_db_transaction)
+        
+        from_transaction = from_db_transaction
+        to_transaction = to_db_transaction
+        
+    except Exception as e:
+        # If anything fails, rollback both transactions
+        db.rollback()
+        logger.error(f"Failed to create conversion transactions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create conversion: {str(e)}"
+        )
+    
+    # Update first_transaction_date for the target asset if needed
+    from datetime import datetime
+    
+    # Refresh to_asset from DB (we already fetched it earlier for the symbol)
+    to_asset = get_asset(db, conversion.to_asset_id)
+    if to_asset:
+        if to_asset.first_transaction_date is None or conversion.tx_date < to_asset.first_transaction_date:
+            to_asset.first_transaction_date = conversion.tx_date
+            db.commit()
+            db.refresh(to_asset)
+            logger.info(f"Updated first_transaction_date for {to_asset.symbol} to {conversion.tx_date}")
+        
+        # Backfill historical prices for the target asset
+        start_date = datetime.combine(to_asset.first_transaction_date, datetime.min.time())
+        end_date = datetime.utcnow()
+        
+        try:
+            count = pricing_service.ensure_historical_prices(to_asset, start_date, end_date)
+            logger.info(f"Auto-backfilled {count} historical prices for {to_asset.symbol}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-backfill prices for {to_asset.symbol}: {e}")
+    
+    # Invalidate caches
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Created conversion {conversion_id} in portfolio {portfolio_id}")
+    
+    # Trigger background recalculation
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
+    
+    # Create notifications for both transactions
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=from_transaction,
+        action="created"
+    )
+    notification_service.create_transaction_notification(
+        db=db,
+        user_id=current_user.id,
+        transaction=to_transaction,
+        action="created"
+    )
+    
+    # Refresh to get asset details
+    db.refresh(from_transaction)
+    db.refresh(to_transaction)
+    
+    return ConversionResponse(
+        conversion_id=conversion_id,
+        conversion_rate=conversion_rate_str,
+        from_transaction=from_transaction,
+        to_transaction=to_transaction
+    )
+
+
 @router.get("/{portfolio_id}/transactions", response_model=List[Transaction])
 async def get_transactions(
     portfolio_id: int,
@@ -150,7 +503,7 @@ async def get_transactions(
     skip: int = 0,
     limit: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get transactions for a portfolio with filters
@@ -161,19 +514,6 @@ async def get_transactions(
     - **date_to**: End date (inclusive)
     - **limit**: Maximum number of records to return (None for all)
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     transactions = crud.get_transactions(
         db=db,
         portfolio_id=portfolio_id,
@@ -193,7 +533,7 @@ async def get_transaction_metrics(
     portfolio_id: int,
     grouping: str = "monthly",  # "monthly" or "yearly"
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Get aggregated transaction metrics grouped by month or year
@@ -206,19 +546,6 @@ async def get_transaction_metrics(
     - Max/Min/Avg total price per transaction
     - Difference between buy and sell totals
     """
-    # Verify portfolio exists and belongs to user
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     from sqlalchemy import func, extract, case
     from app.models import Transaction as TransactionModel
     from decimal import Decimal
@@ -347,28 +674,12 @@ async def get_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Get transaction by ID"""
-    # Verify portfolio access
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     transaction = crud.get_transaction(db, transaction_id)
     if not transaction or transaction.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
-        )
+        raise TransactionNotFoundError(transaction_id, portfolio_id)
     return transaction
 
 
@@ -380,8 +691,10 @@ async def get_transaction(
 async def create_transaction(
     portfolio_id: int,
     transaction: TransactionCreate,
+    pricing_service: PricingServiceDep,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Create new transaction
@@ -394,18 +707,6 @@ async def create_transaction(
     - **SPLIT**: Stock split (use metadata.split for ratio, e.g., "2:1")
     - **TRANSFER_IN/OUT**: Transfer between portfolios
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
     
     # Validate SPLIT transactions - must have existing position transactions
     if transaction.type == TransactionType.SPLIT:
@@ -416,23 +717,19 @@ async def create_transaction(
             asset_id=transaction.asset_id
         )
         has_position_txs = any(
-            tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT]
+            tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]
             for tx in existing_txs
         )
         if not has_position_txs:
             from app.crud.assets import get_asset
             asset = get_asset(db, transaction.asset_id)
             symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot record a split for {symbol} without any existing position transactions. "
-                       f"Please add at least one BUY transaction before recording a split."
-            )
+            raise CannotSplitWithoutBuyError(symbol=symbol)
     
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
-        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             position_before_sell = crud.get_position_quantity_at_date(
                 db, portfolio_id, transaction.asset_id, transaction.tx_date
             )
@@ -441,18 +738,17 @@ async def create_transaction(
                 from app.crud.assets import get_asset
                 asset = get_asset(db, transaction.asset_id)
                 symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {transaction.quantity} shares of {symbol} on {transaction.tx_date}. "
-                           f"Position at that date: {position_before_sell} shares. "
-                           f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
+                raise CannotSellMoreThanOwnedError(
+                    symbol=symbol,
+                    owned=position_before_sell,
+                    attempted_sell=float(transaction.quantity),
+                    tx_date=transaction.tx_date
                 )
     
     created = crud.create_transaction(db, portfolio_id, transaction)
     
     # Auto-backfill historical prices from transaction date to today
-    if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
-        from app.services.pricing import PricingService
+    if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
         from app.crud.assets import get_asset
         from datetime import datetime
         
@@ -466,7 +762,6 @@ async def create_transaction(
                 logger.info(f"Updated first_transaction_date for {asset.symbol} to {transaction.tx_date}")
             
             # Backfill historical prices from first transaction date to today
-            pricing_service = PricingService(db)
             start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
             end_date = datetime.utcnow()
             
@@ -475,6 +770,34 @@ async def create_transaction(
                 logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol} from {asset.first_transaction_date} to today")
             except Exception as e:
                 logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction")
+    
+    # Trigger background recalculation of metrics and insights
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            
+            # Queue async tasks to recalculate metrics and insights
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        # Don't fail the request if background task queueing fails
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
     
     # Create notification for transaction
     notification_service.create_transaction_notification(
@@ -493,28 +816,13 @@ async def update_transaction(
     transaction_id: int,
     transaction: TransactionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """Update existing transaction"""
-    # Verify portfolio access
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
-        )
+        raise TransactionNotFoundError(transaction_id, portfolio_id)
     
     # Validate SPLIT transactions - must have existing position transactions (excluding the current one being updated)
     if transaction.type == TransactionType.SPLIT:
@@ -524,23 +832,19 @@ async def update_transaction(
             asset_id=transaction.asset_id
         )
         has_position_txs = any(
-            tx.id != transaction_id and tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT]
+            tx.id != transaction_id and tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]
             for tx in existing_txs
         )
         if not has_position_txs:
             from app.crud.assets import get_asset
             asset = get_asset(db, transaction.asset_id)
             symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot record a split for {symbol} without any existing position transactions. "
-                       f"Please add at least one BUY transaction before recording a split."
-            )
+            raise CannotSplitWithoutBuyError(symbol=symbol)
     
     # Validate sell quantity if enabled
     from app.config import settings
     if settings.VALIDATE_SELL_QUANTITY:
-        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+        if transaction.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
             # Calculate position at the transaction date, excluding the transaction being updated
             position_before_sell = crud.get_position_quantity_at_date(
                 db, portfolio_id, transaction.asset_id, transaction.tx_date,
@@ -551,14 +855,40 @@ async def update_transaction(
                 from app.crud.assets import get_asset
                 asset = get_asset(db, transaction.asset_id)
                 symbol = asset.symbol if asset else f"Asset ID {transaction.asset_id}"
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot sell {transaction.quantity} shares of {symbol} on {transaction.tx_date}. "
-                           f"Position at that date: {position_before_sell} shares. "
-                           f"(This check can be disabled in settings: VALIDATE_SELL_QUANTITY=false)"
+                raise CannotSellMoreThanOwnedError(
+                    symbol=symbol,
+                    owned=position_before_sell,
+                    attempted_sell=float(transaction.quantity),
+                    tx_date=transaction.tx_date
                 )
     
     updated = crud.update_transaction(db, transaction_id, transaction)
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import CacheService
+    cache_service = CacheService()
+    
+    invalidate_portfolio_analytics(portfolio_id)
+    cache_service.invalidate_portfolio(portfolio_id)  # Invalidates positions, metrics, insights, and batch cache
+    
+    # Invalidate assets cache (held/sold)
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction update")
+    
+    # Trigger background recalculation
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
     
     # Create notification for transaction update
     notification_service.create_transaction_notification(
@@ -579,28 +909,28 @@ async def delete_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
-    """Delete transaction"""
-    # Verify portfolio access
-    portfolio = portfolio_crud.get_portfolio(db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
+    """Delete transaction. If it's a conversion, also deletes the linked transaction."""
     existing = crud.get_transaction(db, transaction_id)
     if not existing or existing.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transaction {transaction_id} not found in portfolio {portfolio_id}"
-        )
+        raise TransactionNotFoundError(transaction_id, portfolio_id)
+    
+    # Check if this is a conversion transaction and find the linked one
+    linked_transaction = None
+    if existing.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
+        meta_data = existing.meta_data or {}
+        conversion_id = meta_data.get("conversion_id")
+        if conversion_id:
+            # Find the linked transaction with the same conversion_id
+            all_transactions = crud.get_transactions(db, portfolio_id)
+            for tx in all_transactions:
+                if tx.id != existing.id and tx.meta_data:
+                    tx_meta_data = tx.meta_data if isinstance(tx.meta_data, dict) else {}
+                    if tx_meta_data.get("conversion_id") == conversion_id:
+                        linked_transaction = tx
+                        break
     
     # Create notification for transaction deletion (before deleting)
     notification_service.create_transaction_notification(
@@ -610,7 +940,45 @@ async def delete_transaction(
         action="deleted"
     )
     
+    # Delete the main transaction
     crud.delete_transaction(db, transaction_id)
+    
+    # Delete the linked conversion transaction if it exists
+    if linked_transaction:
+        logger.info(f"Deleting linked conversion transaction {linked_transaction.id}")
+        notification_service.create_transaction_notification(
+            db=db,
+            user_id=current_user.id,
+            transaction=linked_transaction,
+            action="deleted"
+        )
+        crud.delete_transaction(db, linked_transaction.id)
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import CacheService
+    cache_service = CacheService()
+    
+    invalidate_portfolio_analytics(portfolio_id)
+    cache_service.invalidate_portfolio(portfolio_id)  # Invalidates positions, metrics, insights, and batch cache
+    
+    # Invalidate assets cache (held/sold)
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after transaction deletion")
+    
+    # Trigger background recalculation
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id}")
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
 
 
 @router.post("/import/csv/stream")
@@ -618,7 +986,8 @@ async def import_csv_stream(
     portfolio_id: int,
     file: UploadFile = File(...),
     csv_service = Depends(get_csv_import_service),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Import transactions from CSV file with streaming progress updates
@@ -630,27 +999,42 @@ async def import_csv_stream(
     - total: int (total number of rows)
     - result: CsvImportResult (on completion)
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(csv_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Read file content
     content = await file.read()
     csv_content = content.decode("utf-8")
+    
+    # Store user_id for use in generator
+    user_id = current_user.id
     
     # Generator function to yield progress updates as JSON
     def generate_progress():
         for update in csv_service.import_csv_with_progress(portfolio_id, csv_content):
             yield json.dumps(update) + "\n"
+            
+            # On completion, invalidate caches
+            if update.get("type") == "complete":
+                from app.services.analytics_cache import invalidate_portfolio_analytics
+                from app.services.cache import invalidate_positions, CacheService
+                invalidate_portfolio_analytics(portfolio_id)
+                invalidate_positions(portfolio_id)
+                
+                # Invalidate assets cache (held/sold)
+                cache_service = CacheService()
+                cache_service.delete_pattern(f"assets_held:{user_id}:*")
+                cache_service.delete_pattern(f"assets_sold:{user_id}:*")
+                
+                logger.info(f"Invalidated caches for portfolio {portfolio_id}")
+                
+                # Trigger background recalculation
+                try:
+                    from app.config import settings
+                    if settings.ENABLE_BACKGROUND_TASKS:
+                        from app.tasks.metrics_tasks import calculate_portfolio_metrics
+                        from app.tasks.insights_tasks import calculate_insights_all_periods
+                        calculate_portfolio_metrics.delay(portfolio_id)
+                        calculate_insights_all_periods.delay(portfolio_id, user_id)
+                except Exception as e:
+                    logger.warning(f"Failed to queue background tasks: {e}")
     
     return StreamingResponse(
         generate_progress(),
@@ -667,7 +1051,8 @@ async def import_csv(
     portfolio_id: int,
     file: UploadFile = File(...),
     csv_service = Depends(get_csv_import_service),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
     """
     Import transactions from CSV file
@@ -685,19 +1070,6 @@ async def import_csv(
     2024-06-01,AAPL,SPLIT,2:1,2-for-1 stock split
     ```
     """
-    # Verify portfolio exists
-    portfolio = portfolio_crud.get_portfolio(csv_service.db, portfolio_id)
-    if not portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Portfolio {portfolio_id} not found"
-        )
-    if portfolio.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this portfolio"
-        )
-    
     # Read file content
     content = await file.read()
     csv_content = content.decode("utf-8")
@@ -706,9 +1078,31 @@ async def import_csv(
     result = csv_service.import_csv(portfolio_id, csv_content)
     
     if not result.success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"errors": result.errors, "imported": result.imported_count}
-        )
+        raise ImportTransactionsError(result.errors, result.imported_count)
+    
+    # Invalidate all caches since portfolio data changed
+    from app.services.analytics_cache import invalidate_portfolio_analytics
+    from app.services.cache import invalidate_positions, CacheService
+    invalidate_portfolio_analytics(portfolio_id)
+    invalidate_positions(portfolio_id)
+    
+    # Invalidate assets cache (held/sold)
+    cache_service = CacheService()
+    cache_service.delete_pattern(f"assets_held:{current_user.id}:*")
+    cache_service.delete_pattern(f"assets_sold:{current_user.id}:*")
+    
+    logger.info(f"Invalidated caches for portfolio {portfolio_id} after CSV import")
+    
+    # Trigger background recalculation of metrics and insights
+    try:
+        from app.config import settings
+        if settings.ENABLE_BACKGROUND_TASKS:
+            from app.tasks.metrics_tasks import calculate_portfolio_metrics
+            from app.tasks.insights_tasks import calculate_insights_all_periods
+            calculate_portfolio_metrics.delay(portfolio_id)
+            calculate_insights_all_periods.delay(portfolio_id, current_user.id)
+            logger.info(f"Queued background recalculation for portfolio {portfolio_id} after CSV import")
+    except Exception as e:
+        logger.warning(f"Failed to queue background tasks for portfolio {portfolio_id}: {e}")
     
     return result

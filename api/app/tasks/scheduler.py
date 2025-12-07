@@ -431,9 +431,9 @@ async def fetch_daily_closing_prices():
                 total_quantity = Decimal(0)
                 
                 for tx in transactions:
-                    if tx.type == TransactionType.BUY or tx.type == TransactionType.TRANSFER_IN:
+                    if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
                         total_quantity += tx.quantity
-                    elif tx.type == TransactionType.SELL or tx.type == TransactionType.TRANSFER_OUT:
+                    elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                         total_quantity -= tx.quantity
                     elif tx.type == TransactionType.SPLIT:
                         # Apply split ratio to current quantity
@@ -519,6 +519,36 @@ async def fetch_daily_closing_prices():
     await loop.run_in_executor(None, _fetch_closing_prices)
 
 
+async def update_all_time_highs():
+    """
+    Background job to update all-time high prices from yfinance
+    
+    This runs once per day (after market close) to fetch the true all-time high
+    for all assets from complete yfinance historical data.
+    Runs asynchronously to avoid blocking the main event loop
+    """
+    logger.info("Starting ATH update from yfinance...")
+    
+    # Run database operations in a thread pool to avoid blocking
+    def _update_ath():
+        from app.tasks.ath_tasks import backfill_ath_from_yfinance
+        try:
+            result = backfill_ath_from_yfinance()
+            logger.info(
+                f"ATH update completed. Processed: {result['processed']}, "
+                f"Updated: {result['updated']}, Errors: {len(result['errors'])}"
+            )
+            if result['errors']:
+                for error in result['errors'][:5]:  # Log first 5 errors
+                    logger.error(f"ATH update error: {error}")
+        except Exception as e:
+            logger.error(f"ATH update failed: {e}", exc_info=True)
+    
+    # Run in thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _update_ath)
+
+
 async def send_daily_reports():
     """
     Background job to generate and send daily portfolio reports
@@ -539,9 +569,11 @@ async def send_daily_reports():
             from app.services.email import email_service
             from app.services.notifications import notification_service
             from app.services.pricing import _cleanup_stale_tasks
+            from zoneinfo import ZoneInfo
             
-            # Get yesterday's date (report for previous day)
-            report_date = (datetime.utcnow() - timedelta(days=1)).date()
+            # Get current date in EST timezone (report for the trading day that just ended)
+            # When this runs at 4:00 PM EST, it's for the current day's market close
+            report_date = datetime.now(ZoneInfo('America/New_York')).date()
             
             # Get all active users with daily reports enabled
             users = (
@@ -712,12 +744,27 @@ def start_scheduler():
         coalesce=True
     )
     
+    # Schedule ATH backfill from yfinance
+    # Run at 5:30 PM EST (17:30) after markets close, after closing prices are fetched
+    # Only run on weekdays (Monday-Friday)
+    # This updates the true all-time high for all assets from yfinance historical data
+    scheduler.add_job(
+        update_all_time_highs,
+        trigger=CronTrigger(hour=17, minute=30, day_of_week='mon-fri', timezone='America/New_York'),
+        id="update_all_time_highs",
+        name="Update all-time highs from yfinance",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     scheduler.start()
     logger.info(
         "AsyncIO Scheduler started - price refresh every 15 minutes, "
         "alerts check every 5 minutes, daily changes check every 10 minutes, "
         "daily reports at 4:00 PM EST (weekdays only), "
-        "daily closing prices at 5:00 PM EST (weekdays only). "
+        "daily closing prices at 5:00 PM EST (weekdays only), "
+        "ATH update at 5:30 PM EST (weekdays only). "
         "All jobs run asynchronously to prevent blocking."
     )
 

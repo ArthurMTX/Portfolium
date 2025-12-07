@@ -24,10 +24,12 @@ export function getOptimalDecimalPlaces(price: number | string | null): number {
 /**
  * Format currency with adaptive precision based on the value
  * Small values get more decimal places to show meaningful data
+ * Values very close to zero (< 0.01) are treated as zero to avoid floating point noise
  */
 export function formatCurrency(
   value: number | string | null, 
-  currency: string = 'EUR'
+  currency: string = 'EUR',
+  locale?: string
 ): string {
   if (value === null || value === undefined) return '-'
   
@@ -35,9 +37,21 @@ export function formatCurrency(
   
   if (isNaN(numValue)) return '-'
   
-  const decimalPlaces = getOptimalDecimalPlaces(numValue)
+  // Treat very small values as zero to avoid displaying floating point noise like -0.000002
+  if (Math.abs(numValue) < 0.01) {
+    const userLocale = locale || navigator.language || 'en-US'
+    return new Intl.NumberFormat(userLocale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(0)
+  }
   
-  const formatted = new Intl.NumberFormat('fr-FR', {
+  const decimalPlaces = getOptimalDecimalPlaces(numValue)
+  const userLocale = locale || navigator.language || 'en-US'
+  
+  const formatted = new Intl.NumberFormat(userLocale, {
     style: 'currency',
     currency,
     minimumFractionDigits: decimalPlaces,
@@ -45,6 +59,36 @@ export function formatCurrency(
   }).format(numValue)
   
   return formatted
+}
+
+/**
+ * Format currency without unnecessary decimals (101,00 -> 101)
+ * Used for fees, totals, and other values where .00 is redundant
+ */
+export function formatCurrencyCompact(
+  value: number | string | null, 
+  currency: string = 'EUR',
+  locale?: string
+): string {
+  if (value === null || value === undefined) return '-'
+  
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  if (isNaN(numValue)) return '-'
+  if (numValue === 0) return '-'
+  
+  const userLocale = locale || navigator.language || 'en-US'
+  
+  // Check if value is effectively a whole number (handles floating point precision issues)
+  const rounded = Math.round(numValue * 100) / 100
+  const isWholeNumber = rounded === Math.floor(rounded)
+  
+  return new Intl.NumberFormat(userLocale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: isWholeNumber ? 0 : 2,
+    maximumFractionDigits: isWholeNumber ? 0 : 2,
+  }).format(rounded)
 }
 
 /**
@@ -83,4 +127,44 @@ export function formatAssetType(type: string | null): string {
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
+}
+
+/**
+ * Format large numbers with abbreviations (K, M, B, T)
+ * For market cap and volume display
+ * e.g., 30665161 -> 30.67M
+ */
+export function formatLargeNumber(value: number | string | null, decimals: number = 2): string {
+  if (value === null || value === undefined) return '-'
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(numValue)) return '-'
+  
+  const absValue = Math.abs(numValue)
+  const sign = numValue < 0 ? '-' : ''
+  
+  if (absValue >= 1e12) {
+    return sign + (absValue / 1e12).toFixed(decimals) + 'T'
+  } else if (absValue >= 1e9) {
+    return sign + (absValue / 1e9).toFixed(decimals) + 'B'
+  } else if (absValue >= 1e6) {
+    return sign + (absValue / 1e6).toFixed(decimals) + 'M'
+  } else if (absValue >= 1e3) {
+    return sign + (absValue / 1e3).toFixed(decimals) + 'K'
+  }
+  
+  return sign + absValue.toFixed(decimals)
+}
+
+/**
+ * Format number with thousands separators
+ * e.g., 30665161 -> 30,665,161
+ */
+export function formatWithSeparators(value: number | string | null): string {
+  if (value === null || value === undefined) return '-'
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(numValue)) return '-'
+  
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0
+  }).format(numValue)
 }

@@ -57,6 +57,7 @@
     "of": "of",
     "and": "and",
     "or": "or",
+    "all": "All",
     "create": "Create",
     "creating": "Creating...",
     "update": "Update",
@@ -70,7 +71,46 @@
     "wallet": "Wallet",
     "portfolio": "this portfolio",
     "priceUpdateError": "Price Update Error",
-    "retry": "Retry"
+    "retry": "Retry",
+    "widgets": "Widgets",
+    "layouts": "Layouts",
+    "preview": "Preview",
+    "previewError": "Preview Error",
+    "canAddMultiple": "Can add multiple",
+    "size": "Size",
+    "remove": "Remove",
+    "reset": "Reset",
+    "resetToDefault": "Reset to Default",
+    "default": "Default",
+    "updatedAt": "Updated at {{date}}",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "load": "Load",
+    "clear": "Clear",
+    "selected": "Selected",
+    "unknown": "Unknown",
+    "confirmDelete": "Confirm Delete",
+    "processing": "Processing..."
+  },
+  "conversion": {
+    "title": "Convert Crypto",
+    "description": "Swap one cryptocurrency for another (e.g., BTC → ETH)",
+    "fromAsset": "From Crypto",
+    "toAsset": "To Crypto",
+    "selectFromPortfolio": "Select from your crypto holdings",
+    "searchAsset": "Search for cryptocurrency...",
+    "noAssetsInPortfolio": "No crypto assets in portfolio",
+    "youSend": "You Send",
+    "youReceive": "You Receive",
+    "youOwn": "You own",
+    "rate": "Rate",
+    "convert": "Convert",
+    "selectBothAssets": "Please select both source and target assets",
+    "sameAssetError": "Cannot convert an asset to itself",
+    "enterQuantities": "Please enter quantities for both assets",
+    "fetchCurrentPrice": "Fetch current price",
+    "notesPlaceholder": "e.g., Swapped on Binance",
+    "autoCalculated": "auto"
   },
   "fields": {
     "symbol": "Symbol",
@@ -82,6 +122,7 @@
     "type": "Type",
     "quantity": "Quantity",
     "price": "Price",
+    "pricePerUnit": "Price per unit",
     "fees": "Fees",
     "total": "Total",
     "notes": "Notes",
@@ -115,6 +156,19 @@
       "afterhours": "After-hours",
       "closed": "Market closed",
       "unknown": "Unknown"
+    },
+    "regions": {
+      "us": "USA",
+      "europe": "Europe",
+      "asia": "Asia",
+      "oceania": "Oceania"
+    },
+    "sentiments": {
+      "extremeFear": "Extreme Fear",
+      "fear": "Fear",
+      "neutral": "Neutral",
+      "greed": "Greed",
+      "extremeGreed": "Extreme Greed"
     }
   },
   "transaction": {
@@ -125,7 +179,10 @@
       "fee": "Fee",
       "transferIn": "Transfer In",
       "transferOut": "Transfer Out",
-      "split": "Split"
+      "split": "Split",
+      "conversionIn": "Conversion In",
+      "conversionOut": "Conversion Out",
+      "conversion": "Conversion"
     }
   },
   "dashboard": {
@@ -154,8 +211,542 @@
     "currentPrice": "Current Price",
     "dailyChange": "Daily Change",
     "marketValue": "Market Value",
+    "breakeven": {
+      "gainNeeded": "Gain needed",
+      "targetPrice": "Target price",
+      "toBreakeven": "to break even"
+    },
     "noPositions": "No positions to display.",
-    "noPositionsInfo": "Start by adding transactions to your portfolio."
+    "noPositionsInfo": "Start by adding transactions to your portfolio.",
+    "editMode": "Edit Mode",
+    "editModeInfo": "Drag widgets to reorder them or resize by dragging the corners. Click {{save}} again to save layout.",
+    "widgetsInfo": "Add/Remove widgets",
+    "layoutsInfo": "Manage Layouts - Save, Load, Import/Export",
+    "customizeLayout": "Customize Layout",
+    "exitEditMode": "Exit Edit Mode",
+    "marketStatus": "Market Status",
+    "emptyDashboard": "Your dashboard is feeling lonely!",
+    "emptyDashboardInfo": "It's like a pizza without toppings. Click the \"Edit\" and \"Widgets\" button to spice things up!",
+    "proTip": "Pro Tip",
+    "proTipInfo": "You can use the default layouts as a starting point!",
+    "removeWidget": "Remove Widget",
+    "removeWidgetMessage": "Are you sure you want to remove this widget from your dashboard?",
+    "positionDetail": {
+      "performance": "Performance Metrics",
+      "tradingZones": "Trading Zones",
+      "riskMetrics": "Risk Metrics",
+      "basicInfo": "Position Details",
+      "fundamentalsLiquidity": "Fundamentals & Liquidity",
+      "marketCap": "Market Cap",
+      "volume": "Volume",
+      "peRatio": "P/E Ratio",
+      "eps": "EPS",
+      "liquidityScore": "Liquidity Score",
+      "growthProfitability": "Growth & Profitability",
+      "revenueGrowth": "Revenue Growth",
+      "earningsGrowth": "Earnings Growth",
+      "netMargin": "Net Margin",
+      "operatingMargin": "Operating Margin",
+      "roe": "ROE",
+      "balanceSheetHealth": "Balance Sheet Health",
+      "netCashPosition": "Net Cash Position",
+      "debtToEquity": "Debt-to-Equity",
+      "currentRatio": "Current Ratio",
+      "quickRatio": "Quick Ratio",
+      "analystViewValuation": "Analyst View & Valuation",
+      "consensus": "Consensus",
+      "analysts": "Analysts",
+      "targetMean": "Target (Mean)",
+      "impliedUpside": "Implied Upside",
+      "personalDrawdown": "Personal Drawdown",
+      "distanceToATH": "Distance to ATH",
+      "avgBuyZone": "Avg Buy Zone",
+      "costToAvgDown": "Cost to Avg Down",
+      "volContribution": "Volatility Contribution",
+      "portfolioVolatility": "of portfolio volatility",
+      "opportunityToBuy": "Buying opportunity",
+      "priceAboveAvg": "Price above average",
+      "targetPRU5Pct": "Target: -5% PRU",
+      "costBasis": "Cost Basis",
+      "assetType": "Asset Type",
+      "30DayVolatility": "30-Day Volatility",
+      "30DayVolatilitySubtitle": "Daily price variation (30d)",
+      "90DayVolatility": "90-Day Volatility",
+      "90DayVolatilitySubtitle": "Daily price variation (90d)",
+      "beta": "Beta",
+      "marketCorrelation": "Market correlation",
+      "riskScore": "Risk Score",
+      "riskScoreSubtitle": "Composite risk assessment (0-100)"
+    },
+    "widgets": {
+      "totalValue": {
+        "name": "Total Value",
+        "description": "Display your total portfolio value"
+      },
+      "dailyGain": {
+        "name": "Daily Gain",
+        "description": "Show your portfolio's daily gain/loss"
+      },
+      "unrealizedPnL": {
+        "name": "Unrealized P&L",
+        "description": "View your portfolio's unrealized profit and loss"
+      },
+      "realizedPnL": {
+        "name": "Realized P&L",
+        "description": "View your portfolio's realized profit and loss"
+      },
+      "dividends": {
+        "name": "Dividends",
+        "description": "Show total dividends received"
+      },
+      "notifications": {
+        "name": "Recents Notifications",
+        "description": "View recent alerts and notifications"
+      },
+      "watchlist": {
+        "name": "Watchlist",
+        "description": "Track your watchlist assets",
+        "noWatchlistItems": "No assets in watchlist"
+      },
+      "positions": {
+        "name": "Positions Table",
+        "description": "View all your current and sold positions"
+      },
+      "totalReturn": {
+        "name": "Total Return",
+        "description": "Display your portfolio's total return (unrealized + realized + dividends - fees)",
+        "subtitle": "All gains & losses"
+      },
+      "winRate": {
+        "name": "Win Rate",
+        "description": "Show the percentage of profitable trades in your portfolio",
+        "positionsInProfit": "positions in profit",
+        "profitOutOfTotal": "{{profit}} out of {{total}} total"
+      },
+      "concentrationRisk": {
+        "name": "Concentration Risk",
+        "description": "Analyze the risk of over-concentration in your portfolio"
+      },
+      "bestWorstToday": {
+        "name": "Best & Worst Today",
+        "description": "Highlight your best and worst performing assets today"
+      },
+      "performanceMetrics": {
+        "name": "Week/Month/YTD Performance",
+        "description": "Performance overview for different time periods",
+        "weekly": "Weekly Performance",
+        "monthly": "Monthly Performance",
+        "ytd": "Year-to-Date Performance"
+      },
+      "topPerformers": {
+        "name": "Top Performers",
+        "description": "Best 5 positions by return percentage",
+        "noPerformanceData": "No performance data available."
+      },
+      "worstPerformers": {
+        "name": "Worst Performers",
+        "description": "Worst 5 positions by return percentage",
+        "noPerformanceData": "No performance data available."
+      },
+      "largestHoldings": {
+        "name": "Largest Holdings",
+        "description": "Top 5 positions by market value with allocation",
+        "noHoldingsData": "No holdings data available."
+      },
+      "recentTransactions": {
+        "name": "Recent Transactions",
+        "description": "Last 5 transactions timeline",
+        "noTransactions": "No recent transactions to display.",
+        "buy": "Buy",
+        "sell": "Sell",
+        "dividend": "Dividend",
+        "split": "Split"
+      },
+      "marketStatus": {
+        "name": "Market Status",
+        "description": "Current market statuses for major regions"
+      },
+      "marketIndices": {
+        "name": "Market Indices",
+        "description": "Major market indices by region (S&P 500, DAX, Nikkei, etc.)",
+        "failedToLoad": "Failed to load market indices.",
+        "regions": {
+          "us": "USA",
+          "europe": "Europe",
+          "asia": "Asia"
+        }
+      },
+      "assetAllocation": {
+        "name": "Asset Allocation",
+        "description": "Visual breakdown of portfolio by sector, type, or country",
+        "donutChart": "Donut Chart",
+        "pieChart": "Pie Chart",
+        "barChart": "Bar Chart",
+        "noAllocationData": "No allocation data available."
+      },
+      "portfolioHeatmap": {
+        "name": "Portfolio Heatmap",
+        "description": "Visual heatmap of all positions with color-coded daily performance"
+      },
+      "goalTracker": {
+        "name": "Goal Tracker",
+        "description": "Track progress towards your investment goals",
+        "editGoal": "Edit Goal",
+        "addGoal": "Add Goal",
+        "goalTitle": "Goal Title",
+        "goalTitlePlaceholder": "e.g., Retirement Fund",
+        "category": "Category",
+        "categories": {
+          "retirement": "Retirement",
+          "house": "House",
+          "education": "Education",
+          "vacation": "Vacation",
+          "emergency": "Emergency Fund",
+          "other": "Other"
+        },
+        "scenarios": {
+          "pessimistic": "Pessimistic",
+          "median": "Median",
+          "optimistic": "Optimistic"
+        },
+        "targetAmount": "Target Amount",
+        "amountPlaceholder": "Enter target amount",
+        "targetDate": "Target Date",
+        "monthlyContribution": "Monthly Contribution",
+        "monthlyContributionHelp": "Expected monthly deposits towards this goal",
+        "createGoal": "Create Goal",
+        "goalReached": "Goal Reached!",
+        "current": "Current",
+        "goal": "Goal",
+        "toGo": "To Go",
+        "monthly": "Monthly",
+        "estTime": "Est. Time",
+        "noGoals": "No Goals Yet",
+        "noGoalsDescription": "Create your first financial goal to start tracking your progress",
+        "addFirstGoal": "Add Your First Goal",
+        "congratulations": "Congratulations! You've reached your investment goal.",
+        "setARealisticGoal": "Set a realistic goal amount to track your investment progress.",
+        "estimates8PercentReturn": "Based on an estimated 8% annual return.",
+        "withContributions": "Projections include monthly contributions with 8% annual return.",
+        "tip": "Tip",
+        "contributionImpact": "Increase monthly contribution by {{amount}} to reach your goal {{months}} months earlier",
+        "targetDateInPast": "Target date is in the past. You may consider adjusting it.",
+        "calculatingProjections": "Calculating goal projections...",
+        "veryUnlikelyGoalTitle": "Very Unlikely Goal",
+        "veryUnlikelyGoalMessage": "Based on your current portfolio and contribution plan, reaching this goal by the target date is very unlikely. Consider increasing your contributions or adjusting your target date.",
+        "achievementProbability": "Achievement Probability",
+        "highConfidence": "High confidence based on Monte Carlo simulations.",
+        "moderateConfidence": "Moderate confidence, consider reviewing your plan.",
+        "lowConfidence": "Low confidence, significant adjustments may be needed.",
+        "projectionsScenarios": "Projections Scenarios",
+        "percentAnnualReturn": "{{percent}}% annual",
+        "basedOnVolatility": "Based on historical return of {{return}}% ± {{volatility}}% volatility",
+        "goalInfo": "Projections use historical performance and Monte Carlo simulation",
+        "addContribution": "Add monthly contributions to see detailed projections"
+      },
+      "sharpeRatio": {
+        "name": "Sharpe Ratio",
+        "description": "Measure risk-adjusted returns of your portfolio",
+        "subtitle": "Risk-adjusted returns"
+      },
+      "volatility": {
+        "name": "Volatility",
+        "description": "Standard deviation of portfolio returns",
+        "subtitle": "Annualized (1Y)"
+      },
+      "maxDrawdown": {
+        "name": "Max Drawdown",
+        "description": "Largest peak-to-trough decline in portfolio value",
+        "subtitle": "Peak-to-trough (1Y)"
+      },
+      "betaCorrelation": {
+        "name": "Beta",
+        "description": "Portfolio correlation with market benchmark",
+        "subtitle": "vs Market (1Y)"
+      },
+      "valueAtRisk": {
+        "name": "Value at Risk (VaR)",
+        "description": "Potential loss at 95% confidence level",
+        "subtitle": "95% confidence (1-day)"
+      },
+      "downsideDeviation": {
+        "name": "Downside Deviation",
+        "description": "Volatility of negative returns only",
+        "subtitle": "Downside risk (1Y)"
+      },
+      "hitRatio": {
+        "name": "Hit Ratio",
+        "description": "Percentage of profitable trades",
+        "subtitle": "{{profit}} of {{total}} profitable",
+        "noTrades": "No positions"
+      },
+      "alpha": {
+        "name": "Alpha",
+        "description": "Excess returns above benchmark",
+        "subtitle": "vs SPY (1Y)"
+      },
+      "rSquared": {
+        "name": "R-Squared",
+        "description": "Correlation strength with market",
+        "subtitle": "vs SPY (1Y)"
+      },
+      "avgHoldingPeriod": {
+        "name": "Avg Holding Period",
+        "description": "Average duration of held positions",
+        "subtitle": "FIFO method"
+      },
+      "diversificationScore": {
+        "name": "Diversification Score",
+        "description": "Portfolio diversification measurement",
+        "subtitle": "{{count}} position{{suffix}}",
+        "noPositions": "No positions"
+      },
+      "bitcoinPizzaIndex": {
+        "name": "Bitcoin Pizza Index",
+        "description": "What 10,000 BTC is worth today (the famous pizza trade)",
+        "subtitle": "10,000 BTC (2 pizzas, 2010)"
+      },
+      "marketSentiment": {
+        "name": "Market Sentiment",
+        "description": "CNN Fear & Greed Index - Stock market sentiment"
+      },
+      "cryptoSentiment": {
+        "name": "Crypto Sentiment",
+        "description": "Alternative.me Fear & Greed Index - Crypto market sentiment"
+      },
+      "vixIndex": {
+        "name": "VIX Index",
+        "description": "CBOE Volatility Index - Market volatility indicator",
+        "subtitle": "CBOE Volatility Index",
+        "volatilityLevels": {
+          "low": "Low Volatility",
+          "normal": "Normal Volatility",
+          "elevated": "Elevated Volatility",
+          "high": "High Volatility"
+        }
+      },
+      "tnxIndex": {
+        "name": "TNX Index",
+        "description": "10-Year Treasury Yield - Key interest rate indicator",
+        "subtitle": "10-Year Treasury Yield",
+        "yieldLevels": {
+          "veryLow": "Very Low Yield",
+          "low": "Low Yield",
+          "normal": "Normal Yield",
+          "elevated": "Elevated Yield",
+          "high": "High Yield"
+        }
+      },
+      "dxyIndex": {
+        "name": "DXY Index",
+        "description": "U.S. Dollar Index - Dollar strength indicator",
+        "subtitle": "U.S. Dollar Index",
+        "strengthLevels": {
+          "veryWeak": "Very Weak Dollar",
+          "weak": "Weak Dollar",
+          "normal": "Normal Dollar",
+          "strong": "Strong Dollar",
+          "veryStrong": "Very Strong Dollar"
+        }
+      },
+      "categories": {
+        "insights": {
+          "label": "Charts & Insights",
+          "description": "Visual analytics and performance data"
+        },
+        "metrics": {
+          "label": "Key & Metrics",
+          "description": "Essential portfolio statistics and values"
+        },
+        "data": {
+          "label": "Data & Lists",
+          "description": "Tabular data and list views"
+        }
+      },
+      "library": {
+        "title": "Widget Library",
+        "description": "Click to add widgets to your dashboard",
+        "widgetsCount": "{{count}} widgets active",
+        "resetDashboard": "Reset Dashboard",
+        "resetDashboardMessage": "Reset dashboard to default layout? This will remove all your customizations and widgets.",
+        "widgetAlreadyExists": "Widget Already Exists",
+        "widgetAlreadyExistsMessage": "This widget is already on your dashboard. You can only add one instance of this widget type."
+      }
+    },
+    "layouts": {
+      "title": "Layout Manager",
+      "description": "Save, load, and share your dashboard layouts",
+      "saveCurrentLayout": "Save Current Layout",
+      "saveAsNewLayout": "Save as New Layout",
+      "saveCurrentToThisLayout": "Save current dashboard to this layout",
+      "confirmSave": "Confirm Save",
+      "saveCurrentConfirm": "This will replace the layout configuration of \"{name}\" with your current dashboard. Continue?",
+      "myLayouts": "My Layouts",
+      "templates": "Templates",
+      "template": "Template",
+      "loadingLayouts": "Loading layouts...",
+      "noSavedLayouts": "No saved layouts yet",
+      "noSavedLayoutsInfo": "Save your current layout to get started.",
+      "loadThisLayout": "Load This Layout",
+      "setAsDefault": "Set as Default Layout",
+      "removeAsDefault": "Remove as Default Layout",
+      "duplicateLayout": "Duplicate Layout",
+      "deleteLayoutConfirm": "Are you sure you want to delete \"{name}\"?",
+      "proTipInfo": "These are professionally designed layouts optimized for different investment styles. Click \"Load\" to apply any template.",
+      "importLayoutInfo": "Select an exported layout JSON file to import a custom layout.",
+      "selectLayoutFile": "Select Layout File",
+      "layoutName": "Layout Name",
+      "layoutNamePlaceholder": "e.g., Day Trading Setup, Retirement View",
+      "descriptionField": "Layout Description",
+      "descriptionPlaceholder": "Optional description about this layout"
+    },
+    "conclusions": {
+      "common": {
+        "insufficientData": "Insufficient data to provide a conclusion."
+      },
+      "performance": {
+        "exceptionalOutlierPositive": "Exceptional high-performance outlier (penny stock effect)",
+        "exceptionalOutlierNegative": "Extreme underperformance - critical review needed",
+        "veryStrongLongTerm": "Exceptional long-term leadership - top tier",
+        "veryStrongOtherPeriods": "Very strong {{period}} performance - top quartile",
+        "severeUnderperformance": "Severe underperformance - reevaluate position",
+        "strongLongTerm": "Strong leadership - consistent outperformer",
+        "strongShortTerm": "Notable outperformance - positive momentum",
+        "significantUnderperformance": "Significant underperformance - trend is weak",
+        "moderateOutperformance": "Moderate outperformance - improving momentum",
+        "moderateUnderperformance": "Moderate underperformance - watch closely",
+        "inLineWithBenchmark": "In line with sector - tracking benchmark"
+      },
+      "volatility": {
+        "veryHigh": "Very high volatility - extremely unstable price behavior",
+        "high": "High volatility - expect significant price swings",
+        "moderate": "Moderate volatility - expect some price fluctuations",
+        "low": "Low volatility - relatively stable price"
+      },
+      "beta": {
+        "high": "High volatility - moves significantly more than benchmark",
+        "aboveAverage": "Above-average risk - amplifies market movements",
+        "marketLike": "Market-like volatility - moves in line with benchmark",
+        "defensive": "Defensive - less volatile than benchmark",
+        "low": "Low market sensitivity - weak correlation with benchmark",
+        "negative": "Negative correlation - often moves opposite to benchmark"
+      },
+      "risk": {
+        "extreme": "Extreme risk - highly volatile and structurally unstable",
+        "high": "High risk - strong price fluctuations and elevated sensitivity",
+        "moderate": "Moderate risk - balanced but affected by market conditions",
+        "low": "Low risk - relatively stable with controlled volatility",
+        "veryLow": "Very low risk - defensive profile with limited market exposure"
+      },
+      "marketCap": {
+        "megacap": "Mega cap - very large, highly stable company",
+        "largecap": "Large cap - established, lower-risk company",
+        "midcap": "Mid cap - balanced growth and stability",
+        "smallcap": "Small cap - higher growth potential, higher risk",
+        "microcap": "Micro cap - very small company, high volatility"
+      },
+      "peRatio": {
+        "nonProfitable": "Not profitable - earnings are negative",
+        "profitable": "Profitable - positive earnings"
+      },
+      "volume": {
+        "veryHigh": "Exceptionally high volume - strong news- or flow-driven activity",
+        "aboveAverage": "Above-average volume - strong market activity",
+        "inLine": "Volume in line with the average - normal trading conditions",
+        "belowAverage": "Below-average volume - reduced market activity",
+        "veryLow": "Very low volume - thin market, execution may be difficult",
+        "unknown": "Insufficient data to assess trading volume"
+      },
+      "eps": {
+        "profitable": "Profitable - positive earnings",
+        "breakEven": "Near break-even - minimal profit or loss",
+        "negative": "Not profitable - negative earnings",
+        "heavyLoss": "Heavy losses - business under significant financial pressure",
+        "severeLoss": "Severe losses - likely due to exceptional charges"
+      },
+      "liquidityScore": {
+        "excellent": "Excellent liquidity - very easy to trade",
+        "good": "Good liquidity - healthy market activity",
+        "average": "Average liquidity - normal trading conditions",
+        "belowAverage": "Low liquidity - may have higher spreads",
+        "poor": "Poor liquidity - difficult to trade, high transaction risks"
+      },
+      "growth": {
+        "revenue": {
+          "hyperGrowth": "Explosive growth - exceptional revenue momentum",
+          "strongGrowth": "Strong growth - solid commercial expansion",
+          "moderateGrowth": "Moderate growth - healthy trend",
+          "lowGrowth": "Low growth - stable but slowing",
+          "declining": "Declining revenue - potential weakness"
+        },
+        "earnings": {
+          "exceptional": "Exceptional earnings growth - highly profitable momentum",
+          "healthy": "Healthy earnings growth - improving profitability",
+          "mild": "Mild earnings growth - stable progress",
+          "declining": "Declining earnings - profitability under pressure"
+        }
+      },
+      "margins": {
+        "net": {
+          "excellent": "Excellent net profitability",
+          "good": "Good net profitability",
+          "moderate": "Moderate net margin",
+          "low": "Low profitability",
+          "negative": "Negative margin - company operating at a loss"
+        },
+        "operating": {
+          "highlyEfficient": "Highly efficient operations - strong cost control",
+          "good": "Good operating efficiency",
+          "low": "Low operating margin - profitability constrained",
+          "negative": "Negative operating margin - operating losses"
+        }
+      },
+      "roe": {
+        "excellent": "Exceptional return on equity",
+        "healthy": "Healthy return on equity",
+        "moderate": "Moderate return on equity",
+        "low": "Low return on equity",
+        "negative": "Negative return - destruction of shareholder value"
+      },
+      "balanceSheet": {
+        "netCash": "Strong net cash position - financial strength",
+        "neutral": "Neutral cash position",
+        "netDebt": "Net debt position - higher financial risk",
+        "dte": {
+          "lowLeverage": "Low leverage - healthy financial structure",
+          "moderateLeverage": "Moderate leverage - reasonable risk",
+          "highLeverage": "High leverage - financial risk elevated",
+          "veryHighLeverage": "Very high leverage - balance sheet under stress"
+        },
+        "current": {
+          "veryStrong": "Very strong liquidity - excellent short-term flexibility",
+          "healthy": "Healthy liquidity - short-term obligations covered",
+          "tight": "Tight liquidity - limited buffer",
+          "weak": "Weak liquidity - short-term risks increased"
+        },
+        "quick": {
+          "excellent": "Excellent immediate liquidity",
+          "adequate": "Adequate short-term liquidity",
+          "weak": "Weak quick ratio - low short-term buffer",
+          "veryWeak": "Very weak quick ratio - potential liquidity risk"
+        }
+      },
+      "analyst": {
+        "consensus": {
+          "strongBuy": "Highly positive analyst outlook",
+          "buy": "Favorable expectations",
+          "hold": "Neutral analyst sentiment",
+          "sell": "Declining confidence",
+          "strongSell": "Highly negative outlook"
+        },
+        "upside": {
+          "high": "High upside potential",
+          "moderate": "Moderate upside potential",
+          "limited": "Limited upside - fairly valued",
+          "downside": "Negative implied return - downside risk"
+        }
+      }
+    }
   },
   "portfolios": {
     "title": "Portfolios",
@@ -170,7 +761,18 @@
     "currencyField": "Portfolio Currency",
     "descriptionField": "Portfolio Description",
     "descriptionPlaceholder": "Optional description about this portfolio",
-    "deleteConfirm": "Are you sure you want to delete this portfolio? All transactions and data will be permanently removed. This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete this portfolio? All transactions and data will be permanently removed. This action cannot be undone.",
+    "publicView": "Public View",
+    "publicSharing": "Public Sharing",
+    "publicSharingHint": "Allow anyone with the link to view this portfolio",
+    "publicEnabled": "Public Sharing Enabled",
+    "publicDisabled": "Public Sharing Disabled",
+    "publicEnabledHint": "Anyone with the link can view allocations and holdings",
+    "publicDisabledHint": "Only you can see this portfolio",
+    "sharePortfolio": "Share Portfolio",
+    "shareLink": "Share Link",
+    "shareLinkHint": "Share this link with anyone to show them your portfolio allocations",
+    "previewPublicPage": "Preview Public Page"
   },
   "auth": {
     "emailNotVerified": "Your email address has not been verified."
@@ -248,11 +850,14 @@
     "correlation": "Correlation",
     "winRate": "Win Rate",
     "riskAnalysis": "Risk Analysis",
+    "riskEngine": "Risk Engine",
     "volatility": "Volatility",
     "annual": "Annual",
     "maxDrawdown": "Max Drawdown",
     "downsideDeviation": "Downside Deviation",
     "valueAtRisk": "Value at Risk",
+    "riskOverviewTitle": "Risk Overview",
+    "riskOverviewDescription": "Basic portfolio-level risk metrics and tail risk indicators.",
     "performanceStatistics": "Performance Statistics",
     "bestDay": "Best Day",
     "worstDay": "Worst Day",
@@ -299,6 +904,7 @@
     "splitRatioInfo": "Format: \"N:M\" where N is new shares and M is old shares. Examples: \"2:1\" (doubles shares), \"3:1\" (triples), \"1:2\" (reverse split halves shares)",
     "autoFetch": "Auto-fetch",
     "autoFetchInfo": "Leave empty to auto-fetch price in USD, or enter price in {{currency}}.",
+    "priceConverted": "Price converted from {{from}} to {{to}}",
     "empty": {
       "noTransactions": "No transactions to display.",
       "noTransactionsInfo": "Start by adding transactions to see them listed here.",
@@ -390,7 +996,7 @@
       "noTransactionData": "No transaction data available.",
       "startAddingTransactions": "Start adding transactions to see metrics here."
     }
-  }, 
+  },
   "assets": {
     "title": "Assets",
     "description": "Manage and analyze your held assets",
@@ -398,6 +1004,7 @@
     "class": "Class",
     "country": "Country",
     "sector": "Sector",
+    "type": "Type",
     "industry": "Industry",
     "assetDistribution": "Asset Distribution",
     "heldAndSoldAssetsIn": "Held and sold assets in {{portfolio}}",
@@ -543,6 +1150,8 @@
     "buy": "Buy",
     "targetPrice": "Target Price",
     "convertToBuy": "Convert to Buy Transaction",
+    "editItem": "Edit Watchlist Item",
+    "fromCurrent": "from current price",
     "importTitle": "Import Watchlist",
     "importDescription": "Import your watchlist from a CSV file. Click the button below to select a file.",
     "importFormatInfo": "CSV format",
@@ -550,9 +1159,29 @@
     "selectFile": "Select CSV File",
     "updatedAt": "Updated At",
     "deleteWatchlistAsset": "Delete Watchlist Asset",
+    "viewAll": "View All Watchlist Assets",
     "deleteConfirm": "Are you sure you want to delete this asset from your watchlist? This action cannot be undone.",
     "empty": {
       "noWatchlistAssets": "No assets in your watchlist. Add assets to start tracking."
+    },
+    "tags": {
+      "title": "Tags",
+      "filterByTags": "Filter by tags",
+      "manageTags": "Manage Tags",
+      "manage": "Manage Tags",
+      "createNew": "Create New Tag",
+      "existing": "Existing Tags",
+      "noTags": "No tags created yet",
+      "select": "Select tags",
+      "selectTags": "Select tags...",
+      "nameRequired": "Tag name is required",
+      "createFailed": "Failed to create tag",
+      "namePlaceholder": "Tag name...",
+      "any": "Any",
+      "all": "All",
+      "chooseColor": "Choose Color",
+      "chooseIcon": "Choose Icon",
+      "searchIcons": "Search {{count}} icons..."
     }
   },
   "profile": {
@@ -586,7 +1215,7 @@
     "deletingAccount": "Deleting account...",
     "nothingToUpdate": "Nothing to update.",
     "profileUpdated": "Profile updated successfully.",
-    "profileUpdatedEmailChanged": "Profile updated. Please verify your new email address—verification email sent.",
+    "profileUpdatedEmailChanged": "Profile updated. Please verify your new email address-verification email sent.",
     "failedToUpdateProfile": "Failed to update profile. Please try again.",
     "newPasswordMinLength": "New password must be at least 8 characters long.",
     "newPasswordMismatch": "New password and confirmation do not match.",
@@ -607,12 +1236,12 @@
     "autoRefreshSettingsDescription": "Configure automatic price updates for your portfolio",
     "enableAutoRefresh": "Enable automatic price refresh",
     "refreshInterval": "Refresh Interval",
-    "refreshInterval15s" : "Every 15 seconds (testing)",
-    "refreshInterval30s" : "Every 30 seconds",
-    "refreshInterval1m" : "Every 1 minute",
-    "refreshInterval2m" : "Every 2 minutes",
-    "refreshInterval5m" : "Every 5 minutes",
-    "refreshInterval10m" : "Every 10 minutes",
+    "refreshInterval15s": "Every 15 seconds (testing)",
+    "refreshInterval30s": "Every 30 seconds",
+    "refreshInterval1m": "Every 1 minute",
+    "refreshInterval2m": "Every 2 minutes",
+    "refreshInterval5m": "Every 5 minutes",
+    "refreshInterval10m": "Every 10 minutes",
     "refreshIntervalWarning": "Shorter intervals may increase API usage",
     "note": "Note",
     "refreshIntervalNote": "Auto-refresh can be toggled on/off from the Dashboard using the lightning bolt button. Prices will also refresh automatically when you switch back to the tab.",
@@ -737,12 +1366,12 @@
     "allStatuses": "All Statuses",
     "active": "Active",
     "inactive": "Inactive",
-    "clear": "Clear",
     "id": "ID",
     "email": "Email",
     "username": "Username",
     "language": "Language",
     "admin": "Admin",
+    "user": "User",
     "created": "Created",
     "actions": "Actions",
     "superuser": "Superuser",
@@ -784,6 +1413,7 @@
     "simpleTest": "Simple Test Email",
     "verificationTest": "Email Verification",
     "passwordResetTest": "Password Reset",
+    "welcomeTest": "Welcome Email",
     "dailyReportTest": "Daily Report Email",
     "sendingTestEmail": "Sending test email...",
     "sendTestEmail": "Send Test Email",
@@ -896,6 +1526,9 @@
     "createNewAccount": "Create new account"
   },
   "emails": {
+    "common": {
+      "disclaimer": "You're receiving this email because you have a Portfolium account."
+    },
     "verification": {
       "subject": "Verify Your Email - Portfolium",
       "header_emoji": "📧",
@@ -914,7 +1547,7 @@
       "text_footer": "If you didn't create an account with Portfolium, you can safely ignore this email."
     },
     "passwordReset": {
-      "subject": "Password Reset Request",
+      "subject": "Password Reset Request - Portfolium",
       "header_emoji": "🔐",
       "header_title": "Password Reset Request",
       "greeting": "Hi <strong>{{username}}</strong>,",
@@ -932,7 +1565,7 @@
       "text_security": "If you didn't request a password reset, please ignore this email and ensure your account is secure."
     },
     "welcome": {
-      "subject": "Welcome to Portfolium - Let's Get Started!",
+      "subject": "Welcome to Portfolium",
       "header_emoji": "🎉",
       "header_title": "Account Verified!",
       "greeting": "Hi <strong>{{username}}</strong>,",
@@ -957,7 +1590,7 @@
       "text_help": "If you have any questions or need help getting started, feel free to reach out!"
     },
     "dailyReport": {
-      "subject": "Your Daily Portfolio Report - {{reportDate}}",
+      "subject": "Daily Portfolio Report - Portfolium",
       "header_emoji": "📊",
       "header_title": "Daily Portfolio Report",
       "greeting": "Hi <strong>{{username}}</strong>,",
@@ -1240,5 +1873,44 @@
     "step4": "Watch your portfolio come to life with real-time data!",
     "proTipTitle": "💡 Pro Tip: Bulk Import",
     "proTipMessage": "Already tracking your portfolio elsewhere? Use the CSV import feature on the Transactions page to quickly add all your holdings at once."
+  },
+  "publicPortfolio": {
+    "loading": "Loading portfolio...",
+    "unavailable": "Portfolio Unavailable",
+    "notFoundMessage": "This portfolio doesn't exist or isn't publicly shared.",
+    "notFoundDescription": "The owner may have disabled public sharing, or the link may be incorrect.",
+    "returnHome": "Return Home",
+    "signUp": "Sign Up",
+    "goToDashboard": "Go to Dashboard",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "publicSnapshot": "Public Snapshot",
+    "amountsHidden": "Amounts hidden for privacy",
+    "sharedBy": "Shared by",
+    "description": "Explore how <1>{{user}}</1> diversifies across sectors and markets. See the allocation strategy without revealing sensitive financial data.",
+    "createYourOwn": "Create Your Own Portfolio",
+    "quickOverview": "Quick Overview",
+    "topSector": "Top Sector",
+    "mainExposure": "Main Exposure",
+    "positions": "Positions",
+    "diversified": "Diversified",
+    "assets": "Assets",
+    "sectorAllocation": "Sector Allocation",
+    "geographicAllocation": "Geographic Allocation",
+    "topHoldings": "Top Holdings",
+    "asset": "Asset",
+    "sector": "Sector",
+    "industry": "Industry",
+    "weight": "Weight",
+    "country": "Country",
+    "buildYourStory": "Build your portfolio story",
+    "trackInvestments": "Track your investments with beautiful analytics",
+    "featureRealtime": "Real-time price tracking",
+    "featureDiversification": "Diversification analysis",
+    "featureMultiple": "Multiple portfolio support",
+    "featurePrivacy": "Privacy-first sharing",
+    "getStarted": "Start the Adventure",
+    "disclaimer": "For information only",
+    "notAdvice": "Not investment advice"
   }
 }

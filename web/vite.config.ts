@@ -9,28 +9,19 @@ const docsPlugin = (): Plugin => ({
   configureServer(server) {
     server.middlewares.use((req, res, next) => {
       if (req.url?.startsWith('/docs')) {
-        // Handle /docs -> /docs/ redirect (to preserve base path for relative URLs)
-        if (req.url === '/docs') {
-          res.writeHead(301, { 'Location': '/docs/' })
-          res.end()
-          return
-        }
-        
-        // Handle /docs/ -> serve index.html
-        if (req.url === '/docs/') {
-          const indexPath = path.join(__dirname, 'public/docs/index.html')
-          if (fs.existsSync(indexPath)) {
-            res.setHeader('Content-Type', 'text/html')
-            res.end(fs.readFileSync(indexPath))
-            return
-          }
-        }
-        
         // Serve docs files directly
         let filePath = path.join(__dirname, 'public', req.url)
         
-        // Handle directory requests - serve index.html
+        // Handle directory requests - redirect to trailing slash or serve index.html
         if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+          // If URL doesn't end with /, redirect to add trailing slash
+          // This preserves the correct base path for relative URLs in HTML
+          if (!req.url.endsWith('/')) {
+            res.writeHead(301, { 'Location': req.url + '/' })
+            res.end()
+            return
+          }
+          // Otherwise serve the index.html from the directory
           filePath = path.join(filePath, 'index.html')
         }
         
@@ -58,6 +49,11 @@ const docsPlugin = (): Plugin => ({
   }
 })
 
+// Detect if running inside Docker or locally
+const isDocker = process.env.DOCKER_ENV === 'true'
+// Use 127.0.0.1 instead of localhost to avoid Windows DNS resolution issues
+const apiTarget = isDocker ? 'http://api:8000' : 'http://127.0.0.1:8000'
+
 export default defineConfig({
   plugins: [react(), docsPlugin()],
   publicDir: 'public',
@@ -65,21 +61,43 @@ export default defineConfig({
     host: true,
     port: 5173,
     watch: {
-      usePolling: true
+      // Only use polling inside Docker (needed for volume mounts)
+      usePolling: isDocker,
+      interval: 1000,
+      binaryInterval: 3000,
+    },
+    // HMR configuration
+    hmr: {
+      clientPort: 5173,
+      host: 'localhost',
+      timeout: 30000,
     },
     proxy: {
       // Dev proxy for API requests to backend
-      // Try Docker hostname first, fall back to localhost
       '/api': {
-        target: 'http://api:8000',
+        target: apiTarget,
         changeOrigin: true,
+        secure: false,
+        ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
+        timeout: 60000,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            console.log('[Proxy Error]', err.message);
+            if (res && 'writeHead' in res) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ detail: 'API temporarily unavailable' }));
+            }
+          });
+        },
       },
       // Dev proxy for logo requests - route through our API for ETF SVG support
       '/logos': {
-        target: 'http://api:8000',
+        target: apiTarget,
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/logos/, '/assets/logo'),
+        timeout: 30000,
       },
     },
   },
