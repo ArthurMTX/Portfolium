@@ -1429,7 +1429,7 @@ class ApiClient {
     })
   }
 
-  async testEmail(toEmail: string, testType: 'simple' | 'verification' | 'password_reset' | 'daily_report') {
+  async testEmail(toEmail: string, testType: 'simple' | 'verification' | 'password_reset' | 'daily_report' | 'welcome') {
     // Daily reports can take longer to generate with many portfolios/transactions
     const timeout = testType === 'daily_report' ? 300000 : 30000 // 5 minutes for daily report, 30s for others
     return this.request<{

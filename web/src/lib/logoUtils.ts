@@ -147,7 +147,7 @@ export const handleLogoError = (
     // Clean crypto names to remove currency suffixes like " USD"
     const assetTypeUpper = assetType?.toUpperCase()
     const isCrypto = assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO'
-    const cleanedName = isCrypto ? cleanCryptoName(assetName) : assetName
+    const cleanedName = isCrypto ? cleanCryptoName(assetName || null) : assetName
     
     if (cleanedName) params.set('name', cleanedName)
     if (assetType) params.set('asset_type', assetType)

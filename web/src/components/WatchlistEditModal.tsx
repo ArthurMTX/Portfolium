@@ -127,7 +127,7 @@ export default function WatchlistEditModal({
               src={getAssetLogoUrl(item.symbol, item.asset_type)}
               alt={item.symbol}
               className="w-10 h-10 object-contain p-1 flex-shrink-0"
-              onLoad={validateLogoImage}
+              onLoad={(e) => validateLogoImage(e.currentTarget)}
               onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
             />
             <div>

@@ -53,6 +53,8 @@ interface Portfolio {
   name: string
   base_currency: string
   description: string | null
+  is_public: boolean
+  share_token: string
   created_at: string
 }
 

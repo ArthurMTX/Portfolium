@@ -48,9 +48,9 @@ export default function ConversionModal({
   const [notes, setNotes] = useState('')
   
   // Search state
-  const [fromSearch, setFromSearch] = useState('')
+  const [_fromSearch, setFromSearch] = useState('')
   const [toSearch, setToSearch] = useState('')
-  const [fromSearchResults, setFromSearchResults] = useState<TickerInfo[]>([])
+  const [_fromSearchResults, setFromSearchResults] = useState<TickerInfo[]>([])
   const [toSearchResults, setToSearchResults] = useState<TickerInfo[]>([])
   const [portfolioAssets, setPortfolioAssets] = useState<Asset[]>([])
   

@@ -67,7 +67,7 @@ const kebabToPascal = (str: string): string => {
 // Render an icon by name - exported for use in other components
 const IconComponent = ({ name, size = 16, className = '' }: { name: string; size?: number; className?: string }) => {
   const pascalName = kebabToPascal(name)
-  const Icon = (LucideIcons as Record<string, React.ComponentType<{ size?: number; className?: string }>>)[pascalName]
+  const Icon = (LucideIcons as any)[pascalName]
   if (!Icon) return <Tag size={size} className={className} />
   return <Icon size={size} className={className} />
 }
