@@ -28,8 +28,11 @@ dev:
 	docker compose -f docker-compose.dev.yml up -d api db redis celery-worker celery-beat flower
 	@echo "Backend ready! Now run 'cd web && npm run dev' to start frontend locally"
 
-dev-up:
+dev-up-build:
 	docker compose -f ./docker-compose.dev.yml up -d --build
+
+dev-up:
+	docker compose -f ./docker-compose.dev.yml up -d
 
 dev-down:
 	docker compose -f ./docker-compose.dev.yml down
@@ -38,4 +41,6 @@ dev-logs:
 	docker compose -f ./docker-compose.dev.yml logs -f --tail=100
 
 dev-restart: dev-down dev-up dev-logs
+
+dev-restart-build: dev-down dev-up-build dev-logs
 
