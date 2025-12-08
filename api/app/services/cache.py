@@ -36,14 +36,16 @@ class CacheService:
     PREFIX_ANALYTICS = "analytics:"
     PREFIX_ASSET = "asset:"
     PREFIX_INSIGHTS = "insights:"
+    PREFIX_PORTFOLIO = "portfolio:"
     
     # Default TTLs (in seconds)
     TTL_PRICE = 300  # 5 minutes
-    TTL_POSITION = 600  # 10 minutes
+    TTL_POSITION = 1800  # 30 minutes
     TTL_METRICS = 900  # 15 minutes
     TTL_ANALYTICS = 3600  # 1 hour
     TTL_ASSET = 3600  # 1 hour
     TTL_INSIGHTS = 300  # 5 minutes
+    TTL_PORTFOLIO = 1800  # 30 minutes
     
     @staticmethod
     def _serialize(value: Any) -> str:
@@ -367,6 +369,40 @@ def get_cached_positions(portfolio_id: int) -> Optional[list]:
 def invalidate_positions(portfolio_id: int) -> bool:
     """Invalidate cached positions for a portfolio"""
     key = f"{CacheService.PREFIX_POSITION}{portfolio_id}"
+    return CacheService.delete(key)
+
+
+def update_portfolio_access_time(db, portfolio_id: int):
+    """Update portfolio last_accessed_at timestamp for smart cache warmup"""
+    from app.models import Portfolio
+    from datetime import datetime
+    
+    try:
+        portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+        if portfolio:
+            portfolio.last_accessed_at = datetime.utcnow()
+            db.commit()
+            logger.debug(f"Updated access time for portfolio {portfolio_id}")
+    except Exception as e:
+        logger.error(f"Failed to update access time for portfolio {portfolio_id}: {e}")
+        db.rollback()
+
+
+def cache_portfolio(portfolio_id: int, portfolio_data: dict, ttl: int = None) -> bool:
+    """Cache portfolio data"""
+    key = f"{CacheService.PREFIX_PORTFOLIO}{portfolio_id}"
+    return CacheService.set(key, portfolio_data, ttl or CacheService.TTL_PORTFOLIO)
+
+
+def get_cached_portfolio(portfolio_id: int) -> Optional[dict]:
+    """Get cached portfolio data"""
+    key = f"{CacheService.PREFIX_PORTFOLIO}{portfolio_id}"
+    return CacheService.get(key)
+
+
+def invalidate_portfolio(portfolio_id: int) -> bool:
+    """Invalidate portfolio cache"""
+    key = f"{CacheService.PREFIX_PORTFOLIO}{portfolio_id}"
     return CacheService.delete(key)
 
 

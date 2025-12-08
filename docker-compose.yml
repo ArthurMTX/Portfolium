@@ -98,7 +98,7 @@ services:
     image: arthurmtx/portfolium-api:latest
     container_name: portfolium-celery-worker
     restart: unless-stopped
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
+    command: python -m celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
     env_file:
       - .env
     environment:
@@ -128,7 +128,7 @@ services:
     image: arthurmtx/portfolium-api:latest
     container_name: portfolium-celery-beat
     restart: unless-stopped
-    command: celery -A app.celery_app beat --loglevel=info
+    command: python -m celery -A app.celery_app beat --loglevel=info
     env_file:
       - .env
     environment:
