@@ -149,6 +149,10 @@ class PricingService:
                         except asyncio.TimeoutError:
                             logger.warning(f"Timeout waiting for ongoing fetch for {symbol}")
                             return None
+                        except asyncio.CancelledError:
+                            logger.warning(f"Task cancelled while waiting for ongoing fetch for {symbol}")
+                            _ongoing_fetches.pop(symbol, None)
+                            return None
                     else:
                         # Task is from a different loop, remove it and create a new one
                         logger.warning(f"Removing stale task for {symbol} (different event loop)")
@@ -179,6 +183,9 @@ class PricingService:
             return result
         except asyncio.TimeoutError:
             logger.warning(f"Timeout fetching price for {symbol}")
+            return None
+        except asyncio.CancelledError:
+            logger.warning(f"Task cancelled while fetching price for {symbol}")
             return None
         finally:
             # Remove from ongoing fetches
