@@ -21,8 +21,15 @@ export default function Register() {
   const [emailEnabled, setEmailEnabled] = useState(true) // Default to true
   const [darkMode, setDarkMode] = useState(false)
 
-  const { register } = useAuth()
+  const { register, user } = useAuth()
   const navigate = useNavigate()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
 
   // Check system preference or localStorage for dark mode
   useEffect(() => {

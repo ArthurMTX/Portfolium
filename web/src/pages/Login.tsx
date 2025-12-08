@@ -15,11 +15,18 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
 
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
 
   useEffect(() => {
     // Check system preference or localStorage
