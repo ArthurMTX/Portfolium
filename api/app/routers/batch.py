@@ -347,11 +347,15 @@ async def _fetch_market_indices() -> Optional[Dict]:
             'GSPC': '^GSPC',  # S&P 500
             'DJI': '^DJI',    # Dow Jones
             'IXIC': '^IXIC',  # NASDAQ
+            'GSPTSE': '^GSPTSE', # S&P/TSX Composite
             'FTSE': '^FTSE',  # FTSE 100
             'GDAXI': '^GDAXI', # DAX
             'FCHI': '^FCHI',  # CAC 40
+            'FTSEMIB.MI': 'FTSEMIB.MI', # FTSE MIB
             'N225': '^N225',  # Nikkei 225
             'HSI': '^HSI',    # Hang Seng
+            '000001.SS': '000001.SS', # SSE Composite
+            '^AXJO': '^AXJO',  # ASX 200
         }
         
         # Fetch all indices in parallel
@@ -376,8 +380,11 @@ async def _fetch_market_indices() -> Optional[Dict]:
                 return {
                     "symbol": symbol,
                     "price": round(current_price, 2),
+                    "current_price": round(current_price, 2),
                     "change": round(change, 2) if change is not None else None,
                     "change_pct": round(change_pct, 2) if change_pct is not None else None,
+                    "percent_change": round(change_pct, 2) if change_pct is not None else None,
+                    "daily_change_pct": round(change_pct, 2) if change_pct is not None else None,
                     "previous_close": round(previous_close, 2) if previous_close else None,
                 }
             except Exception as e:
@@ -388,11 +395,11 @@ async def _fetch_market_indices() -> Optional[Dict]:
         tasks = [fetch_index(key, symbol) for key, symbol in indices.items()]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
-        # Build result dict with non-None values
+        # Build result dict with non-None values, keyed by symbol (with caret)
         result = {}
-        for (key, _), data in zip(indices.items(), results):
+        for (key, symbol), data in zip(indices.items(), results):
             if data and not isinstance(data, Exception):
-                result[key] = data
+                result[symbol] = data  # Use symbol (e.g., "^GSPC") as key, not short name
         
         logger.info(f"Fetched market indices: {list(result.keys())}")
         return result if result else None
