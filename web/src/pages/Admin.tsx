@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import api from "../lib/api";
 import { PlusCircle, Users as UsersIcon, X, FileText, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
 import { getFlagUrl } from '../lib/countryUtils'
 
@@ -94,6 +95,7 @@ const AdminDashboard: React.FC = () => {
   const [testEmailAddress, setTestEmailAddress] = useState('')
   const [testEmailType, setTestEmailType] = useState<'simple' | 'verification' | 'password_reset' | 'welcome' | 'daily_report'>('simple')
   const [emailTesting, setEmailTesting] = useState(false)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const loadUsers = async () => {
     setLoading(true);
@@ -132,7 +134,7 @@ const AdminDashboard: React.FC = () => {
       setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update user';
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     }
   };
 
@@ -142,7 +144,7 @@ const AdminDashboard: React.FC = () => {
       setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update user';
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     }
   };
 
@@ -187,7 +189,7 @@ const AdminDashboard: React.FC = () => {
       closeEditModal();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update user';
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     }
   };
 
@@ -201,7 +203,7 @@ const AdminDashboard: React.FC = () => {
       setIsCreateOpen(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create user";
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     } finally {
       setCreating(false);
     }
@@ -1084,6 +1086,15 @@ const AdminDashboard: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
