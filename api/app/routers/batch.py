@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/batch", tags=["batch"])
 
-# Cache TTL for batch responses
-_BATCH_CACHE_TTL = 60  # 60 seconds
+# Cache TTL for batch responses (5 minutes)
+_BATCH_CACHE_TTL = 300  # 300 seconds (5 minutes)
 
 
 def _make_json_serializable(obj, _seen=None):

@@ -5,7 +5,7 @@ Ensures users are greeted with instant data when they visit their dashboard
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, func
 
@@ -29,12 +29,17 @@ from app.routers.batch import (
     _fetch_country_allocation,
     _fetch_performance_history,
     _fetch_transactions,
+    _make_json_serializable,
 )
 from app.services.metrics import MetricsService
 from app.services.insights import InsightsService
+from app.services.cache import CacheService
 from app.tasks.decorators import singleton_task, deduplicate_task
 
 logger = logging.getLogger(__name__)
+
+# Cache TTL for warmed dashboard data (5 minutes)
+_DASHBOARD_WARMUP_CACHE_TTL = 300
 
 
 @celery_app.task(bind=True, name="dashboard.warmup_user_dashboard")
@@ -100,70 +105,121 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         # Fetch all required data
         async def fetch_all_data():
             tasks = {}
+            task_names = []
             
             if 'metrics' in required_data:
                 tasks['metrics'] = _fetch_metrics(portfolio_id, metrics_service, db)
+                task_names.append('metrics')
             
             if 'positions' in required_data:
                 tasks['positions'] = _fetch_positions(portfolio_id, metrics_service, db)
+                task_names.append('positions')
             
             if 'watchlist' in required_data:
                 tasks['watchlist'] = _fetch_watchlist(user, db)
+                task_names.append('watchlist')
             
             if 'notifications' in required_data:
                 tasks['notifications'] = _fetch_notifications(user, db)
+                task_names.append('notifications')
             
             if 'market_tnx' in required_data:
                 tasks['market_tnx'] = _fetch_market_tnx()
+                task_names.append('market_tnx')
             
             if 'market_dxy' in required_data:
                 tasks['market_dxy'] = _fetch_market_dxy()
+                task_names.append('market_dxy')
             
             if 'market_vix' in required_data:
                 tasks['market_vix'] = _fetch_market_vix()
+                task_names.append('market_vix')
             
             if 'market_indices' in required_data:
                 tasks['market_indices'] = _fetch_market_indices()
+                task_names.append('market_indices')
             
             if 'sentiment_stock' in required_data:
                 tasks['sentiment_stock'] = _fetch_sentiment_stock()
+                task_names.append('sentiment_stock')
             
             if 'sentiment_crypto' in required_data:
                 tasks['sentiment_crypto'] = _fetch_sentiment_crypto()
+                task_names.append('sentiment_crypto')
             
             if 'asset_allocation' in required_data:
                 tasks['asset_allocation'] = _fetch_asset_allocation(portfolio_id, db, metrics_service, user)
+                task_names.append('asset_allocation')
             
             if 'sector_allocation' in required_data:
                 tasks['sector_allocation'] = _fetch_sector_allocation(portfolio_id, db, metrics_service, user)
+                task_names.append('sector_allocation')
             
             if 'country_allocation' in required_data:
                 tasks['country_allocation'] = _fetch_country_allocation(portfolio_id, db, metrics_service, user)
+                task_names.append('country_allocation')
             
             if 'performance_history' in required_data:
                 tasks['performance_history'] = _fetch_performance_history(portfolio_id, db)
+                task_names.append('performance_history')
             
             if 'transactions' in required_data:
                 tasks['transactions'] = _fetch_transactions(portfolio_id, db)
+                task_names.append('transactions')
             
             # Execute all in parallel
             results = await asyncio.gather(*tasks.values(), return_exceptions=True)
             
-            success_count = sum(1 for r in results if not isinstance(r, Exception))
-            error_count = len(results) - success_count
+            # Build data dict from results
+            data = {}
+            errors = {}
+            for i, (name, result) in enumerate(zip(task_names, results)):
+                if isinstance(result, Exception):
+                    errors[name] = str(result)
+                    logger.error(f"Error fetching {name} during warmup: {result}")
+                else:
+                    data[name] = result
             
-            return {
-                "success": True,
-                "widgets_warmed": len(widget_ids),
-                "data_sets_fetched": success_count,
-                "errors": error_count,
-                "timestamp": datetime.now().isoformat()
-            }
+            return data, errors
         
         # Run the async fetch
-        result = asyncio.run(fetch_all_data())
-        logger.info(f"Dashboard warmup complete for portfolio {portfolio_id}: {result}")
-        return result
+        data, errors = asyncio.run(fetch_all_data())
+        
+        # Build response matching batch endpoint format
+        now = datetime.utcnow()
+        response = {
+            "data": data,
+            "errors": errors,
+            "cached": False,
+            "timestamp": now.isoformat(),
+            "widgets_requested": len(widget_ids),
+            "data_fetched": len(data),
+        }
+        
+        # Make response JSON serializable
+        response = _make_json_serializable(response)
+        
+        # Cache the response in Redis using the same key format as batch endpoint
+        cache = CacheService()
+        widget_key = ','.join(sorted(widget_ids))
+        cache_key = f"dashboard_batch:{portfolio_id}:{hash(widget_key)}"
+        cache.set(cache_key, response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
+        
+        logger.info(
+            f"Dashboard warmup complete for portfolio {portfolio_id}: "
+            f"{len(widget_ids)} widgets, {len(data)} data sets cached, {len(errors)} errors"
+        )
+        
+        return {
+            "success": True,
+            "portfolio_id": portfolio_id,
+            "widgets_warmed": len(widget_ids),
+            "data_sets_cached": len(data),
+            "errors": len(errors),
+            "cache_key": cache_key,
+            "cache_ttl": _DASHBOARD_WARMUP_CACHE_TTL,
+            "timestamp": now.isoformat()
+        }
 
 
 @celery_app.task(bind=True, name="dashboard.warmup_active_dashboards")
