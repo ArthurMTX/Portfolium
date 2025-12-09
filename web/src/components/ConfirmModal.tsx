@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import LoadingSpinner from './LoadingSpinner'
 
 interface ConfirmModalProps {
   isOpen: boolean
@@ -9,6 +10,9 @@ interface ConfirmModalProps {
   confirmText?: string
   cancelText?: string
   variant?: 'danger' | 'warning' | 'info'
+  confirmButtonClass?: string
+  loading?: boolean
+  children?: React.ReactNode
 }
 
 export default function ConfirmModal({
@@ -20,6 +24,9 @@ export default function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
+  confirmButtonClass,
+  loading = false,
+  children,
 }: ConfirmModalProps) {
   if (!isOpen) return null
 
@@ -55,6 +62,7 @@ export default function ConfirmModal({
         {/* Body */}
         <div className="p-4">
           <p className="text-neutral-600 dark:text-neutral-300">{message}</p>
+          {children}
         </div>
 
         {/* Footer */}
@@ -62,7 +70,8 @@ export default function ConfirmModal({
           {cancelText && (
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500 transition-colors"
+              disabled={loading}
+              className="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {cancelText}
             </button>
@@ -70,10 +79,13 @@ export default function ConfirmModal({
           <button
             onClick={() => {
               onConfirm()
-              onClose()
             }}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${variantStyles[variant]}`}
+            disabled={loading}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
+              confirmButtonClass || variantStyles[variant]
+            }`}
           >
+            {loading && <LoadingSpinner size="sm" />}
             {confirmText}
           </button>
         </div>

@@ -361,6 +361,47 @@ class InvalidCredentialsError(PortfoliumException):
         )
 
 
+class TwoFactorRequiredError(PortfoliumException):
+    """Raised when 2FA is enabled and token is required"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Two-factor authentication token required",
+            headers={"X-2FA-Required": "true"}
+        )
+
+
+class InvalidTwoFactorTokenError(PortfoliumException):
+    """Raised when 2FA token is invalid"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid two-factor authentication token"
+        )
+
+
+class TwoFactorAlreadyEnabledError(PortfoliumException):
+    """Raised when trying to enable 2FA when it's already enabled"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Two-factor authentication is already enabled"
+        )
+
+
+class TwoFactorNotEnabledError(PortfoliumException):
+    """Raised when trying to disable 2FA when it's not enabled"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Two-factor authentication is not enabled"
+        )
+
+
 class EmailAlreadyRegisteredError(PortfoliumException):
     """Raised when trying to register with an email that's already in use"""
     

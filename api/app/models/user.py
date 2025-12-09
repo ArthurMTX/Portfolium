@@ -39,5 +39,10 @@ class User(Base):
     # Language preference
     preferred_language = Column(String(5), default='en')  # User's preferred language (en, fr, etc.)
     
+    # Two-Factor Authentication (TOTP)
+    totp_secret = Column(String)  # Encrypted TOTP secret key
+    totp_enabled = Column(Boolean, default=False)  # Whether 2FA is enabled
+    totp_backup_codes = Column(String)  # JSON-encoded list of hashed backup codes
+    
     # Relationships
     portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")

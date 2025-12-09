@@ -3,9 +3,11 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LogIn, Mail, Lock, AlertCircle, Moon, Sun } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import TwoFactorLogin from '../components/TwoFactorLogin'
 import { useTranslation } from 'react-i18next'
 import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
 import { translateApiError } from '../lib/errorUtils'
+import { api } from '../lib/api'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -14,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
+  const [requires2FA, setRequires2FA] = useState(false)
 
   const { login, user } = useAuth()
   const navigate = useNavigate()
@@ -58,10 +61,33 @@ export default function Login() {
       navigate(from, { replace: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid email or password'
-      setError(translateApiError(message, t))
+      
+      // Check if 2FA is required
+      if (message.includes('Two-factor authentication token required') || 
+          message.includes('2FA') ||
+          message.includes('two-factor')) {
+        setRequires2FA(true)
+        setError('')
+      } else {
+        setError(translateApiError(message, t))
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handle2FASubmit = async (token: string) => {
+    const response = await api.loginWith2FA(email, password, token)
+    localStorage.setItem('auth_token', response.access_token)
+    
+    // Manually trigger auth context refresh (similar to login flow)
+    window.location.href = from
+  }
+
+  const handleBack = () => {
+    setRequires2FA(false)
+    setPassword('')
+    setError('')
   }
 
   return (
@@ -87,25 +113,34 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <div className={`inline-block p-3 rounded-2xl mb-4 ${
-            darkMode ? 'bg-pink-600' : 'bg-indigo-600'
-          }`}>
-            <LogIn className="w-8 h-8 text-white" />
-          </div>
-          <h1 className={`text-2xl sm:text-3xl font-bold ${
-            darkMode ? 'text-white' : 'text-gray-900'
-          }`}>{t('login.title')}</h1>
-          <p className={`mt-2 text-sm sm:text-base ${
-            darkMode ? 'text-neutral-400' : 'text-gray-600'
-          }`}>{t('login.description')}</p>
-        </div>
-
-        {/* Login Form */}
+        {/* Show 2FA form or regular login */}
         <div className={`rounded-2xl shadow-xl p-8 ${
           darkMode ? 'bg-neutral-800 border border-neutral-700' : 'bg-white'
         }`}>
+          {requires2FA ? (
+            <TwoFactorLogin
+              email={email}
+              password={password}
+              onSubmit={handle2FASubmit}
+              onBack={handleBack}
+              darkMode={darkMode}
+            />
+          ) : (
+            <>
+              {/* Logo/Header */}
+              <div className="text-center mb-8">
+                <div className={`inline-block p-3 rounded-2xl mb-4 ${
+                  darkMode ? 'bg-pink-600' : 'bg-indigo-600'
+                }`}>
+                  <LogIn className="w-8 h-8 text-white" />
+                </div>
+                <h1 className={`text-2xl sm:text-3xl font-bold ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>{t('login.title')}</h1>
+                <p className={`mt-2 text-sm sm:text-base ${
+                  darkMode ? 'text-neutral-400' : 'text-gray-600'
+                }`}>{t('login.description')}</p>
+              </div>
           {error && (
             <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
               darkMode 
@@ -246,6 +281,8 @@ export default function Login() {
               </Link>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}

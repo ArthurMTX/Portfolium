@@ -25,11 +25,17 @@ from app.schemas import (
     UserPasswordReset,
     UserPasswordResetConfirm,
     UserPasswordChange,
-    UserUpdate
+    UserUpdate,
+    TwoFactorSetupResponse,
+    TwoFactorVerifyRequest,
+    TwoFactorDisableRequest,
+    TwoFactorLoginRequest,
+    TwoFactorStatusResponse
 )
 from app.crud import users as crud_users
 from app.services.email import email_service
 from app.services.notifications import notification_service
+from app.services.totp import totp_service
 from app.errors import (
     EmailAlreadyRegisteredError,
     EmailAlreadyVerifiedError,
@@ -40,7 +46,11 @@ from app.errors import (
     InvalidTokenError,
     RegistrationDisabledError,
     UsernameAlreadyRegisteredError,
-    ValidationError
+    ValidationError,
+    TwoFactorRequiredError,
+    InvalidTwoFactorTokenError,
+    TwoFactorAlreadyEnabledError,
+    TwoFactorNotEnabledError
 )
 
 
@@ -100,7 +110,8 @@ async def login(
     """
     Login with email and password
     
-    - Returns JWT access token
+    - Returns JWT access token if 2FA is not enabled
+    - Returns 403 with X-2FA-Required header if 2FA is enabled
     - Updates last login timestamp
     - Creates login notification with IP tracking
     """
@@ -116,6 +127,10 @@ async def login(
     # Only check email verification if email is enabled
     if settings.ENABLE_EMAIL and not user.is_verified:
         raise EmailNotVerifiedError()
+    
+    # Check if 2FA is enabled
+    if user.totp_enabled:
+        raise TwoFactorRequiredError()
     
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -414,3 +429,215 @@ async def delete_account(
     logger.info(f"Account deleted for user: {current_user.email}")
     
     return {"message": "Account deleted successfully"}
+
+
+# ============================================================================
+# Two-Factor Authentication (2FA) Endpoints
+# ============================================================================
+
+@router.post("/2fa/login", response_model=Token)
+async def login_with_2fa(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    login_request: TwoFactorLoginRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Complete login with 2FA token
+    
+    - Verifies email and password
+    - Validates TOTP token or backup code
+    - Returns JWT access token
+    """
+    # Get user by email
+    user = crud_users.get_user_by_email(db, login_request.email)
+    
+    if not user or not verify_password(login_request.password, user.hashed_password):
+        raise InvalidCredentialsError()
+    
+    if not user.is_active:
+        raise InactiveUserError()
+    
+    # Only check email verification if email is enabled
+    if settings.ENABLE_EMAIL and not user.is_verified:
+        raise EmailNotVerifiedError()
+    
+    # Verify 2FA token
+    if not totp_service.verify_totp_or_backup(user, login_request.token, db):
+        raise InvalidTwoFactorTokenError()
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "user_id": user.id,
+            "email": user.email,
+            "is_admin": user.is_admin
+        },
+        expires_delta=access_token_expires
+    )
+    
+    # Update last login
+    crud_users.update_last_login(db, user)
+    
+    # Get IP address and user agent
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", None)
+    
+    # Create login notification in background
+    background_tasks.add_task(
+        notification_service.create_login_notification,
+        db,
+        user.id,
+        client_ip,
+        user_agent
+    )
+    
+    logger.info(f"User logged in with 2FA: {user.email} from IP {client_ip}")
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+
+@router.get("/2fa/status", response_model=TwoFactorStatusResponse)
+async def get_2fa_status(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get 2FA status for current user
+    
+    - Returns whether 2FA is enabled
+    - Returns number of backup codes remaining
+    """
+    return {
+        "enabled": current_user.totp_enabled,
+        "backup_codes_remaining": totp_service.get_backup_codes_remaining(current_user)
+    }
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
+async def setup_2fa(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Initialize 2FA setup
+    
+    - Generates TOTP secret
+    - Creates QR code for authenticator app
+    - Generates backup codes
+    - Does NOT enable 2FA (requires verification first)
+    """
+    # Check if 2FA is already enabled
+    if current_user.totp_enabled:
+        raise TwoFactorAlreadyEnabledError()
+    
+    # Setup TOTP
+    secret, qr_code, backup_codes = totp_service.setup_totp(current_user, db)
+    
+    logger.info(f"2FA setup initiated for user: {current_user.email}")
+    
+    return {
+        "secret": secret,
+        "qr_code": qr_code,
+        "backup_codes": backup_codes
+    }
+
+
+@router.post("/2fa/verify", status_code=status.HTTP_200_OK)
+async def verify_and_enable_2fa(
+    verify_request: TwoFactorVerifyRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Verify TOTP token and enable 2FA
+    
+    - Validates TOTP token from authenticator app
+    - Enables 2FA if token is valid
+    """
+    # Check if 2FA is already enabled
+    if current_user.totp_enabled:
+        raise TwoFactorAlreadyEnabledError()
+    
+    # Verify and enable
+    if not totp_service.enable_totp(current_user, verify_request.token, db):
+        raise InvalidTwoFactorTokenError()
+    
+    logger.info(f"2FA enabled for user: {current_user.email}")
+    
+    return {"message": "Two-factor authentication enabled successfully"}
+
+
+@router.post("/2fa/disable", status_code=status.HTTP_200_OK)
+async def disable_2fa(
+    disable_request: TwoFactorDisableRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Disable 2FA
+    
+    - Requires password verification
+    - Optionally requires TOTP token or backup code
+    - Removes TOTP secret and backup codes
+    """
+    # Check if 2FA is enabled
+    if not current_user.totp_enabled:
+        raise TwoFactorNotEnabledError()
+    
+    # Verify password
+    if not verify_password(disable_request.password, current_user.hashed_password):
+        raise IncorrectPasswordError()
+    
+    # If token is provided, verify it
+    if disable_request.token:
+        if not totp_service.verify_totp_or_backup(current_user, disable_request.token, db):
+            raise InvalidTwoFactorTokenError()
+    
+    # Disable 2FA
+    totp_service.disable_totp(current_user, db)
+    
+    logger.info(f"2FA disabled for user: {current_user.email}")
+    
+    return {"message": "Two-factor authentication disabled successfully"}
+
+
+@router.post("/2fa/regenerate-backup-codes", response_model=TwoFactorSetupResponse)
+async def regenerate_backup_codes(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Regenerate backup codes
+    
+    - Generates new set of backup codes
+    - Invalidates old backup codes
+    - Returns new backup codes along with existing secret and QR code
+    """
+    # Check if 2FA is enabled
+    if not current_user.totp_enabled:
+        raise TwoFactorNotEnabledError()
+    
+    # Generate new backup codes
+    backup_codes = totp_service.generate_backup_codes()
+    hashed_codes = [totp_service.hash_backup_code(code) for code in backup_codes]
+    
+    # Update backup codes in database
+    import json
+    current_user.totp_backup_codes = json.dumps(hashed_codes)
+    db.commit()
+    
+    # Generate QR code with existing secret
+    qr_code = totp_service.generate_qr_code(current_user.totp_secret, current_user.email)
+    
+    logger.info(f"Backup codes regenerated for user: {current_user.email}")
+    
+    return {
+        "secret": current_user.totp_secret,
+        "qr_code": qr_code,
+        "backup_codes": backup_codes
+    }
