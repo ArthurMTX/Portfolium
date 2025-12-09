@@ -144,6 +144,16 @@ if settings.ENABLE_BACKGROUND_TASKS:
                 "expires": 1800,  # 30 minutes
             },
         },
+        # Warm up public portfolios (every 20 minutes)
+        # Ensures visitors always get fast loading times, especially for big portfolios
+        "warmup-public-portfolios": {
+            "task": "app.tasks.cache_tasks.warmup_public_portfolios",
+            "schedule": crontab(minute="*/20"),
+            "options": {
+                "queue": "default",
+                "expires": 1200,  # 20 minutes
+            },
+        },
     }
 
 
@@ -201,6 +211,10 @@ celery_app.conf.task_routes = {
     "app.tasks.cache_tasks.get_cache_statistics": {
         "queue": "low",
         "priority": 1,
+    },
+    "app.tasks.cache_tasks.warmup_public_portfolios": {
+        "queue": "default",
+        "priority": 3,
     },
 }
 

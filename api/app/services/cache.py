@@ -287,6 +287,7 @@ class CacheService:
             f"{CacheService.PREFIX_ANALYTICS}*_{portfolio_id}_*",
             f"{CacheService.PREFIX_INSIGHTS}{portfolio_id}:*",
             f"dashboard_batch:{portfolio_id}:*",  # Batch API cache
+            f"portfolio_batch_prices:{portfolio_id}",  # Price batch cache
         ]
         
         total_deleted = 0

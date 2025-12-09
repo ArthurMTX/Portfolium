@@ -30,7 +30,24 @@ async def get_public_portfolio(
     Get public, read-only portfolio insights by share token.
     Only accessible if the portfolio owner has enabled public sharing.
     Hides sensitive data like amounts, quantities, and costs.
+    
+    Aggressively cached for 30 minutes since public data is identical
+    for all visitors and rarely changes. Cache is invalidated on transaction changes.
     """
+    from app.services.cache import CacheService
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Check cache first - 30 minute TTL (public data changes rarely)
+    cache = CacheService()
+    cache_key = f"public_portfolio:{share_token}"
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        logger.info(f"Public portfolio cache hit for token {share_token[:8]}...")
+        return cached_data
+    
     insights_service = InsightsService(db)
     metrics_service = MetricsService(db)
     
@@ -114,7 +131,7 @@ async def get_public_portfolio(
         owner = crud_users.get_user_by_id(db, user_id)
         owner_username = owner.username if owner else "Unknown"
         
-        return PublicPortfolioInsights(
+        response = PublicPortfolioInsights(
             portfolio_id=portfolio_id,
             portfolio_name=full_insights.portfolio_name,
             owner_username=owner_username,
@@ -124,6 +141,12 @@ async def get_public_portfolio(
             geographic_allocation=geographic_allocation,
             holdings=holdings,
         )
+        
+        # Cache for 30 minutes - perfect for public views since data is identical for all visitors
+        cache.set(cache_key, response.model_dump(), ttl=1800)
+        logger.info(f"Cached public portfolio {portfolio_id} (token {share_token[:8]}...) for 30min")
+        
+        return response
         
     except HTTPException:
         raise

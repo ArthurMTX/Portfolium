@@ -205,9 +205,86 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         cache_key = f"dashboard_batch:{portfolio_id}:{hash(widget_key)}"
         cache.set(cache_key, response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
         
+        # ALSO warm up the price batch cache (used by auto-refresh)
+        price_batch_warmed = False
+        try:
+            from app.routers.portfolios import get_batch_prices
+            from app.dependencies import verify_portfolio_access
+            from fastapi import Request
+            
+            # Import the batch prices functionality
+            from app.services.pricing import PricingService
+            from app.services.currency import CurrencyService
+            from app.models import Asset, Transaction
+            from decimal import Decimal
+            
+            # Get base currency
+            base_currency = portfolio.base_currency if portfolio.base_currency else "USD"
+            
+            # Get all unique assets
+            asset_ids = (
+                db.query(Transaction.asset_id)
+                .filter(Transaction.portfolio_id == portfolio_id)
+                .distinct()
+                .all()
+            )
+            asset_ids = [row[0] for row in asset_ids]
+            
+            if asset_ids:
+                assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+                symbols = [asset.symbol for asset in assets]
+                asset_map = {asset.id: asset for asset in assets}
+                
+                pricing_service = PricingService(db)
+                price_quotes = asyncio.run(pricing_service.get_multiple_prices(symbols))
+                
+                prices = []
+                for asset in assets:
+                    quote = price_quotes.get(asset.symbol)
+                    if quote and quote.price:
+                        original_price = float(quote.price)
+                        current_price = original_price
+                        
+                        if asset.currency != base_currency:
+                            converted = CurrencyService.convert(
+                                Decimal(str(original_price)),
+                                from_currency=asset.currency,
+                                to_currency=base_currency
+                            )
+                            current_price = float(converted) if converted else original_price
+                        
+                        price_data = {
+                            "symbol": asset.symbol,
+                            "asset_id": asset.id,
+                            "name": asset.name,
+                            "current_price": current_price,
+                            "original_price": original_price,
+                            "original_currency": asset.currency,
+                            "daily_change_pct": float(quote.daily_change_pct) if quote.daily_change_pct else None,
+                            "last_updated": quote.asof.isoformat() if quote.asof else None,
+                            "asset_type": asset.asset_type
+                        }
+                        prices.append(price_data)
+                
+                price_batch_response = {
+                    "portfolio_id": portfolio_id,
+                    "base_currency": base_currency,
+                    "prices": prices,
+                    "updated_at": now.isoformat(),
+                    "count": len(prices)
+                }
+                
+                price_cache_key = f"portfolio_batch_prices:{portfolio_id}"
+                cache.set(price_cache_key, price_batch_response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
+                price_batch_warmed = True
+                logger.info(f"Warmed price batch cache for portfolio {portfolio_id} ({len(prices)} prices)")
+        except Exception as e:
+            logger.error(f"Failed to warm price batch cache for portfolio {portfolio_id}: {e}")
+        
         logger.info(
             f"Dashboard warmup complete for portfolio {portfolio_id}: "
-            f"{len(widget_ids)} widgets, {len(data)} data sets cached, {len(errors)} errors"
+            f"{len(widget_ids)} widgets, {len(data)} data sets cached, {len(errors)} errors, "
+            f"price_batch_warmed={price_batch_warmed}"
         )
         
         return {
@@ -218,12 +295,12 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
             "errors": len(errors),
             "cache_key": cache_key,
             "cache_ttl": _DASHBOARD_WARMUP_CACHE_TTL,
+            "price_batch_warmed": price_batch_warmed,
             "timestamp": now.isoformat()
         }
 
 
 @celery_app.task(bind=True, name="dashboard.warmup_active_dashboards")
-@singleton_task(timeout=600)
 def warmup_active_dashboards(self):
     """
     Pre-warm dashboards for recently active users
@@ -238,7 +315,6 @@ def warmup_active_dashboards(self):
         cutoff_time = datetime.utcnow() - timedelta(hours=1)
         
         # Get distinct users with portfolios who were recently active
-        # (This assumes you have a last_activity_at field, adjust as needed)
         active_users = db.query(
             User.id,
             Portfolio.id.label('portfolio_id')
