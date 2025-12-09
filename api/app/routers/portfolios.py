@@ -18,7 +18,7 @@ from app.errors import (
 from app.db import get_db
 from app.schemas import Portfolio, PortfolioCreate, PortfolioUpdate, Position, PortfolioMetrics, PortfolioHistoryPoint
 from app.crud import portfolios as crud
-from app.services.metrics import get_metrics_service, MetricsService
+from app.services.metrics import MetricsService, get_metrics_service
 from app.services.pricing import get_pricing_service
 from app.auth import get_current_user, verify_portfolio_access
 from app.models import User, Transaction, Asset, TransactionType, Portfolio as PortfolioModel
