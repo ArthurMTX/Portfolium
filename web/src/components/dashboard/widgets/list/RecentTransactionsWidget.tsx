@@ -179,6 +179,14 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
         return t('dashboard.widgets.recentTransactions.dividend')
       case 'split':
         return t('dashboard.widgets.recentTransactions.split')
+      case 'conversion_in':
+        return t('dashboard.widgets.recentTransactions.conversionIn')
+      case 'conversion_out':
+        return t('dashboard.widgets.recentTransactions.conversionOut')
+      case 'transfer_in':
+        return t('dashboard.widgets.recentTransactions.transferIn')
+      case 'transfer_out':
+        return t('dashboard.widgets.recentTransactions.transferOut')
       default:
         return type
     }
@@ -198,6 +206,14 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
         return 'bg-violet-50 dark:bg-violet-900/20'
       case 'FEE':
         return 'bg-orange-50 dark:bg-orange-900/20'
+      case 'CONVERSION_IN':
+        return 'bg-indigo-50 dark:bg-indigo-900/20'
+      case 'CONVERSION_OUT':
+        return 'bg-indigo-50 dark:bg-indigo-900/20'
+      case 'TRANSFER_IN':
+        return 'bg-cyan-50 dark:bg-cyan-900/20'
+      case 'TRANSFER_OUT':
+        return 'bg-cyan-50 dark:bg-cyan-900/20'
       default:
         return 'bg-neutral-100 dark:bg-neutral-800'
     }
@@ -217,6 +233,14 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
         return 'text-violet-600 dark:text-violet-400'
       case 'FEE':
         return 'text-orange-600 dark:text-orange-400'
+      case 'CONVERSION_IN':
+        return 'text-indigo-600 dark:text-indigo-400'
+      case 'CONVERSION_OUT':
+        return 'text-indigo-600 dark:text-indigo-400'
+      case 'TRANSFER_IN':
+        return 'text-cyan-600 dark:text-cyan-400'
+      case 'TRANSFER_OUT':
+        return 'text-cyan-600 dark:text-cyan-400'
       default:
         return 'text-neutral-600 dark:text-neutral-400'
     }

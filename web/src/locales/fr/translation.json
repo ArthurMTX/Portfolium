@@ -360,7 +360,11 @@
         "buy": "Achat",
         "sell": "Vente",
         "dividend": "Dividende",
-        "split": "Fractionnement"
+        "split": "Fractionnement",
+        "conversionIn": "Conversion Entrante",
+        "conversionOut": "Conversion Sortante",
+        "transferIn": "Transfert Entrant",
+        "transferOut": "Transfert Sortant"
       },
       "marketStatus": {
         "name": "Statut du Marché",
