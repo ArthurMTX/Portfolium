@@ -1450,7 +1450,8 @@
     "isActiveLabel": "Active",
     "isVerifiedLabel": "Verified",
     "newPasswordField": "New Password",
-    "newPasswordPlaceholder": "Leave blank to keep current password"
+    "newPasswordPlaceholder": "Leave blank to keep current password",
+    "2fa": "2FA"
   },
   "login": {
     "title": "Welcome back",

@@ -1449,7 +1449,8 @@
     "isActiveLabel": "Actif",
     "isVerifiedLabel": "Vérifié",
     "newPasswordField": "Nouveau mot de passe",
-    "newPasswordPlaceholder": "Laissez vide pour conserver le mot de passe actuel"
+    "newPasswordPlaceholder": "Laissez vide pour conserver le mot de passe actuel",
+    "2fa": "2FA"
   },
   "login": {
     "title": "Bienvenue",
