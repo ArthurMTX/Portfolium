@@ -32,6 +32,7 @@ export default function DXYWidget({
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: false,
     retry: 2,
   })
 

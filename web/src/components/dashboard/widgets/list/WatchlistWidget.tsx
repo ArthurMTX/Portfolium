@@ -82,6 +82,7 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: false,
     retry: 2,
   })
 

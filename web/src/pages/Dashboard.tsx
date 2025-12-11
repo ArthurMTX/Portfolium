@@ -178,6 +178,7 @@ export default function Dashboard() {
     staleTime: 0,
     gcTime: 30 * 1000,
     refetchInterval: autoRefreshSettings.enabled ? autoRefreshSettings.interval : false,
+    refetchIntervalInBackground: false, // Stop refetching when navigating away from dashboard
     refetchOnWindowFocus: true,
   })
 

@@ -111,6 +111,7 @@ export function useDashboardBatch({
     staleTime: 60 * 1000, // 1 minute - matches backend cache
     gcTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 60 * 1000, // Auto-refresh every minute
+    refetchIntervalInBackground: false, // CRITICAL: Stop refetching when component unmounts/page not visible
     retry: 2,
   })
 }
