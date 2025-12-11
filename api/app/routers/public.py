@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, Path
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 
 from app.db import get_db
+from app.errors import PublicPortfolioNotFoundError
 from app.services.insights import InsightsService
 from app.services.metrics import MetricsService
 from app.crud import assets as crud_assets
@@ -58,10 +59,7 @@ async def get_public_portfolio(
         
         if not portfolio:
             # Return generic error to prevent token enumeration
-            raise HTTPException(
-                status_code=404, 
-                detail="Portfolio not found or not publicly shared"
-            )
+            raise PublicPortfolioNotFoundError()
         
         portfolio_id = portfolio.id
         user_id = portfolio.user_id
@@ -148,9 +146,12 @@ async def get_public_portfolio(
         
         return response
         
-    except HTTPException:
+    except PublicPortfolioNotFoundError:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise PublicPortfolioNotFoundError() from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching public portfolio: {e}")
+        raise PublicPortfolioNotFoundError() from e

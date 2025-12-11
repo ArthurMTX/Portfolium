@@ -286,14 +286,11 @@ async def create_conversion(
     """
     import uuid
     from decimal import Decimal
-    from fastapi import HTTPException
+    from app.errors import CannotConvertAssetToItselfError, ConversionTransactionFailedError
     
     # Validate that source and target assets are different
     if conversion.from_asset_id == conversion.to_asset_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot convert an asset to itself. Source and target assets must be different."
-        )
+        raise CannotConvertAssetToItselfError()
     
     # Get asset symbols for better notes
     from app.crud.assets import get_asset
@@ -417,10 +414,7 @@ async def create_conversion(
         # If anything fails, rollback both transactions
         db.rollback()
         logger.error(f"Failed to create conversion transactions: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create conversion: {str(e)}"
-        )
+        raise ConversionTransactionFailedError(str(e))
     
     # Update first_transaction_date for the target asset if needed
     from datetime import datetime

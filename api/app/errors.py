@@ -890,3 +890,66 @@ class DateRangeError(PortfoliumException):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid date range: {reason}"
         )
+
+
+# Goal-related errors
+class GoalNotFoundError(PortfoliumException):
+    """Raised when a goal is not found"""
+    
+    def __init__(self, goal_id: int):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Goal with id {goal_id} not found"
+        )
+
+
+class GoalNotBelongsToPortfolioError(PortfoliumException):
+    """Raised when a goal does not belong to the specified portfolio"""
+    
+    def __init__(self, goal_id: int, portfolio_id: int):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Goal does not belong to this portfolio"
+        )
+
+
+class GoalDeleteFailedError(PortfoliumException):
+    """Raised when deleting a goal fails"""
+    
+    def __init__(self, goal_id: int):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete goal"
+        )
+
+
+# Public portfolio errors
+class PublicPortfolioNotFoundError(PortfoliumException):
+    """Raised when a public portfolio is not found or not publicly shared"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portfolio not found or not publicly shared"
+        )
+
+
+# Conversion errors
+class CannotConvertAssetToItselfError(PortfoliumException):
+    """Raised when trying to convert an asset to itself"""
+    
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot convert an asset to itself. Source and target assets must be different."
+        )
+
+
+class ConversionTransactionFailedError(PortfoliumException):
+    """Raised when creating conversion transactions fails"""
+    
+    def __init__(self, reason: str):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create conversion: {reason}"
+        )
