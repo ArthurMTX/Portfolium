@@ -1,7 +1,7 @@
 .PHONY: up down logs restart test clean dev dev-backend dev-up dev-down dev-logs dev-restart dev-restart-build dev-up-build build-prod
 
 build-prod:
-	docker build -t arthurmtx/portfolium-db:latest ./db && docker build -t arthurmtx/portfolium-api:latest -f ./api/Dockerfile . && docker build -t arthurmtx/portfolium-web:latest ./web 
+	docker build -t arthurmtx/portfolium-db:latest ./db && docker build -t arthurmtx/portfolium-api:latest -f ./api/Dockerfile . && docker build -t arthurmtx/portfolium-web:latest -f ./web/Dockerfile . 
 
 up:
 	docker compose up -d
