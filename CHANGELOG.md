@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-12-11
+
+### Features
+
+* implement Two-Factor Authentication (2FA) functionality ([c736a50](https://github.com/ArthurMTX/Portfolium/commit/c736a50))
+* add 2FA support to user admin pages and translations ([8638d53](https://github.com/ArthurMTX/Portfolium/commit/8638d53))
+* implement Toast component for user notifications and replace alerts with toast messages in Admin, Transactions, and Watchlist pages ([6635993](https://github.com/ArthurMTX/Portfolium/commit/6635993))
+* implement asynchronous fetching of major market indices with error handling ([7c768ef](https://github.com/ArthurMTX/Portfolium/commit/7c768ef))
+* enhance market indices fetching with additional indices and improved result structure ([f41b244](https://github.com/ArthurMTX/Portfolium/commit/f41b244))
+* add dashboard warmup task and increase batch cache TTL to 5 minutes ([5d00583](https://github.com/ArthurMTX/Portfolium/commit/5d00583))
+* optimize get_multiple_prices method for true parallel fetching of prices ([515f06d](https://github.com/ArthurMTX/Portfolium/commit/515f06d))
+* add support for conversion and transfer transaction types in RecentTransactionsWidget ([5bcf854](https://github.com/ArthurMTX/Portfolium/commit/5bcf854))
+* implement caching optimizations for public portfolios and batch prices ([a8ed822](https://github.com/ArthurMTX/Portfolium/commit/a8ed822))
+* enhance error handling with custom exceptions for goals and conversions ([4b75dac](https://github.com/ArthurMTX/Portfolium/commit/4b75dac))
+* add additional targets to Makefile for improved build and development workflow ([e9d341f](https://github.com/ArthurMTX/Portfolium/commit/e9d341f))
+* add dev-up and dev-restart-build targets to Makefile for improved development workflow ([6ba55ce](https://github.com/ArthurMTX/Portfolium/commit/6ba55ce))
+* optimize portfolio and transaction handling with caching improvements ([4d8dc92](https://github.com/ArthurMTX/Portfolium/commit/4d8dc92))
+
+### Bug Fixes
+
+* add user redirection to dashboard on login, password reset, and registration pages if already logged in ([1ac15c5](https://github.com/ArthurMTX/Portfolium/commit/1ac15c5))
+* add handling for asyncio.CancelledError in pricing service fetch methods ([91ae241](https://github.com/ArthurMTX/Portfolium/commit/91ae241))
+* reorder import statements for better readability ([fd20a29](https://github.com/ArthurMTX/Portfolium/commit/fd20a29))
+* extend transaction types in AssetPriceChart and enhance visualization for conversions and transfers ([4948bf1](https://github.com/ArthurMTX/Portfolium/commit/4948bf1))
+* disable background refetching for dashboard and widget components ([048413a](https://github.com/ArthurMTX/Portfolium/commit/048413a))
+* correct net cash value formatting in PositionDetailModal ([f61178e](https://github.com/ArthurMTX/Portfolium/commit/f61178e))
+* correct Dockerfile path for web build in Makefile ([3f23375](https://github.com/ArthurMTX/Portfolium/commit/3f23375))
+
+### Refactor
+
+* remove unused props and imports in TwoFactorLogin and TwoFactorSettings components ([0721394](https://github.com/ArthurMTX/Portfolium/commit/0721394))
+
 ## [0.3.0] - 2025-12-07
 
 ### Features
@@ -223,7 +255,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * update README to include automatic FX and currencies conversion feature ([c31726d](https://github.com/ArthurMTX/Portfolium/commit/c31726d6d0497a536a16c28df3532edf7fce4aec))
 * update README to include watchlist and notifications system features ([e008151](https://github.com/ArthurMTX/Portfolium/commit/e0081514c2fb67d65be1ed7e48e4952e1ab28d31))
 
-[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ArthurMTX/Portfolium/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ArthurMTX/Portfolium/compare/v0.1.0...v0.1.1
