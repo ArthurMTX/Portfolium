@@ -47,6 +47,7 @@ export function useMarketIndex(
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchInterval: 60 * 1000, // Auto-refresh every 60 seconds
+    refetchIntervalInBackground: false, // Stop refetching when component unmounts
     retry: 2, // Retry failed requests twice
   })
 }

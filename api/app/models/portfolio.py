@@ -29,6 +29,7 @@ class Portfolio(Base):
     share_token = Column(String(36), unique=True, index=True, default=generate_share_token)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_accessed_at = Column(DateTime, default=datetime.utcnow, index=True)
     
     # Relationships
     user = relationship("User", back_populates="portfolios")

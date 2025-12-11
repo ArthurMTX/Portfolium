@@ -149,6 +149,10 @@ class PricingService:
                         except asyncio.TimeoutError:
                             logger.warning(f"Timeout waiting for ongoing fetch for {symbol}")
                             return None
+                        except asyncio.CancelledError:
+                            logger.warning(f"Task cancelled while waiting for ongoing fetch for {symbol}")
+                            _ongoing_fetches.pop(symbol, None)
+                            return None
                     else:
                         # Task is from a different loop, remove it and create a new one
                         logger.warning(f"Removing stale task for {symbol} (different event loop)")
@@ -179,6 +183,9 @@ class PricingService:
             return result
         except asyncio.TimeoutError:
             logger.warning(f"Timeout fetching price for {symbol}")
+            return None
+        except asyncio.CancelledError:
+            logger.warning(f"Task cancelled while fetching price for {symbol}")
             return None
         finally:
             # Remove from ongoing fetches
@@ -309,22 +316,31 @@ class PricingService:
     
     async def get_multiple_prices(self, symbols: List[str]) -> Dict[str, PriceQuote]:
         """
-        Get prices for multiple symbols concurrently.
+        Get prices for multiple symbols concurrently using asyncio.gather().
         
-        NOTE: Database writes are serialized to avoid SQLAlchemy session concurrency issues.
-        We fetch from yfinance in parallel but save to DB one at a time.
+        This method fetches prices in TRUE parallel, dramatically reducing latency
+        when cache is cold. Each get_price() call handles its own:
+        - Redis caching (shared, fast)
+        - Request deduplication (prevents duplicate fetches)
+        - Database writes (each symbol manages its own DB session)
+        
+        Performance: 
+        - Sequential: 30 symbols * 1.2s = 36 seconds
+        - Parallel: max(1.2s for all 30) = 1.2 seconds
         """
         results = {}
         
-        # Process each symbol sequentially to avoid DB session conflicts
-        # The get_price method handles caching, so this is still efficient
-        for symbol in symbols:
-            try:
-                price = await self.get_price(symbol)
-                if price:
-                    results[symbol] = price
-            except Exception as e:
-                logger.error(f"Error fetching price for {symbol}: {e}")
+        # Launch all fetches in parallel using gather
+        # return_exceptions=True prevents one failure from killing all fetches
+        tasks = [self.get_price(symbol) for symbol in symbols]
+        prices = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Collect results, filtering out exceptions and None values
+        for symbol, price in zip(symbols, prices):
+            if isinstance(price, Exception):
+                logger.error(f"Error fetching price for {symbol}: {price}")
+            elif price is not None:
+                results[symbol] = price
         
         return results
     

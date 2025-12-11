@@ -149,11 +149,13 @@ async def lifespan(app: FastAPI):
             try:
                 from app.tasks.metrics_tasks import warmup_metrics_cache
                 from app.tasks.insights_tasks import warmup_insights_cache
+                from app.tasks.dashboard_tasks import warmup_active_dashboards
                 
                 logger.info("Triggering startup cache warmup...")
                 warmup_metrics_cache.delay()
                 warmup_insights_cache.delay(periods=["1mo"])
-                logger.info("Cache warmup tasks queued")
+                warmup_active_dashboards.delay()
+                logger.info("Cache warmup tasks queued (metrics, insights, dashboards)")
             except Exception as e:
                 logger.warning(f"Failed to queue cache warmup tasks: {e}")
     else:

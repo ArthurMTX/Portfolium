@@ -2,10 +2,11 @@
 Portfolio Goals router
 """
 from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.errors import GoalNotFoundError, GoalNotBelongsToPortfolioError, GoalDeleteFailedError
 from app.schemas import PortfolioGoal, PortfolioGoalCreate, PortfolioGoalUpdate
 from app.crud import goals as crud
 from app.auth import get_current_user, verify_portfolio_access
@@ -50,17 +51,11 @@ async def get_goal(
     """Get a specific goal by ID"""
     goal = crud.get_goal(db, goal_id)
     if not goal:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Goal with id {goal_id} not found"
-        )
+        raise GoalNotFoundError(goal_id)
     
     # Verify goal belongs to the portfolio
     if goal.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Goal does not belong to this portfolio"
-        )
+        raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     return goal
 
@@ -106,16 +101,10 @@ async def update_goal(
     # Verify goal exists and belongs to portfolio
     existing_goal = crud.get_goal(db, goal_id)
     if not existing_goal:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Goal with id {goal_id} not found"
-        )
+        raise GoalNotFoundError(goal_id)
     
     if existing_goal.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Goal does not belong to this portfolio"
-        )
+        raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     # Validate target_date if provided
     if goal_data.target_date is not None:
@@ -152,23 +141,14 @@ async def delete_goal(
     # Verify goal exists and belongs to portfolio
     existing_goal = crud.get_goal(db, goal_id)
     if not existing_goal:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Goal with id {goal_id} not found"
-        )
+        raise GoalNotFoundError(goal_id)
     
     if existing_goal.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Goal does not belong to this portfolio"
-        )
+        raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     success = crud.delete_goal(db, goal_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete goal"
-        )
+        raise GoalDeleteFailedError(goal_id)
 
 
 @router.patch("/portfolios/{portfolio_id}/goals/{goal_id}/deactivate", response_model=PortfolioGoal, tags=["goals"])
@@ -187,16 +167,10 @@ async def deactivate_goal(
     # Verify goal exists and belongs to portfolio
     existing_goal = crud.get_goal(db, goal_id)
     if not existing_goal:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Goal with id {goal_id} not found"
-        )
+        raise GoalNotFoundError(goal_id)
     
     if existing_goal.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Goal does not belong to this portfolio"
-        )
+        raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     return crud.deactivate_goal(db, goal_id)
 
@@ -226,16 +200,10 @@ async def calculate_goal_projections(
     # Verify goal exists and belongs to portfolio
     goal = crud.get_goal(db, goal_id)
     if not goal:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Goal with id {goal_id} not found"
-        )
+        raise GoalNotFoundError(goal_id)
     
     if goal.portfolio_id != portfolio_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Goal does not belong to this portfolio"
-        )
+        raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     # Get current portfolio value by calculating from positions
     from app.services.metrics import MetricsService

@@ -18,7 +18,7 @@ from app.errors import (
 from app.db import get_db
 from app.schemas import Portfolio, PortfolioCreate, PortfolioUpdate, Position, PortfolioMetrics, PortfolioHistoryPoint
 from app.crud import portfolios as crud
-from app.services.metrics import get_metrics_service, MetricsService
+from app.services.metrics import MetricsService, get_metrics_service
 from app.services.pricing import get_pricing_service
 from app.auth import get_current_user, verify_portfolio_access
 from app.models import User, Transaction, Asset, TransactionType, Portfolio as PortfolioModel
@@ -298,6 +298,17 @@ async def get_batch_prices(
     
     logger = logging.getLogger(__name__)
     
+    from app.services.cache import CacheService
+    
+    # Check cache first (5 minute TTL)
+    cache = CacheService()
+    cache_key = f"portfolio_batch_prices:{portfolio_id}"
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        logger.info(f"Price batch cache hit for portfolio {portfolio_id}")
+        return cached_data
+    
     try:
         # Get portfolio base currency for conversion
         base_currency = portfolio.base_currency if portfolio.base_currency else "USD"
@@ -313,13 +324,15 @@ async def get_batch_prices(
         asset_ids = [row[0] for row in asset_ids_query.all()]
         
         if not asset_ids:
-            return {
+            empty_response = {
                 "portfolio_id": portfolio_id,
                 "base_currency": base_currency,
                 "prices": [],
                 "updated_at": datetime.utcnow().isoformat(),
                 "count": 0
             }
+            cache.set(cache_key, empty_response, ttl=300)  # 5 min cache
+            return empty_response
         
         # Get asset details (symbol, currency) - fast with new index
         assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
@@ -374,13 +387,19 @@ async def get_batch_prices(
                     "asset_type": asset.asset_type
                 })
         
-        return {
+        response = {
             "portfolio_id": portfolio_id,
             "base_currency": base_currency,
             "prices": prices,
             "updated_at": datetime.utcnow().isoformat(),
             "count": len(prices)
         }
+        
+        # Cache the response for 5 minutes
+        cache.set(cache_key, response, ttl=300)
+        logger.info(f"Cached price batch for portfolio {portfolio_id} ({len(prices)} prices)\")")
+        
+        return response
     
     except Exception as e:
         logger.error(f"Failed to fetch batch prices for portfolio {portfolio_id}: {e}", exc_info=True)

@@ -361,7 +361,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                     {detailedMetrics.net_cash !== null && detailedMetrics.net_cash !== undefined && (
                       <MetricCard
                         label={t('dashboard.positionDetail.netCashPosition')}
-                        value={`${formatLargeNumber(Math.abs(detailedMetrics.net_cash), 2)} ${detailedMetrics.asset_currency || 'USD'}`}
+                        value={`${formatLargeNumber(detailedMetrics.net_cash, 2)} ${detailedMetrics.asset_currency || 'USD'}`}
                         color={detailedMetrics.net_cash > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}
                         subtitle={getNetCashConclusion(detailedMetrics.net_cash, t)}
                         icon={<DollarSign size={16} />}

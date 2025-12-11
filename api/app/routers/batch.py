@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/batch", tags=["batch"])
 
-# Cache TTL for batch responses
-_BATCH_CACHE_TTL = 60  # 60 seconds
+# Cache TTL for batch responses (5 minutes)
+_BATCH_CACHE_TTL = 300  # 300 seconds (5 minutes)
 
 
 def _make_json_serializable(obj, _seen=None):
@@ -340,11 +340,70 @@ async def _fetch_market_vix() -> Optional[Dict]:
 async def _fetch_market_indices() -> Optional[Dict]:
     """Fetch all major market indices"""
     try:
-        from app.services import pricing
-        # Fetch major indices in parallel
-        symbols = ['^GSPC', '^DJI', '^IXIC', '^FTSE', '^GDAXI', '^FCHI', '^N225', '^HSI']
-        logger.warning("Market indices batch fetch not yet implemented")
-        return None
+        import yfinance as yf
+        
+        # Define major market indices
+        indices = {
+            'GSPC': '^GSPC',  # S&P 500
+            'DJI': '^DJI',    # Dow Jones
+            'IXIC': '^IXIC',  # NASDAQ
+            'GSPTSE': '^GSPTSE', # S&P/TSX Composite
+            'FTSE': '^FTSE',  # FTSE 100
+            'GDAXI': '^GDAXI', # DAX
+            'FCHI': '^FCHI',  # CAC 40
+            'FTSEMIB.MI': 'FTSEMIB.MI', # FTSE MIB
+            'N225': '^N225',  # Nikkei 225
+            'HSI': '^HSI',    # Hang Seng
+            '000001.SS': '000001.SS', # SSE Composite
+            '^AXJO': '^AXJO',  # ASX 200
+        }
+        
+        # Fetch all indices in parallel
+        async def fetch_index(key: str, symbol: str):
+            try:
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+                
+                current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+                previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+                
+                if current_price is None:
+                    return None
+                
+                change = None
+                change_pct = None
+                
+                if previous_close and previous_close > 0:
+                    change = current_price - previous_close
+                    change_pct = (change / previous_close) * 100
+                
+                return {
+                    "symbol": symbol,
+                    "price": round(current_price, 2),
+                    "current_price": round(current_price, 2),
+                    "change": round(change, 2) if change is not None else None,
+                    "change_pct": round(change_pct, 2) if change_pct is not None else None,
+                    "percent_change": round(change_pct, 2) if change_pct is not None else None,
+                    "daily_change_pct": round(change_pct, 2) if change_pct is not None else None,
+                    "previous_close": round(previous_close, 2) if previous_close else None,
+                }
+            except Exception as e:
+                logger.warning(f"Failed to fetch {symbol}: {e}")
+                return None
+        
+        # Fetch all indices concurrently
+        tasks = [fetch_index(key, symbol) for key, symbol in indices.items()]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Build result dict with non-None values, keyed by symbol (with caret)
+        result = {}
+        for (key, symbol), data in zip(indices.items(), results):
+            if data and not isinstance(data, Exception):
+                result[symbol] = data  # Use symbol (e.g., "^GSPC") as key, not short name
+        
+        logger.info(f"Fetched market indices: {list(result.keys())}")
+        return result if result else None
+        
     except Exception as e:
         logger.error(f"Failed to fetch market indices: {e}")
         return None

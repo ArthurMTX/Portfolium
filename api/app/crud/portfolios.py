@@ -9,7 +9,7 @@ from app.schemas import PortfolioCreate, PortfolioUpdate
 
 
 def get_portfolio(db: Session, portfolio_id: int) -> Optional[Portfolio]:
-    """Get portfolio by ID"""
+    """Get portfolio by ID (direct from database)"""
     return db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
 
 
@@ -91,6 +91,11 @@ def update_portfolio(
     
     db.commit()
     db.refresh(db_portfolio)
+    
+    # Invalidate position cache since portfolio base_currency may have changed
+    from app.services.cache import invalidate_positions
+    invalidate_positions(portfolio_id)
+    
     return db_portfolio
 
 
@@ -102,4 +107,9 @@ def delete_portfolio(db: Session, portfolio_id: int) -> bool:
     
     db.delete(db_portfolio)
     db.commit()
+    
+    # Invalidate position cache
+    from app.services.cache import invalidate_positions
+    invalidate_positions(portfolio_id)
+    
     return True

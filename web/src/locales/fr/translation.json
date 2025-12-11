@@ -90,7 +90,9 @@
     "selected": "Sélectionné",
     "unknown": "Inconnu",
     "confirmDelete": "Confirmer la suppression",
-    "processing": "Traitement..."
+    "processing": "Traitement...",
+    "done": "Terminé",
+    "verifying": "Vérification..."
   },
   "conversion": {
     "title": "Convertir Crypto",
@@ -360,7 +362,11 @@
         "buy": "Achat",
         "sell": "Vente",
         "dividend": "Dividende",
-        "split": "Fractionnement"
+        "split": "Fractionnement",
+        "conversionIn": "Conversion Entrante",
+        "conversionOut": "Conversion Sortante",
+        "transferIn": "Transfert Entrant",
+        "transferOut": "Transfert Sortant"
       },
       "marketStatus": {
         "name": "Statut du Marché",
@@ -1443,7 +1449,8 @@
     "isActiveLabel": "Actif",
     "isVerifiedLabel": "Vérifié",
     "newPasswordField": "Nouveau mot de passe",
-    "newPasswordPlaceholder": "Laissez vide pour conserver le mot de passe actuel"
+    "newPasswordPlaceholder": "Laissez vide pour conserver le mot de passe actuel",
+    "2fa": "2FA"
   },
   "login": {
     "title": "Bienvenue",
@@ -1511,6 +1518,50 @@
     "successMessage": "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
     "redirecting": "Redirection vers la page de connexion...",
     "goToLogin": "Aller à la connexion maintenant →"
+  },
+  "twoFactor": {
+    "title": "Authentification à deux facteurs",
+    "setup": "Configurer l'authentification à deux facteurs",
+    "enabled": "Activée",
+    "disabled": "Désactivée",
+    "enable": "Activer la 2FA",
+    "disable": "Désactiver la 2FA",
+    "enabledDescription": "Votre compte est protégé par l'authentification à deux facteurs. Vous devrez entrer un code depuis votre application d'authentification lors de la connexion.",
+    "disabledDescription": "Ajoutez une couche de sécurité supplémentaire à votre compte en activant l'authentification à deux facteurs. Vous devrez entrer un code d'une application d'authentification à chaque connexion.",
+    "enabledSuccessfully": "L'authentification à deux facteurs a été activée avec succès !",
+    "disabledSuccessfully": "L'authentification à deux facteurs a été désactivée.",
+    "stepScan": "Scannez le code QR avec votre application d'authentification",
+    "scanInstructions": "Ouvrez votre application d'authentification (Google Authenticator, Authy, etc.) et scannez ce code QR pour ajouter votre compte Portfolium.",
+    "manualEntry": "Impossible de scanner ? Entrez ce code manuellement :",
+    "enterCode": "Entrez le code à 6 chiffres de votre application",
+    "enterCodeFromApp": "Entrez le code à 6 chiffres de votre application d'authentification",
+    "enterBackupCode": "Entrez un de vos codes de secours",
+    "authCode": "Code d'authentification",
+    "backupCode": "Code de secours",
+    "useAuthApp": "Utiliser l'application d'authentification à la place",
+    "useBackupCode": "Utiliser un code de secours à la place",
+    "verify": "Vérifier",
+    "backupCodes": "Codes de secours",
+    "saveBackupCodes": "Sauvegarder vos codes de secours",
+    "backupCodesInstructions": "Conservez ces codes dans un endroit sûr. Chaque code ne peut être utilisé qu'une seule fois si vous perdez l'accès à votre application d'authentification.",
+    "downloadCodes": "Télécharger les codes de secours",
+    "setupSuccess": "Authentification à deux facteurs activée avec succès !",
+    "setupError": "Échec de l'initialisation de la configuration 2FA. Veuillez réessayer.",
+    "verificationFailed": "Code de vérification invalide. Veuillez réessayer.",
+    "invalidCodeLength": "Veuillez entrer un code valide.",
+    "backupCodesRemaining": "Codes de secours restants",
+    "lowBackupCodesWarning": "Vous n'avez plus beaucoup de codes de secours. Envisagez de les régénérer.",
+    "regenerateBackupCodes": "Régénérer les codes de secours",
+    "regenerateBackupCodesTitle": "Régénérer les codes de secours ?",
+    "regenerateBackupCodesMessage": "Cela invalidera vos codes de secours existants et en générera de nouveaux. Assurez-vous de sauvegarder les nouveaux codes en toute sécurité.",
+    "regenerate": "Régénérer",
+    "backupCodesRegenerated": "Nouveaux codes de secours générés et téléchargés avec succès !",
+    "regenerateFailed": "Échec de la régénération des codes de secours. Veuillez réessayer.",
+    "disableConfirmTitle": "Désactiver l'authentification à deux facteurs ?",
+    "disableConfirmMessage": "Cela supprimera la couche de sécurité supplémentaire de votre compte. Vous n'aurez besoin que de votre mot de passe pour vous connecter.",
+    "passwordRequired": "Le mot de passe est requis pour désactiver la 2FA.",
+    "disableFailed": "Échec de la désactivation de la 2FA. Veuillez vérifier votre mot de passe et réessayer.",
+    "mustSaveBackupCodes": "Veuillez télécharger ou copier au moins un code de secours avant de continuer"
   },
   "verifyEmail": {
     "verifying": "Vérification de votre e-mail...",

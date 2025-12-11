@@ -1,19 +1,29 @@
 import { useState, FormEvent, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Mail, AlertCircle, CheckCircle, ArrowLeft, Moon, Sun } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { translateApiError } from '../lib/errorUtils'
 import { useTranslation, Trans } from 'react-i18next'
 import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function ForgotPassword() {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
 
   useEffect(() => {
     // Check system preference or localStorage

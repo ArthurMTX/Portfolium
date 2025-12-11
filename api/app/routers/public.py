@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, Path
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 
 from app.db import get_db
+from app.errors import PublicPortfolioNotFoundError
 from app.services.insights import InsightsService
 from app.services.metrics import MetricsService
 from app.crud import assets as crud_assets
@@ -30,7 +31,24 @@ async def get_public_portfolio(
     Get public, read-only portfolio insights by share token.
     Only accessible if the portfolio owner has enabled public sharing.
     Hides sensitive data like amounts, quantities, and costs.
+    
+    Aggressively cached for 30 minutes since public data is identical
+    for all visitors and rarely changes. Cache is invalidated on transaction changes.
     """
+    from app.services.cache import CacheService
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Check cache first - 30 minute TTL (public data changes rarely)
+    cache = CacheService()
+    cache_key = f"public_portfolio:{share_token}"
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        logger.info(f"Public portfolio cache hit for token {share_token[:8]}...")
+        return cached_data
+    
     insights_service = InsightsService(db)
     metrics_service = MetricsService(db)
     
@@ -41,10 +59,7 @@ async def get_public_portfolio(
         
         if not portfolio:
             # Return generic error to prevent token enumeration
-            raise HTTPException(
-                status_code=404, 
-                detail="Portfolio not found or not publicly shared"
-            )
+            raise PublicPortfolioNotFoundError()
         
         portfolio_id = portfolio.id
         user_id = portfolio.user_id
@@ -114,7 +129,7 @@ async def get_public_portfolio(
         owner = crud_users.get_user_by_id(db, user_id)
         owner_username = owner.username if owner else "Unknown"
         
-        return PublicPortfolioInsights(
+        response = PublicPortfolioInsights(
             portfolio_id=portfolio_id,
             portfolio_name=full_insights.portfolio_name,
             owner_username=owner_username,
@@ -125,9 +140,18 @@ async def get_public_portfolio(
             holdings=holdings,
         )
         
-    except HTTPException:
+        # Cache for 30 minutes - perfect for public views since data is identical for all visitors
+        cache.set(cache_key, response.model_dump(), ttl=1800)
+        logger.info(f"Cached public portfolio {portfolio_id} (token {share_token[:8]}...) for 30min")
+        
+        return response
+        
+    except PublicPortfolioNotFoundError:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise PublicPortfolioNotFoundError() from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching public portfolio: {e}")
+        raise PublicPortfolioNotFoundError() from e

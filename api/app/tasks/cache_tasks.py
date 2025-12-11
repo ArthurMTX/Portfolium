@@ -39,6 +39,16 @@ def invalidate_portfolio_cache(self, portfolio_id: int) -> dict:
         # Also invalidate analytics cache
         invalidate_portfolio_analytics(portfolio_id)
         
+        # Invalidate public portfolio cache if this portfolio is public
+        with get_db_context() as db:
+            from app.crud import portfolios as crud_portfolios
+            portfolio = crud_portfolios.get_portfolio(db, portfolio_id)
+            if portfolio and portfolio.is_public and portfolio.share_token:
+                public_cache_key = f"public_portfolio:{portfolio.share_token}"
+                if CacheService.delete(public_cache_key):
+                    logger.info(f"Invalidated public portfolio cache for {portfolio_id}")
+                    deleted_count += 1
+        
         logger.info(
             f"Task {self.request.id}: Invalidated {deleted_count} cache entries "
             f"for portfolio {portfolio_id}"
@@ -186,6 +196,70 @@ def warmup_specific_symbols(self, symbols: List[str]) -> dict:
             f"Task {self.request.id}: Error warming up specific symbols: {e}",
             exc_info=True
         )
+        return {"status": "error", "message": str(e)}
+
+
+@celery_app.task(bind=True, name="app.tasks.cache_tasks.warmup_public_portfolios")
+def warmup_public_portfolios(self) -> dict:
+    """
+    Warm up cache for all public portfolios.
+    Runs periodically to ensure fast loading for visitors.
+    
+    This is especially important for big portfolios where insights calculation
+    can take 10+ seconds. By pre-warming the cache, all visitors get instant load times.
+    
+    Returns:
+        dict with warmup summary
+    """
+    try:
+        logger.info(f"Task {self.request.id}: Starting public portfolio cache warmup")
+        
+        with get_db_context() as db:
+            from app.crud import portfolios as crud_portfolios
+            from app.routers.public import get_public_portfolio
+            import asyncio
+            
+            # Get all public portfolios
+            public_portfolios = db.query(Portfolio).filter(
+                Portfolio.is_public == True,
+                Portfolio.share_token.isnot(None)
+            ).all()
+            
+            if not public_portfolios:
+                logger.info("No public portfolios to warm up")
+                return {"status": "success", "portfolios_warmed": 0}
+            
+            logger.info(f"Warming up {len(public_portfolios)} public portfolios")
+            
+            warmed_count = 0
+            failed_count = 0
+            
+            for portfolio in public_portfolios:
+                try:
+                    # Call the endpoint function directly to warm cache
+                    # This will compute and cache the expensive insights
+                    result = asyncio.run(get_public_portfolio(portfolio.share_token, db))
+                    warmed_count += 1
+                    logger.info(f"Warmed public portfolio {portfolio.id} (token {portfolio.share_token[:8]}...)")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Failed to warm public portfolio {portfolio.id}: {e}")
+            
+            logger.info(
+                f"Task {self.request.id}: Warmed {warmed_count}/{len(public_portfolios)} "
+                f"public portfolios, {failed_count} failed"
+            )
+            
+            return {
+                "status": "success",
+                "portfolios_warmed": warmed_count,
+                "portfolios_failed": failed_count,
+                "total_public": len(public_portfolios),
+                "task_id": self.request.id
+            }
+        
+    except Exception as e:
+        logger.error(f"Task {self.request.id}: Error warming public portfolios: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 

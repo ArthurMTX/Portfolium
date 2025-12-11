@@ -6,7 +6,7 @@ import logging
 from decimal import Decimal
 from typing import Any, List, Dict, Optional, Tuple
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from fastapi import Depends
 
@@ -49,6 +49,10 @@ class MetricsService:
             portfolio_id: Portfolio ID
             include_sold: If True, also return sold positions with realized P&L
         """
+        # Update portfolio access time for smart cache warmup
+        from app.services.cache import update_portfolio_access_time
+        update_portfolio_access_time(self.db, portfolio_id)
+        
         cache_key = (portfolio_id, include_sold)
         
         # Check Redis cache first
@@ -104,31 +108,45 @@ class MetricsService:
         portfolio_base_currency = portfolio.base_currency if portfolio else None
         
         # Get all transactions for portfolio, ordered by date
+        # Use joinedload to eagerly fetch assets and prevent N+1 queries
         transactions = (
             self.db.query(Transaction)
+            .options(joinedload(Transaction.asset))
             .filter(Transaction.portfolio_id == portfolio_id)
             .order_by(Transaction.tx_date, Transaction.created_at)
             .all()
         )
         
-        # Group by asset
+        # Group by asset and pre-calculate dividends/fees while iterating
         asset_txs: Dict[int, List[Transaction]] = {}
+        total_dividends = Decimal(0)
+        total_fees = Decimal(0)
+        
         for tx in transactions:
             if tx.asset_id not in asset_txs:
                 asset_txs[tx.asset_id] = []
             asset_txs[tx.asset_id].append(tx)
+            
+            # Calculate dividends and fees in this loop to avoid separate queries
+            if tx.type == TransactionType.DIVIDEND:
+                total_dividends += tx.price * tx.quantity
+            total_fees += tx.fees
         
-        logger.info(f"Calculating positions for {len(asset_txs)} assets in portfolio {portfolio_id}")
+        # Store pre-calculated values for later use in get_metrics
+        self._cached_dividends = {portfolio_id: total_dividends}
+        self._cached_fees = {portfolio_id: total_fees}
         
-        # OPTIMIZATION: Pre-fetch all prices in parallel before calculating positions
+        # Calculate positions sequentially to avoid database session concurrency issues
+        
+        # Batch fetch all assets at once to prevent N+1 queries
+        asset_ids = list(asset_txs.keys())
+        assets = self.db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+        asset_map = {asset.id: asset for asset in assets}
+        
+        # Pre-fetch all prices in parallel before calculating positions
         # This dramatically reduces the time from sequential fetches
-        asset_symbols = []
-        asset_id_to_symbol = {}
-        for asset_id in asset_txs.keys():
-            asset = self.db.query(Asset).filter_by(id=asset_id).first()
-            if asset:
-                asset_symbols.append(asset.symbol)
-                asset_id_to_symbol[asset_id] = asset.symbol
+        asset_symbols = [asset.symbol for asset in assets]
+        asset_id_to_symbol = {asset.id: asset.symbol for asset in assets}
         
         # Batch fetch all prices in parallel
         from app.services.pricing import get_pricing_service
@@ -166,51 +184,19 @@ class MetricsService:
 
     async def get_sold_positions_only(self, portfolio_id: int) -> List[Position]:
         """
-        Get only sold positions for a portfolio (optimized - doesn't calculate active positions)
+        Get only sold positions for a portfolio (optimized to use cached data)
         
         Returns assets that were fully sold with their realized P&L.
-        This is more efficient than get_positions(include_sold=True) when you only need sold positions.
+        Uses get_positions(include_sold=True) which leverages caching, then filters.
         """
-        # Get portfolio to access base currency
-        from app.models import Portfolio as PortfolioModel
-        portfolio = self.db.query(PortfolioModel).filter_by(id=portfolio_id).first()
-        portfolio_base_currency = portfolio.base_currency if portfolio else None
-        
-        # Get all transactions for portfolio, ordered by date
-        transactions = (
-            self.db.query(Transaction)
-            .filter(Transaction.portfolio_id == portfolio_id)
-            .order_by(Transaction.tx_date, Transaction.created_at)
-            .all()
-        )
-        
-        # Group by asset
-        asset_txs: Dict[int, List[Transaction]] = {}
-        for tx in transactions:
-            if tx.asset_id not in asset_txs:
-                asset_txs[tx.asset_id] = []
-            asset_txs[tx.asset_id].append(tx)
-        
-        # Calculate positions sequentially to avoid database session concurrency issues
-        all_positions = []
-        logger.info(f"Calculating sold positions for {len(asset_txs)} assets in portfolio {portfolio_id}")
-        for asset_id, txs in asset_txs.items():
-            try:
-                position = await self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold=True)
-                all_positions.append(position)
-            except Exception as e:
-                logger.error(f"Error calculating sold position for asset {asset_id}: {e}", exc_info=True)
-                all_positions.append(e)
+        # Use get_positions with include_sold=True to leverage caching
+        # Then filter for sold positions (quantity = 0)
+        all_positions = await self.get_positions(portfolio_id, include_sold=True)
         
         # Filter to only sold positions (quantity = 0)
-        sold_positions = []
-        for position in all_positions:
-            if isinstance(position, Exception):
-                logger.error(f"Error calculating position: {position}")
-                continue
-            if position and position.quantity == 0:
-                sold_positions.append(position)
+        sold_positions = [pos for pos in all_positions if pos.quantity == 0]
         
+        logger.info(f"Filtered {len(sold_positions)} sold positions from {len(all_positions)} total positions for portfolio {portfolio_id}")
         return sold_positions
     
     async def get_metrics(self, portfolio_id: int) -> PortfolioMetrics:
@@ -618,7 +604,12 @@ class MetricsService:
         return total_realized
     
     def _calculate_total_dividends(self, portfolio_id: int) -> Decimal:
-        """Calculate total dividends received"""
+        """Calculate total dividends received (uses pre-calculated cache if available)"""
+        # Use pre-calculated value from transaction loop if available
+        if hasattr(self, '_cached_dividends') and portfolio_id in self._cached_dividends:
+            return self._cached_dividends[portfolio_id]
+        
+        # Fallback to database query if not pre-calculated
         result = (
             self.db.query(func.sum(Transaction.price * Transaction.quantity))
             .filter(
@@ -630,7 +621,12 @@ class MetricsService:
         return Decimal(result or 0)
     
     def _calculate_total_fees(self, portfolio_id: int) -> Decimal:
-        """Calculate total fees paid"""
+        """Calculate total fees paid (uses pre-calculated cache if available)"""
+        # Use pre-calculated value from transaction loop if available
+        if hasattr(self, '_cached_fees') and portfolio_id in self._cached_fees:
+            return self._cached_fees[portfolio_id]
+        
+        # Fallback to database query if not pre-calculated
         result = (
             self.db.query(func.sum(Transaction.fees))
             .filter(Transaction.portfolio_id == portfolio_id)

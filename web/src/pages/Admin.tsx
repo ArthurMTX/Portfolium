@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import api from "../lib/api";
 import { PlusCircle, Users as UsersIcon, X, FileText, Mail, Send, CheckCircle, AlertCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
 import { getFlagUrl } from '../lib/countryUtils'
 
@@ -94,6 +95,7 @@ const AdminDashboard: React.FC = () => {
   const [testEmailAddress, setTestEmailAddress] = useState('')
   const [testEmailType, setTestEmailType] = useState<'simple' | 'verification' | 'password_reset' | 'welcome' | 'daily_report'>('simple')
   const [emailTesting, setEmailTesting] = useState(false)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const loadUsers = async () => {
     setLoading(true);
@@ -132,7 +134,7 @@ const AdminDashboard: React.FC = () => {
       setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update user';
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     }
   };
 
@@ -142,7 +144,7 @@ const AdminDashboard: React.FC = () => {
       setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update user';
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     }
   };
 
@@ -187,7 +189,7 @@ const AdminDashboard: React.FC = () => {
       closeEditModal();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to update user';
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     }
   };
 
@@ -201,7 +203,7 @@ const AdminDashboard: React.FC = () => {
       setIsCreateOpen(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create user";
-      alert(msg);
+      setToast({ type: 'error', message: msg });
     } finally {
       setCreating(false);
     }
@@ -474,6 +476,7 @@ const AdminDashboard: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.language')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.active')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.admin')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">{t('admin.2fa')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors" onClick={() => handleSort('created_at')}>
                     {t('admin.created')} {sortKey === 'created_at' && (sortDir === 'asc' ? '▲' : '▼')}
                   </th>
@@ -560,6 +563,11 @@ const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.is_admin ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{u.is_admin ? t('admin.admin') : t('admin.user')}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${u.totp_enabled ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>
+                        {u.totp_enabled ? t('twoFactor.enabled') : t('twoFactor.disabled')}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -1084,6 +1092,15 @@ const AdminDashboard: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

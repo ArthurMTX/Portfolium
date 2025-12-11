@@ -257,6 +257,86 @@ def should_check_daily_changes() -> bool:
     return market_status in ["open", "afterhours"]
 
 
+async def warmup_position_caches():
+    """
+    Background job to proactively warm up position caches
+    
+    This refreshes position calculations BEFORE they expire (every 20 min, cache is 30 min)
+    This ensures users never hit an expired cache and have to wait for price fetching
+    Runs asynchronously in the background without blocking user requests
+    """
+    logger.info("Starting proactive position cache warmup...")
+    
+    def _warmup_caches():
+        db = SessionLocal()
+        try:
+            from app.models import Portfolio
+            from app.services.metrics import MetricsService
+            from app.services.cache import get_cached_positions
+            import time
+            from datetime import datetime, timedelta
+            
+            # Get portfolios accessed in the last 24 hours (actively used)
+            cutoff_time = datetime.utcnow() - timedelta(hours=24)
+            portfolios = (
+                db.query(Portfolio)
+                .filter(Portfolio.last_accessed_at >= cutoff_time)
+                .all()
+            )
+            
+            if not portfolios:
+                logger.info("No portfolios to warm up")
+                return
+            
+            warmed_up = 0
+            skipped = 0
+            failed = 0
+            
+            # Create event loop for async operations
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                for portfolio in portfolios:
+                    try:
+                        # Warm up cache for recently accessed portfolios
+                        metrics_service = MetricsService(db)
+                        start_time = time.time()
+                        
+                        # This will fetch fresh prices and recalculate positions
+                        # Result is automatically cached for 30 minutes
+                        positions = loop.run_until_complete(
+                            metrics_service.get_positions(portfolio.id, include_sold=False)
+                        )
+                        
+                        elapsed = time.time() - start_time
+                        warmed_up += 1
+                        logger.info(
+                            f"Warmed up cache for portfolio {portfolio.id} ({portfolio.name}): "
+                            f"{len(positions)} positions in {elapsed:.2f}s"
+                        )
+                            
+                    except Exception as e:
+                        failed += 1
+                        logger.error(f"Error warming up cache for portfolio {portfolio.id}: {e}")
+            finally:
+                loop.close()
+            
+            logger.info(
+                f"Position cache warmup completed. Warmed up: {warmed_up}, "
+                f"Failed: {failed}, Total portfolios (accessed in 24h): {len(portfolios)}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Position cache warmup job failed: {e}")
+        finally:
+            db.close()
+    
+    # Run in thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _warmup_caches)
+
+
 async def check_daily_changes():
     """
     Background job to check for significant daily price changes in user holdings
@@ -692,6 +772,18 @@ def start_scheduler():
         coalesce=True  # Prevent job pileup if previous run is still executing
     )
     
+    # Schedule position cache warmup every 20 minutes (before 30 min cache expires)
+    # This ensures users never hit an expired cache
+    scheduler.add_job(
+        warmup_position_caches,
+        trigger=IntervalTrigger(minutes=20),
+        id="warmup_position_caches",
+        name="Warm up position caches",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     # Schedule price alert check every 5 minutes
     scheduler.add_job(
         check_price_alerts,
@@ -761,6 +853,7 @@ def start_scheduler():
     scheduler.start()
     logger.info(
         "AsyncIO Scheduler started - price refresh every 15 minutes, "
+        "position cache warmup every 20 minutes, "
         "alerts check every 5 minutes, daily changes check every 10 minutes, "
         "daily reports at 4:00 PM EST (weekdays only), "
         "daily closing prices at 5:00 PM EST (weekdays only), "

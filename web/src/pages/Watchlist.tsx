@@ -8,6 +8,7 @@ import ImportProgressModal from '../components/ImportProgressModal'
 import SortIcon from '../components/SortIcon'
 import WatchlistTagManager, { IconComponent } from '../components/WatchlistTagManager'
 import WatchlistEditModal from '../components/WatchlistEditModal'
+import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
 
 interface WatchlistTag {
@@ -104,6 +105,7 @@ export default function Watchlist() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const { t } = useTranslation()
 
   // Prevent body scroll when modals are open
@@ -375,7 +377,7 @@ export default function Watchlist() {
       await loadWatchlist()
       setDeleteConfirm(null)
     } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to delete item'))
+      setToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete item') })
     }
   }
 
@@ -438,13 +440,13 @@ export default function Watchlist() {
       a.download = `watchlist_${new Date().toISOString().split('T')[0]}.csv`
       a.click()
     } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to export'))
+      setToast({ type: 'error', message: getErrorMessage(err, 'Failed to export') })
     }
   }
 
   const handleConvertToBuy = async () => {
     if (!convertItem || !convertPortfolioId || !convertQuantity || !convertPrice) {
-      alert('Please fill in all fields')
+      setToast({ type: 'error', message: 'Please fill in all fields' })
       return
     }
 
@@ -469,7 +471,7 @@ export default function Watchlist() {
       setConvertDate(new Date().toISOString().split('T')[0])
       setConvertPriceInfo(null)
     } catch (err: unknown) {
-      alert(getErrorMessage(err, 'Failed to convert to BUY'))
+      setToast({ type: 'error', message: getErrorMessage(err, 'Failed to convert to BUY') })
     }
   }
 
@@ -1435,6 +1437,15 @@ export default function Watchlist() {
           loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
         }}
       />
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

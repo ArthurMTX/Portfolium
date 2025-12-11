@@ -11,6 +11,7 @@ import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 import ConversionModal from '../components/ConversionModal'
 import SortIcon from '../components/SortIcon'
+import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
 
 interface TickerInfo {
@@ -98,6 +99,7 @@ export default function Transactions() {
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showConversionModal, setShowConversionModal] = useState(false)
 
   // Load portfolios if not already loaded
@@ -458,7 +460,7 @@ export default function Transactions() {
 
   const handleExportClick = () => {
     if (transactions.length === 0) {
-      alert('No transactions to export')
+      setToast({ type: 'error', message: 'No transactions to export' })
       return
     }
 
@@ -1487,6 +1489,15 @@ export default function Transactions() {
         portfolioId={activePortfolioId || 0}
         portfolioCurrency={portfolioCurrency}
       />
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

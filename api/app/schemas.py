@@ -117,6 +117,50 @@ class UserPasswordResetConfirm(BaseModel):
     )
 
 
+# ============================================================================
+# Two-Factor Authentication (2FA) Schemas
+# ============================================================================
+
+class TwoFactorSetupResponse(BaseModel):
+    """Response for 2FA setup initiation"""
+    secret: str = Field(..., description="Base32 encoded TOTP secret")
+    qr_code: str = Field(..., description="Base64 encoded QR code image")
+    backup_codes: List[str] = Field(..., description="One-time backup codes")
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    """Request to verify and enable 2FA"""
+    token: str = Field(..., min_length=6, max_length=14, description="6-digit TOTP token or 14-char backup code")
+
+
+class TwoFactorDisableRequest(BaseModel):
+    """Request to disable 2FA"""
+    password: str = Field(..., description="User's current password for verification")
+    token: Optional[str] = Field(None, min_length=6, max_length=14, description="6-digit TOTP token or 14-char backup code")
+
+
+class TwoFactorLoginRequest(BaseModel):
+    """Request for 2FA token during login"""
+    email: str
+    password: str
+    token: str = Field(..., min_length=6, max_length=14, description="6-digit TOTP token or 14-char backup code")
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if not isinstance(v, str):
+            raise TypeError('Email must be a string')
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError('Invalid email format')
+        return v
+
+
+class TwoFactorStatusResponse(BaseModel):
+    """Response for 2FA status"""
+    enabled: bool = Field(..., description="Whether 2FA is currently enabled")
+    backup_codes_remaining: int = Field(..., description="Number of unused backup codes")
+
+
 class User(UserBase):
     """User response schema"""
     id: int
@@ -131,6 +175,7 @@ class User(UserBase):
     daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
     transaction_notifications_enabled: bool = True
     daily_report_enabled: bool = False
+    totp_enabled: bool = False  # Whether 2FA is enabled
     
     model_config = ConfigDict(from_attributes=True)
 

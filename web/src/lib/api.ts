@@ -35,12 +35,25 @@ export interface UserDTO {
   daily_change_threshold_pct: number
   transaction_notifications_enabled: boolean
   daily_report_enabled: boolean
+  totp_enabled: boolean
 }
 
 export interface LoginResponseDTO {
   access_token: string
   token_type: string
   user: UserDTO
+}
+
+// Two-Factor Authentication Types
+export interface TwoFactorSetupResponse {
+  secret: string
+  qr_code: string
+  backup_codes: string[]
+}
+
+export interface TwoFactorStatusResponse {
+  enabled: boolean
+  backup_codes_remaining: number
 }
 
 // Types aligning with store shapes
@@ -570,6 +583,44 @@ class ApiClient {
     return this.request<{ message: string }>('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
+    })
+  }
+
+  // Two-Factor Authentication
+  async loginWith2FA(email: string, password: string, token: string) {
+    return this.request<LoginResponseDTO>('/auth/2fa/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, token }),
+    })
+  }
+
+  async get2FAStatus() {
+    return this.request<TwoFactorStatusResponse>('/auth/2fa/status')
+  }
+
+  async setup2FA() {
+    return this.request<TwoFactorSetupResponse>('/auth/2fa/setup', {
+      method: 'POST',
+    })
+  }
+
+  async verify2FA(token: string) {
+    return this.request<{ message: string }>('/auth/2fa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+  }
+
+  async disable2FA(password: string, token?: string) {
+    return this.request<{ message: string }>('/auth/2fa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ password, token }),
+    })
+  }
+
+  async regenerateBackupCodes() {
+    return this.request<TwoFactorSetupResponse>('/auth/2fa/regenerate-backup-codes', {
+      method: 'POST',
     })
   }
 

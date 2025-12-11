@@ -131,6 +131,7 @@ services:
         condition: service_healthy
     volumes:
       - ./api:/app
+      - ./web/src/locales:/app/locales:ro
     networks:
       - portfolium
 
@@ -164,6 +165,7 @@ services:
         condition: service_healthy
     volumes:
       - ./api:/app
+      - ./web/src/locales:/app/locales:ro
     networks:
       - portfolium
 

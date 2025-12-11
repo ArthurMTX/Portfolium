@@ -4,6 +4,7 @@ import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { translateApiError } from '../lib/errorUtils'
+import TwoFactorSettings from '../components/TwoFactorSettings'
 
 type ProfileTab = 'profile' | 'security' | 'danger';
 
@@ -321,6 +322,11 @@ export default function Profile() {
             </button>
           </div>
         </form>
+
+        {/* Two-Factor Authentication */}
+        <div className="mt-8 pt-8 border-t border-gray-200 dark:border-neutral-700">
+          <TwoFactorSettings />
+        </div>
       </div>
       )}
 

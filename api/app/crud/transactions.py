@@ -81,6 +81,11 @@ def create_transaction(
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    
+    # Invalidate position cache since transactions changed
+    from app.services.cache import invalidate_positions
+    invalidate_positions(portfolio_id)
+    
     return db_transaction
 
 
@@ -106,6 +111,11 @@ def update_transaction(
     
     db.commit()
     db.refresh(db_transaction)
+    
+    # Invalidate position cache since transactions changed
+    from app.services.cache import invalidate_positions
+    invalidate_positions(db_transaction.portfolio_id)
+    
     return db_transaction
 
 
@@ -115,8 +125,14 @@ def delete_transaction(db: Session, transaction_id: int) -> bool:
     if not db_transaction:
         return False
     
+    portfolio_id = db_transaction.portfolio_id
     db.delete(db_transaction)
     db.commit()
+    
+    # Invalidate position cache since transactions changed
+    from app.services.cache import invalidate_positions
+    invalidate_positions(portfolio_id)
+    
     return True
 
 

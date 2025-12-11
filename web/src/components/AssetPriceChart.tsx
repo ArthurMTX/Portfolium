@@ -41,7 +41,7 @@ interface PriceHistoryResponse {
 interface Transaction {
   id: number
   tx_date: string
-  type: 'BUY' | 'SELL'
+  type: 'BUY' | 'SELL' | 'CONVERSION_IN' | 'CONVERSION_OUT' | 'TRANSFER_IN' | 'TRANSFER_OUT'
   quantity: number
   adjusted_quantity: number
   price: number | null
@@ -230,18 +230,39 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
       const priceIndex = history.prices.findIndex(p => p.date.startsWith(txDate))
       
       if (priceIndex !== -1) {
-        const isBuy = tx.type === 'BUY'
-        const color = isBuy ? 'rgb(34,197,94)' : 'rgb(239,68,68)'
+        // Determine transaction type and color
+        const isPositive = ['BUY', 'CONVERSION_IN', 'TRANSFER_IN'].includes(tx.type)
+        const isConversion = ['CONVERSION_IN', 'CONVERSION_OUT'].includes(tx.type)
+        const isTransfer = ['TRANSFER_IN', 'TRANSFER_OUT'].includes(tx.type)
+        
+        let color: string
+        if (isConversion) {
+          color = 'rgb(99,102,241)' // indigo for conversions
+        } else if (isTransfer) {
+          color = 'rgb(6,182,212)' // cyan for transfers
+        } else {
+          color = isPositive ? 'rgb(34,197,94)' : 'rgb(239,68,68)' // green/red for buy/sell
+        }
+        
         const priceValue = history.prices[priceIndex].price
         
         // Add vertical line from bottom to the transaction point (in background, very subtle)
+        let lineColor: string
+        if (isConversion) {
+          lineColor = 'rgba(99,102,241,0.15)'
+        } else if (isTransfer) {
+          lineColor = 'rgba(6,182,212,0.15)'
+        } else {
+          lineColor = isPositive ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'
+        }
+        
         acc[`tx-line-${tx.id}`] = {
           type: 'line' as const,
           xMin: priceIndex,
           xMax: priceIndex,
           yMin: 'min' as const,
           yMax: priceValue,
-          borderColor: isBuy ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+          borderColor: lineColor,
           borderWidth: 1,
           borderDash: [4, 4],
           drawTime: 'beforeDatasetsDraw' as const,
@@ -398,7 +419,29 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
             if (txsOnThisDate.length > 0) {
               const decimalPlaces = getDecimalPlaces(history?.prices.map(p => p.price) || [])
               txsOnThisDate.forEach(tx => {
-                const txType = tx.type === 'BUY' ? t('transaction.types.buy') : t('transaction.types.sell')
+                let txType: string
+                switch (tx.type) {
+                  case 'BUY':
+                    txType = t('transaction.types.buy')
+                    break
+                  case 'SELL':
+                    txType = t('transaction.types.sell')
+                    break
+                  case 'CONVERSION_IN':
+                    txType = t('transaction.types.conversionIn')
+                    break
+                  case 'CONVERSION_OUT':
+                    txType = t('transaction.types.conversionOut')
+                    break
+                  case 'TRANSFER_IN':
+                    txType = t('transaction.types.transferIn')
+                    break
+                  case 'TRANSFER_OUT':
+                    txType = t('transaction.types.transferOut')
+                    break
+                  default:
+                    txType = tx.type
+                }
                 labels.push(`\n${txType}: ${tx.quantity.toFixed(2)} @ ${tx.price ? getCurrencySymbol(currency) + formatPrice(tx.price, decimalPlaces) : 'N/A'}`)
               })
             }
@@ -588,14 +631,30 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
             <div className="flex items-center justify-center gap-8 flex-wrap">
               {transactions.length > 0 && (
                 <>
-                  <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <div className="w-3 h-3 rounded-full bg-white border-2 border-green-500"></div>
-                    <span className="text-xs font-medium text-green-700 dark:text-green-400">{t('transaction.types.buy')}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                    <div className="w-3 h-3 rounded-full bg-white border-2 border-red-500"></div>
-                    <span className="text-xs font-medium text-red-700 dark:text-red-400">{t('transaction.types.sell')}</span>
-                  </div>
+                  {transactions.some(tx => tx.type === 'BUY') && (
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <div className="w-3 h-3 rounded-full bg-white border-2 border-green-500"></div>
+                      <span className="text-xs font-medium text-green-700 dark:text-green-400">{t('transaction.types.buy')}</span>
+                    </div>
+                  )}
+                  {transactions.some(tx => tx.type === 'SELL') && (
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <div className="w-3 h-3 rounded-full bg-white border-2 border-red-500"></div>
+                      <span className="text-xs font-medium text-red-700 dark:text-red-400">{t('transaction.types.sell')}</span>
+                    </div>
+                  )}
+                  {transactions.some(tx => tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT') && (
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                      <div className="w-3 h-3 rounded-full bg-white border-2 border-indigo-500"></div>
+                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">{t('transaction.types.conversion')}</span>
+                    </div>
+                  )}
+                  {transactions.some(tx => tx.type === 'TRANSFER_IN' || tx.type === 'TRANSFER_OUT') && (
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800">
+                      <div className="w-3 h-3 rounded-full bg-white border-2 border-cyan-500"></div>
+                      <span className="text-xs font-medium text-cyan-700 dark:text-cyan-400">{t('transaction.types.transferIn')}</span>
+                    </div>
+                  )}
                 </>
               )}
               {splits.length > 0 && (
