@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+* fix daily portfolio report scheduler not sending emails due to missing task routing and translation file access in Celery workers
 * add user redirection to dashboard on login, password reset, and registration pages if already logged in ([1ac15c5](https://github.com/ArthurMTX/Portfolium/commit/1ac15c5))
 * add handling for asyncio.CancelledError in pricing service fetch methods ([91ae241](https://github.com/ArthurMTX/Portfolium/commit/91ae241))
 * reorder import statements for better readability ([fd20a29](https://github.com/ArthurMTX/Portfolium/commit/fd20a29))

@@ -209,7 +209,6 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         price_batch_warmed = False
         try:
             from app.routers.portfolios import get_batch_prices
-            from app.dependencies import verify_portfolio_access
             from fastapi import Request
             
             # Import the batch prices functionality
