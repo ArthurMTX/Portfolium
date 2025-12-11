@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Shield, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react'
+import { Shield, RefreshCw } from 'lucide-react'
 import { api, TwoFactorStatusResponse } from '../lib/api'
 import TwoFactorSetup from './TwoFactorSetup'
 import LoadingSpinner from './LoadingSpinner'

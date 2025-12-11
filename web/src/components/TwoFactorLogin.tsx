@@ -11,7 +11,7 @@ interface TwoFactorLoginProps {
   darkMode?: boolean
 }
 
-export default function TwoFactorLogin({ email, password, onSubmit, onBack, darkMode = false }: TwoFactorLoginProps) {
+export default function TwoFactorLogin({ onSubmit, onBack, darkMode = false }: TwoFactorLoginProps) {
   const { t } = useTranslation()
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
@@ -22,7 +22,6 @@ export default function TwoFactorLogin({ email, password, onSubmit, onBack, dark
     e.preventDefault()
     setError('')
     
-    const tokenLength = useBackupCode ? 14 : 6 // XXXX-XXXX-XXXX or 6 digits
     if (!token || (useBackupCode ? token.length < 12 : token.length !== 6)) {
       setError(t('twoFactor.invalidCodeLength'))
       return
