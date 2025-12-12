@@ -1,6 +1,6 @@
 [project]
 name = "portfolium-api"
-version = "0.3.1"
+version = "0.3.2"
 description = "Portfolium investment tracking API"
 requires-python = ">=3.11"
 dependencies = [
