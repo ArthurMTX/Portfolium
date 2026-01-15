@@ -345,12 +345,12 @@ export default function TransactionMetrics() {
           const aQty = typeof a.quantity === 'string' ? parseFloat(a.quantity) : a.quantity
           const aPrice = typeof a.price === 'string' ? parseFloat(a.price) : a.price
           const aFees = typeof a.fees === 'string' ? parseFloat(a.fees) : a.fees
-          aVal = aQty * aPrice + aFees
+          aVal = a.type === 'SELL' ? (aQty * aPrice - aFees) : (aQty * aPrice + aFees)
           
           const bQty = typeof b.quantity === 'string' ? parseFloat(b.quantity) : b.quantity
           const bPrice = typeof b.price === 'string' ? parseFloat(b.price) : b.price
           const bFees = typeof b.fees === 'string' ? parseFloat(b.fees) : b.fees
-          bVal = bQty * bPrice + bFees
+          bVal = b.type === 'SELL' ? (bQty * bPrice - bFees) : (bQty * bPrice + bFees)
           break
         }
         default:
@@ -1012,7 +1012,7 @@ export default function TransactionMetrics() {
                                         const quantity = typeof tx.quantity === 'string' ? parseFloat(tx.quantity) : tx.quantity
                                         const price = typeof tx.price === 'string' ? parseFloat(tx.price) : tx.price
                                         const fees = typeof tx.fees === 'string' ? parseFloat(tx.fees) : tx.fees
-                                        const total = quantity * price + fees
+                                        const total = tx.type === 'SELL' ? (quantity * price - fees) : (quantity * price + fees)
                                         
                                         return (
                                           <tr key={tx.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-white dark:hover:bg-neutral-900 transition-colors">

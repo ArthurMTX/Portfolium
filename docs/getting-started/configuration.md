@@ -70,6 +70,32 @@ PRICE_CACHE_TTL_SECONDS=300
 | `API_KEY` | Internal API key | - |
 | `PRICE_CACHE_TTL_SECONDS` | Price cache duration | `300` |
 
+### Notifications
+
+```env
+NOTIFICATIONS_RETENTION_DAYS=30
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NOTIFICATIONS_RETENTION_DAYS` | Auto-delete notifications older than N days (set `0` to disable cleanup) | `30` |
+
+### Reverse Proxy / Real Client IP
+
+When running behind a reverse proxy (like the `web` nginx container), the API will otherwise see the proxy container IP (e.g. `172.x.x.x`).
+
+Portfolium only trusts `X-Forwarded-For` / `X-Real-IP` when the immediate peer IP is in `TRUSTED_PROXY_IPS` (to avoid header spoofing).
+
+```env
+# Comma-separated list of trusted proxy IPs/CIDRs.
+# Example values depend on your network. For Docker bridge networks this is often 172.16.0.0/12.
+TRUSTED_PROXY_IPS=172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TRUSTED_PROXY_IPS` | Trusted proxy IPs/CIDRs allowed to supply forwarding headers | (empty) |
+
 ### Email Configuration
 
 Enable email notifications and password resets:

@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     CACHE_WARMUP_ON_STARTUP: bool = True  # Pre-calculate metrics on startup
     MARKET_HOURS_START: int = 9  # Market opens at 9 AM
     MARKET_HOURS_END: int = 16  # Market closes at 4 PM
+
+    # Notifications
+    NOTIFICATIONS_RETENTION_DAYS: int = 30  # Delete notifications older than N days (0 disables cleanup)
+
+    # Reverse-proxy / client IP handling
+    # Comma-separated list (or list) of trusted proxy IPs/CIDRs.
+    # Only when the immediate peer is in this list will X-Forwarded-For/X-Real-IP be trusted.
+    TRUSTED_PROXY_IPS: Union[List[str], str] = ""
     
     # CORS - can be comma-separated string or list
     CORS_ORIGINS: Union[List[str], str] = "http://localhost:5173,http://localhost:3000,http://localhost:8080"
@@ -103,6 +111,16 @@ class Settings(BaseSettings):
         """Parse CORS_ORIGINS from comma-separated string or list"""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
+
+    @field_validator('TRUSTED_PROXY_IPS', mode='before')
+    @classmethod
+    def parse_trusted_proxy_ips(cls, v):
+        """Parse TRUSTED_PROXY_IPS from comma-separated string or list"""
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [ip.strip() for ip in v.split(',') if ip.strip()]
         return v
     
     @model_validator(mode='after')

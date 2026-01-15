@@ -77,6 +77,7 @@ export default defineConfig({
       '/api': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
         secure: false,
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
@@ -95,6 +96,7 @@ export default defineConfig({
       '/logos': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/logos/, '/assets/logo'),
         timeout: 30000,

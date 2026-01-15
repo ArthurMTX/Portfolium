@@ -1020,6 +1020,46 @@ class ApiClient {
     )
   }
 
+  async getFxRateForDate(
+    portfolioId: number,
+    fromCurrency: string,
+    toCurrency: string,
+    asOfDate: string
+  ): Promise<{
+    portfolio_id: number
+    from_currency: string
+    to_currency: string
+    as_of_date: string
+    rate: number
+    converted: boolean
+  }> {
+    const params = new URLSearchParams({
+      from_currency: fromCurrency,
+      to_currency: toCurrency,
+      as_of_date: asOfDate,
+    })
+    return this.request(`/portfolios/${portfolioId}/fx_rate?${params.toString()}`)
+  }
+
+  async getPositionQuantityAtDate(
+    portfolioId: number,
+    assetId: number,
+    asOfDate: string
+  ): Promise<{
+    portfolio_id: number
+    asset_id: number
+    as_of_date: string
+    quantity: number
+    asset_currency: string
+  }> {
+    const params = new URLSearchParams({
+      as_of_date: asOfDate,
+    })
+    return this.request(
+      `/portfolios/${portfolioId}/positions/${assetId}/quantity_at_date?${params.toString()}`
+    )
+  }
+
   async createTransaction(portfolioId: number, transaction: any) {
     return this.request<any>(`/portfolios/${portfolioId}/transactions`, {
       method: 'POST',

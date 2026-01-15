@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from app.db import SessionLocal
 from app.services.pricing import PricingService
 from app.services.notifications import notification_service
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +197,33 @@ async def check_price_alerts():
     # Run in thread pool to avoid blocking the event loop
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _check_alerts)
+
+
+async def cleanup_old_notifications():
+    """Delete notifications older than the configured retention window."""
+    if settings.NOTIFICATIONS_RETENTION_DAYS <= 0:
+        return
+
+    logger.info("Starting scheduled notifications cleanup...")
+
+    def _cleanup():
+        db = SessionLocal()
+        try:
+            from app.crud.notifications import delete_old_notifications
+
+            deleted = delete_old_notifications(db, days=settings.NOTIFICATIONS_RETENTION_DAYS)
+            logger.info(
+                "Notifications cleanup completed. Deleted %s notifications older than %s days.",
+                deleted,
+                settings.NOTIFICATIONS_RETENTION_DAYS,
+            )
+        except Exception as e:
+            logger.error(f"Scheduled notifications cleanup failed: {e}", exc_info=True)
+        finally:
+            db.close()
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _cleanup)
 
 
 def get_market_session_id() -> str:
@@ -794,6 +822,18 @@ def start_scheduler():
         max_instances=1,
         coalesce=True
     )
+
+    # Schedule notifications cleanup daily (UTC)
+    if settings.NOTIFICATIONS_RETENTION_DAYS > 0:
+        scheduler.add_job(
+            cleanup_old_notifications,
+            trigger=CronTrigger(hour=3, minute=0, timezone='UTC'),
+            id="cleanup_notifications",
+            name="Cleanup old notifications",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
     
     # Schedule daily change check every 10 minutes during market hours
     # This will check for significant price movements and send notifications
@@ -808,19 +848,23 @@ def start_scheduler():
         coalesce=True
     )
     
-    # Schedule daily report generation and distribution
-    # Run at 4:00 PM EST (16:00) when after-hours trading starts
-    # Only run on weekdays (Monday-Friday) when markets are open
-    # This is right after US markets close at 4:00 PM EST
-    scheduler.add_job(
-        send_daily_reports,
-        trigger=CronTrigger(hour=16, minute=0, day_of_week='mon-fri', timezone='America/New_York'),
-        id="send_daily_reports",
-        name="Send daily portfolio reports",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True
-    )
+    # Daily reports are scheduled via Celery Beat when background tasks are enabled.
+    # Avoid scheduling them here as well (would duplicate emails if both are running).
+    if not settings.ENABLE_BACKGROUND_TASKS:
+        # Schedule daily report generation and distribution
+        # Run at 4:00 PM ET (16:00) after US market close
+        # Only run on weekdays (Monday-Friday) when markets are open
+        scheduler.add_job(
+            send_daily_reports,
+            trigger=CronTrigger(hour=16, minute=0, day_of_week='mon-fri', timezone='America/New_York'),
+            id="send_daily_reports",
+            name="Send daily portfolio reports",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True
+        )
+    else:
+        logger.info("Daily reports are handled by Celery Beat; skipping APScheduler job registration")
     
     # Schedule daily closing price fetch
     # Run at 5:00 PM EST (17:00) after markets close and after-hours trading is done
@@ -851,14 +895,20 @@ def start_scheduler():
     )
     
     scheduler.start()
+    daily_reports_msg = (
+        "daily reports at 4:00 PM ET (weekdays only), "
+        if not settings.ENABLE_BACKGROUND_TASKS
+        else "daily reports via Celery Beat (4:00 PM ET weekdays), "
+    )
     logger.info(
         "AsyncIO Scheduler started - price refresh every 15 minutes, "
         "position cache warmup every 20 minutes, "
         "alerts check every 5 minutes, daily changes check every 10 minutes, "
-        "daily reports at 4:00 PM EST (weekdays only), "
-        "daily closing prices at 5:00 PM EST (weekdays only), "
-        "ATH update at 5:30 PM EST (weekdays only). "
-        "All jobs run asynchronously to prevent blocking."
+        f"notifications cleanup daily at 03:00 UTC (retention={settings.NOTIFICATIONS_RETENTION_DAYS}d), "
+        + daily_reports_msg
+        + "daily closing prices at 5:00 PM ET (weekdays only), "
+        + "ATH update at 5:30 PM ET (weekdays only). "
+        + "All jobs run asynchronously to prevent blocking."
     )
 
 

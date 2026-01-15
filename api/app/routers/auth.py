@@ -35,6 +35,7 @@ from app.schemas import (
 from app.crud import users as crud_users
 from app.services.email import email_service
 from app.services.notifications import notification_service
+from app.utils.client_ip import get_client_ip
 from app.services.totp import totp_service
 from app.errors import (
     EmailAlreadyRegisteredError,
@@ -147,7 +148,7 @@ async def login(
     crud_users.update_last_login(db, user)
     
     # Get IP address and user agent
-    client_ip = request.client.host if request.client else None
+    client_ip = get_client_ip(request, trusted_proxy_values=settings.TRUSTED_PROXY_IPS)
     user_agent = request.headers.get("user-agent", None)
     
     # Create login notification in background
@@ -481,7 +482,7 @@ async def login_with_2fa(
     crud_users.update_last_login(db, user)
     
     # Get IP address and user agent
-    client_ip = request.client.host if request.client else None
+    client_ip = get_client_ip(request, trusted_proxy_values=settings.TRUSTED_PROXY_IPS)
     user_agent = request.headers.get("user-agent", None)
     
     # Create login notification in background

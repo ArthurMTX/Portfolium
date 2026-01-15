@@ -61,12 +61,21 @@ class NotificationService:
             if transaction.type.value in ["BUY", "SELL"]:
                 message = (
                     f"{transaction.type.value} {float(transaction.quantity):.4f} shares of "
-                    f"{name} ({symbol}) at ${float(transaction.price):.2f}"
+                    f"{name} ({symbol}) at {transaction.currency} {float(transaction.price):.2f}"
                 )
             elif transaction.type.value == "DIVIDEND":
-                message = f"Dividend of ${float(transaction.price):.2f} from {name} ({symbol})"
+                gross = Decimal(transaction.price) * Decimal(transaction.quantity)
+                tax = Decimal(transaction.fees)
+                net = gross - tax
+                if tax > 0:
+                    message = (
+                        f"Dividend received from {name} ({symbol}): {transaction.currency} {float(net):.2f} "
+                        f"(gross {transaction.currency} {float(gross):.2f}, tax {transaction.currency} {float(tax):.2f})"
+                    )
+                else:
+                    message = f"Dividend received from {name} ({symbol}): {transaction.currency} {float(gross):.2f}"
             elif transaction.type.value == "FEE":
-                message = f"Fee of ${float(transaction.fees):.2f} for {name} ({symbol})"
+                message = f"Fee of {transaction.currency} {float(transaction.fees):.2f} for {name} ({symbol})"
             else:
                 message = f"{transaction.type.value} transaction for {name} ({symbol})"
             

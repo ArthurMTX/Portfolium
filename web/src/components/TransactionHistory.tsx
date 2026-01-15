@@ -122,8 +122,8 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
           bVal = b.fees || 0
           break
         case 'total': {
-          aVal = a.price && a.quantity ? a.price * a.quantity + (a.fees || 0) : 0
-          bVal = b.price && b.quantity ? b.price * b.quantity + (b.fees || 0) : 0
+          aVal = a.price && a.quantity ? (a.type === 'SELL' ? a.price * a.quantity - (a.fees || 0) : a.price * a.quantity + (a.fees || 0)) : 0
+          bVal = b.price && b.quantity ? (b.type === 'SELL' ? b.price * b.quantity - (b.fees || 0) : b.price * b.quantity + (b.fees || 0)) : 0
           break
         }
         default:
@@ -282,7 +282,7 @@ export default function TransactionHistory({ assetId, assetSymbol, portfolioId, 
                     {sortedTransactions.map((tx) => {
                       const isBuy = tx.type === 'BUY' || tx.type === 'CONVERSION_IN'
                       const isConversion = tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT'
-                      const total = tx.price && tx.quantity ? tx.price * tx.quantity + (tx.fees || 0) : null
+                      const total = tx.price && tx.quantity ? (tx.type === 'SELL' ? tx.price * tx.quantity - (tx.fees || 0) : tx.price * tx.quantity + (tx.fees || 0)) : null
                       const isSplitAdjusted = Math.abs(tx.quantity - tx.adjusted_quantity) > 0.0001
                       
                       // Determine the type label and color

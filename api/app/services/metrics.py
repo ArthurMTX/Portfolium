@@ -121,6 +121,8 @@ class MetricsService:
         asset_txs: Dict[int, List[Transaction]] = {}
         total_dividends = Decimal(0)
         total_fees = Decimal(0)
+        from app.services.currency import CurrencyService
+        from datetime import datetime
         
         for tx in transactions:
             if tx.asset_id not in asset_txs:
@@ -129,8 +131,29 @@ class MetricsService:
             
             # Calculate dividends and fees in this loop to avoid separate queries
             if tx.type == TransactionType.DIVIDEND:
-                total_dividends += tx.price * tx.quantity
-            total_fees += tx.fees
+                dividend_amount = tx.price * tx.quantity
+                if portfolio_base_currency and tx.currency and tx.currency != portfolio_base_currency:
+                    converted = CurrencyService.convert_historical(
+                        dividend_amount,
+                        from_currency=tx.currency,
+                        to_currency=portfolio_base_currency,
+                        date=datetime.combine(tx.tx_date, datetime.min.time())
+                    )
+                    if converted is not None:
+                        dividend_amount = converted
+                total_dividends += dividend_amount
+
+            fee_amount = tx.fees
+            if portfolio_base_currency and tx.currency and tx.currency != portfolio_base_currency:
+                converted_fee = CurrencyService.convert_historical(
+                    fee_amount,
+                    from_currency=tx.currency,
+                    to_currency=portfolio_base_currency,
+                    date=datetime.combine(tx.tx_date, datetime.min.time())
+                )
+                if converted_fee is not None:
+                    fee_amount = converted_fee
+            total_fees += fee_amount
         
         # Store pre-calculated values for later use in get_metrics
         self._cached_dividends = {portfolio_id: total_dividends}

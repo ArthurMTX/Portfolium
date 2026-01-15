@@ -14,7 +14,8 @@ from app.errors import (
     CannotSplitWithoutBuyError,
     ImportTransactionsError, 
     PriceNotFoundError, 
-    TransactionNotFoundError
+    TransactionNotFoundError,
+    ValidationError
 )
 from app.db import get_db
 from app.schemas import Transaction, TransactionCreate, CsvImportResult, ConversionCreate, ConversionResponse
@@ -92,6 +93,94 @@ async def fetch_price_for_date(
         "asset_currency": asset_currency,
         "portfolio_currency": portfolio_currency,
         "converted": asset_currency != portfolio_currency
+    }
+
+
+@router.get("/{portfolio_id}/fx_rate")
+async def get_fx_rate_for_date(
+    portfolio_id: int,
+    from_currency: str,
+    to_currency: str,
+    as_of_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access),
+):
+    """Get the FX conversion rate for a given date.
+
+    Returns the rate such that: amount_in_to = amount_in_from * rate.
+
+    Primarily used by the UI to display DIVIDEND totals in portfolio currency
+    while the dividend per-share is entered in the asset currency.
+    """
+    from decimal import Decimal
+    from fastapi import HTTPException
+    from app.services.currency import CurrencyService
+
+    src = (from_currency or "").upper().strip()
+    dst = (to_currency or "").upper().strip()
+
+    if not src or not dst:
+        raise HTTPException(status_code=400, detail="from_currency and to_currency are required")
+
+    if src == dst:
+        return {
+            "portfolio_id": portfolio_id,
+            "from_currency": src,
+            "to_currency": dst,
+            "as_of_date": as_of_date.isoformat(),
+            "rate": 1.0,
+            "converted": False,
+        }
+
+    rate = CurrencyService.convert_historical(
+        Decimal("1"),
+        from_currency=src,
+        to_currency=dst,
+        date=datetime.combine(as_of_date, datetime.min.time()),
+    )
+
+    if rate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"FX rate not found for {src}->{dst} on {as_of_date.isoformat()}",
+        )
+
+    return {
+        "portfolio_id": portfolio_id,
+        "from_currency": src,
+        "to_currency": dst,
+        "as_of_date": as_of_date.isoformat(),
+        "rate": float(rate),
+        "converted": True,
+    }
+
+
+@router.get("/{portfolio_id}/positions/{asset_id}/quantity_at_date")
+async def get_position_quantity_at_date(
+    portfolio_id: int,
+    asset_id: int,
+    as_of_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """Get the number of shares/units held for an asset at a given date.
+
+    Used primarily to auto-fill DIVIDEND transactions with the shares held on the dividend date.
+    """
+    from app.crud.assets import get_asset
+
+    qty = crud.get_position_quantity_at_date(db, portfolio_id, asset_id, as_of_date)
+    asset = get_asset(db, asset_id)
+    asset_currency = asset.currency if asset and asset.currency else (portfolio.base_currency or "EUR")
+
+    return {
+        "portfolio_id": portfolio_id,
+        "asset_id": asset_id,
+        "as_of_date": as_of_date.isoformat(),
+        "quantity": qty,
+        "asset_currency": asset_currency,
     }
 
 
@@ -555,31 +644,34 @@ async def get_transaction_metrics(
         group_fields = [year_field, month_field]
         period_label = 'month'
     
-    # Calculate total price for each transaction (quantity * price + fees)
-    total_price = (TransactionModel.quantity * TransactionModel.price + TransactionModel.fees)
+    # Calculate total price for BUY transactions (quantity * price + fees)
+    buy_total_price = (TransactionModel.quantity * TransactionModel.price + TransactionModel.fees)
     
     # Build query for BUY transactions
     buy_query = db.query(
         *group_fields,
-        func.sum(total_price).label('buy_sum_total_price'),
+        func.sum(buy_total_price).label('buy_sum_total_price'),
         func.count(TransactionModel.id).label('buy_count'),
-        func.max(total_price).label('buy_max_total_price'),
-        func.min(total_price).label('buy_min_total_price'),
-        func.avg(total_price).label('buy_avg_total_price'),
+        func.max(buy_total_price).label('buy_max_total_price'),
+        func.min(buy_total_price).label('buy_min_total_price'),
+        func.avg(buy_total_price).label('buy_avg_total_price'),
         func.sum(TransactionModel.fees).label('buy_sum_fees')
     ).filter(
         TransactionModel.portfolio_id == portfolio_id,
         TransactionModel.type == TransactionType.BUY
     ).group_by(*group_fields)
     
+    # Calculate total price for SELL transactions (quantity * price - fees)
+    sell_total_price = (TransactionModel.quantity * TransactionModel.price - TransactionModel.fees)
+    
     # Build query for SELL transactions
     sell_query = db.query(
         *group_fields,
-        func.sum(total_price).label('sell_sum_total_price'),
+        func.sum(sell_total_price).label('sell_sum_total_price'),
         func.count(TransactionModel.id).label('sell_count'),
-        func.max(total_price).label('sell_max_total_price'),
-        func.min(total_price).label('sell_min_total_price'),
-        func.avg(total_price).label('sell_avg_total_price'),
+        func.max(sell_total_price).label('sell_max_total_price'),
+        func.min(sell_total_price).label('sell_min_total_price'),
+        func.avg(sell_total_price).label('sell_avg_total_price'),
         func.sum(TransactionModel.fees).label('sell_sum_fees')
     ).filter(
         TransactionModel.portfolio_id == portfolio_id,
@@ -738,6 +830,30 @@ async def create_transaction(
                     attempted_sell=float(transaction.quantity),
                     tx_date=transaction.tx_date
                 )
+
+    # Disallow DIVIDEND if user had no shares at the dividend date
+    if transaction.type == TransactionType.DIVIDEND:
+        if transaction.price is None or float(transaction.price) <= 0:
+            raise ValidationError(
+                field="price",
+                reason="Dividend per share must be greater than 0",
+            )
+
+        gross_amount = transaction.quantity * transaction.price
+        if transaction.fees is not None and transaction.fees > gross_amount:
+            raise ValidationError(
+                field="fees",
+                reason="Tax cannot exceed gross dividend amount",
+            )
+
+        position_at_date = crud.get_position_quantity_at_date(
+            db, portfolio_id, transaction.asset_id, transaction.tx_date
+        )
+        if position_at_date <= 0:
+            raise ValidationError(
+                field="tx_date",
+                reason="Cannot add a dividend when shares held at that date are 0",
+            )
     
     created = crud.create_transaction(db, portfolio_id, transaction)
     
@@ -855,6 +971,30 @@ async def update_transaction(
                     attempted_sell=float(transaction.quantity),
                     tx_date=transaction.tx_date
                 )
+
+    # Disallow DIVIDEND if user had no shares at the dividend date
+    if transaction.type == TransactionType.DIVIDEND:
+        if transaction.price is None or float(transaction.price) <= 0:
+            raise ValidationError(
+                field="price",
+                reason="Dividend per share must be greater than 0",
+            )
+
+        gross_amount = transaction.quantity * transaction.price
+        if transaction.fees is not None and transaction.fees > gross_amount:
+            raise ValidationError(
+                field="fees",
+                reason="Tax cannot exceed gross dividend amount",
+            )
+
+        position_at_date = crud.get_position_quantity_at_date(
+            db, portfolio_id, transaction.asset_id, transaction.tx_date
+        )
+        if position_at_date <= 0:
+            raise ValidationError(
+                field="tx_date",
+                reason="Cannot add a dividend when shares held at that date are 0",
+            )
     
     updated = crud.update_transaction(db, transaction_id, transaction)
     
@@ -1025,7 +1165,7 @@ async def import_csv_stream(
                     if settings.ENABLE_BACKGROUND_TASKS:
                         from app.tasks.metrics_tasks import calculate_portfolio_metrics
                         from app.tasks.insights_tasks import calculate_insights_all_periods
-                        calculate_portfolio_metrics.delay(portfolio_id)
+                        calculate_portfolio_metrics.delay(portfolio_id, user_id)
                         calculate_insights_all_periods.delay(portfolio_id, user_id)
                 except Exception as e:
                     logger.warning(f"Failed to queue background tasks: {e}")
@@ -1093,7 +1233,7 @@ async def import_csv(
         if settings.ENABLE_BACKGROUND_TASKS:
             from app.tasks.metrics_tasks import calculate_portfolio_metrics
             from app.tasks.insights_tasks import calculate_insights_all_periods
-            calculate_portfolio_metrics.delay(portfolio_id)
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
             calculate_insights_all_periods.delay(portfolio_id, current_user.id)
             logger.info(f"Queued background recalculation for portfolio {portfolio_id} after CSV import")
     except Exception as e:

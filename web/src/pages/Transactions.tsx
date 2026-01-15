@@ -5,7 +5,7 @@ import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw, DollarSign } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
@@ -93,6 +93,8 @@ export default function Transactions() {
   const [formError, setFormError] = useState("")
   const [priceLoading, setPriceLoading] = useState(false)
   const [priceInfo, setPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
+  const [assetCurrency, setAssetCurrency] = useState<string | null>(null)
+  const [fxRates, setFxRates] = useState<Record<string, number | null>>({})
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
@@ -157,6 +159,59 @@ export default function Transactions() {
     }
   }, [activePortfolioId, fetchTransactions])
 
+  // Cache FX rates needed to display DIVIDEND totals in portfolio currency
+  useEffect(() => {
+    let cancelled = false
+
+    const run = async () => {
+      if (!activePortfolioId) return
+      if (!transactions.length) return
+
+      const needed: Array<{ key: string; from: string; to: string; date: string }> = []
+      const seen = new Set<string>()
+
+      for (const tx of transactions) {
+        if (tx.type !== 'DIVIDEND') continue
+        const from = (tx.currency || '').toUpperCase()
+        const to = portfolioCurrency
+        const date = tx.tx_date
+        if (!from || !date) continue
+        if (from === to) continue
+
+        const key = `${from}|${to}|${date}`
+        if (key in fxRates) continue // already loaded (rate or failure)
+        if (seen.has(key)) continue
+        seen.add(key)
+        needed.push({ key, from, to, date })
+      }
+
+      if (!needed.length) return
+
+      const results = await Promise.all(
+        needed.map(async (item) => {
+          try {
+            const res = await api.getFxRateForDate(activePortfolioId, item.from, item.to, item.date)
+            return { key: item.key, rate: res.rate as number }
+          } catch {
+            return { key: item.key, rate: null as null }
+          }
+        })
+      )
+
+      if (cancelled) return
+      setFxRates((prev) => {
+        const next = { ...prev }
+        for (const r of results) next[r.key] = r.rate
+        return next
+      })
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [activePortfolioId, transactions, portfolioCurrency, fxRates])
+
   // moved into useCallback above
 
   // Ticker search
@@ -183,7 +238,7 @@ export default function Transactions() {
     setPrice("")
     setPriceInfo(null)
     // Auto-fetch price for the selected ticker and current date
-    if (activePortfolioId && txDate && txType !== 'SPLIT') {
+    if (activePortfolioId && txDate && txType !== 'SPLIT' && txType !== 'DIVIDEND') {
       fetchPriceForTicker(tickerInfo.symbol, txDate)
     }
   }
@@ -214,10 +269,51 @@ export default function Transactions() {
     const newDate = e.target.value
     setTxDate(newDate)
     // Auto-fetch price if we have a selected ticker and it's not a SPLIT
-    if (selectedTicker && txType !== 'SPLIT') {
+    if (selectedTicker && txType !== 'SPLIT' && txType !== 'DIVIDEND') {
       fetchPriceForTicker(selectedTicker.symbol, newDate)
     }
   }
+
+  // Auto-fill shares for DIVIDEND and fetch asset currency for labeling/submission
+  useEffect(() => {
+    const run = async () => {
+      if (!activePortfolioId) return
+      if (txType !== 'DIVIDEND') return
+      const symbol = selectedTicker?.symbol || ticker
+      if (!symbol || !txDate) return
+
+      try {
+        // Try to resolve asset id (if not found, shares are necessarily 0)
+        const assets = await api.getAssets(symbol)
+        const match = (assets as Array<{ id?: number; symbol?: string; currency?: string }>).find(
+          (a) => a.symbol?.toUpperCase() === symbol.toUpperCase()
+        )
+        const resolvedAssetId = match?.id
+        if (!resolvedAssetId) {
+          setQuantity('0')
+          setAssetCurrency(match?.currency || assetCurrency || portfolioCurrency)
+          return
+        }
+
+        const result = await api.getPositionQuantityAtDate(activePortfolioId, resolvedAssetId, txDate)
+        setQuantity(formatDecimalForInput(result.quantity))
+        setAssetCurrency(result.asset_currency || portfolioCurrency)
+
+        if (result.quantity <= 0) {
+          setFormError(t('transactions.noSharesAtDate'))
+        } else {
+          // Only clear the specific "no shares" error when shares become > 0
+          setFormError((prev) => (prev === t('transactions.noSharesAtDate') ? "" : prev))
+        }
+      } catch (err) {
+        // Non-fatal: keep quantity editable value
+        setAssetCurrency(assetCurrency || portfolioCurrency)
+      }
+    }
+
+    run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePortfolioId, selectedTicker?.symbol, ticker, txDate, txType])
 
   // Helper function to format decimal numbers, removing trailing zeros after decimal point only
   const formatDecimalForInput = (value: number | string): string => {
@@ -245,6 +341,7 @@ export default function Transactions() {
     setQuantity(formatDecimalForInput(transaction.quantity))
     setPrice(formatDecimalForInput(transaction.price))
     setFees(formatDecimalForInput(transaction.fees))
+    setAssetCurrency(transaction.currency || null)
     setNotes(transaction.notes || '')
     // Extract split ratio from metadata if it's a SPLIT transaction
     // Handle both 'metadata' and 'meta_data' for backwards compatibility
@@ -278,6 +375,7 @@ export default function Transactions() {
     setSearchResults([])
     setPriceLoading(false)
     setPriceInfo(null)
+    setAssetCurrency(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -297,10 +395,34 @@ export default function Transactions() {
       return
     }
 
+    if (txType === 'DIVIDEND') {
+      const shares = parseFloat(quantity)
+      if (!Number.isFinite(shares) || shares <= 0) {
+        setFormError(t('transactions.noSharesAtDate'))
+        setFormLoading(false)
+        return
+      }
+
+      const perShare = parseFloat(price)
+      if (!Number.isFinite(perShare) || perShare <= 0) {
+        setFormError(t('transactions.dividendPerShareMustBePositive'))
+        setFormLoading(false)
+        return
+      }
+
+      const gross = shares * perShare
+      const tax = fees && fees.trim() !== '' ? parseFloat(fees) : 0
+      if (Number.isFinite(tax) && tax - gross > 1e-9) {
+        setFormError(t('transactions.taxCannotExceedGross'))
+        setFormLoading(false)
+        return
+      }
+    }
+
     try {
       if (modalMode === 'add') {
         // Add new transaction
-        if (!price && txType !== 'SPLIT') {
+        if (!price && txType !== 'SPLIT' && txType !== 'DIVIDEND' && txType !== 'FEE') {
           // Auto-fetch price using API client (for BUY/SELL)
           await api.addPositionTransaction(
             activePortfolioId,
@@ -343,6 +465,16 @@ export default function Transactions() {
           // Prepare metadata for SPLIT transactions
           const metadata = txType === 'SPLIT' ? { split: splitRatio } : {}
 
+          let txCurrency = txType === 'DIVIDEND' ? (assetCurrency || portfolioCurrency) : portfolioCurrency
+          if (txType === 'DIVIDEND') {
+            try {
+              const atDate = await api.getPositionQuantityAtDate(activePortfolioId, assetId, txDate)
+              if (atDate.asset_currency) txCurrency = atDate.asset_currency
+            } catch {
+              // Non-fatal
+            }
+          }
+
           await api.createTransaction(activePortfolioId!, {
             asset_id: assetId,
             tx_date: txDate,
@@ -350,7 +482,7 @@ export default function Transactions() {
             quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
             price: txType === 'SPLIT' ? 0 : parseFloat(price),
             fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
-            currency: portfolioCurrency,
+            currency: txCurrency,
             metadata: metadata,
             notes: notes || null
           })
@@ -358,6 +490,8 @@ export default function Transactions() {
       } else if (modalMode === 'edit' && editingTransaction) {
         // Update existing transaction
         const metadata = txType === 'SPLIT' ? { split: splitRatio } : editingTransaction.metadata || {}
+
+        const txCurrency = txType === 'DIVIDEND' ? (assetCurrency || editingTransaction.currency || portfolioCurrency) : editingTransaction.currency
         
         await api.updateTransaction(
           activePortfolioId,
@@ -369,7 +503,7 @@ export default function Transactions() {
             quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
             price: txType === 'SPLIT' ? 0 : parseFloat(price),
             fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
-            currency: editingTransaction.currency,
+            currency: txCurrency,
             metadata: metadata,
             notes: notes || null
           }
@@ -565,12 +699,24 @@ export default function Transactions() {
           const aQty = typeof a.quantity === 'string' ? parseFloat(a.quantity) : a.quantity
           const aPrice = typeof a.price === 'string' ? parseFloat(a.price) : a.price
           const aFees = typeof a.fees === 'string' ? parseFloat(a.fees) : a.fees
-          aVal = aQty * aPrice + aFees
+          const aNativeTotal = a.type === 'DIVIDEND' || a.type === 'SELL' ? (aQty * aPrice - aFees) : (aQty * aPrice + aFees)
+          aVal = aNativeTotal
+          if (a.type === 'DIVIDEND' && a.currency && a.currency.toUpperCase() !== portfolioCurrency) {
+            const key = `${a.currency.toUpperCase()}|${portfolioCurrency}|${a.tx_date}`
+            const rate = fxRates[key]
+            if (typeof rate === 'number') aVal = aNativeTotal * rate
+          }
           
           const bQty = typeof b.quantity === 'string' ? parseFloat(b.quantity) : b.quantity
           const bPrice = typeof b.price === 'string' ? parseFloat(b.price) : b.price
           const bFees = typeof b.fees === 'string' ? parseFloat(b.fees) : b.fees
-          bVal = bQty * bPrice + bFees
+          const bNativeTotal = b.type === 'DIVIDEND' || b.type === 'SELL' ? (bQty * bPrice - bFees) : (bQty * bPrice + bFees)
+          bVal = bNativeTotal
+          if (b.type === 'DIVIDEND' && b.currency && b.currency.toUpperCase() !== portfolioCurrency) {
+            const key = `${b.currency.toUpperCase()}|${portfolioCurrency}|${b.tx_date}`
+            const rate = fxRates[key]
+            if (typeof rate === 'number') bVal = bNativeTotal * rate
+          }
           break
         }
         default:
@@ -657,6 +803,8 @@ export default function Transactions() {
         return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
       case 'CONVERSION_OUT':
         return <ArrowLeftRight size={16} className="text-red-600 dark:text-red-400" />
+      case 'DIVIDEND':
+        return <DollarSign size={16} className="text-amber-600 dark:text-amber-400" />
       case 'SPLIT':
         return <Shuffle size={16} className="text-purple-600 dark:text-purple-400" />
       default:
@@ -672,6 +820,8 @@ export default function Transactions() {
       case 'SELL':
       case 'CONVERSION_OUT':
         return 'text-red-600 dark:text-red-400'
+      case 'DIVIDEND':
+        return 'text-amber-600 dark:text-amber-400'
       case 'SPLIT':
         return 'text-purple-600 dark:text-purple-400'
       default:
@@ -914,7 +1064,21 @@ export default function Transactions() {
                     const fees = typeof transaction.fees === 'string' 
                       ? parseFloat(transaction.fees) 
                       : transaction.fees
-                    const total = quantity * price + fees
+                    const nativeTotal = transaction.type === 'DIVIDEND' || transaction.type === 'SELL'
+                      ? (quantity * price - fees)
+                      : (quantity * price + fees)
+
+                    const needsDividendConversion =
+                      transaction.type === 'DIVIDEND' &&
+                      transaction.currency &&
+                      transaction.currency.toUpperCase() !== portfolioCurrency
+                    const fxKey = needsDividendConversion
+                      ? `${transaction.currency.toUpperCase()}|${portfolioCurrency}|${transaction.tx_date}`
+                      : null
+                    const fxRate = fxKey ? fxRates[fxKey] : undefined
+                    const displayTotal = needsDividendConversion && typeof fxRate === 'number'
+                      ? nativeTotal * fxRate
+                      : nativeTotal
                     const txData = transaction as unknown as Record<string, unknown>
                     const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
 
@@ -950,7 +1114,15 @@ export default function Transactions() {
                               {getTranslatedType(transaction.type)}
                             </div>
                             <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(total, transaction.currency)}
+                              {transaction.type === 'SPLIT'
+                                ? '-'
+                                : needsDividendConversion
+                                  ? (typeof fxRate === 'number'
+                                      ? formatCurrencyCompact(displayTotal, portfolioCurrency)
+                                      : fxRate === null
+                                        ? formatCurrencyCompact(nativeTotal, transaction.currency)
+                                        : t('common.loading'))
+                                  : formatCurrencyCompact(displayTotal, transaction.currency)}
                             </div>
                           </div>
                         </div>
@@ -970,7 +1142,7 @@ export default function Transactions() {
                             </div>
                           </div>
                           <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.fees')}</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{transaction.type === 'DIVIDEND' ? t('fields.tax') : t('fields.fees')}</span>
                             <div className="font-medium text-neutral-900 dark:text-neutral-100">
                               {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
                             </div>
@@ -1080,7 +1252,12 @@ export default function Transactions() {
                     aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('fields.fees')} <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
+                    {(activeTab === 'dividend'
+                      ? t('fields.tax')
+                      : activeTab === 'all'
+                        ? `${t('fields.fees')} / ${t('fields.tax')}`
+                        : t('fields.fees'))}{' '}
+                    <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th 
                     onClick={() => handleSort('total')}
@@ -1108,7 +1285,21 @@ export default function Transactions() {
                   const fees = typeof transaction.fees === 'string' 
                     ? parseFloat(transaction.fees) 
                     : transaction.fees
-                  const total = quantity * price + fees
+                  const nativeTotal = transaction.type === 'DIVIDEND' || transaction.type === 'SELL'
+                    ? (quantity * price - fees)
+                    : (quantity * price + fees)
+
+                  const needsDividendConversion =
+                    transaction.type === 'DIVIDEND' &&
+                    transaction.currency &&
+                    transaction.currency.toUpperCase() !== portfolioCurrency
+                  const fxKey = needsDividendConversion
+                    ? `${transaction.currency.toUpperCase()}|${portfolioCurrency}|${transaction.tx_date}`
+                    : null
+                  const fxRate = fxKey ? fxRates[fxKey] : undefined
+                  const displayTotal = needsDividendConversion && typeof fxRate === 'number'
+                    ? nativeTotal * fxRate
+                    : nativeTotal
 
                   return (
                     <tr
@@ -1160,7 +1351,15 @@ export default function Transactions() {
                         {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(total, transaction.currency)}
+                        {transaction.type === 'SPLIT'
+                          ? '-'
+                          : needsDividendConversion
+                            ? (typeof fxRate === 'number'
+                                ? formatCurrencyCompact(displayTotal, portfolioCurrency)
+                                : fxRate === null
+                                  ? formatCurrencyCompact(nativeTotal, transaction.currency)
+                                  : t('common.loading'))
+                            : formatCurrencyCompact(displayTotal, transaction.currency)}
                       </td>
                       <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
                         {(() => {
@@ -1288,7 +1487,14 @@ export default function Transactions() {
                   </label>
                   <select
                     value={txType}
-                    onChange={(e) => setTxType(e.target.value)}
+                    onChange={(e) => {
+                      const nextType = e.target.value
+                      setTxType(nextType)
+                      if (nextType === 'DIVIDEND') {
+                        setPriceLoading(false)
+                        setPriceInfo(null)
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                   >
                     <option value="BUY">{t('transaction.types.buy')}</option>
@@ -1327,7 +1533,7 @@ export default function Transactions() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {t('fields.quantity')}
+                      {txType === 'DIVIDEND' ? t('fields.shares') : t('fields.quantity')}
                     </label>
                     <input
                       type="number"
@@ -1338,13 +1544,16 @@ export default function Transactions() {
                       step="any"
                       placeholder="0.00"
                       required
+                      readOnly={txType === 'DIVIDEND'}
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {t('fields.price')} ({portfolioCurrency})
-                      {priceLoading && (
+                      {txType === 'DIVIDEND'
+                        ? `${t('transactions.dividendPerShare')} (${assetCurrency || portfolioCurrency})`
+                        : `${t('fields.price')} (${portfolioCurrency})`}
+                      {priceLoading && txType !== 'DIVIDEND' && (
                         <span className="ml-2 text-pink-500 animate-pulse">{t('common.loading')}...</span>
                       )}
                     </label>
@@ -1357,18 +1566,19 @@ export default function Transactions() {
                           setPriceInfo(null) // Clear conversion info when user manually edits
                         }}
                         className={`w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 ${priceLoading ? 'opacity-50' : ''}`}
-                        min="0"
+                        min={txType === 'DIVIDEND' ? '0.00000001' : '0'}
                         step="any"
                         placeholder="0.00"
-                        disabled={priceLoading}
+                        disabled={priceLoading && txType !== 'DIVIDEND'}
+                        required={txType === 'DIVIDEND'}
                       />
-                      {priceLoading && (
+                      {priceLoading && txType !== 'DIVIDEND' && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                           <RefreshCw size={16} className="animate-spin text-pink-500" />
                         </div>
                       )}
                     </div>
-                    {priceInfo?.converted && (
+                    {txType !== 'DIVIDEND' && priceInfo?.converted && (
                       <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                         ✓ {t('transactions.priceConverted', { from: priceInfo.asset_currency, to: portfolioCurrency })}
                       </p>
@@ -1377,7 +1587,9 @@ export default function Transactions() {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {t('fields.fees')} ({portfolioCurrency})
+                      {txType === 'DIVIDEND'
+                        ? `${t('fields.tax')} (${assetCurrency || portfolioCurrency})`
+                        : `${t('fields.fees')} (${portfolioCurrency})`}
                     </label>
                     <input
                       type="number"
@@ -1385,6 +1597,13 @@ export default function Transactions() {
                       onChange={(e) => setFees(e.target.value)}
                       className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                       min="0"
+                      max={
+                        txType === 'DIVIDEND' &&
+                        Number.isFinite(parseFloat(quantity)) &&
+                        Number.isFinite(parseFloat(price))
+                          ? String(parseFloat(quantity) * parseFloat(price))
+                          : undefined
+                      }
                       step="any"
                       placeholder="0.00"
                     />
@@ -1421,7 +1640,20 @@ export default function Transactions() {
                 </button>
                 <button
                   type="submit"
-                  disabled={formLoading || (modalMode === 'add' && !selectedTicker)}
+                  disabled={
+                    formLoading ||
+                    (modalMode === 'add' && !selectedTicker) ||
+                    (txType === 'DIVIDEND' && (
+                      (!(Number.isFinite(parseFloat(quantity))) || parseFloat(quantity) <= 0) ||
+                      (!(Number.isFinite(parseFloat(price))) || parseFloat(price) <= 0) ||
+                      (
+                        Number.isFinite(parseFloat(fees)) &&
+                        Number.isFinite(parseFloat(quantity)) &&
+                        Number.isFinite(parseFloat(price)) &&
+                        parseFloat(fees) - (parseFloat(quantity) * parseFloat(price)) > 1e-9
+                      )
+                    ))
+                  }
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
                   {formLoading ? t('common.saving') : modalMode === 'add' ? t('common.add') : t('common.save')}
