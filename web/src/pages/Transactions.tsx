@@ -10,6 +10,7 @@ import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
 import ConversionModal from '../components/ConversionModal'
+import PendingDividends from '../components/PendingDividends'
 import SortIcon from '../components/SortIcon'
 import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
@@ -898,6 +899,16 @@ export default function Transactions() {
           {importError}
         </div>
       )}
+
+      {/* Pending Dividends Section */}
+      <PendingDividends 
+        portfolioId={activePortfolioId}
+        portfolioCurrency={portfolioCurrency}
+        onDividendAccepted={() => {
+          fetchTransactions()
+          invalidatePortfolioData()
+        }}
+      />
 
       <div className="card overflow-hidden">
         {/* Tabs with Search Bar */}

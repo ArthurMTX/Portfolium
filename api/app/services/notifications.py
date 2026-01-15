@@ -327,6 +327,85 @@ class NotificationService:
         except Exception as e:
             logger.exception(f"Failed to create daily change notification: {e}")
 
+    @staticmethod
+    def create_pending_dividend_notification(
+        db: Session,
+        user_id: int,
+        pending_dividends: list
+    ) -> None:
+        """
+        Create notification for new pending dividends that need user review.
+        
+        Args:
+            db: Database session
+            user_id: User ID to notify
+            pending_dividends: List of PendingDividend objects that were just created
+        """
+        try:
+            if not pending_dividends:
+                return
+            
+            # Group by asset for cleaner notification
+            from app.models import Asset
+            
+            asset_ids = set(p.asset_id for p in pending_dividends)
+            assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+            asset_map = {a.id: a for a in assets}
+            
+            total_amount = sum(float(p.gross_amount) for p in pending_dividends)
+            
+            if len(pending_dividends) == 1:
+                # Single dividend notification
+                p = pending_dividends[0]
+                asset = asset_map.get(p.asset_id)
+                symbol = asset.symbol if asset else f"Asset #{p.asset_id}"
+                name = asset.name if asset and asset.name else symbol
+                
+                title = f"💰 Dividend Detected: {symbol}"
+                message = (
+                    f"A dividend of {p.currency or 'USD'} {float(p.gross_amount):.2f} "
+                    f"from {name} ({symbol}) was detected for {float(p.shares_held):.4f} shares "
+                    f"(ex-date: {p.ex_dividend_date}). Review and accept to add to your portfolio."
+                )
+            else:
+                # Multiple dividends notification
+                symbols = [asset_map.get(p.asset_id).symbol if asset_map.get(p.asset_id) else "?" 
+                          for p in pending_dividends[:3]]
+                symbols_str = ", ".join(symbols)
+                if len(pending_dividends) > 3:
+                    symbols_str += f" +{len(pending_dividends) - 3} more"
+                
+                title = f"💰 {len(pending_dividends)} Dividends Detected"
+                message = (
+                    f"Found {len(pending_dividends)} dividends totaling ~{pending_dividends[0].currency or 'USD'} "
+                    f"{total_amount:.2f} from {symbols_str}. Review and accept to add them to your portfolio."
+                )
+            
+            metadata = {
+                "pending_dividend_count": len(pending_dividends),
+                "pending_dividend_ids": [p.id for p in pending_dividends],
+                "total_amount": total_amount,
+                "symbols": [asset_map.get(p.asset_id).symbol if asset_map.get(p.asset_id) else None 
+                           for p in pending_dividends]
+            }
+            
+            crud_notifications.create_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.PENDING_DIVIDEND,
+                title=title,
+                message=message,
+                metadata=metadata
+            )
+            
+            logger.info(
+                f"Created pending dividend notification for user {user_id}: "
+                f"{len(pending_dividends)} dividends, total {total_amount:.2f}"
+            )
+        
+        except Exception as e:
+            logger.exception(f"Failed to create pending dividend notification: {e}")
+
 
 # Singleton instance
 notification_service = NotificationService()

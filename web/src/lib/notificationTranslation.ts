@@ -136,6 +136,14 @@ export function translateNotification(notification: Notification, t: TFunction):
       }
     }
 
+    case 'PENDING_DIVIDEND': {
+      // Backend already creates proper title and message, use them directly
+      return {
+        title: notification.title,
+        message: notification.message
+      }
+    }
+
     case 'SYSTEM':
     default:
       // For system notifications or unknown types, use the original title/message

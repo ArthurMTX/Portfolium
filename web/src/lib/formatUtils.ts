@@ -29,7 +29,8 @@ export function getOptimalDecimalPlaces(price: number | string | null): number {
 export function formatCurrency(
   value: number | string | null, 
   currency: string = 'EUR',
-  locale?: string
+  locale?: string,
+  allowSmallValues: boolean = false
 ): string {
   if (value === null || value === undefined) return '-'
   
@@ -38,7 +39,8 @@ export function formatCurrency(
   if (isNaN(numValue)) return '-'
   
   // Treat very small values as zero to avoid displaying floating point noise like -0.000002
-  if (Math.abs(numValue) < 0.01) {
+  // Unless allowSmallValues is true (for per-share dividend amounts, etc.)
+  if (!allowSmallValues && Math.abs(numValue) < 0.01) {
     const userLocale = locale || navigator.language || 'en-US'
     return new Intl.NumberFormat(userLocale, {
       style: 'currency',

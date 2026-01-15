@@ -12,7 +12,7 @@ from scalar_fastapi import get_scalar_api_reference
 
 from app.config import settings
 from app.db import engine, Base, SessionLocal
-from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public
+from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public, pending_dividends
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 from app.services.admin import ensure_admin_user, ensure_email_config
 from app.version import __version__, get_version_info
@@ -226,6 +226,7 @@ app.include_router(batch.router, tags=["batch"])
 app.include_router(tasks.router, tags=["tasks"])
 app.include_router(logs.router, prefix="/admin", tags=["admin"])
 app.include_router(public.router, prefix="/public", tags=["public"])
+app.include_router(pending_dividends.router, prefix="/dividends", tags=["dividends"])
 
 
 @app.get("/")

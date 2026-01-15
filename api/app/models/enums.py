@@ -35,3 +35,4 @@ class NotificationType(str, enum.Enum):
     DAILY_CHANGE_UP = "DAILY_CHANGE_UP"
     DAILY_CHANGE_DOWN = "DAILY_CHANGE_DOWN"
     SYSTEM = "SYSTEM"
+    PENDING_DIVIDEND = "PENDING_DIVIDEND"  # Auto-fetched dividend awaiting review

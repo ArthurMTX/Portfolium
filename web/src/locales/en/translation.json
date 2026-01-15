@@ -925,6 +925,68 @@
       "noTransactionMatchesClear": "clear your search to view all transactions."
     }
   },
+  "pendingDividends": {
+    "title": "Pending Dividends",
+    "description": "Auto-detected dividends awaiting your review",
+    "noPending": "No pending dividends to review",
+    "noPendingDescription": "Dividends are automatically fetched from market data. When new dividends are detected for your holdings, they will appear here for review.",
+    "checkForDividends": "Check for Dividends",
+    "checking": "Checking...",
+    "refresh": "Refresh",
+    "detected": "Detected",
+    "totalPending": "Total Pending",
+    "exDate": "Ex-Date",
+    "paymentDate": "Payment Date",
+    "shares": "Shares",
+    "perShare": "Per Share",
+    "grossAmount": "Gross Amount",
+    "pending": "Pending",
+    "accept": "Accept",
+    "reject": "Reject",
+    "acceptAll": "Accept All",
+    "rejectAll": "Reject All",
+    "acceptDividend": "Accept Dividend",
+    "withholdingTax": "Tax/Withholding",
+    "taxDescription": "Enter any tax or withholding amount deducted from this dividend.",
+    "netAmount": "Net Amount",
+    "notesPlaceholder": "Add any notes about this dividend (optional)",
+    "confirmAccept": "Confirm & Accept",
+    "acceptModal": {
+      "title": "Accept Dividend",
+      "description": "This will create a verified dividend transaction in your portfolio.",
+      "taxWithholding": "Tax/Withholding",
+      "taxInfo": "Enter any tax or withholding amount deducted from this dividend.",
+      "netAmount": "Net Amount",
+      "confirm": "Confirm & Accept"
+    },
+    "rejectModal": {
+      "title": "Reject Dividend",
+      "description": "Are you sure you want to reject this dividend? It will be marked as rejected and won't appear again.",
+      "confirm": "Reject Dividend"
+    },
+    "success": {
+      "accepted": "Dividend accepted and added to your transactions",
+      "rejected": "Dividend rejected",
+      "bulkAccepted": "{{count}} dividends accepted",
+      "bulkRejected": "{{count}} dividends rejected",
+      "fetched": "{{count}} new dividends found",
+      "fetchSuccess": "Found {{count}} new dividend(s)",
+      "noNewDividends": "No new dividends found"
+    },
+    "error": {
+      "fetchFailed": "Failed to fetch dividends",
+      "fetchError": "Failed to fetch dividends",
+      "acceptFailed": "Failed to accept dividend",
+      "acceptError": "Failed to accept dividend",
+      "acceptSuccess": "{{symbol}} dividend accepted",
+      "rejectFailed": "Failed to reject dividend",
+      "rejectError": "Failed to reject dividend"
+    },
+    "stats": {
+      "total": "{{count}} pending",
+      "totalAmount": "Total: {{amount}}"
+    }
+  },
   "splitHistory": {
     "title": "Split History",
     "loadingSplitHistory": "Loading split history...",
@@ -1337,6 +1399,7 @@
       "DAILY_CHANGE_UP": "Daily Gain",
       "DAILY_CHANGE_DOWN": "Daily Loss",
       "DAILY_REPORT": "Daily Report",
+      "PENDING_DIVIDEND": "Pending Dividend",
       "SYSTEM": "System"
     },
     "templates": {
@@ -1359,6 +1422,8 @@
       "dailyChangeDown": "down",
       "dailyReportTitle": "Daily Portfolio Report",
       "dailyReportMessage": "Your daily portfolio report for {{date}} has been sent to your email",
+      "pendingDividendTitle": "{{count}} New Dividend(s) Detected",
+      "pendingDividendMessage": "{{count}} pending dividend(s) detected for {{name}} ({{symbol}}) totaling {{amount}} {{currency}}. Review them in the Transactions page.",
       "shares": "shares"
     }
   },

@@ -1007,3 +1007,65 @@ class DashboardLayoutExport(BaseModel):
     exported_at: datetime = Field(default_factory=datetime.utcnow)
     
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# Pending Dividend Schemas
+# ============================================================================
+
+class PendingDividendBase(BaseModel):
+    """Base pending dividend schema"""
+    portfolio_id: int
+    asset_id: int
+    ex_dividend_date: date
+    payment_date: Optional[date] = None
+    dividend_per_share: Decimal
+    shares_held: Decimal
+    gross_amount: Decimal
+    currency: Optional[str] = None
+
+
+class PendingDividendCreate(PendingDividendBase):
+    """Schema for creating a pending dividend (internal use)"""
+    user_id: int
+    yfinance_raw_data: Optional[Dict[str, Any]] = None
+
+
+class PendingDividendResponse(PendingDividendBase):
+    """Schema for pending dividend response"""
+    id: int
+    user_id: int
+    status: str
+    fetched_at: datetime
+    processed_at: Optional[datetime] = None
+    transaction_id: Optional[int] = None
+    
+    # Include asset details for display
+    asset_symbol: Optional[str] = None
+    asset_name: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PendingDividendAccept(BaseModel):
+    """Schema for accepting a pending dividend"""
+    tax_amount: Decimal = Field(default=Decimal(0), ge=0, description="Withholding tax amount")
+    notes: Optional[str] = None
+    # Allow overriding values if needed
+    override_gross_amount: Optional[Decimal] = Field(None, ge=0, description="Override the calculated gross amount")
+    override_shares: Optional[Decimal] = Field(None, ge=0, description="Override the calculated shares held")
+
+
+class PendingDividendBulkAction(BaseModel):
+    """Schema for bulk accept/reject of pending dividends"""
+    dividend_ids: List[int]
+    tax_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="Tax rate percentage to apply to all")
+
+
+class PendingDividendStats(BaseModel):
+    """Statistics about pending dividends for a user"""
+    pending_count: int
+    pending_total_amount: Decimal
+    accepted_count: int
+    rejected_count: int
+    oldest_pending_date: Optional[date] = None

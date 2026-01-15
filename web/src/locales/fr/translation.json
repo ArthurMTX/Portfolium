@@ -925,6 +925,68 @@
       "noTransactionMatchesClear": "effacez votre recherche pour voir toutes les transactions."
     }
   },
+  "pendingDividends": {
+    "title": "Dividendes en attente",
+    "description": "Dividendes détectés automatiquement en attente de validation",
+    "noPending": "Aucun dividende en attente",
+    "noPendingDescription": "Les dividendes sont automatiquement récupérés des données de marché. Lorsque de nouveaux dividendes sont détectés pour vos positions, ils apparaîtront ici pour validation.",
+    "checkForDividends": "Vérifier les dividendes",
+    "checking": "Vérification...",
+    "refresh": "Rafraîchir",
+    "detected": "Détecté",
+    "totalPending": "Total en attente",
+    "exDate": "Date ex-dividende",
+    "paymentDate": "Date de paiement",
+    "shares": "Actions",
+    "perShare": "Par action",
+    "grossAmount": "Montant brut",
+    "pending": "En attente",
+    "accept": "Accepter",
+    "reject": "Rejeter",
+    "acceptAll": "Tout accepter",
+    "rejectAll": "Tout rejeter",
+    "acceptDividend": "Accepter le dividende",
+    "withholdingTax": "Retenue/Impôt",
+    "taxDescription": "Entrez le montant de la retenue à la source ou de l'impôt déduit de ce dividende.",
+    "netAmount": "Montant net",
+    "notesPlaceholder": "Ajouter des notes sur ce dividende (optionnel)",
+    "confirmAccept": "Confirmer et accepter",
+    "acceptModal": {
+      "title": "Accepter le dividende",
+      "description": "Cela créera une transaction de dividende vérifiée dans votre portefeuille.",
+      "taxWithholding": "Retenue/Impôt",
+      "taxInfo": "Entrez le montant de la retenue à la source ou de l'impôt déduit de ce dividende.",
+      "netAmount": "Montant net",
+      "confirm": "Confirmer et accepter"
+    },
+    "rejectModal": {
+      "title": "Rejeter le dividende",
+      "description": "Êtes-vous sûr de vouloir rejeter ce dividende ? Il sera marqué comme rejeté et n'apparaîtra plus.",
+      "confirm": "Rejeter le dividende"
+    },
+    "success": {
+      "accepted": "Dividende accepté et ajouté à vos transactions",
+      "rejected": "Dividende rejeté",
+      "bulkAccepted": "{{count}} dividendes acceptés",
+      "bulkRejected": "{{count}} dividendes rejetés",
+      "fetched": "{{count}} nouveaux dividendes trouvés",
+      "fetchSuccess": "{{count}} nouveau(x) dividende(s) trouvé(s)",
+      "noNewDividends": "Aucun nouveau dividende trouvé"
+    },
+    "error": {
+      "fetchFailed": "Échec de la récupération des dividendes",
+      "fetchError": "Échec de la récupération des dividendes",
+      "acceptFailed": "Échec de l'acceptation du dividende",
+      "acceptError": "Échec de l'acceptation du dividende",
+      "acceptSuccess": "Dividende {{symbol}} accepté",
+      "rejectFailed": "Échec du rejet du dividende",
+      "rejectError": "Échec du rejet du dividende"
+    },
+    "stats": {
+      "total": "{{count}} en attente",
+      "totalAmount": "Total : {{amount}}"
+    }
+  },
   "splitHistory": {
     "title": "Historique des fractionnements",
     "loadingSplitHistory": "Chargement de l'historique des fractionnements...",
@@ -1336,6 +1398,7 @@
       "DAILY_CHANGE_UP": "Gain quotidien",
       "DAILY_CHANGE_DOWN": "Perte quotidienne",
       "DAILY_REPORT": "Rapport quotidien",
+      "PENDING_DIVIDEND": "Dividende en attente",
       "SYSTEM": "Système"
     },
     "templates": {
@@ -1358,6 +1421,8 @@
       "dailyChangeDown": "en baisse",
       "dailyReportTitle": "Rapport quotidien de portefeuille",
       "dailyReportMessage": "Votre rapport quotidien de portefeuille pour le {{date}} a été envoyé à votre e-mail",
+      "pendingDividendTitle": "{{count}} nouveau(x) dividende(s) détecté(s)",
+      "pendingDividendMessage": "{{count}} dividende(s) en attente détecté(s) pour {{name}} ({{symbol}}) totalisant {{amount}} {{currency}}. Consultez-les dans la page Transactions.",
       "shares": "actions"
     }
   },

@@ -657,6 +657,99 @@ async def update_all_time_highs():
     await loop.run_in_executor(None, _update_ath)
 
 
+async def fetch_pending_dividends():
+    """
+    Background job to fetch pending dividends for all active portfolios.
+    
+    This runs daily to check yfinance for new dividends that users may be
+    entitled to based on their holdings at ex-dividend dates.
+    Dividends are created as "pending" and require user confirmation.
+    """
+    logger.info("Starting dividend auto-fetch from yfinance...")
+    
+    def _fetch_dividends():
+        db = SessionLocal()
+        try:
+            from sqlalchemy import distinct
+            from app.models import Transaction, Portfolio
+            from app.services.dividends import DividendService
+            from app.services.notifications import notification_service
+            
+            # Get all portfolios that have transactions (active portfolios)
+            active_portfolio_ids = (
+                db.query(distinct(Transaction.portfolio_id))
+                .all()
+            )
+            active_portfolio_ids = [p[0] for p in active_portfolio_ids]
+            
+            logger.info(f"Fetching dividends for {len(active_portfolio_ids)} active portfolios")
+            
+            total_created = 0
+            
+            for portfolio_id in active_portfolio_ids:
+                try:
+                    dividend_service = DividendService(db)
+                    created = dividend_service.fetch_dividends_for_portfolio(
+                        portfolio_id,
+                        lookback_days=90,  # Check last 90 days
+                        lookahead_days=90   # And next 90 days for announced
+                    )
+                    
+                    if created:
+                        portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+                        if portfolio:
+                            notification_service.create_pending_dividend_notification(
+                                db,
+                                user_id=portfolio.user_id,
+                                pending_dividends=created
+                            )
+                    
+                    total_created += len(created)
+                    
+                except Exception as e:
+                    logger.error(f"Error fetching dividends for portfolio {portfolio_id}: {e}")
+                    continue
+            
+            logger.info(
+                f"Dividend fetch completed: {total_created} new pending dividends "
+                f"across {len(active_portfolio_ids)} portfolios"
+            )
+            
+        except Exception as e:
+            logger.error(f"Dividend fetch job failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _fetch_dividends)
+
+
+async def expire_pending_dividends():
+    """
+    Background job to expire old pending dividends.
+    
+    This runs weekly to mark very old pending dividends as expired,
+    preventing the pending list from growing indefinitely.
+    """
+    logger.info("Starting pending dividend expiration...")
+    
+    def _expire_dividends():
+        db = SessionLocal()
+        try:
+            from app.crud import pending_dividends as crud_pending
+            
+            count = crud_pending.expire_old_pending_dividends(db, days_old=365)
+            logger.info(f"Expired {count} old pending dividends (older than 365 days)")
+            
+        except Exception as e:
+            logger.error(f"Pending dividend expiration failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _expire_dividends)
+
+
 async def send_daily_reports():
     """
     Background job to generate and send daily portfolio reports
@@ -894,6 +987,29 @@ def start_scheduler():
         coalesce=True
     )
     
+    # Schedule dividend auto-fetch daily at 6:00 AM UTC
+    # This checks for new dividends for all active portfolios
+    scheduler.add_job(
+        fetch_pending_dividends,
+        trigger=CronTrigger(hour=6, minute=0, timezone='UTC'),
+        id="fetch_pending_dividends",
+        name="Fetch pending dividends from yfinance",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
+    # Schedule expired pending dividends cleanup weekly (Sunday at 2:00 AM UTC)
+    scheduler.add_job(
+        expire_pending_dividends,
+        trigger=CronTrigger(hour=2, minute=0, day_of_week='sun', timezone='UTC'),
+        id="expire_pending_dividends",
+        name="Expire old pending dividends",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     scheduler.start()
     daily_reports_msg = (
         "daily reports at 4:00 PM ET (weekdays only), "
@@ -907,7 +1023,9 @@ def start_scheduler():
         f"notifications cleanup daily at 03:00 UTC (retention={settings.NOTIFICATIONS_RETENTION_DAYS}d), "
         + daily_reports_msg
         + "daily closing prices at 5:00 PM ET (weekdays only), "
-        + "ATH update at 5:30 PM ET (weekdays only). "
+        + "ATH update at 5:30 PM ET (weekdays only), "
+        + "dividend fetch at 6:00 AM UTC daily, "
+        + "expired dividends cleanup Sundays at 2:00 AM UTC. "
         + "All jobs run asynchronously to prevent blocking."
     )
 

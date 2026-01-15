@@ -1710,6 +1710,146 @@ class ApiClient {
   async getPublicPortfolio(shareToken: string) {
     return this.request<PublicPortfolioInsights>(`/public/portfolio/${shareToken}`)
   }
+
+  // ============================================================================
+  // Pending Dividends (Auto-fetched from yfinance)
+  // ============================================================================
+
+  async getPendingDividends(
+    status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED',
+    portfolioId?: number
+  ) {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    if (portfolioId) params.append('portfolio_id', portfolioId.toString())
+    const queryString = params.toString()
+    return this.request<PendingDividendDTO[]>(
+      `/dividends/pending${queryString ? `?${queryString}` : ''}`
+    )
+  }
+
+  async getPendingDividendStats() {
+    return this.request<PendingDividendStatsDTO>('/dividends/pending/stats')
+  }
+
+  async getPortfolioPendingDividends(
+    portfolioId: number,
+    status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+  ) {
+    const params = status ? `?status=${status}` : ''
+    return this.request<PendingDividendDTO[]>(
+      `/dividends/${portfolioId}/pending${params}`
+    )
+  }
+
+  async fetchDividendsForPortfolio(
+    portfolioId: number,
+    lookbackDays?: number,
+    lookaheadDays?: number
+  ) {
+    const params = new URLSearchParams()
+    if (lookbackDays) params.append('lookback_days', lookbackDays.toString())
+    if (lookaheadDays) params.append('lookahead_days', lookaheadDays.toString())
+    const queryString = params.toString()
+    return this.request<PendingDividendDTO[]>(
+      `/dividends/${portfolioId}/fetch${queryString ? `?${queryString}` : ''}`,
+      { method: 'POST' }
+    )
+  }
+
+  async acceptPendingDividend(
+    dividendId: number,
+    data: {
+      tax_amount?: number
+      notes?: string
+      override_gross_amount?: number
+      override_shares?: number
+    } = {}
+  ) {
+    return this.request<TransactionDTO>(
+      `/dividends/pending/${dividendId}/accept`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    )
+  }
+
+  async rejectPendingDividend(dividendId: number) {
+    return this.request<void>(`/dividends/pending/${dividendId}/reject`, {
+      method: 'POST',
+    })
+  }
+
+  async bulkAcceptPendingDividends(
+    dividendIds: number[],
+    taxRate?: number
+  ) {
+    return this.request<TransactionDTO[]>('/dividends/pending/bulk-accept', {
+      method: 'POST',
+      body: JSON.stringify({
+        dividend_ids: dividendIds,
+        tax_rate: taxRate,
+      }),
+    })
+  }
+
+  async bulkRejectPendingDividends(dividendIds: number[]) {
+    return this.request<void>('/dividends/pending/bulk-reject', {
+      method: 'POST',
+      body: JSON.stringify({ dividend_ids: dividendIds }),
+    })
+  }
+
+  async deletePendingDividend(dividendId: number) {
+    return this.request<void>(`/dividends/pending/${dividendId}`, {
+      method: 'DELETE',
+    })
+  }
+}
+
+// Types for Pending Dividends
+export interface PendingDividendDTO {
+  id: number
+  portfolio_id: number
+  asset_id: number
+  user_id: number
+  ex_dividend_date: string
+  payment_date: string | null
+  dividend_per_share: number | string
+  shares_held: number | string
+  gross_amount: number | string
+  currency: string | null
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+  fetched_at: string
+  processed_at: string | null
+  transaction_id: number | null
+  asset_symbol: string | null
+  asset_name: string | null
+}
+
+export interface PendingDividendStatsDTO {
+  pending_count: number
+  pending_total_amount: number | string
+  accepted_count: number
+  rejected_count: number
+  oldest_pending_date: string | null
+}
+
+export interface TransactionDTO {
+  id: number
+  portfolio_id: number
+  asset_id: number
+  tx_date: string
+  type: string
+  quantity: number | string
+  price: number | string
+  fees: number | string
+  currency: string
+  notes: string | null
+  metadata?: Record<string, unknown>
+  created_at: string
+  updated_at: string
 }
 
 export const api = new ApiClient(API_BASE_URL)
