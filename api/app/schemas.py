@@ -69,7 +69,6 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     preferred_language: Optional[str] = Field(None, pattern="^(en|fr)$")
     daily_change_notifications_enabled: Optional[bool] = None
-    daily_change_threshold_pct: Optional[Decimal] = Field(None, ge=0, le=100)
     transaction_notifications_enabled: Optional[bool] = None
     daily_report_enabled: Optional[bool] = None
     ath_atl_notifications_enabled: Optional[bool] = None
@@ -173,7 +172,6 @@ class User(UserBase):
     last_login: Optional[datetime] = None
     preferred_language: str = Field(default='en')
     daily_change_notifications_enabled: bool = True
-    daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
     transaction_notifications_enabled: bool = True
     daily_report_enabled: bool = False
     ath_atl_notifications_enabled: bool = True

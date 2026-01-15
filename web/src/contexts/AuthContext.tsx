@@ -15,7 +15,6 @@ export interface User {
   last_login: string | null
   preferred_language: string
   daily_change_notifications_enabled: boolean
-  daily_change_threshold_pct: number
   transaction_notifications_enabled: boolean
   daily_report_enabled: boolean
   ath_atl_notifications_enabled: boolean

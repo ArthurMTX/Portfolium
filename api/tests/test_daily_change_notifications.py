@@ -19,8 +19,7 @@ def test_create_daily_change_notification_upside(test_db: Session):
         username="testuser",
         hashed_password="hashed",
         is_active=True,
-        daily_change_notifications_enabled=True,
-        daily_change_threshold_pct=5.0
+        daily_change_notifications_enabled=True
     )
     test_db.add(user)
     test_db.commit()
@@ -82,8 +81,7 @@ def test_create_daily_change_notification_downside(test_db: Session):
         username="testuser2",
         hashed_password="hashed",
         is_active=True,
-        daily_change_notifications_enabled=True,
-        daily_change_threshold_pct=5.0
+        daily_change_notifications_enabled=True
     )
     test_db.add(user)
     test_db.commit()
@@ -149,9 +147,8 @@ def test_user_notification_settings_defaults(test_db: Session):
     test_db.commit()
     test_db.refresh(user)
     
-    # Check defaults
+    # Check defaults - threshold is now asset-based, not user-configurable
     assert user.daily_change_notifications_enabled == True
-    assert user.daily_change_threshold_pct == Decimal("5.0")
 
 
 def test_user_can_disable_notifications(test_db: Session):
@@ -170,22 +167,6 @@ def test_user_can_disable_notifications(test_db: Session):
     assert user.daily_change_notifications_enabled == False
 
 
-def test_user_can_set_custom_threshold(test_db: Session):
-    """Test that users can set custom threshold"""
-    user = User(
-        email="test5@example.com",
-        username="testuser5",
-        hashed_password="hashed",
-        is_active=True,
-        daily_change_threshold_pct=Decimal("10.0")
-    )
-    test_db.add(user)
-    test_db.commit()
-    test_db.refresh(user)
-    
-    assert user.daily_change_threshold_pct == Decimal("10.0")
-
-
 def test_no_duplicate_notifications_across_portfolios(test_db: Session):
     """
     Test that a user with the same asset in multiple portfolios only receives 
@@ -200,8 +181,7 @@ def test_no_duplicate_notifications_across_portfolios(test_db: Session):
         username="testuser6",
         hashed_password="hashed",
         is_active=True,
-        daily_change_notifications_enabled=True,
-        daily_change_threshold_pct=5.0
+        daily_change_notifications_enabled=True
     )
     test_db.add(user)
     test_db.commit()

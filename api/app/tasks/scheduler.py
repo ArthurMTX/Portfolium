@@ -386,7 +386,7 @@ async def check_daily_changes():
     def _check_changes():
         db = SessionLocal()
         try:
-            from app.models import User, Portfolio
+            from app.models import User, Portfolio, Asset
             from app.services.metrics import MetricsService
             from decimal import Decimal
             from app.services.pricing import _cleanup_stale_tasks
@@ -411,8 +411,7 @@ async def check_daily_changes():
             
             for user in users:
                 try:
-                    threshold = Decimal(str(user.daily_change_threshold_pct or 5.0))
-                    logger.debug(f"Checking daily changes for user {user.id} (threshold: {threshold}%)")
+                    logger.debug(f"Checking daily changes for user {user.id}")
                     
                     # Track assets already notified for this user in this cycle
                     # This prevents duplicate notifications when the same asset appears in multiple portfolios
@@ -444,6 +443,17 @@ async def check_daily_changes():
                                     continue
                                 
                                 daily_change = abs(position.daily_change_pct)
+                                
+                                # Get asset to determine threshold based on its characteristics
+                                asset = db.query(Asset).filter(Asset.id == position.asset_id).first()
+                                if not asset:
+                                    continue
+                                
+                                # Import threshold utility
+                                from app.utils.notification_thresholds import get_daily_change_threshold
+                                
+                                # Get asset-specific threshold
+                                threshold = get_daily_change_threshold(asset)
                                 
                                 if daily_change >= threshold:
                                     # Skip if already notified for this asset in this cycle
@@ -486,7 +496,8 @@ async def check_daily_changes():
                                     total_notifications += 1
                                     logger.info(
                                         f"Daily change notification created: {position.symbol} "
-                                        f"{position.daily_change_pct:+.2f}% for user {user.id}"
+                                        f"{position.daily_change_pct:+.2f}% for user {user.id} "
+                                        f"(threshold: {threshold}%)"
                                     )
                         
                         except Exception as e:

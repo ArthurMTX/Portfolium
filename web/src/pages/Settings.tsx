@@ -32,8 +32,8 @@ export default function Settings() {
 
   // Notification settings
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
-  const [notificationThreshold, setNotificationThreshold] = useState('5.0')
   const [transactionNotificationsEnabled, setTransactionNotificationsEnabled] = useState(true)
+  const [athAtlNotificationsEnabled, setAthAtlNotificationsEnabled] = useState(true)
   const [dailyReportsEnabled, setDailyReportsEnabled] = useState(false)
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -62,8 +62,8 @@ export default function Settings() {
     // Load notification settings from user
     if (user) {
       setNotificationsEnabled(user.daily_change_notifications_enabled ?? true)
-      setNotificationThreshold(String(user.daily_change_threshold_pct ?? 5.0))
       setTransactionNotificationsEnabled(user.transaction_notifications_enabled ?? true)
+      setAthAtlNotificationsEnabled(user.ath_atl_notifications_enabled ?? true)
       setDailyReportsEnabled(user.daily_report_enabled ?? false)
     }
   }, [user])
@@ -95,16 +95,10 @@ export default function Settings() {
     setSavingNotifications(true)
     setNotificationMessage(null)
     try {
-      const threshold = parseFloat(notificationThreshold)
-      if (isNaN(threshold) || threshold < 0 || threshold > 100) {
-        setNotificationMessage({ type: 'error', text: 'Threshold must be between 0 and 100' })
-        return
-      }
-
       await api.updateCurrentUser({
         daily_change_notifications_enabled: notificationsEnabled,
-        daily_change_threshold_pct: threshold,
         transaction_notifications_enabled: transactionNotificationsEnabled,
+        ath_atl_notifications_enabled: athAtlNotificationsEnabled,
         daily_report_enabled: dailyReportsEnabled
       })
       await refreshUser()
@@ -307,31 +301,46 @@ export default function Settings() {
                 </p>
               </div>
 
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <strong>{t('settings.howItWorks')}:</strong> {t('settings.notificationThresholdNote')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ATH/ATL Notifications */}
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
+              {t('settings.athAtlNotifications')}
+            </h2>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              {t('settings.athAtlNotificationsDescription')}
+            </p>
+
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  {t('settings.notificationThreshold')}
-                </label>
-                <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
-                    type="number"
-                    value={notificationThreshold}
-                    onChange={(e) => setNotificationThreshold(e.target.value)}
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    disabled={!notificationsEnabled || savingNotifications}
-                    className="input w-32"
+                    type="checkbox"
+                    checked={athAtlNotificationsEnabled}
+                    onChange={(e) => setAthAtlNotificationsEnabled(e.target.checked)}
+                    disabled={savingNotifications}
+                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                   />
-                  <span className="text-sm text-neutral-600 dark:text-neutral-400">%</span>
-                </div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {t('settings.notificationThresholdInfo')}
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    {t('settings.enableAthAtlNotifications')}
+                  </span>
+                </label>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
+                  {t('settings.enableAthAtlNotificationsInfo')}
                 </p>
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>{t('settings.howItWorks')}:</strong> {t('settings.notificationThresholdNote')}
+                  <strong>{t('settings.note')}:</strong> {t('settings.athAtlNotificationsNote')}
                 </p>
               </div>
             </div>
