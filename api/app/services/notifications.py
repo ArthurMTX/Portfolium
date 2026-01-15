@@ -406,6 +406,130 @@ class NotificationService:
         except Exception as e:
             logger.exception(f"Failed to create pending dividend notification: {e}")
 
+    @staticmethod
+    def create_ath_notification(
+        db: Session,
+        user_id: int,
+        symbol: str,
+        asset_name: str,
+        asset_id: int,
+        current_price: Decimal,
+        previous_ath: Optional[Decimal] = None
+    ) -> None:
+        """
+        Create notification when an asset reaches a new All-Time High
+        
+        Args:
+            db: Database session
+            user_id: User ID to notify
+            symbol: Asset symbol
+            asset_name: Asset name
+            asset_id: Asset ID
+            current_price: Current price (the new ATH)
+            previous_ath: Previous ATH price (if any)
+        """
+        try:
+            title = f"🚀 {symbol} Hit New All-Time High!"
+            
+            if previous_ath:
+                increase_pct = ((current_price - previous_ath) / previous_ath) * 100
+                message = (
+                    f"{asset_name or symbol} just reached a new all-time high of "
+                    f"${float(current_price):.2f}, up {float(increase_pct):.2f}% from the "
+                    f"previous ATH of ${float(previous_ath):.2f}."
+                )
+            else:
+                message = (
+                    f"{asset_name or symbol} just reached a new all-time high of "
+                    f"${float(current_price):.2f}!"
+                )
+            
+            metadata = {
+                "asset_id": asset_id,
+                "symbol": symbol,
+                "current_price": float(current_price),
+                "previous_ath": float(previous_ath) if previous_ath else None,
+                "increase_pct": float(((current_price - previous_ath) / previous_ath) * 100) if previous_ath else None
+            }
+            
+            crud_notifications.create_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.ATH,
+                title=title,
+                message=message,
+                metadata=metadata
+            )
+            
+            logger.info(
+                f"Created ATH notification for user {user_id}: {symbol} at ${current_price}"
+            )
+        
+        except Exception as e:
+            logger.exception(f"Failed to create ATH notification: {e}")
+
+    @staticmethod
+    def create_atl_notification(
+        db: Session,
+        user_id: int,
+        symbol: str,
+        asset_name: str,
+        asset_id: int,
+        current_price: Decimal,
+        previous_atl: Optional[Decimal] = None
+    ) -> None:
+        """
+        Create notification when an asset reaches a new All-Time Low
+        
+        Args:
+            db: Database session
+            user_id: User ID to notify
+            symbol: Asset symbol
+            asset_name: Asset name
+            asset_id: Asset ID
+            current_price: Current price (the new ATL)
+            previous_atl: Previous ATL price (if any)
+        """
+        try:
+            title = f"📉 {symbol} Hit New All-Time Low"
+            
+            if previous_atl:
+                decrease_pct = ((previous_atl - current_price) / previous_atl) * 100
+                message = (
+                    f"{asset_name or symbol} just reached a new all-time low of "
+                    f"${float(current_price):.2f}, down {float(decrease_pct):.2f}% from the "
+                    f"previous ATL of ${float(previous_atl):.2f}."
+                )
+            else:
+                message = (
+                    f"{asset_name or symbol} just reached a new all-time low of "
+                    f"${float(current_price):.2f}."
+                )
+            
+            metadata = {
+                "asset_id": asset_id,
+                "symbol": symbol,
+                "current_price": float(current_price),
+                "previous_atl": float(previous_atl) if previous_atl else None,
+                "decrease_pct": float(((previous_atl - current_price) / previous_atl) * 100) if previous_atl else None
+            }
+            
+            crud_notifications.create_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.ATL,
+                title=title,
+                message=message,
+                metadata=metadata
+            )
+            
+            logger.info(
+                f"Created ATL notification for user {user_id}: {symbol} at ${current_price}"
+            )
+        
+        except Exception as e:
+            logger.exception(f"Failed to create ATL notification: {e}")
+
 
 # Singleton instance
 notification_service = NotificationService()

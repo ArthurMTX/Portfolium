@@ -72,6 +72,7 @@ class UserUpdate(BaseModel):
     daily_change_threshold_pct: Optional[Decimal] = Field(None, ge=0, le=100)
     transaction_notifications_enabled: Optional[bool] = None
     daily_report_enabled: Optional[bool] = None
+    ath_atl_notifications_enabled: Optional[bool] = None
 
     @field_validator('email')
     @classmethod
@@ -175,6 +176,7 @@ class User(UserBase):
     daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
     transaction_notifications_enabled: bool = True
     daily_report_enabled: bool = False
+    ath_atl_notifications_enabled: bool = True
     totp_enabled: bool = False  # Whether 2FA is enabled
     
     model_config = ConfigDict(from_attributes=True)

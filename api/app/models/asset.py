@@ -34,9 +34,11 @@ class Asset(Base):
     # Price history tracking
     first_transaction_date = Column(Date)  # Date of first transaction, used for historical price backfill
     
-    # All-Time High tracking
+    # All-Time High/Low tracking
     ath_price = Column(Numeric(20, 8))  # All-time high price
     ath_date = Column(DateTime)  # When ATH was reached
+    atl_price = Column(Numeric(20, 8))  # All-time low price
+    atl_date = Column(DateTime)  # When ATL was reached
     
     # Relationships
     transactions = relationship("Transaction", back_populates="asset")

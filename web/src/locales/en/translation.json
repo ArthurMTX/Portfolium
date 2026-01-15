@@ -1338,6 +1338,11 @@
     "enableDailyPortfolioReportsInfo": "Get a beautiful PDF report emailed to you every weekday at 4 PM ET (after market close)",
     "whatsIncluded": "What's included",
     "enableDailyPortfolioReportsNote": "Your daily report contains portfolio metrics, a visual heatmap of all positions, holdings with P&L, and transaction activity. Reports are sent Monday-Friday at 4:00 PM Eastern Time when markets close.",
+    "athAtlNotifications": "All-Time High/Low Notifications",
+    "athAtlNotificationsDescription": "Get notified when your holdings reach new all-time highs or lows",
+    "enableAthAtlNotifications": "Enable ATH/ATL notifications",
+    "enableAthAtlNotificationsInfo": "Receive notifications when any asset you hold reaches a new all-time high (ATH) 🚀 or all-time low (ATL) 📉",
+    "athAtlNotificationsNote": "Be the first to know when your holdings make history by reaching unprecedented price levels, whether positive or negative.",
     "transactionValidationSettings": "Transaction Validation Settings",
     "transactionValidationSettingsDescription": "Control transaction validation rules",
     "validateSellQuantities": "Validate sell quantity (prevent overselling)",
@@ -1400,6 +1405,8 @@
       "DAILY_CHANGE_DOWN": "Daily Loss",
       "DAILY_REPORT": "Daily Report",
       "PENDING_DIVIDEND": "Pending Dividend",
+      "ATH": "All-Time High",
+      "ATL": "All-Time Low",
       "SYSTEM": "System"
     },
     "templates": {

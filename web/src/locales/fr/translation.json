@@ -1337,6 +1337,11 @@
     "enableDailyPortfolioReportsInfo": "Recevez un magnifique rapport PDF par e-mail tous les jours de la semaine à 16h00 ET (après la fermeture du marché)",
     "whatsIncluded": "Ce qui est inclus",
     "enableDailyPortfolioReportsNote": "Votre rapport quotidien contient des indicateurs de portefeuille, une carte thermique visuelle de toutes les positions, des actifs avec P&L et l'activité de transaction. Les rapports sont envoyés du lundi au vendredi à 16h00, heure de l'Est, lorsque les marchés ferment.",
+    "athAtlNotifications": "Notifications Plus Haut/Plus Bas Historique",
+    "athAtlNotificationsDescription": "Recevez une notification lorsque vos actifs atteignent de nouveaux plus hauts ou plus bas historiques",
+    "enableAthAtlNotifications": "Activer les notifications ATH/ATL",
+    "enableAthAtlNotificationsInfo": "Recevez des notifications lorsqu'un actif que vous possédez atteint un nouveau plus haut historique (ATH) 🚀 ou plus bas historique (ATL) 📉",
+    "athAtlNotificationsNote": "Soyez le premier à savoir lorsque vos actifs font l'histoire en atteignant des niveaux de prix sans précédent, qu'ils soient positifs ou négatifs.",
     "transactionValidationSettings": "Paramètres de validation des transactions",
     "transactionValidationSettingsDescription": "Contrôlez les règles de validation des transactions",
     "validateSellQuantities": "Valider la quantité de vente (éviter la vente à découvert)",
@@ -1399,6 +1404,8 @@
       "DAILY_CHANGE_DOWN": "Perte quotidienne",
       "DAILY_REPORT": "Rapport quotidien",
       "PENDING_DIVIDEND": "Dividende en attente",
+      "ATH": "Plus haut historique",
+      "ATL": "Plus bas historique",
       "SYSTEM": "Système"
     },
     "templates": {

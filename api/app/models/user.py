@@ -35,6 +35,7 @@ class User(Base):
     daily_change_threshold_pct = Column(Numeric(5, 2), default=5.0)  # Default 5% threshold
     transaction_notifications_enabled = Column(Boolean, default=True)  # Enable/disable transaction notifications
     daily_report_enabled = Column(Boolean, default=False)  # Enable/disable daily PDF report emails
+    ath_atl_notifications_enabled = Column(Boolean, default=True)  # Enable/disable ATH/ATL notifications
     
     # Language preference
     preferred_language = Column(String(5), default='en')  # User's preferred language (en, fr, etc.)
