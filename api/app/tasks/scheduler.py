@@ -414,6 +414,10 @@ async def check_daily_changes():
                     threshold = Decimal(str(user.daily_change_threshold_pct or 5.0))
                     logger.debug(f"Checking daily changes for user {user.id} (threshold: {threshold}%)")
                     
+                    # Track assets already notified for this user in this cycle
+                    # This prevents duplicate notifications when the same asset appears in multiple portfolios
+                    notified_assets = set()
+                    
                     # Get all user portfolios
                     portfolios = db.query(Portfolio).filter(Portfolio.user_id == user.id).all()
                     
@@ -442,6 +446,15 @@ async def check_daily_changes():
                                 daily_change = abs(position.daily_change_pct)
                                 
                                 if daily_change >= threshold:
+                                    # Skip if already notified for this asset in this cycle
+                                    if position.asset_id in notified_assets:
+                                        total_skipped += 1
+                                        logger.debug(
+                                            f"Skipping duplicate notification for {position.symbol} "
+                                            f"(user {user.id}, already notified in this cycle)"
+                                        )
+                                        continue
+                                    
                                     # Check if we already sent a notification this session
                                     if is_notification_sent_this_session(
                                         db, user.id, position.asset_id, session_id
@@ -466,6 +479,9 @@ async def check_daily_changes():
                                         quantity=position.quantity,
                                         session_id=session_id
                                     )
+                                    
+                                    # Mark this asset as notified for this user in this cycle
+                                    notified_assets.add(position.asset_id)
                                     
                                     total_notifications += 1
                                     logger.info(

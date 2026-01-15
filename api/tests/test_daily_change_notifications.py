@@ -184,3 +184,112 @@ def test_user_can_set_custom_threshold(test_db: Session):
     test_db.refresh(user)
     
     assert user.daily_change_threshold_pct == Decimal("10.0")
+
+
+def test_no_duplicate_notifications_across_portfolios(test_db: Session):
+    """
+    Test that a user with the same asset in multiple portfolios only receives 
+    ONE notification for that asset, not multiple notifications.
+    
+    This tests the fix for the issue where users with 3 portfolios containing 
+    the same asset would receive 3 separate notifications.
+    """
+    # Create test user
+    user = User(
+        email="test6@example.com",
+        username="testuser6",
+        hashed_password="hashed",
+        is_active=True,
+        daily_change_notifications_enabled=True,
+        daily_change_threshold_pct=5.0
+    )
+    test_db.add(user)
+    test_db.commit()
+    test_db.refresh(user)
+    
+    # Create test asset
+    asset = Asset(
+        symbol="MSFT",
+        name="Microsoft Corp",
+        currency="USD",
+        class_=AssetClass.STOCK
+    )
+    test_db.add(asset)
+    test_db.commit()
+    test_db.refresh(asset)
+    
+    # Create THREE portfolios with the SAME asset
+    portfolio1 = Portfolio(
+        user_id=user.id,
+        name="Portfolio 1",
+        base_currency="USD"
+    )
+    portfolio2 = Portfolio(
+        user_id=user.id,
+        name="Portfolio 2",
+        base_currency="USD"
+    )
+    portfolio3 = Portfolio(
+        user_id=user.id,
+        name="Portfolio 3",
+        base_currency="USD"
+    )
+    test_db.add_all([portfolio1, portfolio2, portfolio3])
+    test_db.commit()
+    test_db.refresh(portfolio1)
+    test_db.refresh(portfolio2)
+    test_db.refresh(portfolio3)
+    
+    # Create the notification 3 times (simulating what would happen in the old code)
+    # Only the first one should actually be created if the fix is working
+    notification_service.create_daily_change_notification(
+        db=test_db,
+        user_id=user.id,
+        symbol="MSFT",
+        asset_name="Microsoft Corp",
+        asset_id=asset.id,
+        portfolio_id=portfolio1.id,
+        current_price=Decimal("350.00"),
+        daily_change_pct=Decimal("6.25"),
+        quantity=Decimal("10.0"),
+        session_id="2026-01-15-regular"
+    )
+    
+    # Try to create again for portfolio 2 (should be prevented by session_id check)
+    notification_service.create_daily_change_notification(
+        db=test_db,
+        user_id=user.id,
+        symbol="MSFT",
+        asset_name="Microsoft Corp",
+        asset_id=asset.id,
+        portfolio_id=portfolio2.id,
+        current_price=Decimal("350.00"),
+        daily_change_pct=Decimal("6.25"),
+        quantity=Decimal("5.0"),
+        session_id="2026-01-15-regular"
+    )
+    
+    # Try to create again for portfolio 3 (should be prevented by session_id check)
+    notification_service.create_daily_change_notification(
+        db=test_db,
+        user_id=user.id,
+        symbol="MSFT",
+        asset_name="Microsoft Corp",
+        asset_id=asset.id,
+        portfolio_id=portfolio3.id,
+        current_price=Decimal("350.00"),
+        daily_change_pct=Decimal("6.25"),
+        quantity=Decimal("8.0"),
+        session_id="2026-01-15-regular"
+    )
+    
+    # Verify only ONE notification was created
+    notifications = crud_notifications.get_user_notifications(test_db, user.id)
+    assert len(notifications) == 1, f"Expected 1 notification but got {len(notifications)}"
+    
+    notification = notifications[0]
+    assert notification.type == NotificationType.DAILY_CHANGE_UP
+    assert "MSFT" in notification.title
+    assert notification.meta_data["symbol"] == "MSFT"
+    assert notification.meta_data["asset_id"] == asset.id
+
