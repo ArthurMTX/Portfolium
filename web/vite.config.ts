@@ -62,6 +62,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'favicon.svg'],
+      // Use injectManifest to use our custom service worker with push support
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectRegister: 'auto', // Auto-register the service worker
       manifest: {
         name: 'Portfolium - Investment Tracking',
         short_name: 'Portfolium',
@@ -84,27 +89,12 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\..*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
       },
       devOptions: {
-        enabled: false // Enable if you want to test PWA in dev mode
+        enabled: true, // Enable PWA in dev mode for testing push notifications
+        type: 'module',
       }
     })
   ],

@@ -72,6 +72,7 @@ class UserUpdate(BaseModel):
     transaction_notifications_enabled: Optional[bool] = None
     daily_report_enabled: Optional[bool] = None
     ath_atl_notifications_enabled: Optional[bool] = None
+    push_notifications_enabled: Optional[bool] = None
 
     @field_validator('email')
     @classmethod
@@ -175,6 +176,7 @@ class User(UserBase):
     transaction_notifications_enabled: bool = True
     daily_report_enabled: bool = False
     ath_atl_notifications_enabled: bool = True
+    push_notifications_enabled: bool = True
     totp_enabled: bool = False  # Whether 2FA is enabled
     
     model_config = ConfigDict(from_attributes=True)

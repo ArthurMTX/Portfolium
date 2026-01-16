@@ -87,6 +87,12 @@ class Settings(BaseSettings):
 
     # Notifications
     NOTIFICATIONS_RETENTION_DAYS: int = 30  # Delete notifications older than N days (0 disables cleanup)
+    
+    # Web Push Notifications (VAPID)
+    # Generate keys using: pywebpush --gen-vapid (or use the /admin/push/generate-vapid-keys endpoint)
+    VAPID_PUBLIC_KEY: str = ""  # Base64 encoded public key
+    VAPID_PRIVATE_KEY: str = ""  # Base64 encoded private key
+    VAPID_CLAIMS_EMAIL: str = "mailto:admin@example.com"  # Required for VAPID claims
 
     # Reverse-proxy / client IP handling
     # Comma-separated list (or list) of trusted proxy IPs/CIDRs.

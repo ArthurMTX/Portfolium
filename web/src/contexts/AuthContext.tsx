@@ -18,6 +18,7 @@ export interface User {
   transaction_notifications_enabled: boolean
   daily_report_enabled: boolean
   ath_atl_notifications_enabled: boolean
+  push_notifications_enabled: boolean
   totp_enabled: boolean
 }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell, Info } from 'lucide-react'
+import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell, Info, Smartphone } from 'lucide-react'
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import VersionInfo from '../components/VersionInfo'
 import { useTranslation } from 'react-i18next'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 type SettingsTab = 'general' | 'notifications' | 'validation' | 'danger' | 'about';
 
@@ -37,6 +38,11 @@ export default function Settings() {
   const [dailyReportsEnabled, setDailyReportsEnabled] = useState(false)
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Push notification state
+  const pushNotifications = usePushNotifications()
+  const [pushTestSending, setPushTestSending] = useState(false)
+  const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const handleAutoRefreshSettingsChange = (interval: string, enabled: boolean) => {
     setAutoRefreshInterval(interval)
@@ -417,6 +423,135 @@ export default function Settings() {
                   <strong>{t('settings.whatsIncluded')}:</strong> {t('settings.enableDailyPortfolioReportsNote')}
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Push Notifications */}
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+              <Smartphone size={20} className="text-pink-600 dark:text-pink-400" />
+              {t('settings.pushNotifications')}
+            </h2>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              {t('settings.pushNotificationsDescription')}
+            </p>
+
+            <div className="space-y-4">
+              {!pushNotifications.isSupported ? (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    {t('settings.pushNotificationsNotSupported')}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                        {t('settings.pushNotificationStatus')}
+                      </p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                        {pushNotifications.isSubscribed 
+                          ? t('settings.pushNotificationsActive')
+                          : pushNotifications.permission === 'denied'
+                            ? t('settings.pushNotificationsDenied')
+                            : t('settings.pushNotificationsInactive')
+                        }
+                      </p>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      pushNotifications.isSubscribed
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                        : pushNotifications.permission === 'denied'
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}>
+                      {pushNotifications.isSubscribed 
+                        ? t('settings.enabled')
+                        : pushNotifications.permission === 'denied'
+                          ? t('settings.blocked')
+                          : t('settings.disabled')
+                      }
+                    </div>
+                  </div>
+
+                  {pushNotifications.error && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                      <p className="text-sm text-red-800 dark:text-red-200">{pushNotifications.error}</p>
+                    </div>
+                  )}
+
+                  {pushMessage && (
+                    <div className={`p-3 rounded-lg ${
+                      pushMessage.type === 'error'
+                        ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+                        : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+                    }`}>
+                      <p className="text-sm">{pushMessage.text}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    {!pushNotifications.isSubscribed ? (
+                      <button
+                        onClick={async () => {
+                          setPushMessage(null)
+                          const success = await pushNotifications.subscribe()
+                          if (success) {
+                            setPushMessage({ type: 'success', text: t('settings.pushNotificationsEnabled') })
+                          } else if (pushNotifications.permission === 'denied') {
+                            setPushMessage({ type: 'error', text: t('settings.pushNotificationsDeniedMessage') })
+                          }
+                          setTimeout(() => setPushMessage(null), 4000)
+                        }}
+                        disabled={pushNotifications.isLoading || pushNotifications.permission === 'denied'}
+                        className="btn-primary"
+                      >
+                        {pushNotifications.isLoading ? t('common.loading') : t('settings.enablePushNotifications')}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={async () => {
+                            setPushMessage(null)
+                            await pushNotifications.unsubscribe()
+                            setPushMessage({ type: 'success', text: t('settings.pushNotificationsDisabled') })
+                            setTimeout(() => setPushMessage(null), 4000)
+                          }}
+                          disabled={pushNotifications.isLoading}
+                          className="btn-secondary"
+                        >
+                          {pushNotifications.isLoading ? t('common.loading') : t('settings.disablePushNotifications')}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setPushTestSending(true)
+                            setPushMessage(null)
+                            const success = await pushNotifications.sendTestNotification()
+                            setPushTestSending(false)
+                            if (success) {
+                              setPushMessage({ type: 'success', text: t('settings.testNotificationSent') })
+                            } else {
+                              setPushMessage({ type: 'error', text: t('settings.testNotificationFailed') })
+                            }
+                            setTimeout(() => setPushMessage(null), 4000)
+                          }}
+                          disabled={pushTestSending || pushNotifications.isLoading}
+                          className="btn-secondary"
+                        >
+                          {pushTestSending ? t('common.sending') : t('settings.sendTestNotification')}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-800 dark:text-blue-200">
+                      <strong>{t('settings.note')}:</strong> {t('settings.pushNotificationsNote')}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

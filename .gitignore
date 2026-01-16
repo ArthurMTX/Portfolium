@@ -51,3 +51,6 @@ api/app/services/pricing.py
 
 # PowerShell
 dev.ps1
+
+# Development distribution files
+dev-dist/

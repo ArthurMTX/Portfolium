@@ -11,6 +11,7 @@ from app.models.notification import Notification
 from app.models.dashboard import DashboardLayout
 from app.models.goal import PortfolioGoal
 from app.models.pending_dividend import PendingDividend, PendingDividendStatus
+from app.models.push_subscription import PushSubscription
 
 __all__ = [
     # Enums
@@ -32,4 +33,5 @@ __all__ = [
     "DashboardLayout",
     "PortfolioGoal",
     "PendingDividend",
+    "PushSubscription",
 ]

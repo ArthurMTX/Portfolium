@@ -12,6 +12,51 @@ from app.crud import notifications as crud_notifications
 logger = logging.getLogger(__name__)
 
 
+def _send_push_for_notification(
+    db: Session,
+    user_id: int,
+    notification_type: NotificationType,
+    title: str,
+    message: str,
+    symbol: Optional[str] = None
+) -> None:
+    """
+    Send a push notification alongside an in-app notification.
+    
+    Args:
+        db: Database session
+        user_id: User ID to notify
+        notification_type: Type of notification
+        title: Notification title
+        message: Notification body
+        symbol: Optional asset symbol (for grouping)
+    """
+    try:
+        from app.services.push_service import send_push_to_user, create_notification_payload, is_push_configured
+        
+        if not is_push_configured():
+            return
+        
+        # Create push payload from notification data
+        payload = create_notification_payload(
+            notification_type=notification_type.value,
+            title=title,
+            message=message,
+            asset_symbol=symbol,
+            url="/notifications"
+        )
+        
+        # Send push notification (non-blocking)
+        result = send_push_to_user(db, user_id, payload)
+        
+        if result.get("sent", 0) > 0:
+            logger.debug(f"Push notification sent to user {user_id}: {result}")
+    
+    except Exception as e:
+        # Don't fail the main notification if push fails
+        logger.warning(f"Failed to send push notification to user {user_id}: {e}")
+
+
 class NotificationService:
     """Service for creating and managing notifications"""
     
@@ -200,6 +245,16 @@ class NotificationService:
                 metadata=metadata
             )
             
+            # Also send push notification
+            _send_push_for_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.PRICE_ALERT,
+                title=title,
+                message=message,
+                symbol=symbol
+            )
+            
             logger.info(
                 f"Created price alert notification for user {user_id}, "
                 f"{symbol} at ${current_price} (target: ${target_price})"
@@ -234,6 +289,15 @@ class NotificationService:
                 title=title,
                 message=message,
                 metadata=metadata or {}
+            )
+            
+            # Also send push notification
+            _send_push_for_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.SYSTEM,
+                title=title,
+                message=message
             )
             
             logger.info(f"Created system notification for user {user_id}: {title}")
@@ -317,6 +381,16 @@ class NotificationService:
                 title=title,
                 message=message,
                 metadata=metadata
+            )
+            
+            # Also send push notification
+            _send_push_for_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                symbol=symbol
             )
             
             logger.info(
@@ -461,6 +535,16 @@ class NotificationService:
                 metadata=metadata
             )
             
+            # Also send push notification
+            _send_push_for_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.ATH,
+                title=title,
+                message=message,
+                symbol=symbol
+            )
+            
             logger.info(
                 f"Created ATH notification for user {user_id}: {symbol} at ${current_price}"
             )
@@ -521,6 +605,16 @@ class NotificationService:
                 title=title,
                 message=message,
                 metadata=metadata
+            )
+            
+            # Also send push notification
+            _send_push_for_notification(
+                db=db,
+                user_id=user_id,
+                notification_type=NotificationType.ATL,
+                title=title,
+                message=message,
+                symbol=symbol
             )
             
             logger.info(
