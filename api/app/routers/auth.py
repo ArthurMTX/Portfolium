@@ -229,14 +229,17 @@ async def update_current_user(
     if user_update.daily_change_notifications_enabled is not None:
         current_user.daily_change_notifications_enabled = user_update.daily_change_notifications_enabled
     
-    if user_update.daily_change_threshold_pct is not None:
-        current_user.daily_change_threshold_pct = user_update.daily_change_threshold_pct
-    
     if user_update.transaction_notifications_enabled is not None:
         current_user.transaction_notifications_enabled = user_update.transaction_notifications_enabled
     
     if user_update.daily_report_enabled is not None:
         current_user.daily_report_enabled = user_update.daily_report_enabled
+    
+    if user_update.ath_atl_notifications_enabled is not None:
+        current_user.ath_atl_notifications_enabled = user_update.ath_atl_notifications_enabled
+    
+    if user_update.push_notifications_enabled is not None:
+        current_user.push_notifications_enabled = user_update.push_notifications_enabled
 
     # Persist changes
     db.commit()
