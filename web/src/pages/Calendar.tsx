@@ -665,7 +665,7 @@ export default function Calendar() {
                         <img
                           src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
                           alt={earning.symbol}
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-white border border-neutral-100 dark:border-neutral-700 shadow-sm shrink-0"
+                          className="w-8 h-8 sm:w-10 sm:h-10 shadow-sm shrink-0"
                           onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
                         />
                         
