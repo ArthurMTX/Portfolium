@@ -737,13 +737,16 @@ class MetricsService:
                 assets_dict[asset_id] = asset
         
         # Fetch all prices for all assets in the date range
+        # IMPORTANT: Fetch from 7 days BEFORE start_date to ensure we have fallback prices
+        # for assets that may not have price data on exactly start_date (e.g., weekends, holidays)
+        price_fetch_start = start_date - timedelta(days=7)
         asset_prices_dict: Dict[int, Dict[date, Decimal]] = defaultdict(dict)
         
         for asset_id in asset_ids:
             prices = crud_prices.get_prices(
                 self.db,
                 asset_id,
-                date_from=datetime.combine(start_date, datetime.min.time()),
+                date_from=datetime.combine(price_fetch_start, datetime.min.time()),
                 date_to=datetime.combine(end_date, datetime.max.time()),
                 limit=10000
             )
@@ -777,9 +780,12 @@ class MetricsService:
                 asset_prices_dict[asset_id][price_date] = price_value
         
         # Build a set of all unique dates that have at least one price
+        # Filter to only include dates from start_date onwards (we fetched extra days for fallback)
         all_dates = set()
         for asset_id in asset_ids:
-            all_dates.update(asset_prices_dict[asset_id].keys())
+            for price_date in asset_prices_dict[asset_id].keys():
+                if price_date >= start_date:
+                    all_dates.add(price_date)
         
         # Sort dates
         sorted_dates = sorted(all_dates)
@@ -881,14 +887,21 @@ class MetricsService:
                     continue
                 
                 # Get price for this date, or the most recent price before it
+                # If no historical price exists (new asset), use the first available future price
                 price = None
                 if current_date in asset_prices_dict[asset_id]:
                     price = asset_prices_dict[asset_id][current_date]
                 else:
-                    # Find the most recent price before current_date
-                    available_dates = sorted([d for d in asset_prices_dict[asset_id].keys() if d <= current_date])
-                    if available_dates:
-                        price = asset_prices_dict[asset_id][available_dates[-1]]
+                    # First, try to find the most recent price BEFORE current_date
+                    available_dates_before = sorted([d for d in asset_prices_dict[asset_id].keys() if d <= current_date])
+                    if available_dates_before:
+                        price = asset_prices_dict[asset_id][available_dates_before[-1]]
+                    else:
+                        # No historical price - use the FIRST available future price
+                        # This handles newly purchased assets that don't have price history
+                        available_dates_after = sorted([d for d in asset_prices_dict[asset_id].keys() if d > current_date])
+                        if available_dates_after:
+                            price = asset_prices_dict[asset_id][available_dates_after[0]]
                 
                 if price is not None:
                     # Calculate the adjustment factor: product of all splits AFTER current_date
@@ -908,6 +921,15 @@ class MetricsService:
                     # Log for Sept 1 debugging
                     if current_date.month == 9 and current_date.day == 1:
                         daily_breakdown.append(f"Asset {asset_id}: {float(quantity):.4f} × {float(adjustment_factor):.4f} × €{float(price):.2f} = €{float(value):.2f}")
+                else:
+                    # No price available for this asset - log warning on first date only to avoid spam
+                    if current_date == sorted_dates[0]:
+                        asset = assets_dict.get(asset_id)
+                        asset_symbol = asset.symbol if asset else f"ID:{asset_id}"
+                        logger.warning(
+                            f"Portfolio history: No price for {asset_symbol} on {current_date}. "
+                            f"Holdings: {float(quantity):.4f} shares will show as €0 value."
+                        )
             
             # Log Sept 1 details
             if current_date.month == 9 and current_date.day == 1 and total_value < 6000:

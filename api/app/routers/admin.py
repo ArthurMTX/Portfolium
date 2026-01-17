@@ -243,6 +243,28 @@ def trigger_refresh_prices(
         raise PriceRefreshTaskError(reason=str(e))
 
 
+@router.post("/trigger/fill-price-gaps")
+async def trigger_fill_price_gaps(
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Manually trigger the price gap detection and auto-fill task
+    
+    This scans all assets for gaps in price history and backfills
+    missing data from yfinance. Useful after adding new assets or
+    when gaps are detected in charts.
+    """
+    try:
+        from app.tasks.scheduler import detect_and_fill_price_gaps
+        await detect_and_fill_price_gaps()
+        return {
+            "success": True,
+            "message": "Price gap detection and fill triggered successfully"
+        }
+    except Exception as e:
+        raise PriceRefreshTaskError(reason=f"Gap fill failed: {str(e)}")
+
+
 @router.get("/logo-cache/stats")
 def get_logo_cache_stats(
     db: Session = Depends(get_db),

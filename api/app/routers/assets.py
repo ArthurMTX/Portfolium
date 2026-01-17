@@ -1377,23 +1377,26 @@ def get_asset_price_history(
         raise AssetNotFoundError(id=asset_id)
     
     # Determine date range based on period
+    # Use end of today to include all prices from today
     end_date = datetime.utcnow()
     
     period_upper = period.upper()
     
+    # Add 1 extra day buffer and normalize to midnight to catch timezone edge cases
+    # (e.g., market close at 4pm EST = 21:00 UTC might store as previous day)
     if period_upper in ["1W", "WEEKLY"]:
-        start_date = end_date - timedelta(days=7)
+        start_date = (end_date - timedelta(days=8)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period_upper in ["1M", "MONTHLY"]:
-        start_date = end_date - timedelta(days=30)
+        start_date = (end_date - timedelta(days=31)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period_upper == "3M":
-        start_date = end_date - timedelta(days=90)
+        start_date = (end_date - timedelta(days=91)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period_upper == "6M":
-        start_date = end_date - timedelta(days=180)
+        start_date = (end_date - timedelta(days=181)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period_upper == "YTD":
-        # Year to date - from January 1st of current year
+        # Year to date - from January 1st of current year (already at midnight)
         start_date = datetime(end_date.year, 1, 1)
     elif period_upper in ["1Y", "YEARLY"]:
-        start_date = end_date - timedelta(days=365)
+        start_date = (end_date - timedelta(days=366)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period_upper in ["ALL", "ALL_TIME"]:
         # Use first transaction date or created date
         if asset.first_transaction_date:
@@ -1465,16 +1468,18 @@ def get_asset_price_health(asset_id: int, db: Session = Depends(get_db)):
     Returns diagnostic information about price data coverage:
     - Total price records
     - Date range of available data
-    - Data gaps (missing trading days)
+    - Data gaps (missing trading days based on actual exchange calendar)
     - Data quality metrics
     - First transaction date
     - Expected vs actual data points
     
     This helps debug issues with price history and identify data quality problems.
+    Uses exchange calendars to properly exclude holidays for the asset's exchange.
     """
     from datetime import datetime, timedelta
     from app.crud import prices as crud_prices
     from app.models import Transaction
+    from app.utils.exchange_calendars import calculate_coverage, get_exchange_code
     
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)
@@ -1509,36 +1514,25 @@ def get_asset_price_health(asset_id: int, db: Session = Depends(get_db)):
     oldest_price = prices_sorted[0]
     newest_price = prices_sorted[-1]
     
-    # Calculate expected trading days (approximate - excludes weekends but not holidays)
     start_date = oldest_price.asof
     end_date = newest_price.asof
     
-    # Count expected trading days (Monday-Friday)
-    expected_days = 0
-    current_date = start_date
-    while current_date <= end_date:
-        # 0 = Monday, 6 = Sunday
-        if current_date.weekday() < 5:
-            expected_days += 1
-        current_date += timedelta(days=1)
-    
-    # Find gaps (missing trading days with no price data)
-    gaps = []
+    # Get all price dates
     price_dates = set(p.asof.date() for p in all_prices)
     
-    current_date = start_date.date()
-    end_date_only = end_date.date()
+    # Calculate coverage using exchange calendar (properly excludes holidays)
+    coverage_info = calculate_coverage(
+        symbol=asset.symbol,
+        start_date=start_date.date(),
+        end_date=end_date.date(),
+        price_dates=price_dates
+    )
     
-    while current_date <= end_date_only:
-        # Check if it's a weekday and we don't have data
-        if current_date.weekday() < 5 and current_date not in price_dates:
-            gaps.append(current_date.isoformat())
-        current_date += timedelta(days=1)
-    
-    # Calculate coverage percentage
-    # Only count weekday prices (exclude weekend data from actual count)
-    actual_days = len([d for d in price_dates if d.weekday() < 5])
-    coverage_pct = (actual_days / expected_days * 100) if expected_days > 0 else 0
+    expected_days = coverage_info["expected_trading_days"]
+    actual_days = coverage_info["actual_data_points"]
+    coverage_pct = coverage_info["coverage_pct"]
+    gaps = [d.isoformat() for d in coverage_info["missing_days"]]
+    exchange_code = coverage_info["exchange"]
     
     # Count by source
     source_counts = {}
@@ -1577,6 +1571,7 @@ def get_asset_price_health(asset_id: int, db: Session = Depends(get_db)):
             "end": newest_price.asof.isoformat(),
             "days": (end_date - start_date).days
         },
+        "exchange": exchange_code,
         "coverage": {
             "expected_trading_days": expected_days,
             "actual_data_points": actual_days,
@@ -1614,6 +1609,53 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
         recommendations.append("No first_transaction_date set. Historical backfill may not work correctly.")
     
     return recommendations
+
+
+@router.post("/{asset_id}/backfill-prices")
+def backfill_asset_prices(
+    asset_id: int,
+    days: int = 365,
+    db: Session = Depends(get_db)
+):
+    """
+    Backfill historical prices for an asset from yfinance
+    
+    - **asset_id**: The asset to backfill prices for
+    - **days**: Number of days to backfill (default 365)
+    
+    This fetches historical close prices from yfinance and saves them to the database.
+    Useful for filling gaps in price history.
+    """
+    from datetime import datetime, timedelta
+    from app.services.pricing import PricingService
+    
+    # Verify asset exists
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise AssetNotFoundError(id=asset_id)
+    
+    # Calculate date range
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    
+    # If asset has first_transaction_date, use that as the start if it's more recent
+    if asset.first_transaction_date:
+        first_tx_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
+        if first_tx_date > start_date:
+            start_date = first_tx_date
+    
+    # Run backfill
+    pricing_service = PricingService(db)
+    count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+    
+    return {
+        "asset_id": asset.id,
+        "symbol": asset.symbol,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "prices_added": count,
+        "message": f"Successfully backfilled {count} historical prices for {asset.symbol}"
+    }
 
 
 @router.get("/{asset_id}/yfinance")

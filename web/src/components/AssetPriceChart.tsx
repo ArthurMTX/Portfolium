@@ -623,8 +623,8 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
         <div className="mt-4 space-y-3">
           <div className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
             {t('assetPriceChart.dataFrom', {
-              date1: new Date(history.start_date).toLocaleDateString(currentLocale),
-              date2: new Date(history.end_date).toLocaleDateString(currentLocale)
+              date1: new Date(history.prices[0].date).toLocaleDateString(currentLocale),
+              date2: new Date(history.prices[history.prices.length - 1].date).toLocaleDateString(currentLocale)
             })}
           </div>
           {(transactions.length > 0 || splits.length > 0) && (

@@ -654,6 +654,137 @@ async def fetch_daily_closing_prices():
     await loop.run_in_executor(None, _fetch_closing_prices)
 
 
+async def detect_and_fill_price_gaps():
+    """
+    Background job to detect gaps in price history and automatically fill them.
+    
+    This scans all active assets for gaps in their price history (missing days
+    that should have prices based on their first transaction date) and backfills
+    the missing data from yfinance.
+    
+    Runs weekly to catch and fix any data gaps.
+    Uses exchange calendars to properly account for market holidays.
+    """
+    logger.info("Starting price gap detection and auto-fill...")
+    
+    def _fill_gaps():
+        db = SessionLocal()
+        try:
+            from app.models import Asset, Transaction
+            from app.crud import prices as crud_prices
+            from app.utils.exchange_calendars import calculate_coverage
+            from sqlalchemy import distinct, func
+            from datetime import datetime, timedelta
+            from collections import defaultdict
+            
+            # Get all unique assets that have transactions
+            asset_ids = db.query(Transaction.asset_id.distinct()).all()
+            asset_ids = [aid[0] for aid in asset_ids]
+            
+            assets_checked = 0
+            assets_with_gaps = 0
+            total_prices_added = 0
+            errors = []
+            
+            pricing_service = PricingService(db)
+            
+            for asset_id in asset_ids:
+                try:
+                    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+                    if not asset:
+                        continue
+                    
+                    assets_checked += 1
+                    
+                    # Determine date range to check
+                    # Start from first transaction date or 1 year ago, whichever is more recent
+                    end_date = datetime.utcnow()
+                    one_year_ago = end_date - timedelta(days=365)
+                    
+                    if asset.first_transaction_date:
+                        start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
+                        # Don't go further back than 1 year for performance
+                        if start_date < one_year_ago:
+                            start_date = one_year_ago
+                    else:
+                        start_date = one_year_ago
+                    
+                    # Get all prices in the date range
+                    prices = crud_prices.get_prices(
+                        db,
+                        asset_id,
+                        date_from=start_date,
+                        date_to=end_date,
+                        limit=10000
+                    )
+                    
+                    # Group prices by date
+                    price_dates = set()
+                    for price in prices:
+                        price_dates.add(price.asof.date())
+                    
+                    # Calculate expected trading days using exchange calendar
+                    # This properly excludes weekends AND holidays for the asset's exchange
+                    coverage_info = calculate_coverage(
+                        symbol=asset.symbol,
+                        start_date=start_date.date(),
+                        end_date=end_date.date(),
+                        price_dates=price_dates
+                    )
+                    
+                    expected_days = coverage_info["expected_trading_days"]
+                    actual_days = coverage_info["actual_data_points"]
+                    coverage = coverage_info["coverage_pct"] / 100.0  # Convert to decimal
+                    
+                    # If we're missing more than 20% of expected data, try to backfill
+                    if coverage < 0.80:
+                        # Significant gap detected - try to fill it
+                        logger.info(
+                            f"Gap detected for {asset.symbol}: {actual_days}/{expected_days} days "
+                            f"({coverage*100:.1f}% coverage, exchange: {coverage_info['exchange']}). Attempting backfill..."
+                        )
+                        
+                        try:
+                            count = pricing_service.ensure_historical_prices(
+                                asset,
+                                start_date,
+                                end_date,
+                                interval='1d'
+                            )
+                            
+                            if count > 0:
+                                assets_with_gaps += 1
+                                total_prices_added += count
+                                logger.info(f"Backfilled {count} prices for {asset.symbol}")
+                            
+                        except Exception as e:
+                            errors.append(f"{asset.symbol}: {str(e)}")
+                            logger.warning(f"Failed to backfill {asset.symbol}: {e}")
+                    
+                except Exception as e:
+                    errors.append(f"Asset {asset_id}: {str(e)}")
+                    logger.error(f"Error checking asset {asset_id}: {e}")
+            
+            logger.info(
+                f"Price gap detection completed. "
+                f"Checked: {assets_checked}, Gaps found: {assets_with_gaps}, "
+                f"Prices added: {total_prices_added}, Errors: {len(errors)}"
+            )
+            
+            if errors:
+                for error in errors[:5]:  # Log first 5 errors
+                    logger.error(f"Gap fill error: {error}")
+            
+        except Exception as e:
+            logger.error(f"Price gap detection failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    # Run in thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _fill_gaps)
+
+
 async def update_all_time_highs():
     """
     Background job to update all-time high prices from yfinance
@@ -1197,6 +1328,18 @@ def start_scheduler():
         coalesce=True
     )
     
+    # Schedule price gap detection and auto-fill weekly (Sunday at 3:00 AM UTC)
+    # This scans all assets for missing price history and backfills from yfinance
+    scheduler.add_job(
+        detect_and_fill_price_gaps,
+        trigger=CronTrigger(hour=3, minute=0, day_of_week='sun', timezone='UTC'),
+        id="detect_and_fill_price_gaps",
+        name="Detect and fill price data gaps",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     scheduler.start()
     daily_reports_msg = (
         "daily reports at 4:00 PM ET (weekdays only), "
@@ -1213,7 +1356,8 @@ def start_scheduler():
         + "ATH update at 5:30 PM ET (weekdays only), "
         + "dividend fetch at 6:00 AM UTC daily, "
         + "earnings cache refresh at 6:30 AM UTC daily, "
-        + "expired dividends cleanup Sundays at 2:00 AM UTC. "
+        + "expired dividends cleanup Sundays at 2:00 AM UTC, "
+        + "price gap detection Sundays at 3:00 AM UTC. "
         + "All jobs run asynchronously to prevent blocking."
     )
 
