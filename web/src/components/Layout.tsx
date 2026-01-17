@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText, Folder } from 'lucide-react'
+import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText, Folder, Calendar } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
@@ -109,6 +109,18 @@ export default function Layout() {
             >
               <LineChart size={16} />
               <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.charts')}</span>
+            </Link>
+            <Link
+              to="/calendar"
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
+                isActive('/calendar')
+                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+              title={t('navigation.calendar')}
+            >
+              <Calendar size={16} />
+              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.calendar')}</span>
             </Link>
             <Link
               to="/insights"
@@ -348,6 +360,17 @@ export default function Layout() {
               >
                 <LineChart size={20} />
                 <span className="font-medium">{t('navigation.charts')}</span>
+              </Link>
+              <Link
+                to="/calendar"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/calendar')
+                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Calendar size={20} />
+                <span className="font-medium">{t('navigation.calendar')}</span>
               </Link>
               <Link
                 to="/insights"

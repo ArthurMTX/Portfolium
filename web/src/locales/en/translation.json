@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "portfolios": "Portfolios",
     "charts": "Charts",
+    "calendar": "Calendar",
     "insights": "Insights",
     "transactions": "Transactions",
     "assets": "Assets",
@@ -839,6 +840,47 @@
       "1Y": "1Y",
       "ALL": "ALL"
     }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "subtitle": "Track your daily performance and upcoming earnings",
+    "today": "Today",
+    "tabs": {
+      "overview": "Calendar Overview",
+      "earnings": "Earnings Calendar"
+    },
+    "stats": {
+      "positiveDays": "Positive Days",
+      "negativeDays": "Negative Days",
+      "monthChange": "Month Change",
+      "upcomingEarnings": "Upcoming Earnings"
+    },
+    "days": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "legend": {
+      "positive": "Positive day",
+      "negative": "Negative day",
+      "earnings": "Upcoming earnings"
+    },
+    "earnings": {
+      "upcoming": "Upcoming Earnings",
+      "past": "Past Earnings",
+      "noUpcoming": "No upcoming earnings for your held stocks",
+      "noPast": "No past earnings data available",
+      "showingRecent": "Showing 10 most recent earnings",
+      "inPortfolios": "In",
+      "epsEstimate": "EPS Est",
+      "revEstimate": "Rev Est"
+    },
+    "refreshEarnings": "Refresh Earnings",
+    "refreshEarningsTooltip": "Fetch latest earnings data from market"
   },
   "insights": {
     "title": "Insights",
@@ -1986,6 +2028,10 @@
     "charts": {
       "title": "No Data to Visualize",
       "message": "Create a portfolio and add transactions to visualize your investment performance over time."
+    },
+    "calendar": {
+      "title": "No Calendar Data",
+      "message": "Create a portfolio and add transactions to track your daily performance and see upcoming earnings."
     },
     "createButton": "Create Your First Portfolio",
     "gettingStartedLabel": "Getting Started:",

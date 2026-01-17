@@ -777,6 +777,154 @@ async def expire_pending_dividends():
     await loop.run_in_executor(None, _expire_dividends)
 
 
+async def refresh_earnings_cache_job():
+    """
+    Background job to refresh earnings cache for all active stocks.
+    
+    This runs daily to fetch earnings dates from yfinance for all stocks
+    that users currently hold. The cached data is used by the calendar
+    feature to avoid slow API calls on every request.
+    """
+    logger.info("Starting earnings cache refresh...")
+    
+    def _refresh_earnings():
+        db = SessionLocal()
+        try:
+            from sqlalchemy import distinct
+            from app.models import Asset, Transaction, EarningsCache
+            import yfinance as yf
+            from datetime import datetime
+            
+            # Get all unique STOCK symbols that have transactions
+            # Filter to only stocks - exclude ETFs, crypto, etc.
+            active_stocks = (
+                db.query(distinct(Asset.symbol), Asset.id)
+                .join(Asset.transactions)
+                .filter(
+                    Asset.asset_type.in_(['EQUITY', 'stock', 'Stock', 'STOCK']),
+                )
+                .all()
+            )
+            
+            if not active_stocks:
+                logger.info("No active stocks to fetch earnings for")
+                return
+            
+            symbols = [(s[0], s[1]) for s in active_stocks]
+            logger.info(f"Fetching earnings for {len(symbols)} active stocks")
+            
+            cached_count = 0
+            failed_count = 0
+            
+            for symbol, asset_id in symbols:
+                try:
+                    ticker = yf.Ticker(symbol)
+                    calendar = ticker.calendar
+                    
+                    if calendar is None:
+                        continue
+                    
+                    # Handle different calendar formats
+                    if hasattr(calendar, 'to_dict'):
+                        calendar_data = calendar.to_dict()
+                    elif isinstance(calendar, dict):
+                        calendar_data = calendar
+                    else:
+                        continue
+                    
+                    # Parse earnings date
+                    earnings_date = None
+                    earnings_dates_raw = calendar_data.get('Earnings Date', [])
+                    
+                    if earnings_dates_raw:
+                        if isinstance(earnings_dates_raw, dict):
+                            raw_date = list(earnings_dates_raw.values())[0] if earnings_dates_raw else None
+                        elif isinstance(earnings_dates_raw, list) and len(earnings_dates_raw) > 0:
+                            raw_date = earnings_dates_raw[0]
+                        else:
+                            raw_date = earnings_dates_raw
+                            
+                        if raw_date:
+                            # Check if it's already a date object
+                            from datetime import date as date_type
+                            if isinstance(raw_date, date_type):
+                                earnings_date = raw_date
+                            elif hasattr(raw_date, 'date'):
+                                earnings_date = raw_date.date()
+                            elif isinstance(raw_date, str):
+                                try:
+                                    from datetime import datetime as dt
+                                    earnings_date = dt.fromisoformat(raw_date.replace('Z', '+00:00')).date()
+                                except:
+                                    pass
+                    
+                    if not earnings_date:
+                        continue
+                    
+                    # Check if we already have this entry
+                    existing = db.query(EarningsCache).filter(
+                        EarningsCache.symbol == symbol,
+                        EarningsCache.earnings_date == earnings_date
+                    ).first()
+                    
+                    # Extract estimates
+                    eps_estimate = calendar_data.get('Earnings Average') or calendar_data.get('EPS Estimate')
+                    if isinstance(eps_estimate, dict):
+                        eps_estimate = list(eps_estimate.values())[0] if eps_estimate else None
+                        
+                    revenue_estimate = calendar_data.get('Revenue Average') or calendar_data.get('Revenue Estimate')
+                    if isinstance(revenue_estimate, dict):
+                        revenue_estimate = list(revenue_estimate.values())[0] if revenue_estimate else None
+                    
+                    # Serialize raw_data to be JSON safe
+                    def serialize_val(val):
+                        if val is None:
+                            return None
+                        if hasattr(val, 'isoformat'):
+                            return val.isoformat()
+                        if hasattr(val, 'item'):
+                            return val.item()
+                        return val
+                    
+                    raw_data = {k: serialize_val(v) for k, v in calendar_data.items()}
+                    
+                    if existing:
+                        existing.eps_estimate = eps_estimate
+                        existing.revenue_estimate = revenue_estimate
+                        existing.raw_data = raw_data
+                        existing.fetched_at = datetime.utcnow()
+                        existing.updated_at = datetime.utcnow()
+                    else:
+                        new_cache = EarningsCache(
+                            symbol=symbol,
+                            earnings_date=earnings_date,
+                            eps_estimate=eps_estimate,
+                            revenue_estimate=revenue_estimate,
+                            raw_data=raw_data,
+                            fetched_at=datetime.utcnow(),
+                        )
+                        db.add(new_cache)
+                    
+                    db.commit()
+                    cached_count += 1
+                    
+                except Exception as e:
+                    logger.warning(f"Error caching earnings for {symbol}: {e}")
+                    failed_count += 1
+                    db.rollback()
+                    continue
+            
+            logger.info(f"Earnings cache refresh complete: {cached_count} cached, {failed_count} failed")
+            
+        except Exception as e:
+            logger.error(f"Earnings cache refresh failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _refresh_earnings)
+
+
 async def send_daily_reports():
     """
     Background job to generate and send daily portfolio reports
@@ -1026,6 +1174,18 @@ def start_scheduler():
         coalesce=True
     )
     
+    # Schedule earnings cache refresh daily at 6:30 AM UTC
+    # This fetches earnings dates for all active stocks
+    scheduler.add_job(
+        refresh_earnings_cache_job,
+        trigger=CronTrigger(hour=6, minute=30, timezone='UTC'),
+        id="refresh_earnings_cache",
+        name="Refresh earnings calendar cache",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    
     # Schedule expired pending dividends cleanup weekly (Sunday at 2:00 AM UTC)
     scheduler.add_job(
         expire_pending_dividends,
@@ -1052,6 +1212,7 @@ def start_scheduler():
         + "daily closing prices at 5:00 PM ET (weekdays only), "
         + "ATH update at 5:30 PM ET (weekdays only), "
         + "dividend fetch at 6:00 AM UTC daily, "
+        + "earnings cache refresh at 6:30 AM UTC daily, "
         + "expired dividends cleanup Sundays at 2:00 AM UTC. "
         + "All jobs run asynchronously to prevent blocking."
     )

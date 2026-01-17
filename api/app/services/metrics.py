@@ -804,12 +804,16 @@ class MetricsService:
         holdings: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))
         cost_basis: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))  # Track cost basis per asset
         total_invested = Decimal(0)  # Running total of net cash invested (includes sold positions)
+        daily_cash_flows: Dict[date, Decimal] = defaultdict(lambda: Decimal(0))  # Track cash flows per day
         history: List[PortfolioHistoryPoint] = []
         tx_idx = 0
         
         logger.info("Portfolio history: Hybrid approach with split compensation")
         
         for current_date in sorted_dates:
+            # Reset daily cash flow for this date
+            day_cash_flow = Decimal(0)
+            
             # Process ALL transactions including SPLITs up to current_date
             while tx_idx < len(transactions) and transactions[tx_idx].tx_date <= current_date:
                 tx = transactions[tx_idx]
@@ -820,7 +824,11 @@ class MetricsService:
                     cost_basis[tx.asset_id] += (tx.quantity * tx.price) + tx.fees
                     # Add cost to invested amount (quantity * price + fees) - but not for conversions (they're swaps)
                     if tx.type != TransactionType.CONVERSION_IN:
-                        total_invested += (tx.quantity * tx.price) + tx.fees
+                        tx_cost = (tx.quantity * tx.price) + tx.fees
+                        total_invested += tx_cost
+                        # Track as cash inflow (money spent = positive cash flow)
+                        if tx.tx_date == current_date:
+                            day_cash_flow += tx_cost
                 elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                     # Calculate the proportion of position being sold
                     if holdings[tx.asset_id] > 0:
@@ -841,6 +849,11 @@ class MetricsService:
                         # Subtract the cost basis (not proceeds) from invested amount - but not for conversions
                         if tx.type != TransactionType.CONVERSION_OUT:
                             total_invested -= cost_removed
+                            # Track as cash outflow (money received = negative cash flow, reduces portfolio value contribution)
+                            # We use sale proceeds (qty * price - fees), not cost basis
+                            if tx.tx_date == current_date:
+                                sale_proceeds = (actual_quantity_sold * tx.price) - tx.fees
+                                day_cash_flow -= sale_proceeds
                         holdings[tx.asset_id] -= actual_quantity_sold
                     else:
                         # Trying to sell with no holdings - skip this transaction
@@ -855,6 +868,9 @@ class MetricsService:
                     holdings[tx.asset_id] *= ratio
                 
                 tx_idx += 1
+            
+            # Store daily cash flow
+            daily_cash_flows[current_date] = day_cash_flow
             
             # Calculate value, compensating for Yahoo's retroactive adjustments
             total_value = Decimal(0)
@@ -935,7 +951,8 @@ class MetricsService:
                 invested=float(total_invested),
                 gain_pct=gain_pct,
                 cost_basis=float(total_cost_basis),
-                unrealized_pnl_pct=unrealized_pnl_pct
+                unrealized_pnl_pct=unrealized_pnl_pct,
+                daily_cash_flow=float(daily_cash_flows.get(current_date, Decimal(0)))
             )
             history.append(point)
         

@@ -1,9 +1,9 @@
-import { Home, PlusCircle, TrendingUp, Package, Eye, LineChart, ArrowLeftRight } from 'lucide-react'
+import { Home, PlusCircle, TrendingUp, Package, Eye, LineChart, ArrowLeftRight, Calendar } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 interface EmptyPortfolioPromptProps {
-  pageType?: 'dashboard' | 'insights' | 'transactions' | 'assets' | 'watchlist' | 'charts'
+  pageType?: 'dashboard' | 'insights' | 'transactions' | 'assets' | 'watchlist' | 'charts' | 'calendar'
 }
 
 export default function EmptyPortfolioPrompt({ pageType = 'dashboard' }: EmptyPortfolioPromptProps) {
@@ -22,6 +22,8 @@ export default function EmptyPortfolioPrompt({ pageType = 'dashboard' }: EmptyPo
         return <Eye className="text-pink-400 dark:text-pink-500" size={80} />
       case 'charts':
         return <LineChart className="text-pink-400 dark:text-pink-500" size={80} />
+      case 'calendar':
+        return <Calendar className="text-pink-400 dark:text-pink-500" size={80} />
       default:
         return <Home className="text-pink-400 dark:text-pink-500" size={80} />
     }

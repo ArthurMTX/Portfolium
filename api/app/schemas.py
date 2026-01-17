@@ -580,6 +580,7 @@ class PortfolioHistoryPoint(BaseModel):
     gain_pct: Optional[float] = None  # Percentage gain/loss vs. total invested (includes sold positions)
     cost_basis: Optional[float] = None  # Cost basis of current holdings only
     unrealized_pnl_pct: Optional[float] = None  # Unrealized P&L % of current holdings (matches Dashboard)
+    daily_cash_flow: Optional[float] = None  # Net cash flow on this day (buys - sells), for excluding from daily %
 
 
 # ============================================================================

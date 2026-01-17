@@ -1807,6 +1807,92 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Calendar
+  async getCalendarEvents(params?: {
+    portfolio_id?: number
+    days_back?: number
+    days_forward?: number
+  }) {
+    const queryParams = new URLSearchParams()
+    if (params?.portfolio_id) queryParams.append('portfolio_id', params.portfolio_id.toString())
+    if (params?.days_back) queryParams.append('days_back', params.days_back.toString())
+    if (params?.days_forward) queryParams.append('days_forward', params.days_forward.toString())
+    
+    const queryString = queryParams.toString()
+    return this.request<CalendarEventsResponse>(`/calendar/events${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async getEarningsCalendar(params?: {
+    portfolio_id?: number
+    days_back?: number
+    days_forward?: number
+  }) {
+    const queryParams = new URLSearchParams()
+    if (params?.portfolio_id) queryParams.append('portfolio_id', params.portfolio_id.toString())
+    if (params?.days_back) queryParams.append('days_back', params.days_back.toString())
+    if (params?.days_forward) queryParams.append('days_forward', params.days_forward.toString())
+    
+    const queryString = queryParams.toString()
+    return this.request<EarningsCalendarResponse>(`/calendar/earnings${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async getDailyPerformance(params?: {
+    portfolio_id?: number
+    days?: number
+  }) {
+    const queryParams = new URLSearchParams()
+    if (params?.portfolio_id) queryParams.append('portfolio_id', params.portfolio_id.toString())
+    if (params?.days) queryParams.append('days', params.days.toString())
+    
+    const queryString = queryParams.toString()
+    return this.request<DailyPerformanceResponse>(`/calendar/daily-performance${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async refreshEarningsCache() {
+    return this.request<{
+      status: string
+      symbols_checked: number
+      symbols_updated: number
+      symbols_failed: number
+    }>('/calendar/refresh-earnings', {
+      method: 'POST'
+    })
+  }
+
+  async getMarketHolidays(params?: {
+    portfolio_id?: number
+    start_date?: string
+    end_date?: string
+    currency?: string
+    exchange?: string
+  }) {
+    const queryParams = new URLSearchParams()
+    if (params?.portfolio_id) queryParams.append('portfolio_id', params.portfolio_id.toString())
+    if (params?.start_date) queryParams.append('start_date', params.start_date)
+    if (params?.end_date) queryParams.append('end_date', params.end_date)
+    if (params?.currency) queryParams.append('currency', params.currency)
+    if (params?.exchange) queryParams.append('exchange', params.exchange)
+    
+    const queryString = queryParams.toString()
+    return this.request<MarketHolidaysResponse>(`/calendar/market-holidays${queryString ? `?${queryString}` : ''}`)
+  }
+}
+
+// Market holidays response type
+export interface MarketHolidaysResponse {
+  holidays: Array<{
+    date: string
+    name: string
+    exchanges: string[]
+    exchange_names: string[]
+  }>
+  closed_dates: string[]
+  exchanges: string[]
+  exchange_display_names: Record<string, string>
+  total_exchanges: number
+  start_date: string
+  end_date: string
 }
 
 // Types for Pending Dividends
@@ -1835,6 +1921,75 @@ export interface PendingDividendStatsDTO {
   accepted_count: number
   rejected_count: number
   oldest_pending_date: string | null
+}
+
+// Calendar Types
+export interface CalendarEventBase {
+  date: string
+  type: 'earnings' | 'daily_performance' | 'dividend'
+}
+
+export interface EarningsEvent extends CalendarEventBase {
+  type: 'earnings'
+  symbol: string
+  name: string | null
+  portfolios: Array<{ id: number; name: string }>
+  is_future: boolean
+  eps_estimate?: number | null
+  eps_actual?: number | null
+  revenue_estimate?: number | null
+  surprise_pct?: number | null
+}
+
+export interface DailyPerformanceEvent extends CalendarEventBase {
+  type: 'daily_performance'
+  portfolio_id: number
+  portfolio_name: string
+  value: number
+  daily_change: number
+  daily_change_pct: number
+  is_positive: boolean
+  currency: string
+}
+
+export type CalendarEvent = EarningsEvent | DailyPerformanceEvent
+
+export interface CalendarEventsResponse {
+  events: CalendarEvent[]
+  start_date: string
+  end_date: string
+  held_symbols: string[]
+  today: string
+}
+
+export interface EarningsCalendarResponse {
+  earnings: EarningsEvent[]
+  start_date: string
+  end_date: string
+  symbols_checked: string[]
+  today: string
+}
+
+export interface DailyPerformanceDay {
+  date: string
+  total_change: number
+  total_change_pct: number
+  is_positive: boolean
+  portfolios: Array<{
+    portfolio_id: number
+    portfolio_name: string
+    value: number
+    change: number
+    change_pct: number
+    currency: string
+  }>
+}
+
+export interface DailyPerformanceResponse {
+  days: DailyPerformanceDay[]
+  start_date: string
+  end_date: string
+  today: string
 }
 
 export interface TransactionDTO {

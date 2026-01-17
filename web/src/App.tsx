@@ -29,6 +29,7 @@ import AssetDebug from './pages/AssetDebug'
 import AssetsList from './pages/AssetsList'
 import WidgetDebug from './pages/WidgetDebug'
 import PublicPortfolio from './pages/PublicPortfolio'
+import Calendar from './pages/Calendar'
 
 // Configure React Query for optimal performance
 const queryClient = new QueryClient({
@@ -86,6 +87,7 @@ function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="portfolios" element={<Portfolios />} />
                 <Route path="charts" element={<Charts />} />
+                <Route path="calendar" element={<Calendar />} />
                 <Route path="insights" element={<Insights />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="transactions/metrics" element={<TransactionMetrics />} />

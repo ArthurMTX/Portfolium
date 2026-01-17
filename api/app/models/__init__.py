@@ -12,6 +12,7 @@ from app.models.dashboard import DashboardLayout
 from app.models.goal import PortfolioGoal
 from app.models.pending_dividend import PendingDividend, PendingDividendStatus
 from app.models.push_subscription import PushSubscription
+from app.models.calendar import EarningsCache
 
 __all__ = [
     # Enums
@@ -34,4 +35,5 @@ __all__ = [
     "PortfolioGoal",
     "PendingDividend",
     "PushSubscription",
+    "EarningsCache",
 ]

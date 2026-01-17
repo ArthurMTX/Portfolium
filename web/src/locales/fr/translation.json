@@ -3,6 +3,7 @@
     "dashboard": "Tableau de bord",
     "portfolios": "Portefeuilles",
     "charts": "Graphiques",
+    "calendar": "Calendrier",
     "insights": "Analyses",
     "transactions": "Transactions",
     "assets": "Actifs",
@@ -842,6 +843,47 @@
       "1Y": "1A",
       "ALL": "TOUT"
     }
+  },
+  "calendar": {
+    "title": "Calendrier",
+    "subtitle": "Suivez vos performances quotidiennes et les résultats à venir",
+    "today": "Aujourd'hui",
+    "tabs": {
+      "overview": "Aperçu du calendrier",
+      "earnings": "Calendrier des résultats"
+    },
+    "stats": {
+      "positiveDays": "Jours positifs",
+      "negativeDays": "Jours négatifs",
+      "monthChange": "Variation mensuelle",
+      "upcomingEarnings": "Résultats à venir"
+    },
+    "days": {
+      "sun": "Dim",
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mer",
+      "thu": "Jeu",
+      "fri": "Ven",
+      "sat": "Sam"
+    },
+    "legend": {
+      "positive": "Jour positif",
+      "negative": "Jour négatif",
+      "earnings": "Résultats à venir"
+    },
+    "earnings": {
+      "upcoming": "Résultats à venir",
+      "past": "Résultats passés",
+      "noUpcoming": "Aucun résultat à venir pour vos actions détenues",
+      "noPast": "Aucune donnée de résultats passés disponible",
+      "showingRecent": "Affichage des 10 résultats les plus récents",
+      "inPortfolios": "Dans",
+      "epsEstimate": "BPA Est",
+      "revEstimate": "Rev Est"
+    },
+    "refreshEarnings": "Actualiser les résultats",
+    "refreshEarningsTooltip": "Récupérer les dernières données de résultats du marché"
   },
   "insights": {
     "title": "Analyses",
@@ -1985,6 +2027,10 @@
     "charts": {
       "title": "Aucune donnée à visualiser",
       "message": "Créez un portefeuille et ajoutez des transactions pour visualiser vos performances d'investissement au fil du temps."
+    },
+    "calendar": {
+      "title": "Aucune donnée de calendrier",
+      "message": "Créez un portefeuille et ajoutez des transactions pour suivre vos performances quotidiennes et voir les résultats à venir."
     },
     "createButton": "Créer votre premier portefeuille",
     "gettingStartedLabel": "Pour commencer :",
