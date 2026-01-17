@@ -1743,6 +1743,12 @@ class ApiClient {
     )
   }
 
+  async getPortfolioPendingDividendStats(portfolioId: number) {
+    return this.request<PortfolioPendingDividendStatsDTO>(
+      `/dividends/${portfolioId}/pending/stats`
+    )
+  }
+
   async fetchDividendsForPortfolio(
     portfolioId: number,
     lookbackDays?: number,
@@ -1918,6 +1924,16 @@ export interface PendingDividendDTO {
 export interface PendingDividendStatsDTO {
   pending_count: number
   pending_total_amount: number | string
+  accepted_count: number
+  rejected_count: number
+  oldest_pending_date: string | null
+}
+
+export interface PortfolioPendingDividendStatsDTO {
+  pending_count: number
+  pending_total_amount: number | string
+  converted_total_amount: number | string  // Total converted to portfolio base currency
+  target_currency: string  // Portfolio's base currency
   accepted_count: number
   rejected_count: number
   oldest_pending_date: string | null

@@ -212,3 +212,69 @@ def expire_old_pending_dividends(db: Session, days_old: int = 365) -> int:
     
     db.commit()
     return count
+
+def get_pending_dividend_stats_for_portfolio(
+    db: Session, 
+    portfolio_id: int, 
+    target_currency: str
+) -> dict:
+    """
+    Get statistics about pending dividends for a specific portfolio.
+    
+    Computes the converted total amount in the portfolio's base currency
+    to avoid N+1 FX rate lookups on the frontend.
+    """
+    from app.services.currency import CurrencyService
+    
+    # Get all pending dividends for this portfolio
+    pending_list = db.query(PendingDividend).filter(
+        PendingDividend.portfolio_id == portfolio_id,
+        PendingDividend.status == PendingDividendStatus.PENDING
+    ).all()
+    
+    pending_count = len(pending_list)
+    pending_total = Decimal(0)
+    converted_total = Decimal(0)
+    
+    for pending in pending_list:
+        amount = pending.gross_amount or Decimal(0)
+        pending_total += amount
+        
+        # Convert to target currency
+        dividend_currency = pending.currency or target_currency
+        if dividend_currency == target_currency:
+            converted_total += amount
+        else:
+            converted = CurrencyService.convert(amount, dividend_currency, target_currency)
+            if converted is not None:
+                converted_total += converted
+            else:
+                # Fallback: use unconverted amount if conversion fails
+                converted_total += amount
+    
+    # Get accepted/rejected counts
+    accepted_count = db.query(func.count(PendingDividend.id)).filter(
+        PendingDividend.portfolio_id == portfolio_id,
+        PendingDividend.status == PendingDividendStatus.ACCEPTED
+    ).scalar() or 0
+    
+    rejected_count = db.query(func.count(PendingDividend.id)).filter(
+        PendingDividend.portfolio_id == portfolio_id,
+        PendingDividend.status == PendingDividendStatus.REJECTED
+    ).scalar() or 0
+    
+    # Oldest pending date
+    oldest = db.query(func.min(PendingDividend.ex_dividend_date)).filter(
+        PendingDividend.portfolio_id == portfolio_id,
+        PendingDividend.status == PendingDividendStatus.PENDING
+    ).scalar()
+    
+    return {
+        "pending_count": pending_count,
+        "pending_total_amount": pending_total,
+        "converted_total_amount": converted_total,
+        "target_currency": target_currency,
+        "accepted_count": accepted_count,
+        "rejected_count": rejected_count,
+        "oldest_pending_date": oldest
+    }

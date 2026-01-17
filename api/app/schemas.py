@@ -1072,3 +1072,14 @@ class PendingDividendStats(BaseModel):
     accepted_count: int
     rejected_count: int
     oldest_pending_date: Optional[date] = None
+
+
+class PortfolioPendingDividendStats(BaseModel):
+    """Statistics about pending dividends for a specific portfolio with currency conversion"""
+    pending_count: int
+    pending_total_amount: Decimal  # Sum of all pending dividends in their original currencies
+    converted_total_amount: Decimal  # Sum converted to portfolio base currency
+    target_currency: str  # The portfolio's base currency
+    accepted_count: int
+    rejected_count: int
+    oldest_pending_date: Optional[date] = None

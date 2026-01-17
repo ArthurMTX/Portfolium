@@ -15,6 +15,7 @@ from app.schemas import (
     PendingDividendAccept, 
     PendingDividendBulkAction,
     PendingDividendStats,
+    PortfolioPendingDividendStats,
     Transaction as TransactionSchema
 )
 from app.crud import pending_dividends as crud_pending
@@ -160,6 +161,26 @@ async def get_portfolio_pending_dividends(
     )
     
     return [_enrich_pending_dividend(p, db) for p in pending_list]
+
+
+@router.get("/{portfolio_id}/pending/stats", response_model=PortfolioPendingDividendStats)
+async def get_portfolio_pending_dividend_stats(
+    portfolio_id: int,
+    db: Session = Depends(get_db),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Get statistics about pending dividends for a specific portfolio.
+    
+    Returns the total pending amount converted to the portfolio's base currency.
+    This avoids N+1 FX rate lookups on the frontend for multi-currency dividends.
+    """
+    stats = crud_pending.get_pending_dividend_stats_for_portfolio(
+        db, 
+        portfolio_id=portfolio_id,
+        target_currency=portfolio.base_currency
+    )
+    return stats
 
 
 @router.post("/pending/{dividend_id}/accept", response_model=TransactionSchema)

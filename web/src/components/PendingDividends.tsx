@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { DollarSign, Check, X, RefreshCw, ChevronDown, ChevronUp, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
-import api, { PendingDividendDTO, PendingDividendStatsDTO } from '../lib/api'
+import api, { PendingDividendDTO, PortfolioPendingDividendStatsDTO } from '../lib/api'
 import { formatCurrency } from '../lib/formatUtils'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
 import Toast from './Toast'
@@ -20,62 +20,20 @@ export default function PendingDividends({
 }: PendingDividendsProps) {
   const { t } = useTranslation()
   const [pendingDividends, setPendingDividends] = useState<PendingDividendDTO[]>([])
-  const [stats, setStats] = useState<PendingDividendStatsDTO | null>(null)
+  const [stats, setStats] = useState<PortfolioPendingDividendStatsDTO | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [expanded, setExpanded] = useState(true)
   const [processingIds, setProcessingIds] = useState<Set<number>>(new Set())
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const [convertedTotal, setConvertedTotal] = useState<number>(0)
   
   // Accept modal state
   const [acceptingDividend, setAcceptingDividend] = useState<PendingDividendDTO | null>(null)
   const [taxAmount, setTaxAmount] = useState('')
   const [notes, setNotes] = useState('')
 
-  // Convert all dividends to portfolio currency
-  const calculateConvertedTotal = useCallback(async () => {
-    if (pendingDividends.length === 0) {
-      setConvertedTotal(0)
-      return
-    }
-
-    try {
-      let total = 0
-      
-      for (const dividend of pendingDividends) {
-        const dividendCurrency = dividend.currency || portfolioCurrency
-        const amount = Number(dividend.gross_amount)
-        
-        if (dividendCurrency === portfolioCurrency) {
-          total += amount
-        } else {
-          // Get today's exchange rate for conversion
-          const today = new Date().toISOString().split('T')[0]
-          const rateData = await api.getFxRateForDate(
-            portfolioId,
-            dividendCurrency,
-            portfolioCurrency,
-            today
-          )
-          total += amount * rateData.rate
-        }
-      }
-      
-      setConvertedTotal(total)
-    } catch (error) {
-      console.error('Failed to convert dividend amounts:', error)
-      // Fallback: sum only matching currencies
-      const fallbackTotal = pendingDividends
-        .filter(d => d.currency === portfolioCurrency)
-        .reduce((sum, d) => sum + Number(d.gross_amount), 0)
-      setConvertedTotal(fallbackTotal)
-    }
-  }, [pendingDividends, portfolioId, portfolioCurrency])
-
-  useEffect(() => {
-    calculateConvertedTotal()
-  }, [calculateConvertedTotal])
+  // Get converted total from server-side computed stats (no more N+1 FX calls)
+  const convertedTotal = stats ? Number(stats.converted_total_amount) : 0
 
   const fetchPendingDividends = useCallback(async () => {
     if (!portfolioId) return
@@ -84,7 +42,7 @@ export default function PendingDividends({
     try {
       const [dividends, statsData] = await Promise.all([
         api.getPortfolioPendingDividends(portfolioId, 'PENDING'),
-        api.getPendingDividendStats()
+        api.getPortfolioPendingDividendStats(portfolioId)
       ])
       setPendingDividends(dividends)
       setStats(statsData)
