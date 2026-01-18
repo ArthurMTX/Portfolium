@@ -265,6 +265,205 @@ async def trigger_fill_price_gaps(
         raise PriceRefreshTaskError(reason=f"Gap fill failed: {str(e)}")
 
 
+@router.get("/assets/health-check")
+async def check_all_assets_health(
+    min_coverage_pct: float = 90.0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Check health status of all assets in the database.
+    
+    Returns a list of assets with their coverage statistics and identifies
+    which ones need backfilling (coverage below min_coverage_pct).
+    """
+    from app.models import Asset, Transaction
+    from app.crud import prices as crud_prices
+    from app.utils.exchange_calendars import calculate_coverage
+    from datetime import datetime, timedelta
+    from sqlalchemy import distinct
+    
+    # Get all unique assets that have transactions
+    asset_ids = db.query(Transaction.asset_id.distinct()).all()
+    asset_ids = [aid[0] for aid in asset_ids]
+    
+    results = []
+    needs_backfill = []
+    
+    for asset_id in asset_ids:
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            continue
+        
+        # Determine date range to check
+        end_date = datetime.utcnow()
+        one_year_ago = end_date - timedelta(days=365)
+        
+        if asset.first_transaction_date:
+            start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
+            if start_date < one_year_ago:
+                start_date = one_year_ago
+        else:
+            start_date = one_year_ago
+        
+        # Get prices
+        prices = crud_prices.get_prices(
+            db,
+            asset_id,
+            date_from=start_date,
+            date_to=end_date,
+            limit=10000
+        )
+        
+        # Extract price dates as a set (asof is datetime, convert to date)
+        price_dates = {p.asof.date() if hasattr(p.asof, 'date') else p.asof for p in prices}
+        
+        # Calculate coverage
+        coverage = calculate_coverage(
+            symbol=asset.symbol,
+            start_date=start_date.date() if hasattr(start_date, 'date') else start_date,
+            end_date=end_date.date() if hasattr(end_date, 'date') else end_date,
+            price_dates=price_dates
+        )
+        
+        # Count missing days (limit to avoid huge lists)
+        missing_count = len(coverage["missing_days"])
+        
+        asset_info = {
+            "asset_id": asset.id,
+            "symbol": asset.symbol,
+            "name": asset.name,
+            "currency": asset.currency,
+            "asset_type": asset.asset_type,
+            "first_transaction_date": asset.first_transaction_date.isoformat() if asset.first_transaction_date else None,
+            "price_count": len(prices),
+            "expected_trading_days": coverage["expected_trading_days"],
+            "coverage_pct": coverage["coverage_pct"],
+            "missing_days": missing_count,
+            "needs_backfill": coverage["coverage_pct"] < min_coverage_pct
+        }
+        results.append(asset_info)
+        
+        if asset_info["needs_backfill"]:
+            needs_backfill.append(asset_info)
+    
+    return {
+        "total_assets": len(results),
+        "assets_needing_backfill": len(needs_backfill),
+        "min_coverage_threshold": min_coverage_pct,
+        "assets": sorted(results, key=lambda x: x["coverage_pct"]),
+        "summary": {
+            "excellent": len([a for a in results if a["coverage_pct"] >= 95]),
+            "good": len([a for a in results if 80 <= a["coverage_pct"] < 95]),
+            "fair": len([a for a in results if 50 <= a["coverage_pct"] < 80]),
+            "poor": len([a for a in results if a["coverage_pct"] < 50])
+        }
+    }
+
+
+@router.post("/assets/backfill-all")
+async def backfill_all_assets(
+    min_coverage_pct: float = 90.0,
+    days: int = 365,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Backfill price history for all assets that need it.
+    
+    This will:
+    1. Check coverage for all assets with transactions
+    2. Backfill prices for any assets below min_coverage_pct threshold
+    
+    - **min_coverage_pct**: Only backfill assets below this coverage (default 90%)
+    - **days**: Number of days to backfill (default 365)
+    """
+    from app.models import Asset, Transaction
+    from app.crud import prices as crud_prices
+    from app.utils.exchange_calendars import calculate_coverage
+    from app.services.pricing import PricingService
+    from datetime import datetime, timedelta
+    from sqlalchemy import distinct
+    
+    # Get all unique assets that have transactions
+    asset_ids = db.query(Transaction.asset_id.distinct()).all()
+    asset_ids = [aid[0] for aid in asset_ids]
+    
+    backfilled = []
+    errors = []
+    skipped = []
+    
+    pricing_service = PricingService(db)
+    
+    for asset_id in asset_ids:
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            continue
+        
+        # Determine date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        if asset.first_transaction_date:
+            first_tx_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
+            if first_tx_date > start_date:
+                start_date = first_tx_date
+        
+        # Get current prices
+        prices = crud_prices.get_prices(
+            db,
+            asset_id,
+            date_from=start_date,
+            date_to=end_date,
+            limit=10000
+        )
+        
+        # Extract price dates as a set (asof is datetime, convert to date)
+        price_dates = {p.asof.date() if hasattr(p.asof, 'date') else p.asof for p in prices}
+        
+        # Calculate coverage
+        coverage = calculate_coverage(
+            symbol=asset.symbol,
+            start_date=start_date.date() if hasattr(start_date, 'date') else start_date,
+            end_date=end_date.date() if hasattr(end_date, 'date') else end_date,
+            price_dates=price_dates
+        )
+        
+        # Skip if coverage is good enough
+        if coverage["coverage_pct"] >= min_coverage_pct:
+            skipped.append({
+                "symbol": asset.symbol,
+                "coverage_pct": coverage["coverage_pct"],
+                "reason": "Coverage already sufficient"
+            })
+            continue
+        
+        # Backfill this asset
+        try:
+            count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+            backfilled.append({
+                "asset_id": asset.id,
+                "symbol": asset.symbol,
+                "prices_added": count,
+                "previous_coverage": coverage["coverage_pct"]
+            })
+        except Exception as e:
+            errors.append({
+                "symbol": asset.symbol,
+                "error": str(e)
+            })
+    
+    return {
+        "success": True,
+        "message": f"Backfill completed: {len(backfilled)} assets updated, {len(skipped)} skipped, {len(errors)} errors",
+        "backfilled": backfilled,
+        "skipped_count": len(skipped),
+        "errors": errors,
+        "total_prices_added": sum(b["prices_added"] for b in backfilled)
+    }
+
+
 @router.get("/logo-cache/stats")
 def get_logo_cache_stats(
     db: Session = Depends(get_db),

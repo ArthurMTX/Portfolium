@@ -1172,6 +1172,54 @@ class ApiClient {
     )
   }
 
+  async checkAllAssetsHealth(minCoveragePct: number = 90) {
+    return this.request<{
+      total_assets: number
+      assets_needing_backfill: number
+      min_coverage_threshold: number
+      assets: Array<{
+        asset_id: number
+        symbol: string
+        name: string | null
+        currency: string
+        asset_type: string | null
+        first_transaction_date: string | null
+        price_count: number
+        expected_trading_days: number
+        coverage_pct: number
+        missing_days: number
+        needs_backfill: boolean
+      }>
+      summary: {
+        excellent: number
+        good: number
+        fair: number
+        poor: number
+      }
+    }>(`/admin/assets/health-check?min_coverage_pct=${minCoveragePct}`)
+  }
+
+  async backfillAllAssets(minCoveragePct: number = 90, days: number = 365) {
+    return this.request<{
+      success: boolean
+      message: string
+      backfilled: Array<{
+        asset_id: number
+        symbol: string
+        prices_added: number
+        previous_coverage: number
+      }>
+      skipped_count: number
+      errors: Array<{
+        symbol: string
+        error: string
+      }>
+      total_prices_added: number
+    }>(`/admin/assets/backfill-all?min_coverage_pct=${minCoveragePct}&days=${days}`, {
+      method: 'POST'
+    })
+  }
+
   // Settings
   async getSettings() {
     return this.request<{

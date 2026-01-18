@@ -14,14 +14,51 @@ import {
   Settings,
   Palette,
   Flag,
-  Database
+  Database,
+  RefreshCw,
+  Search,
+  Download
 } from 'lucide-react'
 import { api } from '../lib/api'
+
+interface AssetHealthData {
+  asset_id: number
+  symbol: string
+  name: string | null
+  currency: string
+  asset_type: string | null
+  first_transaction_date: string | null
+  price_count: number
+  expected_trading_days: number
+  coverage_pct: number
+  missing_days: number
+  needs_backfill: boolean
+}
+
+interface HealthCheckResult {
+  total_assets: number
+  assets_needing_backfill: number
+  min_coverage_threshold: number
+  assets: AssetHealthData[]
+  summary: {
+    excellent: number
+    good: number
+    fair: number
+    poor: number
+  }
+}
 
 export default function DevTools() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  
+  // Asset health check state
+  const [healthCheckLoading, setHealthCheckLoading] = useState(false)
+  const [backfillLoading, setBackfillLoading] = useState(false)
+  const [healthCheckResult, setHealthCheckResult] = useState<HealthCheckResult | null>(null)
+  const [minCoverage, setMinCoverage] = useState(90)
+
 
   const createTestNotifications = async (types?: string[]) => {
     setLoading(true)
@@ -387,23 +424,222 @@ export default function DevTools() {
         </div>
       </div>
 
-      {/* Additional Dev Tools Section (for future expansion) */}
+      {/* Asset Health Check & Backfill Section */}
       <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Wrench className="text-neutral-600 dark:text-neutral-400" size={24} />
+        <div className="flex items-center gap-3 mb-6">
+          <Database className="text-emerald-600" size={24} />
           <div>
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-              Additional Tools
+              Asset Health Check & Backfill
             </h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-              More development and testing utilities coming soon
+              Check price data coverage for all assets and backfill missing history
             </p>
           </div>
         </div>
-        
-        <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
-          <Clock size={32} className="mx-auto mb-2 opacity-50" />
-          <p className="text-sm">More tools will be added here as needed</p>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-4 mb-6 pb-6 border-b border-neutral-200 dark:border-neutral-700">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Min Coverage %
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={minCoverage}
+              onChange={(e) => setMinCoverage(Number(e.target.value))}
+              className="w-20 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
+            />
+          </div>
+          
+          <button
+            onClick={async () => {
+              setHealthCheckLoading(true)
+              setMessage(null)
+              try {
+                const result = await api.checkAllAssetsHealth(minCoverage)
+                setHealthCheckResult(result)
+                setMessage({
+                  type: 'success',
+                  text: `Checked ${result.total_assets} assets. ${result.assets_needing_backfill} need backfill.`
+                })
+              } catch (error) {
+                setMessage({
+                  type: 'error',
+                  text: error instanceof Error ? error.message : 'Failed to check assets'
+                })
+              } finally {
+                setHealthCheckLoading(false)
+              }
+            }}
+            disabled={healthCheckLoading || backfillLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 font-medium"
+          >
+            {healthCheckLoading ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                Checking...
+              </>
+            ) : (
+              <>
+                <Search size={16} />
+                Check All Assets
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={async () => {
+              setBackfillLoading(true)
+              setMessage(null)
+              try {
+                const result = await api.backfillAllAssets(minCoverage, 365)
+                setMessage({
+                  type: 'success',
+                  text: result.message
+                })
+                // Refresh health check after backfill
+                const updated = await api.checkAllAssetsHealth(minCoverage)
+                setHealthCheckResult(updated)
+              } catch (error) {
+                setMessage({
+                  type: 'error',
+                  text: error instanceof Error ? error.message : 'Failed to backfill assets'
+                })
+              } finally {
+                setBackfillLoading(false)
+              }
+            }}
+            disabled={healthCheckLoading || backfillLoading || !healthCheckResult || healthCheckResult.assets_needing_backfill === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 font-medium"
+          >
+            {backfillLoading ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                Backfilling...
+              </>
+            ) : (
+              <>
+                <Download size={16} />
+                Backfill All ({healthCheckResult?.assets_needing_backfill || 0})
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Summary Cards */}
+        {healthCheckResult && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-900 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {healthCheckResult.summary.excellent}
+                </p>
+                <p className="text-sm text-green-700 dark:text-green-300">Excellent (≥95%)</p>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {healthCheckResult.summary.good}
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">Good (80-94%)</p>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                  {healthCheckResult.summary.fair}
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">Fair (50-79%)</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {healthCheckResult.summary.poor}
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300">Poor (&lt;50%)</p>
+              </div>
+            </div>
+
+            {/* Asset Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200 dark:border-neutral-700">
+                    <th className="text-left py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Symbol</th>
+                    <th className="text-left py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Name</th>
+                    <th className="text-left py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Type</th>
+                    <th className="text-right py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Prices</th>
+                    <th className="text-right py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Expected</th>
+                    <th className="text-right py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Coverage</th>
+                    <th className="text-center py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {healthCheckResult.assets.map((asset) => (
+                    <tr 
+                      key={asset.asset_id} 
+                      className={`border-b border-neutral-100 dark:border-neutral-800 ${
+                        asset.needs_backfill ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''
+                      }`}
+                    >
+                      <td className="py-2 px-3 font-medium text-neutral-900 dark:text-white">
+                        {asset.symbol}
+                      </td>
+                      <td className="py-2 px-3 text-neutral-600 dark:text-neutral-400 max-w-[200px] truncate">
+                        {asset.name || '-'}
+                      </td>
+                      <td className="py-2 px-3 text-neutral-600 dark:text-neutral-400">
+                        {asset.asset_type || '-'}
+                      </td>
+                      <td className="py-2 px-3 text-right text-neutral-900 dark:text-white">
+                        {asset.price_count}
+                      </td>
+                      <td className="py-2 px-3 text-right text-neutral-600 dark:text-neutral-400">
+                        {asset.expected_trading_days}
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <span className={`font-medium ${
+                          asset.coverage_pct >= 95 ? 'text-green-600 dark:text-green-400' :
+                          asset.coverage_pct >= 80 ? 'text-blue-600 dark:text-blue-400' :
+                          asset.coverage_pct >= 50 ? 'text-amber-600 dark:text-amber-400' :
+                          'text-red-600 dark:text-red-400'
+                        }`}>
+                          {asset.coverage_pct.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        {asset.needs_backfill ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                            Needs Backfill
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            <CheckCircle size={12} />
+                            OK
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Info Box */}
+        <div className="mt-6 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" size={16} />
+            <div className="text-sm text-emerald-800 dark:text-emerald-200">
+              <p className="font-medium mb-1">How it works</p>
+              <ul className="list-disc list-inside space-y-1 text-emerald-700 dark:text-emerald-300">
+                <li>Check scans all assets with transactions for price data coverage</li>
+                <li>Coverage is calculated based on expected trading days vs actual price records</li>
+                <li>Backfill fetches missing historical prices from Yahoo Finance</li>
+                <li>Only assets below the minimum coverage threshold will be backfilled</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
