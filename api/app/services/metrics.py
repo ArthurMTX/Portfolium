@@ -20,11 +20,28 @@ from app.services.currency import CurrencyService
 logger = logging.getLogger(__name__)
 
 # Lock to prevent concurrent database access in async position calculations
-_db_lock = asyncio.Lock()
+# NOTE: Locks are lazily initialized to avoid "bound to a different event loop" errors
+_db_lock: Optional[asyncio.Lock] = None
 
 # Task cache for deduplicating concurrent position calculations
 _ongoing_calculations: Dict[Tuple[int, bool], asyncio.Task] = {}
-_cache_lock = asyncio.Lock()
+_cache_lock: Optional[asyncio.Lock] = None
+
+
+def _get_db_lock() -> asyncio.Lock:
+    """Get or create the database lock for the current event loop."""
+    global _db_lock
+    if _db_lock is None:
+        _db_lock = asyncio.Lock()
+    return _db_lock
+
+
+def _get_cache_lock() -> asyncio.Lock:
+    """Get or create the cache lock for the current event loop."""
+    global _cache_lock
+    if _cache_lock is None:
+        _cache_lock = asyncio.Lock()
+    return _cache_lock
 
 
 class MetricsService:
@@ -65,7 +82,7 @@ class MetricsService:
         # Variable to track if we need to wait for an ongoing task
         ongoing_task = None
         
-        async with _cache_lock:
+        async with _get_cache_lock():
             # Check if calculation is already ongoing
             if cache_key in _ongoing_calculations:
                 ongoing_task = _ongoing_calculations[cache_key]
@@ -86,14 +103,14 @@ class MetricsService:
                 cache_positions(portfolio_id, positions_data, CacheService.TTL_POSITION)
             
             # Remove from ongoing calculations
-            async with _cache_lock:
+            async with _get_cache_lock():
                 if _ongoing_calculations.get(cache_key) == ongoing_task:
                     _ongoing_calculations.pop(cache_key, None)
             
             return result
         except Exception as e:
             # On error, remove from ongoing calculations
-            async with _cache_lock:
+            async with _get_cache_lock():
                 if _ongoing_calculations.get(cache_key) == ongoing_task:
                     _ongoing_calculations.pop(cache_key, None)
             raise
