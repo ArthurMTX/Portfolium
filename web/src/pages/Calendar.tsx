@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, BarChart3, RefreshCw } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, BarChart3, RefreshCw, Eye } from 'lucide-react'
 import { api, DailyPerformanceDay, EarningsEvent, MarketHolidaysResponse } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -33,6 +33,7 @@ export default function Calendar() {
   const [dailyPerformance, setDailyPerformance] = useState<DailyPerformanceDay[]>([])
   const [earnings, setEarnings] = useState<EarningsEvent[]>([])
   const [marketHolidays, setMarketHolidays] = useState<MarketHolidaysResponse | null>(null)
+  const [showWatchlistEarnings, setShowWatchlistEarnings] = useState(true)
   const { t, i18n } = useTranslation()
 
   const currentLocale = i18n.language || 'en-US'
@@ -93,7 +94,7 @@ export default function Calendar() {
 
       const [performanceData, earningsData, holidaysData] = await Promise.all([
         api.getDailyPerformance({ portfolio_id: activePortfolioId, days: Math.max(daysBack, 90) }),
-        api.getEarningsCalendar({ portfolio_id: activePortfolioId, days_back: Math.max(daysBack, 90), days_forward: Math.max(daysForward, 90) }),
+        api.getEarningsCalendar({ portfolio_id: activePortfolioId, days_back: Math.max(daysBack, 90), days_forward: Math.max(daysForward, 90), include_watchlist: true }),
         api.getMarketHolidays({ portfolio_id: activePortfolioId, start_date: startDateStr, end_date: endDateStr })
       ])
 
@@ -230,6 +231,22 @@ export default function Calendar() {
     return days
   }, [currentDate, dailyPerformance, earnings, marketHolidays])
 
+  // Filter earnings based on watchlist toggle (client-side)
+  const filteredEarnings = useMemo(() => {
+    if (showWatchlistEarnings) {
+      return earnings
+    }
+    return earnings.filter(e => e.source !== 'watchlist')
+  }, [earnings, showWatchlistEarnings])
+
+  // Calendar days with filtered earnings
+  const calendarDaysFiltered = useMemo(() => {
+    return calendarDays.map(day => ({
+      ...day,
+      earnings: day.earnings.filter(e => showWatchlistEarnings || e.source !== 'watchlist')
+    }))
+  }, [calendarDays, showWatchlistEarnings])
+
   // Month navigation
   const goToPreviousMonth = () => {
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -255,12 +272,12 @@ export default function Calendar() {
 
   // Calculate month stats
   const monthStats = useMemo(() => {
-    const monthDays = calendarDays.filter(d => d.isCurrentMonth && d.performance)
+    const monthDays = calendarDaysFiltered.filter(d => d.isCurrentMonth && d.performance)
     const positiveDays = monthDays.filter(d => d.performance!.is_positive).length
     const negativeDays = monthDays.filter(d => !d.performance!.is_positive).length
     const totalChange = monthDays.reduce((sum, d) => sum + d.performance!.total_change, 0)
-    const upcomingEarnings = earnings.filter(e => e.is_future).length
-    const pastEarnings = earnings.filter(e => !e.is_future).length
+    const upcomingEarnings = filteredEarnings.filter(e => e.is_future).length
+    const pastEarnings = filteredEarnings.filter(e => !e.is_future).length
 
     return {
       positiveDays,
@@ -269,26 +286,26 @@ export default function Calendar() {
       upcomingEarnings,
       pastEarnings
     }
-  }, [calendarDays, earnings])
+  }, [calendarDaysFiltered, filteredEarnings])
 
   // Upcoming and past earnings lists
   const upcomingEarningsList = useMemo(() => {
-    return earnings
+    return filteredEarnings
       .filter(e => e.is_future)
       .sort((a, b) => a.date.localeCompare(b.date))
-  }, [earnings])
+  }, [filteredEarnings])
 
   const pastEarningsList = useMemo(() => {
-    return earnings
+    return filteredEarnings
       .filter(e => !e.is_future)
       .sort((a, b) => b.date.localeCompare(a.date))
-  }, [earnings])
+  }, [filteredEarnings])
 
   // Refresh earnings cache from yfinance
   const refreshEarningsCache = useCallback(async () => {
     setRefreshing(true)
     try {
-      await api.refreshEarningsCache()
+      await api.refreshEarningsCache({ include_watchlist: showWatchlistEarnings })
       // Clear cache and reload data
       setLoadedMonths(new Set())
       setDailyPerformance([])
@@ -300,7 +317,12 @@ export default function Calendar() {
     } finally {
       setRefreshing(false)
     }
-  }, [currentDate, loadMonthData])
+  }, [currentDate, loadMonthData, showWatchlistEarnings])
+
+  // Toggle watchlist earnings (client-side filter, no reload)
+  const toggleWatchlistEarnings = useCallback(() => {
+    setShowWatchlistEarnings(prev => !prev)
+  }, [])
 
   if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="calendar" />
@@ -375,8 +397,46 @@ export default function Calendar() {
         </div>
 
         {loading ? (
-          <div className="p-8 flex justify-center items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+          <div className="p-4 animate-pulse">
+            {/* Skeleton Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-neutral-100 dark:bg-neutral-800 rounded-lg p-4">
+                  <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
+                  <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-16"></div>
+                </div>
+              ))}
+            </div>
+            {/* Skeleton Calendar Navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg w-10"></div>
+                <div className="h-6 bg-neutral-200 dark:bg-neutral-700 rounded w-32"></div>
+                <div className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg w-10"></div>
+              </div>
+              <div className="h-9 bg-neutral-200 dark:bg-neutral-700 rounded-lg w-20"></div>
+            </div>
+            {/* Skeleton Calendar Grid */}
+            <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-5 bg-neutral-50 dark:bg-neutral-800">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => (
+                  <div key={day} className="px-2 py-2 text-center border-b border-neutral-200 dark:border-neutral-700">
+                    <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-8 mx-auto"></div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-5">
+                {[...Array(25)].map((_, i) => (
+                  <div key={i} className="min-h-[110px] p-2 border-b border-r border-neutral-200 dark:border-neutral-700">
+                    <div className="h-5 bg-neutral-200 dark:bg-neutral-700 rounded w-6 mb-2"></div>
+                    <div className="space-y-1">
+                      <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-12"></div>
+                      <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-10"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : error ? (
           <div className="p-8 text-center text-red-500">
@@ -418,7 +478,7 @@ export default function Calendar() {
                 <div className="mt-1">
                   <p className={`text-2xl font-bold ${monthStats.totalChange >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                     {monthStats.totalChange >= 0 ? '+' : ''}{(() => {
-                      const monthDays = calendarDays.filter(d => d.isCurrentMonth && d.performance)
+                      const monthDays = calendarDaysFiltered.filter(d => d.isCurrentMonth && d.performance)
                       const totalChangePct = monthDays.reduce((sum, d) => sum + d.performance!.total_change_pct, 0)
                       return totalChangePct.toFixed(2)
                     })()}%
@@ -458,12 +518,26 @@ export default function Calendar() {
                   <ChevronRight size={20} />
                 </button>
               </div>
-              <button
-                onClick={goToToday}
-                className="btn btn-primary text-sm"
-              >
-                {t('calendar.today', 'Today')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToToday}
+                  className="btn btn-primary text-sm"
+                >
+                  {t('calendar.today', 'Today')}
+                </button>
+                <button
+                  onClick={toggleWatchlistEarnings}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                    showWatchlistEarnings
+                      ? 'bg-cyan-50 dark:bg-cyan-900/30 border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300'
+                      : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400'
+                  }`}
+                  title={t('calendar.toggleWatchlist', 'Toggle watchlist earnings')}
+                >
+                  <Eye size={16} />
+                  <span className="hidden sm:inline">{t('calendar.watchlist', 'Watchlist')}</span>
+                </button>
+              </div>
             </div>
 
             {/* Calendar Grid */}
@@ -502,7 +576,7 @@ export default function Calendar() {
                     );
                   }
                 `}</style>
-                {calendarDays.map((day, index) => (
+                {calendarDaysFiltered.map((day, index) => (
                   <div
                     key={index}
                     className={`min-h-[110px] p-2 border-b border-r border-neutral-200 dark:border-neutral-700 last:border-r-0 transition-colors relative ${
@@ -576,12 +650,19 @@ export default function Calendar() {
                           <div
                             key={i}
                             className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border w-fit ${
-                              earning.is_future
-                                ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300'
-                                : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                              earning.source === 'watchlist'
+                                ? earning.is_future
+                                  ? 'bg-cyan-50 dark:bg-cyan-900/30 border-cyan-100 dark:border-cyan-800/50 text-cyan-700 dark:text-cyan-300'
+                                  : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                                : earning.is_future
+                                  ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300'
+                                  : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
                             }`}
-                            title={`${earning.symbol}: ${earning.name || 'Earnings'}`}
+                            title={`${earning.symbol}: ${earning.name || 'Earnings'}${earning.source === 'watchlist' ? ' (Watchlist)' : ''}`}
                           >
+                            {earning.source === 'watchlist' && (
+                              <Eye size={10} className="shrink-0" />
+                            )}
                             <img
                               src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
                               alt={earning.symbol}
@@ -627,6 +708,13 @@ export default function Calendar() {
                 </div>
                 <span>{t('calendar.legend.earnings', 'Upcoming earnings')}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300 rounded">
+                  <Eye size={10} />
+                  TSLA
+                </div>
+                <span>{t('calendar.legend.watchlistEarnings', 'Watchlist earnings')}</span>
+              </div>
             </div>
           </div>
         ) : (
@@ -643,21 +731,37 @@ export default function Calendar() {
               </h3>
               {upcomingEarningsList.length === 0 ? (
                 <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
-                  {t('calendar.earnings.noUpcoming', 'No upcoming earnings for your held stocks')}
+                  {t('calendar.earnings.noUpcoming', 'No upcoming earnings for your stocks or watchlist')}
                 </p>
               ) : (
                 <div className="grid gap-3">
                   {upcomingEarningsList.map((earning, index) => (
                     <div
                       key={`${earning.symbol}-${earning.date}-${index}`}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-lg border shadow-sm hover:shadow-md transition-shadow overflow-hidden ${
+                        earning.source === 'watchlist'
+                          ? 'border-cyan-200 dark:border-cyan-700'
+                          : 'border-neutral-200 dark:border-neutral-700'
+                      }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
-                        <div className="text-center w-[48px] sm:min-w-[60px] p-1.5 sm:p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800/30 shrink-0">
-                          <div className="text-[10px] sm:text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                        <div className={`text-center w-[48px] sm:min-w-[60px] p-1.5 sm:p-2 rounded-lg border shrink-0 ${
+                          earning.source === 'watchlist'
+                            ? 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-100 dark:border-cyan-800/30'
+                            : 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/30'
+                        }`}>
+                          <div className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${
+                            earning.source === 'watchlist'
+                              ? 'text-cyan-600 dark:text-cyan-400'
+                              : 'text-purple-600 dark:text-purple-400'
+                          }`}>
                             {new Date(earning.date).toLocaleDateString(currentLocale, { month: 'short' })}
                           </div>
-                          <div className="text-xl sm:text-2xl font-bold text-purple-700 dark:text-purple-300 leading-none mt-0.5 sm:mt-1">
+                          <div className={`text-xl sm:text-2xl font-bold leading-none mt-0.5 sm:mt-1 ${
+                            earning.source === 'watchlist'
+                              ? 'text-cyan-700 dark:text-cyan-300'
+                              : 'text-purple-700 dark:text-purple-300'
+                          }`}>
                             {new Date(earning.date).getDate()}
                           </div>
                         </div>
@@ -672,14 +776,21 @@ export default function Calendar() {
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 shrink-0">{earning.symbol}</span>
-                            <span className="text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium shrink-0">
-                              Upcoming
-                            </span>
+                            {earning.source === 'watchlist' ? (
+                              <span className="flex items-center gap-1 text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-400 font-medium shrink-0">
+                                <Eye size={10} />
+                                {t('calendar.earnings.watchlist', 'Watchlist')}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium shrink-0">
+                                Upcoming
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] sm:text-sm text-neutral-600 dark:text-neutral-400 font-medium truncate">
                             {earning.name || 'Company'}
                           </div>
-                          {earning.portfolios.length > 0 && (
+                          {earning.source !== 'watchlist' && earning.portfolios.length > 0 && (
                             <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
                               <span className="opacity-70">{t('calendar.earnings.inPortfolios', 'In')}:</span> {earning.portfolios.map(p => p.name).join(', ')}
                             </div>

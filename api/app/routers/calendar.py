@@ -4,14 +4,14 @@ Calendar router - Portfolio calendar events including daily P&L and earnings
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case, and_
 import logging
 from decimal import Decimal
 
 from app.db import get_db
 from app.auth import get_current_user
-from app.models import User, Portfolio, Transaction, TransactionType, Asset, EarningsCache
+from app.models import User, Portfolio, Transaction, TransactionType, Asset, EarningsCache, Watchlist
 from app.crud import portfolios as crud
 from app.services.metrics import get_metrics_service
 from app.services.market_calendar import MarketCalendarService
@@ -232,11 +232,12 @@ async def get_earnings_calendar(
     portfolio_id: Optional[int] = Query(None, description="Filter by portfolio ID"),
     days_back: int = Query(30, description="Number of days in the past to include"),
     days_forward: int = Query(90, description="Number of days in the future to include"),
+    include_watchlist: bool = Query(True, description="Include watchlist stocks in earnings calendar"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get earnings calendar for held stocks (not ETFs or crypto).
+    Get earnings calendar for held stocks and watchlist items (not ETFs or crypto).
     Returns past and upcoming earnings dates with estimates from cache.
     """
     events: List[Dict[str, Any]] = []
@@ -255,7 +256,34 @@ async def get_earnings_calendar(
     # Get held stock symbols (stocks only)
     held_symbols = get_held_stock_symbols(db, portfolios)
     
-    if not held_symbols:
+    # Get watchlist stock symbols (stocks only)
+    watchlist_symbols: Dict[str, Dict[str, Any]] = {}
+    if include_watchlist:
+        watchlist_items = db.query(Watchlist).options(
+            joinedload(Watchlist.asset)
+        ).filter(
+            Watchlist.user_id == current_user.id
+        ).all()
+        
+        for item in watchlist_items:
+            if item.asset:
+                # Only include stocks (EQUITY), skip ETFs, crypto, and others
+                if item.asset.asset_type not in ['EQUITY', 'stock', 'Stock', 'STOCK']:
+                    continue
+                symbol = item.asset.symbol
+                # Skip if already in held symbols (portfolio takes precedence)
+                if symbol in held_symbols:
+                    continue
+                if symbol not in watchlist_symbols:
+                    watchlist_symbols[symbol] = {
+                        "name": item.asset.name,
+                        "asset_type": item.asset.asset_type,
+                    }
+    
+    # Combine all symbols
+    all_symbols = {**held_symbols, **watchlist_symbols}
+    
+    if not all_symbols:
         return {
             "earnings": [],
             "start_date": start_date.isoformat(),
@@ -265,7 +293,7 @@ async def get_earnings_calendar(
         }
     
     # Fetch earnings from cache
-    symbols_list = list(held_symbols.keys())
+    symbols_list = list(all_symbols.keys())
     cached_earnings = db.query(EarningsCache).filter(
         EarningsCache.symbol.in_(symbols_list),
         EarningsCache.earnings_date >= start_date,
@@ -274,7 +302,8 @@ async def get_earnings_calendar(
     
     for earning in cached_earnings:
         symbol = earning.symbol
-        info = held_symbols.get(symbol, {})
+        is_watchlist = symbol in watchlist_symbols
+        info = watchlist_symbols.get(symbol, {}) if is_watchlist else held_symbols.get(symbol, {})
         
         events.append({
             "date": earning.earnings_date.isoformat(),
@@ -287,6 +316,7 @@ async def get_earnings_calendar(
             "revenue_estimate": serialize_value(earning.revenue_estimate),
             "revenue_actual": serialize_value(earning.revenue_actual),
             "surprise_pct": serialize_value(earning.surprise_pct),
+            "source": "watchlist" if is_watchlist else "portfolio",
         })
     
     return {
@@ -422,11 +452,12 @@ async def get_daily_performance(
 
 @router.post("/refresh-earnings")
 async def refresh_earnings_for_user(
+    include_watchlist: bool = Query(True, description="Include watchlist stocks in refresh"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Manually trigger earnings cache refresh for user's held stocks.
+    Manually trigger earnings cache refresh for user's held stocks and watchlist items.
     This is useful when a user wants fresh data without waiting for the scheduled job.
     """
     import yfinance as yf
@@ -437,13 +468,40 @@ async def refresh_earnings_for_user(
     # Get held stock symbols
     held_symbols = get_held_stock_symbols(db, portfolios)
     
-    if not held_symbols:
+    # Get watchlist stock symbols (stocks only)
+    watchlist_symbols: Dict[str, Dict[str, Any]] = {}
+    if include_watchlist:
+        watchlist_items = db.query(Watchlist).options(
+            joinedload(Watchlist.asset)
+        ).filter(
+            Watchlist.user_id == current_user.id
+        ).all()
+        
+        for item in watchlist_items:
+            if item.asset:
+                # Only include stocks (EQUITY), skip ETFs, crypto, and others
+                if item.asset.asset_type not in ['EQUITY', 'stock', 'Stock', 'STOCK']:
+                    continue
+                symbol = item.asset.symbol
+                # Skip if already in held symbols
+                if symbol in held_symbols:
+                    continue
+                if symbol not in watchlist_symbols:
+                    watchlist_symbols[symbol] = {
+                        "name": item.asset.name,
+                        "asset_type": item.asset.asset_type,
+                    }
+    
+    # Combine all symbols
+    all_symbols = {**held_symbols, **watchlist_symbols}
+    
+    if not all_symbols:
         return {"status": "success", "message": "No stocks to refresh", "symbols_updated": 0}
     
     updated_count = 0
     failed_count = 0
     
-    for symbol in held_symbols.keys():
+    for symbol in all_symbols.keys():
         try:
             ticker = yf.Ticker(symbol)
             calendar = ticker.calendar
@@ -533,9 +591,11 @@ async def refresh_earnings_for_user(
     
     return {
         "status": "success",
-        "symbols_checked": len(held_symbols),
+        "symbols_checked": len(all_symbols),
         "symbols_updated": updated_count,
-        "symbols_failed": failed_count
+        "symbols_failed": failed_count,
+        "portfolio_symbols": len(held_symbols),
+        "watchlist_symbols": len(watchlist_symbols)
     }
 
 

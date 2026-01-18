@@ -845,6 +845,8 @@
     "title": "Calendar",
     "subtitle": "Track your daily performance and upcoming earnings",
     "today": "Today",
+    "watchlist": "Watchlist",
+    "toggleWatchlist": "Toggle watchlist earnings",
     "tabs": {
       "overview": "Calendar Overview",
       "earnings": "Earnings Calendar"
@@ -867,17 +869,19 @@
     "legend": {
       "positive": "Positive day",
       "negative": "Negative day",
-      "earnings": "Upcoming earnings"
+      "earnings": "Upcoming earnings",
+      "watchlistEarnings": "Watchlist earnings"
     },
     "earnings": {
       "upcoming": "Upcoming Earnings",
       "past": "Past Earnings",
-      "noUpcoming": "No upcoming earnings for your held stocks",
+      "noUpcoming": "No upcoming earnings for your stocks or watchlist",
       "noPast": "No past earnings data available",
       "showingRecent": "Showing 10 most recent earnings",
       "inPortfolios": "In",
       "epsEstimate": "EPS Est",
-      "revEstimate": "Rev Est"
+      "revEstimate": "Rev Est",
+      "watchlist": "Watchlist"
     },
     "refreshEarnings": "Refresh Earnings",
     "refreshEarningsTooltip": "Fetch latest earnings data from market"

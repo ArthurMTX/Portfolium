@@ -848,6 +848,8 @@
     "title": "Calendrier",
     "subtitle": "Suivez vos performances quotidiennes et les résultats à venir",
     "today": "Aujourd'hui",
+    "watchlist": "Watchlist",
+    "toggleWatchlist": "Activer/désactiver les résultats watchlist",
     "tabs": {
       "overview": "Aperçu du calendrier",
       "earnings": "Calendrier des résultats"
@@ -870,17 +872,19 @@
     "legend": {
       "positive": "Jour positif",
       "negative": "Jour négatif",
-      "earnings": "Résultats à venir"
+      "earnings": "Résultats à venir",
+      "watchlistEarnings": "Résultats watchlist"
     },
     "earnings": {
       "upcoming": "Résultats à venir",
       "past": "Résultats passés",
-      "noUpcoming": "Aucun résultat à venir pour vos actions détenues",
+      "noUpcoming": "Aucun résultat à venir pour vos actions ou votre watchlist",
       "noPast": "Aucune donnée de résultats passés disponible",
       "showingRecent": "Affichage des 10 résultats les plus récents",
       "inPortfolios": "Dans",
       "epsEstimate": "BPA Est",
-      "revEstimate": "Rev Est"
+      "revEstimate": "Rev Est",
+      "watchlist": "Watchlist"
     },
     "refreshEarnings": "Actualiser les résultats",
     "refreshEarningsTooltip": "Récupérer les dernières données de résultats du marché"

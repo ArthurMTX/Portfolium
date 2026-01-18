@@ -1881,11 +1881,13 @@ class ApiClient {
     portfolio_id?: number
     days_back?: number
     days_forward?: number
+    include_watchlist?: boolean
   }) {
     const queryParams = new URLSearchParams()
     if (params?.portfolio_id) queryParams.append('portfolio_id', params.portfolio_id.toString())
     if (params?.days_back) queryParams.append('days_back', params.days_back.toString())
     if (params?.days_forward) queryParams.append('days_forward', params.days_forward.toString())
+    if (params?.include_watchlist !== undefined) queryParams.append('include_watchlist', params.include_watchlist.toString())
     
     const queryString = queryParams.toString()
     return this.request<EarningsCalendarResponse>(`/calendar/earnings${queryString ? `?${queryString}` : ''}`)
@@ -1903,13 +1905,19 @@ class ApiClient {
     return this.request<DailyPerformanceResponse>(`/calendar/daily-performance${queryString ? `?${queryString}` : ''}`)
   }
 
-  async refreshEarningsCache() {
+  async refreshEarningsCache(params?: { include_watchlist?: boolean }) {
+    const queryParams = new URLSearchParams()
+    if (params?.include_watchlist !== undefined) queryParams.append('include_watchlist', params.include_watchlist.toString())
+    const queryString = queryParams.toString()
+    
     return this.request<{
       status: string
       symbols_checked: number
       symbols_updated: number
       symbols_failed: number
-    }>('/calendar/refresh-earnings', {
+      portfolio_symbols: number
+      watchlist_symbols: number
+    }>(`/calendar/refresh-earnings${queryString ? `?${queryString}` : ''}`, {
       method: 'POST'
     })
   }
@@ -2003,6 +2011,7 @@ export interface EarningsEvent extends CalendarEventBase {
   eps_actual?: number | null
   revenue_estimate?: number | null
   surprise_pct?: number | null
+  source?: 'portfolio' | 'watchlist'
 }
 
 export interface DailyPerformanceEvent extends CalendarEventBase {
