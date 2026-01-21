@@ -136,7 +136,8 @@ class MarketCalendarService:
                         )
                         for d in dates:
                             hd = d.date() if hasattr(d, 'date') else d
-                            if start_date <= hd <= end_date:
+                            # Ensure hd is a date object before comparison
+                            if isinstance(hd, date) and start_date <= hd <= end_date:
                                 holiday_names[hd] = rule.name
                     except Exception:
                         continue
@@ -145,7 +146,8 @@ class MarketCalendarService:
             if hasattr(calendar, 'adhoc_holidays') and calendar.adhoc_holidays:
                 for adhoc_date in calendar.adhoc_holidays:
                     hd = adhoc_date.date() if hasattr(adhoc_date, 'date') else adhoc_date
-                    if start_date <= hd <= end_date and hd not in holiday_names:
+                    # Ensure hd is a date object before comparison
+                    if isinstance(hd, date) and start_date <= hd <= end_date and hd not in holiday_names:
                         holiday_names[hd] = "Special Holiday"
                         
         except Exception as e:
