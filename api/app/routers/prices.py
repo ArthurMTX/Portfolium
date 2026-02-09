@@ -8,15 +8,16 @@ from datetime import datetime
 from decimal import Decimal
 import yfinance as yf
 import asyncio
+import logging
 
 from app.errors import InvalidPriceRequestError, PortfolioNotFoundError
 from app.db import get_db
 from app.schemas import PriceQuote
-from app.services.pricing import get_pricing_service, PricingService
+from app.services.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
 from app.crud import portfolios as portfolio_crud
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
-
 
 @router.get("", response_model=Dict[str, PriceQuote])
 async def get_prices(
@@ -54,13 +55,15 @@ async def get_market_indices(
     )
 ):
     """
-    Get current prices for market indices without requiring them to be in the Asset table.
+    Get current prices for market indices using batch downloading to minimize API calls.
     
-    This endpoint directly fetches from Yahoo Finance and doesn't use the database cache,
-    making it suitable for general market data like S&P 500, DAX, Nikkei, etc.
+    This endpoint uses yf.download() to fetch all indices in a single API call,
+    making it much more efficient and less likely to trigger rate limits.
     
     Example: `/prices/indices?symbols=^GSPC,^DJI,^IXIC`
     """
+    import pandas as pd
+    
     symbol_list = [s.strip() for s in symbols.split(",")]
     
     if not symbol_list:
@@ -69,48 +72,90 @@ async def get_market_indices(
     if len(symbol_list) > 50:
         raise InvalidPriceRequestError("Maximum 50 symbols per request")
     
-    def fetch_index_price(symbol: str) -> tuple[str, PriceQuote | None]:
-        """Fetch a single index price from yfinance"""
+    # Check circuit breaker
+    if is_rate_limited():
+        remaining = get_rate_limit_remaining()
+        logger.warning(f"Rate limit active for indices fetch, {remaining:.1f}s remaining")
+        return {}  # Return empty rather than hitting rate limits more
+    
+    def batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
+        """Batch fetch all indices in a single API call"""
+        prices = {}
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            # Use batch download for all symbols at once
+            df = yf.download(
+                symbols,
+                period="2d",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=True,
+                progress=False,
+                threads=True
+            )
             
-            # Get current price
-            current_price = info.get('regularMarketPrice') or info.get('currentPrice')
-            if not current_price:
-                return (symbol, None)
+            if df is None or df.empty:
+                logger.warning("No data returned for market indices batch fetch")
+                return {}
             
-            # Get previous close for daily change calculation
-            prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
-            daily_change_pct = None
-            if prev_close and prev_close > 0:
-                daily_change_pct = ((current_price - prev_close) / prev_close) * 100
+            now = datetime.utcnow()
             
-            # Get currency
-            currency = info.get('currency', 'USD')
+            # Handle single symbol case
+            if len(symbols) == 1:
+                symbol = symbols[0]
+                if 'Close' in df.columns:
+                    closes = df['Close'].dropna()
+                    if len(closes) >= 1:
+                        current_price = Decimal(str(float(closes.iloc[-1])))
+                        prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                        daily_change_pct = None
+                        if prev_close and prev_close > 0:
+                            daily_change_pct = (current_price - prev_close) / prev_close * 100
+                        
+                        prices[symbol] = PriceQuote(
+                            symbol=symbol,
+                            price=current_price,
+                            asof=now,
+                            currency="USD",
+                            daily_change_pct=daily_change_pct
+                        )
+            else:
+                # Multi-symbol case
+                for symbol in symbols:
+                    try:
+                        if symbol in df.columns.get_level_values(0):
+                            symbol_data = df[symbol]
+                            if 'Close' in symbol_data.columns:
+                                closes = symbol_data['Close'].dropna()
+                                if len(closes) >= 1:
+                                    current_price = Decimal(str(float(closes.iloc[-1])))
+                                    prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                                    daily_change_pct = None
+                                    if prev_close and prev_close > 0:
+                                        daily_change_pct = (current_price - prev_close) / prev_close * 100
+                                    
+                                    prices[symbol] = PriceQuote(
+                                        symbol=symbol,
+                                        price=current_price,
+                                        asof=now,
+                                        currency="USD",
+                                        daily_change_pct=daily_change_pct
+                                    )
+                    except Exception as e:
+                        logger.warning(f"Failed to parse index data for {symbol}: {e}")
             
-            return (symbol, PriceQuote(
-                symbol=symbol,
-                price=Decimal(str(current_price)),
-                asof=datetime.utcnow(),
-                currency=currency,
-                daily_change_pct=Decimal(str(daily_change_pct)) if daily_change_pct is not None else None
-            ))
+            logger.info(f"Fetched {len(prices)}/{len(symbols)} market indices via batch download")
+            return prices
+            
         except Exception as e:
-            print(f"Error fetching {symbol}: {e}")
-            return (symbol, None)
+            error_msg = str(e).lower()
+            if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
+                from app.services.pricing import set_rate_limited
+                set_rate_limited(60)  # Trigger circuit breaker
+            logger.warning(f"Failed to fetch market indices: {e}")
+            return {}
     
-    # Fetch all prices concurrently using asyncio.to_thread
-    tasks = [asyncio.to_thread(fetch_index_price, symbol) for symbol in symbol_list]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Build response dict, excluding failed fetches
-    prices = {}
-    for result in results:
-        if isinstance(result, tuple) and result[1]:
-            symbol, price_quote = result
-            prices[symbol] = price_quote
-    
+    # Run batch fetch in thread pool
+    prices = await asyncio.to_thread(batch_fetch_indices, symbol_list)
     return prices
 
 

@@ -267,10 +267,10 @@ class LogoCacheClearError(PortfoliumException):
 class SearchTickerError(PortfoliumException):
     """Raised when searching for a ticker fails"""
     
-    def __init__(self, status: str):
+    def __init__(self, status_code: int):
         super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Yahoo Finance search failed with status: {status}"
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Yahoo Finance search failed with status: {status_code}"
         )
 
 

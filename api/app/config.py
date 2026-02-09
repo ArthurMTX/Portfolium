@@ -50,8 +50,10 @@ class Settings(BaseSettings):
     # Frontend URL (for email links)
     FRONTEND_URL: str = "http://localhost:5173"
     
-    # Price caching
-    PRICE_CACHE_TTL_SECONDS: int = 300
+    # Price caching and rate limiting
+    PRICE_CACHE_TTL_SECONDS: int = 300  # 5 minutes default - increase to reduce API calls
+    PRICE_BATCH_MIN_INTERVAL: float = 2.0  # Minimum seconds between batch API requests
+    PRICE_MAX_BACKOFF_SECONDS: float = 120.0  # Max backoff on rate limiting
     
     # Transaction validation
     VALIDATE_SELL_QUANTITY: bool = True  # Check if selling more shares than owned

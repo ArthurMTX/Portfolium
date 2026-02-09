@@ -11,7 +11,16 @@ logger = logging.getLogger(__name__)
 
 # Cache for exchange rates (currency_pair -> (rate, timestamp))
 _exchange_rate_cache: Dict[str, tuple[Decimal, datetime]] = {}
-_CACHE_DURATION = timedelta(hours=1)  # Cache rates for 1 hour
+_CACHE_DURATION = timedelta(hours=4)  # Cache rates for 4 hours (reduce API calls)
+
+
+def _is_yf_rate_limited() -> bool:
+    """Check if yfinance is currently rate limited"""
+    try:
+        from app.services.pricing import is_rate_limited
+        return is_rate_limited()
+    except ImportError:
+        return False
 
 
 class CurrencyService:
@@ -36,12 +45,25 @@ class CurrencyService:
         if from_currency == to_currency:
             return Decimal(1)
         
-        # Check cache
+        # Check cache first (even if stale, better than rate limiting)
         cache_key = f"{from_currency}{to_currency}"
         if cache_key in _exchange_rate_cache:
             rate, timestamp = _exchange_rate_cache[cache_key]
-            if datetime.utcnow() - timestamp < _CACHE_DURATION:
+            cache_age = datetime.utcnow() - timestamp
+            
+            # Return cached rate if fresh
+            if cache_age < _CACHE_DURATION:
                 return rate
+            
+            # If rate limited, return stale cache (better than nothing)
+            if _is_yf_rate_limited():
+                logger.debug(f"Rate limited, using stale cache for {cache_key}")
+                return rate
+        
+        # If rate limited and no cache, return None
+        if _is_yf_rate_limited():
+            logger.warning(f"Rate limited, no cached rate for {cache_key}")
+            return None
         
         # Fetch from Yahoo Finance using forex pair format
         # Yahoo Finance forex pairs: EURUSD=X, GBPUSD=X, etc.
@@ -72,6 +94,14 @@ class CurrencyService:
                             logger.info(f"Fetched inverse exchange rate {inverse_symbol}: {inverse_rate}, calculated {forex_symbol}: {rate}")
                             return rate
                 except Exception as inv_e:
+                    error_msg = str(inv_e).lower()
+                    if "rate" in error_msg or "limit" in error_msg or "429" in error_msg:
+                        # Trigger circuit breaker
+                        try:
+                            from app.services.pricing import set_rate_limited
+                            set_rate_limited(60)
+                        except ImportError:
+                            pass
                     logger.warning(f"Failed to fetch inverse pair {inverse_symbol}: {inv_e}")
                 
                 logger.error(f"No exchange rate data available for {from_currency} to {to_currency}")
@@ -87,6 +117,14 @@ class CurrencyService:
             return rate
             
         except Exception as e:
+            error_msg = str(e).lower()
+            if "rate" in error_msg or "limit" in error_msg or "429" in error_msg:
+                # Trigger circuit breaker
+                try:
+                    from app.services.pricing import set_rate_limited
+                    set_rate_limited(60)
+                except ImportError:
+                    pass
             logger.error(f"Failed to fetch exchange rate for {forex_symbol}: {e}")
             return None
     

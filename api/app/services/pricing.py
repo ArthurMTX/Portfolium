@@ -1,12 +1,21 @@
 """
 Pricing service using yfinance with Redis caching
+
+Features:
+- Batch downloading to minimize API calls and avoid rate limits
+- Multi-level caching (Redis + DB)
+- Request deduplication
+- Exponential backoff on rate limits
 """
 import asyncio
 import logging
+import random
+import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 import yfinance as yf
+import pandas as pd
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -16,8 +25,82 @@ from app.crud import prices as crud_prices
 from app.schemas import PriceCreate, PriceQuote
 from app.db import get_db
 from app.services.cache import CacheService, cache_price, get_cached_price
+from app.services.market_calendar import MarketAwareCacheTTL
 
 logger = logging.getLogger(__name__)
+
+# Rate limiting tracker - GLOBAL circuit breaker
+# Uses Redis for cross-process sharing between API and Celery workers
+_RATE_LIMIT_KEY = "yfinance:rate_limit_until"
+_last_batch_fetch_time: float = 0
+_rate_limit_backoff: float = 0  # Local backoff for exponential calculation
+
+def _get_batch_min_interval() -> float:
+    """Get minimum interval between batch requests from settings"""
+    return getattr(settings, 'PRICE_BATCH_MIN_INTERVAL', 2.0)
+
+def _get_max_backoff() -> float:
+    """Get maximum backoff time from settings"""
+    return getattr(settings, 'PRICE_MAX_BACKOFF_SECONDS', 120.0)
+
+def is_rate_limited() -> bool:
+    """Check if we're currently in a rate limit backoff period (circuit breaker).
+    Uses Redis for cross-process state sharing."""
+    try:
+        from app.redis_client import get_redis
+        redis = get_redis()
+        if redis:
+            until_str = redis.get(_RATE_LIMIT_KEY)
+            if until_str:
+                until = float(until_str)
+                return time.time() < until
+    except Exception:
+        pass
+    return False
+
+def get_rate_limit_remaining() -> float:
+    """Get seconds remaining in rate limit period"""
+    try:
+        from app.redis_client import get_redis
+        redis = get_redis()
+        if redis:
+            until_str = redis.get(_RATE_LIMIT_KEY)
+            if until_str:
+                remaining = float(until_str) - time.time()
+                return max(0, remaining)
+    except Exception:
+        pass
+    return 0
+
+def set_rate_limited(duration_seconds: float = 60.0):
+    """Set the rate limit circuit breaker for a duration.
+    Stores in Redis for cross-process sharing."""
+    global _rate_limit_backoff
+    _rate_limit_backoff = duration_seconds
+    try:
+        from app.redis_client import get_redis
+        redis = get_redis()
+        if redis:
+            until = time.time() + duration_seconds
+            redis.setex(_RATE_LIMIT_KEY, int(duration_seconds) + 5, str(until))
+    except Exception as e:
+        logger.warning(f"Failed to set rate limit in Redis: {e}")
+    logger.warning(f"Rate limit circuit breaker activated for {duration_seconds:.1f}s")
+
+def reset_rate_limit():
+    """Reset rate limit state on successful fetch"""
+    global _rate_limit_backoff
+    if _rate_limit_backoff > 0:
+        _rate_limit_backoff = max(0, _rate_limit_backoff - 5)
+        if _rate_limit_backoff == 0:
+            try:
+                from app.redis_client import get_redis
+                redis = get_redis()
+                if redis:
+                    redis.delete(_RATE_LIMIT_KEY)
+            except Exception:
+                pass
+            logger.info("Rate limit circuit breaker reset")
 
 # In-memory cache for price fetches (symbol -> (quote, timestamp))
 _price_memory_cache: Dict[str, Tuple[PriceQuote, datetime]] = {}
@@ -172,12 +255,9 @@ class PricingService:
             
             # Update Redis cache
             if result:
-                # Cache with shorter TTL during market hours, longer after close
-                now = datetime.utcnow()
-                # Market hours: 14:30-21:00 UTC (9:30-16:00 EST)
-                is_market_hours = 14 <= now.hour < 21 and now.weekday() < 5
-                ttl = 60 if is_market_hours else 300  # 1 min or 5 min
-                
+                # Use market-aware TTL: short during trading, long after hours
+                ttl = MarketAwareCacheTTL.get_ttl_for_symbol(symbol)
+                logger.debug(f"Caching {symbol} with TTL={ttl}s (market-aware)")
                 cache_price(symbol, result.model_dump(), ttl)
             
             return result
@@ -314,40 +394,254 @@ class PricingService:
         
         return None
     
-    async def get_multiple_prices(self, symbols: List[str]) -> Dict[str, PriceQuote]:
+    async def get_multiple_prices(self, symbols: List[str], force_refresh: bool = False) -> Dict[str, PriceQuote]:
         """
-        Get prices for multiple symbols concurrently using asyncio.gather().
+        Get prices for multiple symbols using BATCH downloading to minimize API calls.
         
-        This method fetches prices in TRUE parallel, dramatically reducing latency
-        when cache is cold. Each get_price() call handles its own:
-        - Redis caching (shared, fast)
-        - Request deduplication (prevents duplicate fetches)
-        - Database writes (each symbol manages its own DB session)
+        This method uses yf.download() to fetch all symbols in a SINGLE API request,
+        which dramatically reduces rate limiting issues compared to individual fetches.
         
-        Performance: 
-        - Sequential: 30 symbols * 1.2s = 36 seconds
-        - Parallel: max(1.2s for all 30) = 1.2 seconds
+        Strategy:
+        1. Check Redis/DB cache for each symbol
+        2. Collect symbols that need fresh data
+        3. Batch fetch all missing symbols in ONE API call
+        4. Update caches and return results
+        
+        Performance:
+        - Old approach: 30 symbols = 30+ API calls (rate limited!)
+        - New approach: 30 symbols = 1-2 API calls (batch download)
         """
         results = {}
+        symbols_to_fetch = []
         
-        # Launch all fetches in parallel using gather
-        # return_exceptions=True prevents one failure from killing all fetches
-        tasks = [self.get_price(symbol) for symbol in symbols]
-        prices = await asyncio.gather(*tasks, return_exceptions=True)
+        # Phase 1: Check caches first
+        for symbol in symbols:
+            if not force_refresh:
+                # Check Redis cache first
+                cached = get_cached_price(symbol)
+                if cached:
+                    logger.debug(f"Using Redis cached price for {symbol}")
+                    results[symbol] = PriceQuote(**cached)
+                    continue
+                
+                # Check DB cache
+                asset = self.db.query(Asset).filter(Asset.symbol == symbol).first()
+                if asset:
+                    latest_price = crud_prices.get_latest_price(self.db, asset.id)
+                    if latest_price and self._is_price_fresh(latest_price.asof):
+                        daily_change_pct = self._calculate_daily_change_with_official_close(
+                            asset.id, latest_price.price
+                        )
+                        quote = PriceQuote(
+                            symbol=symbol,
+                            price=latest_price.price,
+                            asof=latest_price.asof,
+                            currency=asset.currency,
+                            daily_change_pct=daily_change_pct
+                        )
+                        results[symbol] = quote
+                        # Also cache in Redis with market-aware TTL
+                        ttl = MarketAwareCacheTTL.get_ttl_for_symbol(symbol)
+                        cache_price(symbol, quote.model_dump(), ttl)
+                        continue
+            
+            symbols_to_fetch.append(symbol)
         
-        # Collect results, filtering out exceptions and None values
-        for symbol, price in zip(symbols, prices):
-            if isinstance(price, Exception):
-                logger.error(f"Error fetching price for {symbol}: {price}")
-            elif price is not None:
-                results[symbol] = price
+        if not symbols_to_fetch:
+            logger.info(f"All {len(symbols)} symbols served from cache")
+            return results
         
+        logger.info(f"Need to fetch {len(symbols_to_fetch)}/{len(symbols)} symbols via batch download")
+        
+        # Phase 2: Batch fetch all missing symbols
+        batch_results = await asyncio.to_thread(
+            self._batch_fetch_from_yfinance, symbols_to_fetch
+        )
+        
+        # Phase 3: Process batch results and update caches
+        for symbol in symbols_to_fetch:
+            if symbol in batch_results and batch_results[symbol]:
+                price_data = batch_results[symbol]
+                asset = self.db.query(Asset).filter(Asset.symbol == symbol).first()
+                
+                if asset:
+                    # Calculate daily change
+                    daily_change_pct = None
+                    if price_data.get("previous_close"):
+                        prev = price_data["previous_close"]
+                        curr = price_data["price"]
+                        if prev and prev > 0:
+                            daily_change_pct = (curr - prev) / prev * 100
+                    
+                    # Save to DB
+                    try:
+                        price_create = PriceCreate(
+                            asset_id=asset.id,
+                            asof=price_data["asof"],
+                            price=price_data["price"],
+                            volume=price_data.get("volume"),
+                            source="yfinance_batch"
+                        )
+                        crud_prices.create_price(self.db, price_create)
+                    except Exception as e:
+                        logger.warning(f"Failed to save price for {symbol}: {e}")
+                    
+                    quote = PriceQuote(
+                        symbol=symbol,
+                        price=price_data["price"],
+                        asof=price_data["asof"],
+                        currency=asset.currency if asset else "USD",
+                        daily_change_pct=daily_change_pct
+                    )
+                    results[symbol] = quote
+                    
+                    # Cache in Redis with market-aware TTL
+                    ttl = MarketAwareCacheTTL.get_ttl_for_symbol(symbol)
+                    cache_price(symbol, quote.model_dump(), ttl)
+            else:
+                # Fallback to last known price
+                asset = self.db.query(Asset).filter(Asset.symbol == symbol).first()
+                if asset:
+                    latest_price = crud_prices.get_latest_price(self.db, asset.id)
+                    if latest_price:
+                        logger.warning(f"Batch fetch failed for {symbol}, using last known price")
+                        daily_change_pct = self._calculate_daily_change_with_official_close(
+                            asset.id, latest_price.price
+                        )
+                        results[symbol] = PriceQuote(
+                            symbol=symbol,
+                            price=latest_price.price,
+                            asof=latest_price.asof,
+                            currency=asset.currency,
+                            daily_change_pct=daily_change_pct
+                        )
+        
+        logger.info(f"Batch fetch complete: {len(results)}/{len(symbols)} symbols have prices")
         return results
     
+    def _batch_fetch_from_yfinance(self, symbols: List[str]) -> Dict[str, Optional[Dict]]:
+        """
+        Batch fetch prices for multiple symbols using yf.download().
+        
+        This makes a SINGLE API call for all symbols, dramatically reducing
+        rate limiting issues compared to individual Ticker.info calls.
+        
+        Returns dict mapping symbol -> price data or None
+        """
+        global _last_batch_fetch_time, _rate_limit_backoff
+        
+        if not symbols:
+            return {}
+        
+        # Circuit breaker - if we're rate limited, don't even try
+        if is_rate_limited():
+            remaining = get_rate_limit_remaining()
+            logger.warning(f"Rate limit circuit breaker active, skipping batch fetch ({remaining:.1f}s remaining)")
+            return {}
+        
+        import socket
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(30.0)  # Longer timeout for batch
+        
+        try:
+            # Rate limiting: ensure minimum interval between batch requests
+            now = time.time()
+            time_since_last = now - _last_batch_fetch_time
+            wait_time = max(0, _get_batch_min_interval() + _rate_limit_backoff - time_since_last)
+            
+            if wait_time > 0:
+                logger.info(f"Rate limiting: waiting {wait_time:.1f}s before batch fetch")
+                time.sleep(wait_time)
+            
+            _last_batch_fetch_time = time.time()
+            
+            # Batch download - ONE API call for all symbols!
+            logger.info(f"Batch downloading {len(symbols)} symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''}")
+            
+            # Use 2 days of data to get current price and previous close
+            df = yf.download(
+                symbols,
+                period="2d",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=True,
+                progress=False,
+                threads=True
+            )
+            
+            if df is None or df.empty:
+                logger.warning("Batch download returned empty data")
+                backoff = min(_rate_limit_backoff * 2 + 1, _get_max_backoff())
+                set_rate_limited(backoff)  # Trigger circuit breaker
+                return {}
+            
+            # Success - reset backoff
+            reset_rate_limit()
+            
+            results = {}
+            now = datetime.utcnow()
+            
+            # Handle single symbol case (different DataFrame structure)
+            if len(symbols) == 1:
+                symbol = symbols[0]
+                if 'Close' in df.columns and not df['Close'].empty:
+                    closes = df['Close'].dropna()
+                    if len(closes) >= 1:
+                        current_price = Decimal(str(float(closes.iloc[-1])))
+                        prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                        volume = int(df['Volume'].iloc[-1]) if 'Volume' in df.columns and not pd.isna(df['Volume'].iloc[-1]) else None
+                        
+                        results[symbol] = {
+                            "price": current_price,
+                            "previous_close": prev_close,
+                            "asof": now,
+                            "volume": volume
+                        }
+            else:
+                # Multi-symbol case
+                for symbol in symbols:
+                    try:
+                        if symbol in df.columns.get_level_values(0):
+                            symbol_data = df[symbol]
+                            if 'Close' in symbol_data.columns:
+                                closes = symbol_data['Close'].dropna()
+                                if len(closes) >= 1:
+                                    current_price = Decimal(str(float(closes.iloc[-1])))
+                                    prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                                    volume = None
+                                    if 'Volume' in symbol_data.columns:
+                                        vol_val = symbol_data['Volume'].iloc[-1]
+                                        if not pd.isna(vol_val):
+                                            volume = int(vol_val)
+                                    
+                                    results[symbol] = {
+                                        "price": current_price,
+                                        "previous_close": prev_close,
+                                        "asof": now,
+                                        "volume": volume
+                                    }
+                    except Exception as e:
+                        logger.warning(f"Failed to parse batch data for {symbol}: {e}")
+            
+            logger.info(f"Batch download successful: got {len(results)}/{len(symbols)} prices")
+            return results
+            
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
+                # Rate limited - trigger circuit breaker with jitter
+                backoff = min(_rate_limit_backoff * 2 + random.uniform(30, 90), _get_max_backoff())
+                set_rate_limited(backoff)
+            else:
+                logger.error(f"Batch fetch error: {e}")
+            return {}
+        finally:
+            socket.setdefaulttimeout(old_timeout)
+
     async def refresh_all_portfolio_prices(self, portfolio_id: int) -> int:
         """
-        Refresh prices for all assets in a portfolio concurrently
-        Returns number of prices updated
+        Refresh prices for all assets in a portfolio using batch fetch.
+        Returns number of prices updated.
         """
         from app.models import Transaction
         
@@ -360,13 +654,11 @@ class PricingService:
             .all()
         )
         
-        # Force refresh all prices concurrently
+        # Use batch fetch for efficiency
         symbols = [asset.symbol for asset in assets]
-        tasks = [self.get_price(symbol, force_refresh=True) for symbol in symbols]
-        prices = await asyncio.gather(*tasks, return_exceptions=True)
+        prices = await self.get_multiple_prices(symbols, force_refresh=True)
         
-        count = sum(1 for price in prices if not isinstance(price, Exception) and price)
-        
+        count = len(prices)
         logger.info(f"Refreshed {count} prices for portfolio {portfolio_id}")
         return count
 
@@ -421,7 +713,18 @@ class PricingService:
         This matches what Yahoo Finance website and other platforms (Trade Republic) show.
         The previousClose includes after-hours trading and is the reference point for
         intraday percentage calculations that users expect to see.
+        
+        Note: For multiple symbols, prefer using get_multiple_prices() which uses
+        batch downloading to minimize API calls and avoid rate limits.
         """
+        global _rate_limit_backoff
+        
+        # Circuit breaker - if we're rate limited, don't even try
+        if is_rate_limited():
+            remaining = get_rate_limit_remaining()
+            logger.debug(f"Rate limit circuit breaker active for {symbol}, skipping ({remaining:.1f}s remaining)")
+            return None
+        
         import socket
         # Set socket timeout to prevent hanging on slow network
         old_timeout = socket.getdefaulttimeout()
@@ -439,6 +742,9 @@ class PricingService:
                 prev_close = info.get('previousClose')
                 
                 if current_price and current_price > 0:
+                    # Success - reduce backoff
+                    reset_rate_limit()
+                    
                     result = {
                         "price": Decimal(str(current_price)),
                         "asof": datetime.utcnow(),
@@ -451,7 +757,13 @@ class PricingService:
                     
                     return result
             except Exception as e:
-                logger.warning(f"ticker.info failed for {symbol}: {e}")
+                error_msg = str(e).lower()
+                if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
+                    backoff = min(_rate_limit_backoff * 2 + random.uniform(30, 60), _get_max_backoff())
+                    set_rate_limited(backoff)
+                    return None  # Don't even try history fallback if rate limited
+                else:
+                    logger.warning(f"ticker.info failed for {symbol}: {e}")
             
             # Fallback to history for both current and previous close
             logger.info(f"Fetching history for {symbol}")

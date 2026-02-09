@@ -65,7 +65,7 @@ async def search_ticker(query: str):
     try:
         response = requests.get(url, headers=headers, timeout=5)
         if response.status_code != 200:
-            raise SearchTickerError(status=response.status_code)
+            raise SearchTickerError(status_code=response.status_code)
         data = response.json()
         # Return top 10 results with symbol, name, and type
         results = [
