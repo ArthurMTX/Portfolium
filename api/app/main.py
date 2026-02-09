@@ -28,9 +28,15 @@ formatter = logging.Formatter(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=5, encoding='utf-8')
-file_handler.setFormatter(formatter)
-file_handler.setLevel(logging.DEBUG)
+# Use delay=True to defer file creation and make rotation more resilient
+try:
+    file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=5, encoding='utf-8', delay=True)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+except Exception as e:
+    # Fallback to console-only logging if file handler fails
+    print(f"Warning: Could not create file handler: {e}")
+    file_handler = None
 
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
@@ -39,7 +45,8 @@ console_handler.setLevel(logging.INFO)
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
 root_logger.handlers = []  # Remove default handlers
-root_logger.addHandler(file_handler)
+if file_handler:
+    root_logger.addHandler(file_handler)
 root_logger.addHandler(console_handler)
 
 logger = logging.getLogger("portfolium")

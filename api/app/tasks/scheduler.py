@@ -6,6 +6,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from datetime import datetime, timedelta
 
 from app.db import SessionLocal
@@ -523,6 +524,100 @@ async def check_daily_changes():
     # Run in thread pool to avoid blocking the event loop
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _check_changes)
+
+
+async def backfill_recent_prices():
+    """
+    Startup job: backfill closing prices for the last 90 days for all held assets.
+    
+    When the app has been offline, daily closing prices are not collected.
+    This function unconditionally fetches the last 90 days of prices for every
+    held asset, ensuring the calendar and charts have data immediately after restart.
+    yfinance deduplication in ensure_historical_prices prevents duplicate entries.
+    """
+    logger.info("Starting startup price backfill (last 90 days for all held assets)...")
+    
+    def _backfill():
+        db = SessionLocal()
+        try:
+            from app.models import Asset, Transaction, TransactionType
+            from app.routers.assets import _parse_split_ratio
+            from decimal import Decimal
+            
+            # Get all assets that have transactions
+            asset_ids = db.query(Transaction.asset_id.distinct()).all()
+            asset_ids = [aid[0] for aid in asset_ids]
+            
+            held_assets = []
+            for asset_id in asset_ids:
+                transactions = (
+                    db.query(Transaction)
+                    .filter(Transaction.asset_id == asset_id)
+                    .order_by(Transaction.tx_date, Transaction.created_at)
+                    .all()
+                )
+                
+                total_quantity = Decimal(0)
+                for tx in transactions:
+                    if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                        total_quantity += tx.quantity
+                    elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
+                        total_quantity -= tx.quantity
+                    elif tx.type == TransactionType.SPLIT:
+                        split_ratio = _parse_split_ratio(tx.meta_data.get("split", "1:1") if tx.meta_data else "1:1")
+                        total_quantity *= split_ratio
+                
+                if total_quantity > 0:
+                    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+                    if asset:
+                        held_assets.append(asset)
+            
+            if not held_assets:
+                logger.info("No held assets found, skipping startup backfill")
+                return
+            
+            logger.info(f"Startup backfill: fetching last 90 days of prices for {len(held_assets)} held assets")
+            
+            pricing_service = PricingService(db)
+            
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=90)
+            
+            successful = 0
+            failed = 0
+            total_prices = 0
+            
+            for asset in held_assets:
+                try:
+                    count = pricing_service.ensure_historical_prices(
+                        asset,
+                        start_date,
+                        end_date,
+                        interval='1d'
+                    )
+                    if count > 0:
+                        successful += 1
+                        total_prices += count
+                        # Only log if significant number of prices added
+                        if count > 5:
+                            logger.info(f"Startup backfill: {asset.symbol} - {count} prices added")
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"Startup backfill: error for {asset.symbol}: {e}")
+            
+            logger.info(
+                f"Startup price backfill completed. "
+                f"Assets updated: {successful}, Prices added: {total_prices}, "
+                f"Failed: {failed}, Total assets: {len(held_assets)}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Startup price backfill failed: {e}", exc_info=True)
+        finally:
+            db.close()
+    
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _backfill)
 
 
 async def fetch_daily_closing_prices():
@@ -1338,6 +1433,39 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1,
         coalesce=True
+    )
+    
+    # === STARTUP BACKFILL ===
+    # When the app starts after being down, historical prices may be missing.
+    # Schedule immediate one-shot jobs to backfill missing price data so the
+    # calendar and charts show accurate data from day one.
+    startup_delay = datetime.now() + timedelta(seconds=30)
+    
+    # 1. Backfill the last 90 days of closing prices for all held assets.
+    #    This covers the calendar's default view and ensures immediate data availability.
+    scheduler.add_job(
+        backfill_recent_prices,
+        trigger=DateTrigger(run_date=startup_delay),
+        id="startup_backfill_recent_prices",
+        name="Startup: backfill recent closing prices",
+        replace_existing=True,
+        max_instances=1,
+    )
+    
+    # 2. Detect and fill any larger gaps in price history (runs 90s after startup
+    #    to allow the recent backfill to finish first)
+    scheduler.add_job(
+        detect_and_fill_price_gaps,
+        trigger=DateTrigger(run_date=startup_delay + timedelta(seconds=60)),
+        id="startup_fill_price_gaps",
+        name="Startup: backfill missing price history",
+        replace_existing=True,
+        max_instances=1,
+    )
+    
+    logger.info(
+        "Startup backfill scheduled: recent prices in 30s, "
+        "full gap detection in 90s"
     )
     
     scheduler.start()
