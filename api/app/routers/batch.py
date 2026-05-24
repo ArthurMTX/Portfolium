@@ -18,6 +18,7 @@ from app.crud import portfolios as crud_portfolios
 from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
 from app.services.cache import CacheService
+from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -578,9 +579,8 @@ async def get_dashboard_batch(
         from app.errors import UnauthorizedPortfolioAccessError
         raise UnauthorizedPortfolioAccessError(request.portfolio_id)
     
-    # Create cache key
-    widget_key = ','.join(sorted(request.visible_widgets))
-    cache_key = f"dashboard_batch:{request.portfolio_id}:{hash(widget_key)}"
+    # Create a stable cache key shared across API and Celery workers.
+    cache_key = build_dashboard_batch_cache_key(request.portfolio_id, request.visible_widgets)
     
     # Check Redis cache
     cache = CacheService()

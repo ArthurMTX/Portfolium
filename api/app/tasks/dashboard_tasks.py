@@ -34,6 +34,7 @@ from app.routers.batch import (
 from app.services.metrics import MetricsService
 from app.services.insights import InsightsService
 from app.services.cache import CacheService
+from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
 from app.tasks.decorators import singleton_task, deduplicate_task
 
 logger = logging.getLogger(__name__)
@@ -199,10 +200,9 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         # Make response JSON serializable
         response = _make_json_serializable(response)
         
-        # Cache the response in Redis using the same key format as batch endpoint
+        # Cache the response in Redis using the same key format as the batch endpoint.
         cache = CacheService()
-        widget_key = ','.join(sorted(widget_ids))
-        cache_key = f"dashboard_batch:{portfolio_id}:{hash(widget_key)}"
+        cache_key = build_dashboard_batch_cache_key(portfolio_id, widget_ids)
         cache.set(cache_key, response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
         
         # ALSO warm up the price batch cache (used by auto-refresh)
