@@ -122,6 +122,7 @@ _STALE_EQUITY_PRICE_TTL = timedelta(days=4)
 _STALE_CRYPTO_PRICE_TTL = timedelta(minutes=30)
 _STALE_PRICE_REDIS_TTL_SECONDS = 60
 _REFRESH_DEDUP_TTL_SECONDS = 60
+_BATCH_MISS_INDIVIDUAL_FALLBACK_LIMIT = 3
 
 
 def _cleanup_stale_tasks():
@@ -533,7 +534,34 @@ class PricingService:
                 len(symbols_to_fetch),
             )
             batch_results = {}
-        
+
+        batch_misses = [
+            symbol for symbol in symbols_to_fetch if not batch_results.get(symbol)
+        ]
+        if batch_misses:
+            fallback_symbols = batch_misses[:_BATCH_MISS_INDIVIDUAL_FALLBACK_LIMIT]
+            skipped_count = len(batch_misses) - len(fallback_symbols)
+            logger.info(
+                "Batch download missed %s symbols; trying individual fallback for %s%s",
+                len(batch_misses),
+                fallback_symbols,
+                f" and skipping {skipped_count}" if skipped_count else "",
+            )
+            for symbol in fallback_symbols:
+                try:
+                    fallback_price = await asyncio.wait_for(
+                        asyncio.to_thread(self._fetch_from_yfinance, symbol),
+                        timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
+                    )
+                    if fallback_price:
+                        batch_results[symbol] = fallback_price
+                        logger.info("Individual fallback returned price for %s", symbol)
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "provider=yahoo symbol=%s action=individual_fallback timeout=true",
+                        symbol,
+                    )
+
         # Phase 3: Process batch results and update caches
         for symbol in symbols_to_fetch:
             if symbol in batch_results and batch_results[symbol]:
@@ -656,47 +684,10 @@ class PricingService:
             results = {}
             now = datetime.utcnow()
             
-            # Handle single symbol case (different DataFrame structure)
-            if len(symbols) == 1:
-                symbol = symbols[0]
-                if 'Close' in df.columns and not df['Close'].empty:
-                    closes = df['Close'].dropna()
-                    if len(closes) >= 1:
-                        current_price = Decimal(str(float(closes.iloc[-1])))
-                        prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
-                        volume = int(df['Volume'].iloc[-1]) if 'Volume' in df.columns and not pd.isna(df['Volume'].iloc[-1]) else None
-                        
-                        results[symbol] = {
-                            "price": current_price,
-                            "previous_close": prev_close,
-                            "asof": now,
-                            "volume": volume
-                        }
-            else:
-                # Multi-symbol case
-                for symbol in symbols:
-                    try:
-                        if symbol in df.columns.get_level_values(0):
-                            symbol_data = df[symbol]
-                            if 'Close' in symbol_data.columns:
-                                closes = symbol_data['Close'].dropna()
-                                if len(closes) >= 1:
-                                    current_price = Decimal(str(float(closes.iloc[-1])))
-                                    prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
-                                    volume = None
-                                    if 'Volume' in symbol_data.columns:
-                                        vol_val = symbol_data['Volume'].iloc[-1]
-                                        if not pd.isna(vol_val):
-                                            volume = int(vol_val)
-                                    
-                                    results[symbol] = {
-                                        "price": current_price,
-                                        "previous_close": prev_close,
-                                        "asof": now,
-                                        "volume": volume
-                                    }
-                    except Exception as e:
-                        logger.warning(f"Failed to parse batch data for {symbol}: {e}")
+            for symbol in symbols:
+                price_data = self._extract_batch_price_data(df, symbol, now)
+                if price_data:
+                    results[symbol] = price_data
             
             logger.info(f"Batch download successful: got {len(results)}/{len(symbols)} prices")
             return results
@@ -710,6 +701,64 @@ class PricingService:
             else:
                 logger.error(f"Batch fetch error: {e}")
             return {}
+
+    def _extract_batch_price_data(
+        self,
+        df: pd.DataFrame,
+        symbol: str,
+        asof: datetime,
+    ) -> Optional[Dict]:
+        """
+        Extract one symbol from a yfinance download DataFrame.
+
+        yfinance can return either flat columns (Close, Volume) or MultiIndex columns
+        (SYMBOL, Close), including for a one-symbol batch when group_by="ticker".
+        """
+        try:
+            symbol_data = df
+
+            if isinstance(df.columns, pd.MultiIndex):
+                top_level_symbols = df.columns.get_level_values(0)
+                if symbol not in top_level_symbols:
+                    logger.warning(
+                        "Batch data missing symbol=%s available_symbols=%s",
+                        symbol,
+                        sorted(set(str(value) for value in top_level_symbols)),
+                    )
+                    return None
+                symbol_data = df[symbol]
+
+            if 'Close' not in symbol_data.columns:
+                logger.warning(
+                    "Batch data missing Close column for symbol=%s columns=%s",
+                    symbol,
+                    [str(column) for column in symbol_data.columns],
+                )
+                return None
+
+            closes = symbol_data['Close'].dropna()
+            if closes.empty:
+                logger.warning("Batch data has no Close values for symbol=%s", symbol)
+                return None
+
+            current_price = Decimal(str(float(closes.iloc[-1])))
+            prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+            volume = None
+
+            if 'Volume' in symbol_data.columns:
+                volumes = symbol_data['Volume'].dropna()
+                if not volumes.empty:
+                    volume = int(volumes.iloc[-1])
+
+            return {
+                "price": current_price,
+                "previous_close": prev_close,
+                "asof": asof,
+                "volume": volume,
+            }
+        except Exception as e:
+            logger.warning(f"Failed to parse batch data for {symbol}: {e}")
+            return None
 
     async def refresh_all_portfolio_prices(self, portfolio_id: int) -> int:
         """

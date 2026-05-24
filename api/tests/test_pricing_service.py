@@ -121,6 +121,53 @@ class TestYFinanceFetching:
             assert result is None
 
 
+@pytest.mark.unit
+@pytest.mark.service
+class TestBatchPriceParsing:
+    """Test yfinance batch DataFrame parsing."""
+
+    def test_extract_batch_price_data_single_symbol_multiindex(self, test_db):
+        """Single-symbol downloads may still be returned as (symbol, field) columns."""
+        service = PricingService(test_db)
+        asof = datetime.utcnow()
+        columns = pd.MultiIndex.from_product(
+            [["SIVE.ST"], ["Open", "High", "Low", "Close", "Volume"]]
+        )
+        df = pd.DataFrame(
+            [
+                [101.0, 103.0, 100.0, 102.5, 1200],
+                [102.0, 104.0, 101.0, 103.75, 1500],
+            ],
+            columns=columns,
+        )
+
+        result = service._extract_batch_price_data(df, "SIVE.ST", asof)
+
+        assert result is not None
+        assert result["price"] == Decimal("103.75")
+        assert result["previous_close"] == Decimal("102.5")
+        assert result["asof"] == asof
+        assert result["volume"] == 1500
+
+    def test_extract_batch_price_data_flat_columns(self, test_db):
+        """Flat DataFrames remain supported for provider versions that return them."""
+        service = PricingService(test_db)
+        asof = datetime.utcnow()
+        df = pd.DataFrame(
+            {
+                "Close": [Decimal("210.10"), Decimal("211.20")],
+                "Volume": [500, 650],
+            }
+        )
+
+        result = service._extract_batch_price_data(df, "AAPL", asof)
+
+        assert result is not None
+        assert result["price"] == Decimal("211.2")
+        assert result["previous_close"] == Decimal("210.1")
+        assert result["volume"] == 650
+
+
 @pytest.mark.integration
 @pytest.mark.service
 class TestPriceService:
@@ -188,6 +235,32 @@ class TestPriceService:
             assert "GOOGL" in results
             assert "MSFT" in results
             assert results["AAPL"].price == Decimal("150.00")
+
+    @pytest.mark.asyncio
+    async def test_get_multiple_prices_uses_individual_fallback_after_batch_miss(self, test_db):
+        """A symbol missed by batch download can still return immediately via bounded fallback."""
+        AssetFactory.create(symbol="ALKAL.PA")
+        test_db.commit()
+
+        service = PricingService(test_db)
+        asof = datetime.utcnow()
+        fallback_price = {
+            "price": Decimal("1.23"),
+            "previous_close": Decimal("1.20"),
+            "asof": asof,
+            "volume": 1000,
+        }
+
+        with (
+            patch.object(service, "_batch_fetch_from_yfinance", return_value={}) as mock_batch,
+            patch.object(service, "_fetch_from_yfinance", return_value=fallback_price) as mock_fallback,
+        ):
+            results = await service.get_multiple_prices(["ALKAL.PA"], force_refresh=True)
+
+        mock_batch.assert_called_once_with(["ALKAL.PA"])
+        mock_fallback.assert_called_once_with("ALKAL.PA")
+        assert results["ALKAL.PA"].price == Decimal("1.23")
+        assert results["ALKAL.PA"].daily_change_pct == Decimal("2.5")
 
 
 @pytest.mark.unit
