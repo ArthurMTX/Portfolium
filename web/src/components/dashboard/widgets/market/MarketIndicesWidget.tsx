@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react'
 import { getMarketIndices } from '@/lib/api'
 import { getFlagUrl } from '@/lib/countryUtils'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
@@ -33,6 +34,8 @@ const marketIndices: MarketIndex[] = [
   { symbol: '^AXJO', name: 'ASX 200', regionKey: 'dashboard.widgets.marketIndices.regions.asia', country: 'Australia' },
 ]
 
+const prioritySymbols = new Set(['^GSPC', '^IXIC', '^DJI', '^FTSE', '^GDAXI', '^N225'])
+
 interface MarketIndicesWidgetProps extends BaseWidgetProps {
   batchData?: { market_indices?: unknown }
 }
@@ -40,6 +43,7 @@ interface MarketIndicesWidgetProps extends BaseWidgetProps {
 export default function MarketIndicesWidget({ isPreview = false, batchData }: MarketIndicesWidgetProps) {
   const shouldLoad = useWidgetVisibility('market-indices')
   const { t } = useTranslation()
+  const [showAllMarkets, setShowAllMarkets] = useState(false)
 
   // Get data from batch if available
   const hasBatchData = !!batchData?.market_indices
@@ -94,8 +98,11 @@ export default function MarketIndicesWidget({ isPreview = false, batchData }: Ma
     return 'text-neutral-400'
   }
 
-  // Group indices by region (using regionKey for grouping, will translate when rendering)
-  const groupedIndices = marketIndices.reduce((acc, index) => {
+  const priorityIndices = marketIndices.filter(index => prioritySymbols.has(index.symbol))
+  const secondaryIndices = marketIndices.filter(index => !prioritySymbols.has(index.symbol))
+
+  // Group secondary indices by region (using regionKey for grouping, will translate when rendering)
+  const groupedSecondaryIndices = secondaryIndices.reduce((acc, index) => {
     const regionKey = index.regionKey
     if (!acc[regionKey]) {
       acc[regionKey] = []
@@ -103,6 +110,42 @@ export default function MarketIndicesWidget({ isPreview = false, batchData }: Ma
     acc[regionKey].push(index)
     return acc
   }, {} as Record<string, MarketIndex[]>)
+
+  const renderIndexRow = (index: MarketIndex) => {
+    const data = indices?.[index.symbol]
+    const price = data?.current_price ?? data?.price
+    const change = data?.percent_change ?? data?.daily_change_pct
+
+    return (
+      <div
+        key={index.symbol}
+        className="flex items-center justify-between rounded-md bg-neutral-50 px-2.5 py-2 transition-colors hover:bg-neutral-100 dark:bg-neutral-800/40 dark:hover:bg-neutral-800/60"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <img
+            src={getFlagUrl(index.country, 'w40') || ''}
+            alt={index.country}
+            className="h-3.5 w-5 flex-shrink-0 rounded-sm object-cover"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
+              {index.name}
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+              {formatPrice(price)}
+            </div>
+          </div>
+        </div>
+
+        <div className="ml-2 flex items-center gap-1.5">
+          {getChangeIcon(change)}
+          <span className={`text-sm font-semibold ${getChangeColor(change)}`}>
+            {formatChange(change)}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="card h-full flex flex-col p-5">
@@ -129,49 +172,35 @@ export default function MarketIndicesWidget({ isPreview = false, batchData }: Ma
           </p>
         </div>
       ) : (
-        <div className="space-y-4 flex-1 overflow-y-auto scrollbar-hide">
-          {Object.entries(groupedIndices).map(([regionKey, regionIndices]) => (
+        <div className="flex-1 space-y-3 overflow-y-auto scrollbar-hide">
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase text-neutral-400 dark:text-neutral-500">
+              {t('dashboard.widgets.marketIndices.keyMarkets')}
+            </h4>
+            <div className="space-y-1.5">
+              {priorityIndices.map(renderIndexRow)}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowAllMarkets(prev => !prev)}
+            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          >
+            <span>
+              {showAllMarkets
+                ? t('dashboard.widgets.marketIndices.hideMoreMarkets')
+                : t('dashboard.widgets.marketIndices.showMoreMarkets', { count: secondaryIndices.length })}
+            </span>
+            <ChevronDown size={14} className={`transition-transform ${showAllMarkets ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showAllMarkets && Object.entries(groupedSecondaryIndices).map(([regionKey, regionIndices]) => (
             <div key={regionKey}>
-              <h4 className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">
+              <h4 className="mb-2 text-xs font-semibold uppercase text-neutral-400 dark:text-neutral-500">
                 {t(regionKey)}
               </h4>
-              <div className="space-y-2">
-                {regionIndices.map((index) => {
-                  const data = indices?.[index.symbol]
-                  // Use current_price if available, fallback to price
-                  const price = data?.current_price ?? data?.price
-                  const change = data?.percent_change ?? data?.daily_change_pct
-                  
-                  return (
-                    <div
-                      key={index.symbol}
-                      className="flex items-center justify-between p-2.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <img 
-                          src={getFlagUrl(index.country, 'w40') || ''} 
-                          alt={index.country}
-                          className="w-5 h-4 object-cover rounded-sm flex-shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-neutral-700 dark:text-neutral-200 truncate">
-                            {index.name}
-                          </div>
-                          <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                            {formatPrice(price)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-1.5 ml-2">
-                        {getChangeIcon(change)}
-                        <span className={`text-sm font-semibold ${getChangeColor(change)}`}>
-                          {formatChange(change)}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="space-y-1.5">
+                {regionIndices.map(renderIndexRow)}
               </div>
             </div>
           ))}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Zap, ZapOff, LayoutDashboard, Grid3x3, Library, Save } from 'lucide-react'
+import { RefreshCw, Zap, ZapOff, LayoutDashboard, Grid3x3, Library, Save, SlidersHorizontal, ChevronDown } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api, { PositionDTO, BatchPriceDTO } from '../lib/api'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isWidgetLibraryOpen, setIsWidgetLibraryOpen] = useState(false)
   const [isLayoutManagerOpen, setIsLayoutManagerOpen] = useState(false)
+  const [isCustomizeMenuOpen, setIsCustomizeMenuOpen] = useState(false)
   const [currentLayout, setCurrentLayout] = useState<Layout[]>(loadLayout('lg', user?.id))
   const [currentBreakpoint, setCurrentBreakpoint] = useState<'lg' | 'md' | 'sm'>('lg')
   const [layoutVersion, setLayoutVersion] = useState(0) // Trigger re-renders
@@ -89,6 +90,7 @@ export default function Dashboard() {
   // Force re-render for live countdown
   const [, forceUpdate] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const customizeMenuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (timerRef.current) {
@@ -108,6 +110,29 @@ export default function Dashboard() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!isCustomizeMenuOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!customizeMenuRef.current?.contains(event.target as Node)) {
+        setIsCustomizeMenuOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsCustomizeMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isCustomizeMenuOpen])
 
   // Auto-refresh settings
   const getAutoRefreshSettings = useCallback(() => {
@@ -288,6 +313,7 @@ export default function Dashboard() {
 
   const isAutoRefreshEnabled = autoRefreshSettings.enabled
   const isAnyRefreshing = isPriceRefetching || batchRefetching
+  const autoRefreshIntervalSeconds = Math.round(autoRefreshSettings.interval / 1000)
 
   const [marketStatus, setMarketStatus] = useState<'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown'>('unknown')
 
@@ -322,84 +348,131 @@ export default function Dashboard() {
             {t('dashboard.description')}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">        
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* Freshness */}
           {(freshnessTimestamp || visiblePriceTimestamp) && (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center">
               <DataFreshnessIndicator
-                variant="global"
+                variant="compact"
                 timestamp={freshnessTimestamp}
                 latestPriceTimestamp={visiblePriceTimestamp}
                 marketStatus={marketStatus}
                 isCached={batchData?.cached}
+                showLabel={false}
+                className="sm:hidden"
               />
-              {autoRefreshSettings.enabled && getNextRefreshIn() !== null && getNextRefreshIn()! > 0 && (
-                <div className="hidden sm:block text-[10px] text-neutral-500 dark:text-neutral-500 pr-1">
-                  {t('common.next')}: {getNextRefreshIn()}s
-                </div>
-              )}
+              <DataFreshnessIndicator
+                variant="compact"
+                timestamp={freshnessTimestamp}
+                latestPriceTimestamp={visiblePriceTimestamp}
+                marketStatus={marketStatus}
+                isCached={batchData?.cached}
+                className="hidden sm:inline-flex"
+              />
             </div>
           )}
-          
-          {/* Edit Mode Toggle */}
-          <button
-            onClick={toggleEditMode}
-            className={`btn text-sm sm:text-base ${
-              isEditMode
-                ? 'bg-pink-600 hover:bg-pink-700 text-white'
-                : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
-            } flex items-center gap-2 px-3 py-2`}
-            title={isEditMode ? t('dashboard.exitEditMode') : t('dashboard.customizeLayout')}
-          >
-            <Grid3x3 size={16} />
-            <span className="hidden sm:inline">{isEditMode ? t('common.save') : t('common.edit')}</span>
-          </button>
-          
-          {/* Widget Library Button - Only show in edit mode */}
-          {isEditMode && (
-            <button
-              onClick={() => setIsWidgetLibraryOpen(true)}
-              className="btn text-sm sm:text-base bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600 flex items-center gap-2 px-3 py-2"
-              title={t('dashboard.widgetsInfo')}
-            >
-              <Library size={16} />
-              <span className="hidden sm:inline">{t('common.widgets')}</span>
-            </button>
-          )}
-          
-          {/* Layout Manager Button */}
-          <button
-            onClick={() => setIsLayoutManagerOpen(true)}
-            className="btn text-sm sm:text-base bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 px-3 py-2"
-            title={t('dashboard.layoutsInfo')}
-          >
-            <Save size={16} /> 
-            <span className="hidden sm:inline">{t('common.layouts')}</span>
-          </button>
-          
-          {/* Auto Refresh */}
-          <button
-            onClick={toggleAutoRefresh}
-            className={`btn text-sm sm:text-base ${
-              isAutoRefreshEnabled
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
-            } flex items-center gap-2 px-3 py-2`}
-            title={isAutoRefreshEnabled ? t('dashboard.autoRefreshOn') : t('dashboard.autoRefreshOff')}
-          >
-            {isAutoRefreshEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
-            <span className="hidden sm:inline">{t('common.auto')}</span>
-          </button>
           
           {/* Manual Refresh */}
           <button
             onClick={handleRefresh}
             disabled={isAnyRefreshing}
-            className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2"
+            className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2 shadow-sm"
           >
             <RefreshCw size={16} className={isAnyRefreshing ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">{t('common.refresh')}</span>
           </button>
+
+          {/* Customize Menu */}
+          <div className="relative" ref={customizeMenuRef}>
+            <button
+              onClick={() => setIsCustomizeMenuOpen(prev => !prev)}
+              className={`btn text-sm sm:text-base border flex items-center gap-2 px-3 py-2 shadow-sm ${
+                isEditMode
+                  ? 'bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100 dark:bg-pink-900/20 dark:border-pink-800 dark:text-pink-300'
+                  : 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+              aria-expanded={isCustomizeMenuOpen}
+              aria-haspopup="menu"
+              title={t('dashboard.customize')}
+            >
+              <SlidersHorizontal size={16} />
+              <span>{t('dashboard.customize')}</span>
+              <ChevronDown size={14} className={`transition-transform ${isCustomizeMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isCustomizeMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 z-40 mt-2 w-64 rounded-lg border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    toggleEditMode()
+                    setIsCustomizeMenuOpen(false)
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  <Grid3x3 size={16} className={isEditMode ? 'text-pink-600 dark:text-pink-400' : 'text-neutral-500'} />
+                  <span className="flex-1">{isEditMode ? t('dashboard.doneEditing') : t('dashboard.editDashboard')}</span>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setIsWidgetLibraryOpen(true)
+                    setIsCustomizeMenuOpen(false)
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  <Library size={16} className="text-neutral-500" />
+                  <span className="flex-1">{t('common.widgets')}</span>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setIsLayoutManagerOpen(true)
+                    setIsCustomizeMenuOpen(false)
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  <Save size={16} className="text-neutral-500" />
+                  <span className="flex-1">{t('common.layouts')}</span>
+                </button>
+
+                <div className="my-2 h-px bg-neutral-200 dark:bg-neutral-800" />
+
+                <button
+                  role="menuitem"
+                  onClick={toggleAutoRefresh}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  {isAutoRefreshEnabled ? (
+                    <Zap size={16} className="text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <ZapOff size={16} className="text-neutral-500" />
+                  )}
+                  <span className="flex-1">{t('dashboard.autoRefresh')}</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {isAutoRefreshEnabled ? t('dashboard.enabled') : t('dashboard.disabled')}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-3 px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  <RefreshCw size={14} />
+                  <span className="flex-1">{t('dashboard.refreshInterval')}</span>
+                  <span>{autoRefreshIntervalSeconds}s</span>
+                </div>
+
+                {autoRefreshSettings.enabled && getNextRefreshIn() !== null && getNextRefreshIn()! > 0 && (
+                  <div className="px-3 pb-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    {t('common.next')}: {getNextRefreshIn()}s
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

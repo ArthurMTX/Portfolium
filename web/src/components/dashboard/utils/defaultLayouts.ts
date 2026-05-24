@@ -22,41 +22,41 @@ export const defaultWidgets: WidgetConfig[] = [
 // Desktop layout (cols: 12)
 // Note: rowHeight is 50px, so h: 2 = 100px
 export const defaultLayout: Layout[] = [
-  // Row 1: Metric cards (5 widgets, ~2.4 cols each fits nicely in 12)
-  { i: 'total-value', x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'daily-gain', x: 3, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'unrealized-pnl', x: 6, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
-  { i: 'realized-pnl', x: 8, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
-  { i: 'dividends', x: 10, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
+  // Executive KPI stack: anchor value first, daily movement second, supporting KPIs secondary.
+  { i: 'total-value', x: 0, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: 'daily-gain', x: 4, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: 'unrealized-pnl', x: 8, y: 0, w: 4, h: 2, minW: 2, minH: 2 },
+  { i: 'realized-pnl', x: 8, y: 2, w: 2, h: 2, minW: 2, minH: 2 },
+  { i: 'dividends', x: 10, y: 2, w: 2, h: 2, minW: 2, minH: 2 },
   
-  // Row 2: Positions table
-  { i: 'positions', x: 0, y: 8, w: 12, h: 12, minW: 8, minH: 6 },
+  // Core portfolio table
+  { i: 'positions', x: 0, y: 5, w: 12, h: 12, minW: 8, minH: 6 },
 ]
 
 // Tablet layout (cols: 8)
 export const tabletLayout: Layout[] = [
-  // Row 1: 2 metrics
-  { i: 'total-value', x: 0, y: 0, w: 4, h: 2, minW: 2, minH: 2 },
-  { i: 'daily-gain', x: 4, y: 0, w: 4, h: 2, minW: 2, minH: 2 },
+  // Row 1: primary metrics
+  { i: 'total-value', x: 0, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
+  { i: 'daily-gain', x: 4, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
   
-  // Row 2: 3 metrics
-  { i: 'unrealized-pnl', x: 0, y: 3, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'realized-pnl', x: 3, y: 3, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'dividends', x: 6, y: 3, w: 2, h: 2, minW: 2, minH: 2 },
+  // Row 2: supporting metrics
+  { i: 'unrealized-pnl', x: 0, y: 4, w: 3, h: 2, minW: 2, minH: 2 },
+  { i: 'realized-pnl', x: 3, y: 4, w: 3, h: 2, minW: 2, minH: 2 },
+  { i: 'dividends', x: 6, y: 4, w: 2, h: 2, minW: 2, minH: 2 },
   
-  // Row 3: Positions table
-  { i: 'positions', x: 0, y: 10, w: 8, h: 12, minW: 6, minH: 6 },
+  // Core portfolio table
+  { i: 'positions', x: 0, y: 7, w: 8, h: 12, minW: 6, minH: 6 },
 ]
 
 // Mobile layout (cols: 4)
 export const mobileLayout: Layout[] = [
   // Stack everything vertically
-  { i: 'total-value', x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-  { i: 'daily-gain', x: 0, y: 3, w: 4, h: 2, minW: 4, minH: 2 },
-  { i: 'unrealized-pnl', x: 0, y: 6, w: 4, h: 2, minW: 4, minH: 2 },
-  { i: 'realized-pnl', x: 0, y: 9, w: 4, h: 2, minW: 4, minH: 2 },
-  { i: 'dividends', x: 0, y: 12, w: 4, h: 2, minW: 4, minH: 2 },
-  { i: 'positions', x: 0, y: 20, w: 4, h: 10, minW: 4, minH: 4 },
+  { i: 'total-value', x: 0, y: 0, w: 4, h: 3, minW: 4, minH: 2 },
+  { i: 'daily-gain', x: 0, y: 4, w: 4, h: 3, minW: 4, minH: 2 },
+  { i: 'unrealized-pnl', x: 0, y: 8, w: 4, h: 2, minW: 4, minH: 2 },
+  { i: 'realized-pnl', x: 0, y: 11, w: 4, h: 2, minW: 4, minH: 2 },
+  { i: 'dividends', x: 0, y: 14, w: 4, h: 2, minW: 4, minH: 2 },
+  { i: 'positions', x: 0, y: 18, w: 4, h: 10, minW: 4, minH: 4 },
 ]
 
 export const loadLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number): Layout[] => {
