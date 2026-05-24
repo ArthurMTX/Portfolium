@@ -5,6 +5,7 @@ from typing import List, Dict
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
+from datetime import timedelta
 from decimal import Decimal
 import yfinance as yf
 import asyncio
@@ -14,10 +15,13 @@ from app.errors import InvalidPriceRequestError, PortfolioNotFoundError
 from app.db import get_db
 from app.schemas import PriceQuote
 from app.services.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 from app.crud import portfolios as portfolio_crud
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+_indices_cache: Dict[str, tuple[Dict[str, PriceQuote], datetime]] = {}
+_INDICES_CACHE_TTL = timedelta(minutes=5)
 
 @router.get("", response_model=Dict[str, PriceQuote])
 async def get_prices(
@@ -71,11 +75,20 @@ async def get_market_indices(
     
     if len(symbol_list) > 50:
         raise InvalidPriceRequestError("Maximum 50 symbols per request")
+
+    cache_key = ",".join(symbol_list)
+    cached_indices = _indices_cache.get(cache_key)
+    if cached_indices and datetime.utcnow() - cached_indices[1] < _INDICES_CACHE_TTL:
+        logger.debug("Market indices cache hit")
+        return cached_indices[0]
     
     # Check circuit breaker
     if is_rate_limited():
         remaining = get_rate_limit_remaining()
         logger.warning(f"Rate limit active for indices fetch, {remaining:.1f}s remaining")
+        if cached_indices:
+            logger.warning("provider=yahoo action=market_indices fallback=stale_memory_cache")
+            return cached_indices[0]
         return {}  # Return empty rather than hitting rate limits more
     
     def batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
@@ -83,14 +96,19 @@ async def get_market_indices(
         prices = {}
         try:
             # Use batch download for all symbols at once
-            df = yf.download(
-                symbols,
-                period="2d",
-                interval="1d",
-                group_by="ticker",
-                auto_adjust=True,
-                progress=False,
-                threads=True
+            df = call_yahoo(
+                lambda: yf.download(
+                    symbols,
+                    period="2d",
+                    interval="1d",
+                    group_by="ticker",
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                ),
+                symbol=",".join(symbols[:5]) + ("..." if len(symbols) > 5 else ""),
+                action="market_indices_download",
+                timeout_seconds=yahoo_timeout_seconds(default=15.0),
             )
             
             if df is None or df.empty:
@@ -155,7 +173,23 @@ async def get_market_indices(
             return {}
     
     # Run batch fetch in thread pool
-    prices = await asyncio.to_thread(batch_fetch_indices, symbol_list)
+    try:
+        prices = await asyncio.wait_for(
+            asyncio.to_thread(batch_fetch_indices, symbol_list),
+            timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("provider=yahoo action=market_indices timeout=true fallback=stale_memory_cache")
+        if cached_indices:
+            return cached_indices[0]
+        return {}
+
+    if prices:
+        _indices_cache[cache_key] = (prices, datetime.utcnow())
+    elif cached_indices and datetime.utcnow() - cached_indices[1] < _INDICES_CACHE_TTL * 6:
+        logger.warning("provider=yahoo action=market_indices fallback=stale_memory_cache")
+        return cached_indices[0]
+
     return prices
 
 
@@ -184,7 +218,12 @@ async def get_price_quote(
         # Try to fetch directly from yfinance
         try:
             ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="2d")
+            hist = call_yahoo(
+                lambda: ticker.history(period="2d"),
+                symbol=symbol,
+                action="quote_history",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if not hist.empty:
                 current_price = float(hist["Close"].iloc[-1])
                 prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else current_price
@@ -192,7 +231,12 @@ async def get_price_quote(
                 
                 # Get actual currency from ticker info
                 try:
-                    info = ticker.info
+                    info = call_yahoo(
+                        lambda: ticker.info,
+                        symbol=symbol,
+                        action="quote_info",
+                        timeout_seconds=yahoo_timeout_seconds(),
+                    )
                     source_currency = info.get('currency', 'USD')
                 except:
                     source_currency = 'USD'

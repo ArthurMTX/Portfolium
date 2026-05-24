@@ -5,6 +5,7 @@ import logging
 import json
 from typing import List, Optional
 from datetime import date, datetime
+from decimal import Decimal
 from fastapi import APIRouter, Depends, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -25,10 +26,37 @@ from app.services.import_csv import get_csv_import_service, CsvImportService
 from app.services.notifications import notification_service
 from app.auth import get_current_user, verify_portfolio_access
 from app.dependencies import PricingServiceDep
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 import yfinance as yf
+
+
+def _get_cached_close_for_date(db: Session, asset_id: int, target_date: date) -> Optional[Decimal]:
+    """Return the latest DB close near a transaction date, if available."""
+    from datetime import timedelta
+    from app.crud import prices as crud_prices
+
+    prices = crud_prices.get_prices(
+        db,
+        asset_id,
+        date_from=datetime.combine(target_date - timedelta(days=5), datetime.min.time()),
+        date_to=datetime.combine(target_date + timedelta(days=1), datetime.max.time()),
+        limit=20,
+    )
+    if not prices:
+        return None
+
+    preferred = [p for p in prices if p.source == "yfinance_history"]
+    selected = preferred[0] if preferred else prices[0]
+    logger.warning(
+        "provider=yahoo asset_id=%s fallback=stale_db_price tx_date=%s asof=%s",
+        asset_id,
+        target_date,
+        selected.asof,
+    )
+    return selected.price
 
 
 @router.get("/{portfolio_id}/fetch_price")
@@ -59,7 +87,12 @@ def fetch_price_for_date(
     else:
         # Fetch currency from yfinance info
         try:
-            info = yf_ticker.info
+            info = call_yahoo(
+                lambda: yf_ticker.info,
+                symbol=ticker,
+                action="transaction_asset_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             asset_currency = info.get('currency', 'USD') or 'USD'
         except Exception:
             asset_currency = 'USD'
@@ -69,13 +102,24 @@ def fetch_price_for_date(
     # Fetch price from yfinance
     start_date = tx_date - timedelta(days=5)  # Look back a few days in case of weekends/holidays
     end_date = tx_date + timedelta(days=1)
-    hist = yf_ticker.history(start=start_date, end=end_date)
+    try:
+        hist = call_yahoo(
+            lambda: yf_ticker.history(start=start_date, end=end_date),
+            symbol=ticker,
+            action="transaction_price_history",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
+    except Exception:
+        hist = None
     
-    if hist.empty:
-        raise PriceNotFoundError(ticker, tx_date)
-    
-    # Get the closest date's price
-    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    if hist is None or hist.empty:
+        cached_price = _get_cached_close_for_date(db, asset.id, tx_date) if asset else None
+        if cached_price is None:
+            raise PriceNotFoundError(ticker, tx_date)
+        price_in_asset_currency = cached_price.quantize(Decimal('0.00000001'))
+    else:
+        # Get the closest date's price
+        price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
     
     # Convert to portfolio currency if needed
     if asset_currency != portfolio_currency:
@@ -216,7 +260,12 @@ def add_position_transaction(
     if not asset:
         # Get currency from yfinance
         try:
-            info = yf_ticker.info
+            info = call_yahoo(
+                lambda: yf_ticker.info,
+                symbol=ticker,
+                action="transaction_asset_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             asset_currency = info.get('currency', 'USD') or 'USD'
         except Exception:
             asset_currency = 'USD'
@@ -238,11 +287,23 @@ def add_position_transaction(
     # Add a day buffer to ensure we get data
     start_date = tx_date - timedelta(days=1)
     end_date = tx_date + timedelta(days=1)
-    hist = yf_ticker.history(start=start_date, end=end_date)
-    if hist.empty:
-        raise PriceNotFoundError(ticker, tx_date)
-    # Get the closest date's price and round to 8 decimal places
-    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    try:
+        hist = call_yahoo(
+            lambda: yf_ticker.history(start=start_date, end=end_date),
+            symbol=ticker,
+            action="transaction_price_history",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
+    except Exception:
+        hist = None
+    if hist is None or hist.empty:
+        cached_price = _get_cached_close_for_date(db, asset.id, tx_date)
+        if cached_price is None:
+            raise PriceNotFoundError(ticker, tx_date)
+        price_in_asset_currency = cached_price.quantize(Decimal('0.00000001'))
+    else:
+        # Get the closest date's price and round to 8 decimal places
+        price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
     
     # Convert price from asset's currency to portfolio's base currency if different
     asset_currency = asset.currency or "USD"

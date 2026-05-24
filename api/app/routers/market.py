@@ -18,6 +18,7 @@ from app.errors import (
     TNXDataFetchError,
     VIXDataFetchError,
 )
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +36,31 @@ async def _get_cached_or_fetch_async(cache_key: str, fetch_func):
     """
     now = datetime.now()
 
+    stale_data = None
     if cache_key in _market_cache:
         data, timestamp = _market_cache[cache_key]
+        stale_data = data
         if now - timestamp < _CACHE_TTL:
             logger.debug(f"Cache hit for {cache_key}")
             return data
 
     logger.debug(f"Cache miss for {cache_key}, fetching fresh data")
-    data = await asyncio.to_thread(fetch_func)
-    _market_cache[cache_key] = (data, now)
-    return data
+    try:
+        data = await asyncio.wait_for(
+            asyncio.to_thread(fetch_func),
+            timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
+        )
+        _market_cache[cache_key] = (data, now)
+        return data
+    except Exception as exc:
+        if stale_data is not None:
+            logger.warning(
+                "provider=external cache_key=%s fallback=stale_memory_cache error=%s",
+                cache_key,
+                exc,
+            )
+            return stale_data
+        raise
 
 
 @router.get("/sentiment/stock")
@@ -72,7 +88,7 @@ async def get_stock_market_sentiment():
                 "Origin": "https://www.cnn.com",
             }
             
-            with httpx.Client(timeout=10.0, headers=headers) as client:
+            with httpx.Client(timeout=5.0, headers=headers) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 data = response.json()
@@ -116,7 +132,7 @@ async def get_crypto_market_sentiment():
                 "Accept": "application/json",
             }
             
-            with httpx.Client(timeout=10.0, headers=headers) as client:
+            with httpx.Client(timeout=5.0, headers=headers) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 data = response.json()
@@ -179,7 +195,12 @@ async def get_vix_index():
             
             # Fetch VIX data
             vix = yf.Ticker("^VIX")
-            info = vix.info
+            info = call_yahoo(
+                lambda: vix.info,
+                symbol="^VIX",
+                action="market_index_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             current_price = info.get("regularMarketPrice") or info.get("currentPrice")
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
@@ -225,7 +246,12 @@ async def get_tnx_index():
             
             # Fetch TNX data
             tnx = yf.Ticker("^TNX")
-            info = tnx.info
+            info = call_yahoo(
+                lambda: tnx.info,
+                symbol="^TNX",
+                action="market_index_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             current_price = info.get("regularMarketPrice") or info.get("currentPrice")
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
@@ -271,7 +297,12 @@ async def get_dxy_index():
             
             # Fetch DXY data
             dxy = yf.Ticker("DX-Y.NYB")
-            info = dxy.info
+            info = call_yahoo(
+                lambda: dxy.info,
+                symbol="DX-Y.NYB",
+                action="market_index_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             current_price = info.get("regularMarketPrice") or info.get("currentPrice")
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")

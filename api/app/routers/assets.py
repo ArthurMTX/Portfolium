@@ -17,6 +17,7 @@ from app.auth import get_current_user
 from app.models import User
 from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 from app.errors import ( 
     AssetAlreadyExistsError,
     AssetNotFoundError,
@@ -111,7 +112,12 @@ def search_assets(query: str, crypto_only: bool = False):
         for crypto_symbol in crypto_symbols_to_try:
             try:
                 ticker = yf.Ticker(crypto_symbol)
-                info = ticker.info
+                info = call_yahoo(
+                    lambda: ticker.info,
+                    symbol=crypto_symbol,
+                    action="asset_search_info",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                )
                 if info and info.get("quoteType") == "CRYPTOCURRENCY":
                     symbol = info.get("symbol", crypto_symbol)
                     if symbol not in seen_symbols:
@@ -1694,7 +1700,12 @@ def get_yfinance_data(
         ticker = yf.Ticker(fetch_symbol)
         
         # Get the info dict - this contains all metadata
-        info = ticker.info
+        info = call_yahoo(
+            lambda: ticker.info,
+            symbol=fetch_symbol,
+            action="asset_debug_info",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
         
         # Helper function to convert timestamps to strings
         def serialize_data(obj):
@@ -1735,7 +1746,12 @@ def get_yfinance_data(
         # Get additional data structures
         try:
             # Try to get recent history (last 90 days)
-            history = ticker.history(period="3mo")
+            history = call_yahoo(
+                lambda: ticker.history(period="3mo"),
+                symbol=fetch_symbol,
+                action="asset_debug_history",
+                timeout_seconds=yahoo_timeout_seconds(default=12.0),
+            )
             history_dict = {
                 "columns": list(history.columns) if not history.empty else [],
                 "index": [str(idx) for idx in history.index] if not history.empty else [],
@@ -1747,7 +1763,12 @@ def get_yfinance_data(
         
         # Try to get calendar data
         try:
-            calendar = ticker.calendar
+            calendar = call_yahoo(
+                lambda: ticker.calendar,
+                symbol=fetch_symbol,
+                action="asset_debug_calendar",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if calendar is not None:
                 if hasattr(calendar, 'to_dict'):
                     calendar_dict = serialize_data(calendar.to_dict())
@@ -1761,7 +1782,12 @@ def get_yfinance_data(
         
         # Try to get recommendations
         try:
-            recommendations = ticker.recommendations
+            recommendations = call_yahoo(
+                lambda: ticker.recommendations,
+                symbol=fetch_symbol,
+                action="asset_debug_recommendations",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if recommendations is not None and not recommendations.empty:
                 recommendations_dict = {
                     "data": [serialize_data(row.to_dict()) for _, row in recommendations.iterrows()]
@@ -1774,7 +1800,12 @@ def get_yfinance_data(
         
         # Try to get institutional holders
         try:
-            institutional_holders = ticker.institutional_holders
+            institutional_holders = call_yahoo(
+                lambda: ticker.institutional_holders,
+                symbol=fetch_symbol,
+                action="asset_debug_institutional_holders",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if institutional_holders is not None and not institutional_holders.empty:
                 institutional_holders_dict = {
                     "data": [serialize_data(row.to_dict()) for _, row in institutional_holders.iterrows()]
@@ -1787,7 +1818,12 @@ def get_yfinance_data(
         
         # Try to get major holders
         try:
-            major_holders = ticker.major_holders
+            major_holders = call_yahoo(
+                lambda: ticker.major_holders,
+                symbol=fetch_symbol,
+                action="asset_debug_major_holders",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if major_holders is not None and not major_holders.empty:
                 major_holders_dict = {
                     "data": [serialize_data(row.to_dict()) for _, row in major_holders.iterrows()]
@@ -1800,7 +1836,12 @@ def get_yfinance_data(
         
         # Try to get dividends
         try:
-            dividends = ticker.dividends
+            dividends = call_yahoo(
+                lambda: ticker.dividends,
+                symbol=fetch_symbol,
+                action="asset_debug_dividends",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if dividends is not None and not dividends.empty:
                 dividends_dict = {
                     "data": {str(idx): serialize_data(val) for idx, val in dividends.items()}
@@ -1813,7 +1854,12 @@ def get_yfinance_data(
         
         # Try to get splits
         try:
-            splits = ticker.splits
+            splits = call_yahoo(
+                lambda: ticker.splits,
+                symbol=fetch_symbol,
+                action="asset_debug_splits",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if splits is not None and not splits.empty:
                 splits_dict = {
                     "data": {str(idx): serialize_data(val) for idx, val in splits.items()}
@@ -1826,7 +1872,12 @@ def get_yfinance_data(
         
         # Try to get actions (dividends + splits combined)
         try:
-            actions = ticker.actions
+            actions = call_yahoo(
+                lambda: ticker.actions,
+                symbol=fetch_symbol,
+                action="asset_debug_actions",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if actions is not None and not actions.empty:
                 actions_dict = {
                     "columns": list(actions.columns),
@@ -1857,6 +1908,5 @@ def get_yfinance_data(
     except Exception as e:
         logger.error(f"Failed to fetch yfinance data for {fetch_symbol}: {str(e)}", exc_info=True)
         raise FailedToFetchYahooFinanceDataError(symbol=fetch_symbol, reason=str(e))
-
 
 

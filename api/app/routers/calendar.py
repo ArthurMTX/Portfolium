@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from app.db import get_db
 from app.auth import get_current_user
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 from app.models import User, Portfolio, Transaction, TransactionType, Asset, EarningsCache, Watchlist
 from app.crud import portfolios as crud
 from app.services.metrics import get_metrics_service
@@ -504,7 +505,12 @@ def refresh_earnings_for_user(
     for symbol in all_symbols.keys():
         try:
             ticker = yf.Ticker(symbol)
-            calendar = ticker.calendar
+            calendar = call_yahoo(
+                lambda: ticker.calendar,
+                symbol=symbol,
+                action="earnings_calendar",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             if calendar is None:
                 continue

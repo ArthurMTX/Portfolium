@@ -19,6 +19,7 @@ from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
 from app.services.cache import CacheService
 from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +363,12 @@ async def _fetch_market_indices() -> Optional[Dict]:
         def fetch_index(symbol: str):
             try:
                 ticker = yf.Ticker(symbol)
-                info = ticker.info
+                info = call_yahoo(
+                    lambda: ticker.info,
+                    symbol=symbol,
+                    action="dashboard_market_index_info",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                )
                 
                 current_price = info.get("regularMarketPrice") or info.get("currentPrice")
                 previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")

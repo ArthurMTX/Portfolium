@@ -26,6 +26,10 @@ from app.schemas import PriceCreate, PriceQuote
 from app.db import get_db
 from app.services.cache import CacheService, cache_price, get_cached_price
 from app.services.market_calendar import MarketAwareCacheTTL
+from app.services.yahoo_finance import (
+    call_yahoo,
+    yahoo_timeout_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +235,7 @@ class PricingService:
                             return await asyncio.wait_for(existing_task, timeout=15.0)
                         except asyncio.TimeoutError:
                             logger.warning(f"Timeout waiting for ongoing fetch for {symbol}")
-                            return None
+                            return self._get_stale_price_quote(symbol, reason="ongoing_fetch_timeout")
                         except asyncio.CancelledError:
                             logger.warning(f"Task cancelled while waiting for ongoing fetch for {symbol}")
                             _ongoing_fetches.pop(symbol, None)
@@ -263,7 +267,7 @@ class PricingService:
             return result
         except asyncio.TimeoutError:
             logger.warning(f"Timeout fetching price for {symbol}")
-            return None
+            return self._get_stale_price_quote(symbol, reason="fetch_timeout")
         except asyncio.CancelledError:
             logger.warning(f"Task cancelled while fetching price for {symbol}")
             return None
@@ -454,9 +458,17 @@ class PricingService:
         logger.info(f"Need to fetch {len(symbols_to_fetch)}/{len(symbols)} symbols via batch download")
         
         # Phase 2: Batch fetch all missing symbols
-        batch_results = await asyncio.to_thread(
-            self._batch_fetch_from_yfinance, symbols_to_fetch
-        )
+        try:
+            batch_results = await asyncio.wait_for(
+                asyncio.to_thread(self._batch_fetch_from_yfinance, symbols_to_fetch),
+                timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "provider=yahoo action=batch_download timeout=true symbols=%s fallback=stale_db",
+                len(symbols_to_fetch),
+            )
+            batch_results = {}
         
         # Phase 3: Process batch results and update caches
         for symbol in symbols_to_fetch:
@@ -539,10 +551,6 @@ class PricingService:
             logger.warning(f"Rate limit circuit breaker active, skipping batch fetch ({remaining:.1f}s remaining)")
             return {}
         
-        import socket
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(30.0)  # Longer timeout for batch
-        
         try:
             # Rate limiting: ensure minimum interval between batch requests
             now = time.time()
@@ -559,14 +567,19 @@ class PricingService:
             logger.info(f"Batch downloading {len(symbols)} symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''}")
             
             # Use 2 days of data to get current price and previous close
-            df = yf.download(
-                symbols,
-                period="2d",
-                interval="1d",
-                group_by="ticker",
-                auto_adjust=True,
-                progress=False,
-                threads=True
+            df = call_yahoo(
+                lambda: yf.download(
+                    symbols,
+                    period="2d",
+                    interval="1d",
+                    group_by="ticker",
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                ),
+                symbol=",".join(symbols[:5]) + ("..." if len(symbols) > 5 else ""),
+                action="batch_download",
+                timeout_seconds=yahoo_timeout_seconds(default=15.0),
             )
             
             if df is None or df.empty:
@@ -635,8 +648,6 @@ class PricingService:
             else:
                 logger.error(f"Batch fetch error: {e}")
             return {}
-        finally:
-            socket.setdefaulttimeout(old_timeout)
 
     async def refresh_all_portfolio_prices(self, portfolio_id: int) -> int:
         """
@@ -668,11 +679,19 @@ class PricingService:
         Returns number of new price rows saved.
         """
         try:
-            # Fetch history from yfinance
             ticker = yf.Ticker(asset.symbol)
             # Map our interval to yfinance interval
             yf_interval = '1d' if interval in ('1d', '1w') else '1d'
-            hist = ticker.history(start=start_date.date(), end=(end_date + timedelta(days=1)).date(), interval=yf_interval)
+            hist = call_yahoo(
+                lambda: ticker.history(
+                    start=start_date.date(),
+                    end=(end_date + timedelta(days=1)).date(),
+                    interval=yf_interval,
+                ),
+                symbol=asset.symbol,
+                action="history_backfill",
+                timeout_seconds=yahoo_timeout_seconds(default=15.0),
+            )
             if hist is None or hist.empty:
                 return 0
 
@@ -725,11 +744,6 @@ class PricingService:
             logger.debug(f"Rate limit circuit breaker active for {symbol}, skipping ({remaining:.1f}s remaining)")
             return None
         
-        import socket
-        # Set socket timeout to prevent hanging on slow network
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(10.0)  # 10 second timeout
-        
         try:
             ticker = yf.Ticker(symbol)
             
@@ -737,7 +751,12 @@ class PricingService:
             # This is what Yahoo Finance website uses and what users expect
             logger.info(f"Fetching data for {symbol}")
             try:
-                info = ticker.info
+                info = call_yahoo(
+                    lambda: ticker.info,
+                    symbol=symbol,
+                    action="ticker_info",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                )
                 current_price = info.get('regularMarketPrice') or info.get('currentPrice')
                 prev_close = info.get('previousClose')
                 
@@ -767,7 +786,12 @@ class PricingService:
             
             # Fallback to history for both current and previous close
             logger.info(f"Fetching history for {symbol}")
-            hist = ticker.history(period="10d")
+            hist = call_yahoo(
+                lambda: ticker.history(period="10d"),
+                symbol=symbol,
+                action="history_current",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             if not hist.empty:
                 logger.info(f"History data for {symbol}: {len(hist)} rows")
@@ -795,9 +819,6 @@ class PricingService:
         except Exception as e:
             logger.error(f"Error fetching price for {symbol}: {e}")
             return None
-        finally:
-            # Restore original timeout
-            socket.setdefaulttimeout(old_timeout)
     
     def _is_price_fresh(self, asof: datetime) -> bool:
         """Check if price is within TTL"""
@@ -817,7 +838,12 @@ class PricingService:
             
             # Try ticker.info first - matches Yahoo Finance website
             try:
-                info = ticker.info
+                info = call_yahoo(
+                    lambda: ticker.info,
+                    symbol=symbol,
+                    action="previous_close_info",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                )
                 prev_close = info.get('previousClose')
                 
                 if prev_close and prev_close > 0:
@@ -849,7 +875,12 @@ class PricingService:
                 logger.warning(f"ticker.info failed for {symbol}, trying history: {e}")
             
             # Fallback to history
-            hist = ticker.history(period="10d")
+            hist = call_yahoo(
+                lambda: ticker.history(period="10d"),
+                symbol=symbol,
+                action="previous_close_history",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             if not hist.empty and len(hist) > 1:
                 prev_row = hist.iloc[-2]
                 prev_close_decimal = Decimal(str(float(prev_row["Close"])))
@@ -881,6 +912,34 @@ class PricingService:
         except Exception as e:
             logger.error(f"Error fetching previous close for {symbol}: {e}")
             return None
+
+    def _get_stale_price_quote(self, symbol: str, reason: str) -> Optional[PriceQuote]:
+        """Return the latest DB price even if it is stale."""
+        asset = self.db.query(Asset).filter(Asset.symbol == symbol).first()
+        if not asset:
+            return None
+
+        latest_price = crud_prices.get_latest_price(self.db, asset.id)
+        if not latest_price:
+            return None
+
+        logger.warning(
+            "provider=yahoo symbol=%s fallback=stale_db reason=%s asof=%s",
+            symbol,
+            reason,
+            latest_price.asof,
+        )
+        daily_change_pct = self._calculate_daily_change_with_official_close(
+            asset.id,
+            latest_price.price,
+        )
+        return PriceQuote(
+            symbol=symbol,
+            price=latest_price.price,
+            asof=latest_price.asof,
+            currency=asset.currency,
+            daily_change_pct=daily_change_pct,
+        )
     
     def _calculate_daily_change_with_official_close(self, asset_id: int, current_price: Decimal) -> Optional[Decimal]:
         """

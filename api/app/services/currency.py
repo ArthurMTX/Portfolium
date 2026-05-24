@@ -7,11 +7,15 @@ from typing import Optional, Dict
 from datetime import datetime, timedelta
 import yfinance as yf
 
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+
 logger = logging.getLogger(__name__)
 
 # Cache for exchange rates (currency_pair -> (rate, timestamp))
 _exchange_rate_cache: Dict[str, tuple[Decimal, datetime]] = {}
+_historical_exchange_rate_cache: Dict[str, tuple[Decimal, datetime]] = {}
 _CACHE_DURATION = timedelta(hours=4)  # Cache rates for 4 hours (reduce API calls)
+_HISTORICAL_CACHE_DURATION = timedelta(days=7)
 
 
 def _is_yf_rate_limited() -> bool:
@@ -47,8 +51,10 @@ class CurrencyService:
         
         # Check cache first (even if stale, better than rate limiting)
         cache_key = f"{from_currency}{to_currency}"
+        cached_rate = None
         if cache_key in _exchange_rate_cache:
             rate, timestamp = _exchange_rate_cache[cache_key]
+            cached_rate = rate
             cache_age = datetime.utcnow() - timestamp
             
             # Return cached rate if fresh
@@ -71,7 +77,12 @@ class CurrencyService:
         
         try:
             ticker = yf.Ticker(forex_symbol)
-            info = ticker.history(period="1d")
+            info = call_yahoo(
+                lambda: ticker.history(period="1d"),
+                symbol=forex_symbol,
+                action="fx_rate",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             if info.empty:
                 logger.warning(f"No exchange rate data for {forex_symbol}, trying inverse pair")
@@ -80,7 +91,12 @@ class CurrencyService:
                 inverse_symbol = f"{to_currency}{from_currency}=X"
                 try:
                     inverse_ticker = yf.Ticker(inverse_symbol)
-                    inverse_info = inverse_ticker.history(period="1d")
+                    inverse_info = call_yahoo(
+                        lambda: inverse_ticker.history(period="1d"),
+                        symbol=inverse_symbol,
+                        action="fx_rate_inverse",
+                        timeout_seconds=yahoo_timeout_seconds(),
+                    )
                     
                     if not inverse_info.empty:
                         # Invert the rate (if EUR/JPY = 165, then JPY/EUR = 1/165)
@@ -105,6 +121,12 @@ class CurrencyService:
                     logger.warning(f"Failed to fetch inverse pair {inverse_symbol}: {inv_e}")
                 
                 logger.error(f"No exchange rate data available for {from_currency} to {to_currency}")
+                if cached_rate is not None:
+                    logger.warning(
+                        "provider=yahoo symbol=%s fallback=stale_fx_cache reason=no_data",
+                        forex_symbol,
+                    )
+                    return cached_rate
                 return None
             
             # Get the most recent close price
@@ -126,6 +148,12 @@ class CurrencyService:
                 except ImportError:
                     pass
             logger.error(f"Failed to fetch exchange rate for {forex_symbol}: {e}")
+            if cached_rate is not None:
+                logger.warning(
+                    "provider=yahoo symbol=%s fallback=stale_fx_cache reason=fetch_failed",
+                    forex_symbol,
+                )
+                return cached_rate
             return None
     
     @staticmethod
@@ -177,6 +205,14 @@ class CurrencyService:
         
         # Format date for yfinance
         date_str = date.strftime('%Y-%m-%d')
+        cache_key = f"{from_currency}{to_currency}:{date_str}"
+        if cache_key in _historical_exchange_rate_cache:
+            rate, timestamp = _historical_exchange_rate_cache[cache_key]
+            if datetime.utcnow() - timestamp < _HISTORICAL_CACHE_DURATION:
+                return rate
+            if _is_yf_rate_limited():
+                logger.debug(f"Rate limited, using stale historical FX cache for {cache_key}")
+                return rate
         
         # Fetch from Yahoo Finance using forex pair format
         forex_symbol = f"{from_currency}{to_currency}=X"
@@ -188,7 +224,12 @@ class CurrencyService:
             start_date = (date - timedelta(days=5)).strftime('%Y-%m-%d')
             end_date = (date + timedelta(days=2)).strftime('%Y-%m-%d')
             
-            hist = ticker.history(start=start_date, end=end_date)
+            hist = call_yahoo(
+                lambda: ticker.history(start=start_date, end=end_date),
+                symbol=forex_symbol,
+                action="historical_fx_rate",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             if hist.empty:
                 logger.warning(f"No historical data for {forex_symbol} on {date_str}, trying inverse pair")
@@ -197,7 +238,12 @@ class CurrencyService:
                 inverse_symbol = f"{to_currency}{from_currency}=X"
                 try:
                     inverse_ticker = yf.Ticker(inverse_symbol)
-                    inverse_hist = inverse_ticker.history(start=start_date, end=end_date)
+                    inverse_hist = call_yahoo(
+                        lambda: inverse_ticker.history(start=start_date, end=end_date),
+                        symbol=inverse_symbol,
+                        action="historical_fx_rate_inverse",
+                        timeout_seconds=yahoo_timeout_seconds(),
+                    )
                     
                     if not inverse_hist.empty:
                         # Convert index to timezone-naive for comparison
@@ -215,11 +261,20 @@ class CurrencyService:
                                 f"{inverse_hist.index[closest_idx].date()}: {inverse_rate}, "
                                 f"calculated {forex_symbol}: {rate}"
                             )
+                            _historical_exchange_rate_cache[cache_key] = (rate, datetime.utcnow())
                             return rate
                 except Exception as inv_e:
                     logger.warning(f"Failed to fetch inverse historical pair {inverse_symbol}: {inv_e}")
                 
                 logger.error(f"No historical exchange rate data for {from_currency} to {to_currency} on {date_str}")
+                if cache_key in _historical_exchange_rate_cache:
+                    rate, _ = _historical_exchange_rate_cache[cache_key]
+                    logger.warning(
+                        "provider=yahoo symbol=%s fallback=stale_historical_fx_cache date=%s reason=no_data",
+                        forex_symbol,
+                        date_str,
+                    )
+                    return rate
                 return None
             
             # Convert index to timezone-naive for comparison
@@ -230,6 +285,7 @@ class CurrencyService:
             closest_idx = time_diffs.argmin()
             rate = Decimal(str(hist['Close'].iloc[closest_idx]))
             actual_date = hist.index[closest_idx].date()
+            _historical_exchange_rate_cache[cache_key] = (rate, datetime.utcnow())
             
             logger.info(
                 f"Fetched historical exchange rate {forex_symbol} on {actual_date}: {rate} "
@@ -239,6 +295,14 @@ class CurrencyService:
             
         except Exception as e:
             logger.error(f"Failed to fetch historical exchange rate for {forex_symbol} on {date_str}: {e}")
+            if cache_key in _historical_exchange_rate_cache:
+                rate, _ = _historical_exchange_rate_cache[cache_key]
+                logger.warning(
+                    "provider=yahoo symbol=%s fallback=stale_historical_fx_cache date=%s",
+                    forex_symbol,
+                    date_str,
+                )
+                return rate
             return None
     
     @staticmethod

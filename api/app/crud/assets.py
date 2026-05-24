@@ -53,11 +53,17 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
     import yfinance as yf
     import re
+    from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
     
     # Fetch additional info from yfinance
     ticker = yf.Ticker(asset.symbol)
     try:
-        info = ticker.info
+        info = call_yahoo(
+            lambda: ticker.info,
+            symbol=asset.symbol,
+            action="asset_create_info",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
         sector = info.get('sector')
         industry = info.get('industry')
         asset_type = info.get('quoteType')  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
@@ -134,6 +140,7 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     """Enrich asset with metadata from yfinance"""
     import yfinance as yf
     import re
+    from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
     
     db_asset = get_asset(db, asset_id)
     if not db_asset:
@@ -141,7 +148,12 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     
     try:
         ticker = yf.Ticker(db_asset.symbol)
-        info = ticker.info
+        info = call_yahoo(
+            lambda: ticker.info,
+            symbol=db_asset.symbol,
+            action="asset_enrich_info",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
         # Update metadata ONLY if not already set
         if not db_asset.sector:
             db_asset.sector = info.get('sector')
@@ -191,6 +203,7 @@ def enrich_all_assets(db: Session) -> dict:
     """Enrich all assets with metadata from yfinance"""
     import yfinance as yf
     import re
+    from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
     
     assets = db.query(Asset).all()
     enriched = 0
@@ -214,7 +227,12 @@ def enrich_all_assets(db: Session) -> dict:
                 continue
             
             ticker = yf.Ticker(asset.symbol)
-            info = ticker.info
+            info = call_yahoo(
+                lambda: ticker.info,
+                symbol=asset.symbol,
+                action="asset_enrich_all_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             updated = False
             
             # Only update fields if they're not set
