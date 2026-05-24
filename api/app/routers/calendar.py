@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from app.db import get_db
 from app.auth import get_current_user
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.models import User, Portfolio, Transaction, TransactionType, Asset, EarningsCache, Watchlist
 from app.crud import portfolios as crud
 from app.services.metrics import get_metrics_service
@@ -461,8 +461,6 @@ def refresh_earnings_for_user(
     Manually trigger earnings cache refresh for user's held stocks and watchlist items.
     This is useful when a user wants fresh data without waiting for the scheduled job.
     """
-    import yfinance as yf
-    
     # Get user's portfolios
     portfolios = crud.get_portfolios_by_user(db, current_user.id)
     
@@ -504,10 +502,9 @@ def refresh_earnings_for_user(
     
     for symbol in all_symbols.keys():
         try:
-            ticker = yf.Ticker(symbol)
-            calendar = call_yahoo(
-                lambda: ticker.calendar,
-                symbol=symbol,
+            provider = get_market_data_provider()
+            calendar = provider.get_calendar(
+                symbol,
                 action="earnings_calendar",
                 timeout_seconds=yahoo_timeout_seconds(),
             )

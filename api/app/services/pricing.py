@@ -14,7 +14,6 @@ import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
-import yfinance as yf
 import pandas as pd
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -27,7 +26,7 @@ from app.db import get_db
 from app.services.cache import CacheService, cache_price, get_cached_price
 from app.services.market_calendar import MarketAwareCacheTTL
 from app.services.yahoo_finance import (
-    call_yahoo,
+    get_market_data_provider,
     yahoo_timeout_seconds,
 )
 
@@ -567,19 +566,17 @@ class PricingService:
             logger.info(f"Batch downloading {len(symbols)} symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''}")
             
             # Use 2 days of data to get current price and previous close
-            df = call_yahoo(
-                lambda: yf.download(
-                    symbols,
-                    period="2d",
-                    interval="1d",
-                    group_by="ticker",
-                    auto_adjust=True,
-                    progress=False,
-                    threads=True,
-                ),
-                symbol=",".join(symbols[:5]) + ("..." if len(symbols) > 5 else ""),
+            provider = get_market_data_provider()
+            df = provider.download(
+                symbols,
                 action="batch_download",
                 timeout_seconds=yahoo_timeout_seconds(default=15.0),
+                period="2d",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=True,
+                progress=False,
+                threads=True,
             )
             
             if df is None or df.empty:
@@ -679,18 +676,16 @@ class PricingService:
         Returns number of new price rows saved.
         """
         try:
-            ticker = yf.Ticker(asset.symbol)
             # Map our interval to yfinance interval
             yf_interval = '1d' if interval in ('1d', '1w') else '1d'
-            hist = call_yahoo(
-                lambda: ticker.history(
-                    start=start_date.date(),
-                    end=(end_date + timedelta(days=1)).date(),
-                    interval=yf_interval,
-                ),
-                symbol=asset.symbol,
+            provider = get_market_data_provider()
+            hist = provider.get_history(
+                asset.symbol,
                 action="history_backfill",
                 timeout_seconds=yahoo_timeout_seconds(default=15.0),
+                start=start_date.date(),
+                end=(end_date + timedelta(days=1)).date(),
+                interval=yf_interval,
             )
             if hist is None or hist.empty:
                 return 0
@@ -745,15 +740,13 @@ class PricingService:
             return None
         
         try:
-            ticker = yf.Ticker(symbol)
-            
             # Try to get current price and previous close from info
             # This is what Yahoo Finance website uses and what users expect
             logger.info(f"Fetching data for {symbol}")
+            provider = get_market_data_provider()
             try:
-                info = call_yahoo(
-                    lambda: ticker.info,
-                    symbol=symbol,
+                info = provider.get_info(
+                    symbol,
                     action="ticker_info",
                     timeout_seconds=yahoo_timeout_seconds(),
                 )
@@ -786,11 +779,11 @@ class PricingService:
             
             # Fallback to history for both current and previous close
             logger.info(f"Fetching history for {symbol}")
-            hist = call_yahoo(
-                lambda: ticker.history(period="10d"),
-                symbol=symbol,
+            hist = provider.get_history(
+                symbol,
                 action="history_current",
                 timeout_seconds=yahoo_timeout_seconds(),
+                period="10d",
             )
             
             if not hist.empty:
@@ -834,13 +827,11 @@ class PricingService:
         Uses ticker.info previousClose to match what Yahoo Finance website shows.
         """
         try:
-            ticker = yf.Ticker(symbol)
-            
             # Try ticker.info first - matches Yahoo Finance website
+            provider = get_market_data_provider()
             try:
-                info = call_yahoo(
-                    lambda: ticker.info,
-                    symbol=symbol,
+                info = provider.get_info(
+                    symbol,
                     action="previous_close_info",
                     timeout_seconds=yahoo_timeout_seconds(),
                 )
@@ -875,11 +866,11 @@ class PricingService:
                 logger.warning(f"ticker.info failed for {symbol}, trying history: {e}")
             
             # Fallback to history
-            hist = call_yahoo(
-                lambda: ticker.history(period="10d"),
-                symbol=symbol,
+            hist = provider.get_history(
+                symbol,
                 action="previous_close_history",
                 timeout_seconds=yahoo_timeout_seconds(),
+                period="10d",
             )
             if not hist.empty and len(hist) > 1:
                 prev_row = hist.iloc[-2]

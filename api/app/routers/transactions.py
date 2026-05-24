@@ -26,11 +26,10 @@ from app.services.import_csv import get_csv_import_service, CsvImportService
 from app.services.notifications import notification_service
 from app.auth import get_current_user, verify_portfolio_access
 from app.dependencies import PricingServiceDep
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-import yfinance as yf
 
 
 def _get_cached_close_for_date(db: Session, asset_id: int, target_date: date) -> Optional[Decimal]:
@@ -77,8 +76,7 @@ def fetch_price_for_date(
     from app.services.currency import CurrencyService
     from app.crud.assets import get_asset_by_symbol
     
-    # Fetch ticker info from yfinance
-    yf_ticker = yf.Ticker(ticker)
+    provider = get_market_data_provider()
     
     # Try to get existing asset to know its currency, otherwise fetch from yfinance
     asset = get_asset_by_symbol(db, ticker)
@@ -87,9 +85,8 @@ def fetch_price_for_date(
     else:
         # Fetch currency from yfinance info
         try:
-            info = call_yahoo(
-                lambda: yf_ticker.info,
-                symbol=ticker,
+            info = provider.get_info(
+                ticker,
                 action="transaction_asset_info",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -103,11 +100,12 @@ def fetch_price_for_date(
     start_date = tx_date - timedelta(days=5)  # Look back a few days in case of weekends/holidays
     end_date = tx_date + timedelta(days=1)
     try:
-        hist = call_yahoo(
-            lambda: yf_ticker.history(start=start_date, end=end_date),
-            symbol=ticker,
+        hist = provider.get_history(
+            ticker,
             action="transaction_price_history",
             timeout_seconds=yahoo_timeout_seconds(),
+            start=start_date,
+            end=end_date,
         )
     except Exception:
         hist = None
@@ -253,16 +251,14 @@ def add_position_transaction(
     from app.schemas import AssetCreate
     from app.models import AssetClass
     
-    # Fetch ticker info from yfinance first (we'll need it for price anyway)
-    yf_ticker = yf.Ticker(ticker)
+    provider = get_market_data_provider()
     
     asset = get_asset_by_symbol(db, ticker)
     if not asset:
         # Get currency from yfinance
         try:
-            info = call_yahoo(
-                lambda: yf_ticker.info,
-                symbol=ticker,
+            info = provider.get_info(
+                ticker,
                 action="transaction_asset_info",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -288,11 +284,12 @@ def add_position_transaction(
     start_date = tx_date - timedelta(days=1)
     end_date = tx_date + timedelta(days=1)
     try:
-        hist = call_yahoo(
-            lambda: yf_ticker.history(start=start_date, end=end_date),
-            symbol=ticker,
+        hist = provider.get_history(
+            ticker,
             action="transaction_price_history",
             timeout_seconds=yahoo_timeout_seconds(),
+            start=start_date,
+            end=end_date,
         )
     except Exception:
         hist = None

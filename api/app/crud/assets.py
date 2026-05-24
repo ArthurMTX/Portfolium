@@ -51,16 +51,14 @@ def get_assets(
 
 def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
-    import yfinance as yf
     import re
-    from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+    from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
     
     # Fetch additional info from yfinance
-    ticker = yf.Ticker(asset.symbol)
     try:
-        info = call_yahoo(
-            lambda: ticker.info,
-            symbol=asset.symbol,
+        provider = get_market_data_provider()
+        info = provider.get_info(
+            asset.symbol,
             action="asset_create_info",
             timeout_seconds=yahoo_timeout_seconds(),
         )
@@ -138,19 +136,17 @@ def delete_asset(db: Session, asset_id: int) -> bool:
 
 def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     """Enrich asset with metadata from yfinance"""
-    import yfinance as yf
     import re
-    from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+    from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
     
     db_asset = get_asset(db, asset_id)
     if not db_asset:
         return None
     
     try:
-        ticker = yf.Ticker(db_asset.symbol)
-        info = call_yahoo(
-            lambda: ticker.info,
-            symbol=db_asset.symbol,
+        provider = get_market_data_provider()
+        info = provider.get_info(
+            db_asset.symbol,
             action="asset_enrich_info",
             timeout_seconds=yahoo_timeout_seconds(),
         )
@@ -201,9 +197,8 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
 
 def enrich_all_assets(db: Session) -> dict:
     """Enrich all assets with metadata from yfinance"""
-    import yfinance as yf
     import re
-    from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+    from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
     
     assets = db.query(Asset).all()
     enriched = 0
@@ -226,10 +221,9 @@ def enrich_all_assets(db: Session) -> dict:
                 asset.country and not needs_name_update and not is_crypto_with_suffix):
                 continue
             
-            ticker = yf.Ticker(asset.symbol)
-            info = call_yahoo(
-                lambda: ticker.info,
-                symbol=asset.symbol,
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                asset.symbol,
                 action="asset_enrich_all_info",
                 timeout_seconds=yahoo_timeout_seconds(),
             )

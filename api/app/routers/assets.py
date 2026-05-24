@@ -17,7 +17,7 @@ from app.auth import get_current_user
 from app.models import User
 from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.errors import ( 
     AssetAlreadyExistsError,
     AssetNotFoundError,
@@ -29,7 +29,6 @@ from app.errors import (
     SearchTickerError,
     SetMetadataError
 )
-import yfinance as yf
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -91,7 +90,6 @@ def search_assets(query: str, crypto_only: bool = False):
     Returns simplified results for conversion/swap UI
     """
     import requests
-    import yfinance as yf
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -109,12 +107,11 @@ def search_assets(query: str, crypto_only: bool = False):
             f"{query.upper()}-EUR",
             f"{query.upper()}-CAD",
         ]
+        provider = get_market_data_provider()
         for crypto_symbol in crypto_symbols_to_try:
             try:
-                ticker = yf.Ticker(crypto_symbol)
-                info = call_yahoo(
-                    lambda: ticker.info,
-                    symbol=crypto_symbol,
+                info = provider.get_info(
+                    crypto_symbol,
                     action="asset_search_info",
                     timeout_seconds=yahoo_timeout_seconds(),
                 )
@@ -1696,13 +1693,11 @@ def get_yfinance_data(
         raise InvalidAssetIDOrSymbolError()
     
     try:
-        # Fetch ticker info from yfinance
-        ticker = yf.Ticker(fetch_symbol)
+        provider = get_market_data_provider()
         
         # Get the info dict - this contains all metadata
-        info = call_yahoo(
-            lambda: ticker.info,
-            symbol=fetch_symbol,
+        info = provider.get_info(
+            fetch_symbol,
             action="asset_debug_info",
             timeout_seconds=yahoo_timeout_seconds(),
         )
@@ -1746,11 +1741,11 @@ def get_yfinance_data(
         # Get additional data structures
         try:
             # Try to get recent history (last 90 days)
-            history = call_yahoo(
-                lambda: ticker.history(period="3mo"),
-                symbol=fetch_symbol,
+            history = provider.get_history(
+                fetch_symbol,
                 action="asset_debug_history",
                 timeout_seconds=yahoo_timeout_seconds(default=12.0),
+                period="3mo",
             )
             history_dict = {
                 "columns": list(history.columns) if not history.empty else [],
@@ -1763,9 +1758,8 @@ def get_yfinance_data(
         
         # Try to get calendar data
         try:
-            calendar = call_yahoo(
-                lambda: ticker.calendar,
-                symbol=fetch_symbol,
+            calendar = provider.get_calendar(
+                fetch_symbol,
                 action="asset_debug_calendar",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1782,9 +1776,8 @@ def get_yfinance_data(
         
         # Try to get recommendations
         try:
-            recommendations = call_yahoo(
-                lambda: ticker.recommendations,
-                symbol=fetch_symbol,
+            recommendations = provider.get_recommendations(
+                fetch_symbol,
                 action="asset_debug_recommendations",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1800,9 +1793,8 @@ def get_yfinance_data(
         
         # Try to get institutional holders
         try:
-            institutional_holders = call_yahoo(
-                lambda: ticker.institutional_holders,
-                symbol=fetch_symbol,
+            institutional_holders = provider.get_institutional_holders(
+                fetch_symbol,
                 action="asset_debug_institutional_holders",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1818,9 +1810,8 @@ def get_yfinance_data(
         
         # Try to get major holders
         try:
-            major_holders = call_yahoo(
-                lambda: ticker.major_holders,
-                symbol=fetch_symbol,
+            major_holders = provider.get_major_holders(
+                fetch_symbol,
                 action="asset_debug_major_holders",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1836,9 +1827,8 @@ def get_yfinance_data(
         
         # Try to get dividends
         try:
-            dividends = call_yahoo(
-                lambda: ticker.dividends,
-                symbol=fetch_symbol,
+            dividends = provider.get_dividends(
+                fetch_symbol,
                 action="asset_debug_dividends",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1854,9 +1844,8 @@ def get_yfinance_data(
         
         # Try to get splits
         try:
-            splits = call_yahoo(
-                lambda: ticker.splits,
-                symbol=fetch_symbol,
+            splits = provider.get_splits(
+                fetch_symbol,
                 action="asset_debug_splits",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1872,9 +1861,8 @@ def get_yfinance_data(
         
         # Try to get actions (dividends + splits combined)
         try:
-            actions = call_yahoo(
-                lambda: ticker.actions,
-                symbol=fetch_symbol,
+            actions = provider.get_actions(
+                fetch_symbol,
                 action="asset_debug_actions",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -1908,5 +1896,4 @@ def get_yfinance_data(
     except Exception as e:
         logger.error(f"Failed to fetch yfinance data for {fetch_symbol}: {str(e)}", exc_info=True)
         raise FailedToFetchYahooFinanceDataError(symbol=fetch_symbol, reason=str(e))
-
 

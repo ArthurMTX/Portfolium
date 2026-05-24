@@ -18,7 +18,7 @@ from app.errors import (
     TNXDataFetchError,
     VIXDataFetchError,
 )
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -191,13 +191,10 @@ async def get_vix_index():
     """
     def fetch_vix():
         try:
-            import yfinance as yf
-            
             # Fetch VIX data
-            vix = yf.Ticker("^VIX")
-            info = call_yahoo(
-                lambda: vix.info,
-                symbol="^VIX",
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                "^VIX",
                 action="market_index_info",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -242,13 +239,10 @@ async def get_tnx_index():
     """
     def fetch_tnx():
         try:
-            import yfinance as yf
-            
             # Fetch TNX data
-            tnx = yf.Ticker("^TNX")
-            info = call_yahoo(
-                lambda: tnx.info,
-                symbol="^TNX",
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                "^TNX",
                 action="market_index_info",
                 timeout_seconds=yahoo_timeout_seconds(),
             )
@@ -293,13 +287,10 @@ async def get_dxy_index():
     """
     def fetch_dxy():
         try:
-            import yfinance as yf
-            
             # Fetch DXY data
-            dxy = yf.Ticker("DX-Y.NYB")
-            info = call_yahoo(
-                lambda: dxy.info,
-                symbol="DX-Y.NYB",
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                "DX-Y.NYB",
                 action="market_index_info",
                 timeout_seconds=yahoo_timeout_seconds(),
             )

@@ -10,7 +10,7 @@ import random
 import socket
 import time
 from contextlib import contextmanager
-from typing import Callable, TypeVar
+from typing import Any, Callable, Protocol, Sequence, TypeVar
 
 from app.config import settings
 
@@ -24,6 +24,104 @@ DEFAULT_YAHOO_BACKOFF_SECONDS = 60.0
 
 class YahooUnavailableError(RuntimeError):
     """Raised when Yahoo should not be called or does not respond cleanly."""
+
+
+class MarketDataProvider(Protocol):
+    """Minimal market data provider contract used by request-path code."""
+
+    name: str
+
+    def get_info(
+        self,
+        symbol: str,
+        *,
+        action: str = "ticker_info",
+        timeout_seconds: float | None = None,
+    ) -> dict[str, Any]:
+        ...
+
+    def get_history(
+        self,
+        symbol: str,
+        *,
+        action: str = "history",
+        timeout_seconds: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        ...
+
+    def download(
+        self,
+        symbols: str | Sequence[str],
+        *,
+        action: str = "download",
+        timeout_seconds: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        ...
+
+    def get_calendar(
+        self,
+        symbol: str,
+        *,
+        action: str = "calendar",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
+
+    def get_recommendations(
+        self,
+        symbol: str,
+        *,
+        action: str = "recommendations",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
+
+    def get_institutional_holders(
+        self,
+        symbol: str,
+        *,
+        action: str = "institutional_holders",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
+
+    def get_major_holders(
+        self,
+        symbol: str,
+        *,
+        action: str = "major_holders",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
+
+    def get_dividends(
+        self,
+        symbol: str,
+        *,
+        action: str = "dividends",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
+
+    def get_splits(
+        self,
+        symbol: str,
+        *,
+        action: str = "splits",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
+
+    def get_actions(
+        self,
+        symbol: str,
+        *,
+        action: str = "actions",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        ...
 
 
 def yahoo_timeout_seconds(default: float = DEFAULT_YAHOO_TIMEOUT_SECONDS) -> float:
@@ -150,3 +248,157 @@ def call_yahoo(
             time.sleep(retry_backoff_seconds * attempt)
 
     raise YahooUnavailableError(str(last_error) if last_error else "Yahoo unavailable")
+
+
+def _format_symbols(symbols: str | Sequence[str]) -> str:
+    if isinstance(symbols, str):
+        return symbols
+
+    symbols_list = list(symbols)
+    return ",".join(symbols_list[:5]) + ("..." if len(symbols_list) > 5 else "")
+
+
+class YahooMarketDataProvider:
+    """Yahoo/yfinance implementation of the minimal market data provider."""
+
+    name = "yahoo"
+
+    def get_info(
+        self,
+        symbol: str,
+        *,
+        action: str = "ticker_info",
+        timeout_seconds: float | None = None,
+    ) -> dict[str, Any]:
+        import yfinance as yf
+
+        ticker = yf.Ticker(symbol)
+        return call_yahoo(
+            lambda: ticker.info,
+            symbol=symbol,
+            action=action,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def get_history(
+        self,
+        symbol: str,
+        *,
+        action: str = "history",
+        timeout_seconds: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        import yfinance as yf
+
+        ticker = yf.Ticker(symbol)
+        return call_yahoo(
+            lambda: ticker.history(**kwargs),
+            symbol=symbol,
+            action=action,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def download(
+        self,
+        symbols: str | Sequence[str],
+        *,
+        action: str = "download",
+        timeout_seconds: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        import yfinance as yf
+
+        return call_yahoo(
+            lambda: yf.download(symbols, **kwargs),
+            symbol=_format_symbols(symbols),
+            action=action,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def get_calendar(
+        self,
+        symbol: str,
+        *,
+        action: str = "calendar",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "calendar", action, timeout_seconds)
+
+    def get_recommendations(
+        self,
+        symbol: str,
+        *,
+        action: str = "recommendations",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "recommendations", action, timeout_seconds)
+
+    def get_institutional_holders(
+        self,
+        symbol: str,
+        *,
+        action: str = "institutional_holders",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "institutional_holders", action, timeout_seconds)
+
+    def get_major_holders(
+        self,
+        symbol: str,
+        *,
+        action: str = "major_holders",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "major_holders", action, timeout_seconds)
+
+    def get_dividends(
+        self,
+        symbol: str,
+        *,
+        action: str = "dividends",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "dividends", action, timeout_seconds)
+
+    def get_splits(
+        self,
+        symbol: str,
+        *,
+        action: str = "splits",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "splits", action, timeout_seconds)
+
+    def get_actions(
+        self,
+        symbol: str,
+        *,
+        action: str = "actions",
+        timeout_seconds: float | None = None,
+    ) -> Any:
+        return self._get_ticker_property(symbol, "actions", action, timeout_seconds)
+
+    def _get_ticker_property(
+        self,
+        symbol: str,
+        property_name: str,
+        action: str,
+        timeout_seconds: float | None,
+    ) -> Any:
+        import yfinance as yf
+
+        ticker = yf.Ticker(symbol)
+        return call_yahoo(
+            lambda: getattr(ticker, property_name),
+            symbol=symbol,
+            action=action,
+            timeout_seconds=timeout_seconds,
+        )
+
+
+_market_data_provider: MarketDataProvider = YahooMarketDataProvider()
+
+
+def get_market_data_provider() -> MarketDataProvider:
+    """Return the configured market data provider."""
+    return _market_data_provider

@@ -5,9 +5,8 @@ import logging
 from decimal import Decimal
 from typing import Optional, Dict
 from datetime import datetime, timedelta
-import yfinance as yf
 
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +75,12 @@ class CurrencyService:
         forex_symbol = f"{from_currency}{to_currency}=X"
         
         try:
-            ticker = yf.Ticker(forex_symbol)
-            info = call_yahoo(
-                lambda: ticker.history(period="1d"),
-                symbol=forex_symbol,
+            provider = get_market_data_provider()
+            info = provider.get_history(
+                forex_symbol,
                 action="fx_rate",
                 timeout_seconds=yahoo_timeout_seconds(),
+                period="1d",
             )
             
             if info.empty:
@@ -90,12 +89,11 @@ class CurrencyService:
                 # Try the inverse pair (e.g., if JPYEUR=X doesn't exist, try EURJPY=X)
                 inverse_symbol = f"{to_currency}{from_currency}=X"
                 try:
-                    inverse_ticker = yf.Ticker(inverse_symbol)
-                    inverse_info = call_yahoo(
-                        lambda: inverse_ticker.history(period="1d"),
-                        symbol=inverse_symbol,
+                    inverse_info = provider.get_history(
+                        inverse_symbol,
                         action="fx_rate_inverse",
                         timeout_seconds=yahoo_timeout_seconds(),
+                        period="1d",
                     )
                     
                     if not inverse_info.empty:
@@ -218,17 +216,18 @@ class CurrencyService:
         forex_symbol = f"{from_currency}{to_currency}=X"
         
         try:
-            ticker = yf.Ticker(forex_symbol)
             # Fetch a few days of data around the target date to ensure we get data
             # (markets might be closed on the exact date)
             start_date = (date - timedelta(days=5)).strftime('%Y-%m-%d')
             end_date = (date + timedelta(days=2)).strftime('%Y-%m-%d')
             
-            hist = call_yahoo(
-                lambda: ticker.history(start=start_date, end=end_date),
-                symbol=forex_symbol,
+            provider = get_market_data_provider()
+            hist = provider.get_history(
+                forex_symbol,
                 action="historical_fx_rate",
                 timeout_seconds=yahoo_timeout_seconds(),
+                start=start_date,
+                end=end_date,
             )
             
             if hist.empty:
@@ -237,12 +236,12 @@ class CurrencyService:
                 # Try the inverse pair
                 inverse_symbol = f"{to_currency}{from_currency}=X"
                 try:
-                    inverse_ticker = yf.Ticker(inverse_symbol)
-                    inverse_hist = call_yahoo(
-                        lambda: inverse_ticker.history(start=start_date, end=end_date),
-                        symbol=inverse_symbol,
+                    inverse_hist = provider.get_history(
+                        inverse_symbol,
                         action="historical_fx_rate_inverse",
                         timeout_seconds=yahoo_timeout_seconds(),
+                        start=start_date,
+                        end=end_date,
                     )
                     
                     if not inverse_hist.empty:

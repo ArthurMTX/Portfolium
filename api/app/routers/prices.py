@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from datetime import timedelta
 from decimal import Decimal
-import yfinance as yf
 import asyncio
 import logging
 
@@ -15,7 +14,7 @@ from app.errors import InvalidPriceRequestError, PortfolioNotFoundError
 from app.db import get_db
 from app.schemas import PriceQuote
 from app.services.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.crud import portfolios as portfolio_crud
 
 logger = logging.getLogger(__name__)
@@ -96,19 +95,17 @@ async def get_market_indices(
         prices = {}
         try:
             # Use batch download for all symbols at once
-            df = call_yahoo(
-                lambda: yf.download(
-                    symbols,
-                    period="2d",
-                    interval="1d",
-                    group_by="ticker",
-                    auto_adjust=True,
-                    progress=False,
-                    threads=True,
-                ),
-                symbol=",".join(symbols[:5]) + ("..." if len(symbols) > 5 else ""),
+            provider = get_market_data_provider()
+            df = provider.download(
+                symbols,
                 action="market_indices_download",
                 timeout_seconds=yahoo_timeout_seconds(default=15.0),
+                period="2d",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=True,
+                progress=False,
+                threads=True,
             )
             
             if df is None or df.empty:
@@ -217,12 +214,12 @@ async def get_price_quote(
     if symbol not in prices or prices[symbol] is None:
         # Try to fetch directly from yfinance
         try:
-            ticker = yf.Ticker(symbol)
-            hist = call_yahoo(
-                lambda: ticker.history(period="2d"),
-                symbol=symbol,
+            provider = get_market_data_provider()
+            hist = provider.get_history(
+                symbol,
                 action="quote_history",
                 timeout_seconds=yahoo_timeout_seconds(),
+                period="2d",
             )
             if not hist.empty:
                 current_price = float(hist["Close"].iloc[-1])
@@ -231,9 +228,8 @@ async def get_price_quote(
                 
                 # Get actual currency from ticker info
                 try:
-                    info = call_yahoo(
-                        lambda: ticker.info,
-                        symbol=symbol,
+                    info = provider.get_info(
+                        symbol,
                         action="quote_info",
                         timeout_seconds=yahoo_timeout_seconds(),
                     )

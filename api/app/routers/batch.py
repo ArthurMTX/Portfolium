@@ -19,7 +19,7 @@ from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
 from app.services.cache import CacheService
 from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
-from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -342,8 +342,6 @@ async def _fetch_market_vix() -> Optional[Dict]:
 async def _fetch_market_indices() -> Optional[Dict]:
     """Fetch all major market indices"""
     try:
-        import yfinance as yf
-        
         # Define major market indices
         indices = {
             'GSPC': '^GSPC',  # S&P 500
@@ -359,13 +357,12 @@ async def _fetch_market_indices() -> Optional[Dict]:
             '000001.SS': '000001.SS', # SSE Composite
             '^AXJO': '^AXJO',  # ASX 200
         }
+        provider = get_market_data_provider()
         
         def fetch_index(symbol: str):
             try:
-                ticker = yf.Ticker(symbol)
-                info = call_yahoo(
-                    lambda: ticker.info,
-                    symbol=symbol,
+                info = provider.get_info(
+                    symbol,
                     action="dashboard_market_index_info",
                     timeout_seconds=yahoo_timeout_seconds(),
                 )
