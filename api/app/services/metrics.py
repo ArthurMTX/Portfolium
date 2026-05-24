@@ -66,10 +66,6 @@ class MetricsService:
             portfolio_id: Portfolio ID
             include_sold: If True, also return sold positions with realized P&L
         """
-        # Update portfolio access time for smart cache warmup
-        from app.services.cache import update_portfolio_access_time
-        update_portfolio_access_time(self.db, portfolio_id)
-        
         cache_key = (portfolio_id, include_sold)
         
         # Check Redis cache first

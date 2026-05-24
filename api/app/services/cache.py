@@ -374,19 +374,14 @@ def invalidate_positions(portfolio_id: int) -> bool:
 
 
 def update_portfolio_access_time(db, portfolio_id: int):
-    """Update portfolio last_accessed_at timestamp for smart cache warmup"""
-    from app.models import Portfolio
-    from datetime import datetime
-    
-    try:
-        portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-        if portfolio:
-            portfolio.last_accessed_at = datetime.utcnow()
-            db.commit()
-            logger.debug(f"Updated access time for portfolio {portfolio_id}")
-    except Exception as e:
-        logger.error(f"Failed to update access time for portfolio {portfolio_id}: {e}")
-        db.rollback()
+    """
+    Deprecated no-op.
+
+    This used to update portfolio.last_accessed_at from frequent read paths.
+    That caused unnecessary DB writes/commits during positions and metrics reads.
+    Cache warmups are now driven by Celery Beat/dashboard tasks instead.
+    """
+    logger.debug("Skipped last_accessed_at write for portfolio %s", portfolio_id)
 
 
 def cache_portfolio(portfolio_id: int, portfolio_data: dict, ttl: int = None) -> bool:
