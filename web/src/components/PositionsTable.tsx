@@ -256,24 +256,31 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                   </div>
                 </div>
                 <div className="text-right ml-3">
-                  <div
-                    className="font-bold text-base text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
-                    title={!isSold ? getMarketValueTooltip(position) : undefined}
-                  >
-                    {isSold 
-                      ? formatCurrency(position.unrealized_pnl, position.currency)
-                      : formatCurrency(position.market_value, position.currency)
-                    }
-                    {!isSold && isPriceDelayed(position) && (
-                      <DataFreshnessIndicator
-                        variant="compact"
-                        timestamp={position.last_updated}
-                        latestPriceTimestamp={position.last_updated}
-                        estimated
-                        showLabel={false}
-                      />
-                    )}
-                  </div>
+                  {isSold ? (
+                    <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                      {formatCurrency(position.unrealized_pnl, position.currency)}
+                    </div>
+                  ) : (
+                    <DataFreshnessIndicator
+                      variant="tooltipOnly"
+                      tooltip={getMarketValueTooltip(position)}
+                      className="justify-end"
+                    >
+                      <span className="font-bold text-base text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1">
+                        {formatCurrency(position.market_value, position.currency)}
+                        {isPriceDelayed(position) && (
+                          <DataFreshnessIndicator
+                            variant="compact"
+                            timestamp={position.last_updated}
+                            latestPriceTimestamp={position.last_updated}
+                            estimated
+                            tooltip={false}
+                            showLabel={false}
+                          />
+                        )}
+                      </span>
+                    </DataFreshnessIndicator>
+                  )}
                   <div className={`text-sm font-semibold ${pnlColor}`}>
                     {position.unrealized_pnl_pct !== null
                       ? `${isPositive ? '+' : ''}${formatNumber(position.unrealized_pnl_pct, 2)}%`
@@ -319,23 +326,31 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs" title={getPriceTooltip(position)}>
-                      {t('dashboard.currentPrice')}
-                    </span>
-                    <div
-                      className="font-medium text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
-                      title={getPriceTooltip(position)}
+                    <DataFreshnessIndicator
+                      variant="tooltipOnly"
+                      tooltip={getPriceTooltip(position)}
+                      className="text-neutral-500 dark:text-neutral-400 text-xs"
                     >
-                      {formatCurrency(position.current_price, position.currency)}
-                      {isPriceDelayed(position) && (
-                        <DataFreshnessIndicator
-                          variant="compact"
-                          timestamp={position.last_updated}
-                          latestPriceTimestamp={position.last_updated}
-                          showLabel={false}
-                        />
-                      )}
-                    </div>
+                      {t('dashboard.currentPrice')}
+                    </DataFreshnessIndicator>
+                    <DataFreshnessIndicator
+                      variant="tooltipOnly"
+                      tooltip={getPriceTooltip(position)}
+                      className="justify-end"
+                    >
+                      <span className="font-medium text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1">
+                        {formatCurrency(position.current_price, position.currency)}
+                        {isPriceDelayed(position) && (
+                          <DataFreshnessIndicator
+                            variant="compact"
+                            timestamp={position.last_updated}
+                            latestPriceTimestamp={position.last_updated}
+                            tooltip={false}
+                            showLabel={false}
+                          />
+                        )}
+                      </span>
+                    </DataFreshnessIndicator>
                   </div>
                   <div>
                     <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.dailyChange')}</span>
@@ -459,9 +474,16 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    title={t('freshness.lastAvailable')}
                   >
-                    {t('dashboard.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                    <DataFreshnessIndicator
+                      variant="tooltipOnly"
+                      tooltip={t('freshness.lastAvailable')}
+                      className="justify-end"
+                    >
+                      <span>
+                        {t('dashboard.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                      </span>
+                    </DataFreshnessIndicator>
                   </th>
                   <th
                     onClick={() => handleSort('daily_change_pct')}
@@ -474,9 +496,16 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     onClick={() => handleSort('market_value')}
                     aria-sort={sortKey === 'market_value' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    title={t('freshness.estimated')}
                   >
-                    {t('dashboard.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
+                    <DataFreshnessIndicator
+                      variant="tooltipOnly"
+                      tooltip={t('freshness.estimated')}
+                      className="justify-end"
+                    >
+                      <span>
+                        {t('dashboard.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
+                      </span>
+                    </DataFreshnessIndicator>
                   </th>
                   <th
                     onClick={() => handleSort('wallet_pct')}
@@ -586,20 +615,24 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                         </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right">
-                        <div
-                          className="text-sm text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
-                          title={getPriceTooltip(position)}
+                        <DataFreshnessIndicator
+                          variant="tooltipOnly"
+                          tooltip={getPriceTooltip(position)}
+                          className="justify-end"
                         >
-                          {formatCurrency(position.current_price, position.currency)}
-                          {isPriceDelayed(position) && (
-                            <DataFreshnessIndicator
-                              variant="compact"
-                              timestamp={position.last_updated}
-                              latestPriceTimestamp={position.last_updated}
-                              showLabel={false}
-                            />
-                          )}
-                        </div>
+                          <span className="text-sm text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1">
+                            {formatCurrency(position.current_price, position.currency)}
+                            {isPriceDelayed(position) && (
+                              <DataFreshnessIndicator
+                                variant="compact"
+                                timestamp={position.last_updated}
+                                latestPriceTimestamp={position.last_updated}
+                                tooltip={false}
+                                showLabel={false}
+                              />
+                            )}
+                          </span>
+                        </DataFreshnessIndicator>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right hidden xl:table-cell">
                         <div className={`text-sm font-medium ${
@@ -617,21 +650,25 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                         </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right">
-                        <div
-                          className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
-                          title={getMarketValueTooltip(position)}
+                        <DataFreshnessIndicator
+                          variant="tooltipOnly"
+                          tooltip={getMarketValueTooltip(position)}
+                          className="justify-end"
                         >
-                          {formatCurrency(position.market_value, position.currency)}
-                          {isPriceDelayed(position) && (
-                            <DataFreshnessIndicator
-                              variant="compact"
-                              timestamp={position.last_updated}
-                              latestPriceTimestamp={position.last_updated}
-                              estimated
-                              showLabel={false}
-                            />
-                          )}
-                        </div>
+                          <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1">
+                            {formatCurrency(position.market_value, position.currency)}
+                            {isPriceDelayed(position) && (
+                              <DataFreshnessIndicator
+                                variant="compact"
+                                timestamp={position.last_updated}
+                                latestPriceTimestamp={position.last_updated}
+                                estimated
+                                tooltip={false}
+                                showLabel={false}
+                              />
+                            )}
+                          </span>
+                        </DataFreshnessIndicator>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right hidden xl:table-cell">
                         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">

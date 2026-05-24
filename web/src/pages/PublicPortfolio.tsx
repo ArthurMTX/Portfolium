@@ -533,9 +533,6 @@ const PublicPortfolio: React.FC = () => {
                                     </div>
                                     {t('publicPortfolio.topHoldings')}
                                 </h3>
-                                <p className="mt-1 text-sm text-neutral-500">
-                                    {t('publicPortfolio.amountsHidden')}
-                                </p>
                             </div>
                             <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
                                 {data.holdings.length} {t('publicPortfolio.assets')}

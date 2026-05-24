@@ -12,6 +12,7 @@ interface DataFreshnessIndicatorProps {
   marketStatus?: 'premarket' | 'open' | 'afterhours' | 'closed' | 'unknown' | string
   isCached?: boolean
   estimated?: boolean
+  tooltip?: ReactNode | false
   showLabel?: boolean
   label?: string
   children?: ReactNode
@@ -51,6 +52,7 @@ export default function DataFreshnessIndicator({
   latestPriceTimestamp,
   marketStatus = 'unknown',
   estimated = false,
+  tooltip: customTooltip,
   showLabel = true,
   label,
   children,
@@ -73,7 +75,7 @@ export default function DataFreshnessIndicator({
   const age = formatAge(referenceDate, t('common.never'))
   const updatedAgo = t('freshness.updatedAgo', { time: age })
   const marketLabel = t(`market.status.${marketStatus}`, { defaultValue: marketStatus || t('common.unknown') })
-  const tooltip = [
+  const tooltip = customTooltip === false ? null : customTooltip || [
     `${t('dashboard.marketStatus')}: ${marketLabel}`,
     `${t('freshness.asOf')}: ${formatTimestamp(asOfDate || referenceDate, i18n.language || 'en-US')}`,
     `${t('freshness.lastAvailable')}: ${formatTimestamp(latestPriceDate || asOfDate, i18n.language || 'en-US')}`,
@@ -92,10 +94,22 @@ export default function DataFreshnessIndicator({
     ? 'bg-amber-500'
     : 'bg-neutral-400'
 
+  const tooltipContent = tooltip ? (
+    <span className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-max max-w-[260px] rounded-md border border-neutral-200 bg-white px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-neutral-700 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+      {tooltip}
+    </span>
+  ) : null
+
   if (variant === 'tooltipOnly') {
     return (
-      <span title={tooltip} className={className}>
+      <span
+        tabIndex={tooltip ? 0 : undefined}
+        aria-label={typeof tooltip === 'string' ? tooltip : undefined}
+        title={typeof tooltip === 'string' ? tooltip : undefined}
+        className={`${tooltip ? 'group relative cursor-help whitespace-pre-line' : ''} inline-flex items-center outline-none ${className}`}
+      >
         {children || <Info size={13} className="inline text-neutral-400 dark:text-neutral-500" />}
+        {tooltipContent}
       </span>
     )
   }
@@ -103,27 +117,33 @@ export default function DataFreshnessIndicator({
   if (variant === 'global') {
     return (
       <div
-        title={tooltip}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${colors} ${className}`}
+        tabIndex={tooltip ? 0 : undefined}
+        aria-label={typeof tooltip === 'string' ? tooltip : undefined}
+        title={typeof tooltip === 'string' ? tooltip : undefined}
+        className={`${tooltip ? 'group relative cursor-help' : ''} inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs outline-none ${colors} ${className}`}
       >
         <span className={`w-2 h-2 rounded-full ${dot}`} />
         <span className="font-semibold whitespace-nowrap">{label || stateLabel}</span>
         <span className="hidden sm:inline text-current/75">·</span>
         <span className="hidden sm:inline whitespace-nowrap text-current/80">{updatedAgo}</span>
         <Clock3 size={13} className="sm:hidden" />
+        {tooltipContent}
       </div>
     )
   }
 
   return (
     <span
-      title={tooltip}
-      className={`inline-flex items-center gap-1.5 text-xs ${className}`}
+      tabIndex={tooltip ? 0 : undefined}
+      aria-label={typeof tooltip === 'string' ? tooltip : undefined}
+      title={typeof tooltip === 'string' ? tooltip : undefined}
+      className={`${tooltip ? 'group relative cursor-help' : ''} inline-flex items-center gap-1.5 text-xs outline-none ${className}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       {showLabel && (
         <span className="text-neutral-500 dark:text-neutral-400">{label || (estimated ? t('freshness.estimated') : stateLabel)}</span>
       )}
+      {tooltipContent}
     </span>
   )
 }

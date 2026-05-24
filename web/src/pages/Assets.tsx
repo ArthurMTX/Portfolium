@@ -133,8 +133,15 @@ export default function Assets() {
       // Update portfolio asset IDs if they were loaded
       if (activePortfolioId && results.length > 2) {
         const currentAssetIds = results[2] as number[];
-        const soldAssetIds = results[3] as number[];
-        const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
+        const soldPositionAssetIds = results[3] as number[];
+        const heldAssetIds = held.map(asset => asset.id);
+        const soldAssetIds = sold.map(asset => asset.id);
+        const allAssetIds = new Set([
+          ...heldAssetIds,
+          ...soldAssetIds,
+          ...currentAssetIds,
+          ...soldPositionAssetIds,
+        ]);
         setPortfolioAssetIds(allAssetIds);
       }
       

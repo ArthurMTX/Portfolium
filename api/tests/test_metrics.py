@@ -8,6 +8,7 @@ from unittest.mock import Mock, MagicMock, patch
 
 from app.services.metrics import MetricsService
 from app.models import Asset, Transaction, TransactionType, Portfolio
+from app.schemas import PriceQuote
 
 
 @pytest.fixture
@@ -109,6 +110,51 @@ async def test_calculate_position_buy_and_sell(metrics_service, mock_db):
         # Cost basis: (10*150 + 10) - (5*151) = 1510 - 755 = 755
         assert position.cost_basis == Decimal("755.00")
         assert position.avg_cost == Decimal("151.00")
+
+
+@pytest.mark.asyncio
+async def test_calculate_position_keeps_asset_visible_when_price_fx_conversion_fails(metrics_service, mock_db):
+    """If price FX conversion fails, keep the position without valuation instead of dropping it."""
+    asset = Asset(id=1, symbol="NVDA", name="NVIDIA Corporation", currency="USD")
+
+    transactions = [
+        Transaction(
+            id=1,
+            portfolio_id=1,
+            asset_id=1,
+            tx_date=date(2024, 1, 15),
+            type=TransactionType.BUY,
+            quantity=Decimal("2"),
+            price=Decimal("500.00"),
+            fees=Decimal("0.00"),
+            currency="USD"
+        )
+    ]
+
+    mock_db.query().filter().first.return_value = asset
+    quote = PriceQuote(
+        symbol="NVDA",
+        price=Decimal("900.00"),
+        asof=datetime.utcnow(),
+        currency="USD",
+        daily_change_pct=Decimal("1.25"),
+    )
+
+    with patch('app.services.pricing.PricingService.get_price', return_value=quote), \
+         patch('app.services.currency.CurrencyService.convert', return_value=None):
+        position = await metrics_service._calculate_position(
+            1,
+            transactions,
+            portfolio_base_currency="EUR",
+        )
+
+    assert position is not None
+    assert position.symbol == "NVDA"
+    assert position.quantity == Decimal("2")
+    assert position.current_price is None
+    assert position.market_value is None
+    assert position.unrealized_pnl is None
+    assert position.daily_change_pct is None
 
 
 @pytest.mark.asyncio
