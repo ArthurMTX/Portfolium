@@ -116,6 +116,13 @@ _ongoing_fetches: Dict[str, asyncio.Task] = {}
 _fetch_lock: Optional[asyncio.Lock] = None
 _fetch_lock_loop: Optional[asyncio.AbstractEventLoop] = None
 
+# Stale local prices should keep the UI responsive when Yahoo is slow/rate-limited.
+# Equities/ETFs can tolerate several closed-market days; crypto trades 24/7, so keep it shorter.
+_STALE_EQUITY_PRICE_TTL = timedelta(days=4)
+_STALE_CRYPTO_PRICE_TTL = timedelta(minutes=30)
+_STALE_PRICE_REDIS_TTL_SECONDS = 60
+_REFRESH_DEDUP_TTL_SECONDS = 60
+
 
 def _cleanup_stale_tasks():
     """
@@ -187,6 +194,54 @@ def _get_fetch_lock() -> asyncio.Lock:
     return _fetch_lock
 
 
+def _is_stale_price_acceptable(symbol: str, asof: datetime) -> bool:
+    """Return True when a local stale price is still better than blocking on Yahoo."""
+    age = datetime.utcnow() - asof
+    max_age = (
+        _STALE_CRYPTO_PRICE_TTL
+        if MarketAwareCacheTTL.is_crypto_symbol(symbol)
+        else _STALE_EQUITY_PRICE_TTL
+    )
+    return age <= max_age
+
+
+def _enqueue_price_refresh(symbols: List[str], reason: str) -> None:
+    """
+    Best-effort async refresh through Celery.
+    Deduplicated in Redis so stale reads do not create refresh storms.
+    """
+    if not symbols or is_rate_limited():
+        return
+
+    unique_symbols = sorted({symbol.upper() for symbol in symbols if symbol})
+    refresh_symbols = []
+
+    for symbol in unique_symbols:
+        refresh_key = f"price_refresh:{symbol}"
+        if CacheService.set(refresh_key, {"reason": reason}, ttl=_REFRESH_DEDUP_TTL_SECONDS, nx=True):
+            refresh_symbols.append(symbol)
+
+    if not refresh_symbols:
+        return
+
+    try:
+        from app.tasks.cache_tasks import warmup_specific_symbols
+
+        warmup_specific_symbols.delay(refresh_symbols, True)
+        logger.info(
+            "price_refresh enqueued symbols=%s reason=%s",
+            len(refresh_symbols),
+            reason,
+        )
+    except Exception as exc:
+        logger.warning(
+            "price_refresh enqueue failed symbols=%s reason=%s error=%s",
+            len(refresh_symbols),
+            reason,
+            exc,
+        )
+
+
 class PricingService:
     """Service for fetching and caching asset prices"""
     
@@ -200,8 +255,9 @@ class PricingService:
         
         Uses multi-level caching:
         1. Redis cache (30-60 seconds TTL) - fastest, shared across instances
-        2. Database cache (configured TTL) - persistent across restarts
-        3. yfinance API - fallback
+        2. Database fresh cache (configured TTL) - persistent across restarts
+        3. Database stale cache - immediate response with async refresh
+        4. Provider fetch - only when no acceptable local data exists
         
         Also deduplicates concurrent requests for the same symbol.
         Includes timeout to prevent hanging on slow yfinance calls.
@@ -280,8 +336,9 @@ class PricingService:
         Internal method that actually fetches the price
         
         1. Check cache (DB) with TTL
-        2. If stale/missing or force_refresh, fetch from yfinance
-        3. Update cache
+        2. If stale but acceptable, return immediately and enqueue refresh
+        3. If missing/too old or force_refresh, fetch from provider
+        4. Update cache
         """
         # Get asset
         asset = self.db.query(Asset).filter(Asset.symbol == symbol).first()
@@ -296,16 +353,7 @@ class PricingService:
             logger.info(f"Using DB cached price for {symbol}")
             # Try to get the official previous close price from DB first
             daily_change_pct = self._calculate_daily_change_with_official_close(asset.id, latest_price.price)
-            
-            # If we don't have a daily change (no historical data), try to fetch just the previous close from yfinance
-            if daily_change_pct is None:
-                logger.info(f"No historical data for {symbol}, fetching previous close from yfinance")
-                prev_close_data = await asyncio.to_thread(self._fetch_previous_close_only, symbol, asset.id)
-                if prev_close_data:
-                    daily_change_pct = (
-                        (latest_price.price - prev_close_data) / prev_close_data * 100
-                    )
-            
+
             return PriceQuote(
                 symbol=symbol,
                 price=latest_price.price,
@@ -313,6 +361,17 @@ class PricingService:
                 currency=asset.currency,
                 daily_change_pct=daily_change_pct
             )
+
+        if not force_refresh and latest_price and _is_stale_price_acceptable(symbol, latest_price.asof):
+            logger.info(
+                "price_cache stale_hit symbol=%s asof=%s action=return_stale enqueue_refresh=true",
+                symbol,
+                latest_price.asof,
+            )
+            _enqueue_price_refresh([symbol], reason="stale_price_read")
+            quote = self._build_price_quote_from_db(asset, latest_price)
+            cache_price(symbol, quote.model_dump(), _STALE_PRICE_REDIS_TTL_SECONDS)
+            return quote
         
         # Fetch from yfinance (in thread pool to avoid blocking event loop)
         logger.info(f"Fetching fresh price for {symbol} from yfinance")
@@ -416,6 +475,7 @@ class PricingService:
         """
         results = {}
         symbols_to_fetch = []
+        stale_symbols_to_refresh = []
         
         # Phase 1: Check caches first
         for symbol in symbols:
@@ -432,23 +492,28 @@ class PricingService:
                 if asset:
                     latest_price = crud_prices.get_latest_price(self.db, asset.id)
                     if latest_price and self._is_price_fresh(latest_price.asof):
-                        daily_change_pct = self._calculate_daily_change_with_official_close(
-                            asset.id, latest_price.price
-                        )
-                        quote = PriceQuote(
-                            symbol=symbol,
-                            price=latest_price.price,
-                            asof=latest_price.asof,
-                            currency=asset.currency,
-                            daily_change_pct=daily_change_pct
-                        )
+                        quote = self._build_price_quote_from_db(asset, latest_price)
                         results[symbol] = quote
                         # Also cache in Redis with market-aware TTL
                         ttl = MarketAwareCacheTTL.get_ttl_for_symbol(symbol)
                         cache_price(symbol, quote.model_dump(), ttl)
                         continue
+                    if latest_price and _is_stale_price_acceptable(symbol, latest_price.asof):
+                        logger.info(
+                            "price_cache stale_hit symbol=%s asof=%s action=return_stale enqueue_refresh=true",
+                            symbol,
+                            latest_price.asof,
+                        )
+                        quote = self._build_price_quote_from_db(asset, latest_price)
+                        results[symbol] = quote
+                        cache_price(symbol, quote.model_dump(), _STALE_PRICE_REDIS_TTL_SECONDS)
+                        stale_symbols_to_refresh.append(symbol)
+                        continue
             
             symbols_to_fetch.append(symbol)
+
+        if stale_symbols_to_refresh:
+            _enqueue_price_refresh(stale_symbols_to_refresh, reason="stale_batch_price_read")
         
         if not symbols_to_fetch:
             logger.info(f"All {len(symbols)} symbols served from cache")
@@ -817,6 +882,20 @@ class PricingService:
         """Check if price is within TTL"""
         age = datetime.utcnow() - asof
         return age < self.cache_ttl
+
+    def _build_price_quote_from_db(self, asset: Asset, price: Price) -> PriceQuote:
+        """Build a quote from local DB only, without calling the provider."""
+        daily_change_pct = self._calculate_daily_change_with_official_close(
+            asset.id,
+            price.price,
+        )
+        return PriceQuote(
+            symbol=asset.symbol,
+            price=price.price,
+            asof=price.asof,
+            currency=asset.currency,
+            daily_change_pct=daily_change_pct,
+        )
     
     def _fetch_previous_close_only(self, symbol: str, asset_id: int) -> Optional[Decimal]:
         """

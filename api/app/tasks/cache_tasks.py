@@ -165,22 +165,26 @@ def cleanup_expired_cache(self) -> dict:
 
 
 @celery_app.task(bind=True, name="app.tasks.cache_tasks.warmup_specific_symbols")
-def warmup_specific_symbols(self, symbols: List[str]) -> dict:
+def warmup_specific_symbols(self, symbols: List[str], force_refresh: bool = False) -> dict:
     """
     Warm up price cache for specific symbols.
     
     Args:
         symbols: List of symbols to fetch and cache prices for
+        force_refresh: Bypass local stale cache when this task was triggered by a stale read
         
     Returns:
         dict with summary
     """
     try:
-        logger.info(f"Task {self.request.id}: Warming up prices for {len(symbols)} specific symbols")
+        logger.info(
+            f"Task {self.request.id}: Warming up prices for {len(symbols)} specific symbols "
+            f"(force_refresh={force_refresh})"
+        )
         
         with get_db_context() as db:
             pricing_service = PricingService(db)
-            results = asyncio.run(pricing_service.get_multiple_prices(symbols))
+            results = asyncio.run(pricing_service.get_multiple_prices(symbols, force_refresh=force_refresh))
             
             success_count = sum(1 for r in results.values() if r is not None)
             

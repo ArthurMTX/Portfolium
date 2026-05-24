@@ -20,7 +20,106 @@ from app.crud import portfolios as portfolio_crud
 logger = logging.getLogger(__name__)
 router = APIRouter()
 _indices_cache: Dict[str, tuple[Dict[str, PriceQuote], datetime]] = {}
-_INDICES_CACHE_TTL = timedelta(minutes=5)
+_INDICES_CACHE_TTL = timedelta(seconds=60)
+_INDICES_STALE_TTL = timedelta(minutes=30)
+_indices_refresh_tasks: set[str] = set()
+
+
+def _batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
+    """Batch fetch all indices in a single provider call."""
+    prices = {}
+    try:
+        provider = get_market_data_provider()
+        df = provider.download(
+            symbols,
+            action="market_indices_download",
+            timeout_seconds=yahoo_timeout_seconds(default=15.0),
+            period="2d",
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+
+        if df is None or df.empty:
+            logger.warning("No data returned for market indices batch fetch")
+            return {}
+
+        now = datetime.utcnow()
+
+        if len(symbols) == 1:
+            symbol = symbols[0]
+            if 'Close' in df.columns:
+                closes = df['Close'].dropna()
+                if len(closes) >= 1:
+                    current_price = Decimal(str(float(closes.iloc[-1])))
+                    prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                    daily_change_pct = None
+                    if prev_close and prev_close > 0:
+                        daily_change_pct = (current_price - prev_close) / prev_close * 100
+
+                    prices[symbol] = PriceQuote(
+                        symbol=symbol,
+                        price=current_price,
+                        asof=now,
+                        currency="USD",
+                        daily_change_pct=daily_change_pct
+                    )
+        else:
+            for symbol in symbols:
+                try:
+                    if symbol in df.columns.get_level_values(0):
+                        symbol_data = df[symbol]
+                        if 'Close' in symbol_data.columns:
+                            closes = symbol_data['Close'].dropna()
+                            if len(closes) >= 1:
+                                current_price = Decimal(str(float(closes.iloc[-1])))
+                                prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                                daily_change_pct = None
+                                if prev_close and prev_close > 0:
+                                    daily_change_pct = (current_price - prev_close) / prev_close * 100
+
+                                prices[symbol] = PriceQuote(
+                                    symbol=symbol,
+                                    price=current_price,
+                                    asof=now,
+                                    currency="USD",
+                                    daily_change_pct=daily_change_pct
+                                )
+                except Exception as e:
+                    logger.warning(f"Failed to parse index data for {symbol}: {e}")
+
+        logger.info(f"Fetched {len(prices)}/{len(symbols)} market indices via batch download")
+        return prices
+
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
+            from app.services.pricing import set_rate_limited
+            set_rate_limited(60)
+        logger.warning(f"Failed to fetch market indices: {e}")
+        return {}
+
+
+async def _refresh_indices_cache_async(cache_key: str, symbols: List[str]) -> None:
+    """Best-effort background refresh for stale market indices cache."""
+    if cache_key in _indices_refresh_tasks:
+        return
+
+    _indices_refresh_tasks.add(cache_key)
+    try:
+        prices = await asyncio.wait_for(
+            asyncio.to_thread(_batch_fetch_indices, symbols),
+            timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
+        )
+        if prices:
+            _indices_cache[cache_key] = (prices, datetime.utcnow())
+            logger.info("indices_cache refreshed symbols=%s", len(symbols))
+    except Exception as exc:
+        logger.warning("indices_cache refresh_failed symbols=%s error=%s", len(symbols), exc)
+    finally:
+        _indices_refresh_tasks.discard(cache_key)
 
 @router.get("", response_model=Dict[str, PriceQuote])
 async def get_prices(
@@ -65,8 +164,6 @@ async def get_market_indices(
     
     Example: `/prices/indices?symbols=^GSPC,^DJI,^IXIC`
     """
-    import pandas as pd
-    
     symbol_list = [s.strip() for s in symbols.split(",")]
     
     if not symbol_list:
@@ -77,9 +174,19 @@ async def get_market_indices(
 
     cache_key = ",".join(symbol_list)
     cached_indices = _indices_cache.get(cache_key)
-    if cached_indices and datetime.utcnow() - cached_indices[1] < _INDICES_CACHE_TTL:
-        logger.debug("Market indices cache hit")
-        return cached_indices[0]
+    if cached_indices:
+        age = datetime.utcnow() - cached_indices[1]
+        if age < _INDICES_CACHE_TTL:
+            logger.debug("Market indices cache hit")
+            return cached_indices[0]
+        if age < _INDICES_STALE_TTL:
+            logger.info(
+                "indices_cache stale_hit symbols=%s age_seconds=%.1f action=return_stale enqueue_refresh=true",
+                len(symbol_list),
+                age.total_seconds(),
+            )
+            asyncio.create_task(_refresh_indices_cache_async(cache_key, symbol_list))
+            return cached_indices[0]
     
     # Check circuit breaker
     if is_rate_limited():
@@ -90,89 +197,10 @@ async def get_market_indices(
             return cached_indices[0]
         return {}  # Return empty rather than hitting rate limits more
     
-    def batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
-        """Batch fetch all indices in a single API call"""
-        prices = {}
-        try:
-            # Use batch download for all symbols at once
-            provider = get_market_data_provider()
-            df = provider.download(
-                symbols,
-                action="market_indices_download",
-                timeout_seconds=yahoo_timeout_seconds(default=15.0),
-                period="2d",
-                interval="1d",
-                group_by="ticker",
-                auto_adjust=True,
-                progress=False,
-                threads=True,
-            )
-            
-            if df is None or df.empty:
-                logger.warning("No data returned for market indices batch fetch")
-                return {}
-            
-            now = datetime.utcnow()
-            
-            # Handle single symbol case
-            if len(symbols) == 1:
-                symbol = symbols[0]
-                if 'Close' in df.columns:
-                    closes = df['Close'].dropna()
-                    if len(closes) >= 1:
-                        current_price = Decimal(str(float(closes.iloc[-1])))
-                        prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
-                        daily_change_pct = None
-                        if prev_close and prev_close > 0:
-                            daily_change_pct = (current_price - prev_close) / prev_close * 100
-                        
-                        prices[symbol] = PriceQuote(
-                            symbol=symbol,
-                            price=current_price,
-                            asof=now,
-                            currency="USD",
-                            daily_change_pct=daily_change_pct
-                        )
-            else:
-                # Multi-symbol case
-                for symbol in symbols:
-                    try:
-                        if symbol in df.columns.get_level_values(0):
-                            symbol_data = df[symbol]
-                            if 'Close' in symbol_data.columns:
-                                closes = symbol_data['Close'].dropna()
-                                if len(closes) >= 1:
-                                    current_price = Decimal(str(float(closes.iloc[-1])))
-                                    prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
-                                    daily_change_pct = None
-                                    if prev_close and prev_close > 0:
-                                        daily_change_pct = (current_price - prev_close) / prev_close * 100
-                                    
-                                    prices[symbol] = PriceQuote(
-                                        symbol=symbol,
-                                        price=current_price,
-                                        asof=now,
-                                        currency="USD",
-                                        daily_change_pct=daily_change_pct
-                                    )
-                    except Exception as e:
-                        logger.warning(f"Failed to parse index data for {symbol}: {e}")
-            
-            logger.info(f"Fetched {len(prices)}/{len(symbols)} market indices via batch download")
-            return prices
-            
-        except Exception as e:
-            error_msg = str(e).lower()
-            if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
-                from app.services.pricing import set_rate_limited
-                set_rate_limited(60)  # Trigger circuit breaker
-            logger.warning(f"Failed to fetch market indices: {e}")
-            return {}
-    
     # Run batch fetch in thread pool
     try:
         prices = await asyncio.wait_for(
-            asyncio.to_thread(batch_fetch_indices, symbol_list),
+            asyncio.to_thread(_batch_fetch_indices, symbol_list),
             timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
         )
     except asyncio.TimeoutError:
@@ -183,7 +211,7 @@ async def get_market_indices(
 
     if prices:
         _indices_cache[cache_key] = (prices, datetime.utcnow())
-    elif cached_indices and datetime.utcnow() - cached_indices[1] < _INDICES_CACHE_TTL * 6:
+    elif cached_indices:
         logger.warning("provider=yahoo action=market_indices fallback=stale_memory_cache")
         return cached_indices[0]
 

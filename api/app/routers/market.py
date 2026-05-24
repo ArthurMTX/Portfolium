@@ -26,10 +26,32 @@ router = APIRouter(prefix="/market", tags=["market"])
 
 # In-memory cache for market data (endpoint -> (data, timestamp))
 _market_cache: Dict[str, Tuple[Any, datetime]] = {}
-_CACHE_TTL = timedelta(minutes=5)  # Cache for 5 minutes
+_CACHE_TTL = timedelta(minutes=5)  # Sentiment changes slowly; 5 minutes avoids external API churn.
+_INDEX_CACHE_TTL = timedelta(seconds=60)
+_STALE_CACHE_TTL = timedelta(minutes=30)
+_market_refresh_tasks: set[str] = set()
 
 
-async def _get_cached_or_fetch_async(cache_key: str, fetch_func):
+async def _refresh_market_cache_async(cache_key: str, fetch_func) -> None:
+    """Best-effort background refresh for stale in-memory market data."""
+    if cache_key in _market_refresh_tasks:
+        return
+
+    _market_refresh_tasks.add(cache_key)
+    try:
+        data = await asyncio.wait_for(
+            asyncio.to_thread(fetch_func),
+            timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
+        )
+        _market_cache[cache_key] = (data, datetime.now())
+        logger.info("market_cache refreshed cache_key=%s", cache_key)
+    except Exception as exc:
+        logger.warning("market_cache refresh_failed cache_key=%s error=%s", cache_key, exc)
+    finally:
+        _market_refresh_tasks.discard(cache_key)
+
+
+async def _get_cached_or_fetch_async(cache_key: str, fetch_func, ttl: timedelta = _CACHE_TTL):
     """
     Async wrapper that only offloads the blocking external fetch to a worker thread.
     Cache bookkeeping stays local to the event loop thread.
@@ -40,8 +62,17 @@ async def _get_cached_or_fetch_async(cache_key: str, fetch_func):
     if cache_key in _market_cache:
         data, timestamp = _market_cache[cache_key]
         stale_data = data
-        if now - timestamp < _CACHE_TTL:
+        age = now - timestamp
+        if age < ttl:
             logger.debug(f"Cache hit for {cache_key}")
+            return data
+        if age < _STALE_CACHE_TTL:
+            logger.info(
+                "market_cache stale_hit cache_key=%s age_seconds=%.1f action=return_stale enqueue_refresh=true",
+                cache_key,
+                age.total_seconds(),
+            )
+            asyncio.create_task(_refresh_market_cache_async(cache_key, fetch_func))
             return data
 
     logger.debug(f"Cache miss for {cache_key}, fetching fresh data")
@@ -50,12 +81,12 @@ async def _get_cached_or_fetch_async(cache_key: str, fetch_func):
             asyncio.to_thread(fetch_func),
             timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
         )
-        _market_cache[cache_key] = (data, now)
+        _market_cache[cache_key] = (data, datetime.now())
         return data
     except Exception as exc:
         if stale_data is not None:
             logger.warning(
-                "provider=external cache_key=%s fallback=stale_memory_cache error=%s",
+                "provider=external cache_key=%s fallback=expired_stale_memory_cache error=%s",
                 cache_key,
                 exc,
             )
@@ -223,7 +254,7 @@ async def get_vix_index():
             logger.error(f"Failed to fetch VIX data: {e}")
             raise VIXDataFetchError(str(e))
     
-    return await _get_cached_or_fetch_async("index_vix", fetch_vix)
+    return await _get_cached_or_fetch_async("index_vix", fetch_vix, ttl=_INDEX_CACHE_TTL)
 
 
 @router.get("/tnx")
@@ -271,7 +302,7 @@ async def get_tnx_index():
             logger.error(f"Failed to fetch TNX data: {e}")
             raise TNXDataFetchError(str(e))
     
-    return await _get_cached_or_fetch_async("index_tnx", fetch_tnx)
+    return await _get_cached_or_fetch_async("index_tnx", fetch_tnx, ttl=_INDEX_CACHE_TTL)
 
 
 @router.get("/dxy")
@@ -319,4 +350,4 @@ async def get_dxy_index():
             logger.error(f"Failed to fetch DXY data: {e}")
             raise DXYDataFetchError(str(e))
     
-    return await _get_cached_or_fetch_async("index_dxy", fetch_dxy)
+    return await _get_cached_or_fetch_async("index_dxy", fetch_dxy, ttl=_INDEX_CACHE_TTL)
