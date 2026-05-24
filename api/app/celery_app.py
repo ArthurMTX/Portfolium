@@ -16,6 +16,10 @@ celery_app = Celery(
         "app.tasks.cache_tasks",
         "app.tasks.dashboard_tasks",
         "app.tasks.report_tasks",
+        "app.tasks.maintenance_tasks",
+        "app.tasks.dividend_tasks",
+        "app.tasks.calendar_tasks",
+        "app.tasks.ath_tasks",
     ]
 )
 
@@ -64,7 +68,8 @@ celery_app.conf.update(
     broker_connection_max_retries=10,
 )
 
-# Configure periodic tasks (Celery Beat schedule)
+# Celery Beat is the single scheduler for the application.
+# FastAPI workers do not schedule periodic jobs and do not run heavy warmups at boot.
 if settings.ENABLE_BACKGROUND_TASKS:
     celery_app.conf.beat_schedule = {
         # Refresh metrics every N minutes during market hours
@@ -121,6 +126,18 @@ if settings.ENABLE_BACKGROUND_TASKS:
                 "expires": 120,  # 2 minutes
             },
         },
+        # Keep cache reasonably fresh off-hours without any web-worker boot work.
+        "warmup-price-cache-off-hours": {
+            "task": "app.tasks.cache_tasks.warmup_price_cache",
+            "schedule": crontab(
+                minute="0,30",
+                hour=f"0-{settings.MARKET_HOURS_START-1},{settings.MARKET_HOURS_END+1}-23",
+            ),
+            "options": {
+                "queue": "default",
+                "expires": 1800,  # 30 minutes
+            },
+        },
         # Warm up active user dashboards during market hours (every 5 minutes)
         "warmup-active-dashboards-market-hours": {
             "task": "dashboard.warmup_active_dashboards",
@@ -155,6 +172,83 @@ if settings.ENABLE_BACKGROUND_TASKS:
                 "expires": 1200,  # 20 minutes
             },
         },
+        # Check watchlist alerts frequently so users are notified promptly.
+        "check-watchlist-price-alerts": {
+            "task": "app.tasks.maintenance_tasks.check_price_alerts",
+            "schedule": crontab(minute="*/5"),
+            "options": {
+                "queue": "default",
+                "expires": 300,
+            },
+        },
+        # This task self-skips when the market is closed; keeping the Beat rule simple
+        # avoids timezone-specific scheduler logic in web code.
+        "check-daily-portfolio-changes": {
+            "task": "app.tasks.maintenance_tasks.check_daily_changes",
+            "schedule": crontab(minute="*/10"),
+            "options": {
+                "queue": "default",
+                "expires": 600,
+            },
+        },
+        # Notification retention maintenance.
+        "cleanup-old-notifications": {
+            "task": "app.tasks.maintenance_tasks.cleanup_old_notifications",
+            "schedule": crontab(hour=3, minute=0),
+            "options": {
+                "queue": "low",
+                "expires": 3600,
+            },
+        },
+        # Historical pricing maintenance.
+        "fetch-daily-closing-prices": {
+            "task": "app.tasks.maintenance_tasks.fetch_daily_closing_prices",
+            "schedule": crontab(hour=17, minute=0, day_of_week="mon-fri"),
+            "options": {
+                "queue": "default",
+                "expires": 7200,
+            },
+        },
+        "backfill-ath-from-yfinance": {
+            "task": "tasks.backfill_ath_from_yfinance",
+            "schedule": crontab(hour=17, minute=30, day_of_week="mon-fri"),
+            "options": {
+                "queue": "low",
+                "expires": 7200,
+            },
+        },
+        "fetch-pending-dividends": {
+            "task": "tasks.fetch_all_dividends",
+            "schedule": crontab(hour=6, minute=0),
+            "options": {
+                "queue": "default",
+                "expires": 3600,
+            },
+        },
+        "refresh-earnings-cache": {
+            "task": "app.tasks.calendar_tasks.refresh_earnings_cache",
+            "schedule": crontab(hour=6, minute=30),
+            "options": {
+                "queue": "default",
+                "expires": 3600,
+            },
+        },
+        "expire-old-pending-dividends": {
+            "task": "tasks.expire_old_pending_dividends",
+            "schedule": crontab(hour=2, minute=0, day_of_week="sun"),
+            "options": {
+                "queue": "low",
+                "expires": 7200,
+            },
+        },
+        "detect-and-fill-price-gaps": {
+            "task": "app.tasks.maintenance_tasks.detect_and_fill_price_gaps",
+            "schedule": crontab(hour=3, minute=0, day_of_week="sun"),
+            "options": {
+                "queue": "low",
+                "expires": 7200,
+            },
+        },
         # Send daily portfolio reports at 4:00 PM EST (after market close)
         # Only on weekdays when markets are open
         "send-daily-reports": {
@@ -166,6 +260,10 @@ if settings.ENABLE_BACKGROUND_TASKS:
             },
         },
     }
+    # Intentionally not migrated from the old web-worker boot flow:
+    # - startup recent-price backfill: heavy boot-only catch-up conflicts with stateless web workers
+    # - position cache warmup by last_accessed_at: redundant with Beat-driven metrics/dashboard refresh
+    #   and tightly coupled to a read-path write we plan to remove in the next stabilization phase
 
 
 # Task routes - distribute tasks across queues by priority
@@ -213,6 +311,26 @@ celery_app.conf.task_routes = {
         "queue": "default",
         "priority": 4,
     },
+    "app.tasks.maintenance_tasks.check_price_alerts": {
+        "queue": "default",
+        "priority": 4,
+    },
+    "app.tasks.maintenance_tasks.check_daily_changes": {
+        "queue": "default",
+        "priority": 4,
+    },
+    "app.tasks.maintenance_tasks.fetch_daily_closing_prices": {
+        "queue": "default",
+        "priority": 3,
+    },
+    "tasks.fetch_all_dividends": {
+        "queue": "default",
+        "priority": 3,
+    },
+    "app.tasks.calendar_tasks.refresh_earnings_cache": {
+        "queue": "default",
+        "priority": 3,
+    },
     "app.tasks.report_tasks.send_daily_reports": {
         "queue": "default",
         "priority": 3,
@@ -230,6 +348,22 @@ celery_app.conf.task_routes = {
     "app.tasks.cache_tasks.warmup_public_portfolios": {
         "queue": "default",
         "priority": 3,
+    },
+    "app.tasks.maintenance_tasks.cleanup_old_notifications": {
+        "queue": "low",
+        "priority": 1,
+    },
+    "app.tasks.maintenance_tasks.detect_and_fill_price_gaps": {
+        "queue": "low",
+        "priority": 1,
+    },
+    "tasks.expire_old_pending_dividends": {
+        "queue": "low",
+        "priority": 1,
+    },
+    "tasks.backfill_ath_from_yfinance": {
+        "queue": "low",
+        "priority": 2,
     },
 }
 
@@ -253,5 +387,11 @@ celery_app.conf.task_annotations = {
     },
     "dashboard.warmup_active_dashboards": {
         "rate_limit": "12/h",  # Max 12 per hour (every 5 min during market hours)
+    },
+    "app.tasks.maintenance_tasks.check_price_alerts": {
+        "rate_limit": "12/h",
+    },
+    "app.tasks.maintenance_tasks.check_daily_changes": {
+        "rate_limit": "6/h",
     },
 }

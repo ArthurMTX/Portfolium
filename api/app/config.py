@@ -83,7 +83,6 @@ class Settings(BaseSettings):
     ENABLE_BACKGROUND_TASKS: bool = True  # Set to False to disable background task scheduling
     METRICS_REFRESH_INTERVAL_MINUTES: int = 5  # How often to refresh metrics
     INSIGHTS_REFRESH_INTERVAL_MINUTES: int = 10  # How often to refresh insights
-    CACHE_WARMUP_ON_STARTUP: bool = True  # Pre-calculate metrics on startup
     MARKET_HOURS_START: int = 9  # Market opens at 9 AM
     MARKET_HOURS_END: int = 16  # Market closes at 4 PM
 
@@ -222,7 +221,7 @@ class Settings(BaseSettings):
                 "PRICE_CACHE_TTL_SECONDS cannot be negative. "
                 f"Current: {self.PRICE_CACHE_TTL_SECONDS}"
             )
-        
+
         # 9. Validate CORS origins
         if not self.CORS_ORIGINS:
             print("WARNING: CORS_ORIGINS is empty. API will not accept requests from any frontend.")

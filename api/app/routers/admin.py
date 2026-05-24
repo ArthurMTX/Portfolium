@@ -13,7 +13,6 @@ from app.auth import get_current_admin_user
 from app.models import User, NotificationType, Portfolio
 from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
-from app.tasks.scheduler import check_price_alerts, refresh_all_prices
 from app.crud import notifications as crud_notifications
 from app.errors import ( 
     CannotDeactivateSuperAdminError, 
@@ -214,10 +213,13 @@ def trigger_price_alerts(
     for the scheduled interval. Useful for testing and debugging.
     """
     try:
-        check_price_alerts()
+        from app.tasks.maintenance_tasks import check_price_alerts
+
+        result = check_price_alerts.delay()
         return {
             "success": True,
-            "message": "Price alert check triggered successfully"
+            "message": "Price alert check queued successfully",
+            "task_id": result.id,
         }
     except Exception as e:
         raise PriceAlertTaskError(reason=str(e))
@@ -234,10 +236,13 @@ def trigger_refresh_prices(
     for the scheduled interval. Useful for testing and debugging.
     """
     try:
-        refresh_all_prices()
+        from app.tasks.cache_tasks import warmup_price_cache
+
+        result = warmup_price_cache.delay()
         return {
             "success": True,
-            "message": "Price refresh triggered successfully"
+            "message": "Price refresh queued successfully",
+            "task_id": result.id,
         }
     except Exception as e:
         raise PriceRefreshTaskError(reason=str(e))
@@ -255,11 +260,13 @@ async def trigger_fill_price_gaps(
     when gaps are detected in charts.
     """
     try:
-        from app.tasks.scheduler import detect_and_fill_price_gaps
-        await detect_and_fill_price_gaps()
+        from app.tasks.maintenance_tasks import detect_and_fill_price_gaps
+
+        result = detect_and_fill_price_gaps.delay()
         return {
             "success": True,
-            "message": "Price gap detection and fill triggered successfully"
+            "message": "Price gap detection and fill queued successfully",
+            "task_id": result.id,
         }
     except Exception as e:
         raise PriceRefreshTaskError(reason=f"Gap fill failed: {str(e)}")

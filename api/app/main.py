@@ -13,7 +13,6 @@ from scalar_fastapi import get_scalar_api_reference
 from app.config import settings
 from app.db import engine, Base, SessionLocal
 from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public, pending_dividends, push, calendar
-from app.tasks.scheduler import start_scheduler, stop_scheduler
 from app.services.admin import ensure_admin_user, ensure_email_config
 from app.version import __version__, get_version_info
 
@@ -142,32 +141,6 @@ async def lifespan(app: FastAPI):
         logger.info("Skipping email config and admin user setup (test mode)")
         sys.stdout.flush()
 
-    # Skip scheduler in test mode (SKIP_MIGRATIONS=true)
-    if not skip_migrations:
-        logger.info("Starting background scheduler...")
-        sys.stdout.flush()
-        
-        # Start background scheduler
-        start_scheduler()
-        logger.info("Price refresh scheduler started")
-        
-        # Trigger cache warmup if enabled
-        if settings.ENABLE_BACKGROUND_TASKS and settings.CACHE_WARMUP_ON_STARTUP:
-            try:
-                from app.tasks.metrics_tasks import warmup_metrics_cache
-                from app.tasks.insights_tasks import warmup_insights_cache
-                from app.tasks.dashboard_tasks import warmup_active_dashboards
-                
-                logger.info("Triggering startup cache warmup...")
-                warmup_metrics_cache.delay()
-                warmup_insights_cache.delay(periods=["1mo"])
-                warmup_active_dashboards.delay()
-                logger.info("Cache warmup tasks queued (metrics, insights, dashboards)")
-            except Exception as e:
-                logger.warning(f"Failed to queue cache warmup tasks: {e}")
-    else:
-        logger.info("Skipping scheduler startup (test mode)")
-    
     logger.info("=" * 50)
     logger.info("Portfolium API startup complete - ready to serve requests")
     logger.info("=" * 50)
@@ -186,8 +159,6 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
     sys.stdout.flush()
     sys.stderr.flush()
-    if not skip_migrations:
-        stop_scheduler()
     
     # Close Redis connection
     from app.redis_client import close_redis_connection
