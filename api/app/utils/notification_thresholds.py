@@ -80,7 +80,7 @@ def get_daily_change_threshold(
 
 def _fetch_market_cap(symbol: str) -> Optional[float]:
     """
-    Fetch market cap for a symbol from yfinance
+    Fetch market cap for a symbol from the market data provider
     
     Args:
         symbol: The stock symbol
@@ -89,9 +89,14 @@ def _fetch_market_cap(symbol: str) -> Optional[float]:
         Market cap as float or None if unavailable
     """
     try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
+        from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+
+        provider = get_market_data_provider()
+        info = provider.get_info(
+            symbol,
+            action="notification_threshold_market_cap",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
         return info.get('marketCap')
     except Exception as e:
         logger.debug(f"Could not fetch market cap for {symbol}: {e}")

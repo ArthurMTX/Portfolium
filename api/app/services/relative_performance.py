@@ -7,9 +7,9 @@ from typing import Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-import yfinance as yf
 
 from app.models import Asset, Price
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class RelativePerformanceService:
     def _get_price_at_date(self, symbol: str, target_date: datetime, is_etf: bool = False) -> Optional[Decimal]:
         """
         Get price closest to target date (within 7 days)
-        For ETFs not in DB, fetches from yfinance API
+        For ETFs not in DB, fetches from the market data provider
         """
         if not is_etf:
             # For user assets, check database first
@@ -107,10 +107,8 @@ class RelativePerformanceService:
             if price_record:
                 return Decimal(str(price_record.price))
         
-        # For ETFs or if DB lookup failed, fetch from yfinance
+        # For ETFs or if DB lookup failed, fetch from the market data provider
         try:
-            ticker = yf.Ticker(symbol)
-            
             # Ensure target_date is timezone-naive for datetime arithmetic
             if target_date.tzinfo is not None:
                 target_date = target_date.replace(tzinfo=None)
@@ -119,7 +117,14 @@ class RelativePerformanceService:
             start = (target_date - timedelta(days=7)).strftime('%Y-%m-%d')
             end = (target_date + timedelta(days=7)).strftime('%Y-%m-%d')
             
-            hist = ticker.history(start=start, end=end)
+            provider = get_market_data_provider()
+            hist = provider.get_history(
+                symbol,
+                action="relative_performance_history",
+                timeout_seconds=yahoo_timeout_seconds(default=12.0),
+                start=start,
+                end=end,
+            )
             
             if hist.empty:
                 logger.warning(f"No price data found for {symbol} around {target_date.date()}")
@@ -134,11 +139,11 @@ class RelativePerformanceService:
             closest_price = hist.iloc[closest_idx]['Close']
             closest_date = hist.index[closest_idx].date()
             
-            logger.debug(f"Fetched {symbol} price from yfinance: {closest_price} on {closest_date}")
+            logger.debug(f"Fetched {symbol} price from market data provider: {closest_price} on {closest_date}")
             return Decimal(str(closest_price))
             
         except Exception as e:
-            logger.error(f"Error fetching price for {symbol} from yfinance: {e}")
+            logger.error(f"Error fetching price for {symbol} from market data provider: {e}")
             return None
     
     def _calculate_return(
@@ -185,10 +190,15 @@ class RelativePerformanceService:
             logger.debug(f"No sector ETF mapping for sector: {sector}")
             return result
         
-        # Get current ETF price from yfinance
+        # Get current ETF price from the market data provider
         try:
-            ticker = yf.Ticker(etf_symbol)
-            hist = ticker.history(period="5d")  # Get last 5 days to ensure we have data
+            provider = get_market_data_provider()
+            hist = provider.get_history(
+                etf_symbol,
+                action="relative_performance_current_etf",
+                timeout_seconds=yahoo_timeout_seconds(),
+                period="5d",
+            )  # Get last 5 days to ensure we have data
             
             if hist.empty:
                 logger.warning(f"No current price data for ETF {etf_symbol}")
@@ -218,7 +228,7 @@ class RelativePerformanceService:
                 logger.debug(f"No price found for {asset_symbol} at {start_date.date()} ({period_key})")
                 continue
             
-            # Get ETF price at start date (from yfinance)
+            # Get ETF price at start date (from the market data provider)
             etf_start_price = self._get_price_at_date(etf_symbol, start_date, is_etf=True)
             if not etf_start_price:
                 logger.debug(f"No price found for {etf_symbol} at {start_date.date()} ({period_key})")
@@ -250,7 +260,7 @@ class RelativePerformanceService:
         period_days: int = 365
     ) -> Optional[float]:
         """
-        Calculate Beta for an asset using yfinance for both
+        Calculate Beta for an asset using the market data provider for both
         the asset and the benchmark.
         """
         benchmark_symbol = self.get_beta_benchmark(sector)
@@ -278,25 +288,30 @@ class RelativePerformanceService:
         min_points: int = 60
     ) -> Optional[float]:
         """
-        Internal beta calc using yfinance only (asset + benchmark).
+        Internal beta calc using the market data provider only (asset + benchmark).
         Beta = Cov(R_asset, R_benchmark) / Var(R_benchmark)
         """
         end = datetime.utcnow()
         start = end - timedelta(days=period_days)
 
         try:
+            provider = get_market_data_provider()
             # Asset history
-            asset_ticker = yf.Ticker(symbol)
-            asset_hist = asset_ticker.history(
+            asset_hist = provider.get_history(
+                symbol,
+                action="beta_asset_history",
+                timeout_seconds=yahoo_timeout_seconds(default=15.0),
                 start=start.strftime("%Y-%m-%d"),
-                end=end.strftime("%Y-%m-%d")
+                end=end.strftime("%Y-%m-%d"),
             )
 
             # Benchmark history
-            bench_ticker = yf.Ticker(benchmark_symbol)
-            bench_hist = bench_ticker.history(
+            bench_hist = provider.get_history(
+                benchmark_symbol,
+                action="beta_benchmark_history",
+                timeout_seconds=yahoo_timeout_seconds(default=15.0),
                 start=start.strftime("%Y-%m-%d"),
-                end=end.strftime("%Y-%m-%d")
+                end=end.strftime("%Y-%m-%d"),
             )
 
             if asset_hist.empty or bench_hist.empty:
@@ -356,7 +371,7 @@ class RelativePerformanceService:
                 return None
 
             beta = covariance / variance_b
-            logger.info(f"Calculated Beta (yfinance) for {symbol} vs {benchmark_symbol}: {beta:.2f}")
+            logger.info(f"Calculated Beta for {symbol} vs {benchmark_symbol}: {beta:.2f}")
             return float(beta)
 
         except Exception as e:

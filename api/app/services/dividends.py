@@ -1,12 +1,11 @@
 """
-Dividend service for auto-fetching dividends from yfinance
+Dividend service for auto-fetching dividends from the market data provider
 """
 import asyncio
 import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
-import yfinance as yf
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
@@ -17,13 +16,14 @@ from app.models import (
 )
 from app.crud import pending_dividends as crud_pending
 from app.schemas import PendingDividendCreate, TransactionCreate
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
 
 class DividendService:
     """
-    Service for fetching and managing dividend data from yfinance.
+    Service for fetching and managing dividend data from the market data provider.
     
     Automatically detects dividends for user holdings and creates pending
     dividend records for user confirmation before affecting P&L.
@@ -107,7 +107,7 @@ class DividendService:
         end_date: Optional[date] = None
     ) -> List[Dict]:
         """
-        Fetch dividend history from yfinance for an asset.
+        Fetch dividend history from the market data provider for an asset.
         
         Args:
             symbol: Ticker symbol
@@ -123,8 +123,12 @@ class DividendService:
             end_date = date.today() + timedelta(days=90)  # 3 months future
         
         try:
-            ticker = yf.Ticker(symbol)
-            dividends = ticker.dividends
+            provider = get_market_data_provider()
+            dividends = provider.get_dividends(
+                symbol,
+                action="dividend_history",
+                timeout_seconds=yahoo_timeout_seconds(default=12.0),
+            )
             
             if dividends is None or dividends.empty:
                 logger.debug(f"No dividends found for {symbol}")
@@ -145,10 +149,14 @@ class DividendService:
             
             # Try to get additional info like payment dates from calendar
             try:
-                calendar = ticker.calendar
+                calendar = provider.get_calendar(
+                    symbol,
+                    action="dividend_calendar",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                )
                 if calendar is not None and not calendar.empty:
                     # Calendar may have dividend date info
-                    pass  # yfinance calendar structure varies, may not always have this
+                    pass  # Provider calendar structure varies, may not always have this
             except Exception:
                 pass
             

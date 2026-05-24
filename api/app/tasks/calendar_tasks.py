@@ -5,19 +5,19 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
-import yfinance as yf
 
 from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Asset, Transaction, EarningsCache
 from app.tasks.decorators import singleton_task
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from sqlalchemy import distinct
 
 logger = logging.getLogger(__name__)
 
 
 def serialize_value(val: Any) -> Any:
-    """Serialize yfinance values to JSON-safe types"""
+    """Serialize provider values to JSON-safe types"""
     if val is None:
         return None
     if isinstance(val, datetime):
@@ -33,13 +33,17 @@ def serialize_value(val: Any) -> Any:
 
 def fetch_earnings_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     """
-    Fetch earnings data from yfinance for a single symbol.
+    Fetch earnings data from the market data provider for a single symbol.
     
     Returns dict with earnings info or None if no data available.
     """
     try:
-        ticker = yf.Ticker(symbol)
-        calendar = ticker.calendar
+        provider = get_market_data_provider()
+        calendar = provider.get_calendar(
+            symbol,
+            action="earnings_cache_calendar",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
         
         if calendar is None:
             return None

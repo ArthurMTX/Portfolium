@@ -1,19 +1,21 @@
 """
-Fundamental data service - fetches company fundamentals from yfinance
+Fundamental data service - fetches company fundamentals from the market data provider
 """
 import logging
 from typing import Dict, Optional
+
+from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
 
 class FundamentalsService:
-    """Service for fetching fundamental data from yfinance"""
+    """Service for fetching fundamental data from the market data provider"""
     
     @staticmethod
     def fetch_fundamentals(symbol: str) -> Dict[str, Optional[float]]:
         """
-        Fetch fundamental data for an asset from yfinance
+        Fetch fundamental data for an asset from the market data provider
         
         Returns a dictionary with all available fundamental metrics:
         - market_cap, volume, avg_volume, pe_ratio, eps, price
@@ -23,9 +25,12 @@ class FundamentalsService:
         - target_mean, target_high, target_low, implied_upside_pct
         """
         try:
-            import yfinance as yf
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                symbol,
+                action="fundamentals_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             if not info:
                 logger.warning(f"No info data available for {symbol}")
@@ -102,7 +107,7 @@ class FundamentalsService:
             }
             
         except Exception as e:
-            logger.warning(f"Failed to fetch yfinance fundamentals for {symbol}: {str(e)}")
+            logger.warning(f"Failed to fetch provider fundamentals for {symbol}: {str(e)}")
             return {}
     
     @staticmethod

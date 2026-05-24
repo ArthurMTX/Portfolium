@@ -401,7 +401,7 @@ class PricingService:
         """
         Get prices for multiple symbols using BATCH downloading to minimize API calls.
         
-        This method uses yf.download() to fetch all symbols in a SINGLE API request,
+        This method uses provider batch download to fetch all symbols in a SINGLE API request,
         which dramatically reduces rate limiting issues compared to individual fetches.
         
         Strategy:
@@ -532,7 +532,7 @@ class PricingService:
     
     def _batch_fetch_from_yfinance(self, symbols: List[str]) -> Dict[str, Optional[Dict]]:
         """
-        Batch fetch prices for multiple symbols using yf.download().
+        Batch fetch prices for multiple symbols using provider download.
         
         This makes a SINGLE API call for all symbols, dramatically reducing
         rate limiting issues compared to individual Ticker.info calls.

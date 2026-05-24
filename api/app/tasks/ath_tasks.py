@@ -218,7 +218,7 @@ def _notify_users_for_ath_atl(
 @celery_app.task(name="tasks.backfill_ath_from_yfinance")
 def backfill_ath_from_yfinance(asset_id: Optional[int] = None) -> dict:
     """
-    Backfill ATH and ATL data from yfinance (fetches complete historical data)
+    Backfill ATH and ATL data from the market data provider.
     
     Args:
         asset_id: Optional asset ID to backfill. If None, backfills all assets.
@@ -232,7 +232,7 @@ def backfill_ath_from_yfinance(asset_id: Optional[int] = None) -> dict:
     """
     db = next(get_db())
     try:
-        import yfinance as yf
+        from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
         
         processed = 0
         ath_updated = 0
@@ -248,11 +248,16 @@ def backfill_ath_from_yfinance(asset_id: Optional[int] = None) -> dict:
         
         for asset in assets:
             try:
-                logger.info(f"Fetching all-time high/low for {asset.symbol} from yfinance...")
+                logger.info(f"Fetching all-time high/low for {asset.symbol} from market data provider...")
                 
-                # Fetch complete historical data from yfinance
-                ticker = yf.Ticker(asset.symbol)
-                hist = ticker.history(period="max")  # Get all available historical data
+                # Fetch complete historical data from the provider.
+                provider = get_market_data_provider()
+                hist = provider.get_history(
+                    asset.symbol,
+                    action="ath_backfill_history",
+                    timeout_seconds=yahoo_timeout_seconds(default=30.0),
+                    period="max",
+                )
                 
                 if hist.empty:
                     logger.warning(f"No historical data available for {asset.symbol}")

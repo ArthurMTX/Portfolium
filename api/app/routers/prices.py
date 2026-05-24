@@ -60,7 +60,7 @@ async def get_market_indices(
     """
     Get current prices for market indices using batch downloading to minimize API calls.
     
-    This endpoint uses yf.download() to fetch all indices in a single API call,
+    This endpoint uses provider batch download to fetch all indices in a single API call,
     making it much more efficient and less likely to trigger rate limits.
     
     Example: `/prices/indices?symbols=^GSPC,^DJI,^IXIC`
@@ -212,7 +212,7 @@ async def get_price_quote(
     prices = await pricing_service.get_multiple_prices([symbol])
     
     if symbol not in prices or prices[symbol] is None:
-        # Try to fetch directly from yfinance
+        # Try to fetch directly from the market data provider
         try:
             provider = get_market_data_provider()
             hist = provider.get_history(
