@@ -15,14 +15,85 @@ from app.db import get_db
 from app.schemas import PriceQuote
 from app.services.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.cache import CacheService
+from app.redis_client import get_redis
 from app.crud import portfolios as portfolio_crud
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-_indices_cache: Dict[str, tuple[Dict[str, PriceQuote], datetime]] = {}
+_indices_memory_cache: Dict[str, tuple[Dict[str, PriceQuote], datetime]] = {}
 _INDICES_CACHE_TTL = timedelta(seconds=60)
 _INDICES_STALE_TTL = timedelta(minutes=30)
+_INDICES_STALE_TTL_SECONDS = int(_INDICES_STALE_TTL.total_seconds())
+_REFRESH_LOCK_TTL_SECONDS = 60
 _indices_refresh_tasks: set[str] = set()
+
+
+def _redis_available() -> bool:
+    return get_redis() is not None
+
+
+def _build_indices_cache_key(symbols: List[str]) -> str:
+    normalized_symbols = sorted({symbol.strip().upper() for symbol in symbols if symbol.strip()})
+    return f"market:indices:{','.join(normalized_symbols)}"
+
+
+def _build_refresh_lock_key(cache_key: str) -> str:
+    return f"market:refresh:{cache_key}"
+
+
+def _read_indices_cache(cache_key: str) -> tuple[Dict[str, PriceQuote], datetime, str] | None:
+    if _redis_available():
+        cached = CacheService.get(cache_key)
+        if cached:
+            try:
+                cached_at = datetime.fromisoformat(cached["cached_at"])
+                data = {
+                    symbol: PriceQuote(**quote)
+                    for symbol, quote in cached["data"].items()
+                }
+                return data, cached_at, "redis"
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.warning("indices_cache invalid Redis payload key=%s error=%s", cache_key, exc)
+        return None
+
+    cached_memory = _indices_memory_cache.get(cache_key)
+    if cached_memory:
+        return cached_memory[0], cached_memory[1], "memory"
+    return None
+
+
+def _write_indices_cache(cache_key: str, prices: Dict[str, PriceQuote]) -> None:
+    cached_at = datetime.utcnow()
+    payload = {
+        "cached_at": cached_at.isoformat(),
+        "data": {symbol: quote.model_dump() for symbol, quote in prices.items()},
+    }
+    if CacheService.set(cache_key, payload, ttl=_INDICES_STALE_TTL_SECONDS):
+        logger.debug("indices_cache Redis set key=%s ttl=%ss", cache_key, _INDICES_STALE_TTL_SECONDS)
+        return
+
+    _indices_memory_cache[cache_key] = (prices, cached_at)
+    logger.warning("indices_cache Redis unavailable, using local memory fallback key=%s", cache_key)
+
+
+def _try_acquire_refresh_lock(cache_key: str) -> bool:
+    lock_key = _build_refresh_lock_key(cache_key)
+    if CacheService.set(lock_key, {"created_at": datetime.utcnow().isoformat()}, ttl=_REFRESH_LOCK_TTL_SECONDS, nx=True):
+        return True
+
+    if _redis_available():
+        return False
+
+    if cache_key in _indices_refresh_tasks:
+        return False
+    _indices_refresh_tasks.add(cache_key)
+    return True
+
+
+def _release_memory_refresh_lock(cache_key: str) -> None:
+    if not _redis_available():
+        _indices_refresh_tasks.discard(cache_key)
 
 
 def _batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
@@ -103,23 +174,22 @@ def _batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
 
 
 async def _refresh_indices_cache_async(cache_key: str, symbols: List[str]) -> None:
-    """Best-effort background refresh for stale market indices cache."""
-    if cache_key in _indices_refresh_tasks:
+    """Best-effort background refresh for stale market indices cache, deduplicated via Redis."""
+    if not _try_acquire_refresh_lock(cache_key):
         return
 
-    _indices_refresh_tasks.add(cache_key)
     try:
         prices = await asyncio.wait_for(
             asyncio.to_thread(_batch_fetch_indices, symbols),
             timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
         )
         if prices:
-            _indices_cache[cache_key] = (prices, datetime.utcnow())
+            _write_indices_cache(cache_key, prices)
             logger.info("indices_cache refreshed symbols=%s", len(symbols))
     except Exception as exc:
         logger.warning("indices_cache refresh_failed symbols=%s error=%s", len(symbols), exc)
     finally:
-        _indices_refresh_tasks.discard(cache_key)
+        _release_memory_refresh_lock(cache_key)
 
 @router.get("", response_model=Dict[str, PriceQuote])
 async def get_prices(
@@ -172,28 +242,30 @@ async def get_market_indices(
     if len(symbol_list) > 50:
         raise InvalidPriceRequestError("Maximum 50 symbols per request")
 
-    cache_key = ",".join(symbol_list)
-    cached_indices = _indices_cache.get(cache_key)
+    cache_key = _build_indices_cache_key(symbol_list)
+    cached_indices = _read_indices_cache(cache_key)
     if cached_indices:
-        age = datetime.utcnow() - cached_indices[1]
+        cached_data, cached_at, cache_source = cached_indices
+        age = datetime.utcnow() - cached_at
         if age < _INDICES_CACHE_TTL:
-            logger.debug("Market indices cache hit")
-            return cached_indices[0]
+            logger.debug("Market indices cache hit source=%s", cache_source)
+            return cached_data
         if age < _INDICES_STALE_TTL:
             logger.info(
-                "indices_cache stale_hit symbols=%s age_seconds=%.1f action=return_stale enqueue_refresh=true",
+                "indices_cache stale_hit source=%s symbols=%s age_seconds=%.1f action=return_stale enqueue_refresh=true",
+                cache_source,
                 len(symbol_list),
                 age.total_seconds(),
             )
             asyncio.create_task(_refresh_indices_cache_async(cache_key, symbol_list))
-            return cached_indices[0]
+            return cached_data
     
     # Check circuit breaker
     if is_rate_limited():
         remaining = get_rate_limit_remaining()
         logger.warning(f"Rate limit active for indices fetch, {remaining:.1f}s remaining")
         if cached_indices:
-            logger.warning("provider=yahoo action=market_indices fallback=stale_memory_cache")
+            logger.warning("provider=yahoo action=market_indices fallback=stale_%s_cache", cached_indices[2])
             return cached_indices[0]
         return {}  # Return empty rather than hitting rate limits more
     
@@ -204,15 +276,15 @@ async def get_market_indices(
             timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
         )
     except asyncio.TimeoutError:
-        logger.warning("provider=yahoo action=market_indices timeout=true fallback=stale_memory_cache")
+        logger.warning("provider=yahoo action=market_indices timeout=true fallback=stale_shared_cache")
         if cached_indices:
             return cached_indices[0]
         return {}
 
     if prices:
-        _indices_cache[cache_key] = (prices, datetime.utcnow())
+        _write_indices_cache(cache_key, prices)
     elif cached_indices:
-        logger.warning("provider=yahoo action=market_indices fallback=stale_memory_cache")
+        logger.warning("provider=yahoo action=market_indices fallback=stale_%s_cache", cached_indices[2])
         return cached_indices[0]
 
     return prices
