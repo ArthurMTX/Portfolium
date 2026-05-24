@@ -114,7 +114,34 @@
     "enterQuantities": "Veuillez entrer les quantités pour les deux actifs",
     "fetchCurrentPrice": "Récupérer le prix actuel",
     "notesPlaceholder": "ex: Échangé sur Binance",
-    "autoCalculated": "auto"
+    "autoCalculated": "auto",
+    "summary": {
+      "title": "Résumé",
+      "amountsIn": "Montants en {{currency}}",
+      "sentValue": "Valeur envoyée",
+      "receivedValue": "Valeur reçue",
+      "netEstimated": "Net estimé",
+      "fromPriceSource": "Prix envoyé",
+      "toPriceSource": "Prix reçu",
+      "autoPrice": "Auto-rempli",
+      "manualPrice": "Manuel",
+      "pendingPrice": "En attente",
+      "priceUnavailable": "Prix manuel requis"
+    },
+    "warnings": {
+      "futureDate": "Les dates futures ne sont pas autorisées.",
+      "oldDate": "Cette date est inhabituellement ancienne. Vérifiez-la avant d’enregistrer.",
+      "quantityExceedsPosition": "La quantité envoyée dépasse la position disponible ({{available}}).",
+      "priceAutoUnavailable": "Aucun prix trouvé pour un côté. Saisissez un prix manuel.",
+      "priceMissing": "Un prix de conversion est manquant ou nul.",
+      "highFees": "Les frais semblent élevés par rapport à la valeur envoyée."
+    },
+    "errors": {
+      "invalidDate": "Saisissez une date valide.",
+      "priceMustBePositive": "Les deux prix doivent être supérieurs à 0.",
+      "feesMustBePositive": "Les frais doivent être supérieurs ou égaux à 0.",
+      "quantityExceedsPosition": "La quantité envoyée dépasse votre position disponible."
+    }
   },
   "fields": {
     "symbol": "Symbole",
@@ -983,6 +1010,45 @@
     "dividendPerShareMustBePositive": "Le dividende par action doit être supérieur à 0.",
     "taxCannotExceedGross": "La taxe ne peut pas dépasser le montant brut du dividende.",
     "dividendPerShare": "Dividende par action",
+    "summary": {
+      "title": "Résumé",
+      "action": "Action",
+      "impact": "Impact position",
+      "grossTotal": "Total brut",
+      "netTotal": "Total net",
+      "priceSource": "Source du prix",
+      "amountsIn": "Montants en {{currency}}",
+      "autoPrice": "Auto-rempli",
+      "manualPrice": "Manuel",
+      "pendingAutoPrice": "Auto ou manuel",
+      "priceUnavailable": "Prix manuel requis",
+      "notApplicable": "N/A"
+    },
+    "warnings": {
+      "futureDate": "Les dates futures ne sont pas autorisées.",
+      "oldDate": "Cette date est inhabituellement ancienne. Vérifiez-la avant d’enregistrer.",
+      "quantityMissing": "La quantité doit être supérieure à 0.",
+      "priceMissing": "Le prix est manquant ou nul. Laissez-le vide uniquement si vous voulez que Portfolium le récupère automatiquement.",
+      "priceAutoUnavailable": "Aucun prix trouvé. Saisissez un prix manuel.",
+      "highFees": "Les frais semblent élevés par rapport au montant brut.",
+      "sellExceedsPosition": "La quantité vendue dépasse la position disponible à cette date ({{available}}).",
+      "currencyConverted": "Le prix a été converti de {{from}} en {{to}}.",
+      "dividendCurrency": "Le dividende est enregistré en {{currency}} ; la devise du portefeuille est {{portfolioCurrency}}.",
+      "checkingPosition": "Vérification de la position disponible pour cette vente...",
+      "riskySellConfirmation": "Vente à risque détectée. Confirmez à nouveau uniquement si c’est intentionnel."
+    },
+    "errors": {
+      "invalidDate": "Saisissez une date valide.",
+      "quantityMustBePositive": "La quantité doit être supérieure à 0.",
+      "priceMustBePositive": "Le prix doit être supérieur à 0.",
+      "feesMustBePositive": "Les frais doivent être supérieurs ou égaux à 0."
+    },
+    "actions": {
+      "addType": "Ajouter {{type}}",
+      "saveTransaction": "Enregistrer la transaction",
+      "reviewWarnings": "Vérifier l’alerte",
+      "confirmRiskySell": "Confirmer la vente"
+    },
     "empty": {
       "noTransactions": "Aucune transaction à afficher.",
       "noTransactionsInfo": "Commencez par ajouter des transactions pour les voir répertoriées ici.",

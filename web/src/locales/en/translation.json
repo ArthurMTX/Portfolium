@@ -114,7 +114,34 @@
     "enterQuantities": "Please enter quantities for both assets",
     "fetchCurrentPrice": "Fetch current price",
     "notesPlaceholder": "e.g., Swapped on Binance",
-    "autoCalculated": "auto"
+    "autoCalculated": "auto",
+    "summary": {
+      "title": "Summary",
+      "amountsIn": "Amounts in {{currency}}",
+      "sentValue": "Sent value",
+      "receivedValue": "Received value",
+      "netEstimated": "Net estimated",
+      "fromPriceSource": "Send price",
+      "toPriceSource": "Receive price",
+      "autoPrice": "Auto-filled",
+      "manualPrice": "Manual",
+      "pendingPrice": "Pending",
+      "priceUnavailable": "Needs manual price"
+    },
+    "warnings": {
+      "futureDate": "Future dates are not allowed.",
+      "oldDate": "This date is unusually old. Check it before saving.",
+      "quantityExceedsPosition": "Sending quantity is above the available position ({{available}}).",
+      "priceAutoUnavailable": "No price found for one side. Enter a manual price.",
+      "priceMissing": "A conversion price is missing or zero.",
+      "highFees": "Fees look high compared with the sent value."
+    },
+    "errors": {
+      "invalidDate": "Enter a valid date.",
+      "priceMustBePositive": "Both prices must be greater than 0.",
+      "feesMustBePositive": "Fees must be 0 or greater.",
+      "quantityExceedsPosition": "Sending quantity exceeds your available position."
+    }
   },
   "fields": {
     "symbol": "Symbol",
@@ -983,6 +1010,45 @@
     "dividendPerShareMustBePositive": "Dividend per share must be greater than 0.",
     "taxCannotExceedGross": "Tax can’t exceed the gross dividend amount.",
     "dividendPerShare": "Dividend per share",
+    "summary": {
+      "title": "Summary",
+      "action": "Action",
+      "impact": "Position impact",
+      "grossTotal": "Gross total",
+      "netTotal": "Net total",
+      "priceSource": "Price source",
+      "amountsIn": "Amounts in {{currency}}",
+      "autoPrice": "Auto-filled",
+      "manualPrice": "Manual",
+      "pendingAutoPrice": "Auto or manual",
+      "priceUnavailable": "Needs manual price",
+      "notApplicable": "N/A"
+    },
+    "warnings": {
+      "futureDate": "Future dates are not allowed.",
+      "oldDate": "This date is unusually old. Check it before saving.",
+      "quantityMissing": "Quantity should be greater than 0.",
+      "priceMissing": "Price is missing or zero. Leave it empty only if you want Portfolium to auto-fetch it.",
+      "priceAutoUnavailable": "No price found. Enter a manual price.",
+      "highFees": "Fees look high compared with the gross amount.",
+      "sellExceedsPosition": "Sell quantity is above the available position on that date ({{available}}).",
+      "currencyConverted": "Price was converted from {{from}} to {{to}}.",
+      "dividendCurrency": "Dividend is recorded in {{currency}}; portfolio currency is {{portfolioCurrency}}.",
+      "checkingPosition": "Checking available position for this sell...",
+      "riskySellConfirmation": "High-risk sell detected. Click confirm again only if this is intentional."
+    },
+    "errors": {
+      "invalidDate": "Enter a valid date.",
+      "quantityMustBePositive": "Quantity must be greater than 0.",
+      "priceMustBePositive": "Price must be greater than 0.",
+      "feesMustBePositive": "Fees must be 0 or greater."
+    },
+    "actions": {
+      "addType": "Add {{type}}",
+      "saveTransaction": "Save transaction",
+      "reviewWarnings": "Review warning",
+      "confirmRiskySell": "Confirm sell"
+    },
     "empty": {
       "noTransactions": "No transactions to display.",
       "noTransactionsInfo": "Start by adding transactions to see them listed here.",

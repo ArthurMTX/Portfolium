@@ -5,7 +5,7 @@ import usePortfolioStore from '../store/usePortfolioStore'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw, DollarSign } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw, DollarSign, AlertTriangle, Info } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
@@ -45,6 +45,30 @@ type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split' | 'conversi
 type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
+type PriceSource = 'empty' | 'auto' | 'manual'
+type WarningLevel = 'info' | 'warning' | 'danger'
+
+interface FormWarning {
+  key: string
+  level: WarningLevel
+  message: string
+}
+
+interface TransactionSummary {
+  action: string
+  asset: string
+  date: string
+  currency: string
+  quantity: number
+  price: number
+  fees: number
+  grossTotal: number
+  netTotal: number
+  impact: number
+  priceSource: PriceSource
+  splitRatio?: string
+  isSplit: boolean
+}
 
 export default function Transactions() {
   const navigate = useNavigate()
@@ -94,7 +118,12 @@ export default function Transactions() {
   const [formError, setFormError] = useState("")
   const [priceLoading, setPriceLoading] = useState(false)
   const [priceInfo, setPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
+  const [priceSource, setPriceSource] = useState<PriceSource>('empty')
+  const [priceFetchFailed, setPriceFetchFailed] = useState(false)
   const [assetCurrency, setAssetCurrency] = useState<string | null>(null)
+  const [sellAvailableQuantity, setSellAvailableQuantity] = useState<number | null>(null)
+  const [sellQuantityLoading, setSellQuantityLoading] = useState(false)
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false)
   const [fxRates, setFxRates] = useState<Record<string, number | null>>({})
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState("")
@@ -220,6 +249,8 @@ export default function Transactions() {
     setTicker(e.target.value)
     setSelectedTicker(null)
     setPrice("")
+    setPriceSource('empty')
+    setPriceFetchFailed(false)
     if (e.target.value.length > 1) {
       try {
         const data = await api.searchTicker(e.target.value)
@@ -238,6 +269,8 @@ export default function Transactions() {
     setSearchResults([])
     setPrice("")
     setPriceInfo(null)
+    setPriceSource('empty')
+    setPriceFetchFailed(false)
     // Auto-fetch price for the selected ticker and current date
     if (activePortfolioId && txDate && txType !== 'SPLIT' && txType !== 'DIVIDEND') {
       fetchPriceForTicker(tickerInfo.symbol, txDate)
@@ -250,15 +283,20 @@ export default function Transactions() {
     
     setPriceLoading(true)
     setPriceInfo(null)
+    setPriceFetchFailed(false)
+    setPrice("")
+    setPriceSource('empty')
     try {
       const result = await api.fetchPriceForDate(activePortfolioId, symbol, date)
       setPrice(formatDecimalForInput(result.price))
+      setPriceSource('auto')
       setPriceInfo({
         converted: result.converted,
         asset_currency: result.asset_currency
       })
     } catch (err) {
       console.error("Failed to fetch price:", err)
+      setPriceFetchFailed(true)
       // Don't show error - user can still enter price manually
     } finally {
       setPriceLoading(false)
@@ -316,6 +354,53 @@ export default function Transactions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePortfolioId, selectedTicker?.symbol, ticker, txDate, txType])
 
+  useEffect(() => {
+    setRiskAcknowledged(false)
+  }, [txType, quantity, price, fees, txDate, selectedTicker?.symbol, splitRatio, sellAvailableQuantity])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadAvailableQuantity = async () => {
+      setSellAvailableQuantity(null)
+
+      if (
+        modalMode !== 'add' ||
+        txType !== 'SELL' ||
+        !activePortfolioId ||
+        !selectedTicker?.symbol ||
+        !txDate
+      ) {
+        setSellQuantityLoading(false)
+        return
+      }
+
+      setSellQuantityLoading(true)
+      try {
+        const assets = await api.getAssets(selectedTicker.symbol)
+        const match = (assets as Array<{ id?: number; symbol?: string }>).find(
+          (a) => a.symbol?.toUpperCase() === selectedTicker.symbol.toUpperCase()
+        )
+        if (!match?.id) {
+          if (!cancelled) setSellAvailableQuantity(0)
+          return
+        }
+
+        const result = await api.getPositionQuantityAtDate(activePortfolioId, match.id, txDate)
+        if (!cancelled) setSellAvailableQuantity(result.quantity)
+      } catch (err) {
+        console.error('Failed to fetch available sell quantity:', err)
+      } finally {
+        if (!cancelled) setSellQuantityLoading(false)
+      }
+    }
+
+    loadAvailableQuantity()
+    return () => {
+      cancelled = true
+    }
+  }, [activePortfolioId, modalMode, selectedTicker?.symbol, txDate, txType])
+
   // Helper function to format decimal numbers, removing trailing zeros after decimal point only
   const formatDecimalForInput = (value: number | string): string => {
     const num = typeof value === 'string' ? parseFloat(value) : value
@@ -341,6 +426,7 @@ export default function Transactions() {
     setTxType(transaction.type)
     setQuantity(formatDecimalForInput(transaction.quantity))
     setPrice(formatDecimalForInput(transaction.price))
+    setPriceSource(transaction.price ? 'manual' : 'empty')
     setFees(formatDecimalForInput(transaction.fees))
     setAssetCurrency(transaction.currency || null)
     setNotes(transaction.notes || '')
@@ -376,7 +462,12 @@ export default function Transactions() {
     setSearchResults([])
     setPriceLoading(false)
     setPriceInfo(null)
+    setPriceSource('empty')
+    setPriceFetchFailed(false)
     setAssetCurrency(null)
+    setSellAvailableQuantity(null)
+    setSellQuantityLoading(false)
+    setRiskAcknowledged(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -392,6 +483,56 @@ export default function Transactions() {
 
     if (!selectedTicker && modalMode === 'add') {
       setFormError("Please select a ticker")
+      setFormLoading(false)
+      return
+    }
+
+    if (!txDate || !parseDateOnly(txDate)) {
+      setFormError(t('transactions.errors.invalidDate'))
+      setFormLoading(false)
+      return
+    }
+
+    if (isFutureDate(txDate)) {
+      setFormError(t('transactions.warnings.futureDate'))
+      setFormLoading(false)
+      return
+    }
+
+    const parsedQuantity = parseFloat(quantity)
+    const parsedFees = fees && fees.trim() !== '' ? parseFloat(fees) : 0
+    const parsedPrice = price && price.trim() !== '' ? parseFloat(price) : 0
+
+    if (txType !== 'SPLIT' && txType !== 'FEE' && (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0)) {
+      setFormError(t('transactions.errors.quantityMustBePositive'))
+      setFormLoading(false)
+      return
+    }
+
+    if (fees && fees.trim() !== '' && (!Number.isFinite(parsedFees) || parsedFees < 0)) {
+      setFormError(t('transactions.errors.feesMustBePositive'))
+      setFormLoading(false)
+      return
+    }
+
+    if (
+      ['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT'].includes(txType) &&
+      (modalMode === 'edit' || price.trim() !== '') &&
+      (!Number.isFinite(parsedPrice) || parsedPrice <= 0)
+    ) {
+      setFormError(t('transactions.errors.priceMustBePositive'))
+      setFormLoading(false)
+      return
+    }
+
+    if (modalMode === 'add' && txType === 'SELL' && sellQuantityLoading) {
+      setFormError(t('transactions.warnings.checkingPosition'))
+      setFormLoading(false)
+      return
+    }
+
+    if (requiresRiskConfirmation) {
+      setRiskAcknowledged(true)
       setFormLoading(false)
       return
     }
@@ -462,6 +603,7 @@ export default function Transactions() {
             })
             assetId = created.id
           }
+          const resolvedAssetId = assetId as number
 
           // Prepare metadata for SPLIT transactions
           const metadata = txType === 'SPLIT' ? { split: splitRatio } : {}
@@ -469,7 +611,7 @@ export default function Transactions() {
           let txCurrency = txType === 'DIVIDEND' ? (assetCurrency || portfolioCurrency) : portfolioCurrency
           if (txType === 'DIVIDEND') {
             try {
-              const atDate = await api.getPositionQuantityAtDate(activePortfolioId, assetId, txDate)
+              const atDate = await api.getPositionQuantityAtDate(activePortfolioId, resolvedAssetId, txDate)
               if (atDate.asset_currency) txCurrency = atDate.asset_currency
             } catch {
               // Non-fatal
@@ -477,7 +619,7 @@ export default function Transactions() {
           }
 
           await api.createTransaction(activePortfolioId!, {
-            asset_id: assetId,
+            asset_id: resolvedAssetId,
             tx_date: txDate,
             type: txType,
             quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
@@ -733,7 +875,7 @@ export default function Transactions() {
     
     // Apply limit if showAllTransactions is false
     return showAllTransactions ? sorted : sorted.slice(0, displayLimit)
-  }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery])
+  }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery, fxRates, portfolioCurrency])
 
   const isActive = (key: SortKey) => sortKey === key
 
@@ -761,6 +903,17 @@ export default function Transactions() {
     return formatted.replace(/\.?0+$/, '')
   }
 
+  const parseAmount = (value: string | number | null | undefined, fallback = 0) => {
+    if (value === null || value === undefined || value === '') return fallback
+    const parsed = typeof value === 'string' ? parseFloat(value) : value
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  const parseDateOnly = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(currentLocale, {
       day: '2-digit',
@@ -782,6 +935,211 @@ export default function Transactions() {
       'CONVERSION_OUT': t('transaction.types.conversionOut'),
     }
     return typeMap[type.toUpperCase()] || type
+  }
+
+  const isFutureDate = (value: string) => {
+    const parsed = parseDateOnly(value)
+    if (!parsed) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return parsed > today
+  }
+
+  const isVeryOldDate = (value: string) => {
+    const parsed = parseDateOnly(value)
+    return Boolean(parsed && parsed < new Date('1990-01-01T00:00:00'))
+  }
+
+  const getTransactionSummary = (): TransactionSummary => {
+    const qty = parseAmount(quantity)
+    const unitPrice = parseAmount(price)
+    const feeAmount = parseAmount(fees)
+    const currency = txType === 'DIVIDEND' ? (assetCurrency || portfolioCurrency) : portfolioCurrency
+    const asset = selectedTicker?.symbol || ticker || editingTransaction?.asset.symbol || t('common.unknown')
+    const isSplit = txType === 'SPLIT'
+
+    if (isSplit) {
+      return {
+        action: getTranslatedType(txType),
+        asset,
+        date: txDate,
+        currency,
+        quantity: 0,
+        price: 0,
+        fees: 0,
+        grossTotal: 0,
+        netTotal: 0,
+        impact: 0,
+        priceSource,
+        splitRatio,
+        isSplit: true,
+      }
+    }
+
+    let grossTotal = qty * unitPrice
+    let netTotal = grossTotal
+    let impact = 0
+
+    switch (txType) {
+      case 'BUY':
+      case 'TRANSFER_IN':
+        netTotal = grossTotal + feeAmount
+        impact = qty
+        break
+      case 'SELL':
+      case 'TRANSFER_OUT':
+        netTotal = grossTotal - feeAmount
+        impact = -qty
+        break
+      case 'DIVIDEND':
+        netTotal = grossTotal - feeAmount
+        impact = 0
+        break
+      case 'FEE':
+        grossTotal = feeAmount || unitPrice
+        netTotal = -grossTotal
+        impact = 0
+        break
+      default:
+        netTotal = grossTotal
+    }
+
+    return {
+      action: getTranslatedType(txType),
+      asset,
+      date: txDate,
+      currency,
+      quantity: qty,
+      price: unitPrice,
+      fees: feeAmount,
+      grossTotal,
+      netTotal,
+      impact,
+      priceSource: priceSource === 'empty' && price ? 'manual' : priceSource,
+      isSplit: false,
+    }
+  }
+
+  const getTransactionWarnings = (summary: TransactionSummary): FormWarning[] => {
+    const warnings: FormWarning[] = []
+    const typeNeedsPrice = ['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT'].includes(txType)
+    const typeNeedsQuantity = txType !== 'SPLIT' && txType !== 'FEE'
+
+    if (isFutureDate(txDate)) {
+      warnings.push({
+        key: 'future-date',
+        level: 'danger',
+        message: t('transactions.warnings.futureDate'),
+      })
+    }
+
+    if (isVeryOldDate(txDate)) {
+      warnings.push({
+        key: 'old-date',
+        level: 'warning',
+        message: t('transactions.warnings.oldDate'),
+      })
+    }
+
+    if (typeNeedsQuantity && summary.quantity <= 0) {
+      warnings.push({
+        key: 'quantity',
+        level: 'warning',
+        message: t('transactions.warnings.quantityMissing'),
+      })
+    }
+
+    if (typeNeedsPrice && summary.price <= 0) {
+      warnings.push({
+        key: 'price',
+        level: 'warning',
+        message: t('transactions.warnings.priceMissing'),
+      })
+    }
+
+    if (priceFetchFailed && typeNeedsPrice) {
+      warnings.push({
+        key: 'price-fetch',
+        level: 'warning',
+        message: t('transactions.warnings.priceAutoUnavailable'),
+      })
+    }
+
+    if (summary.grossTotal > 0 && summary.fees / summary.grossTotal > 0.05) {
+      warnings.push({
+        key: 'high-fees',
+        level: 'warning',
+        message: t('transactions.warnings.highFees'),
+      })
+    }
+
+    if (
+      modalMode === 'add' &&
+      txType === 'SELL' &&
+      sellAvailableQuantity !== null &&
+      summary.quantity > sellAvailableQuantity
+    ) {
+      warnings.push({
+        key: 'sell-too-large',
+        level: 'danger',
+        message: t('transactions.warnings.sellExceedsPosition', {
+          available: formatQuantity(sellAvailableQuantity),
+        }),
+      })
+    }
+
+    if (txType !== 'DIVIDEND' && priceInfo?.converted) {
+      warnings.push({
+        key: 'converted-price',
+        level: 'info',
+        message: t('transactions.warnings.currencyConverted', {
+          from: priceInfo.asset_currency,
+          to: portfolioCurrency,
+        }),
+      })
+    }
+
+    if (txType === 'DIVIDEND' && summary.currency !== portfolioCurrency) {
+      warnings.push({
+        key: 'dividend-currency',
+        level: 'info',
+        message: t('transactions.warnings.dividendCurrency', {
+          currency: summary.currency,
+          portfolioCurrency,
+        }),
+      })
+    }
+
+    return warnings
+  }
+
+  const getSubmitLabel = (requiresRiskConfirmation: boolean, hasHighRiskWarning: boolean) => {
+    if (formLoading) return t('common.saving')
+    if (requiresRiskConfirmation) return t('transactions.actions.reviewWarnings')
+    if (hasHighRiskWarning) return t('transactions.actions.confirmRiskySell')
+    if (modalMode === 'edit') return t('transactions.actions.saveTransaction')
+    return t('transactions.actions.addType', {
+      type: getTranslatedType(txType).toLocaleLowerCase(currentLocale),
+    })
+  }
+
+  const getWarningClasses = (level: WarningLevel) => {
+    switch (level) {
+      case 'danger':
+        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+      case 'warning':
+        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+      default:
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+    }
+  }
+
+  const getPriceSourceLabel = (summary: TransactionSummary) => {
+    if (summary.isSplit) return t('transactions.summary.notApplicable')
+    if (priceFetchFailed && summary.price <= 0) return t('transactions.summary.priceUnavailable')
+    if (summary.priceSource === 'auto') return t('transactions.summary.autoPrice')
+    if (summary.priceSource === 'manual') return t('transactions.summary.manualPrice')
+    return t('transactions.summary.pendingAutoPrice')
   }
 
   const tabs: { id: TabType; label: string }[] = [
@@ -829,6 +1187,12 @@ export default function Transactions() {
         return 'text-neutral-600 dark:text-neutral-400'
     }
   }
+
+  const transactionSummary = getTransactionSummary()
+  const transactionWarnings = getTransactionWarnings(transactionSummary)
+
+  const hasHighRiskSellWarning = transactionWarnings.some((warning) => warning.key === 'sell-too-large')
+  const requiresRiskConfirmation = hasHighRiskSellWarning && !riskAcknowledged
 
   if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="transactions" />
@@ -1501,9 +1865,11 @@ export default function Transactions() {
                     onChange={(e) => {
                       const nextType = e.target.value
                       setTxType(nextType)
+                      setRiskAcknowledged(false)
                       if (nextType === 'DIVIDEND') {
                         setPriceLoading(false)
                         setPriceInfo(null)
+                        setPriceFetchFailed(false)
                       }
                     }}
                     className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
@@ -1574,6 +1940,8 @@ export default function Transactions() {
                         value={price}
                         onChange={(e) => {
                           setPrice(e.target.value)
+                          setPriceSource(e.target.value.trim() ? 'manual' : 'empty')
+                          setPriceFetchFailed(false)
                           setPriceInfo(null) // Clear conversion info when user manually edits
                         }}
                         className={`w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 ${priceLoading ? 'opacity-50' : ''}`}
@@ -1635,6 +2003,93 @@ export default function Transactions() {
                 />
               </div>
 
+              <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    <Info size={16} className="text-pink-500" />
+                    {t('transactions.summary.title')}
+                  </div>
+                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    {t('transactions.summary.amountsIn', { currency: transactionSummary.currency })}
+                  </span>
+                </div>
+
+                {transactionSummary.isSplit ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.type')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.action}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.asset')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.asset}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.splitRatio')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.splitRatio || '-'}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.action')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.action}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.asset')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.asset}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.impact')}</div>
+                      <div className={`font-medium ${transactionSummary.impact < 0 ? 'text-red-600 dark:text-red-400' : transactionSummary.impact > 0 ? 'text-green-600 dark:text-green-400' : 'text-neutral-900 dark:text-neutral-100'}`}>
+                        {transactionSummary.impact > 0 ? '+' : ''}{formatQuantity(transactionSummary.impact)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.priceSource')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{getPriceSourceLabel(transactionSummary)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.grossTotal')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.grossTotal, transactionSummary.currency, currentLocale, true)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{txType === 'DIVIDEND' ? t('fields.tax') : t('fields.fees')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.fees, transactionSummary.currency, currentLocale, true)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.netTotal')}</div>
+                      <div className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.netTotal, transactionSummary.currency, currentLocale, true)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.date')}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{txDate ? formatDate(txDate) : '-'}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {(transactionWarnings.length > 0 || sellQuantityLoading || riskAcknowledged) && (
+                <div className="space-y-2">
+                  {sellQuantityLoading && (
+                    <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-700 dark:text-blue-300">
+                      {t('transactions.warnings.checkingPosition')}
+                    </div>
+                  )}
+                  {transactionWarnings.map((warning) => (
+                    <div key={warning.key} className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${getWarningClasses(warning.level)}`}>
+                      <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                      <span>{warning.message}</span>
+                    </div>
+                  ))}
+                  {riskAcknowledged && hasHighRiskSellWarning && (
+                    <div className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
+                      {t('transactions.warnings.riskySellConfirmation')}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {formError && (
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
                   {formError}
@@ -1653,6 +2108,7 @@ export default function Transactions() {
                   type="submit"
                   disabled={
                     formLoading ||
+                    (modalMode === 'add' && txType === 'SELL' && sellQuantityLoading) ||
                     (modalMode === 'add' && !selectedTicker) ||
                     (txType === 'DIVIDEND' && (
                       (!(Number.isFinite(parseFloat(quantity))) || parseFloat(quantity) <= 0) ||
@@ -1667,7 +2123,7 @@ export default function Transactions() {
                   }
                   className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
-                  {formLoading ? t('common.saving') : modalMode === 'add' ? t('common.add') : t('common.save')}
+                  {getSubmitLabel(requiresRiskConfirmation, hasHighRiskSellWarning)}
                 </button>
               </div>
             </form>
@@ -1744,4 +2200,3 @@ export default function Transactions() {
     </div>
   )
 }
-

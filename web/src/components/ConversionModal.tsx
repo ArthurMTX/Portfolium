@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, ArrowRight, Search, Loader2, RefreshCw } from 'lucide-react'
+import { X, ArrowRight, Search, Loader2, RefreshCw, AlertTriangle, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, cleanCryptoName } from '../lib/logoUtils'
+import { formatCurrency } from '../lib/formatUtils'
 
 interface Asset {
   id: number
@@ -27,6 +28,14 @@ interface ConversionModalProps {
   portfolioCurrency: string
 }
 
+type ConversionWarningLevel = 'info' | 'warning' | 'danger'
+
+interface ConversionWarning {
+  key: string
+  level: ConversionWarningLevel
+  message: string
+}
+
 export default function ConversionModal({
   isOpen,
   onClose,
@@ -48,9 +57,9 @@ export default function ConversionModal({
   const [notes, setNotes] = useState('')
   
   // Search state
-  const [_fromSearch, setFromSearch] = useState('')
+  const [, setFromSearch] = useState('')
   const [toSearch, setToSearch] = useState('')
-  const [_fromSearchResults, setFromSearchResults] = useState<TickerInfo[]>([])
+  const [, setFromSearchResults] = useState<TickerInfo[]>([])
   const [toSearchResults, setToSearchResults] = useState<TickerInfo[]>([])
   const [portfolioAssets, setPortfolioAssets] = useState<Asset[]>([])
   
@@ -59,6 +68,10 @@ export default function ConversionModal({
   const [error, setError] = useState('')
   const [fetchingFromPrice, setFetchingFromPrice] = useState(false)
   const [fetchingToPrice, setFetchingToPrice] = useState(false)
+  const [fromPriceFetchFailed, setFromPriceFetchFailed] = useState(false)
+  const [toPriceFetchFailed, setToPriceFetchFailed] = useState(false)
+  const [fromPriceSource, setFromPriceSource] = useState<'empty' | 'auto' | 'manual'>('empty')
+  const [toPriceSource, setToPriceSource] = useState<'empty' | 'auto' | 'manual'>('empty')
 
   // Auto-compute toQuantity when fromQuantity or prices change (only if toQuantity is empty or user hasn't manually edited it)
   const [toQuantityManuallySet, setToQuantityManuallySet] = useState(false)
@@ -89,12 +102,32 @@ export default function ConversionModal({
     return rate
   }
 
+  const loadPortfolioAssets = useCallback(async () => {
+    try {
+      const positions = await api.getPortfolioPositions(portfolioId)
+      // Filter for crypto assets only and with positive quantity
+      const assets: Asset[] = positions
+        .filter((p) => parseFloat(String(p.quantity)) > 0 && p.asset_type?.toUpperCase() === 'CRYPTOCURRENCY')
+        .map((p) => ({
+          id: p.asset_id,
+          symbol: p.symbol,
+          name: p.name || null,
+          currency: p.currency,
+          asset_type: p.asset_type,
+          quantity: parseFloat(String(p.quantity)),
+        }))
+      setPortfolioAssets(assets)
+    } catch (err) {
+      console.error('Failed to load portfolio assets:', err)
+    }
+  }, [portfolioId])
+
   // Load portfolio assets on open
   useEffect(() => {
     if (isOpen && portfolioId) {
       loadPortfolioAssets()
     }
-  }, [isOpen, portfolioId])
+  }, [isOpen, portfolioId, loadPortfolioAssets])
 
   // Reset form when modal opens
   useEffect(() => {
@@ -114,28 +147,12 @@ export default function ConversionModal({
       setToSearchResults([])
       setError('')
       setToQuantityManuallySet(false)
+      setFromPriceFetchFailed(false)
+      setToPriceFetchFailed(false)
+      setFromPriceSource('empty')
+      setToPriceSource('empty')
     }
   }, [isOpen])
-
-  const loadPortfolioAssets = async () => {
-    try {
-      const positions = await api.getPortfolioPositions(portfolioId)
-      // Filter for crypto assets only and with positive quantity
-      const assets: Asset[] = positions
-        .filter((p) => parseFloat(String(p.quantity)) > 0 && p.asset_type?.toUpperCase() === 'CRYPTOCURRENCY')
-        .map((p) => ({
-          id: p.asset_id,
-          symbol: p.symbol,
-          name: p.name || null,
-          currency: p.currency,
-          asset_type: p.asset_type,
-          quantity: parseFloat(String(p.quantity)),
-        }))
-      setPortfolioAssets(assets)
-    } catch (err) {
-      console.error('Failed to load portfolio assets:', err)
-    }
-  }
 
   // Search for tickers (for the target asset) - crypto only
   const searchTickers = useCallback(async (query: string, isFromAsset: boolean) => {
@@ -172,17 +189,30 @@ export default function ConversionModal({
   const fetchPrice = async (symbol: string, isFrom: boolean) => {
     if (isFrom) setFetchingFromPrice(true)
     else setFetchingToPrice(true)
+    if (isFrom) {
+      setFromPriceFetchFailed(false)
+      setFromPrice('')
+      setFromPriceSource('empty')
+    } else {
+      setToPriceFetchFailed(false)
+      setToPrice('')
+      setToPriceSource('empty')
+    }
     
     try {
       const priceData = await api.getPriceQuote(symbol, portfolioCurrency)
       const price = priceData.price
       if (isFrom) {
         setFromPrice(price.toString())
+        setFromPriceSource('auto')
       } else {
         setToPrice(price.toString())
+        setToPriceSource('auto')
       }
     } catch (err) {
       console.error('Failed to fetch price:', err)
+      if (isFrom) setFromPriceFetchFailed(true)
+      else setToPriceFetchFailed(true)
     } finally {
       if (isFrom) setFetchingFromPrice(false)
       else setFetchingToPrice(false)
@@ -251,6 +281,107 @@ export default function ConversionModal({
     }
   }
 
+  const parseAmount = (value: string | number | null | undefined, fallback = 0) => {
+    if (value === null || value === undefined || value === '') return fallback
+    const parsed = typeof value === 'string' ? parseFloat(value) : value
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  const parseDateOnly = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const isFutureDate = (value: string) => {
+    const parsed = parseDateOnly(value)
+    if (!parsed) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return parsed > today
+  }
+
+  const isVeryOldDate = (value: string) => {
+    const parsed = parseDateOnly(value)
+    return Boolean(parsed && parsed < new Date('1990-01-01T00:00:00'))
+  }
+
+  const getPriceSourceLabel = (source: 'empty' | 'auto' | 'manual', failed: boolean) => {
+    if (failed) return t('conversion.summary.priceUnavailable')
+    if (source === 'auto') return t('conversion.summary.autoPrice')
+    if (source === 'manual') return t('conversion.summary.manualPrice')
+    return t('conversion.summary.pendingPrice')
+  }
+
+  const getConversionSummary = () => {
+    const fromQty = parseAmount(fromQuantity)
+    const toQty = parseAmount(toQuantity)
+    const fPrice = parseAmount(fromPrice)
+    const tPrice = parseAmount(toPrice)
+    const feeAmount = parseAmount(fees)
+    const sendValue = fromQty * fPrice
+    const receiveValue = toQty * tPrice
+
+    return {
+      fromQty,
+      toQty,
+      fromPrice: fPrice,
+      toPrice: tPrice,
+      fees: feeAmount,
+      sendValue,
+      receiveValue,
+      difference: receiveValue - sendValue,
+      netEstimated: receiveValue - feeAmount,
+    }
+  }
+
+  const getConversionWarnings = (): ConversionWarning[] => {
+    const summary = getConversionSummary()
+    const warnings: ConversionWarning[] = []
+
+    if (isFutureDate(txDate)) {
+      warnings.push({ key: 'future-date', level: 'danger', message: t('conversion.warnings.futureDate') })
+    }
+
+    if (isVeryOldDate(txDate)) {
+      warnings.push({ key: 'old-date', level: 'warning', message: t('conversion.warnings.oldDate') })
+    }
+
+    if (fromAsset?.quantity !== undefined && summary.fromQty > fromAsset.quantity) {
+      warnings.push({
+        key: 'quantity-too-high',
+        level: 'danger',
+        message: t('conversion.warnings.quantityExceedsPosition', {
+          available: fromAsset.quantity.toLocaleString(undefined, { maximumFractionDigits: 8 }),
+        }),
+      })
+    }
+
+    if (fromPriceFetchFailed || toPriceFetchFailed) {
+      warnings.push({ key: 'price-fetch', level: 'warning', message: t('conversion.warnings.priceAutoUnavailable') })
+    }
+
+    if ((fromAsset && summary.fromPrice <= 0) || (toAsset && summary.toPrice <= 0)) {
+      warnings.push({ key: 'missing-price', level: 'warning', message: t('conversion.warnings.priceMissing') })
+    }
+
+    if (summary.sendValue > 0 && summary.fees / summary.sendValue > 0.05) {
+      warnings.push({ key: 'high-fees', level: 'warning', message: t('conversion.warnings.highFees') })
+    }
+
+    return warnings
+  }
+
+  const getWarningClasses = (level: ConversionWarningLevel) => {
+    switch (level) {
+      case 'danger':
+        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+      case 'warning':
+        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+      default:
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+    }
+  }
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -270,9 +401,22 @@ export default function ConversionModal({
       setError(t('conversion.enterQuantities'))
       return
     }
+
+    if (!txDate || !parseDateOnly(txDate)) {
+      setError(t('conversion.errors.invalidDate'))
+      return
+    }
+
+    if (isFutureDate(txDate)) {
+      setError(t('conversion.warnings.futureDate'))
+      return
+    }
     
     const fromQty = parseFloat(fromQuantity)
     const toQty = parseFloat(toQuantity)
+    const fromUnitPrice = parseFloat(fromPrice)
+    const toUnitPrice = parseFloat(toPrice)
+    const feeAmount = fees && fees.trim() !== '' ? parseFloat(fees) : 0
     
     if (isNaN(fromQty) || fromQty <= 0) {
       setError(t('conversion.invalidFromQuantity', 'Sending quantity must be greater than 0'))
@@ -281,6 +425,21 @@ export default function ConversionModal({
     
     if (isNaN(toQty) || toQty <= 0) {
       setError(t('conversion.invalidToQuantity', 'Receiving quantity must be greater than 0'))
+      return
+    }
+
+    if (!Number.isFinite(fromUnitPrice) || fromUnitPrice <= 0 || !Number.isFinite(toUnitPrice) || toUnitPrice <= 0) {
+      setError(t('conversion.errors.priceMustBePositive'))
+      return
+    }
+
+    if (fees && fees.trim() !== '' && (!Number.isFinite(feeAmount) || feeAmount < 0)) {
+      setError(t('conversion.errors.feesMustBePositive'))
+      return
+    }
+
+    if (fromAsset.quantity !== undefined && fromQty > fromAsset.quantity) {
+      setError(t('conversion.errors.quantityExceedsPosition'))
       return
     }
     
@@ -311,6 +470,9 @@ export default function ConversionModal({
       setLoading(false)
     }
   }
+
+  const conversionSummary = getConversionSummary()
+  const conversionWarnings = getConversionWarnings()
 
   if (!isOpen) return null
 
@@ -360,6 +522,7 @@ export default function ConversionModal({
               type="date"
               value={txDate}
               onChange={(e) => setTxDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent"
               required
             />
@@ -537,7 +700,11 @@ export default function ConversionModal({
                     type="number"
                     step="any"
                     value={fromPrice}
-                    onChange={(e) => setFromPrice(e.target.value)}
+                    onChange={(e) => {
+                      setFromPrice(e.target.value)
+                      setFromPriceSource(e.target.value.trim() ? 'manual' : 'empty')
+                      setFromPriceFetchFailed(false)
+                    }}
                     placeholder="0.00"
                     className="w-full px-3 py-2 pr-10 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
                   />
@@ -585,7 +752,11 @@ export default function ConversionModal({
                     type="number"
                     step="any"
                     value={toPrice}
-                    onChange={(e) => setToPrice(e.target.value)}
+                    onChange={(e) => {
+                      setToPrice(e.target.value)
+                      setToPriceSource(e.target.value.trim() ? 'manual' : 'empty')
+                      setToPriceFetchFailed(false)
+                    }}
                     placeholder="0.00"
                     className="w-full px-3 py-2 pr-10 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
                   />
@@ -647,6 +818,67 @@ export default function ConversionModal({
               className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
             />
           </div>
+
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                <Info size={16} className="text-pink-500" />
+                {t('conversion.summary.title')}
+              </div>
+              <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                {t('conversion.summary.amountsIn', { currency: portfolioCurrency })}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.youSend')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                  {fromAsset ? `${conversionSummary.fromQty.toLocaleString(undefined, { maximumFractionDigits: 8 })} ${fromAsset.symbol}` : '-'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.youReceive')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                  {toAsset ? `${conversionSummary.toQty.toLocaleString(undefined, { maximumFractionDigits: 8 })} ${toAsset.symbol}` : '-'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.summary.sentValue')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(conversionSummary.sendValue, portfolioCurrency, undefined, true)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.summary.receivedValue')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(conversionSummary.receiveValue, portfolioCurrency, undefined, true)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.fees')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(conversionSummary.fees, portfolioCurrency, undefined, true)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.summary.netEstimated')}</div>
+                <div className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCurrency(conversionSummary.netEstimated, portfolioCurrency, undefined, true)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.summary.fromPriceSource')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">{getPriceSourceLabel(fromPriceSource, fromPriceFetchFailed)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('conversion.summary.toPriceSource')}</div>
+                <div className="font-medium text-neutral-900 dark:text-neutral-100">{getPriceSourceLabel(toPriceSource, toPriceFetchFailed)}</div>
+              </div>
+            </div>
+          </div>
+
+          {conversionWarnings.length > 0 && (
+            <div className="space-y-2">
+              {conversionWarnings.map((warning) => (
+                <div key={warning.key} className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${getWarningClasses(warning.level)}`}>
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>{warning.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-700">
