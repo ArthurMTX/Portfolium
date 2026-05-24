@@ -11,9 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
 from app.config import settings
-from app.db import engine, Base, SessionLocal
+from app.db import engine, Base
 from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public, pending_dividends, push, calendar
-from app.services.admin import ensure_admin_user, ensure_email_config
 from app.version import __version__, get_version_info
 
 
@@ -53,8 +52,7 @@ logger = logging.getLogger("portfolium")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    import asyncio
+    """Minimal application lifespan for HTTP runtime resources only."""
     import sys
     
     logger.info("Starting Portfolium API...")
@@ -68,78 +66,6 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Redis unavailable - application will run without caching")
     sys.stdout.flush()
-    
-    # Skip migrations in test mode
-    skip_migrations = os.getenv("SKIP_MIGRATIONS", "false").lower() == "true"
-    
-    # Run database migrations synchronously
-    # Migrations are fast (<1s typically) and running in separate thread causes hanging issues
-    if not skip_migrations:
-        try:
-            from app.services.migrations import run_migrations
-            
-            logger.info("Running database migrations...")
-            sys.stdout.flush()
-            
-            # Run synchronously - it's fast enough and avoids thread issues
-            run_migrations()
-            
-            logger.info("Migration process completed")
-            sys.stdout.flush()
-            
-        except Exception as e:
-            logger.exception("Failed to run database migrations: %s", e)
-            sys.stdout.flush()
-            raise  # Fail startup if migrations fail
-    else:
-        logger.info("Skipping database migrations (test mode)")
-        sys.stdout.flush()
-    
-    # Small delay to ensure migration transaction is fully committed
-    await asyncio.sleep(0.5)
-    
-    # Skip email config and admin user setup in test mode
-    if not skip_migrations:
-        logger.info("Initializing email configuration...")
-        sys.stdout.flush()
-        
-        # Initialize/load email configuration (loads from DB if exists, otherwise uses env vars)
-        try:
-            db = SessionLocal()
-            ensure_email_config(db)
-            logger.info("Email configuration initialized")
-            sys.stdout.flush()
-        except Exception as e:
-            logger.warning("Could not initialize email config (will retry later): %s", e)
-            logger.exception("Email config error details:")
-            sys.stdout.flush()
-        finally:
-            try:
-                db.close()
-            except Exception:
-                pass
-        
-        logger.info("Checking admin user...")
-        sys.stdout.flush()
-        
-        # Ensure admin user exists if configured
-        try:
-            db = SessionLocal()
-            ensure_admin_user(db)
-            logger.info("Admin user check completed")
-            sys.stdout.flush()
-        except Exception as e:
-            logger.warning("Could not ensure admin user (will retry on first request): %s", e)
-            logger.exception("Admin user error details:")
-            sys.stdout.flush()
-        finally:
-            try:
-                db.close()
-            except Exception:
-                pass
-    else:
-        logger.info("Skipping email config and admin user setup (test mode)")
-        sys.stdout.flush()
 
     logger.info("=" * 50)
     logger.info("Portfolium API startup complete - ready to serve requests")

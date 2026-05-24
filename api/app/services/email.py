@@ -22,8 +22,9 @@ class EmailService:
     """Email service for authentication emails"""
     
     def __init__(self):
-        # Don't load settings from database during init - let ensure_email_config() handle syncing
-        # Just use the current settings values
+        # Keep startup lightweight: runtime workers do not sync email config at import time.
+        # We lazily reload from the database only when an email is actually sent.
+        self.enable_email = settings.ENABLE_EMAIL
         self.smtp_host = settings.SMTP_HOST
         self.smtp_port = settings.SMTP_PORT
         self.smtp_user = settings.SMTP_USER
@@ -31,6 +32,7 @@ class EmailService:
         self.from_email = settings.FROM_EMAIL
         self.from_name = settings.FROM_NAME
         self.use_tls = settings.SMTP_TLS
+        self.frontend_url = settings.FRONTEND_URL
         
         # Setup Jinja2 template environment
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'emails')
@@ -51,6 +53,7 @@ class EmailService:
                 config = db.execute(text("SELECT * FROM config WHERE id = 1")).first()
                 if config:
                     # Update instance variables from database
+                    self.enable_email = bool(config.enable_email)
                     self.smtp_host = config.smtp_host
                     self.smtp_port = config.smtp_port
                     self.smtp_user = config.smtp_user or self.smtp_user
@@ -58,6 +61,7 @@ class EmailService:
                     self.use_tls = config.smtp_tls
                     self.from_email = config.from_email
                     self.from_name = config.from_name
+                    self.frontend_url = config.frontend_url or self.frontend_url
             finally:
                 db.close()
         except Exception as e:
@@ -82,7 +86,7 @@ class EmailService:
         """
         Send an email via SMTP with optional PDF attachment(s) and embedded logo
         """
-        if not settings.ENABLE_EMAIL:
+        if not self.enable_email:
             logger.info(f"Email disabled. Would send to {to_email}: {subject}")
             logger.debug(f"Email content: {html_content}")
             if attachment_filename:
@@ -205,7 +209,8 @@ class EmailService:
         language: str = 'en'
     ) -> bool:
         """Send email verification email"""
-        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        self._load_settings()
+        frontend_url = self.frontend_url.rstrip('/')
         verification_url = f"{frontend_url}/verify-email?token={verification_token}"
         
         # Get translations for the specified language
@@ -248,7 +253,8 @@ class EmailService:
         language: str = 'en'
     ) -> bool:
         """Send password reset email"""
-        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        self._load_settings()
+        frontend_url = self.frontend_url.rstrip('/')
         reset_url = f"{frontend_url}/reset-password?token={reset_token}"
         
         # Get translations for the specified language
@@ -285,9 +291,10 @@ class EmailService:
     
     def send_welcome_email(self, to_email: str, username: str, language: str = 'en') -> bool:
         """Send welcome email after successful verification"""
+        self._load_settings()
         t = get_all_translations(language, 'welcome')
         subject = t['subject']
-        dashboard_url = f"{settings.FRONTEND_URL.rstrip('/')}/dashboard"
+        dashboard_url = f"{self.frontend_url.rstrip('/')}/dashboard"
         
         # Render HTML template
         template = self.jinja_env.get_template('welcome.html')
@@ -338,6 +345,7 @@ class EmailService:
             pdf_attachments: List of tuples (filename, pdf_data) for each portfolio
             language: User's preferred language
         """
+        self._load_settings()
         t = get_all_translations(language, 'dailyReport')
         subject = t['subject'].format(reportDate=report_date)
         
@@ -353,8 +361,8 @@ class EmailService:
             report_date=report_date,
             portfolios_count=portfolios_count,
             portfolios_text=portfolios_text,
-            settings_url=f"{settings.FRONTEND_URL.rstrip('/')}/settings",
-            dashboard_url=settings.FRONTEND_URL.rstrip('/')
+            settings_url=f"{self.frontend_url.rstrip('/')}/settings",
+            dashboard_url=self.frontend_url.rstrip('/')
         )
         
         # Text fallback
@@ -374,7 +382,7 @@ class EmailService:
         
         {t['text_attachment']}
         
-        {t['text_settings']} {settings.FRONTEND_URL.rstrip('/')}/settings
+        {t['text_settings']} {self.frontend_url.rstrip('/')}/settings
         
         {t['copyright']}
         """

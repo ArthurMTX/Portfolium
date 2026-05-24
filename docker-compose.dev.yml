@@ -56,6 +56,13 @@ services:
   api:
     <<: *api_common
     container_name: portfolium-api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     volumes:
@@ -69,12 +76,35 @@ services:
   celery-worker:
     <<: *api_common
     container_name: portfolium-celery-worker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
     command: celery -A app.celery_app worker --loglevel=info --concurrency=1 -Q default,high,low
 
   celery-beat:
     <<: *api_common
     container_name: portfolium-celery-beat
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
     command: celery -A app.celery_app beat --loglevel=info
+
+  bootstrap:
+    <<: *api_common
+    container_name: portfolium-bootstrap
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m app.bootstrap
 
   flower:
     image: mher/flower:2.0

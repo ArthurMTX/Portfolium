@@ -74,6 +74,7 @@ def ensure_email_config(db: Session) -> None:
         logger.exception("Email config exception:")
         sys.stdout.flush()
         db.rollback()
+        raise
 
 
 def ensure_admin_user(db: Session) -> None:
