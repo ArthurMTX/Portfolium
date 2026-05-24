@@ -177,6 +177,15 @@
       "extremeGreed": "Avidité extrême"
     }
   },
+  "freshness": {
+    "fresh": "Récent",
+    "delayed": "Différé",
+    "estimated": "Estimé",
+    "updatedAgo": "Mis à jour il y a {{time}}",
+    "asOf": "À jour au",
+    "marketClosed": "Marché fermé",
+    "lastAvailable": "Derniers prix disponibles"
+  },
   "transaction": {
     "types": {
       "buy": "Achat",

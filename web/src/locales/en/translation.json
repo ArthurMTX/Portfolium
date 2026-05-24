@@ -177,6 +177,15 @@
       "extremeGreed": "Extreme Greed"
     }
   },
+  "freshness": {
+    "fresh": "Fresh",
+    "delayed": "Delayed",
+    "estimated": "Estimated",
+    "updatedAgo": "Updated {{time}} ago",
+    "asOf": "As of",
+    "marketClosed": "Market closed",
+    "lastAvailable": "Latest available prices"
+  },
   "transaction": {
     "types": {
       "buy": "Buy",

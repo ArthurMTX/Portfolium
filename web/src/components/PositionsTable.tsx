@@ -6,6 +6,7 @@ import SortIcon from './SortIcon'
 import { useTranslation } from 'react-i18next'
 import PositionDetailModal from './PositionDetailModal'
 import { PositionDTO } from '../lib/api'
+import DataFreshnessIndicator from './DataFreshnessIndicator'
 
 // Position interface that allows both number and string for backward compatibility
 interface Position extends Omit<PositionDTO, 'quantity' | 'avg_cost' | 'current_price' | 'market_value' | 'cost_basis' | 'unrealized_pnl' | 'unrealized_pnl_pct' | 'daily_change_pct' | 'breakeven_gain_pct' | 'breakeven_target_price' | 'distance_to_ath_pct' | 'avg_buy_zone_pct' | 'personal_drawdown_pct' | 'vol_contribution_pct' | 'cost_to_average_down'> {
@@ -46,6 +47,7 @@ const sortableColumns = [
 ] as const
 type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
+const DELAYED_PRICE_AFTER_MS = 24 * 60 * 60 * 1000
 
 export default function PositionsTable({ positions, portfolioId, isSold = false }: PositionsTableProps) {
   const { t } = useTranslation()
@@ -149,6 +151,32 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
     ? ['symbol', 'name', 'avg_cost', 'current_price', 'unrealized_pnl', 'unrealized_pnl_pct'] as SortKey[]
     : sortableColumns
 
+  const getLastUpdatedDate = (position: Position): Date | null => {
+    if (!position.last_updated) return null
+    const date = new Date(position.last_updated)
+    return Number.isNaN(date.getTime()) ? null : date
+  }
+
+  const isPriceDelayed = (position: Position): boolean => {
+    const lastUpdated = getLastUpdatedDate(position)
+    if (!lastUpdated) return false
+    return Date.now() - lastUpdated.getTime() > DELAYED_PRICE_AFTER_MS
+  }
+
+  const formatAsOf = (position: Position): string => {
+    const lastUpdated = getLastUpdatedDate(position)
+    if (!lastUpdated) return '—'
+    return lastUpdated.toLocaleString()
+  }
+
+  const getPriceTooltip = (position: Position): string => {
+    return `${t('freshness.asOf')}: ${formatAsOf(position)}\n${t('freshness.lastAvailable')}: ${formatAsOf(position)}`
+  }
+
+  const getMarketValueTooltip = (position: Position): string => {
+    return `${t('freshness.estimated')}\n${t('freshness.lastAvailable')}: ${formatAsOf(position)}`
+  }
+
   return (
     <>
       {/* Mobile Sort Controls & Card Layout */}
@@ -228,11 +256,23 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                   </div>
                 </div>
                 <div className="text-right ml-3">
-                  <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                  <div
+                    className="font-bold text-base text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
+                    title={!isSold ? getMarketValueTooltip(position) : undefined}
+                  >
                     {isSold 
                       ? formatCurrency(position.unrealized_pnl, position.currency)
                       : formatCurrency(position.market_value, position.currency)
                     }
+                    {!isSold && isPriceDelayed(position) && (
+                      <DataFreshnessIndicator
+                        variant="compact"
+                        timestamp={position.last_updated}
+                        latestPriceTimestamp={position.last_updated}
+                        estimated
+                        showLabel={false}
+                      />
+                    )}
                   </div>
                   <div className={`text-sm font-semibold ${pnlColor}`}>
                     {position.unrealized_pnl_pct !== null
@@ -279,9 +319,22 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.currentPrice')}</span>
-                    <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs" title={getPriceTooltip(position)}>
+                      {t('dashboard.currentPrice')}
+                    </span>
+                    <div
+                      className="font-medium text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
+                      title={getPriceTooltip(position)}
+                    >
                       {formatCurrency(position.current_price, position.currency)}
+                      {isPriceDelayed(position) && (
+                        <DataFreshnessIndicator
+                          variant="compact"
+                          timestamp={position.last_updated}
+                          latestPriceTimestamp={position.last_updated}
+                          showLabel={false}
+                        />
+                      )}
                     </div>
                   </div>
                   <div>
@@ -406,6 +459,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    title={t('freshness.lastAvailable')}
                   >
                     {t('dashboard.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                   </th>
@@ -420,6 +474,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     onClick={() => handleSort('market_value')}
                     aria-sort={sortKey === 'market_value' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    title={t('freshness.estimated')}
                   >
                     {t('dashboard.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
                   </th>
@@ -531,8 +586,19 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                         </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right">
-                        <div className="text-sm text-neutral-900 dark:text-neutral-100">
+                        <div
+                          className="text-sm text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
+                          title={getPriceTooltip(position)}
+                        >
                           {formatCurrency(position.current_price, position.currency)}
+                          {isPriceDelayed(position) && (
+                            <DataFreshnessIndicator
+                              variant="compact"
+                              timestamp={position.last_updated}
+                              latestPriceTimestamp={position.last_updated}
+                              showLabel={false}
+                            />
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right hidden xl:table-cell">
@@ -551,8 +617,20 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                         </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right">
-                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        <div
+                          className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 inline-flex items-center justify-end gap-1"
+                          title={getMarketValueTooltip(position)}
+                        >
                           {formatCurrency(position.market_value, position.currency)}
+                          {isPriceDelayed(position) && (
+                            <DataFreshnessIndicator
+                              variant="compact"
+                              timestamp={position.last_updated}
+                              latestPriceTimestamp={position.last_updated}
+                              estimated
+                              showLabel={false}
+                            />
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-right hidden xl:table-cell">

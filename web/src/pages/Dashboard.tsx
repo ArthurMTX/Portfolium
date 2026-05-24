@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Zap, ZapOff, Clock, LayoutDashboard, Grid3x3, Library, Save } from 'lucide-react'
+import { RefreshCw, Zap, ZapOff, LayoutDashboard, Grid3x3, Library, Save } from 'lucide-react'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api, { PositionDTO, BatchPriceDTO } from '../lib/api'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import type { DashboardLayoutDTO } from '../types/dashboard'
 import { useDashboardBatch } from '../hooks/useDashboardBatch'
+import DataFreshnessIndicator from '../components/DataFreshnessIndicator'
 
 export default function Dashboard() {
   const {
@@ -214,6 +215,20 @@ export default function Dashboard() {
     })
   }, [positions, batchPrices])
 
+  const visiblePriceTimestamp = useMemo(() => {
+    return displayPositions.reduce<string | null>((oldest, position) => {
+      if (!position.last_updated) return oldest
+      if (!oldest) return position.last_updated
+      return new Date(position.last_updated).getTime() < new Date(oldest).getTime()
+        ? position.last_updated
+        : oldest
+    }, null)
+  }, [displayPositions])
+
+  const freshnessTimestamp = batchPrices?.updated_at
+    || batchData?.timestamp
+    || (lastUpdate > 0 ? new Date(lastUpdate).toISOString() : null)
+
   // Manual refresh
   const handleRefresh = useCallback(async () => {
     if (!activePortfolioId) return
@@ -259,18 +274,6 @@ export default function Dashboard() {
     // Close the layout manager
     setIsLayoutManagerOpen(false)
   }, [user?.id, currentBreakpoint])
-
-  const formatLastUpdate = (timestamp: number) => {
-    if (!timestamp) return t('common.never')
-    const now = Date.now()
-    const secondsAgo = Math.floor((now - timestamp) / 1000)
-    if (secondsAgo < 0) return t('common.timeAgo', { time: '0s' })
-    if (secondsAgo < 60) return t('common.timeAgo', { time: `${secondsAgo}s` })
-    const minutesAgo = Math.floor(secondsAgo / 60)
-    if (minutesAgo < 60) return t('common.timeAgo', { time: `${minutesAgo}m` })
-    const hoursAgo = Math.floor(minutesAgo / 60)
-    return t('common.timeAgo', { time: `${hoursAgo}h` })
-  }
 
   const getNextRefreshIn = () => {
     if (!lastUpdate || !autoRefreshSettings.enabled) return null
@@ -319,43 +322,19 @@ export default function Dashboard() {
             {t('dashboard.description')}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Market Status */}
-          {marketStatus === 'premarket' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full">
-              ● {t('market.status.premarket')}
-            </span>
-          )}
-          {marketStatus === 'open' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full">
-              ● {t('market.status.open')}
-            </span>
-          )}
-          {marketStatus === 'afterhours' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded-full">
-              ● {t('market.status.afterhours')}
-            </span>
-          )}
-          {marketStatus === 'closed' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full">
-              ● {t('market.status.closed')}
-            </span>
-          )}
-          {marketStatus === 'unknown' && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 rounded-full">
-              ● {t('market.status.unknown')}
-            </span>
-          )}
-          
-          {/* Last Update */}
-          {lastUpdate > 0 && (
-            <div className="flex flex-col items-end gap-0.5 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-              <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
-                <Clock size={12} />
-                <span className="font-medium">{formatLastUpdate(lastUpdate)}</span>
-              </div>
+        <div className="flex flex-wrap items-center gap-2">        
+          {/* Freshness */}
+          {(freshnessTimestamp || visiblePriceTimestamp) && (
+            <div className="flex flex-col items-end gap-0.5">
+              <DataFreshnessIndicator
+                variant="global"
+                timestamp={freshnessTimestamp}
+                latestPriceTimestamp={visiblePriceTimestamp}
+                marketStatus={marketStatus}
+                isCached={batchData?.cached}
+              />
               {autoRefreshSettings.enabled && getNextRefreshIn() !== null && getNextRefreshIn()! > 0 && (
-                <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                <div className="hidden sm:block text-[10px] text-neutral-500 dark:text-neutral-500 pr-1">
                   {t('common.next')}: {getNextRefreshIn()}s
                 </div>
               )}
