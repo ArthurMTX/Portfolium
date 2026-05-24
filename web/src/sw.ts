@@ -12,17 +12,10 @@ clientsClaim();
 // Clean up old caches
 cleanupOutdatedCaches();
 
-// Precache assets from the build - vite-plugin-pwa will inject the manifest here
-// In dev mode, __WB_MANIFEST may not be defined, so we use a try-catch
-try {
-  // @ts-expect-error __WB_MANIFEST is injected by workbox at build time
-  if (typeof self.__WB_MANIFEST !== 'undefined') {
-    // @ts-expect-error __WB_MANIFEST is injected by workbox at build time
-    precacheAndRoute(self.__WB_MANIFEST);
-  }
-} catch {
-  console.log('[Service Worker] No precache manifest available (dev mode)');
-}
+// Precache assets from the build - vite-plugin-pwa injects the manifest here.
+// @ts-expect-error __WB_MANIFEST is injected by Workbox at build time
+const precacheManifest = self.__WB_MANIFEST || [];
+precacheAndRoute(precacheManifest);
 
 console.log('[Service Worker] Portfolium service worker loaded v2 with push support');
 
