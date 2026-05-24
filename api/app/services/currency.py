@@ -7,6 +7,7 @@ from typing import Optional, Dict
 from datetime import datetime, timedelta
 
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.core_observability import record_stale_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class CurrencyService:
             # If rate limited, return stale cache (better than nothing)
             if _is_yf_rate_limited():
                 logger.debug(f"Rate limited, using stale cache for {cache_key}")
+                record_stale_fallback("fx", reason="rate_limited", symbol=cache_key)
                 return rate
         
         # If rate limited and no cache, return None
@@ -124,6 +126,7 @@ class CurrencyService:
                         "provider=yahoo symbol=%s fallback=stale_fx_cache reason=no_data",
                         forex_symbol,
                     )
+                    record_stale_fallback("fx", reason="no_data", symbol=forex_symbol)
                     return cached_rate
                 return None
             
@@ -151,6 +154,7 @@ class CurrencyService:
                     "provider=yahoo symbol=%s fallback=stale_fx_cache reason=fetch_failed",
                     forex_symbol,
                 )
+                record_stale_fallback("fx", reason="fetch_failed", symbol=forex_symbol)
                 return cached_rate
             return None
     
@@ -210,6 +214,7 @@ class CurrencyService:
                 return rate
             if _is_yf_rate_limited():
                 logger.debug(f"Rate limited, using stale historical FX cache for {cache_key}")
+                record_stale_fallback("historical_fx", reason="rate_limited", symbol=cache_key)
                 return rate
         
         # Fetch from Yahoo Finance using forex pair format
@@ -273,6 +278,7 @@ class CurrencyService:
                         forex_symbol,
                         date_str,
                     )
+                    record_stale_fallback("historical_fx", reason="no_data", symbol=forex_symbol)
                     return rate
                 return None
             
@@ -301,6 +307,7 @@ class CurrencyService:
                     forex_symbol,
                     date_str,
                 )
+                record_stale_fallback("historical_fx", reason="fetch_failed", symbol=forex_symbol)
                 return rate
             return None
     

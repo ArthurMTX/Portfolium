@@ -29,6 +29,7 @@ from app.services.yahoo_finance import (
     get_market_data_provider,
     yahoo_timeout_seconds,
 )
+from app.services.core_observability import record_stale_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -609,6 +610,7 @@ class PricingService:
                     latest_price = crud_prices.get_latest_price(self.db, asset.id)
                     if latest_price:
                         logger.warning(f"Batch fetch failed for {symbol}, using last known price")
+                        record_stale_fallback("price", reason="batch_fetch_failed", symbol=symbol)
                         daily_change_pct = self._calculate_daily_change_with_official_close(
                             asset.id, latest_price.price
                         )
@@ -1045,6 +1047,7 @@ class PricingService:
             reason,
             latest_price.asof,
         )
+        record_stale_fallback("price", reason=reason, symbol=symbol)
         daily_change_pct = self._calculate_daily_change_with_official_close(
             asset.id,
             latest_price.price,

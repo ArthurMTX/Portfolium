@@ -1,4 +1,4 @@
-.PHONY: up down logs restart test clean dev dev-backend dev-up dev-down dev-logs dev-restart dev-restart-build dev-up-build build-prod
+.PHONY: up down logs restart test test-backend test-backend-target clean dev dev-backend dev-up dev-down dev-logs dev-restart dev-restart-build dev-up-build build-prod
 
 build-prod:
 	docker build -t arthurmtx/portfolium-db:latest ./db && docker build -t arthurmtx/portfolium-api:latest -f ./api/Dockerfile . && docker build -t arthurmtx/portfolium-web:latest -f ./web/Dockerfile . 
@@ -17,6 +17,12 @@ restart:
 
 test:
 	docker compose exec api pytest tests/ -v
+
+test-backend:
+	docker compose -f docker-compose.dev.yml run --rm api-test
+
+test-backend-target:
+	docker compose -f docker-compose.dev.yml run --rm api-test pytest $(TARGET) -v
 
 clean:
 	docker compose down -v
@@ -46,4 +52,3 @@ dev-logs:
 dev-restart: dev-down dev-up dev-logs
 
 dev-restart-build: dev-down dev-up-build dev-logs
-

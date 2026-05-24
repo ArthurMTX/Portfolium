@@ -159,3 +159,13 @@ async def redis_health():
         "connection": redis_manager.get_stats(),
         "cache": CacheService.get_stats()
     }
+
+
+@router.get("/health/core")
+async def core_health():
+    """
+    Lightweight core signals for market data, stale fallbacks, and scheduled jobs.
+    """
+    from app.services.core_observability import get_core_observability
+
+    return get_core_observability()

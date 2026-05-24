@@ -2,6 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ARG INSTALL_DEV=false
+
 # Install system dependencies including WeasyPrint requirements
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -22,7 +24,11 @@ COPY api/pyproject.toml ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e .
+    if [ "$INSTALL_DEV" = "true" ]; then \
+        pip install --no-cache-dir -e ".[dev]"; \
+    else \
+        pip install --no-cache-dir -e .; \
+    fi
 
 # Copy application
 COPY api/ .

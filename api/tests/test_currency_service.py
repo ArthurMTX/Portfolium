@@ -3,11 +3,27 @@ Tests for currency conversion service
 """
 import pytest
 from decimal import Decimal
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import pandas as pd
 
 from app.services.currency import CurrencyService
+
+
+class FakeMarketDataProvider:
+    """Small provider test double matching the MarketDataProvider history API."""
+
+    name = "fake"
+
+    def __init__(self, history):
+        self.history = history
+        self.history_calls = []
+
+    def get_history(self, symbol, **kwargs):
+        self.history_calls.append((symbol, kwargs))
+        value = self.history(symbol) if callable(self.history) else self.history.get(symbol, pd.DataFrame())
+        if isinstance(value, Exception):
+            raise value
+        return value
 
 
 @pytest.mark.unit
@@ -22,35 +38,34 @@ class TestCurrencyConversion:
     
     def test_get_exchange_rate_success(self):
         """Test successful exchange rate fetch"""
-        # Mock yfinance
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({
             'Close': [0.85]  # 1 USD = 0.85 EUR
         })
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             rate = CurrencyService.get_exchange_rate("USD", "EUR")
             
             assert rate is not None
             assert rate == Decimal("0.85")
+            assert provider.history_calls[0][0] == "USDEUR=X"
     
     def test_get_exchange_rate_uses_inverse(self):
         """Test that inverse pair is tried when direct pair fails"""
-        def mock_ticker_factory(symbol):
-            mock = Mock()
+        def history_for(symbol):
             if symbol == "USDEUR=X":
                 # Direct pair fails
-                mock.history.return_value = pd.DataFrame()
+                return pd.DataFrame()
             elif symbol == "EURUSD=X":
                 # Inverse pair succeeds
-                hist_data = pd.DataFrame({
+                return pd.DataFrame({
                     'Close': [1.18]  # 1 EUR = 1.18 USD
                 })
-                mock.history.return_value = hist_data
-            return mock
+            return pd.DataFrame()
+
+        provider = FakeMarketDataProvider(history_for)
         
-        with patch('app.services.currency.yf.Ticker', side_effect=mock_ticker_factory):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             rate = CurrencyService.get_exchange_rate("USD", "EUR")
             
             # Should calculate 1/1.18 ≈ 0.847
@@ -59,10 +74,9 @@ class TestCurrencyConversion:
     
     def test_get_exchange_rate_no_data(self):
         """Test that None is returned when no data available"""
-        mock_ticker = Mock()
-        mock_ticker.history.return_value = pd.DataFrame()  # Empty
+        provider = FakeMarketDataProvider({"USDINVALID=X": pd.DataFrame()})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             rate = CurrencyService.get_exchange_rate("USD", "INVALID")
             assert rate is None
 
@@ -81,12 +95,10 @@ class TestCurrencyConversionAmounts:
     
     def test_convert_amount_success(self):
         """Test successful amount conversion"""
-        # Mock exchange rate
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [0.85]})
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("100.00"), "USD", "EUR"
             )
@@ -96,10 +108,9 @@ class TestCurrencyConversionAmounts:
     
     def test_convert_amount_no_rate_available(self):
         """Test that None is returned when rate unavailable"""
-        mock_ticker = Mock()
-        mock_ticker.history.return_value = pd.DataFrame()
+        provider = FakeMarketDataProvider({"USDINVALID=X": pd.DataFrame()})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("100.00"), "USD", "INVALID"
             )
@@ -107,11 +118,10 @@ class TestCurrencyConversionAmounts:
     
     def test_convert_large_amount_precision(self):
         """Test that precision is maintained for large amounts"""
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [0.847458]})
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("10000.00"), "USD", "EUR"
             )
@@ -128,11 +138,10 @@ class TestCurrencyCaching:
     
     def test_exchange_rate_is_cached(self):
         """Test that exchange rates are cached"""
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [0.85]})
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker) as mock:
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             # First call
             rate1 = CurrencyService.get_exchange_rate("USD", "EUR")
             
@@ -140,16 +149,15 @@ class TestCurrencyCaching:
             rate2 = CurrencyService.get_exchange_rate("USD", "EUR")
             
             assert rate1 == rate2
-            # yfinance should only be called once
-            assert mock.call_count == 1
+            # Provider should only be called once
+            assert len(provider.history_calls) == 1
     
     def test_cache_clear(self):
         """Test cache clearing"""
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [0.85]})
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker) as mock:
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             # Get rate (populates cache)
             CurrencyService.get_exchange_rate("USD", "EUR")
             
@@ -159,8 +167,8 @@ class TestCurrencyCaching:
             # Get rate again (should fetch again)
             CurrencyService.get_exchange_rate("USD", "EUR")
             
-            # yfinance should be called twice
-            assert mock.call_count == 2
+            # Provider should be called twice
+            assert len(provider.history_calls) == 2
 
 
 @pytest.mark.integration
@@ -170,20 +178,18 @@ class TestMultiCurrencyConversion:
     
     def test_chain_conversion_usd_to_eur_to_gbp(self):
         """Test converting through multiple currencies"""
-        def mock_ticker_factory(symbol):
-            mock = Mock()
+        def history_for(symbol):
             rates = {
                 "USDEUR=X": 0.85,   # 1 USD = 0.85 EUR
                 "EURGBP=X": 0.87    # 1 EUR = 0.87 GBP
             }
             if symbol in rates:
-                hist_data = pd.DataFrame({'Close': [rates[symbol]]})
-                mock.history.return_value = hist_data
-            else:
-                mock.history.return_value = pd.DataFrame()
-            return mock
+                return pd.DataFrame({'Close': [rates[symbol]]})
+            return pd.DataFrame()
+
+        provider = FakeMarketDataProvider(history_for)
         
-        with patch('app.services.currency.yf.Ticker', side_effect=mock_ticker_factory):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             # Convert USD -> EUR
             eur_amount = CurrencyService.convert(
                 Decimal("100.00"), "USD", "EUR"
@@ -200,8 +206,7 @@ class TestMultiCurrencyConversion:
     
     def test_common_currency_pairs(self):
         """Test common currency pair conversions"""
-        def mock_ticker_factory(symbol):
-            mock = Mock()
+        def history_for(symbol):
             # Common exchange rates (approximate)
             rates = {
                 "USDEUR=X": 0.85,
@@ -210,13 +215,12 @@ class TestMultiCurrencyConversion:
                 "USDCAD=X": 1.36
             }
             if symbol in rates:
-                hist_data = pd.DataFrame({'Close': [rates[symbol]]})
-                mock.history.return_value = hist_data
-            else:
-                mock.history.return_value = pd.DataFrame()
-            return mock
+                return pd.DataFrame({'Close': [rates[symbol]]})
+            return pd.DataFrame()
+
+        provider = FakeMarketDataProvider(history_for)
         
-        with patch('app.services.currency.yf.Ticker', side_effect=mock_ticker_factory):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             # Test various conversions
             eur = CurrencyService.convert(Decimal("100"), "USD", "EUR")
             assert eur == Decimal("85.00")
@@ -238,11 +242,10 @@ class TestCurrencyEdgeCases:
     
     def test_zero_amount_conversion(self):
         """Test converting zero amount"""
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [0.85]})
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("0.00"), "USD", "EUR"
             )
@@ -250,11 +253,10 @@ class TestCurrencyEdgeCases:
     
     def test_negative_amount_conversion(self):
         """Test converting negative amount (for P&L)"""
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [0.85]})
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("-50.00"), "USD", "EUR"
             )
@@ -262,11 +264,10 @@ class TestCurrencyEdgeCases:
     
     def test_very_small_amount_precision(self):
         """Test that small amounts maintain precision"""
-        mock_ticker = Mock()
         hist_data = pd.DataFrame({'Close': [149.5]})  # USD to JPY
-        mock_ticker.history.return_value = hist_data
+        provider = FakeMarketDataProvider({"USDJPY=X": hist_data})
         
-        with patch('app.services.currency.yf.Ticker', return_value=mock_ticker):
+        with patch('app.services.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("0.01"), "USD", "JPY"
             )

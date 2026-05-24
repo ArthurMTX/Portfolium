@@ -21,6 +21,28 @@ x-api-common: &api_common
     - ./web/src/locales:/app/locales:ro
 
 services:
+  api-test:
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    profiles: ["test"]
+    env_file: [.env]
+    environment:
+      TESTING: "true"
+      DATABASE_URL: "sqlite:///:memory:"
+      ADMIN_AUTO_CREATE: "false"
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      ENABLE_BACKGROUND_TASKS: "false"
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+    networks: [portfolium]
+    volumes:
+      - ./api:/app
+      - ./web/src/locales:/app/locales:ro
+    command: pytest tests/ -v
+
   db:
     image: postgres:15-alpine
     container_name: portfolium-db

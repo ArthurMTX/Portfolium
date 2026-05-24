@@ -13,6 +13,8 @@ load_dotenv(".env.test")
 
 import pytest
 from sqlalchemy import create_engine, event
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi.testclient import TestClient
 
@@ -28,6 +30,12 @@ from app.auth import get_password_hash
 from tests.factories import setup_factories
 
 
+@compiles(JSONB, "sqlite")
+def compile_jsonb_for_sqlite(type_, compiler, **kw):
+    """Allow PostgreSQL JSONB columns to be created in SQLite test databases."""
+    return "JSON"
+
+
 # Use in-memory SQLite for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
@@ -35,6 +43,19 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 @pytest.fixture(scope="function", autouse=True)
 def clear_caches():
     """Clear all service caches before each test"""
+    try:
+        from app.redis_client import get_redis
+
+        redis = get_redis()
+        if redis:
+            keys = []
+            for pattern in ("price:*", "price_refresh:*", "yfinance:*", "core:*"):
+                keys.extend(redis.keys(pattern))
+            if keys:
+                redis.delete(*keys)
+    except Exception:
+        pass
+
     # Clear metrics service caches
     from app.services import metrics
     if hasattr(metrics, '_task_cache'):
@@ -65,6 +86,19 @@ def clear_caches():
     from app.services import insights
     if hasattr(insights, '_insights_cache'):
         insights._insights_cache.clear()
+
+    try:
+        from app.redis_client import get_redis
+
+        redis = get_redis()
+        if redis:
+            keys = []
+            for pattern in ("price:*", "price_refresh:*", "yfinance:*", "core:*"):
+                keys.extend(redis.keys(pattern))
+            if keys:
+                redis.delete(*keys)
+    except Exception:
+        pass
     
     yield
     

@@ -3,6 +3,7 @@ Celery application configuration and initialization.
 """
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import task_postrun
 from app.config import settings
 
 # Initialize Celery app
@@ -67,6 +68,23 @@ celery_app.conf.update(
     broker_connection_retry=True,
     broker_connection_max_retries=10,
 )
+
+
+@task_postrun.connect
+def record_successful_task(sender=None, task_id=None, state=None, retval=None, **kwargs):
+    """Record lightweight last-success timestamps for task health checks."""
+    if state != "SUCCESS":
+        return
+    if isinstance(retval, dict):
+        if retval.get("status") in {"error", "skipped"} or retval.get("error"):
+            return
+
+    try:
+        from app.services.core_observability import record_task_success
+
+        record_task_success(getattr(sender, "name", None), task_id)
+    except Exception:
+        pass
 
 # Celery Beat is the single scheduler for the application.
 # FastAPI workers do not schedule periodic jobs and do not run heavy warmups at boot.
