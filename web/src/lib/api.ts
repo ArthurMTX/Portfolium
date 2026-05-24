@@ -68,6 +68,29 @@ export interface PortfolioDTO {
   created_at: string
 }
 
+export interface CsvImportPreviewIssueDTO {
+  row_num: number | null
+  message: string
+}
+
+export interface CsvImportPreviewDuplicateDTO {
+  row_num: number
+  message: string
+  scope: 'csv' | 'database' | string
+}
+
+export interface CsvImportPreviewResultDTO {
+  total_rows: number
+  valid_count: number
+  error_count: number
+  warning_count: number
+  duplicate_count: number
+  summary_by_type: Record<string, number>
+  errors: CsvImportPreviewIssueDTO[]
+  warnings: CsvImportPreviewIssueDTO[]
+  duplicates: CsvImportPreviewDuplicateDTO[]
+}
+
 export interface PositionDTO {
   asset_id: number
   symbol: string
@@ -1154,6 +1177,29 @@ class ApiClient {
 
     const response = await fetch(
       `${this.baseUrl}/portfolios/import/csv?portfolio_id=${portfolioId}`,
+      {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+        body: formData,
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(JSON.stringify(error))
+    }
+
+    return response.json()
+  }
+
+  async previewImportCsv(portfolioId: number, file: File): Promise<CsvImportPreviewResultDTO> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(
+      `${this.baseUrl}/portfolios/import/csv/preview?portfolio_id=${portfolioId}`,
       {
         method: 'POST',
         headers: {

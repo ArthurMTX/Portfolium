@@ -556,6 +556,32 @@ class CsvImportResult(BaseModel):
     warnings: List[str] = []
 
 
+class CsvImportPreviewIssue(BaseModel):
+    """Single issue found during CSV import preview"""
+    row_num: Optional[int] = None
+    message: str
+
+
+class CsvImportPreviewDuplicate(BaseModel):
+    """Potential duplicate found during CSV import preview"""
+    row_num: int
+    message: str
+    scope: str
+
+
+class CsvImportPreviewResult(BaseModel):
+    """Non-mutating CSV import preview"""
+    total_rows: int
+    valid_count: int
+    error_count: int
+    warning_count: int
+    duplicate_count: int
+    summary_by_type: Dict[str, int] = {}
+    errors: List[CsvImportPreviewIssue] = []
+    warnings: List[CsvImportPreviewIssue] = []
+    duplicates: List[CsvImportPreviewDuplicate] = []
+
+
 # ============================================================================
 # Health Check
 # ============================================================================

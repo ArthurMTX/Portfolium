@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '../store/usePortfolioStore'
-import api from '../lib/api'
+import api, { type CsvImportPreviewResultDTO } from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw, DollarSign, AlertTriangle, Info } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
+import ImportReviewModal from '../components/ImportReviewModal'
 import ImportProgressModal from '../components/ImportProgressModal'
 import ConversionModal from '../components/ConversionModal'
 import PendingDividends from '../components/PendingDividends'
@@ -129,8 +130,12 @@ export default function Transactions() {
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState("")
   const [splitHistoryAsset, setSplitHistoryAsset] = useState<{ id: number; symbol: string } | null>(null)
+  const [showImportReview, setShowImportReview] = useState(false)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [importPreview, setImportPreview] = useState<CsvImportPreviewResultDTO | null>(null)
+  const [importPreviewLoading, setImportPreviewLoading] = useState(false)
+  const [importPreviewError, setImportPreviewError] = useState("")
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showConversionModal, setShowConversionModal] = useState(false)
 
@@ -143,7 +148,7 @@ export default function Transactions() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (modalMode || deleteConfirm || showImportProgress || showConversionModal) {
+    if (modalMode || deleteConfirm || showImportReview || showImportProgress || showConversionModal) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -151,7 +156,7 @@ export default function Transactions() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [modalMode, deleteConfirm, showImportProgress, showConversionModal])
+  }, [modalMode, deleteConfirm, showImportReview, showImportProgress, showConversionModal])
 
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolioId) return
@@ -705,15 +710,44 @@ export default function Transactions() {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file || !activePortfolioId) return
 
-      // Show progress modal
       setImportFile(file)
-      setShowImportProgress(true)
+      setShowImportReview(true)
       setImportLoading(true)
+      setImportPreviewLoading(true)
+      setImportPreview(null)
+      setImportPreviewError("")
       setImportError("")
       setImportSuccess("")
+
+      try {
+        const preview = await api.previewImportCsv(activePortfolioId, file)
+        setImportPreview(preview)
+      } catch (err) {
+        console.error('Failed to preview import:', err)
+        setImportPreviewError(err instanceof Error ? err.message : t('importReviewModal.previewFailed'))
+      } finally {
+        setImportPreviewLoading(false)
+        setImportLoading(false)
+      }
     }
     input.click()
   }
+
+  const handleImportReviewCancel = useCallback(() => {
+    setShowImportReview(false)
+    setImportFile(null)
+    setImportPreview(null)
+    setImportPreviewError("")
+    setImportPreviewLoading(false)
+    setImportLoading(false)
+  }, [])
+
+  const handleImportReviewConfirm = useCallback(() => {
+    if (!importPreview || importPreview.error_count > 0) return
+    setShowImportReview(false)
+    setShowImportProgress(true)
+    setImportLoading(true)
+  }, [importPreview])
 
   const handleImportComplete = useCallback(async (success: boolean) => {
     setImportLoading(false)
@@ -732,6 +766,9 @@ export default function Transactions() {
   const handleImportClose = useCallback(() => {
     setShowImportProgress(false)
     setImportFile(null)
+    setImportPreview(null)
+    setImportPreviewError("")
+    setImportPreviewLoading(false)
     setImportLoading(false)
   }, [])
 
@@ -2167,6 +2204,17 @@ export default function Transactions() {
           onClose={() => setSplitHistoryAsset(null)}
         />
       )}
+
+      {/* Import Review Modal */}
+      <ImportReviewModal
+        isOpen={showImportReview}
+        file={importFile}
+        preview={importPreview}
+        loading={importPreviewLoading}
+        error={importPreviewError}
+        onCancel={handleImportReviewCancel}
+        onConfirm={handleImportReviewConfirm}
+      />
 
       {/* Import Progress Modal */}
       <ImportProgressModal

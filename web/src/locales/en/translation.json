@@ -1149,6 +1149,26 @@
     "waitingForUpdates": "Waiting for updates...",
     "assetsAutoCreated": "Assets were automatically created for some transactions."
   },
+  "importReviewModal": {
+    "title": "Review import",
+    "loading": "Checking CSV before import...",
+    "previewFailed": "Failed to preview CSV import.",
+    "rowsDetected": "Rows detected",
+    "validTransactions": "Valid transactions",
+    "errors": "Errors",
+    "warnings": "Warnings",
+    "duplicates": "Potential duplicates",
+    "summaryByType": "Summary by type",
+    "readyToImport": "No blocking errors found. Review warnings and duplicates before confirming.",
+    "fixErrors": "Fix the blocking errors in the CSV before importing.",
+    "noErrors": "No blocking errors found.",
+    "noWarnings": "No warnings found.",
+    "noDuplicates": "No potential duplicates found.",
+    "rowPrefix": "Row {{row}}",
+    "filePrefix": "File",
+    "moreItems": "{{count}} more not shown",
+    "confirmImport": "Confirm import"
+  },
   "transactionMetrics": {
     "title": "Transaction Metrics",
     "description": "Analyze your buying and selling activity over time",

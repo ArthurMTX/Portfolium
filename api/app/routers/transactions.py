@@ -19,7 +19,7 @@ from app.errors import (
     ValidationError
 )
 from app.db import get_db
-from app.schemas import Transaction, TransactionCreate, CsvImportResult, ConversionCreate, ConversionResponse
+from app.schemas import Transaction, TransactionCreate, CsvImportResult, CsvImportPreviewResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
 from app.models import TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
 from app.services.import_csv import get_csv_import_service, CsvImportService
@@ -1236,6 +1236,22 @@ async def import_csv_stream(
             "X-Accel-Buffering": "no"  # Disable nginx buffering
         }
     )
+
+
+@router.post("/import/csv/preview", response_model=CsvImportPreviewResult)
+async def preview_import_csv(
+    portfolio_id: int,
+    file: UploadFile = File(...),
+    csv_service: CsvImportService = Depends(get_csv_import_service),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Preview transactions from a CSV file without creating assets or transactions.
+    """
+    content = await file.read()
+    csv_content = content.decode("utf-8")
+    return csv_service.preview_csv(portfolio_id, csv_content)
 
 
 @router.post("/import/csv", response_model=CsvImportResult)

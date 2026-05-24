@@ -6,12 +6,19 @@ import csv
 from io import StringIO
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional, Callable, Dict, Any, Generator
+from typing import List, Dict, Any, Generator, Tuple
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
-from app.models import TransactionType
-from app.schemas import CsvImportRow, CsvImportResult, TransactionCreate
+from app.models import TransactionType, Transaction
+from app.schemas import (
+    CsvImportPreviewDuplicate,
+    CsvImportPreviewIssue,
+    CsvImportPreviewResult,
+    CsvImportRow,
+    CsvImportResult,
+    TransactionCreate,
+)
 from app.crud import assets as crud_assets, transactions as crud_transactions
 from app.db import get_db
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
@@ -167,15 +174,7 @@ class CsvImportService:
                     }
                     
                     # Validate SPLIT transactions
-                    if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
-                        raise ValueError(f'SPLIT transactions must include a split_ratio (e.g., "2:1")')
-                    
-                    # Validate CONVERSION transactions must have conversion_id
-                    if import_row.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
-                        if not import_row.conversion_id:
-                            raise ValueError(
-                                f'{import_row.type.value} transactions require a conversion_id to link pairs'
-                            )
+                    self._validate_import_row(import_row)
                     
                     # Get or create asset
                     asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
@@ -402,15 +401,7 @@ class CsvImportService:
                     import_row = self._parse_row(row)
                     
                     # Validate SPLIT transactions
-                    if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
-                        raise ValueError(f'SPLIT transactions must include a split_ratio (e.g., "2:1")')
-                    
-                    # Validate CONVERSION transactions must have conversion_id
-                    if import_row.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
-                        if not import_row.conversion_id:
-                            raise ValueError(
-                                f'{import_row.type.value} transactions require a conversion_id to link pairs'
-                            )
+                    self._validate_import_row(import_row)
                     
                     # Get or create asset
                     asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
@@ -497,6 +488,148 @@ class CsvImportService:
                 errors=[f"CSV parsing failed: {str(e)}"],
                 warnings=[]
             )
+
+    def preview_csv(
+        self,
+        portfolio_id: int,
+        csv_content: str,
+        delimiter: str = ","
+    ) -> CsvImportPreviewResult:
+        """Preview a CSV import without mutating assets, transactions, prices, or caches."""
+        errors: List[CsvImportPreviewIssue] = []
+        warnings: List[CsvImportPreviewIssue] = []
+        duplicates: List[CsvImportPreviewDuplicate] = []
+        summary_by_type: Dict[str, int] = {}
+        valid_count = 0
+
+        try:
+            csv_file = StringIO(csv_content)
+            reader = csv.DictReader(csv_file, delimiter=delimiter)
+            rows = list(enumerate(reader, start=2))
+            total_rows = len(rows)
+
+            def get_sequence(row_item: Tuple[int, dict]):
+                _, row = row_item
+                seq = row.get("sequence", "").strip()
+                return int(seq) if seq else float('inf')
+
+            try:
+                rows.sort(key=get_sequence)
+            except Exception as e:
+                errors.append(CsvImportPreviewIssue(
+                    row_num=None,
+                    message=f"Invalid sequence value: {str(e)}"
+                ))
+
+            symbols_to_validate = {
+                row.get("symbol", "").strip().upper()
+                for _, row in rows
+                if row.get("symbol", "").strip()
+            }
+            invalid_symbols = set(self._validate_symbols_in_provider(list(symbols_to_validate)))
+
+            seen_csv_keys: Dict[Tuple[Any, ...], int] = {}
+
+            for row_num, row in rows:
+                try:
+                    import_row = self._parse_row(row)
+                    summary_by_type[import_row.type.value] = summary_by_type.get(import_row.type.value, 0) + 1
+                    if import_row.symbol in invalid_symbols:
+                        raise ValueError(
+                            f"Symbol {import_row.symbol} does not exist in the market data provider"
+                        )
+                    self._validate_import_row(import_row)
+
+                    asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
+                    if not asset:
+                        warnings.append(CsvImportPreviewIssue(
+                            row_num=row_num,
+                            message=f"Asset {import_row.symbol} will be created automatically"
+                        ))
+                    elif self._has_existing_duplicate(portfolio_id, asset.id, import_row):
+                        duplicates.append(CsvImportPreviewDuplicate(
+                            row_num=row_num,
+                            scope="database",
+                            message=f"Potential duplicate already exists for {import_row.symbol} on {import_row.date.isoformat()}"
+                        ))
+
+                    csv_key = self._duplicate_key(import_row)
+                    first_seen_row = seen_csv_keys.get(csv_key)
+                    if first_seen_row is not None:
+                        duplicates.append(CsvImportPreviewDuplicate(
+                            row_num=row_num,
+                            scope="csv",
+                            message=f"Potential duplicate of CSV row {first_seen_row}"
+                        ))
+                    else:
+                        seen_csv_keys[csv_key] = row_num
+
+                    valid_count += 1
+                except Exception as e:
+                    errors.append(CsvImportPreviewIssue(
+                        row_num=row_num,
+                        message=str(e)
+                    ))
+
+            return CsvImportPreviewResult(
+                total_rows=total_rows,
+                valid_count=valid_count,
+                error_count=len(errors),
+                warning_count=len(warnings),
+                duplicate_count=len(duplicates),
+                summary_by_type=summary_by_type,
+                errors=errors,
+                warnings=warnings,
+                duplicates=duplicates
+            )
+        except Exception as e:
+            logger.error(f"CSV preview failed: {e}")
+            return CsvImportPreviewResult(
+                total_rows=0,
+                valid_count=0,
+                error_count=1,
+                warning_count=0,
+                duplicate_count=0,
+                summary_by_type={},
+                errors=[CsvImportPreviewIssue(row_num=None, message=f"CSV parsing failed: {str(e)}")],
+                warnings=[],
+                duplicates=[]
+            )
+
+    def _validate_import_row(self, import_row: CsvImportRow) -> None:
+        if import_row.type == TransactionType.SPLIT and not import_row.split_ratio:
+            raise ValueError('SPLIT transactions must include a split_ratio (e.g., "2:1")')
+
+        if import_row.type in [TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT]:
+            if not import_row.conversion_id:
+                raise ValueError(
+                    f'{import_row.type.value} transactions require a conversion_id to link pairs'
+                )
+
+    def _duplicate_key(self, import_row: CsvImportRow) -> Tuple[Any, ...]:
+        return (
+            import_row.date,
+            import_row.symbol,
+            import_row.type.value,
+            import_row.quantity,
+            import_row.price,
+            import_row.fees,
+            import_row.currency,
+            import_row.split_ratio or "",
+            import_row.conversion_id or "",
+        )
+
+    def _has_existing_duplicate(self, portfolio_id: int, asset_id: int, import_row: CsvImportRow) -> bool:
+        return self.db.query(Transaction.id).filter(
+            Transaction.portfolio_id == portfolio_id,
+            Transaction.asset_id == asset_id,
+            Transaction.tx_date == import_row.date,
+            Transaction.type == import_row.type,
+            Transaction.quantity == import_row.quantity,
+            Transaction.price == import_row.price,
+            Transaction.fees == import_row.fees,
+            Transaction.currency == import_row.currency,
+        ).first() is not None
     
     def _parse_row(self, row: dict) -> CsvImportRow:
         """Parse a single CSV row"""

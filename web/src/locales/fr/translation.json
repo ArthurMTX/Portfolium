@@ -1149,6 +1149,26 @@
     "waitingForUpdates": "En attente des mises à jour...",
     "assetsAutoCreated": "Des actifs ont été créés automatiquement pour certaines transactions."
   },
+  "importReviewModal": {
+    "title": "Vérifier l'import",
+    "loading": "Vérification du CSV avant import...",
+    "previewFailed": "Impossible de prévisualiser l'import CSV.",
+    "rowsDetected": "Lignes détectées",
+    "validTransactions": "Transactions valides",
+    "errors": "Erreurs",
+    "warnings": "Avertissements",
+    "duplicates": "Doublons potentiels",
+    "summaryByType": "Résumé par type",
+    "readyToImport": "Aucune erreur bloquante détectée. Vérifiez les avertissements et les doublons avant de confirmer.",
+    "fixErrors": "Corrigez les erreurs bloquantes dans le CSV avant d'importer.",
+    "noErrors": "Aucune erreur bloquante détectée.",
+    "noWarnings": "Aucun avertissement détecté.",
+    "noDuplicates": "Aucun doublon potentiel détecté.",
+    "rowPrefix": "Ligne {{row}}",
+    "filePrefix": "Fichier",
+    "moreItems": "{{count}} autres non affichés",
+    "confirmImport": "Confirmer l'import"
+  },
   "transactionMetrics": {
     "title": "Métriques des transactions",
     "description": "Analysez votre activité d'achat et de vente au fil du temps",
