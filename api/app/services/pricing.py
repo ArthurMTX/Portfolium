@@ -755,29 +755,26 @@ class PricingService:
             if hist is None or hist.empty:
                 return 0
 
-            from app.schemas import PriceCreate
-            from app.crud import prices as crud_prices
-
-            new_count = 0
-            # Save close prices by day
+            price_rows = []
             for idx, row in hist.iterrows():
                 try:
                     asof_dt = datetime(idx.year, idx.month, idx.day)
                     price_val = Decimal(str(float(row.get('Close'))))
                     if price_val and price_val > 0:
-                        pc = PriceCreate(
-                            asset_id=asset.id,
-                            asof=asof_dt,
-                            price=price_val,
-                            volume=int(row.get('Volume', 0)) if 'Volume' in row else None,
-                            source='yfinance_history'
+                        price_rows.append(
+                            PriceCreate(
+                                asset_id=asset.id,
+                                asof=asof_dt,
+                                price=price_val,
+                                volume=int(row.get('Volume', 0)) if 'Volume' in row else None,
+                                source='yfinance_history'
+                            )
                         )
-                        crud_prices.create_price(self.db, pc)
-                        new_count += 1
                 except Exception:
                     # Skip bad row
                     continue
-            return new_count
+
+            return crud_prices.bulk_upsert_prices(self.db, price_rows)
         except Exception as e:
             logger.warning(f"Failed to fetch history for {asset.symbol}: {e}")
             return 0
