@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { TrendingUp, PieChart, BarChart3, Activity, Shield, Award, Target, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import { getSectorIcon, getSectorColor } from '../lib/sectorIndustryUtils'
@@ -198,6 +198,7 @@ export default function Insights() {
 
     setLoading(true)
     setError('')
+    let scheduledInsightsCommit = false
     try {
       const data = await api.getPortfolioInsights(activePortfolioId, period, benchmark, signal)
 
@@ -282,7 +283,11 @@ export default function Insights() {
         }))
       }
 
-      setInsights(normalizedData)
+      scheduledInsightsCommit = true
+      startTransition(() => {
+        setInsights(normalizedData)
+        setLoading(false)
+      })
     } catch (err) {
       // Ignore abort errors (user navigated away)
       if (err instanceof Error && err.name === 'AbortError') {
@@ -293,7 +298,9 @@ export default function Insights() {
       const error = err as Error
       setError(error.message || 'Failed to load insights')
     } finally {
-      setLoading(false)
+      if (!scheduledInsightsCommit) {
+        setLoading(false)
+      }
     }
   }, [activePortfolioId, period, benchmark])
 

@@ -462,9 +462,24 @@ class ApiClient {
       ...options.headers,
     }
 
-    const { timeout, ...fetchOptions } = options
+    const { timeout, signal: externalSignal, ...fetchOptions } = options
     const controller = new AbortController()
-    const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null
+    let didTimeout = false
+    const timeoutId = timeout
+      ? setTimeout(() => {
+          didTimeout = true
+          controller.abort()
+        }, timeout)
+      : null
+    const handleExternalAbort = () => controller.abort()
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort()
+      } else {
+        externalSignal.addEventListener('abort', handleExternalAbort, { once: true })
+      }
+    }
 
     try {
       const response = await fetch(url, {
@@ -495,9 +510,14 @@ class ApiClient {
     } catch (err) {
       if (timeoutId) clearTimeout(timeoutId)
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('Request timeout - the operation took too long')
+        if (didTimeout) {
+          throw new Error('Request timeout - the operation took too long')
+        }
+        throw err
       }
       throw err
+    } finally {
+      externalSignal?.removeEventListener('abort', handleExternalAbort)
     }
   }
 

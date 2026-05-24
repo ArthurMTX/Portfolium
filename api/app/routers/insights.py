@@ -1,6 +1,7 @@
 """
 Portfolio insights and analytics router
 """
+import asyncio
 from typing import List, Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -27,7 +28,7 @@ router = APIRouter()
 
 
 @router.get("/{portfolio_id}", response_model=PortfolioInsights)
-async def get_portfolio_insights(
+def get_portfolio_insights(
     portfolio_id: int,
     insights_service: InsightsServiceDep,
     period: str = "1y",  # 1m, 3m, 6m, 1y, ytd, all
@@ -46,11 +47,13 @@ async def get_portfolio_insights(
     """
     
     try:
-        return await insights_service.get_portfolio_insights(
-            portfolio_id=portfolio_id,
-            user_id=current_user.id,
-            period=period,
-            benchmark_symbol=benchmark
+        return asyncio.run(
+            insights_service.get_portfolio_insights(
+                portfolio_id=portfolio_id,
+                user_id=current_user.id,
+                period=period,
+                benchmark_symbol=benchmark
+            )
         )
     except ValueError as e:
         raise CannotGetPortfolioInsightsError(portfolio_id, str(e))

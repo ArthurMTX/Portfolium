@@ -6,7 +6,7 @@ import NotificationDropdown from './NotificationDropdown'
 
 export default function NotificationBell() {
   const navigate = useNavigate()
-  const { unreadCount, fetchUnreadCount } = useNotificationStore()
+  const { unreadCount, fetchUnreadCount, fetchNotifications } = useNotificationStore()
   const [isHovered, setIsHovered] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -14,6 +14,7 @@ export default function NotificationBell() {
   useEffect(() => {
     // Fetch unread count on mount
     fetchUnreadCount()
+    void fetchNotifications(false, { background: true })
 
     // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
@@ -21,13 +22,14 @@ export default function NotificationBell() {
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [fetchUnreadCount])
+  }, [fetchUnreadCount, fetchNotifications])
 
   const handleMouseEnter = () => {
     // Clear any pending timeout
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
     }
+    void fetchNotifications(false, { background: true })
     // Show dropdown immediately on hover
     setIsHovered(true)
   }

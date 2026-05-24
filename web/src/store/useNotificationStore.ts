@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { api } from '../lib/api'
 
+const NOTIFICATIONS_CACHE_TTL_MS = 60_000
+const NOTIFICATIONS_STORAGE_KEY = 'portfolium.notifications.cache.v1'
+let notificationsFetchPromise: Promise<void> | null = null
+let unreadNotificationsFetchPromise: Promise<void> | null = null
+
 export interface Notification {
   id: number
   user_id: number
@@ -12,14 +17,95 @@ export interface Notification {
   created_at: string
 }
 
+interface StoredNotificationsCache {
+  notifications: Notification[]
+  lastFetchedAt: number | null
+  authToken: string | null
+}
+
+const emptyNotificationsCache: StoredNotificationsCache = {
+  notifications: [],
+  lastFetchedAt: null,
+  authToken: null
+}
+
+function getCurrentAuthToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return window.localStorage.getItem('auth_token')
+}
+
+function readNotificationsCache(): StoredNotificationsCache {
+  if (typeof window === 'undefined') {
+    return emptyNotificationsCache
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(NOTIFICATIONS_STORAGE_KEY)
+    if (!rawCache) {
+      return emptyNotificationsCache
+    }
+
+    const parsedCache = JSON.parse(rawCache) as Partial<StoredNotificationsCache>
+    const currentAuthToken = getCurrentAuthToken()
+    if (!currentAuthToken || parsedCache.authToken !== currentAuthToken) {
+      return emptyNotificationsCache
+    }
+
+    return {
+      notifications: Array.isArray(parsedCache.notifications)
+        ? parsedCache.notifications
+        : [],
+      lastFetchedAt:
+        typeof parsedCache.lastFetchedAt === 'number'
+          ? parsedCache.lastFetchedAt
+          : null,
+      authToken: currentAuthToken
+    }
+  } catch {
+    return emptyNotificationsCache
+  }
+}
+
+function writeNotificationsCache(
+  notifications: Notification[],
+  lastFetchedAt: number | null
+) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const currentAuthToken = getCurrentAuthToken()
+    window.localStorage.setItem(
+      NOTIFICATIONS_STORAGE_KEY,
+      JSON.stringify({
+        notifications,
+        lastFetchedAt,
+        authToken: currentAuthToken
+      })
+    )
+  } catch {
+    // Ignore storage failures and keep the in-memory cache working.
+  }
+}
+
+const initialNotificationsCache = readNotificationsCache()
+
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
   loading: boolean
   error: string | null
+  lastFetchedAt: number | null
   
   // Actions
-  fetchNotifications: (unreadOnly?: boolean) => Promise<void>
+  fetchNotifications: (
+    unreadOnly?: boolean,
+    options?: { force?: boolean; background?: boolean }
+  ) => Promise<void>
   fetchUnreadCount: () => Promise<void>
   markAsRead: (notificationId: number) => Promise<void>
   markAllAsRead: () => Promise<void>
@@ -28,22 +114,72 @@ interface NotificationState {
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
-  notifications: [],
-  unreadCount: 0,
+  notifications: initialNotificationsCache.notifications,
+  unreadCount: initialNotificationsCache.notifications.filter((n) => !n.is_read).length,
   loading: false,
   error: null,
+  lastFetchedAt: initialNotificationsCache.lastFetchedAt,
 
-  fetchNotifications: async (unreadOnly = false) => {
-    set({ loading: true, error: null })
-    try {
-      const notifications = await api.getNotifications(0, 50, unreadOnly)
-      set({ notifications, loading: false })
-    } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to fetch notifications',
-        loading: false 
-      })
+  fetchNotifications: async (unreadOnly = false, options = {}) => {
+    const { force = false, background = false } = options
+    const { notifications, lastFetchedAt } = get()
+    const isFullListRequest = !unreadOnly
+    const hasCachedNotifications = notifications.length > 0
+    const isFresh =
+      isFullListRequest &&
+      lastFetchedAt !== null &&
+      Date.now() - lastFetchedAt < NOTIFICATIONS_CACHE_TTL_MS
+
+    if (!force && isFresh) {
+      return
     }
+
+    const activePromise = unreadOnly ? unreadNotificationsFetchPromise : notificationsFetchPromise
+    if (activePromise) {
+      return activePromise
+    }
+
+    const shouldShowLoading = !background || !hasCachedNotifications
+    if (shouldShowLoading) {
+      set({ loading: true, error: null })
+    } else {
+      set({ error: null })
+    }
+
+    const request = (async () => {
+      try {
+        const notifications = await api.getNotifications(0, 50, unreadOnly)
+        const nextLastFetchedAt = unreadOnly ? get().lastFetchedAt : Date.now()
+        set((state) => ({
+          notifications,
+          loading: false,
+          error: null,
+          lastFetchedAt: unreadOnly ? state.lastFetchedAt : nextLastFetchedAt
+        }))
+        if (isFullListRequest) {
+          writeNotificationsCache(notifications, nextLastFetchedAt)
+        }
+      } catch (error) {
+        set((state) => ({
+          error: error instanceof Error ? error.message : 'Failed to fetch notifications',
+          loading: shouldShowLoading ? false : state.loading
+        }))
+      } finally {
+        if (unreadOnly) {
+          unreadNotificationsFetchPromise = null
+        } else {
+          notificationsFetchPromise = null
+        }
+      }
+    })()
+
+    if (unreadOnly) {
+      unreadNotificationsFetchPromise = request
+    } else {
+      notificationsFetchPromise = request
+    }
+
+    return request
   },
 
   fetchUnreadCount: async () => {
@@ -66,6 +202,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         ),
         unreadCount: Math.max(0, state.unreadCount - 1)
       }))
+      const { notifications, lastFetchedAt } = get()
+      writeNotificationsCache(notifications, lastFetchedAt)
     } catch (error) {
       console.error('Failed to mark notification as read:', error)
     }
@@ -80,6 +218,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
         unreadCount: 0
       }))
+      const { notifications, lastFetchedAt } = get()
+      writeNotificationsCache(notifications, lastFetchedAt)
     } catch (error) {
       console.error('Failed to mark all as read:', error)
     }
@@ -99,6 +239,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount
         }
       })
+      const { notifications, lastFetchedAt } = get()
+      writeNotificationsCache(notifications, lastFetchedAt)
     } catch (error) {
       console.error('Failed to delete notification:', error)
     }
@@ -107,7 +249,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   refreshNotifications: async () => {
     const { fetchNotifications, fetchUnreadCount } = get()
     await Promise.all([
-      fetchNotifications(),
+      fetchNotifications(false, { force: true }),
       fetchUnreadCount()
     ])
   }

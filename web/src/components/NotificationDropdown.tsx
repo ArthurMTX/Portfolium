@@ -19,7 +19,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
   const { t } = useTranslation()
 
   useEffect(() => {
-    fetchNotifications()
+    void fetchNotifications(false, { background: true })
   }, [fetchNotifications])
 
   const handleNotificationClick = async (notificationId: number, isRead: boolean) => {
@@ -43,6 +43,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
   }
 
   const recentNotifications = notifications.slice(0, 5)
+  const showLoading = loading && recentNotifications.length === 0
 
   return (
     <div 
@@ -69,7 +70,7 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
 
       {/* Notifications list */}
       <div className="overflow-y-auto flex-1">
-        {loading ? (
+        {showLoading ? (
           <div className="p-8 text-center text-neutral-500 dark:text-neutral-400">
             {t('notifications.loadingNotifications')}
           </div>
