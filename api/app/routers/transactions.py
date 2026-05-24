@@ -32,7 +32,7 @@ import yfinance as yf
 
 
 @router.get("/{portfolio_id}/fetch_price")
-async def fetch_price_for_date(
+def fetch_price_for_date(
     portfolio_id: int,
     ticker: str,
     tx_date: date,
@@ -97,7 +97,7 @@ async def fetch_price_for_date(
 
 
 @router.get("/{portfolio_id}/fx_rate")
-async def get_fx_rate_for_date(
+def get_fx_rate_for_date(
     portfolio_id: int,
     from_currency: str,
     to_currency: str,
@@ -157,7 +157,7 @@ async def get_fx_rate_for_date(
 
 
 @router.get("/{portfolio_id}/positions/{asset_id}/quantity_at_date")
-async def get_position_quantity_at_date(
+def get_position_quantity_at_date(
     portfolio_id: int,
     asset_id: int,
     as_of_date: date,
@@ -186,7 +186,7 @@ async def get_position_quantity_at_date(
 
 # Add position transaction with live price from yfinance
 @router.post("/{portfolio_id}/add_position_transaction", response_model=Transaction, status_code=status.HTTP_201_CREATED)
-async def add_position_transaction(
+def add_position_transaction(
     portfolio_id: int,
     ticker: str,
     tx_date: date,
@@ -347,7 +347,7 @@ async def add_position_transaction(
 
 
 @router.post("/{portfolio_id}/conversions", response_model=ConversionResponse, status_code=status.HTTP_201_CREATED)
-async def create_conversion(
+def create_conversion(
     portfolio_id: int,
     conversion: ConversionCreate,
     pricing_service: PricingServiceDep,
@@ -577,7 +577,7 @@ async def create_conversion(
 
 
 @router.get("/{portfolio_id}/transactions", response_model=List[Transaction])
-async def get_transactions(
+def get_transactions(
     portfolio_id: int,
     asset_id: Optional[int] = None,
     tx_type: Optional[TransactionType] = None,
@@ -612,7 +612,7 @@ async def get_transactions(
 
 
 @router.get("/{portfolio_id}/transactions/metrics")
-async def get_transaction_metrics(
+def get_transaction_metrics(
     portfolio_id: int,
     grouping: str = "monthly",  # "monthly" or "yearly"
     db: Session = Depends(get_db),
@@ -756,7 +756,7 @@ async def get_transaction_metrics(
 
 
 @router.get("/{portfolio_id}/transactions/{transaction_id}", response_model=Transaction)
-async def get_transaction(
+def get_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
@@ -774,7 +774,7 @@ async def get_transaction(
     response_model=Transaction,
     status_code=status.HTTP_201_CREATED
 )
-async def create_transaction(
+def create_transaction(
     portfolio_id: int,
     transaction: TransactionCreate,
     pricing_service: PricingServiceDep,
@@ -921,7 +921,7 @@ async def create_transaction(
 
 
 @router.put("/{portfolio_id}/transactions/{transaction_id}", response_model=Transaction)
-async def update_transaction(
+def update_transaction(
     portfolio_id: int,
     transaction_id: int,
     transaction: TransactionCreate,
@@ -1039,7 +1039,7 @@ async def update_transaction(
     "/{portfolio_id}/transactions/{transaction_id}",
     status_code=status.HTTP_204_NO_CONTENT
 )
-async def delete_transaction(
+def delete_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),

@@ -52,7 +52,7 @@ def _parse_split_ratio(split_str: str) -> Decimal:
 
 # Live ticker search endpoint
 @router.get("/search_ticker")
-async def search_ticker(query: str):
+def search_ticker(query: str):
     """
     Live search for tickers using yfinance
     - **query**: Partial ticker or company name
@@ -82,7 +82,7 @@ async def search_ticker(query: str):
 
 
 @router.get("/search")
-async def search_assets(query: str, crypto_only: bool = False):
+def search_assets(query: str, crypto_only: bool = False):
     """
     Live search for assets using Yahoo Finance API
     - **query**: Partial ticker or company name
@@ -1857,7 +1857,6 @@ def get_yfinance_data(
     except Exception as e:
         logger.error(f"Failed to fetch yfinance data for {fetch_symbol}: {str(e)}", exc_info=True)
         raise FailedToFetchYahooFinanceDataError(symbol=fetch_symbol, reason=str(e))
-
 
 
 

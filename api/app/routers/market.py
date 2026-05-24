@@ -1,6 +1,7 @@
 """
 Market data endpoints - Sentiment, indices, etc.
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Literal, Tuple, Any
@@ -27,23 +28,21 @@ _market_cache: Dict[str, Tuple[Any, datetime]] = {}
 _CACHE_TTL = timedelta(minutes=5)  # Cache for 5 minutes
 
 
-def _get_cached_or_fetch(cache_key: str, fetch_func):
+async def _get_cached_or_fetch_async(cache_key: str, fetch_func):
     """
-    Generic cache wrapper for market data endpoints
-    Returns cached data if fresh, otherwise fetches new data
+    Async wrapper that only offloads the blocking external fetch to a worker thread.
+    Cache bookkeeping stays local to the event loop thread.
     """
     now = datetime.now()
-    
-    # Check cache
+
     if cache_key in _market_cache:
         data, timestamp = _market_cache[cache_key]
         if now - timestamp < _CACHE_TTL:
             logger.debug(f"Cache hit for {cache_key}")
             return data
-    
-    # Cache miss or stale - fetch new data
+
     logger.debug(f"Cache miss for {cache_key}, fetching fresh data")
-    data = fetch_func()
+    data = await asyncio.to_thread(fetch_func)
     _market_cache[cache_key] = (data, now)
     return data
 
@@ -93,7 +92,7 @@ async def get_stock_market_sentiment():
             logger.error(f"Unexpected error fetching stock sentiment: {e}")
             raise ExternalServiceError("stock market sentiment", str(e))
     
-    return _get_cached_or_fetch("sentiment_stock", fetch_stock_sentiment)
+    return await _get_cached_or_fetch_async("sentiment_stock", fetch_stock_sentiment)
 
 
 @router.get("/sentiment/crypto")
@@ -141,7 +140,7 @@ async def get_crypto_market_sentiment():
             logger.error(f"Unexpected error fetching crypto sentiment: {e}")
             raise ExternalServiceError("crypto market sentiment", str(e))
     
-    return _get_cached_or_fetch("sentiment_crypto", fetch_crypto_sentiment)
+    return await _get_cached_or_fetch_async("sentiment_crypto", fetch_crypto_sentiment)
 
 
 @router.get("/sentiment/{market_type}")
@@ -206,7 +205,7 @@ async def get_vix_index():
             logger.error(f"Failed to fetch VIX data: {e}")
             raise VIXDataFetchError(str(e))
     
-    return _get_cached_or_fetch("index_vix", fetch_vix)
+    return await _get_cached_or_fetch_async("index_vix", fetch_vix)
 
 
 @router.get("/tnx")
@@ -252,7 +251,7 @@ async def get_tnx_index():
             logger.error(f"Failed to fetch TNX data: {e}")
             raise TNXDataFetchError(str(e))
     
-    return _get_cached_or_fetch("index_tnx", fetch_tnx)
+    return await _get_cached_or_fetch_async("index_tnx", fetch_tnx)
 
 
 @router.get("/dxy")
@@ -298,4 +297,4 @@ async def get_dxy_index():
             logger.error(f"Failed to fetch DXY data: {e}")
             raise DXYDataFetchError(str(e))
     
-    return _get_cached_or_fetch("index_dxy", fetch_dxy)
+    return await _get_cached_or_fetch_async("index_dxy", fetch_dxy)

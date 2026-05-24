@@ -359,8 +359,7 @@ async def _fetch_market_indices() -> Optional[Dict]:
             '^AXJO': '^AXJO',  # ASX 200
         }
         
-        # Fetch all indices in parallel
-        async def fetch_index(key: str, symbol: str):
+        def fetch_index(symbol: str):
             try:
                 ticker = yf.Ticker(symbol)
                 info = ticker.info
@@ -392,8 +391,8 @@ async def _fetch_market_indices() -> Optional[Dict]:
                 logger.warning(f"Failed to fetch {symbol}: {e}")
                 return None
         
-        # Fetch all indices concurrently
-        tasks = [fetch_index(key, symbol) for key, symbol in indices.items()]
+        # Fetch all indices concurrently in worker threads to avoid blocking the event loop.
+        tasks = [asyncio.to_thread(fetch_index, symbol) for symbol in indices.values()]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Build result dict with non-None values, keyed by symbol (with caret)

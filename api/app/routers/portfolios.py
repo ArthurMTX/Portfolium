@@ -26,7 +26,7 @@ from app.models import User, Transaction, Asset, TransactionType, Portfolio as P
 router = APIRouter()
 
 @router.get("", response_model=List[Portfolio])
-async def get_portfolios(
+def get_portfolios(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -37,7 +37,7 @@ async def get_portfolios(
 
 
 @router.get("/{portfolio_id}", response_model=Portfolio)
-async def get_portfolio(
+def get_portfolio(
     portfolio_id: int, 
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
@@ -46,7 +46,7 @@ async def get_portfolio(
 
 
 @router.post("", response_model=Portfolio, status_code=status.HTTP_201_CREATED)
-async def create_portfolio(
+def create_portfolio(
     portfolio: PortfolioCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -61,7 +61,7 @@ async def create_portfolio(
 
 
 @router.put("/{portfolio_id}", response_model=Portfolio)
-async def update_portfolio(
+def update_portfolio(
     portfolio_id: int,
     portfolio_data: PortfolioUpdate,
     db: Session = Depends(get_db),
@@ -73,7 +73,7 @@ async def update_portfolio(
 
 
 @router.delete("/{portfolio_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_portfolio(
+def delete_portfolio(
     portfolio_id: int, 
     db: Session = Depends(get_db),
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
@@ -175,7 +175,7 @@ async def get_portfolio_metrics(
 
 # New endpoint: portfolio value history over time
 @router.get("/{portfolio_id}/history", response_model=List[PortfolioHistoryPoint])
-async def get_portfolio_history(
+def get_portfolio_history(
     portfolio_id: int,
     period: str = "1M",  # 1W, 1M, 3M, 6M, YTD, 1Y, ALL
     metrics_service = Depends(get_metrics_service),
@@ -404,4 +404,3 @@ async def get_batch_prices(
     except Exception as e:
         logger.error(f"Failed to fetch batch prices for portfolio {portfolio_id}: {e}", exc_info=True)
         raise CannotGetPortfolioPricesError(portfolio_id, str(e))
-

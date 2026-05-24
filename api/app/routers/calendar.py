@@ -107,7 +107,7 @@ def get_held_stock_symbols(db: Session, portfolios: List[Portfolio]) -> Dict[str
 
 
 @router.get("/events")
-async def get_calendar_events(
+def get_calendar_events(
     portfolio_id: Optional[int] = Query(None, description="Filter by portfolio ID"),
     days_back: int = Query(30, description="Number of days in the past to include"),
     days_forward: int = Query(60, description="Number of days in the future to include"),
@@ -228,7 +228,7 @@ async def get_calendar_events(
 
 
 @router.get("/earnings")
-async def get_earnings_calendar(
+def get_earnings_calendar(
     portfolio_id: Optional[int] = Query(None, description="Filter by portfolio ID"),
     days_back: int = Query(30, description="Number of days in the past to include"),
     days_forward: int = Query(90, description="Number of days in the future to include"),
@@ -329,7 +329,7 @@ async def get_earnings_calendar(
 
 
 @router.get("/daily-performance")
-async def get_daily_performance(
+def get_daily_performance(
     portfolio_id: Optional[int] = Query(None, description="Filter by portfolio ID"),
     days: int = Query(90, description="Number of days of history"),
     db: Session = Depends(get_db),
@@ -451,7 +451,7 @@ async def get_daily_performance(
 
 
 @router.post("/refresh-earnings")
-async def refresh_earnings_for_user(
+def refresh_earnings_for_user(
     include_watchlist: bool = Query(True, description="Include watchlist stocks in refresh"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -600,7 +600,7 @@ async def refresh_earnings_for_user(
 
 
 @router.get("/market-holidays")
-async def get_market_holidays(
+def get_market_holidays(
     portfolio_id: Optional[int] = Query(None, description="Portfolio ID to detect relevant exchanges from held assets"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD), defaults to 90 days ago"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD), defaults to 90 days from now"),
@@ -706,7 +706,7 @@ async def get_market_holidays(
 
 
 @router.get("/market-exchanges")
-async def list_market_exchanges(
+def list_market_exchanges(
     current_user: User = Depends(get_current_user)
 ):
     """
