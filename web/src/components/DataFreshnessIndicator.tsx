@@ -20,10 +20,14 @@ interface DataFreshnessIndicatorProps {
 }
 
 const DELAYED_AFTER_MS = 15 * 60 * 1000
+const ISO_WITHOUT_TIMEZONE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/
 
 function toDate(value?: string | number | Date | null): Date | null {
   if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
+  const normalizedValue = typeof value === 'string' && ISO_WITHOUT_TIMEZONE_RE.test(value)
+    ? `${value}Z`
+    : value
+  const date = normalizedValue instanceof Date ? normalizedValue : new Date(normalizedValue)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
@@ -61,7 +65,7 @@ export default function DataFreshnessIndicator({
   const { t, i18n } = useTranslation()
   const asOfDate = toDate(timestamp)
   const latestPriceDate = toDate(latestPriceTimestamp)
-  const referenceDate = latestPriceDate || asOfDate
+  const referenceDate = asOfDate || latestPriceDate
   const isMarketClosed = marketStatus === 'closed'
   const isDelayed = referenceDate ? Date.now() - referenceDate.getTime() > DELAYED_AFTER_MS : true
 
@@ -95,7 +99,7 @@ export default function DataFreshnessIndicator({
     : 'bg-neutral-400'
 
   const tooltipContent = tooltip ? (
-    <span className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-max max-w-[260px] rounded-md border border-neutral-200 bg-white px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-neutral-700 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+    <span className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-max max-w-[320px] whitespace-pre-line rounded-md border border-neutral-200 bg-white px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-neutral-700 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
       {tooltip}
     </span>
   ) : null
@@ -105,7 +109,6 @@ export default function DataFreshnessIndicator({
       <span
         tabIndex={tooltip ? 0 : undefined}
         aria-label={typeof tooltip === 'string' ? tooltip : undefined}
-        title={typeof tooltip === 'string' ? tooltip : undefined}
         className={`${tooltip ? 'group relative cursor-help whitespace-pre-line' : ''} inline-flex items-center outline-none ${className}`}
       >
         {children || <Info size={13} className="inline text-neutral-400 dark:text-neutral-500" />}
@@ -119,7 +122,6 @@ export default function DataFreshnessIndicator({
       <div
         tabIndex={tooltip ? 0 : undefined}
         aria-label={typeof tooltip === 'string' ? tooltip : undefined}
-        title={typeof tooltip === 'string' ? tooltip : undefined}
         className={`${tooltip ? 'group relative cursor-help' : ''} inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs outline-none ${colors} ${className}`}
       >
         <span className={`w-2 h-2 rounded-full ${dot}`} />
@@ -136,7 +138,6 @@ export default function DataFreshnessIndicator({
     <span
       tabIndex={tooltip ? 0 : undefined}
       aria-label={typeof tooltip === 'string' ? tooltip : undefined}
-      title={typeof tooltip === 'string' ? tooltip : undefined}
       className={`${tooltip ? 'group relative cursor-help' : ''} inline-flex items-center gap-1.5 text-xs outline-none ${className}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />

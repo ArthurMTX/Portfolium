@@ -4,7 +4,7 @@ Portfolios router
 """
 from typing import List, Annotated, Dict
 from decimal import Decimal
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.errors import (
@@ -248,6 +248,7 @@ async def generate_portfolio_report(
 @router.get("/{portfolio_id}/prices/batch")
 async def get_batch_prices(
     portfolio_id: int,
+    force_refresh: bool = Query(False, description="Bypass the server-side batch cache"),
     db: Session = Depends(get_db),
     portfolio: PortfolioModel = Depends(verify_portfolio_access)
 ):
@@ -293,10 +294,15 @@ async def get_batch_prices(
     then merge the price data with cached position structures client-side.
     """
     import logging
-    from datetime import datetime
+    from datetime import datetime, timezone
     from app.services.currency import CurrencyService
     
     logger = logging.getLogger(__name__)
+
+    def utc_iso(dt: datetime) -> str:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
     
     from app.services.cache import CacheService
     
@@ -305,7 +311,7 @@ async def get_batch_prices(
     cache_key = f"portfolio_batch_prices:{portfolio_id}"
     cached_data = cache.get(cache_key)
     
-    if cached_data:
+    if cached_data and not force_refresh:
         logger.info(f"Price batch cache hit for portfolio {portfolio_id}")
         return cached_data
     
@@ -328,7 +334,7 @@ async def get_batch_prices(
                 "portfolio_id": portfolio_id,
                 "base_currency": base_currency,
                 "prices": [],
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": utc_iso(datetime.now(timezone.utc)),
                 "count": 0
             }
             cache.set(cache_key, empty_response, ttl=300)  # 5 min cache
@@ -345,7 +351,7 @@ async def get_batch_prices(
         logger.info(f"Batch fetching prices for {len(symbols)} assets in portfolio {portfolio_id}")
         
         # This already uses parallel fetching internally
-        price_quotes = await pricing_service.get_multiple_prices(symbols)
+        price_quotes = await pricing_service.get_multiple_prices(symbols, force_refresh=True)
         
         # Build response with currency conversion
         prices = []
@@ -383,7 +389,7 @@ async def get_batch_prices(
                     "original_price": original_price,
                     "original_currency": asset.currency,
                     "daily_change_pct": float(quote.daily_change_pct) if quote.daily_change_pct else None,
-                    "last_updated": quote.asof.isoformat() if quote.asof else None,
+                    "last_updated": utc_iso(quote.asof) if quote.asof else None,
                     "asset_type": asset.asset_type
                 })
         
@@ -391,7 +397,7 @@ async def get_batch_prices(
             "portfolio_id": portfolio_id,
             "base_currency": base_currency,
             "prices": prices,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": utc_iso(datetime.now(timezone.utc)),
             "count": len(prices)
         }
         

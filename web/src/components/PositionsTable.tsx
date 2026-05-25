@@ -48,6 +48,11 @@ const sortableColumns = [
 type SortKey = typeof sortableColumns[number]
 type SortDir = 'asc' | 'desc'
 const DELAYED_PRICE_AFTER_MS = 24 * 60 * 60 * 1000
+const ISO_WITHOUT_TIMEZONE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/
+
+function parseApiDate(value: string): Date {
+  return new Date(ISO_WITHOUT_TIMEZONE_RE.test(value) ? `${value}Z` : value)
+}
 
 export default function PositionsTable({ positions, portfolioId, isSold = false }: PositionsTableProps) {
   const { t } = useTranslation()
@@ -153,7 +158,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
 
   const getLastUpdatedDate = (position: Position): Date | null => {
     if (!position.last_updated) return null
-    const date = new Date(position.last_updated)
+    const date = parseApiDate(position.last_updated)
     return Number.isNaN(date.getTime()) ? null : date
   }
 

@@ -963,8 +963,9 @@ class ApiClient {
    * @param portfolioId Portfolio ID
    * @returns Batch price data for all portfolio assets
    */
-  async getBatchPrices(portfolioId: number) {
-    return this.request<BatchPricesResponseDTO>(`/portfolios/${portfolioId}/prices/batch`)
+  async getBatchPrices(portfolioId: number, forceRefresh: boolean = false) {
+    const params = forceRefresh ? '?force_refresh=true' : ''
+    return this.request<BatchPricesResponseDTO>(`/portfolios/${portfolioId}/prices/batch${params}`)
   }
 
   // Portfolio Goals

@@ -15,6 +15,12 @@ import type { DashboardLayoutDTO } from '../types/dashboard'
 import { useDashboardBatch } from '../hooks/useDashboardBatch'
 import DataFreshnessIndicator from '../components/DataFreshnessIndicator'
 
+const ISO_WITHOUT_TIMEZONE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/
+
+function parseApiDate(value: string): Date {
+  return new Date(ISO_WITHOUT_TIMEZONE_RE.test(value) ? `${value}Z` : value)
+}
+
 export default function Dashboard() {
   const {
     portfolios,
@@ -244,7 +250,7 @@ export default function Dashboard() {
     return displayPositions.reduce<string | null>((oldest, position) => {
       if (!position.last_updated) return oldest
       if (!oldest) return position.last_updated
-      return new Date(position.last_updated).getTime() < new Date(oldest).getTime()
+      return parseApiDate(position.last_updated).getTime() < parseApiDate(oldest).getTime()
         ? position.last_updated
         : oldest
     }, null)
@@ -257,11 +263,13 @@ export default function Dashboard() {
   // Manual refresh
   const handleRefresh = useCallback(async () => {
     if (!activePortfolioId) return
-    
-    await Promise.all([
+
+    const [priceData] = await Promise.all([
+      api.getBatchPrices(activePortfolioId, true),
       queryClient.invalidateQueries({ queryKey: ['dashboard-batch', activePortfolioId] }),
-      queryClient.invalidateQueries({ queryKey: ['batchPrices', activePortfolioId] }),
     ])
+    
+    queryClient.setQueryData(['batchPrices', activePortfolioId], priceData)
     
     const timestamp = Date.now()
     setLastUpdate(timestamp)
