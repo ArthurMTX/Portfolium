@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api, { type CsvImportPreviewResultDTO } from '../lib/api'
@@ -19,6 +19,8 @@ import { useTranslation } from 'react-i18next'
 interface TickerInfo {
   symbol: string
   name: string
+  type?: string | null
+  asset_type?: string | null
 }
 
 interface Transaction {
@@ -73,6 +75,7 @@ interface TransactionSummary {
 
 export default function Transactions() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
@@ -118,6 +121,7 @@ export default function Transactions() {
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState("")
   const [priceLoading, setPriceLoading] = useState(false)
+  const [handledPrefillSymbol, setHandledPrefillSymbol] = useState(false)
   const [priceInfo, setPriceInfo] = useState<{ converted: boolean; asset_currency: string } | null>(null)
   const [priceSource, setPriceSource] = useState<PriceSource>('empty')
   const [priceFetchFailed, setPriceFetchFailed] = useState(false)
@@ -138,6 +142,8 @@ export default function Transactions() {
   const [importPreviewError, setImportPreviewError] = useState("")
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showConversionModal, setShowConversionModal] = useState(false)
+
+  const selectedTickerAssetType = selectedTicker?.asset_type || selectedTicker?.type || null
 
   // Load portfolios if not already loaded
   useEffect(() => {
@@ -308,6 +314,21 @@ export default function Transactions() {
     }
   }, [activePortfolioId])
 
+  useEffect(() => {
+    const prefillSymbol = searchParams.get('symbol')?.trim().toUpperCase()
+    if (!prefillSymbol || handledPrefillSymbol) return
+
+    setTicker(prefillSymbol)
+    setSelectedTicker({ symbol: prefillSymbol, name: '' })
+    setTxType('BUY')
+    setModalMode('add')
+    setHandledPrefillSymbol(true)
+
+    if (activePortfolioId && txDate) {
+      fetchPriceForTicker(prefillSymbol, txDate)
+    }
+  }, [activePortfolioId, fetchPriceForTicker, handledPrefillSymbol, searchParams, txDate])
+
   // Handle date change - auto-fetch price if ticker is selected
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDate = e.target.value
@@ -425,7 +446,11 @@ export default function Transactions() {
 
   const openEditModal = (transaction: Transaction) => {
     setEditingTransaction(transaction)
-    setSelectedTicker({ symbol: transaction.asset.symbol, name: transaction.asset.name || '' })
+    setSelectedTicker({
+      symbol: transaction.asset.symbol,
+      name: transaction.asset.name || '',
+      asset_type: transaction.asset.asset_type || null,
+    })
     setTicker(transaction.asset.symbol)
     setTxDate(transaction.tx_date)
     setTxType(transaction.type)
@@ -605,6 +630,7 @@ export default function Transactions() {
               symbol,
               name: selectedTicker?.name,
               currency: portfolioCurrency,
+              asset_type: selectedTickerAssetType || undefined,
             })
             assetId = created.id
           }
@@ -1870,9 +1896,28 @@ export default function Transactions() {
                     </ul>
                   )}
                   {selectedTicker && (
-                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <div className="font-semibold text-blue-700 dark:text-blue-300">{selectedTicker.symbol}</div>
-                      <div className="text-sm text-blue-600 dark:text-blue-400">{selectedTicker.name}</div>
+                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-3">
+                        <img
+                          src={getAssetLogoUrl(selectedTicker.symbol, selectedTickerAssetType, selectedTicker.name)}
+                          alt={`${selectedTicker.symbol} logo`}
+                          className="w-10 h-10 flex-shrink-0 object-cover"
+                          onLoad={(e) => {
+                            const img = e.currentTarget as HTMLImageElement
+                            if (!validateLogoImage(img)) {
+                              img.dispatchEvent(new Event('error'))
+                            }
+                          }}
+                          onError={(e) => handleLogoError(e, selectedTicker.symbol, selectedTicker.name, selectedTickerAssetType)}
+                        />
+                      <div>
+                        <div className="font-semibold text-blue-700 dark:text-blue-300">
+                          {selectedTicker.symbol}
+                        </div>
+
+                        <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                          {selectedTicker.name}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
