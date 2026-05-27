@@ -10,6 +10,7 @@ import WatchlistTagManager, { IconComponent } from '../components/WatchlistTagMa
 import WatchlistEditModal from '../components/WatchlistEditModal'
 import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 
 interface WatchlistTag {
   id: number
@@ -60,6 +61,7 @@ const STORAGE_KEY_TAG_IDS = 'watchlist_filter_tag_ids'
 const STORAGE_KEY_TAG_MODE = 'watchlist_filter_tag_mode'
 
 export default function Watchlist() {
+  const navigate = useNavigate()
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [tags, setTags] = useState<WatchlistTag[]>([])
@@ -776,9 +778,13 @@ export default function Watchlist() {
                             onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/assets/${encodeURIComponent(item.symbol)}`)}
+                              className="font-bold text-base text-neutral-900 dark:text-neutral-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
+                            >
                               {item.symbol}
-                            </div>
+                            </button>
                             <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
                               {item.name || 'N/A'}
                             </div>
@@ -937,7 +943,13 @@ export default function Watchlist() {
                           }}
                           onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                         />
-                        {item.symbol}
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/assets/${encodeURIComponent(item.symbol)}`)}
+                          className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
+                        >
+                          {item.symbol}
+                        </button>
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">{item.name || 'N/A'}</td>

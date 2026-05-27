@@ -795,13 +795,18 @@ class PricingService:
             # Map our interval to yfinance interval
             yf_interval = '1d' if interval in ('1d', '1w') else '1d'
             provider = get_market_data_provider()
+            history_kwargs = {"interval": yf_interval}
+            if start_date.year <= 1901:
+                history_kwargs["period"] = "max"
+            else:
+                history_kwargs["start"] = start_date.date()
+                history_kwargs["end"] = (end_date + timedelta(days=1)).date()
+
             hist = provider.get_history(
                 asset.symbol,
                 action="history_backfill",
                 timeout_seconds=yahoo_timeout_seconds(default=15.0),
-                start=start_date.date(),
-                end=(end_date + timedelta(days=1)).date(),
-                interval=yf_interval,
+                **history_kwargs,
             )
             if hist is None or hist.empty:
                 return 0
@@ -810,6 +815,8 @@ class PricingService:
             for idx, row in hist.iterrows():
                 try:
                     asof_dt = datetime(idx.year, idx.month, idx.day)
+                    if asof_dt > end_date:
+                        continue
                     price_val = Decimal(str(float(row.get('Close'))))
                     if price_val and price_val > 0:
                         price_rows.append(

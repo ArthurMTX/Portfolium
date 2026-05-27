@@ -9,6 +9,7 @@ import Charts from './pages/Charts'
 import Transactions from './pages/Transactions'
 import TransactionMetrics from './pages/TransactionMetrics'
 import Assets from './pages/Assets'
+import AssetResearch from './pages/AssetResearch'
 import Watchlist from './pages/Watchlist'
 import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
@@ -92,6 +93,8 @@ function App() {
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="transactions/metrics" element={<TransactionMetrics />} />
                 <Route path="assets" element={<Assets />} />
+                <Route path="assets/research" element={<AssetResearch />} />
+                <Route path="assets/:symbol" element={<AssetResearch />} />
                 <Route path="watchlist" element={<Watchlist />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="settings" element={<Settings />} />

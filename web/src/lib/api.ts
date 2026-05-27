@@ -175,6 +175,84 @@ export interface BatchPricesResponseDTO {
   count: number
 }
 
+export interface AssetResearchDTO {
+  asset: {
+    id: number
+    symbol: string
+    name: string | null
+    currency: string
+    class: string
+    sector: string | null
+    industry: string | null
+    asset_type: string | null
+    country: string | null
+    created_at: string
+    updated_at: string
+  }
+  quote: {
+    symbol: string
+    price: number | string
+    asof: string
+    currency: string
+    daily_change_pct: number | string | null
+  } | null
+  fundamentals: {
+    market_cap: number | null
+    volume: number | null
+    avg_volume: number | null
+    pe_ratio: number | null
+    eps: number | null
+    price: number | null
+    liquidity_score: number | null
+    revenue_growth: number | null
+    earnings_growth: number | null
+    profit_margins: number | null
+    operating_margins: number | null
+    return_on_equity: number | null
+    net_cash: number | null
+    debt_to_equity: number | null
+    current_ratio: number | null
+    quick_ratio: number | null
+    recommendation_key: string | null
+    recommendation_mean: number | null
+    num_analysts: number | null
+    target_mean: number | null
+    target_high: number | null
+    target_low: number | null
+    implied_upside_pct: number | null
+  }
+  risk: {
+    volatility_30d: number | null
+    volatility_90d: number | null
+    beta: number | null
+    beta_benchmark: string | null
+    risk_score: number | null
+    distance_to_ath_pct: number | null
+  }
+  relative_performance: {
+    relative_perf_30d: number | null
+    relative_perf_90d: number | null
+    relative_perf_ytd: number | null
+    relative_perf_1y: number | null
+    asset_perf_30d: number | null
+    asset_perf_90d: number | null
+    asset_perf_ytd: number | null
+    asset_perf_1y: number | null
+    etf_perf_30d: number | null
+    etf_perf_90d: number | null
+    etf_perf_ytd: number | null
+    etf_perf_1y: number | null
+    sector_etf: string | null
+  }
+  metadata: {
+    ath_price: number | string | null
+    ath_date: string | null
+    atl_price: number | string | null
+    atl_date: string | null
+    asset_currency: string | null
+  }
+}
+
 // Asset Distribution Types
 export interface AssetPositionDTO {
   asset_id: number
@@ -747,6 +825,10 @@ class ApiClient {
     return this.request<{ id: number; symbol: string; name: string; currency: string }>(`/assets/by-symbol/${encodeURIComponent(symbol)}`)
   }
 
+  async getAssetResearch(symbol: string) {
+    return this.request<AssetResearchDTO>(`/assets/research/${encodeURIComponent(symbol)}`)
+  }
+
   async getPriceQuote(symbol: string, targetCurrency?: string) {
     const params = targetCurrency ? `?target_currency=${encodeURIComponent(targetCurrency)}` : ''
     return this.request<{ symbol: string; price: number; currency: string }>(`/prices/quote/${encodeURIComponent(symbol)}${params}`)
@@ -807,6 +889,23 @@ class ApiClient {
         source: string
       }>
     }>(`/assets/${assetId}/prices?period=${encodeURIComponent(period)}`)
+  }
+
+  async backfillAssetPrices(assetId: number, options?: { days?: number; allTime?: boolean }) {
+    const params = new URLSearchParams()
+    if (options?.days !== undefined) params.set('days', String(options.days))
+    if (options?.allTime) params.set('all_time', 'true')
+    const query = params.toString()
+    return this.request<{
+      asset_id: number
+      symbol: string
+      start_date: string
+      end_date: string
+      prices_added: number
+      message: string
+    }>(`/assets/${assetId}/backfill-prices${query ? `?${query}` : ''}`, {
+      method: 'POST',
+    })
   }
 
   // Asset Distribution endpoints

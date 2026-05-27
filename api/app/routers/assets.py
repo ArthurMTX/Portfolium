@@ -11,13 +11,14 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import Asset, AssetCreate, AssetMetadataOverride, AssetWithOverrides
+from app.schemas import Asset, AssetCreate, AssetMetadataOverride, AssetResearchResponse, AssetWithOverrides
 from app.crud import assets as crud
 from app.auth import get_current_user
 from app.models import User
 from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.asset_research import AssetResearchService
 from app.errors import ( 
     AssetAlreadyExistsError,
     AssetNotFoundError,
@@ -162,6 +163,19 @@ def get_asset_by_symbol(symbol: str, db: Session = Depends(get_db)):
     if not asset:
         raise AssetNotFoundError(symbol)
     return asset
+
+
+@router.get("/research/{symbol}", response_model=AssetResearchResponse)
+async def get_asset_research(symbol: str, db: Session = Depends(get_db)):
+    """
+    Get asset research data without requiring a portfolio position.
+
+    This endpoint intentionally excludes position-specific fields such as
+    quantity, average cost, cost basis, unrealized P&L, allocation, personal
+    drawdown, and average-down calculations.
+    """
+    service = AssetResearchService(db)
+    return await service.get_asset_research(symbol)
 
 
 @router.get("", response_model=List[Asset])
@@ -1401,11 +1415,10 @@ def get_asset_price_history(
     elif period_upper in ["1Y", "YEARLY"]:
         start_date = (end_date - timedelta(days=366)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period_upper in ["ALL", "ALL_TIME"]:
-        # Use first transaction date or created date
-        if asset.first_transaction_date:
-            start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
-        else:
-            start_date = asset.created_at
+        # "ALL" means all available market history, not all owned history.
+        # Ownership windows belong to transaction/position views, while this
+        # endpoint powers price charts.
+        start_date = datetime(1900, 1, 1)
     else:
         raise InvalidPriceHistoryPeriodError(period=period)
     
@@ -1415,7 +1428,7 @@ def get_asset_price_history(
         asset_id,
         date_from=start_date,
         date_to=end_date,
-        limit=10000  # Large limit to get all data for the period
+        limit=30000 if period_upper in ["ALL", "ALL_TIME"] else 10000
     )
     
     # Group by date (calendar day) and keep only the latest price for each day
@@ -1618,6 +1631,7 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
 def backfill_asset_prices(
     asset_id: int,
     days: int = 365,
+    all_time: bool = False,
     db: Session = Depends(get_db)
 ):
     """
@@ -1625,6 +1639,8 @@ def backfill_asset_prices(
     
     - **asset_id**: The asset to backfill prices for
     - **days**: Number of days to backfill (default 365)
+    - **all_time**: If true, fetch all available daily history instead of
+      anchoring to the first portfolio transaction date.
     
     This fetches historical close prices from yfinance and saves them to the database.
     Useful for filling gaps in price history.
@@ -1639,10 +1655,11 @@ def backfill_asset_prices(
     
     # Calculate date range
     end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=days)
+    start_date = datetime(1900, 1, 1) if all_time else end_date - timedelta(days=days)
     
-    # If asset has first_transaction_date, use that as the start if it's more recent
-    if asset.first_transaction_date:
+    # If asset has first_transaction_date, use that as the start if it's more recent.
+    # Research charts explicitly opt out because they need pre-ownership history.
+    if asset.first_transaction_date and not all_time:
         first_tx_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
         if first_tx_date > start_date:
             start_date = first_tx_date
@@ -1896,4 +1913,3 @@ def get_yfinance_data(
     except Exception as e:
         logger.error(f"Failed to fetch yfinance data for {fetch_symbol}: {str(e)}", exc_info=True)
         raise FailedToFetchYahooFinanceDataError(symbol=fetch_symbol, reason=str(e))
-

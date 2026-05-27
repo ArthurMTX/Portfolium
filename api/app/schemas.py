@@ -289,6 +289,69 @@ class Asset(AssetBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AssetResearchFundamentals(BaseModel):
+    """Asset-level fundamentals and valuation data."""
+    market_cap: Optional[float] = None
+    volume: Optional[float] = None
+    avg_volume: Optional[float] = None
+    pe_ratio: Optional[float] = None
+    eps: Optional[float] = None
+    price: Optional[float] = None
+    liquidity_score: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    earnings_growth: Optional[float] = None
+    profit_margins: Optional[float] = None
+    operating_margins: Optional[float] = None
+    return_on_equity: Optional[float] = None
+    net_cash: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    current_ratio: Optional[float] = None
+    quick_ratio: Optional[float] = None
+    recommendation_key: Optional[str] = None
+    recommendation_mean: Optional[float] = None
+    num_analysts: Optional[float] = None
+    target_mean: Optional[float] = None
+    target_high: Optional[float] = None
+    target_low: Optional[float] = None
+    implied_upside_pct: Optional[float] = None
+
+
+class AssetResearchRisk(BaseModel):
+    """Asset-level risk metrics that do not require a portfolio position."""
+    volatility_30d: Optional[float] = None
+    volatility_90d: Optional[float] = None
+    beta: Optional[float] = None
+    beta_benchmark: Optional[str] = None
+    risk_score: Optional[float] = None
+    distance_to_ath_pct: Optional[float] = None
+
+
+class AssetResearchRelativePerformance(BaseModel):
+    """Asset performance compared to a market or sector benchmark."""
+    relative_perf_30d: Optional[float] = None
+    relative_perf_90d: Optional[float] = None
+    relative_perf_ytd: Optional[float] = None
+    relative_perf_1y: Optional[float] = None
+    asset_perf_30d: Optional[float] = None
+    asset_perf_90d: Optional[float] = None
+    asset_perf_ytd: Optional[float] = None
+    asset_perf_1y: Optional[float] = None
+    etf_perf_30d: Optional[float] = None
+    etf_perf_90d: Optional[float] = None
+    etf_perf_ytd: Optional[float] = None
+    etf_perf_1y: Optional[float] = None
+    sector_etf: Optional[str] = None
+
+
+class AssetResearchMetadata(BaseModel):
+    """Market metadata for an asset."""
+    ath_price: Optional[Decimal] = None
+    ath_date: Optional[datetime] = None
+    atl_price: Optional[Decimal] = None
+    atl_date: Optional[datetime] = None
+    asset_currency: Optional[str] = None
+
+
 # ============================================================================
 # Portfolio Schemas
 # ============================================================================
@@ -466,6 +529,16 @@ class PriceQuote(BaseModel):
     asof: datetime
     currency: str
     daily_change_pct: Optional[Decimal] = None
+
+
+class AssetResearchResponse(BaseModel):
+    """Asset research payload independent from any portfolio position."""
+    asset: Asset
+    quote: Optional[PriceQuote] = None
+    fundamentals: AssetResearchFundamentals = Field(default_factory=AssetResearchFundamentals)
+    risk: AssetResearchRisk = Field(default_factory=AssetResearchRisk)
+    relative_performance: AssetResearchRelativePerformance = Field(default_factory=AssetResearchRelativePerformance)
+    metadata: AssetResearchMetadata = Field(default_factory=AssetResearchMetadata)
 
 
 # ============================================================================

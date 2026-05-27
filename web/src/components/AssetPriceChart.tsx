@@ -17,6 +17,8 @@ interface Props {
   portfolioId?: number
   assetType?: string | null
   assetName?: string | null
+  initialPeriod?: PeriodOption
+  ensureAllTimeHistory?: boolean
 }
 
 interface PricePoint {
@@ -57,14 +59,24 @@ interface SplitTransaction {
   notes: string | null
 }
 
-export default function AssetPriceChart({ assetId, symbol, currency = 'USD', portfolioId, assetType, assetName }: Props) {
-  const [period, setPeriod] = useState<PeriodOption>('1M')
+export default function AssetPriceChart({
+  assetId,
+  symbol,
+  currency = 'USD',
+  portfolioId,
+  assetType,
+  assetName,
+  initialPeriod = '1M',
+  ensureAllTimeHistory = false
+}: Props) {
+  const [period, setPeriod] = useState<PeriodOption>(initialPeriod)
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PriceHistoryResponse | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [splits, setSplits] = useState<SplitTransaction[]>([])
   const [error, setError] = useState<string | null>(null)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [allTimeBackfillAttempted, setAllTimeBackfillAttempted] = useState(false)
   const { t, i18n } = useTranslation()
 
   // Get the current locale for date formatting
@@ -88,6 +100,10 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
     }
     return symbols[curr] || curr + ' '
   }
+
+  useEffect(() => {
+    setAllTimeBackfillAttempted(false)
+  }, [assetId])
 
   // Determine optimal decimal places based on price range
   const getDecimalPlaces = (prices: number[]): number => {
@@ -137,11 +153,22 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
       try {
         const [priceData, txData, splitData] = await Promise.all([
           api.getAssetPriceHistory(assetId, period),
-          api.getAssetTransactionHistory(assetId, portfolioId),
-          api.getAssetSplitHistory(assetId)
+          portfolioId ? api.getAssetTransactionHistory(assetId, portfolioId) : Promise.resolve([]),
+          portfolioId ? api.getAssetSplitHistory(assetId, portfolioId) : Promise.resolve([])
         ])
+        let resolvedPriceData = priceData
+        if (
+          ensureAllTimeHistory &&
+          period === 'ALL' &&
+          (priceData.data_points < 30 || !priceData.prices.some((point) => point.source === 'yfinance_history')) &&
+          !allTimeBackfillAttempted
+        ) {
+          setAllTimeBackfillAttempted(true)
+          await api.backfillAssetPrices(assetId, { allTime: true })
+          resolvedPriceData = await api.getAssetPriceHistory(assetId, period)
+        }
         if (!canceled) {
-          setHistory(priceData)
+          setHistory(resolvedPriceData)
           setTransactions(txData as Transaction[])
           setSplits(splitData as SplitTransaction[])
         }
@@ -157,7 +184,7 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
     return () => {
       canceled = true
     }
-  }, [assetId, period, portfolioId])
+  }, [assetId, period, portfolioId, ensureAllTimeHistory, allTimeBackfillAttempted])
 
   const chartData = {
     labels: history?.prices.map(p => {
@@ -627,6 +654,11 @@ export default function AssetPriceChart({ assetId, symbol, currency = 'USD', por
               date2: new Date(history.prices[history.prices.length - 1].date).toLocaleDateString(currentLocale)
             })}
           </div>
+          {period === 'ALL' && history.data_points < 30 && (
+            <div className="text-xs text-amber-600 dark:text-amber-400 text-center">
+              {t('assetPriceChart.limitedAllTimeData')}
+            </div>
+          )}
           {(transactions.length > 0 || splits.length > 0) && (
             <div className="flex items-center justify-center gap-8 flex-wrap">
               {transactions.length > 0 && (

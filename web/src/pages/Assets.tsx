@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit } from 'lucide-react';
+import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
@@ -55,6 +56,7 @@ type SortDir = 'asc' | 'desc';
 export default function Assets() {
 
   const { portfolios, activePortfolioId } = usePortfolioStore()
+  const navigate = useNavigate()
   const [heldAssets, setHeldAssets] = useState<HeldAsset[]>([]);
   const [soldAssets, setSoldAssets] = useState<HeldAsset[]>([]);
   const [portfolioAssetIds, setPortfolioAssetIds] = useState<Set<number>>(new Set());
@@ -75,6 +77,7 @@ export default function Assets() {
   const [searchQuery, setSearchQuery] = useState('');
   const distributionRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
+  const activePortfolioName = portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio';
 
   // Load portfolio asset IDs when active portfolio changes
   useEffect(() => {
@@ -433,13 +436,9 @@ export default function Assets() {
               </h1>
               <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
                 {activePortfolioId ? (
-                  showSold
-                    ? t('assets.heldAndSoldAssetsIn', { portfolio: portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio' })
-                    : t('assets.heldAssetsIn', { portfolio: portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio' })
+                  t('assets.currentlyHeldCountIn', { count: heldAssets.length, portfolio: activePortfolioName })
                 ) : (
-                  showSold
-                    ? t('assets.heldAndSoldAssetsAll')
-                    : t('assets.heldAssetsAll')
+                  t('assets.currentlyHeldCountAll', { count: heldAssets.length })
                 )}
               </p>
             </div>
@@ -474,6 +473,14 @@ export default function Assets() {
                 <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
                 <BarChart3 size={18} className="relative z-10" />
                 <span className="relative z-10 hidden sm:inline">{t('assets.distribution')}</span>
+              </button>
+              <button
+                onClick={() => navigate('/assets/research')}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm"
+                title={t('assets.searchResearch')}
+              >
+                <BookOpen size={18} />
+                <span className="hidden sm:inline">{t('assets.research')}</span>
               </button>
               {/* Action buttons grouped together */}
               <div className="flex items-center gap-2">

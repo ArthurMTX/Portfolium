@@ -1897,18 +1897,18 @@ export default function Transactions() {
                   )}
                   {selectedTicker && (
                     <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-3">
-                        <img
-                          src={getAssetLogoUrl(selectedTicker.symbol, selectedTickerAssetType, selectedTicker.name)}
-                          alt={`${selectedTicker.symbol} logo`}
-                          className="w-10 h-10 flex-shrink-0 object-cover"
-                          onLoad={(e) => {
-                            const img = e.currentTarget as HTMLImageElement
-                            if (!validateLogoImage(img)) {
-                              img.dispatchEvent(new Event('error'))
-                            }
-                          }}
-                          onError={(e) => handleLogoError(e, selectedTicker.symbol, selectedTicker.name, selectedTickerAssetType)}
-                        />
+                      <img
+                        src={getAssetLogoUrl(selectedTicker.symbol, selectedTickerAssetType, selectedTicker.name)}
+                        alt={`${selectedTicker.symbol} logo`}
+                        className="w-10 h-10 flex-shrink-0 object-cover"
+                        onLoad={(e) => {
+                          const img = e.currentTarget as HTMLImageElement
+                          if (!validateLogoImage(img)) {
+                            img.dispatchEvent(new Event('error'))
+                          }
+                        }}
+                        onError={(e) => handleLogoError(e, selectedTicker.symbol, selectedTicker.name, selectedTickerAssetType)}
+                      />
                       <div>
                         <div className="font-semibold text-blue-700 dark:text-blue-300">
                           {selectedTicker.symbol}
