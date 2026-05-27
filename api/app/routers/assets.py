@@ -6,12 +6,20 @@ from decimal import Decimal
 from datetime import datetime
 import logging
 import json
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import Asset, AssetCreate, AssetMetadataOverride, AssetResearchResponse, AssetWithOverrides
+from app.schemas import (
+    Asset,
+    AssetCreate,
+    AssetInvestmentNote,
+    AssetInvestmentNoteUpdate,
+    AssetMetadataOverride,
+    AssetResearchResponse,
+    AssetWithOverrides,
+)
 from app.crud import assets as crud
 from app.auth import get_current_user
 from app.models import User
@@ -313,6 +321,51 @@ def set_metadata_overrides(
         
     except ValueError as e:
         raise SetMetadataError(symbol=asset.symbol)
+
+
+@router.get("/{asset_id}/investment-note", response_model=AssetInvestmentNote | None)
+def get_investment_note(
+    asset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the current user's investment thesis for an asset."""
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise AssetNotFoundError(id=asset_id)
+
+    return crud.get_asset_investment_note(db, current_user.id, asset_id)
+
+
+@router.put("/{asset_id}/investment-note", response_model=AssetInvestmentNote)
+def save_investment_note(
+    asset_id: int,
+    note: AssetInvestmentNoteUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create or replace the current user's investment thesis for an asset."""
+    saved_note = crud.upsert_asset_investment_note(db, current_user.id, asset_id, note)
+    if not saved_note:
+        raise AssetNotFoundError(id=asset_id)
+
+    return saved_note
+
+
+@router.delete("/{asset_id}/investment-note", status_code=status.HTTP_204_NO_CONTENT)
+def delete_investment_note(
+    asset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete the current user's investment thesis for an asset."""
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise AssetNotFoundError(id=asset_id)
+
+    deleted = crud.delete_asset_investment_note(db, current_user.id, asset_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Investment note not found")
 
 
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)

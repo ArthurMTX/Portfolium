@@ -1223,6 +1223,44 @@
       "startAddingTransactions": "Commencez à ajouter des transactions pour voir les métriques ici."
     }
   },
+  "assetInvestmentNotes": {
+    "title": "Thèse d'investissement",
+    "shortTitle": "Thèse",
+    "open": "Ouvrir la thèse d'investissement",
+    "addThesis": "Ajouter une thèse",
+    "emptyDescription": "Documentez pourquoi cet actif mérite du capital.",
+    "emptyState": "Aucune thèse d'investissement pour le moment. Ajoutez votre conviction, les risques, l'objectif, la thèse d'invalidation et l'horizon.",
+    "updatedAt": "Mis à jour le {{date}}",
+    "none": "Non défini",
+    "thesis": "Pourquoi j'ai acheté",
+    "thesisPlaceholder": "Écrivez la thèse d'investissement principale...",
+    "conviction": "Conviction",
+    "risks": "Risques",
+    "risksPlaceholder": "Listez les principaux risques à surveiller...",
+    "targetPrice": "Prix cible",
+    "targetText": "Note d'objectif",
+    "targetTextPlaceholder": "Exemple : alléger si la valorisation dépasse les fondamentaux",
+    "invalidationThesis": "Thèse d'invalidation",
+    "invalidationPlaceholder": "Qu'est-ce qui invaliderait cette thèse ?",
+    "whyIBought": "Pourquoi j'ai acheté",
+    "horizon": "Horizon",
+    "horizonDate": "Date d'horizon",
+    "convictionOptions": {
+      "low": "Faible",
+      "medium": "Moyenne",
+      "high": "Forte"
+    },
+    "horizonOptions": {
+      "short": "Court",
+      "medium": "Moyen",
+      "long": "Long"
+    },
+    "errors": {
+      "invalidTargetPrice": "Le prix cible doit être un nombre valide.",
+      "saveFailed": "Impossible d'enregistrer la thèse d'investissement.",
+      "deleteFailed": "Impossible de supprimer la thèse d'investissement."
+    }
+  },
   "assets": {
     "title": "Actifs",
     "description": "Gérer et analyser vos actifs détenus",

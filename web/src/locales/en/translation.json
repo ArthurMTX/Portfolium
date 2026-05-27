@@ -1223,6 +1223,44 @@
       "startAddingTransactions": "Start adding transactions to see metrics here."
     }
   },
+  "assetInvestmentNotes": {
+    "title": "Investment Thesis",
+    "shortTitle": "Thesis",
+    "open": "Open investment thesis",
+    "addThesis": "Add thesis",
+    "emptyDescription": "Document why this asset deserves capital.",
+    "emptyState": "No investment thesis yet. Add your conviction, risks, target, invalidation thesis, and horizon.",
+    "updatedAt": "Updated {{date}}",
+    "none": "Not set",
+    "thesis": "Why I bought",
+    "thesisPlaceholder": "Write the core investment thesis...",
+    "conviction": "Conviction",
+    "risks": "Risks",
+    "risksPlaceholder": "List the main risks to monitor...",
+    "targetPrice": "Target price",
+    "targetText": "Target note",
+    "targetTextPlaceholder": "Example: trim if valuation exceeds fundamentals",
+    "invalidationThesis": "Invalidation thesis",
+    "invalidationPlaceholder": "What would prove this thesis wrong?",
+    "whyIBought": "Why I bought",
+    "horizon": "Horizon",
+    "horizonDate": "Horizon date",
+    "convictionOptions": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "horizonOptions": {
+      "short": "Short",
+      "medium": "Medium",
+      "long": "Long"
+    },
+    "errors": {
+      "invalidTargetPrice": "Target price must be a valid number.",
+      "saveFailed": "Failed to save investment thesis.",
+      "deleteFailed": "Failed to delete investment thesis."
+    }
+  },
   "assets": {
     "title": "Assets",
     "description": "Manage and analyze your held assets",

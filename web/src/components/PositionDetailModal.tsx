@@ -1,9 +1,11 @@
 import React from 'react'
 import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3, Info, LineChart, Shield, Users } from 'lucide-react'
-import { PositionDTO, api } from '../lib/api'
+import { AssetInvestmentNoteDTO, PositionDTO, api } from '../lib/api'
 import { formatCurrency, formatNumber, formatLargeNumber, formatWithSeparators } from '../lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '@/lib/logoUtils'
+import AssetInvestmentNoteModal from './AssetInvestmentNoteModal'
+import AssetInvestmentNoteSummary from './AssetInvestmentNoteSummary'
 import {
   getPerformanceConclusion,
   getVolatilityConclusion,
@@ -90,6 +92,9 @@ interface DetailedMetrics {
 export default function PositionDetailModal({ position, portfolioId, isOpen, onClose }: PositionDetailModalProps) {
   const { t } = useTranslation()
   const [detailedMetrics, setDetailedMetrics] = React.useState<DetailedMetrics | null>(null)
+  const [investmentNote, setInvestmentNote] = React.useState<AssetInvestmentNoteDTO | null>(null)
+  const [investmentNoteLoading, setInvestmentNoteLoading] = React.useState(false)
+  const [investmentNoteOpen, setInvestmentNoteOpen] = React.useState(false)
   const [loadingMetrics, setLoadingMetrics] = React.useState(false)
 
   // Prevent body scroll when modal is open
@@ -121,6 +126,19 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, position?.asset_id, portfolioId])
+
+  React.useEffect(() => {
+    if (isOpen && position) {
+      setInvestmentNoteLoading(true)
+      api.getAssetInvestmentNote(position.asset_id)
+        .then(setInvestmentNote)
+        .catch(() => setInvestmentNote(null))
+        .finally(() => setInvestmentNoteLoading(false))
+    } else {
+      setInvestmentNote(null)
+      setInvestmentNoteOpen(false)
+    }
+  }, [isOpen, position?.asset_id])
 
   if (!isOpen || !position) return null
 
@@ -178,6 +196,13 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
           {/* Content */}
           <div className="p-8 space-y-8">
+            <AssetInvestmentNoteSummary
+              note={investmentNote}
+              currency={position.currency}
+              loading={investmentNoteLoading}
+              onEdit={() => setInvestmentNoteOpen(true)}
+            />
+
             {/* Fundamentals & Liquidity */}
             {(loadingMetrics || (detailedMetrics && (detailedMetrics.market_cap !== null || detailedMetrics.volume !== null || 
               detailedMetrics.avg_volume !== null || detailedMetrics.pe_ratio !== null || detailedMetrics.eps !== null))) && (
@@ -784,6 +809,15 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
           </div>
         </div>
       </div>
+
+      <AssetInvestmentNoteModal
+        assetId={position.asset_id}
+        symbol={position.symbol}
+        note={investmentNote}
+        isOpen={investmentNoteOpen}
+        onClose={() => setInvestmentNoteOpen(false)}
+        onSaved={setInvestmentNote}
+      />
     </>
   )
 }

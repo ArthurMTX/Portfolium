@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit, BookOpen } from 'lucide-react';
+import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit, BookOpen, NotebookPen, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../lib/api';
+import api, { AssetInvestmentNoteDTO } from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
@@ -12,6 +12,7 @@ import AssetPriceChart from '../components/AssetPriceChart';
 import SortIcon from '../components/SortIcon';
 import AssetPriceDebug from '../components/AssetPriceDebug';
 import AssetMetadataEdit from '../components/AssetMetadataEdit';
+import AssetInvestmentNoteModal from '../components/AssetInvestmentNoteModal';
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt';
 import EmptyTransactionsPrompt from '../components/EmptyTransactionsPrompt';
 import usePortfolioStore from '../store/usePortfolioStore';
@@ -74,6 +75,9 @@ export default function Assets() {
   const [priceChartAsset, setPriceChartAsset] = useState<{ id: number; symbol: string; currency: string; assetType?: string | null; name?: string | null } | null>(null);
   const [debugAsset, setDebugAsset] = useState<{ id: number; symbol: string } | null>(null);
   const [editAsset, setEditAsset] = useState<HeldAsset | null>(null);
+  const [investmentNoteAsset, setInvestmentNoteAsset] = useState<HeldAsset | null>(null);
+  const [investmentNote, setInvestmentNote] = useState<AssetInvestmentNoteDTO | null>(null);
+  const [actionMenuAssetId, setActionMenuAssetId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const distributionRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
@@ -167,7 +171,7 @@ export default function Assets() {
 
   // Prevent body scroll when modals are open
   useEffect(() => {
-    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset || editAsset) {
+    if (splitHistoryAsset || transactionHistoryAsset || priceChartAsset || debugAsset || editAsset || investmentNoteAsset) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -175,7 +179,18 @@ export default function Assets() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset, editAsset])
+  }, [splitHistoryAsset, transactionHistoryAsset, priceChartAsset, debugAsset, editAsset, investmentNoteAsset])
+
+  const openInvestmentNote = async (asset: HeldAsset) => {
+    setInvestmentNoteAsset(asset);
+    setInvestmentNote(null);
+    try {
+      const note = await api.getAssetInvestmentNote(asset.id);
+      setInvestmentNote(note);
+    } catch (err) {
+      console.error('Failed to load investment note:', err);
+    }
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -665,17 +680,6 @@ export default function Assets() {
 
                         {/* Actions */}
                         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                          {/* Edit Metadata Button - Show if any metadata is missing */}
-                          {(!asset.sector || !asset.industry || !asset.country) && (
-                            <button
-                              onClick={() => setEditAsset(asset)}
-                              className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
-                              title="Edit Metadata"
-                            >
-                              <Edit size={14} />
-                              {t('common.edit')}
-                            </button>
-                          )}
                           {(asset.split_count ?? 0) > 0 && (
                             <button
                               onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
@@ -697,13 +701,51 @@ export default function Assets() {
                             </button>
                           )}
                           <button
-                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency, assetType: asset.asset_type, name: asset.name })}
+                            onClick={() => setActionMenuAssetId(actionMenuAssetId === asset.id ? null : asset.id)}
                             className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
-                            title="View Price Chart"
+                            title={t('common.actions')}
                           >
-                            <LineChart size={14} />
-                            {t('assets.chart')}
+                            <MoreHorizontal size={14} />
+                            {t('common.actions')}
                           </button>
+                          {actionMenuAssetId === asset.id && (
+                            <div className="basis-full flex flex-wrap gap-2 pt-2">
+                              {(!asset.sector || !asset.industry || !asset.country) && (
+                                <button
+                                  onClick={() => setEditAsset(asset)}
+                                  className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                                  title="Edit Metadata"
+                                >
+                                  <Edit size={14} />
+                                  {t('common.edit')}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency, assetType: asset.asset_type, name: asset.name })}
+                                className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                                title="View Price Chart"
+                              >
+                                <LineChart size={14} />
+                                {t('assets.chart')}
+                              </button>
+                              <button
+                                onClick={() => navigate(`/assets/${encodeURIComponent(asset.symbol)}`)}
+                                className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                                title={t('assets.searchResearch')}
+                              >
+                                <BookOpen size={14} />
+                                {t('assets.research')}
+                              </button>
+                              <button
+                                onClick={() => openInvestmentNote(asset)}
+                                className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                                title={t('assetInvestmentNotes.open')}
+                              >
+                                <NotebookPen size={14} />
+                                {t('assetInvestmentNotes.shortTitle')}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))
@@ -901,26 +943,6 @@ export default function Assets() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* Edit Metadata Button - Show if any metadata is missing */}
-                        {(!asset.sector || !asset.industry || !asset.country) && (
-                          <button
-                            onClick={() => setEditAsset(asset)}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded transition-colors"
-                            title={t('assets.editAssetMetadata')}
-                          >
-                            <Edit size={16} />
-                          </button>
-                        )}
-                        {/* Price Chart Button - Show for all assets with transactions */}
-                        {(asset.transaction_count ?? 0) > 0 && (
-                          <button
-                            onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD', assetType: asset.asset_type, name: asset.name })}
-                            className="p-2 text-pink-600 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-900/20 rounded transition-colors"
-                            title={t('assets.viewPriceChart')}
-                          >
-                            <LineChart size={16} />
-                          </button>
-                        )}
                         {(asset.transaction_count ?? 0) > 0 && (
                           <button
                             onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}
@@ -940,6 +962,47 @@ export default function Assets() {
                             <Shuffle size={16} />
                             <span className="text-xs">{asset.split_count}</span>
                           </button>
+                        )}
+                        <button
+                          onClick={() => setActionMenuAssetId(actionMenuAssetId === asset.id ? null : asset.id)}
+                          className="p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded transition-colors"
+                          title={t('common.actions')}
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {actionMenuAssetId === asset.id && (
+                          <div className="flex items-center gap-1 border-l border-neutral-200 dark:border-neutral-700 pl-2">
+                            {(!asset.sector || !asset.industry || !asset.country) && (
+                              <button
+                                onClick={() => setEditAsset(asset)}
+                                className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded transition-colors"
+                                title={t('assets.editAssetMetadata')}
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD', assetType: asset.asset_type, name: asset.name })}
+                              className="p-2 text-pink-600 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-900/20 rounded transition-colors"
+                              title={t('assets.viewPriceChart')}
+                            >
+                              <LineChart size={16} />
+                            </button>
+                            <button
+                              onClick={() => navigate(`/assets/${encodeURIComponent(asset.symbol)}`)}
+                              className="p-2 text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/20 rounded transition-colors"
+                              title={t('assets.searchResearch')}
+                            >
+                              <BookOpen size={16} />
+                            </button>
+                            <button
+                              onClick={() => openInvestmentNote(asset)}
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 rounded transition-colors"
+                              title={t('assetInvestmentNotes.open')}
+                            >
+                              <NotebookPen size={16} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -1059,6 +1122,17 @@ export default function Assets() {
           onSuccess={() => {
             loadAssets(); // Reload assets to show updated effective values
           }}
+        />
+      )}
+
+      {investmentNoteAsset && (
+        <AssetInvestmentNoteModal
+          assetId={investmentNoteAsset.id}
+          symbol={investmentNoteAsset.symbol}
+          note={investmentNote}
+          isOpen={Boolean(investmentNoteAsset)}
+          onClose={() => setInvestmentNoteAsset(null)}
+          onSaved={setInvestmentNote}
         />
       )}
     </div>

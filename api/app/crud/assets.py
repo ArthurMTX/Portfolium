@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.models import Asset
-from app.schemas import AssetCreate
+from app.schemas import AssetCreate, AssetInvestmentNoteUpdate
 
 
 def get_asset(db: Session, asset_id: int) -> Optional[Asset]:
@@ -466,3 +466,56 @@ def get_effective_asset_metadata(db: Session, asset: Asset, user_id: int) -> dic
         "industry_override": override.industry_override if override else None,
         "country_override": override.country_override if override else None,
     }
+
+
+def get_asset_investment_note(db: Session, user_id: int, asset_id: int):
+    """Get a user's investment note for an asset."""
+    from app.models import AssetInvestmentNote
+
+    return (
+        db.query(AssetInvestmentNote)
+        .filter(
+            AssetInvestmentNote.user_id == user_id,
+            AssetInvestmentNote.asset_id == asset_id,
+        )
+        .first()
+    )
+
+
+def upsert_asset_investment_note(
+    db: Session,
+    user_id: int,
+    asset_id: int,
+    note: AssetInvestmentNoteUpdate,
+):
+    """Create or update a user's investment note for an asset."""
+    from app.models import AssetInvestmentNote
+
+    db_asset = get_asset(db, asset_id)
+    if not db_asset:
+        return None
+
+    db_note = get_asset_investment_note(db, user_id, asset_id)
+    update_data = note.model_dump()
+
+    if db_note is None:
+        db_note = AssetInvestmentNote(user_id=user_id, asset_id=asset_id, **update_data)
+        db.add(db_note)
+    else:
+        for field, value in update_data.items():
+            setattr(db_note, field, value)
+
+    db.commit()
+    db.refresh(db_note)
+    return db_note
+
+
+def delete_asset_investment_note(db: Session, user_id: int, asset_id: int) -> bool:
+    """Delete a user's investment note for an asset."""
+    db_note = get_asset_investment_note(db, user_id, asset_id)
+    if not db_note:
+        return False
+
+    db.delete(db_note)
+    db.commit()
+    return True

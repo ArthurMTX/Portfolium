@@ -2,7 +2,20 @@
 Asset models - financial instruments and metadata
 """
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, DateTime, Enum, LargeBinary, Date, ForeignKey, Numeric
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -44,6 +57,7 @@ class Asset(Base):
     transactions = relationship("Transaction", back_populates="asset")
     prices = relationship("Price", back_populates="asset", cascade="all, delete-orphan")
     metadata_overrides = relationship("AssetMetadataOverride", back_populates="asset", cascade="all, delete-orphan")
+    investment_notes = relationship("AssetInvestmentNote", back_populates="asset", cascade="all, delete-orphan")
 
 
 class AssetMetadataOverride(Base):
@@ -65,3 +79,37 @@ class AssetMetadataOverride(Base):
     # Relationships
     user = relationship("User")
     asset = relationship("Asset", back_populates="metadata_overrides")
+
+
+class AssetInvestmentNote(Base):
+    """User-specific investment thesis for an asset."""
+    __tablename__ = "asset_investment_notes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "asset_id", name="uq_asset_investment_notes_user_asset"),
+        CheckConstraint(
+            "conviction IS NULL OR conviction IN ('low', 'medium', 'high')",
+            name="ck_asset_investment_notes_conviction",
+        ),
+        CheckConstraint(
+            "horizon IS NULL OR horizon IN ('short', 'medium', 'long')",
+            name="ck_asset_investment_notes_horizon",
+        ),
+        {"schema": "portfolio"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("portfolio.users.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    thesis = Column(Text)
+    conviction = Column(String(20))
+    risks = Column(Text)
+    target_price = Column(Numeric(20, 8))
+    target_text = Column(Text)
+    invalidation_thesis = Column(Text)
+    horizon = Column(String(20))
+    horizon_date = Column(Date)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+    asset = relationship("Asset", back_populates="investment_notes")

@@ -253,6 +253,36 @@ export interface AssetResearchDTO {
   }
 }
 
+export type AssetInvestmentConviction = 'low' | 'medium' | 'high'
+export type AssetInvestmentHorizon = 'short' | 'medium' | 'long'
+
+export interface AssetInvestmentNoteDTO {
+  id: number
+  user_id: number
+  asset_id: number
+  thesis: string | null
+  conviction: AssetInvestmentConviction | null
+  risks: string | null
+  target_price: number | string | null
+  target_text: string | null
+  invalidation_thesis: string | null
+  horizon: AssetInvestmentHorizon | null
+  horizon_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssetInvestmentNoteUpdate {
+  thesis?: string | null
+  conviction?: AssetInvestmentConviction | null
+  risks?: string | null
+  target_price?: number | null
+  target_text?: string | null
+  invalidation_thesis?: string | null
+  horizon?: AssetInvestmentHorizon | null
+  horizon_date?: string | null
+}
+
 // Asset Distribution Types
 export interface AssetPositionDTO {
   asset_id: number
@@ -827,6 +857,23 @@ class ApiClient {
 
   async getAssetResearch(symbol: string) {
     return this.request<AssetResearchDTO>(`/assets/research/${encodeURIComponent(symbol)}`)
+  }
+
+  async getAssetInvestmentNote(assetId: number) {
+    return this.request<AssetInvestmentNoteDTO | null>(`/assets/${assetId}/investment-note`)
+  }
+
+  async saveAssetInvestmentNote(assetId: number, data: AssetInvestmentNoteUpdate) {
+    return this.request<AssetInvestmentNoteDTO>(`/assets/${assetId}/investment-note`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteAssetInvestmentNote(assetId: number) {
+    return this.request<void>(`/assets/${assetId}/investment-note`, {
+      method: 'DELETE',
+    })
   }
 
   async getPriceQuote(symbol: string, targetCurrency?: string) {

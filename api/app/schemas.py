@@ -263,6 +263,29 @@ class AssetMetadataOverride(BaseModel):
     country_override: Optional[str] = Field(None, description="Override for country when Yahoo Finance doesn't provide data")
 
 
+class AssetInvestmentNoteUpdate(BaseModel):
+    """Schema for creating or updating a user's investment thesis for an asset."""
+    thesis: Optional[str] = None
+    conviction: Optional[str] = Field(None, pattern="^(low|medium|high)$")
+    risks: Optional[str] = None
+    target_price: Optional[Decimal] = Field(None, ge=0)
+    target_text: Optional[str] = None
+    invalidation_thesis: Optional[str] = None
+    horizon: Optional[str] = Field(None, pattern="^(short|medium|long)$")
+    horizon_date: Optional[date] = None
+
+
+class AssetInvestmentNote(AssetInvestmentNoteUpdate):
+    """User-specific investment thesis response."""
+    id: int
+    user_id: int
+    asset_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AssetWithOverrides(AssetBase):
     """Asset response schema with user-specific overrides"""
     id: int

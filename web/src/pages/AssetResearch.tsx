@@ -16,8 +16,10 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
-import api, { AssetResearchDTO } from '../lib/api'
+import api, { AssetInvestmentNoteDTO, AssetResearchDTO } from '../lib/api'
 import AssetPriceChart from '../components/AssetPriceChart'
+import AssetInvestmentNoteModal from '../components/AssetInvestmentNoteModal'
+import AssetInvestmentNoteSummary from '../components/AssetInvestmentNoteSummary'
 import DataFreshnessIndicator from '../components/DataFreshnessIndicator'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatAssetType, formatCurrency, formatLargeNumber, formatNumber, formatWithSeparators } from '../lib/formatUtils'
@@ -98,6 +100,9 @@ export default function AssetResearch() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [assetResearch, setAssetResearch] = useState<AssetResearchDTO | null>(null)
+  const [investmentNote, setInvestmentNote] = useState<AssetInvestmentNoteDTO | null>(null)
+  const [investmentNoteLoading, setInvestmentNoteLoading] = useState(false)
+  const [investmentNoteOpen, setInvestmentNoteOpen] = useState(false)
   const [loading, setLoading] = useState(Boolean(routeSymbol))
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('overview')
@@ -123,11 +128,25 @@ export default function AssetResearch() {
         setLoading(true)
         setError(null)
         const data = await api.getAssetResearch(routeSymbol.toUpperCase())
-        if (!cancelled) setAssetResearch(data)
+        if (!cancelled) {
+          setAssetResearch(data)
+          setInvestmentNoteLoading(true)
+          api.getAssetInvestmentNote(data.asset.id)
+            .then((note) => {
+              if (!cancelled) setInvestmentNote(note)
+            })
+            .catch(() => {
+              if (!cancelled) setInvestmentNote(null)
+            })
+            .finally(() => {
+              if (!cancelled) setInvestmentNoteLoading(false)
+            })
+        }
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Failed to load asset research'
           setError(message)
+          setInvestmentNote(null)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -640,6 +659,12 @@ export default function AssetResearch() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <MetricGrid metrics={metrics.overview} />
+          <AssetInvestmentNoteSummary
+            note={investmentNote}
+            currency={metrics.currency}
+            loading={investmentNoteLoading}
+            onEdit={() => setInvestmentNoteOpen(true)}
+          />
           <AssetPriceChart
             assetId={asset.id}
             symbol={asset.symbol}
@@ -689,6 +714,15 @@ export default function AssetResearch() {
       {activeTab === 'analyst' && (
         <MaybeSection title="Analyst View & Valuation" metrics={metrics.analyst} icon={<Users size={20} className="text-violet-600 dark:text-violet-400" />} />
       )}
+
+      <AssetInvestmentNoteModal
+        assetId={asset.id}
+        symbol={asset.symbol}
+        note={investmentNote}
+        isOpen={investmentNoteOpen}
+        onClose={() => setInvestmentNoteOpen(false)}
+        onSaved={setInvestmentNote}
+      />
     </div>
   )
 }
