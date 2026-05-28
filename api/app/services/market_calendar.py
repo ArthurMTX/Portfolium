@@ -19,11 +19,14 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import List, Dict, Optional, Set
 from functools import lru_cache
+from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+UTC = ZoneInfo("UTC")
 
 # Map common currency/region to primary exchange
 CURRENCY_TO_EXCHANGE = {
@@ -88,6 +91,19 @@ DEFAULT_EXCHANGE = "XNYS"
 
 class MarketCalendarService:
     """Service for market calendar operations using exchange-calendars library."""
+
+    @staticmethod
+    def _as_utc_timestamp(value: datetime) -> pd.Timestamp:
+        """
+        Build UTC pandas timestamps with a ZoneInfo timezone.
+
+        pandas defaults to datetime.timezone.utc for tz="UTC", but recent
+        exchange-calendars code expects timezone objects to expose `.key`.
+        """
+        ts = pd.Timestamp(value)
+        if ts.tz is None:
+            return ts.tz_localize(UTC)
+        return ts.tz_convert(UTC)
     
     @staticmethod
     def get_exchange_display_name(exchange_code: str) -> str:
@@ -482,7 +498,7 @@ class MarketCalendarService:
         try:
             calendar = cls.get_calendar(exchange_code)
             # exchange-calendars uses pandas Timestamp
-            ts = pd.Timestamp(at_time, tz='UTC')
+            ts = cls._as_utc_timestamp(at_time)
             return calendar.is_open_at_time(ts)
         except Exception as e:
             logger.warning(f"Failed to check if {exchange_code} is open: {e}")
@@ -536,7 +552,7 @@ class MarketCalendarService:
         
         try:
             calendar = cls.get_calendar(exchange_code)
-            ts = pd.Timestamp(from_time, tz='UTC')
+            ts = cls._as_utc_timestamp(from_time)
             
             # Get next trading session
             next_open = calendar.next_open(ts)
@@ -571,7 +587,7 @@ class MarketCalendarService:
         
         try:
             calendar = cls.get_calendar(exchange_code)
-            ts = pd.Timestamp(datetime.combine(for_date, datetime.min.time()), tz='UTC')
+            ts = pd.Timestamp(datetime.combine(for_date, datetime.min.time()))
             
             # Check if it's a trading day
             if not calendar.is_session(ts):
