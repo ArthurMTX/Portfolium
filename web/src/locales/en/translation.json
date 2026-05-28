@@ -247,6 +247,11 @@
     "unrealizedPnL": "Unrealized P&L",
     "realizedPnL": "Realized P&L",
     "dividends": "Dividends",
+    "todayBrief": {
+      "name": "Today Brief",
+      "description": "Compact daily summary of what matters most right now.",
+      "emptyState": "Nothing important today"
+    },
     "currentPositions": "Current Positions",
     "soldPositions": "Sold Positions",
     "loadingSoldPositions": "Loading sold positions...",
@@ -603,6 +608,29 @@
           "normal": "Normal Dollar",
           "strong": "Strong Dollar",
           "veryStrong": "Very Strong Dollar"
+        }
+      },
+      "todayBrief": {
+        "name": "Today Brief",
+        "description": "Compact daily summary of what matters most right now.",
+        "freshness": {
+          "marketClosed": "Market closed · Using latest available prices",
+          "recent": "Prices refreshed recently",
+          "mayBeDelayed": "Some prices may be delayed",
+          "secondary": "Latest available market data",
+          "tooltip": "{{count}} prices are older than the freshness window"
+        },
+        "dividends": {
+          "expectedSoon": "{{amount}} expected soon",
+          "upcoming": "Upcoming dividends this month",
+          "secondary": "Awaiting review",
+          "tooltip": "{{count}} pending dividend records"
+        },
+        "relativeDates": {
+          "today": "Today",
+          "tomorrow": "Tomorrow",
+          "thisWeek": "This week",
+          "recently": "Recently"
         }
       },
       "categories": {

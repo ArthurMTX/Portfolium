@@ -247,6 +247,11 @@
     "unrealizedPnL": "P&L non réalisé",
     "realizedPnL": "P&L réalisé",
     "dividends": "Dividendes",
+    "todayBrief": {
+      "name": "Brief du jour",
+      "description": "Résumé quotidien compact de ce qui compte maintenant.",
+      "emptyState": "Rien d’important aujourd’hui"
+    },
     "currentPositions": "Positions actuelles",
     "soldPositions": "Positions vendues",
     "loadingSoldPositions": "Chargement des positions vendues...",
@@ -603,6 +608,29 @@
           "normal": "Dollar normal",
           "strong": "Dollar fort",
           "veryStrong": "Dollar très fort"
+        }
+      },
+      "todayBrief": {
+        "name": "Brief du jour",
+        "description": "Résumé compact des événements les plus importants d'aujourd'hui.",
+        "freshness": {
+          "marketClosed": "Marché fermé · Derniers prix disponibles",
+          "recent": "Prix actualisés récemment",
+          "mayBeDelayed": "Certains prix peuvent être différés",
+          "secondary": "Dernières données de marché disponibles",
+          "tooltip": "{{count}} prix dépassent la fenêtre de fraîcheur"
+        },
+        "dividends": {
+          "expectedSoon": "{{amount}} attendus bientôt",
+          "upcoming": "Dividendes à venir ce mois-ci",
+          "secondary": "En attente de validation",
+          "tooltip": "{{count}} lignes de dividendes en attente"
+        },
+        "relativeDates": {
+          "today": "Aujourd'hui",
+          "tomorrow": "Demain",
+          "thisWeek": "Cette semaine",
+          "recently": "Récemment"
         }
       },
       "categories": {

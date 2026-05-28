@@ -26,6 +26,7 @@ import {
   Timer,
   Network,
   Pizza,
+  Sparkles,
 } from 'lucide-react'
 import { WidgetConfig, WidgetContext } from '../../types'
 import { getWidgetSize } from '../../utils/widgetConstraints'
@@ -53,6 +54,7 @@ import TopPerformersWidget from '../analysis/TopPerformersWidget'
 import WorstPerformersWidget from '../analysis/WorstPerformersWidget'
 import LargestHoldingsWidget from '../analysis/LargestHoldingsWidget'
 import PerformanceMetricsWidget from '../analysis/PerformanceMetricsWidget'
+import TodayBriefWidget from '../analysis/TodayBriefWidget'
 import AssetAllocationWidget from '../analysis/AssetAllocationWidget'
 import PortfolioHeatmapWidget from '../analysis/PortfolioHeatmapWidget'
 import MarketStatusWidget from '../market/MarketStatusWidget'
@@ -349,6 +351,21 @@ export const widgetDefinitions: WidgetConfig[] = [
     component: BestWorstTodayWidget,
     getProps: (context: WidgetContext) => ({
       positions: context.positions,
+      isPreview: context.isPreview,
+    }),
+  },
+  {
+    id: 'today-brief',
+    name: 'dashboard.widgets.todayBrief.name',
+    description: 'dashboard.widgets.todayBrief.description',
+    category: 'insights',
+    icon: Sparkles,
+    iconColor: 'text-fuchsia-600 dark:text-fuchsia-400',
+    iconBgColor: 'bg-fuchsia-50 dark:bg-fuchsia-900/20',
+    defaultSize: { w: 4, h: 4, minW: 3, minH: 3 },
+    allowMultiple: false,
+    component: TodayBriefWidget,
+    getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
     }),
   },

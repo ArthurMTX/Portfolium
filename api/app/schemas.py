@@ -625,6 +625,27 @@ class PortfolioMetrics(BaseModel):
     last_updated: datetime
 
 
+class TodayBriefItem(BaseModel):
+    """Single line item for the Today Brief dashboard widget"""
+    id: str
+    type: str
+    severity: str = Field(..., pattern="^(positive|negative|neutral|warning)$")
+    title: str
+    description: Optional[str] = None
+    symbol: Optional[str] = None
+    value: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    action_url: Optional[str] = None
+
+
+class TodayBriefResponse(BaseModel):
+    """Deterministic, compact dashboard brief"""
+    portfolio_id: int
+    generated_at: datetime
+    cached: bool = False
+    items: List[TodayBriefItem] = Field(default_factory=list)
+
+
 # ============================================================================
 # Import Schemas
 # ============================================================================

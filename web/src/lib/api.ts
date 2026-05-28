@@ -145,6 +145,25 @@ export interface PortfolioMetricsDTO {
   last_updated: string
 }
 
+export interface TodayBriefItemDTO {
+  id: string
+  type: string
+  severity: 'positive' | 'negative' | 'neutral' | 'warning'
+  title: string
+  description?: string | null
+  symbol?: string | null
+  value?: string | null
+  timestamp?: string | null
+  action_url?: string | null
+}
+
+export interface TodayBriefResponseDTO {
+  portfolio_id: number
+  generated_at: string
+  cached: boolean
+  items: TodayBriefItemDTO[]
+}
+
 export interface PortfolioHistoryPointDTO {
   date: string
   value: number
@@ -1095,6 +1114,10 @@ class ApiClient {
 
   async getPortfolioMetrics(portfolioId: number) {
     return this.request<PortfolioMetricsDTO>(`/portfolios/${portfolioId}/metrics`)
+  }
+
+  async getTodayBrief(portfolioId: number) {
+    return this.request<TodayBriefResponseDTO>(`/portfolios/${portfolioId}/today-brief`)
   }
 
   /**
@@ -2278,7 +2301,7 @@ export interface DailyPerformanceResponse {
   today: string
 }
 
-export interface TransactionDTO {
+export interface LegacyTransactionDTO {
   id: number
   portfolio_id: number
   asset_id: number

@@ -59,6 +59,7 @@ export { default as RecentTransactionsWidget } from './list/RecentTransactionsWi
 // Analysis widgets
 export { default as ConcentrationRiskWidget } from './analysis/ConcentrationRiskWidget'
 export { default as BestWorstTodayWidget } from './analysis/BestWorstTodayWidget'
+export { default as TodayBriefWidget } from './analysis/TodayBriefWidget'
 export { default as TopPerformersWidget } from './analysis/TopPerformersWidget'
 export { default as WorstPerformersWidget } from './analysis/WorstPerformersWidget'
 export { default as LargestHoldingsWidget } from './analysis/LargestHoldingsWidget'
