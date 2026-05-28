@@ -24,7 +24,8 @@ export function getOptimalDecimalPlaces(price: number | string | null): number {
 /**
  * Format currency with adaptive precision based on the value
  * Small values get more decimal places to show meaningful data
- * Values very close to zero (< 0.01) are treated as zero to avoid floating point noise
+ * Values that round to zero at their chosen precision are displayed as zero
+ * to avoid floating point noise.
  */
 export function formatCurrency(
   value: number | string | null, 
@@ -38,9 +39,12 @@ export function formatCurrency(
   
   if (isNaN(numValue)) return '-'
   
-  // Treat very small values as zero to avoid displaying floating point noise like -0.000002
-  // Unless allowSmallValues is true (for per-share dividend amounts, etc.)
-  if (!allowSmallValues && Math.abs(numValue) < 0.01) {
+  const decimalPlaces = getOptimalDecimalPlaces(numValue)
+  const roundedValue = Math.round(numValue * 10 ** decimalPlaces) / 10 ** decimalPlaces
+
+  // Treat values that round to zero as zero to avoid displaying floating point
+  // noise like -0.000000, while preserving legitimate sub-cent prices.
+  if (!allowSmallValues && roundedValue === 0) {
     const userLocale = locale || navigator.language || 'en-US'
     return new Intl.NumberFormat(userLocale, {
       style: 'currency',
@@ -50,7 +54,6 @@ export function formatCurrency(
     }).format(0)
   }
   
-  const decimalPlaces = getOptimalDecimalPlaces(numValue)
   const userLocale = locale || navigator.language || 'en-US'
   
   const formatted = new Intl.NumberFormat(userLocale, {
