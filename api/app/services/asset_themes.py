@@ -1,4 +1,4 @@
-"""Asset theme classification service backed by Gemini."""
+"""Asset theme classification service backed by LLM."""
 from __future__ import annotations
 
 import hashlib

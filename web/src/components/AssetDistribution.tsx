@@ -15,11 +15,13 @@ import {
   Globe,
   Building2,
   Layers,
+  Sparkles,
   TrendingUp,
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
 import { getSectorIcon, getSectorColor, getSectorHexColor, getIndustryIcon, getIndustryColor } from '../lib/sectorIndustryUtils';
+import { getThemeIcon, getThemeColor, getThemeHexColor } from '../lib/themeUtils';
 import { getCountryCode } from '../lib/countryUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import api, { DistributionItemDTO } from '../lib/api';
@@ -67,7 +69,7 @@ interface AssetDistributionProps {
   currency?: string;
 }
 
-type DistributionType = 'sector' | 'type' | 'country';
+type DistributionType = 'sector' | 'type' | 'country' | 'theme';
 type ChartType = 'pie' | 'bar';
 type DetailedSortField = 'name' | 'count' | 'totalValue' | 'unrealizedPnl' | 'percentage';
 type SortDirection = 'asc' | 'desc';
@@ -91,6 +93,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
 
   // Check if we have performance data (requires portfolioId)
   const hasPerformanceData = portfolioId !== undefined;
+  const showUnrealizedPnl = hasPerformanceData && activeTab !== 'theme';
 
   // Fetch distribution data from API
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
       setLoading(true);
       try {
         let data: DistributionItemDTO[];
+        const assetBySymbol = new Map(assets.map(asset => [asset.symbol, asset]));
         switch (activeTab) {
           case 'sector':
             data = await api.getSectorsDistribution(portfolioId);
@@ -107,6 +111,42 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             break;
           case 'country':
             data = await api.getCountriesDistribution(portfolioId);
+            break;
+          case 'theme':
+            if (!portfolioId) {
+              data = [];
+              break;
+            }
+
+            data = (await api.getThemesDistribution(portfolioId)).map((theme) => {
+              const assetIds = theme.assets
+                .map((asset) => assetBySymbol.get(asset.symbol)?.id)
+                .filter((id): id is number => id !== undefined);
+
+              return {
+                name: theme.theme,
+                count: assetIds.length,
+                percentage: theme.percentage,
+                total_value: theme.value,
+                cost_basis: 0,
+                unrealized_pnl: 0,
+                unrealized_pnl_pct: 0,
+                asset_ids: assetIds,
+                asset_positions: theme.assets
+                  .map((asset) => {
+                    const heldAsset = assetBySymbol.get(asset.symbol);
+                    if (!heldAsset) return null;
+
+                    return {
+                      asset_id: heldAsset.id,
+                      total_value: asset.contribution_value,
+                      unrealized_pnl: 0,
+                      percentage: theme.value > 0 ? (asset.contribution_value / theme.value) * 100 : 0,
+                    };
+                  })
+                  .filter((asset): asset is { asset_id: number; total_value: number; unrealized_pnl: number; percentage: number } => asset !== null),
+              };
+            });
             break;
           default:
             data = [];
@@ -121,7 +161,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
     };
 
     fetchDistribution();
-  }, [activeTab, portfolioId]);
+  }, [activeTab, portfolioId, assets]);
 
   // Fetch industry data when sector is expanded
   useEffect(() => {
@@ -217,6 +257,10 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
     // If we're showing sectors, use sector-specific colors
     if (activeTab === 'sector') {
       return chartSortedData.map(item => getSectorHexColor(item.name));
+    }
+
+    if (activeTab === 'theme') {
+      return chartSortedData.map(item => getThemeHexColor(item.name));
     }
     
     // Default color palette for other tabs
@@ -483,10 +527,10 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
     <div className="space-y-6">     
       {/* Header with Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
+        <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1 overflow-x-auto w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('sector')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all flex-shrink-0 ${
               activeTab === 'sector'
                 ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm font-medium'
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
@@ -498,7 +542,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
           </button>
           <button
             onClick={() => setActiveTab('type')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all flex-shrink-0 ${
               activeTab === 'type'
                 ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm font-medium'
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
@@ -510,7 +554,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
           </button>
           <button
             onClick={() => setActiveTab('country')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all flex-shrink-0 ${
               activeTab === 'country'
                 ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm font-medium'
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
@@ -519,6 +563,18 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             <Globe size={18} />
             <span className="hidden sm:inline">{t('assetsDistribution.byCountry')}</span>
             <span className="sm:hidden">{t('assets.country')}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('theme')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all flex-shrink-0 ${
+              activeTab === 'theme'
+                ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm font-medium'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+            }`}
+          >
+            <Sparkles size={18} />
+            <span className="hidden sm:inline">{t('assetsDistribution.byTheme')}</span>
+            <span className="sm:hidden">{t('assetsDistribution.theme')}</span>
           </button>
         </div>
 
@@ -561,6 +617,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
             {activeTab === 'sector' && t('assetsDistribution.sectorDistribution')}
             {activeTab === 'type' && t('assetsDistribution.typeDistribution')}
             {activeTab === 'country' && t('assetsDistribution.countryDistribution')}
+            {activeTab === 'theme' && t('assetsDistribution.themeDistribution')}
           </h3>
           <div className="h-96 sm:h-[500px]">
             {loading ? (
@@ -608,6 +665,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                     {activeTab === 'sector' && t('assetsDistribution.sector')}
                     {activeTab === 'type' && t('fields.type')}
                     {activeTab === 'country' && t('assets.country')}
+                    {activeTab === 'theme' && t('assetsDistribution.theme')}
                     <SortIcon column="name" activeColumn={detailedSortField} direction={detailedSortDirection} />
                   </th>
                   <th 
@@ -626,13 +684,15 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                         {t('assetsDistribution.totalValue')}
                         <SortIcon column="totalValue" activeColumn={detailedSortField} direction={detailedSortDirection} />
                       </th>
-                      <th 
-                        onClick={() => handleDetailedSort('unrealizedPnl')}
-                        className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                      >
-                        {t('assetsDistribution.unrealizedPnL')}
-                        <SortIcon column="unrealizedPnl" activeColumn={detailedSortField} direction={detailedSortDirection} />
-                      </th>
+                      {showUnrealizedPnl && (
+                        <th 
+                          onClick={() => handleDetailedSort('unrealizedPnl')}
+                          className="px-6 py-3 text-right text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                        >
+                          {t('assetsDistribution.unrealizedPnL')}
+                          <SortIcon column="unrealizedPnl" activeColumn={detailedSortField} direction={detailedSortDirection} />
+                        </th>
+                      )}
                     </>
                   )}
                   <th 
@@ -681,6 +741,12 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                               )}
                             </>
                           )}
+                          {activeTab === 'theme' && (
+                            (() => {
+                              const ThemeIcon = getThemeIcon(item.name);
+                              return <ThemeIcon size={18} className={getThemeColor(item.name)} />;
+                            })()
+                          )}
                         <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                           {activeTab === 'type' 
                             ? getTranslatedAssetType(item.name, t)
@@ -702,14 +768,16 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                             {formatCurrency(item.totalValue)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className={`text-sm font-semibold ${item.unrealizedPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {formatCurrency(item.unrealizedPnl)}
-                          </div>
-                          <div className={`text-xs font-medium ${item.unrealizedPnlPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {formatPercentage(item.unrealizedPnlPct)}
-                          </div>
-                        </td>
+                        {showUnrealizedPnl && (
+                          <td className="px-6 py-4 text-right">
+                            <div className={`text-sm font-semibold ${item.unrealizedPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatCurrency(item.unrealizedPnl)}
+                            </div>
+                            <div className={`text-xs font-medium ${item.unrealizedPnlPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatPercentage(item.unrealizedPnlPct)}
+                            </div>
+                          </td>
+                        )}
                       </>
                     )}
                     <td className="px-6 py-4 text-right">
@@ -732,7 +800,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                   </tr>
                   {expandedRows.has(item.name) && (
                     <tr key={`${item.name}-details`}>
-                      <td colSpan={hasPerformanceData ? 6 : 4} className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50">
+                      <td colSpan={hasPerformanceData ? (showUnrealizedPnl ? 6 : 5) : 4} className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50">
                         {activeTab === 'sector' ? (
                           // Show industry breakdown for sectors
                           <div className="space-y-2">
@@ -1049,7 +1117,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                             </div>
                           </div>
                         ) : (
-                          // Show asset table for other tabs (type, country)
+                          // Show asset table for other tabs (type, country, theme)
                           <div className="overflow-x-auto">
                             <table className="min-w-full">
                               <thead>
@@ -1077,20 +1145,22 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                         {t('assetsDistribution.totalValue')}
                                         <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
                                       </th>
-                                      <th 
-                                        className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                        onClick={() => handleAssetSort('unrealizedPnl')}
-                                      >
-                                        {t('assetsDistribution.unrealizedPnL')}
-                                        <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
-                                      </th>
+                                      {showUnrealizedPnl && (
+                                        <th 
+                                          className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+                                          onClick={() => handleAssetSort('unrealizedPnl')}
+                                        >
+                                          {t('assetsDistribution.unrealizedPnL')}
+                                          <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
+                                        </th>
+                                      )}
                                     </>
                                   )}
                                   <th 
                                     className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
                                     onClick={() => handleAssetSort('percentage')}
                                   >
-                                    {t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assets.country') : activeTab === 'type' ? t('fields.type') : t('assetsDistribution.group') })}
+                                    {t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assets.country') : activeTab === 'type' ? t('fields.type') : activeTab === 'theme' ? t('assetsDistribution.theme') : t('assetsDistribution.group') })}
                                     <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
                                   </th>
                                 </tr>
@@ -1135,20 +1205,22 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                                 {assetPosition ? formatCurrency(assetPosition.total_value) : '-'}
                                               </span>
                                             </td>
-                                            <td className="px-3 py-2 text-right">
-                                              <span className={`text-xs font-medium ${
-                                                assetPosition && assetPosition.unrealized_pnl >= 0
-                                                  ? 'text-green-600 dark:text-green-400'
-                                                  : 'text-red-600 dark:text-red-400'
-                                              }`}>
-                                                {assetPosition ? (
-                                                  <>
-                                                    {assetPosition.unrealized_pnl >= 0 ? '+' : ''}
-                                                    {formatCurrency(assetPosition.unrealized_pnl)}
-                                                  </>
-                                                ) : '-'}
-                                              </span>
-                                            </td>
+                                            {showUnrealizedPnl && (
+                                              <td className="px-3 py-2 text-right">
+                                                <span className={`text-xs font-medium ${
+                                                  assetPosition && assetPosition.unrealized_pnl >= 0
+                                                    ? 'text-green-600 dark:text-green-400'
+                                                    : 'text-red-600 dark:text-red-400'
+                                                }`}>
+                                                  {assetPosition ? (
+                                                    <>
+                                                      {assetPosition.unrealized_pnl >= 0 ? '+' : ''}
+                                                      {formatCurrency(assetPosition.unrealized_pnl)}
+                                                    </>
+                                                  ) : '-'}
+                                                </span>
+                                              </td>
+                                            )}
                                           </>
                                         )}
                                         <td className="px-3 py-2 text-right">

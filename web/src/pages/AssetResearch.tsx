@@ -32,6 +32,7 @@ import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logo
 import { formatAssetType, formatCurrency, formatLargeNumber, formatNumber, formatWithSeparators } from '../lib/formatUtils'
 import { getCountryCode } from '../lib/countryUtils'
 import { getIndustryColor, getIndustryIcon, getSectorColor, getSectorIcon } from '../lib/sectorIndustryUtils'
+import { getThemeColor, getThemeHexColor, getThemeIcon } from '../lib/themeUtils'
 import {
   getAnalystConsensusConclusion,
   getDebtToEquityConclusion,
@@ -871,16 +872,26 @@ function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] 
     <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
       <div className="flex flex-wrap gap-2">
         {themes.map((theme) => (
-          <span
-            key={theme.label}
-            className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300"
-            title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
-          >
-            {theme.label}
-            <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">
-              {Math.round(theme.confidence * 100)}%
-            </span>
-          </span>
+          (() => {
+            const ThemeIcon = getThemeIcon(theme.label)
+            const themeColor = getThemeColor(theme.label)
+            const themeHex = getThemeHexColor(theme.label)
+
+            return (
+              <span
+                key={theme.label}
+                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors dark:shadow-none"
+                style={{ borderColor: `${themeHex}40`, backgroundColor: `${themeHex}12` }}
+                title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
+              >
+                <ThemeIcon size={14} className={themeColor} />
+                <span className={themeColor}>{theme.label}</span>
+                <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                  {Math.round(theme.confidence * 100)}%
+                </span>
+              </span>
+            )
+          })()
         ))}
       </div>
     </Section>

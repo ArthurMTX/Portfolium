@@ -356,6 +356,19 @@ export interface DistributionItemDTO {
   asset_positions?: AssetPositionDTO[]
 }
 
+export interface ThemeDistributionAssetDTO {
+  symbol: string
+  name: string
+  contribution_value: number
+}
+
+export interface ThemeDistributionItemDTO {
+  theme: string
+  value: number
+  percentage: number
+  assets: ThemeDistributionAssetDTO[]
+}
+
 export interface IndustryItemDTO {
   name: string
   count: number
@@ -1032,6 +1045,10 @@ class ApiClient {
   async getTypesDistribution(portfolioId?: number) {
     const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
     return this.request<DistributionItemDTO[]>(`/assets/distribution/types${params}`)
+  }
+
+  async getThemesDistribution(portfolioId: number) {
+    return this.request<ThemeDistributionItemDTO[]>(`/assets/themes/distribution?portfolio_id=${portfolioId}`)
   }
 
   async getSectorIndustriesDistribution(sectorName: string, portfolioId?: number) {

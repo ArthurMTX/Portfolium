@@ -1507,6 +1507,7 @@ async def get_types_distribution(
     return result
 
 
+@router.get("/themes/distribution")
 @router.get("/distribution/themes")
 async def get_themes_distribution(
     metrics_service: MetricsServiceDep,
