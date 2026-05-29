@@ -135,6 +135,12 @@ export interface AssetThemeDTO {
   confidence: number
   evidence: string[]
   tier?: 'primary' | 'secondary' | null
+  children?: AssetSubthemeDTO[]
+}
+
+export interface AssetSubthemeDTO {
+  label: string
+  confidence: number
 }
 
 export interface AssetThemeClassificationDTO {

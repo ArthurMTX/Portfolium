@@ -322,8 +322,11 @@ export default function Assets() {
     if (!themes || themes.length === 0) return undefined;
     return themes
       .map((theme) => {
+        const subthemes = theme.children?.length
+          ? ` (${theme.children.map((child) => child.label).join(', ')})`
+          : '';
         const evidence = theme.evidence?.length ? `: ${theme.evidence.join(', ')}` : '';
-        return `${theme.label}${evidence}`;
+        return `${theme.label}${subthemes}${evidence}`;
       })
       .join('\n');
   };

@@ -46,8 +46,10 @@ def test_refresh_gemini_classification_recovers_from_duplicate_insert(
             {
                 "label": "AI Infrastructure",
                 "confidence": 0.91,
-                "evidence": [],
                 "tier": "primary",
+                "children": [
+                    {"label": "GPU Computing", "confidence": 0.88},
+                ],
             }
         ],
     )
@@ -104,10 +106,12 @@ def test_refresh_gemini_classification_uses_postgresql_upsert(
         "generate_themes",
         lambda name, sector, industry, summary: [
             {
-                "label": "Accelerated Computing",
+                "label": "AI Infrastructure",
                 "confidence": 0.95,
-                "evidence": [],
                 "tier": "primary",
+                "children": [
+                    {"label": "Accelerated Computing", "confidence": 0.92},
+                ],
             }
         ],
     )
@@ -130,3 +134,58 @@ def test_refresh_gemini_classification_uses_postgresql_upsert(
     assert "DO UPDATE" in compiled
     db.add.assert_not_called()
     db.commit.assert_called_once()
+
+
+def test_validate_and_flatten_builds_precise_two_level_hierarchy():
+    payload = {
+        "primaryThemes": [
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.95,
+                "subthemes": [
+                    {"label": "GPU Computing", "confidence": 0.92},
+                    {"label": "Accelerated Computing", "confidence": 0.88},
+                    {"label": "Performance Vehicles", "confidence": 0.99},
+                    {"label": "Data Centers", "confidence": 0.2},
+                ],
+            },
+            {
+                "label": "Technology",
+                "confidence": 0.99,
+                "subthemes": [],
+            },
+        ],
+        "secondaryThemes": [
+            {
+                "label": "Space Infrastructure",
+                "confidence": 0.87,
+                "subthemes": [
+                    {"label": "Launch Services", "confidence": 0.8},
+                    {"label": "Satellites", "confidence": 0.78},
+                ],
+            },
+        ],
+    }
+
+    themes = AssetThemeService._validate_and_flatten(payload)
+
+    assert themes == [
+        {
+            "label": "AI Infrastructure",
+            "confidence": 0.95,
+            "tier": "primary",
+            "children": [
+                {"label": "GPU Computing", "confidence": 0.92},
+                {"label": "Accelerated Computing", "confidence": 0.88},
+            ],
+        },
+        {
+            "label": "Space Infrastructure",
+            "confidence": 0.87,
+            "tier": "secondary",
+            "children": [
+                {"label": "Launch Services", "confidence": 0.8},
+                {"label": "Satellites", "confidence": 0.78},
+            ],
+        },
+    ]

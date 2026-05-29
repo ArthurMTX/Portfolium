@@ -286,12 +286,19 @@ class AssetInvestmentNote(AssetInvestmentNoteUpdate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AssetSubtheme(BaseModel):
+    """Specific business specialization under a global asset theme."""
+    label: str
+    confidence: float = Field(ge=0, le=1)
+
+
 class AssetTheme(BaseModel):
     """Single global asset theme/exposure."""
     label: str
     confidence: float = Field(ge=0, le=1)
     evidence: List[str] = Field(default_factory=list)
     tier: Optional[str] = Field(default=None, pattern="^(primary|secondary)$")
+    children: List[AssetSubtheme] = Field(default_factory=list)
 
 
 class AssetThemeClassification(BaseModel):

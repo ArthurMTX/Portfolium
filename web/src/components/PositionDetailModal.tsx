@@ -215,18 +215,32 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                     Themes & Exposures
                   </h3>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {themes.map((theme) => (
-                    <span
+                    <div
                       key={theme.label}
-                      className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300"
+                      className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300"
                       title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
                     >
-                      {theme.label}
-                      <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">
-                        {Math.round(theme.confidence * 100)}%
-                      </span>
-                    </span>
+                      <div className="flex items-center gap-2">
+                        <span>{theme.label}</span>
+                        <span className="ml-auto text-xs font-semibold text-indigo-500 dark:text-indigo-400">
+                          {Math.round(theme.confidence * 100)}%
+                        </span>
+                      </div>
+                      {(theme.children || []).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {(theme.children || []).map((subtheme) => (
+                            <span
+                              key={`${theme.label}-${subtheme.label}`}
+                              className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300"
+                            >
+                              {subtheme.label} {Math.round(subtheme.confidence * 100)}%
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </section>

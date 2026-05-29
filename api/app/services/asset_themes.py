@@ -20,147 +20,402 @@ logger = logging.getLogger(__name__)
 ThemePayload = Dict[str, Any]
 
 GEMINI_THEME_MODEL = "gemini-2.5-flash-lite"
+GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-v1"
 MIN_THEME_CONFIDENCE = 0.55
 GEMINI_THEME_METHOD = "gpt"
 
-ALLOWED_THEMES: tuple[str, ...] = (
-    # AI & Compute
-    "AI Infrastructure",
-    "Generative AI",
-    "AI Agents",
-    "AI Software",
-    "Sovereign AI",
-    "Data Centers",
-    "Accelerated Computing",
-    "GPU Computing",
-    "Edge Computing",
+ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
+    "AI Infrastructure": (
+        "GPU Computing",
+        "Accelerated Computing",
+        "AI Servers",
+        "AI Networking",
+        "Edge AI",
+    ),
+    "AI Applications": (
+        "Generative AI",
+        "AI Agents",
+        "AI Software",
+        "Enterprise AI",
+        "Sovereign AI",
+    ),
+    "Data Center Infrastructure": (
+        "Colocation",
+        "Hyperscale Data Centers",
+        "Data Center Power",
+        "Data Center Cooling",
+    ),
+    "Networking Infrastructure": (
+        "Ethernet Switching",
+        "Optical Networking",
+        "Routing",
+        "Network Equipment",
+    ),
+    "Semiconductor Value Chain": (
+        "Chip Design",
+        "Semiconductor Equipment",
+        "Foundry Ecosystem",
+        "Advanced Packaging",
+        "Memory & Storage",
+    ),
+    "Photonics & Optical Computing": (
+        "Optical Interconnects",
+        "Silicon Photonics",
+        "Optical Transceivers",
+        "Co-Packaged Optics",
+    ),
+    "Quantum Technology": (
+        "Quantum Computing",
+        "Quantum Networking",
+        "Quantum Security",
+    ),
+    "Cybersecurity Platforms": (
+        "Identity Security",
+        "Zero Trust",
+        "Threat Intelligence",
+        "Network Security",
+        "Cloud Security",
+        "Security Operations",
+    ),
+    "Cloud Platforms": (
+        "Cloud Infrastructure",
+        "Hyperscale Cloud",
+        "Developer Platforms",
+        "Observability",
+        "Database Platforms",
+    ),
+    "Enterprise SaaS": (
+        "CRM Software",
+        "ERP Software",
+        "Workflow Automation",
+        "Digital Transformation",
+        "Customer Experience Software",
+        "Productivity Software",
+    ),
+    "Data Analytics Platforms": (
+        "Business Intelligence",
+        "Data Warehousing",
+        "Data Engineering",
+        "Real-Time Analytics",
+    ),
+    "Robotics & Automation": (
+        "Humanoid Robotics",
+        "Industrial Robotics",
+        "Warehouse Automation",
+        "Machine Vision",
+        "Industrial Automation",
+        "Sensors & LiDAR",
+    ),
+    "Electric Mobility": (
+        "Electric Vehicles",
+        "Charging Infrastructure",
+        "Powertrains",
+        "Fleet Electrification",
+    ),
+    "Autonomous Mobility": (
+        "Autonomous Vehicles",
+        "Robotaxis",
+        "Driver Assistance",
+        "Mobility Platforms",
+    ),
+    "Battery Value Chain": (
+        "Battery Technology",
+        "Battery Storage",
+        "Lithium Batteries",
+        "Battery Materials",
+        "Battery Recycling",
+    ),
+    "Defense Tech": (
+        "Military AI",
+        "ISR & Surveillance",
+        "Drones / UAV",
+        "Electronic Warfare",
+        "Missile Defense",
+        "Secure Communications",
+    ),
+    "Space Infrastructure": (
+        "Launch Services",
+        "Satellites",
+        "Space Communications",
+        "Earth Observation",
+        "Space Systems",
+    ),
+    "Nuclear Energy": (
+        "Nuclear",
+        "SMR",
+        "Uranium",
+        "Nuclear Services",
+    ),
+    "Grid Modernization": (
+        "Grid Infrastructure",
+        "Power Generation",
+        "Transmission Equipment",
+        "Power Electronics",
+        "Smart Grid",
+    ),
+    "Renewable Power": (
+        "Solar",
+        "Wind",
+        "Renewable Developers",
+        "Renewable Equipment",
+    ),
+    "Clean Fuels": (
+        "Hydrogen",
+        "Renewable Natural Gas",
+        "Sustainable Aviation Fuel",
+        "Biofuels",
+    ),
+    "Carbon Management": (
+        "Carbon Capture",
+        "Carbon Markets",
+        "Emissions Monitoring",
+    ),
+    "Energy Transport": (
+        "Oil & Gas",
+        "LNG",
+        "Pipelines",
+        "Refining",
+        "Energy Services",
+    ),
+    "Digital Finance": (
+        "Fintech",
+        "Digital Banking",
+        "Payments",
+        "Lending Platforms",
+    ),
+    "Asset & Wealth Platforms": (
+        "Asset Management",
+        "Capital Markets",
+        "Wealth Technology",
+        "Exchange Operators",
+    ),
+    "Crypto Infrastructure": (
+        "Digital Assets",
+        "Crypto Exchanges",
+        "Blockchain Infrastructure",
+        "Bitcoin Mining",
+    ),
+    "Biotechnology Platforms": (
+        "Drug Discovery",
+        "Biologics",
+        "Gene Therapy",
+        "Cell Therapy",
+        "Clinical Platforms",
+    ),
+    "Precision Medicine": (
+        "Diagnostics",
+        "Genomics",
+        "Targeted Therapies",
+        "Personalized Oncology",
+    ),
+    "Medical Technology": (
+        "Medical Devices",
+        "Robotic Surgery",
+        "Imaging Systems",
+        "Monitoring Devices",
+    ),
+    "Healthcare Delivery": (
+        "Healthcare Services",
+        "Managed Care",
+        "Hospitals",
+        "Pharmacy Services",
+    ),
+    "Digital Commerce": (
+        "E-commerce",
+        "Marketplaces",
+        "Omnichannel Retail",
+        "Digital Advertising",
+    ),
+    "Gaming & Interactive Media": (
+        "Gaming",
+        "Game Engines",
+        "Esports",
+        "Interactive Entertainment",
+    ),
+    "Digital Media": (
+        "Streaming",
+        "Social Media",
+        "Creator Platforms",
+        "Online Advertising",
+    ),
+    "Luxury Automobiles": (
+        "Performance Vehicles",
+        "Luxury EVs",
+        "Motorsport",
+    ),
+    "Luxury Goods": (
+        "Luxury",
+        "Premium Apparel",
+        "Jewelry & Watches",
+        "Beauty & Fragrance",
+    ),
+    "Travel & Leisure": (
+        "Hotels & Resorts",
+        "Cruise Lines",
+        "Airlines",
+        "Experiences",
+    ),
+    "Logistics Networks": (
+        "Logistics",
+        "Supply Chain",
+        "Parcel Delivery",
+        "Freight Forwarding",
+        "Cold Chain",
+    ),
+    "Marine Transportation": (
+        "Tank Barges",
+        "Petrochemical Transport",
+        "Container Shipping",
+        "Dry Bulk Shipping",
+        "Offshore Vessels",
+    ),
+    "Rail Transportation": (
+        "Freight Rail",
+        "Intermodal Rail",
+        "Rail Equipment",
+    ),
+    "Aerospace Systems": (
+        "Commercial Aircraft",
+        "Aircraft Engines",
+        "Avionics",
+    ),
+    "Observability Platforms": (
+        "Infrastructure Monitoring",
+        "Application Monitoring",
+        "Log Analytics",
+        "Telemetry",
+    ),
+    "National Security Space": (
+        "Defense Satellites",
+        "Space ISR",
+        "Military Communications",
+    ),
+    "AI Drug Discovery": (
+        "Computational Biology",
+        "AI Drug Discovery",
+        "Drug Simulation",
+    ),
+    "Electrification": (
+        "Power Distribution",
+        "Electrical Equipment",
+        "Energy Efficiency",
+        "Power Conversion",
+    ),
+    "Industrial Digitalization": (
+        "Digital Twins",
+        "Industrial Software",
+        "Simulation Software",
+        "Engineering Software",
+    ),
+    "Construction & Industrial Equipment": (
+        "Construction Equipment",
+        "Industrial Machinery",
+        "Construction Technology",
+        "Rental Equipment",
+    ),
+    "Precision Agriculture": (
+        "Agricultural Equipment",
+        "Smart Farming",
+        "Crop Inputs",
+    ),
+    "Water Infrastructure": (
+        "Water Treatment",
+        "Smart Water Networks",
+        "Water Utilities",
+        "Pumping Systems",
+        "Desalination",
+    ),
+    "Environmental Services": (
+        "Waste Management",
+        "Hazardous Waste",
+        "Industrial Cleanup",
+        "Recycling",
+        "Environmental Remediation",
+    ),
+    "Critical Minerals": (
+        "Rare Earths",
+        "Lithium",
+        "Nickel",
+        "Graphite",
+        "Mineral Processing",
+    ),
+    "Copper Electrification": (
+        "Copper",
+        "Copper Mining",
+        "Electrical Wiring",
+        "Power Cables",
+    ),
+    "Precious Metals": (
+        "Gold",
+        "Silver",
+        "Royalty & Streaming",
+        "Mining Services",
+    ),
+    "Telecom Infrastructure": (
+        "Telecommunications",
+        "5G Infrastructure",
+        "Fiber Networks",
+        "Tower Infrastructure",
+        "Broadband Networks",
+    ),
+    "Data Center Real Estate": (
+        "Data Center REITs",
+        "Colocation",
+        "Hyperscale Leasing",
+    ),
+    "Real Estate Income": (
+        "Industrial REITs",
+        "Residential REITs",
+        "Healthcare REITs",
+        "Net Lease",
+        "Self Storage",
+    ),
+    "AdTech": (
+        "Mobile Advertising",
+        "Programmatic Advertising",
+        "Performance Marketing",
+    ),
+    "Sports Betting": (
+        "Online Sportsbooks",
+        "iGaming",
+        "Fantasy Sports",
+    ),
+    "EdTech": (
+        "Online Learning",
+        "Professional Training",
+        "Educational Software",
+    ),
+    "GovTech": (
+        "Government Software",
+        "Public Sector IT",
+        "Defense Software",
+    ),
+    "Marine Recreation": (
+        "Boat Retail",
+        "Yacht Retail",
+        "Yacht Services",
+        "Boat Financing",
+    ),
+    "Restaurant Franchises": (
+        "Quick Service Restaurants",
+        "Restaurant Franchising",
+    ),
+    "Beverage Brands": (
+        "Soft Drinks",
+        "Alcoholic Beverages",
+    ),
+    "Pet Care": (
+        "Pet Food",
+        "Veterinary Services",
+    ),
+}
 
-    # Semis
-    "Chip Design",
-    "Semiconductor Equipment",
-    "Foundry Ecosystem",
-    "Advanced Packaging",
-    "Memory & Storage",
-    "Photonics",
-    "Optical Interconnects",
-
-    # Quantum
-    "Quantum Computing",
-    "Quantum Networking",
-    "Quantum Security",
-
-    # Cybersecurity
-    "Cybersecurity",
-    "Identity Security",
-    "Zero Trust",
-    "Observability",
-    "Threat Intelligence",
-
-    # Cloud & Software
-    "Cloud Infrastructure",
-    "Enterprise SaaS",
-    "Developer Platforms",
-    "Data Analytics",
-    "Digital Transformation",
-
-    # Robotics & Automation
-    "Humanoid Robotics",
-    "Industrial Robotics",
-    "Warehouse Automation",
-    "Machine Vision",
-    "Industrial Automation",
-    "Sensors & LiDAR",
-
-    # Mobility
-    "Autonomous Vehicles",
-    "Electric Vehicles",
-    "Battery Technology",
-    "Charging Infrastructure",
-    "Mobility Platforms",
-
-    # Defense
-    "Defense Tech",
-    "Military AI",
-    "ISR & Surveillance",
-    "Drones / UAV",
-    "Electronic Warfare",
-
-    # Space
-    "Launch Services",
-    "Satellites",
-    "Space Infrastructure",
-    "Space Communications",
-
-    # Energy
-    "Nuclear",
-    "SMR",
-    "Uranium",
-    "Grid Infrastructure",
-    "Power Generation",
-    "Battery Storage",
-    "Solar",
-    "Wind",
-    "Hydrogen",
-    "Carbon Capture",
-    "Oil & Gas",
-    "LNG",
-
-    # Finance
-    "Fintech",
-    "Digital Banking",
-    "Payments",
-    "Asset Management",
-    "Capital Markets",
-    "Crypto Infrastructure",
-    "Digital Assets",
-
-    # Healthcare
-    "Drug Discovery",
-    "Biologics",
-    "Gene Therapy",
-    "Precision Medicine",
-    "Diagnostics",
-    "Medical Devices",
-    "Healthcare Services",
-
-    # Consumer
-    "Gaming",
-    "E-commerce",
-    "Digital Advertising",
-    "Streaming",
-    "Social Media",
-    "Consumer Brands",
-    "Luxury",
-    "Travel & Leisure",
-
-    # Industrial
-    "Logistics",
-    "Supply Chain",
-    "Construction Technology",
-    "Infrastructure",
-    "Industrial Machinery",
-
-    # Materials
-    "Rare Earths",
-    "Critical Minerals",
-    "Lithium",
-    "Copper",
-    "Gold",
-    "Silver",
-
-    # Telecom
-    "Telecommunications",
-    "5G Infrastructure",
-    "Fiber Networks",
-
-    # Real Estate
-    "Data Center REITs",
-    "Industrial REITs",
-    "Residential REITs",
-    "Healthcare REITs",
-)
-
+ALLOWED_THEMES: tuple[str, ...] = tuple(ALLOWED_THEME_HIERARCHY.keys())
 ALLOWED_THEME_SET = set(ALLOWED_THEMES)
+ALLOWED_SUBTHEME_SETS = {
+    theme: set(subthemes)
+    for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()
+}
 
 GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
     "type": "object",
@@ -173,13 +428,20 @@ GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
                 "properties": {
                     "label": {"type": "string"},
                     "confidence": {"type": "number"},
-                    "evidence": {
+                    "subthemes": {
                         "type": "array",
                         "maxItems": 3,
-                        "items": {"type": "string"},
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {"type": "string"},
+                                "confidence": {"type": "number"},
+                            },
+                            "required": ["label", "confidence"],
+                        },
                     },
                 },
-                "required": ["label", "confidence", "evidence"],
+                "required": ["label", "confidence", "subthemes"],
             },
         },
         "secondaryThemes": {
@@ -190,13 +452,20 @@ GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
                 "properties": {
                     "label": {"type": "string"},
                     "confidence": {"type": "number"},
-                    "evidence": {
+                    "subthemes": {
                         "type": "array",
                         "maxItems": 3,
-                        "items": {"type": "string"},
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {"type": "string"},
+                                "confidence": {"type": "number"},
+                            },
+                            "required": ["label", "confidence"],
+                        },
                     },
                 },
-                "required": ["label", "confidence", "evidence"],
+                "required": ["label", "confidence", "subthemes"],
             },
         },
     },
@@ -405,6 +674,7 @@ class AssetThemeService:
         name: Optional[str],
     ) -> str:
         source = "\n".join([
+            GEMINI_THEME_TAXONOMY_VERSION,
             summary or "",
             sector or "",
             industry or "",
@@ -419,7 +689,10 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> str:
-        allowed_themes = "\n".join(f"- {theme}" for theme in ALLOWED_THEMES)
+        allowed_themes = "\n".join(
+            f"- {theme}: {', '.join(subthemes)}"
+            for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()
+        )
 
         return f"""You classify listed companies into investment themes.
 
@@ -429,32 +702,36 @@ sector: {sector or ""}
 industry: {industry or ""}
 longBusinessSummary: {summary}
 
-Allowed themes:
+Allowed hierarchy:
 {allowed_themes}
 
 Instruction:
-Choose ONLY from the allowed themes above.
+Choose ONLY from the allowed hierarchy above.
 
 Return:
 * max 3 primary themes
 * max 5 secondary themes
+* max 3 subthemes per theme
 
 Definitions:
+* Theme = high-level investable exposure for portfolio allocation and dashboard aggregation.
+* Subtheme = precise business specialization for asset research and detailed exposure analysis.
 * Primary themes = core business activities, main revenue drivers, or main strategic focus.
-* Secondary themes = meaningful exposure, but not the main business.
+* Secondary themes = meaningful top-level exposure, but not the main business.
 * Ignore one-off mentions, minor subsidiaries, partnerships, customer examples, or side activities unless they clearly represent strategic focus.
-* Prefer specific themes over generic themes.
+* Select precise investable exposures, not broad sectors.
+* Pick subthemes only from the selected theme's allowed subtheme list.
 * If uncertain, return fewer themes.
 
 Rules:
-* do not invent themes
+* do not invent themes or subthemes
+* do not use generic sector labels such as Technology, Software, Industrials, Energy, Consumer Brands, or Infrastructure
 * do not return explanations
 * do not return markdown
 * only valid JSON
 * confidence between 0 and 1
-* evidence must be short quotes or exact phrases from the input summary
-* evidence must justify the selected theme
-* do not include themes with confidence below {MIN_THEME_CONFIDENCE}
+* do not include themes or subthemes with confidence below {MIN_THEME_CONFIDENCE}
+* do not add a third hierarchy level
 
 Expected JSON:
 {{
@@ -462,14 +739,28 @@ Expected JSON:
     {{
       "label": "AI Infrastructure",
       "confidence": 0.95,
-      "evidence": ["data center scale AI infrastructure"]
+      "subthemes": [
+        {{
+          "label": "GPU Computing",
+          "confidence": 0.92
+        }},
+        {{
+          "label": "Accelerated Computing",
+          "confidence": 0.88
+        }}
+      ]
     }}
   ],
   "secondaryThemes": [
     {{
-      "label": "Data Centers",
+      "label": "Cloud Platforms",
       "confidence": 0.87,
-      "evidence": ["data centers", "hyperscale cloud"]
+      "subthemes": [
+        {{
+          "label": "Hyperscale Cloud",
+          "confidence": 0.84
+        }}
+      ]
     }}
   ]
 }}"""
@@ -499,7 +790,10 @@ Expected JSON:
             if not isinstance(raw_items, list):
                 continue
 
-            for item in raw_items[:max_items]:
+            tier_count = 0
+            for item in raw_items:
+                if tier_count >= max_items:
+                    break
                 if not isinstance(item, dict):
                     continue
 
@@ -511,14 +805,18 @@ Expected JSON:
                 if confidence is None or confidence < MIN_THEME_CONFIDENCE:
                     continue
 
-                evidence = cls._clean_evidence(item.get("evidence"))
+                children = cls._clean_subthemes(
+                    theme_label=label,
+                    value=item.get("subthemes") or item.get("children"),
+                )
 
                 seen_labels.add(label)
+                tier_count += 1
                 themes.append({
                     "label": label,
                     "confidence": confidence,
-                    "evidence": evidence,
                     "tier": tier,
+                    "children": children,
                 })
 
         themes.sort(
@@ -529,6 +827,38 @@ Expected JSON:
             )
         )
         return themes
+
+    @classmethod
+    def _clean_subthemes(cls, theme_label: str, value: Any) -> List[ThemePayload]:
+        if not isinstance(value, list):
+            return []
+
+        allowed_subthemes = ALLOWED_SUBTHEME_SETS.get(theme_label, set())
+        subthemes: List[ThemePayload] = []
+        seen_labels: set[str] = set()
+
+        for item in value:
+            if len(subthemes) >= 3:
+                break
+            if not isinstance(item, dict):
+                continue
+
+            label = item.get("label")
+            if label not in allowed_subthemes or label in seen_labels:
+                continue
+
+            confidence = cls._to_confidence(item.get("confidence"))
+            if confidence is None or confidence < MIN_THEME_CONFIDENCE:
+                continue
+
+            seen_labels.add(label)
+            subthemes.append({
+                "label": label,
+                "confidence": confidence,
+            })
+
+        subthemes.sort(key=lambda item: (-float(item.get("confidence", 0)), item.get("label", "")))
+        return subthemes
 
     @staticmethod
     def _to_confidence(value: Any) -> Optional[float]:

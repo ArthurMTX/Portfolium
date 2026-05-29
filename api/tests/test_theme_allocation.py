@@ -63,12 +63,12 @@ class TestThemeAllocation:
         ]
 
         allocation = calculate_theme_allocation(positions)
-    allocation_by_theme = {item['theme']: item for item in allocation}
+        allocation_by_theme = {item['theme']: item for item in allocation}
 
-    assert allocation_by_theme['AI Infrastructure']['value'] == 500.0
-    assert allocation_by_theme['AI Infrastructure']['percentage'] == 50.0
-    assert allocation_by_theme['Defense Tech']['value'] == 500.0
-    assert allocation_by_theme['Defense Tech']['percentage'] == 50.0
+        assert allocation_by_theme['AI Infrastructure']['value'] == 500.0
+        assert allocation_by_theme['AI Infrastructure']['percentage'] == 50.0
+        assert allocation_by_theme['Defense Tech']['value'] == 500.0
+        assert allocation_by_theme['Defense Tech']['percentage'] == 50.0
 
     def test_primary_and_secondary_follow_method_two(self):
         positions = [
@@ -209,3 +209,36 @@ class TestThemeAllocation:
                 ],
             }
         ]
+
+    def test_hierarchical_theme_allocation_ignores_subthemes(self):
+        positions = [
+            SimpleNamespace(
+                symbol='NVDA',
+                name='NVIDIA Corporation',
+                market_value=1000,
+                themes=[
+                    {
+                        'label': 'AI Infrastructure',
+                        'tier': 'primary',
+                        'children': [
+                            {'label': 'GPU Computing', 'confidence': 0.92},
+                            {'label': 'Data Centers', 'confidence': 0.88},
+                        ],
+                    },
+                    {
+                        'label': 'Space Infrastructure',
+                        'tier': 'secondary',
+                        'children': [
+                            {'label': 'Satellites', 'confidence': 0.8},
+                        ],
+                    },
+                ],
+            )
+        ]
+
+        allocation = calculate_theme_allocation(positions)
+        allocation_by_theme = {item['theme']: item for item in allocation}
+
+        assert set(allocation_by_theme) == {'AI Infrastructure', 'Space Infrastructure'}
+        assert allocation_by_theme['AI Infrastructure']['value'] == 700.0
+        assert allocation_by_theme['Space Infrastructure']['value'] == 300.0

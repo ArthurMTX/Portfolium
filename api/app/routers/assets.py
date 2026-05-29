@@ -64,7 +64,7 @@ def _parse_split_ratio(split_str: str) -> Decimal:
 
 
 def _extract_theme_buckets(themes: Optional[List[Any]]) -> tuple[List[str], List[str]]:
-    """Return de-duplicated primary and secondary theme labels while preserving order."""
+    """Return de-duplicated top-level theme labels while preserving order."""
     primary: List[str] = []
     secondary: List[str] = []
     seen_primary: set[str] = set()
@@ -73,8 +73,9 @@ def _extract_theme_buckets(themes: Optional[List[Any]]) -> tuple[List[str], List
 
     for raw_theme in themes or []:
         if isinstance(raw_theme, dict):
-            raw_label = raw_theme.get("label")
-            raw_tier = raw_theme.get("tier")
+            theme_payload = raw_theme.get("theme") if isinstance(raw_theme.get("theme"), dict) else raw_theme
+            raw_label = theme_payload.get("label")
+            raw_tier = theme_payload.get("tier") or raw_theme.get("tier")
         else:
             raw_label = getattr(raw_theme, "label", None)
             raw_tier = getattr(raw_theme, "tier", None)
@@ -246,6 +247,14 @@ def _needs_gemini_theme_generation(asset) -> bool:
         return True
     if classification.method == "manual":
         return False
+    themes = classification.themes or []
+    if themes and any(
+        isinstance(theme, dict)
+        and "children" not in theme
+        and "subthemes" not in theme
+        for theme in themes
+    ):
+        return True
     return not (
         classification.method in {"gpt", "llm"}
         and classification.model == "gemini-2.5-flash-lite"

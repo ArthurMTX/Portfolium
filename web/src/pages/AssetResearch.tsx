@@ -870,26 +870,41 @@ function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] 
 
   return (
     <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {themes.map((theme) => (
           (() => {
             const ThemeIcon = getThemeIcon(theme.label)
             const themeColor = getThemeColor(theme.label)
             const themeHex = getThemeHexColor(theme.label)
+            const subthemes = theme.children || []
 
             return (
-              <span
+              <div
                 key={theme.label}
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors dark:shadow-none"
+                className="rounded-md border px-3 py-2 shadow-sm transition-colors dark:shadow-none"
                 style={{ borderColor: `${themeHex}40`, backgroundColor: `${themeHex}12` }}
                 title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
               >
-                <ThemeIcon size={14} className={themeColor} />
-                <span className={themeColor}>{theme.label}</span>
-                <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-                  {Math.round(theme.confidence * 100)}%
-                </span>
-              </span>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ThemeIcon size={14} className={themeColor} />
+                  <span className={themeColor}>{theme.label}</span>
+                  <span className="ml-auto text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                    {Math.round(theme.confidence * 100)}%
+                  </span>
+                </div>
+                {subthemes.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {subthemes.map((subtheme) => (
+                      <span
+                        key={`${theme.label}-${subtheme.label}`}
+                        className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300"
+                      >
+                        {subtheme.label} {Math.round(subtheme.confidence * 100)}%
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             )
           })()
         ))}
