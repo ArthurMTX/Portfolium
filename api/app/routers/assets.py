@@ -107,7 +107,10 @@ def _needs_gemini_theme_generation(asset) -> bool:
         return True
     if classification.method == "manual":
         return False
-    return not (classification.method == "gpt" and classification.model == "gemini-2.5-flash-lite")
+    return not (
+        classification.method in {"gpt", "llm"}
+        and classification.model == "gemini-2.5-flash-lite"
+    )
 
 # Live ticker search endpoint
 @router.get("/search_ticker")

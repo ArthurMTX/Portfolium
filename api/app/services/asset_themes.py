@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 ThemePayload = Dict[str, Any]
 
 GEMINI_THEME_MODEL = "gemini-2.5-flash-lite"
+MIN_THEME_CONFIDENCE = 0.55
+GEMINI_THEME_METHOD = "gpt"
 
 ALLOWED_THEMES: tuple[str, ...] = (
     # AI & Compute
@@ -169,8 +171,13 @@ GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
                 "properties": {
                     "label": {"type": "string"},
                     "confidence": {"type": "number"},
+                    "evidence": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {"type": "string"},
+                    },
                 },
-                "required": ["label", "confidence"],
+                "required": ["label", "confidence", "evidence"],
             },
         },
         "secondaryThemes": {
@@ -181,8 +188,13 @@ GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
                 "properties": {
                     "label": {"type": "string"},
                     "confidence": {"type": "number"},
+                    "evidence": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {"type": "string"},
+                    },
                 },
-                "required": ["label", "confidence"],
+                "required": ["label", "confidence", "evidence"],
             },
         },
     },
@@ -225,18 +237,19 @@ class AssetThemeService:
             industry=industry or asset.industry,
             name=name or asset.name,
         )
+
         existing = self.get_classification(asset.id)
         if existing and not force:
             if existing.method == "manual":
                 return existing
             if (
                 existing.source_hash == source_hash
-                and existing.method == "gpt"
+                and existing.method in {"gpt", "llm"}
                 and existing.model == GEMINI_THEME_MODEL
             ):
                 return existing
 
-        themes = []
+        themes: List[ThemePayload] = []
         if summary and summary.strip():
             themes = self.generate_themes(
                 name=name or asset.name or asset.symbol,
@@ -248,7 +261,7 @@ class AssetThemeService:
         now = datetime.utcnow()
         if existing:
             existing.themes = themes
-            existing.method = "gpt"
+            existing.method = GEMINI_THEME_METHOD
             existing.model = GEMINI_THEME_MODEL
             existing.source_hash = source_hash
             existing.generated_at = now
@@ -258,7 +271,7 @@ class AssetThemeService:
             classification = AssetThemeClassification(
                 asset_id=asset.id,
                 themes=themes,
-                method="gpt",
+                method=GEMINI_THEME_METHOD,
                 model=GEMINI_THEME_MODEL,
                 source_hash=source_hash,
                 generated_at=now,
@@ -275,7 +288,7 @@ class AssetThemeService:
                 raise
 
             classification.themes = themes
-            classification.method = "gpt"
+            classification.method = GEMINI_THEME_METHOD
             classification.model = GEMINI_THEME_MODEL
             classification.source_hash = source_hash
             classification.generated_at = now
@@ -325,7 +338,10 @@ class AssetThemeService:
         summary: str,
     ) -> str:
         allowed_themes = "\n".join(f"- {theme}" for theme in ALLOWED_THEMES)
-        return f"""Input:
+
+        return f"""You classify listed companies into investment themes.
+
+Input:
 company name: {name or ""}
 sector: {sector or ""}
 industry: {industry or ""}
@@ -341,27 +357,37 @@ Return:
 * max 3 primary themes
 * max 5 secondary themes
 
+Definitions:
+* Primary themes = core business activities, main revenue drivers, or main strategic focus.
+* Secondary themes = meaningful exposure, but not the main business.
+* Ignore one-off mentions, minor subsidiaries, partnerships, customer examples, or side activities unless they clearly represent strategic focus.
+* Prefer specific themes over generic themes.
+* If uncertain, return fewer themes.
+
 Rules:
 * do not invent themes
 * do not return explanations
 * do not return markdown
 * only valid JSON
 * confidence between 0 and 1
-* prefer business core activities, not secondary activities
-* themes must represent major revenue drivers or strategic focus
+* evidence must be short quotes or exact phrases from the input summary
+* evidence must justify the selected theme
+* do not include themes with confidence below {MIN_THEME_CONFIDENCE}
 
 Expected JSON:
 {{
   "primaryThemes": [
     {{
       "label": "AI Infrastructure",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "evidence": ["data center scale AI infrastructure"]
     }}
   ],
   "secondaryThemes": [
     {{
       "label": "Data Centers",
-      "confidence": 0.87
+      "confidence": 0.87,
+      "evidence": ["data centers", "hyperscale cloud"]
     }}
   ]
 }}"""
@@ -370,7 +396,13 @@ Expected JSON:
     def _parse_json_response(raw_response: str) -> Dict[str, Any]:
         text = raw_response.strip()
         if text.startswith("```"):
-            text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            text = (
+                text
+                .removeprefix("```json")
+                .removeprefix("```")
+                .removesuffix("```")
+                .strip()
+            )
         return json.loads(text)
 
     @classmethod
@@ -381,6 +413,7 @@ Expected JSON:
         for tier, max_items in [("primary", 3), ("secondary", 5)]:
             key = "primaryThemes" if tier == "primary" else "secondaryThemes"
             raw_items = payload.get(key) or []
+
             if not isinstance(raw_items, list):
                 continue
 
@@ -393,17 +426,26 @@ Expected JSON:
                     continue
 
                 confidence = cls._to_confidence(item.get("confidence"))
-                if confidence is None:
+                if confidence is None or confidence < MIN_THEME_CONFIDENCE:
                     continue
+
+                evidence = cls._clean_evidence(item.get("evidence"))
 
                 seen_labels.add(label)
                 themes.append({
                     "label": label,
                     "confidence": confidence,
-                    "evidence": [],
+                    "evidence": evidence,
                     "tier": tier,
                 })
 
+        themes.sort(
+            key=lambda item: (
+                0 if item.get("tier") == "primary" else 1,
+                -float(item.get("confidence", 0)),
+                item.get("label", ""),
+            )
+        )
         return themes
 
     @staticmethod
@@ -415,4 +457,23 @@ Expected JSON:
 
         if confidence < 0 or confidence > 1:
             return None
+
         return round(confidence, 2)
+
+    @staticmethod
+    def _clean_evidence(value: Any) -> List[str]:
+        if not isinstance(value, list):
+            return []
+
+        evidence: List[str] = []
+        for item in value[:3]:
+            if not isinstance(item, str):
+                continue
+
+            cleaned = item.strip()
+            if not cleaned:
+                continue
+
+            evidence.append(cleaned[:160])
+
+        return evidence
