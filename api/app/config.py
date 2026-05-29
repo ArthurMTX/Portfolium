@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     
     # Transaction validation
     VALIDATE_SELL_QUANTITY: bool = True  # Check if selling more shares than owned
+
+    # yfinance cache configuration
+    YFINANCE_TZ_CACHE_DIR: str = os.path.join("/tmp", "portfolium", "py-yfinance")
     
     # Brandfetch API (for fetching company logos)
     BRANDFETCH_API_KEY: str = ""  # Optional: Leave empty to disable logo fetching

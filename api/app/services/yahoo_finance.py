@@ -10,6 +10,8 @@ import random
 import socket
 import time
 from contextlib import contextmanager
+from pathlib import Path
+import tempfile
 from typing import Any, Callable, Protocol, Sequence, TypeVar
 
 from app.config import settings
@@ -20,6 +22,33 @@ T = TypeVar("T")
 
 DEFAULT_YAHOO_TIMEOUT_SECONDS = 8.0
 DEFAULT_YAHOO_BACKOFF_SECONDS = 60.0
+
+
+def _configure_yfinance_tz_cache() -> None:
+    """Point yfinance at a writable tz cache directory before first use."""
+    cache_dir = Path(
+        getattr(
+            settings,
+            "YFINANCE_TZ_CACHE_DIR",
+            Path(tempfile.gettempdir()) / "portfolium" / "py-yfinance",
+        )
+    )
+
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        logger.warning("provider=yahoo tz_cache_dir_prepare_failed path=%s error=%s", cache_dir, exc)
+        return
+
+    try:
+        import yfinance as yf
+
+        yf.set_tz_cache_location(str(cache_dir))
+    except Exception as exc:
+        logger.warning("provider=yahoo tz_cache_location_set_failed path=%s error=%s", cache_dir, exc)
+
+
+_configure_yfinance_tz_cache()
 
 
 class YahooUnavailableError(RuntimeError):
