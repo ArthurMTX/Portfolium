@@ -551,7 +551,7 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 
 @router.get("/held/all")
 async def get_held_assets(
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks = None,
     portfolio_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -623,7 +623,7 @@ async def get_held_assets(
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
-                if _needs_gemini_theme_generation(asset):
+                if background_tasks is not None and _needs_gemini_theme_generation(asset):
                     background_tasks.add_task(_refresh_asset_theme_background, asset.id)
 
                 # Count splits and buy/sell/conversion transactions (portfolio-specific if portfolio_id provided)
