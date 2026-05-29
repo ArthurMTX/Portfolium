@@ -13,6 +13,14 @@ interface PendingDividendsProps {
   onDividendAccepted?: () => void
 }
 
+const getExpandedStorageKey = (portfolioId: number) => `pending-dividends-expanded-${portfolioId}`
+
+const getSavedExpandedState = (portfolioId: number) => {
+  if (typeof window === 'undefined') return true
+
+  return window.localStorage.getItem(getExpandedStorageKey(portfolioId)) !== 'false'
+}
+
 export default function PendingDividends({ 
   portfolioId, 
   portfolioCurrency,
@@ -23,9 +31,9 @@ export default function PendingDividends({
   const [stats, setStats] = useState<PortfolioPendingDividendStatsDTO | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(false)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(() => getSavedExpandedState(portfolioId))
   const [processingIds, setProcessingIds] = useState<Set<number>>(new Set())
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
   
   // Accept modal state
   const [acceptingDividend, setAcceptingDividend] = useState<PendingDividendDTO | null>(null)
@@ -56,6 +64,22 @@ export default function PendingDividends({
   useEffect(() => {
     fetchPendingDividends()
   }, [fetchPendingDividends])
+
+  useEffect(() => {
+    setExpanded(getSavedExpandedState(portfolioId))
+  }, [portfolioId])
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((current) => {
+      const next = !current
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(getExpandedStorageKey(portfolioId), JSON.stringify(next))
+      }
+
+      return next
+    })
+  }, [portfolioId])
 
   const handleFetchDividends = async () => {
     if (!portfolioId) return
@@ -216,7 +240,7 @@ export default function PendingDividends({
         {/* Header */}
         <div 
           className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-amber-200 dark:border-amber-800 cursor-pointer"
-          onClick={() => setExpanded(!expanded)}
+          onClick={toggleExpanded}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
