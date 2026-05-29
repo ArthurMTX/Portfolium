@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit, BookOpen, NotebookPen, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api, { AssetInvestmentNoteDTO } from '../lib/api';
+import api, { AssetInvestmentNoteDTO, AssetThemeDTO } from '../lib/api';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
 import { getSectorIcon, getIndustryIcon, getSectorColor, getIndustryColor } from '../lib/sectorIndustryUtils';
 import { getCountryCode } from '../lib/countryUtils';
@@ -36,6 +36,7 @@ interface HeldAsset {
   effective_sector?: string | null;
   effective_industry?: string | null;
   effective_country?: string | null;
+  themes?: AssetThemeDTO[];
   created_at: string;
   updated_at: string;
 }
@@ -317,6 +318,34 @@ export default function Assets() {
     return formatted.replace(/\.?0+$/, '');
   };
 
+  const getThemesTitle = (themes?: AssetThemeDTO[]) => {
+    if (!themes || themes.length === 0) return undefined;
+    return themes
+      .map((theme) => {
+        const evidence = theme.evidence?.length ? `: ${theme.evidence.join(', ')}` : '';
+        return `${theme.label}${evidence}`;
+      })
+      .join('\n');
+  };
+
+  const renderCompactThemes = (themes?: AssetThemeDTO[], className = 'mt-2 flex flex-wrap gap-1.5 max-w-xs') => {
+    if (!themes || themes.length === 0) return null;
+    const [primaryTheme, ...extraThemes] = themes;
+
+    return (
+      <div className={className} title={getThemesTitle(themes)}>
+        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+          {primaryTheme.label}
+        </span>
+        {extraThemes.length > 0 && (
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            +{extraThemes.length}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const isActive = (key: SortKey) => sortKey === key;
 
   // Get human-readable label for sort key
@@ -593,6 +622,7 @@ export default function Assets() {
                               <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
                                 {asset.name || '-'}
                               </div>
+                              {renderCompactThemes(asset.themes, 'mt-2 flex flex-wrap gap-1')}
                             </div>
                           </div>
                           <div className="text-right ml-3">
@@ -866,6 +896,7 @@ export default function Assets() {
                       <div className="text-sm text-neutral-700 dark:text-neutral-300 max-w-xs">
                         {asset.name || '-'}
                       </div>
+                      {renderCompactThemes(asset.themes)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.class ? getAssetClassColor(asset.class) : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>

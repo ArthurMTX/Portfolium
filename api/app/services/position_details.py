@@ -279,6 +279,7 @@ class PositionDetailsService:
             'etf_perf_1y': etf_perf_1y,
             'sector_etf': sector_etf,
             'asset_currency': asset.currency,
+            'themes': asset.themes,
         }
         
         # Add fundamental data

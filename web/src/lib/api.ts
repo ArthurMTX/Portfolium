@@ -127,6 +127,25 @@ export interface PositionDTO {
   sector_etf?: string | null
   currency: string
   last_updated: string | null
+  themes?: AssetThemeDTO[]
+}
+
+export interface AssetThemeDTO {
+  label: string
+  confidence: number
+  evidence: string[]
+  tier?: 'primary' | 'secondary' | null
+}
+
+export interface AssetThemeClassificationDTO {
+  id: number | null
+  asset_id: number
+  themes: AssetThemeDTO[]
+  method: 'keyword' | 'gpt' | 'manual'
+  model: string | null
+  source_hash: string | null
+  generated_at: string | null
+  updated_at: string | null
 }
 
 export interface PortfolioMetricsDTO {
@@ -205,6 +224,7 @@ export interface AssetResearchDTO {
     industry: string | null
     asset_type: string | null
     country: string | null
+    themes: AssetThemeDTO[]
     created_at: string
     updated_at: string
   }
@@ -839,6 +859,16 @@ class ApiClient {
   async getAssets(query?: string) {
     const params = query ? `?query=${encodeURIComponent(query)}` : ''
     return this.request<any[]>(`/assets${params}`)
+  }
+
+  async getAssetThemes(assetId: number) {
+    return this.request<AssetThemeClassificationDTO>(`/assets/${assetId}/themes`)
+  }
+
+  async refreshAssetThemes(assetId: number) {
+    return this.request<AssetThemeClassificationDTO>(`/assets/${assetId}/themes/refresh`, {
+      method: 'POST',
+    })
   }
 
   async getHeldAssets(portfolioId?: number) {
@@ -2003,6 +2033,7 @@ class ApiClient {
       target_high: number | null
       target_low: number | null
       implied_upside_pct: number | null
+      themes: AssetThemeDTO[]
     }>(`/portfolios/${portfolioId}/positions/${assetId}/detailed-metrics`)
   }
   

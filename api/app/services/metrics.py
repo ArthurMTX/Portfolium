@@ -430,7 +430,8 @@ class MetricsService:
                 daily_change_pct=None,
                 currency=target_currency,
                 last_updated=None,
-                asset_type=asset.asset_type
+                asset_type=asset.asset_type,
+                themes=asset.themes,
             )
         
         if quantity <= 0:
@@ -589,7 +590,8 @@ class MetricsService:
             sector_etf=None,  # Will be populated on-demand
             currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,
-            asset_type=asset.asset_type
+            asset_type=asset.asset_type,
+            themes=asset.themes,
         )
     
     def _calculate_realized_pnl(self, portfolio_id: int) -> Decimal:

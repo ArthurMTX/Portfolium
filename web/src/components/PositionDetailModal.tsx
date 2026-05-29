@@ -1,6 +1,6 @@
 import React from 'react'
-import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3, Info, LineChart, Shield, Users } from 'lucide-react'
-import { AssetInvestmentNoteDTO, PositionDTO, api } from '../lib/api'
+import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, DollarSign, Mountain, ArrowUpCircle, Clock, BarChart3, Info, LineChart, Shield, Users, Tags } from 'lucide-react'
+import { AssetInvestmentNoteDTO, AssetThemeDTO, PositionDTO, api } from '../lib/api'
 import { formatCurrency, formatNumber, formatLargeNumber, formatWithSeparators } from '../lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '@/lib/logoUtils'
@@ -87,6 +87,7 @@ interface DetailedMetrics {
   target_high: number | null
   target_low: number | null
   implied_upside_pct: number | null
+  themes?: AssetThemeDTO[]
 }
 
 export default function PositionDetailModal({ position, portfolioId, isOpen, onClose }: PositionDetailModalProps) {
@@ -145,6 +146,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
   const pnlValue = position.unrealized_pnl !== null ? Number(position.unrealized_pnl) : 0
   const isPositive = pnlValue >= 0
   const pnlColor = isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+  const themes = detailedMetrics?.themes?.length ? detailedMetrics.themes : position.themes || []
 
   return (
     <>
@@ -202,6 +204,33 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
               loading={investmentNoteLoading}
               onEdit={() => setInvestmentNoteOpen(true)}
             />
+
+            {themes.length > 0 && (
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg flex items-center justify-center">
+                    <Tags size={20} className="text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                    Themes & Exposures
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {themes.map((theme) => (
+                    <span
+                      key={theme.label}
+                      className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300"
+                      title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
+                    >
+                      {theme.label}
+                      <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">
+                        {Math.round(theme.confidence * 100)}%
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Fundamentals & Liquidity */}
             {(loadingMetrics || (detailedMetrics && (detailedMetrics.market_cap !== null || detailedMetrics.volume !== null || 

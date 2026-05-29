@@ -17,6 +17,7 @@ from app.services.fundamentals import FundamentalsService
 from app.services.pricing import PricingService
 from app.services.relative_performance import RelativePerformanceService
 from app.services.risk_analysis import RiskAnalysisService
+from app.services.asset_themes import AssetThemeService
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class AssetResearchService:
         quote = await self._get_quote(asset.symbol)
         fundamentals = self._get_fundamentals(asset.symbol, company_info)
         business = self._get_business(asset, company_info)
+        self._ensure_theme_classification(asset, business)
         ownership = self._get_ownership(company_info)
         self._ensure_market_metadata(asset)
         risk = self._get_risk(asset, quote)
@@ -68,6 +70,19 @@ class AssetResearchService:
                 "asset_currency": asset.currency,
             },
         }
+
+    def _ensure_theme_classification(self, asset: Asset, business: Dict[str, Any]) -> None:
+        try:
+            AssetThemeService(self.db).refresh_gemini_classification(
+                asset=asset,
+                summary=business.get("description"),
+                sector=business.get("sector"),
+                industry=business.get("industry"),
+                name=asset.name,
+            )
+            self.db.refresh(asset)
+        except Exception as exc:
+            logger.warning("Asset research theme generation failed for %s: %s", asset.symbol, exc)
 
     def _get_or_create_asset(self, symbol: str) -> Asset:
         asset = crud_assets.get_asset_by_symbol(self.db, symbol)

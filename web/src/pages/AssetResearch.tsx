@@ -17,6 +17,7 @@ import {
   Search,
   Shield,
   ShoppingCart,
+  Tags,
   Target,
   TrendingDown,
   TrendingUp,
@@ -678,6 +679,7 @@ export default function AssetResearch() {
             loading={investmentNoteLoading}
             onEdit={() => setInvestmentNoteOpen(true)}
           />
+          <ThemeSection themes={asset.themes || []} />
           <BusinessSection
             business={assetResearch.business}
             asset={asset}
@@ -858,6 +860,29 @@ function MaybeSection({ title, icon, metrics }: { title: string; icon: React.Rea
   return (
     <Section title={title} icon={icon}>
       <MetricGrid metrics={metrics} />
+    </Section>
+  )
+}
+
+function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] }) {
+  if (!themes || themes.length === 0) return null
+
+  return (
+    <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+      <div className="flex flex-wrap gap-2">
+        {themes.map((theme) => (
+          <span
+            key={theme.label}
+            className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300"
+            title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
+          >
+            {theme.label}
+            <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">
+              {Math.round(theme.confidence * 100)}%
+            </span>
+          </span>
+        ))}
+      </div>
     </Section>
   )
 }

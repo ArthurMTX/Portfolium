@@ -286,6 +286,28 @@ class AssetInvestmentNote(AssetInvestmentNoteUpdate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AssetTheme(BaseModel):
+    """Single global asset theme/exposure."""
+    label: str
+    confidence: float = Field(ge=0, le=1)
+    evidence: List[str] = Field(default_factory=list)
+    tier: Optional[str] = Field(default=None, pattern="^(primary|secondary)$")
+
+
+class AssetThemeClassification(BaseModel):
+    """Stored global theme/exposure classification for an asset."""
+    id: Optional[int] = None
+    asset_id: int
+    themes: List[AssetTheme] = Field(default_factory=list)
+    method: str = Field(default="gpt", pattern="^(keyword|gpt|manual)$")
+    model: Optional[str] = None
+    source_hash: Optional[str] = None
+    generated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AssetWithOverrides(AssetBase):
     """Asset response schema with user-specific overrides"""
     id: int
@@ -306,6 +328,7 @@ class AssetWithOverrides(AssetBase):
 class Asset(AssetBase):
     """Asset response schema (without user-specific overrides)"""
     id: int
+    themes: List[AssetTheme] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     
@@ -626,6 +649,7 @@ class Position(BaseModel):
     currency: str
     last_updated: Optional[datetime]
     asset_type: Optional[str] = None
+    themes: List[AssetTheme] = Field(default_factory=list)
 
 
 class PortfolioMetrics(BaseModel):

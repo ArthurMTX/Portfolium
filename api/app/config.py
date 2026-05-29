@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     
     # Brandfetch API (for fetching company logos)
     BRANDFETCH_API_KEY: str = ""  # Optional: Leave empty to disable logo fetching
+
+    # Gemini API (asset theme classification)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
+    GEMINI_TIMEOUT_SECONDS: int = 20
+    GEMINI_MAX_RETRIES: int = 2
     
     # Redis Configuration
     REDIS_HOST: str = "redis"

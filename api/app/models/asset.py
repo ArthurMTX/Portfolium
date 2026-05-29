@@ -15,7 +15,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -58,6 +60,18 @@ class Asset(Base):
     prices = relationship("Price", back_populates="asset", cascade="all, delete-orphan")
     metadata_overrides = relationship("AssetMetadataOverride", back_populates="asset", cascade="all, delete-orphan")
     investment_notes = relationship("AssetInvestmentNote", back_populates="asset", cascade="all, delete-orphan")
+    theme_classification = relationship(
+        "AssetThemeClassification",
+        back_populates="asset",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+    @property
+    def themes(self):
+        if not self.theme_classification:
+            return []
+        return self.theme_classification.themes or []
 
 
 class AssetMetadataOverride(Base):
@@ -113,3 +127,27 @@ class AssetInvestmentNote(Base):
 
     user = relationship("User")
     asset = relationship("Asset", back_populates="investment_notes")
+
+
+class AssetThemeClassification(Base):
+    """Reusable global theme/exposure classifications for an asset."""
+    __tablename__ = "asset_theme_classifications"
+    __table_args__ = (
+        UniqueConstraint("asset_id", name="uq_asset_theme_classifications_asset"),
+        CheckConstraint(
+            "method IN ('keyword', 'gpt', 'manual')",
+            name="ck_asset_theme_classifications_method",
+        ),
+        {"schema": "portfolio"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    themes = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    method = Column(String(20), nullable=False)
+    model = Column(String, nullable=True)
+    source_hash = Column(String(64), nullable=True)
+    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    asset = relationship("Asset", back_populates="theme_classification")

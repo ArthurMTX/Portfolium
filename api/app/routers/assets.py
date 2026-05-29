@@ -6,11 +6,11 @@ from decimal import Decimal
 from datetime import datetime
 import logging
 import json
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.schemas import (
     Asset,
     AssetCreate,
@@ -18,15 +18,18 @@ from app.schemas import (
     AssetInvestmentNoteUpdate,
     AssetMetadataOverride,
     AssetResearchResponse,
+    AssetThemeClassification,
     AssetWithOverrides,
 )
 from app.crud import assets as crud
-from app.auth import get_current_user
+from app.auth import get_current_admin_user, get_current_user
 from app.models import User
 from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.services.asset_research import AssetResearchService
+from app.services.asset_themes import AssetThemeService
+from app.services.fundamentals import FundamentalsService
 from app.errors import ( 
     AssetAlreadyExistsError,
     AssetNotFoundError,
@@ -58,6 +61,53 @@ def _parse_split_ratio(split_str: str) -> Decimal:
     except:
         pass
     return Decimal(1)
+
+
+def _fetch_theme_company_info(asset):
+    try:
+        return FundamentalsService.fetch_info(asset.symbol, action="asset_theme_refresh_info")
+    except Exception as exc:
+        logger.warning("Asset theme company info failed for %s: %s", asset.symbol, exc)
+        return {}
+
+
+def _invalidate_asset_list_caches() -> None:
+    cache_service.delete_pattern("assets_held:*")
+    cache_service.delete_pattern("assets_sold:*")
+
+
+def _refresh_asset_theme_background(asset_id: int) -> None:
+    db = SessionLocal()
+    try:
+        from app.models import Asset
+
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            return
+
+        company_info = _fetch_theme_company_info(asset)
+        AssetThemeService(db).refresh_gemini_classification(
+            asset=asset,
+            summary=company_info.get("longBusinessSummary") or company_info.get("description"),
+            sector=company_info.get("sector") or asset.sector,
+            industry=company_info.get("industry") or asset.industry,
+            name=company_info.get("longName") or company_info.get("shortName") or asset.name,
+        )
+        _invalidate_asset_list_caches()
+    except Exception as exc:
+        logger.warning("Background asset theme generation failed for asset %s: %s", asset_id, exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _needs_gemini_theme_generation(asset) -> bool:
+    classification = getattr(asset, "theme_classification", None)
+    if not classification:
+        return True
+    if classification.method == "manual":
+        return False
+    return not (classification.method == "gpt" and classification.model == "gemini-2.5-flash-lite")
 
 # Live ticker search endpoint
 @router.get("/search_ticker")
@@ -184,6 +234,129 @@ async def get_asset_research(symbol: str, db: Session = Depends(get_db)):
     """
     service = AssetResearchService(db)
     return await service.get_asset_research(symbol)
+
+
+@router.get("/{asset_id}/themes", response_model=AssetThemeClassification)
+def get_asset_themes(
+    asset_id: int,
+    _current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the stored global theme/exposure classification for an asset."""
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise AssetNotFoundError(id=asset_id)
+
+    service = AssetThemeService(db)
+    classification = service.get_classification(asset_id)
+    if classification:
+        return classification
+
+    return {
+        "id": None,
+        "asset_id": asset.id,
+        "themes": [],
+        "method": "gpt",
+        "model": None,
+        "source_hash": None,
+        "generated_at": None,
+        "updated_at": None,
+    }
+
+
+@router.post("/{asset_id}/themes/refresh", response_model=AssetThemeClassification)
+def refresh_asset_themes(
+    asset_id: int,
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Refresh an asset's global theme/exposure classification (admin only)."""
+    asset = crud.get_asset(db, asset_id)
+    if not asset:
+        raise AssetNotFoundError(id=asset_id)
+
+    company_info = _fetch_theme_company_info(asset)
+    service = AssetThemeService(db)
+    classification = service.refresh_gemini_classification(
+        asset=asset,
+        summary=company_info.get("longBusinessSummary") or company_info.get("description"),
+        sector=company_info.get("sector") or asset.sector,
+        industry=company_info.get("industry") or asset.industry,
+        name=company_info.get("longName") or company_info.get("shortName") or asset.name,
+        force=True,
+    )
+    _invalidate_asset_list_caches()
+    return classification
+
+
+@router.post("/themes/refresh-held")
+def refresh_held_asset_themes(
+    force: bool = Query(default=False, description="Force regeneration even when source_hash is unchanged"),
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Refresh Gemini theme classifications for currently held assets (admin only)."""
+    from app.models import Asset, Transaction, TransactionType
+
+    asset_ids = [row[0] for row in db.query(Transaction.asset_id.distinct()).all()]
+    service = AssetThemeService(db)
+    refreshed = 0
+    skipped = 0
+    failed = 0
+
+    for asset_id in asset_ids:
+        transactions = (
+            db.query(Transaction)
+            .filter(Transaction.asset_id == asset_id)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
+        )
+
+        total_quantity = Decimal(0)
+        for tx in transactions:
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                total_quantity += tx.quantity
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
+                total_quantity -= tx.quantity
+            elif tx.type == TransactionType.SPLIT:
+                total_quantity *= _parse_split_ratio(tx.meta_data.get("split", "1:1") if tx.meta_data else "1:1")
+
+        if total_quantity <= 0:
+            skipped += 1
+            continue
+
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            skipped += 1
+            continue
+
+        try:
+            company_info = _fetch_theme_company_info(asset)
+            before = service.get_classification(asset.id)
+            before_updated_at = before.updated_at if before else None
+            classification = service.refresh_gemini_classification(
+                asset=asset,
+                summary=company_info.get("longBusinessSummary") or company_info.get("description"),
+                sector=company_info.get("sector") or asset.sector,
+                industry=company_info.get("industry") or asset.industry,
+                name=company_info.get("longName") or company_info.get("shortName") or asset.name,
+                force=force,
+            )
+            if before and before.id == classification.id and before_updated_at == classification.updated_at:
+                skipped += 1
+            else:
+                refreshed += 1
+        except Exception as exc:
+            failed += 1
+            logger.warning("Failed to refresh held asset themes for %s: %s", asset.symbol, exc)
+
+    _invalidate_asset_list_caches()
+    return {
+        "refreshed": refreshed,
+        "skipped": skipped,
+        "failed": failed,
+        "force": force,
+    }
 
 
 @router.get("", response_model=List[Asset])
@@ -378,6 +551,7 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 
 @router.get("/held/all")
 async def get_held_assets(
+    background_tasks: BackgroundTasks,
     portfolio_id: int | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -449,6 +623,9 @@ async def get_held_assets(
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
+                if _needs_gemini_theme_generation(asset):
+                    background_tasks.add_task(_refresh_asset_theme_background, asset.id)
+
                 # Count splits and buy/sell/conversion transactions (portfolio-specific if portfolio_id provided)
                 split_count = sum(1 for tx in portfolio_transactions if tx.type == TransactionType.SPLIT)
                 transaction_count = sum(1 for tx in portfolio_transactions if tx.type in [TransactionType.BUY, TransactionType.SELL, TransactionType.CONVERSION_IN, TransactionType.CONVERSION_OUT])
@@ -473,6 +650,7 @@ async def get_held_assets(
                     "effective_sector": effective_data["effective_sector"],
                     "effective_industry": effective_data["effective_industry"],
                     "effective_country": effective_data["effective_country"],
+                    "themes": asset.themes,
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -589,6 +767,7 @@ async def get_sold_assets(
                     "effective_sector": effective_data["effective_sector"],
                     "effective_industry": effective_data["effective_industry"],
                     "effective_country": effective_data["effective_country"],
+                    "themes": asset.themes,
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
