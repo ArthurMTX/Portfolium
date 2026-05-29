@@ -339,6 +339,24 @@ class AssetResearchFundamentals(BaseModel):
     implied_upside_pct: Optional[float] = None
 
 
+class AssetResearchBusiness(BaseModel):
+    """Compact company profile data from the market data provider."""
+    founded: Optional[int] = None
+    employees: Optional[int] = None
+    headquarters: Optional[str] = None
+    country: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+
+
+class AssetResearchOwnership(BaseModel):
+    """Compact ownership and short-interest metrics."""
+    institutional_ownership: Optional[float] = None
+    insider_ownership: Optional[float] = None
+    short_interest: Optional[float] = None
+
+
 class AssetResearchRisk(BaseModel):
     """Asset-level risk metrics that do not require a portfolio position."""
     volatility_30d: Optional[float] = None
@@ -559,6 +577,8 @@ class AssetResearchResponse(BaseModel):
     asset: Asset
     quote: Optional[PriceQuote] = None
     fundamentals: AssetResearchFundamentals = Field(default_factory=AssetResearchFundamentals)
+    business: AssetResearchBusiness = Field(default_factory=AssetResearchBusiness)
+    ownership: AssetResearchOwnership = Field(default_factory=AssetResearchOwnership)
     risk: AssetResearchRisk = Field(default_factory=AssetResearchRisk)
     relative_performance: AssetResearchRelativePerformance = Field(default_factory=AssetResearchRelativePerformance)
     metadata: AssetResearchMetadata = Field(default_factory=AssetResearchMetadata)

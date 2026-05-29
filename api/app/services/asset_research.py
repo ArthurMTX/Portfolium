@@ -2,6 +2,7 @@
 Asset research service - asset-level analytics that do not require ownership.
 """
 import logging
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
@@ -33,8 +34,11 @@ class AssetResearchService:
         normalized_symbol = symbol.strip().upper()
         asset = self._get_or_create_asset(normalized_symbol)
 
+        company_info = self._get_company_info(asset.symbol)
         quote = await self._get_quote(asset.symbol)
-        fundamentals = self._get_fundamentals(asset.symbol)
+        fundamentals = self._get_fundamentals(asset.symbol, company_info)
+        business = self._get_business(asset, company_info)
+        ownership = self._get_ownership(company_info)
         self._ensure_market_metadata(asset)
         risk = self._get_risk(asset, quote)
         relative_performance = self._get_relative_performance(asset, quote)
@@ -52,6 +56,8 @@ class AssetResearchService:
             "asset": asset,
             "quote": quote,
             "fundamentals": fundamentals,
+            "business": business,
+            "ownership": ownership,
             "risk": risk,
             "relative_performance": relative_performance,
             "metadata": {
@@ -120,12 +126,55 @@ class AssetResearchService:
             logger.warning("Asset research quote failed for %s: %s", symbol, exc)
             return None
 
-    def _get_fundamentals(self, symbol: str) -> Dict[str, Any]:
+    def _get_company_info(self, symbol: str) -> Dict[str, Any]:
         try:
+            return FundamentalsService.fetch_info(symbol, action="asset_research_info")
+        except Exception as exc:
+            logger.warning("Asset research company info failed for %s: %s", symbol, exc)
+            return {}
+
+    def _get_fundamentals(self, symbol: str, company_info: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            if company_info:
+                return FundamentalsService.build_fundamentals_from_info(company_info)
             return FundamentalsService.fetch_fundamentals(symbol)
         except Exception as exc:
             logger.warning("Asset research fundamentals failed for %s: %s", symbol, exc)
             return {}
+
+    def _get_business(self, asset: Asset, company_info: Dict[str, Any]) -> Dict[str, Any]:
+        city = self._to_clean_string(company_info.get("city"))
+        state = self._to_clean_string(company_info.get("state"))
+        headquarters_parts = [part for part in [city, state] if part]
+        description = self._to_clean_string(
+            company_info.get("longBusinessSummary")
+            or company_info.get("description")
+        )
+        founded = self._to_int(
+            company_info.get("founded")
+            or company_info.get("foundedYear")
+            or company_info.get("yearFounded")
+        ) or self._extract_founded_year(description)
+
+        return {
+            "founded": founded,
+            "employees": self._to_int(company_info.get("fullTimeEmployees")),
+            "headquarters": ", ".join(headquarters_parts) if headquarters_parts else None,
+            "country": self._to_clean_string(company_info.get("country")) or asset.country,
+            "sector": self._to_clean_string(company_info.get("sector")) or asset.sector,
+            "industry": self._to_clean_string(company_info.get("industry")) or asset.industry,
+            "description": description,
+        }
+
+    def _get_ownership(self, company_info: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "institutional_ownership": self._to_float(company_info.get("heldPercentInstitutions")),
+            "insider_ownership": self._to_float(company_info.get("heldPercentInsiders")),
+            "short_interest": self._to_float(
+                company_info.get("shortPercentOfFloat")
+                or company_info.get("sharesPercentSharesOut")
+            ),
+        }
 
     def _get_risk(self, asset: Asset, quote: Optional[PriceQuote]) -> Dict[str, Optional[float]]:
         volatility_30d = None
@@ -220,7 +269,41 @@ class AssetResearchService:
     def _to_float(value: Any) -> Optional[float]:
         if value is None:
             return None
-        return float(value)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _to_int(value: Any) -> Optional[int]:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _to_clean_string(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @staticmethod
+    def _extract_founded_year(description: Optional[str]) -> Optional[int]:
+        if not description:
+            return None
+
+        match = re.search(
+            r"\b(?:was\s+)?(?:incorporated|founded|established)\s+in\s+((?:18|19|20)\d{2})\b",
+            description,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+
+        return int(match.group(1))
 
     @staticmethod
     def _normalize_factor(value: Optional[float], neutral: float, transform) -> Optional[float]:

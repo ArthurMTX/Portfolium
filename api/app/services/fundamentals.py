@@ -2,7 +2,7 @@
 Fundamental data service - fetches company fundamentals from the market data provider
 """
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
@@ -12,6 +12,17 @@ logger = logging.getLogger(__name__)
 class FundamentalsService:
     """Service for fetching fundamental data from the market data provider"""
     
+    @staticmethod
+    def fetch_info(symbol: str, action: str = "fundamentals_info") -> Dict[str, Any]:
+        """Fetch the raw provider info payload used to derive fundamentals."""
+        provider = get_market_data_provider()
+        info = provider.get_info(
+            symbol,
+            action=action,
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
+        return info or {}
+
     @staticmethod
     def fetch_fundamentals(symbol: str) -> Dict[str, Optional[float]]:
         """
@@ -25,90 +36,90 @@ class FundamentalsService:
         - target_mean, target_high, target_low, implied_upside_pct
         """
         try:
-            provider = get_market_data_provider()
-            info = provider.get_info(
-                symbol,
-                action="fundamentals_info",
-                timeout_seconds=yahoo_timeout_seconds(),
-            )
+            info = FundamentalsService.fetch_info(symbol)
             
             if not info:
                 logger.warning(f"No info data available for {symbol}")
                 return {}
-            
-            # Basic metrics
-            market_cap = info.get('marketCap')
-            volume = info.get('volume')
-            avg_volume = info.get('averageVolume')
-            pe_ratio = info.get('trailingPE') or info.get('forwardPE')
-            eps = info.get('trailingEps')
-            price = info.get('currentPrice')
-            
-            # Growth & Profitability
-            revenue_growth = info.get('revenueGrowth')
-            earnings_growth = info.get('earningsGrowth')
-            profit_margins = info.get('profitMargins')
-            operating_margins = info.get('operatingMargins')
-            return_on_equity = info.get('returnOnEquity')
-            
-            # Balance Sheet Health
-            debt_to_equity = info.get('debtToEquity')
-            current_ratio = info.get('currentRatio')
-            quick_ratio = info.get('quickRatio')
-            total_cash = info.get('totalCash')
-            total_debt = info.get('totalDebt')
-            net_cash = (total_cash - total_debt) if total_cash is not None and total_debt is not None else None
-            
-            # Analyst View & Valuation
-            recommendation_key = info.get('recommendationKey')
-            recommendation_mean = info.get('recommendationMean')
-            num_analysts = info.get('numberOfAnalystOpinions')
-            target_mean = info.get('targetMeanPrice')
-            target_high = info.get('targetHighPrice')
-            target_low = info.get('targetLowPrice')
-            
-            # Calculate implied upside
-            implied_upside_pct = None
-            if target_mean and price:
-                implied_upside_pct = ((target_mean - price) / price) * 100
-            
-            # Calculate liquidity score
-            liquidity_score = FundamentalsService.compute_liquidity_score(
-                price=price,
-                volume=volume,
-                avg_volume=avg_volume,
-                market_cap=market_cap
-            )
-            
-            return {
-                'market_cap': market_cap,
-                'volume': volume,
-                'avg_volume': avg_volume,
-                'pe_ratio': pe_ratio,
-                'eps': eps,
-                'price': price,
-                'liquidity_score': liquidity_score,
-                'revenue_growth': revenue_growth,
-                'earnings_growth': earnings_growth,
-                'profit_margins': profit_margins,
-                'operating_margins': operating_margins,
-                'return_on_equity': return_on_equity,
-                'debt_to_equity': debt_to_equity,
-                'current_ratio': current_ratio,
-                'quick_ratio': quick_ratio,
-                'net_cash': net_cash,
-                'recommendation_key': recommendation_key,
-                'recommendation_mean': recommendation_mean,
-                'num_analysts': num_analysts,
-                'target_mean': target_mean,
-                'target_high': target_high,
-                'target_low': target_low,
-                'implied_upside_pct': implied_upside_pct
-            }
+
+            return FundamentalsService.build_fundamentals_from_info(info)
             
         except Exception as e:
             logger.warning(f"Failed to fetch provider fundamentals for {symbol}: {str(e)}")
             return {}
+
+    @staticmethod
+    def build_fundamentals_from_info(info: Dict[str, Any]) -> Dict[str, Optional[float]]:
+        """Map raw provider info to the compact fundamentals payload."""
+        # Basic metrics
+        market_cap = info.get('marketCap')
+        volume = info.get('volume')
+        avg_volume = info.get('averageVolume')
+        pe_ratio = info.get('trailingPE') or info.get('forwardPE')
+        eps = info.get('trailingEps')
+        price = info.get('currentPrice')
+
+        # Growth & Profitability
+        revenue_growth = info.get('revenueGrowth')
+        earnings_growth = info.get('earningsGrowth')
+        profit_margins = info.get('profitMargins')
+        operating_margins = info.get('operatingMargins')
+        return_on_equity = info.get('returnOnEquity')
+
+        # Balance Sheet Health
+        debt_to_equity = info.get('debtToEquity')
+        current_ratio = info.get('currentRatio')
+        quick_ratio = info.get('quickRatio')
+        total_cash = info.get('totalCash')
+        total_debt = info.get('totalDebt')
+        net_cash = (total_cash - total_debt) if total_cash is not None and total_debt is not None else None
+
+        # Analyst View & Valuation
+        recommendation_key = info.get('recommendationKey')
+        recommendation_mean = info.get('recommendationMean')
+        num_analysts = info.get('numberOfAnalystOpinions')
+        target_mean = info.get('targetMeanPrice')
+        target_high = info.get('targetHighPrice')
+        target_low = info.get('targetLowPrice')
+
+        # Calculate implied upside
+        implied_upside_pct = None
+        if target_mean and price:
+            implied_upside_pct = ((target_mean - price) / price) * 100
+
+        # Calculate liquidity score
+        liquidity_score = FundamentalsService.compute_liquidity_score(
+            price=price,
+            volume=volume,
+            avg_volume=avg_volume,
+            market_cap=market_cap
+        )
+
+        return {
+            'market_cap': market_cap,
+            'volume': volume,
+            'avg_volume': avg_volume,
+            'pe_ratio': pe_ratio,
+            'eps': eps,
+            'price': price,
+            'liquidity_score': liquidity_score,
+            'revenue_growth': revenue_growth,
+            'earnings_growth': earnings_growth,
+            'profit_margins': profit_margins,
+            'operating_margins': operating_margins,
+            'return_on_equity': return_on_equity,
+            'debt_to_equity': debt_to_equity,
+            'current_ratio': current_ratio,
+            'quick_ratio': quick_ratio,
+            'net_cash': net_cash,
+            'recommendation_key': recommendation_key,
+            'recommendation_mean': recommendation_mean,
+            'num_analysts': num_analysts,
+            'target_mean': target_mean,
+            'target_high': target_high,
+            'target_low': target_low,
+            'implied_upside_pct': implied_upside_pct
+        }
     
     @staticmethod
     def compute_liquidity_score(

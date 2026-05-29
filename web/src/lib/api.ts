@@ -240,6 +240,20 @@ export interface AssetResearchDTO {
     target_low: number | null
     implied_upside_pct: number | null
   }
+  business: {
+    founded: number | null
+    employees: number | null
+    headquarters: string | null
+    country: string | null
+    sector: string | null
+    industry: string | null
+    description: string | null
+  }
+  ownership: {
+    institutional_ownership: number | null
+    insider_ownership: number | null
+    short_interest: number | null
+  }
   risk: {
     volatility_30d: number | null
     volatility_90d: number | null

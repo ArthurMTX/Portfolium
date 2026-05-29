@@ -5,8 +5,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  BookOpenText,
+  Building2,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   LineChart,
+  MapPin,
   Plus,
   Search,
   Shield,
@@ -94,6 +100,11 @@ function formatRecommendation(value: string | null | undefined): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function formatOwnershipPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '-'
+  return `${formatNumber(value * 100, 1)}%`
+}
+
 export default function AssetResearch() {
   const { symbol = '' } = useParams()
   const routeSymbol = symbol.trim()
@@ -112,6 +123,7 @@ export default function AssetResearch() {
   const [searchResults, setSearchResults] = useState<TickerSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -127,6 +139,7 @@ export default function AssetResearch() {
       try {
         setLoading(true)
         setError(null)
+        setDescriptionExpanded(false)
         const data = await api.getAssetResearch(routeSymbol.toUpperCase())
         if (!cancelled) {
           setAssetResearch(data)
@@ -665,6 +678,13 @@ export default function AssetResearch() {
             loading={investmentNoteLoading}
             onEdit={() => setInvestmentNoteOpen(true)}
           />
+          <BusinessSection
+            business={assetResearch.business}
+            asset={asset}
+            descriptionExpanded={descriptionExpanded}
+            onToggleDescription={() => setDescriptionExpanded((expanded) => !expanded)}
+          />
+          <OwnershipSection ownership={assetResearch.ownership} />
           <AssetPriceChart
             assetId={asset.id}
             symbol={asset.symbol}
@@ -838,6 +858,113 @@ function MaybeSection({ title, icon, metrics }: { title: string; icon: React.Rea
   return (
     <Section title={title} icon={icon}>
       <MetricGrid metrics={metrics} />
+    </Section>
+  )
+}
+
+function BusinessSection({
+  business,
+  asset,
+  descriptionExpanded,
+  onToggleDescription,
+}: {
+  business: AssetResearchDTO['business']
+  asset: AssetResearchDTO['asset']
+  descriptionExpanded: boolean
+  onToggleDescription: () => void
+}) {
+  const description = business.description?.trim()
+  const businessItems = [
+    {
+      label: 'Founded',
+      value: business.founded ? String(business.founded) : '-',
+      icon: <CalendarDays size={16} className="text-neutral-500 dark:text-neutral-400" />,
+    },
+    {
+      label: 'Employees',
+      value: business.employees ? formatWithSeparators(business.employees) : '-',
+      icon: <Users size={16} className="text-neutral-500 dark:text-neutral-400" />,
+    },
+    {
+      label: 'Headquarters',
+      value: business.headquarters || '-',
+      icon: <MapPin size={16} className="text-neutral-500 dark:text-neutral-400" />,
+    },
+    {
+      label: 'Country',
+      value: business.country || asset.country || '-',
+      icon: <MapPin size={16} className="text-neutral-500 dark:text-neutral-400" />,
+    },
+    {
+      label: 'Sector',
+      value: business.sector || asset.sector || '-',
+      icon: <Building2 size={16} className="text-neutral-500 dark:text-neutral-400" />,
+    },
+    {
+      label: 'Industry',
+      value: business.industry || asset.industry || '-',
+      icon: <Building2 size={16} className="text-neutral-500 dark:text-neutral-400" />,
+    },
+  ]
+
+  return (
+    <Section title="Business" icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+      <div className="card p-5 sm:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+          {businessItems.map((item) => (
+            <div key={item.label} className="flex items-start gap-3 min-w-0">
+              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                {item.icon}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium uppercase text-neutral-500 dark:text-neutral-400">{item.label}</div>
+                <div className="mt-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100 break-words">{item.value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {description && (
+          <div className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              <BookOpenText size={16} className="text-neutral-500 dark:text-neutral-400" />
+              Company Description
+            </div>
+            <p className={`text-sm leading-6 text-neutral-600 dark:text-neutral-400 ${descriptionExpanded ? '' : 'max-h-24 overflow-hidden'}`}>
+              {description}
+            </p>
+            <button
+              type="button"
+              onClick={onToggleDescription}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            >
+              {descriptionExpanded ? (
+                <>
+                  <ChevronUp size={16} />
+                  Hide full company description
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={16} />
+                  Show full company description
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </Section>
+  )
+}
+
+function OwnershipSection({ ownership }: { ownership: AssetResearchDTO['ownership'] }) {
+  return (
+    <Section title="Ownership" icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <InfoCard label="Institutional Ownership" value={formatOwnershipPercent(ownership.institutional_ownership)} />
+        <InfoCard label="Insider Ownership" value={formatOwnershipPercent(ownership.insider_ownership)} />
+        <InfoCard label="Short Interest" value={formatOwnershipPercent(ownership.short_interest)} />
+      </div>
     </Section>
   )
 }
