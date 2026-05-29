@@ -7,11 +7,13 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Asset, AssetThemeClassification
 from app.services.gemini import GeminiService
+from app.services.cache import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -259,6 +261,17 @@ class AssetThemeService:
             )
 
         now = datetime.utcnow()
+        if self.db.bind and self.db.bind.dialect.name == "postgresql":
+            classification = self._upsert_postgresql_classification(
+                asset_id=asset.id,
+                themes=themes,
+                source_hash=source_hash,
+                generated_at=now,
+                force=force,
+            )
+            self._invalidate_theme_dependent_caches()
+            return classification
+
         if existing:
             existing.themes = themes
             existing.method = GEMINI_THEME_METHOD
@@ -296,7 +309,76 @@ class AssetThemeService:
             self.db.commit()
 
         self.db.refresh(classification)
+        self._invalidate_theme_dependent_caches()
         return classification
+
+    def _upsert_postgresql_classification(
+        self,
+        asset_id: int,
+        themes: List[ThemePayload],
+        source_hash: str,
+        generated_at: datetime,
+        force: bool,
+    ) -> AssetThemeClassification:
+        values = {
+            "asset_id": asset_id,
+            "themes": themes,
+            "method": GEMINI_THEME_METHOD,
+            "model": GEMINI_THEME_MODEL,
+            "source_hash": source_hash,
+            "generated_at": generated_at,
+            "updated_at": generated_at,
+        }
+        statement = postgresql_insert(AssetThemeClassification).values(**values)
+
+        conflict_update = {
+            "index_elements": ["asset_id"],
+            "set_": {
+                "themes": statement.excluded.themes,
+                "method": statement.excluded.method,
+                "model": statement.excluded.model,
+                "source_hash": statement.excluded.source_hash,
+                "generated_at": statement.excluded.generated_at,
+                "updated_at": statement.excluded.updated_at,
+            },
+        }
+        if not force:
+            conflict_update["where"] = AssetThemeClassification.method != "manual"
+
+        update_statement = statement.on_conflict_do_update(
+            **conflict_update,
+        ).returning(AssetThemeClassification.id)
+
+        try:
+            classification_id = self.db.execute(update_statement).scalar_one_or_none()
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+        if classification_id is not None:
+            classification = (
+                self.db.query(AssetThemeClassification)
+                .filter(AssetThemeClassification.id == classification_id)
+                .first()
+            )
+        else:
+            classification = self.get_classification(asset_id)
+
+        if not classification:
+            raise RuntimeError(f"Failed to persist theme classification for asset {asset_id}")
+
+        self.db.refresh(classification)
+        return classification
+
+    @staticmethod
+    def _invalidate_theme_dependent_caches() -> None:
+        """Clear cached payloads that embed asset themes."""
+        cache = CacheService()
+        cache.delete_pattern("assets_held:*")
+        cache.delete_pattern("assets_sold:*")
+        cache.delete_pattern("positions:*")
+        cache.delete_pattern("dashboard_batch:*")
 
     def generate_themes(
         self,

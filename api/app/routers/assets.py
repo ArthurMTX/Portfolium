@@ -1,7 +1,7 @@
 """
 Assets router
 """
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from decimal import Decimal
 from datetime import datetime
 import logging
@@ -61,6 +61,145 @@ def _parse_split_ratio(split_str: str) -> Decimal:
     except:
         pass
     return Decimal(1)
+
+
+def _extract_theme_buckets(themes: Optional[List[Any]]) -> tuple[List[str], List[str]]:
+    """Return de-duplicated primary and secondary theme labels while preserving order."""
+    primary: List[str] = []
+    secondary: List[str] = []
+    seen_primary: set[str] = set()
+    seen_secondary: set[str] = set()
+    seen_labels: set[str] = set()
+
+    for raw_theme in themes or []:
+        if isinstance(raw_theme, dict):
+            raw_label = raw_theme.get("label")
+            raw_tier = raw_theme.get("tier")
+        else:
+            raw_label = getattr(raw_theme, "label", None)
+            raw_tier = getattr(raw_theme, "tier", None)
+
+        if raw_label is None:
+            continue
+        label = str(raw_label).strip()
+        if not label:
+            continue
+
+        tier = str(raw_tier or "").strip().lower()
+        normalized_label = label.casefold()
+
+        if normalized_label in seen_labels:
+            continue
+
+        if tier == "primary":
+            if normalized_label not in seen_primary:
+                seen_primary.add(normalized_label)
+                seen_labels.add(normalized_label)
+                primary.append(label)
+        elif tier == "secondary":
+            if normalized_label not in seen_secondary:
+                seen_secondary.add(normalized_label)
+                seen_labels.add(normalized_label)
+                secondary.append(label)
+
+    return primary, secondary
+
+
+def calculate_theme_allocation(positions) -> List[Dict[str, Any]]:
+    """
+    Compute portfolio theme allocation from already-loaded positions and their themes.
+
+    Allocation Method 2:
+    - primary + secondary => 70/30 split across each tier
+    - primary only => 100% across primary themes
+    - secondary only => 100% across secondary themes
+    - no themes => 100% to Unclassified
+    """
+    theme_totals: Dict[str, Dict[str, Any]] = {}
+    total_portfolio_value = Decimal(0)
+
+    for position in positions:
+        market_value_raw = getattr(position, "market_value", None)
+        if market_value_raw is None:
+            continue
+
+        market_value = Decimal(str(market_value_raw))
+        if market_value <= 0:
+            continue
+
+        total_portfolio_value += market_value
+
+        primary_themes, secondary_themes = _extract_theme_buckets(getattr(position, "themes", None))
+
+        if primary_themes and secondary_themes:
+            weighted_themes = [
+                (label, Decimal("0.70") / Decimal(len(primary_themes)))
+                for label in primary_themes
+            ]
+            weighted_themes.extend(
+                (label, Decimal("0.30") / Decimal(len(secondary_themes)))
+                for label in secondary_themes
+            )
+        elif primary_themes:
+            weighted_themes = [
+                (label, Decimal(1) / Decimal(len(primary_themes)))
+                for label in primary_themes
+            ]
+        elif secondary_themes:
+            weighted_themes = [
+                (label, Decimal(1) / Decimal(len(secondary_themes)))
+                for label in secondary_themes
+            ]
+        else:
+            weighted_themes = [("Unclassified", Decimal(1))]
+
+        symbol = getattr(position, "symbol", "") or ""
+        name = getattr(position, "name", None) or symbol
+        asset_key = f"{symbol}|{name}"
+
+        for label, weight in weighted_themes:
+            contribution = market_value * weight
+            if label not in theme_totals:
+                theme_totals[label] = {
+                    "value": Decimal(0),
+                    "assets": {},
+                }
+
+            theme_totals[label]["value"] += contribution
+            asset_contributions = theme_totals[label]["assets"]
+            asset_contributions[asset_key] = asset_contributions.get(asset_key, Decimal(0)) + contribution
+
+    if total_portfolio_value <= 0:
+        return []
+
+    allocations: List[Dict[str, Any]] = []
+    for theme_name, payload in theme_totals.items():
+        theme_value: Decimal = payload["value"]
+        percentage = (theme_value / total_portfolio_value) * Decimal(100)
+
+        assets = []
+        for asset_key, contribution_value in payload["assets"].items():
+            symbol, name = asset_key.split("|", 1)
+            assets.append(
+                {
+                    "symbol": symbol,
+                    "name": name,
+                    "contribution_value": round(float(contribution_value), 2),
+                }
+            )
+
+        assets.sort(key=lambda item: item["contribution_value"], reverse=True)
+        allocations.append(
+            {
+                "theme": theme_name,
+                "value": round(float(theme_value), 2),
+                "percentage": round(float(percentage), 2),
+                "assets": assets,
+            }
+        )
+
+    allocations.sort(key=lambda item: item["value"], reverse=True)
+    return allocations
 
 
 def _fetch_theme_company_info(asset):
@@ -639,6 +778,7 @@ async def get_held_assets(
                 
                 # Get user-specific effective metadata
                 effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+                themes_payload = asset.themes or AssetThemeService(db).get_themes(asset.id)
                 
                 results.append({
                     "id": asset.id,
@@ -653,7 +793,7 @@ async def get_held_assets(
                     "effective_sector": effective_data["effective_sector"],
                     "effective_industry": effective_data["effective_industry"],
                     "effective_country": effective_data["effective_country"],
-                    "themes": asset.themes,
+                    "themes": themes_payload,
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -756,6 +896,7 @@ async def get_sold_assets(
                 
                 # Get user-specific effective metadata
                 effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+                themes_payload = asset.themes or AssetThemeService(db).get_themes(asset.id)
                 
                 results.append({
                     "id": asset.id,
@@ -770,7 +911,7 @@ async def get_sold_assets(
                     "effective_sector": effective_data["effective_sector"],
                     "effective_industry": effective_data["effective_industry"],
                     "effective_country": effective_data["effective_country"],
-                    "themes": asset.themes,
+                    "themes": themes_payload,
                     "total_quantity": float(total_quantity),
                     "portfolio_count": len(portfolio_ids),
                     "split_count": split_count,
@@ -1364,6 +1505,23 @@ async def get_types_distribution(
         result.sort(key=lambda x: x["count"], reverse=True)
     
     return result
+
+
+@router.get("/distribution/themes")
+async def get_themes_distribution(
+    metrics_service: MetricsServiceDep,
+    portfolio_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get distribution of portfolio market value by investment theme.
+
+    Uses pre-computed position theme payloads and aggregates in-memory.
+    """
+    _ = current_user, db  # Injected for auth/session consistency with sibling endpoints.
+    positions = await metrics_service.get_positions(portfolio_id)
+    return calculate_theme_allocation(positions)
 
 
 @router.get("/distribution/industries")

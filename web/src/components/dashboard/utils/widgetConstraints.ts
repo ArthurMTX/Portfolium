@@ -41,6 +41,7 @@ export const widgetSizes: Record<string, WidgetSizeConfig> = {
   'market-status': { w: 3, h: 5, minW: 2, minH: 5 },
   'market-indices': { w: 4, h: 7, minW: 3, minH: 5 },
   'asset-allocation': { w: 4, h: 8, minW: 3, minH: 6 },
+  'theme-allocation': { w: 4, h: 8, minW: 3, minH: 6 },
   'portfolio-heatmap': { w: 6, h: 8, minW: 4, minH: 6 },
   'goal-tracker': { w: 3, h: 8, minW: 3, minH: 8 },
   

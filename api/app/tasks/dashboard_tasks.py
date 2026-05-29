@@ -27,6 +27,7 @@ from app.routers.batch import (
     _fetch_asset_allocation,
     _fetch_sector_allocation,
     _fetch_country_allocation,
+    _fetch_theme_allocation,
     _fetch_performance_history,
     _fetch_transactions,
     _make_json_serializable,
@@ -85,7 +86,7 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
                 widget_ids = [
                     'total-value', 'daily-gain', 'unrealized-pnl', 'realized-pnl',
                     'positions-table', 'watchlist', 'market-indices',
-                    'asset-allocation', 'recent-transactions'
+                    'asset-allocation', 'theme-allocation', 'recent-transactions'
                 ]
         
         logger.info(f"Warming dashboard for user {user_id}, portfolio {portfolio_id} with {len(widget_ids)} widgets")
@@ -159,6 +160,10 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
             if 'country_allocation' in required_data:
                 tasks['country_allocation'] = _fetch_country_allocation(portfolio_id, db, metrics_service, user)
                 task_names.append('country_allocation')
+
+            if 'theme_allocation' in required_data:
+                tasks['theme_allocation'] = _fetch_theme_allocation(portfolio_id, db, metrics_service, user)
+                task_names.append('theme_allocation')
             
             if 'performance_history' in required_data:
                 tasks['performance_history'] = _fetch_performance_history(portfolio_id, db)

@@ -325,7 +325,12 @@ class MetricsService:
             portfolio_base_currency: Portfolio base currency
             include_sold: If True, calculate realized P&L for sold positions
         """
-        asset = self.db.query(Asset).filter(Asset.id == asset_id).first()
+        asset = (
+            self.db.query(Asset)
+            .options(joinedload(Asset.theme_classification))
+            .filter(Asset.id == asset_id)
+            .first()
+        )
         if not asset:
             return None
         

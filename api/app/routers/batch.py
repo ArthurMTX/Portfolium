@@ -160,6 +160,7 @@ WIDGET_DATA_MAP = {
     'worst-performers': {'positions'},
     'largest-holdings': {'positions'},
     'asset-allocation': {'asset_allocation', 'sector_allocation', 'country_allocation'},
+    'theme-allocation': {'theme_allocation'},
     'portfolio-heatmap': {'positions'},
     'performance-metrics': {'performance_history'},
     
@@ -475,6 +476,21 @@ async def _fetch_country_allocation(portfolio_id: int, db: Session, metrics_serv
         return None
 
 
+async def _fetch_theme_allocation(portfolio_id: int, db: Session, metrics_service, current_user) -> Optional[Dict]:
+    """Fetch theme distribution"""
+    try:
+        from app.routers import assets as assets_router
+        return await assets_router.get_themes_distribution(
+            metrics_service=metrics_service,
+            portfolio_id=portfolio_id,
+            current_user=current_user,
+            db=db,
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch theme allocation: {e}", exc_info=True)
+        return None
+
+
 async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional[Dict]:
     """Fetch portfolio performance history for different periods"""
     try:
@@ -643,6 +659,9 @@ async def get_dashboard_batch(
     
     if 'country_allocation' in required_data:
         tasks['country_allocation'] = _fetch_country_allocation(request.portfolio_id, db, metrics_service, current_user)
+
+    if 'theme_allocation' in required_data:
+        tasks['theme_allocation'] = _fetch_theme_allocation(request.portfolio_id, db, metrics_service, current_user)
     
     if 'performance_history' in required_data:
         tasks['performance_history'] = _fetch_performance_history(request.portfolio_id, db)

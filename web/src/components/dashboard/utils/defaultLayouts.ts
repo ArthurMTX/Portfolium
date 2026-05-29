@@ -31,6 +31,10 @@ export const defaultLayout: Layout[] = [
   
   // Core portfolio table
   { i: 'positions', x: 0, y: 5, w: 12, h: 12, minW: 8, minH: 6 },
+
+  // Allocation widgets
+  { i: 'asset-allocation', x: 0, y: 17, w: 6, h: 8, minW: 3, minH: 6 },
+  { i: 'theme-allocation', x: 6, y: 17, w: 6, h: 8, minW: 3, minH: 6 },
 ]
 
 // Tablet layout (cols: 8)
@@ -46,6 +50,10 @@ export const tabletLayout: Layout[] = [
   
   // Core portfolio table
   { i: 'positions', x: 0, y: 7, w: 8, h: 12, minW: 6, minH: 6 },
+
+  // Allocation widgets
+  { i: 'asset-allocation', x: 0, y: 19, w: 8, h: 8, minW: 3, minH: 6 },
+  { i: 'theme-allocation', x: 0, y: 27, w: 8, h: 8, minW: 3, minH: 6 },
 ]
 
 // Mobile layout (cols: 4)
@@ -57,6 +65,8 @@ export const mobileLayout: Layout[] = [
   { i: 'realized-pnl', x: 0, y: 11, w: 4, h: 2, minW: 4, minH: 2 },
   { i: 'dividends', x: 0, y: 14, w: 4, h: 2, minW: 4, minH: 2 },
   { i: 'positions', x: 0, y: 18, w: 4, h: 10, minW: 4, minH: 4 },
+  { i: 'asset-allocation', x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
+  { i: 'theme-allocation', x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
 ]
 
 export const loadLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number): Layout[] => {

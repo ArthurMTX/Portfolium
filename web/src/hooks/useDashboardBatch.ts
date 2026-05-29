@@ -27,6 +27,7 @@ interface DashboardBatchData {
     asset_allocation?: unknown
     sector_allocation?: unknown
     country_allocation?: unknown
+    theme_allocation?: unknown
     performance_history?: unknown
     risk_metrics?: unknown
     benchmark_comparison?: unknown

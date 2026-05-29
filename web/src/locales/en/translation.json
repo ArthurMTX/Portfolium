@@ -445,6 +445,20 @@
         "barChart": "Bar Chart",
         "noAllocationData": "No allocation data available."
       },
+      "themeAllocation": {
+        "name": "Theme Allocation",
+        "description": "Visual breakdown of portfolio by investment theme",
+        "empty": "No theme allocation data available.",
+        "columns": {
+          "theme": "Theme Name",
+          "percentage": "Portfolio %",
+          "value": "Allocation Value"
+        },
+        "modal": {
+          "portfolioShare": "{{percentage}}% of portfolio",
+          "assets": "Assets"
+        }
+      },
       "portfolioHeatmap": {
         "name": "Portfolio Heatmap",
         "description": "Visual heatmap of all positions with color-coded daily performance"

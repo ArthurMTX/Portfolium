@@ -56,6 +56,7 @@ import LargestHoldingsWidget from '../analysis/LargestHoldingsWidget'
 import PerformanceMetricsWidget from '../analysis/PerformanceMetricsWidget'
 import TodayBriefWidget from '../analysis/TodayBriefWidget'
 import AssetAllocationWidget from '../analysis/AssetAllocationWidget'
+import ThemeAllocationWidget from '../analysis/ThemeAllocationWidget'
 import PortfolioHeatmapWidget from '../analysis/PortfolioHeatmapWidget'
 import MarketStatusWidget from '../market/MarketStatusWidget'
 import MarketIndicesWidget from '../market/MarketIndicesWidget'
@@ -489,6 +490,22 @@ export const widgetDefinitions: WidgetConfig[] = [
     defaultSize: getWidgetSize('asset-allocation')!,
     allowMultiple: true,
     component: AssetAllocationWidget,
+    getProps: (context: WidgetContext) => ({
+      isPreview: context.isPreview,
+      batchData: context.batchData,
+    }),
+  },
+  {
+    id: 'theme-allocation',
+    name: 'dashboard.widgets.themeAllocation.name',
+    description: 'dashboard.widgets.themeAllocation.description',
+    category: 'insights',
+    icon: Layers,
+    iconColor: 'text-indigo-600 dark:text-indigo-400',
+    iconBgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+    defaultSize: getWidgetSize('theme-allocation')!,
+    allowMultiple: true,
+    component: ThemeAllocationWidget,
     getProps: (context: WidgetContext) => ({
       isPreview: context.isPreview,
       batchData: context.batchData,

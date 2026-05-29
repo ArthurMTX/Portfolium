@@ -445,6 +445,20 @@
         "barChart": "Graphique en barres",
         "noAllocationData": "Aucune donnée de répartition disponible."
       },
+      "themeAllocation": {
+        "name": "Répartition par thème",
+        "description": "Répartition visuelle du portefeuille par thème d'investissement",
+        "empty": "Aucune donnée de répartition par thème disponible.",
+        "columns": {
+          "theme": "Nom du thème",
+          "percentage": "% du portefeuille",
+          "value": "Valeur allouée"
+        },
+        "modal": {
+          "portfolioShare": "{{percentage}}% du portefeuille",
+          "assets": "Actifs"
+        }
+      },
       "portfolioHeatmap": {
         "name": "Carte de Chaleur du Portefeuille",
         "description": "Carte de chaleur visuelle de toutes les positions avec performance quotidienne codée par couleur"

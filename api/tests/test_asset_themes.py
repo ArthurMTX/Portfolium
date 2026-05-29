@@ -2,6 +2,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
 from app.models import AssetThemeClassification
@@ -68,3 +69,64 @@ def test_refresh_gemini_classification_recovers_from_duplicate_insert(
     db.rollback.assert_called_once()
     db.refresh.assert_called_once_with(existing)
     assert get_classification.call_count == 2
+
+
+def test_refresh_gemini_classification_uses_postgresql_upsert(
+    monkeypatch,
+):
+    asset = SimpleNamespace(
+        id=42,
+        symbol="NVDA",
+        name="NVIDIA Corporation",
+        sector="Technology",
+        industry="Semiconductors",
+    )
+    classification = AssetThemeClassification(
+        id=7,
+        asset_id=asset.id,
+        themes=[],
+        method="gpt",
+        model=GEMINI_THEME_MODEL,
+        source_hash="old-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+    db = Mock()
+    db.bind.dialect.name = "postgresql"
+    db.execute.return_value.scalar_one_or_none.return_value = classification.id
+    db.query.return_value.filter.return_value.first.return_value = classification
+
+    service = AssetThemeService(db)
+    monkeypatch.setattr(service, "get_classification", Mock(return_value=None))
+    monkeypatch.setattr(
+        service,
+        "generate_themes",
+        lambda name, sector, industry, summary: [
+            {
+                "label": "Accelerated Computing",
+                "confidence": 0.95,
+                "evidence": [],
+                "tier": "primary",
+            }
+        ],
+    )
+
+    result = service.refresh_gemini_classification(
+        asset=asset,
+        summary="Designs GPUs and accelerated computing platforms",
+        sector=asset.sector,
+        industry=asset.industry,
+        name=asset.name,
+        force=False,
+    )
+
+    statement = db.execute.call_args.args[0]
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    assert result is classification
+    assert "ON CONFLICT" in compiled
+    assert "asset_id" in compiled
+    assert "DO UPDATE" in compiled
+    db.add.assert_not_called()
+    db.commit.assert_called_once()
