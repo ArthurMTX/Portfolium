@@ -297,6 +297,7 @@ class AssetTheme(BaseModel):
     """Single global asset theme/exposure."""
     label: str
     confidence: float = Field(ge=0, le=1)
+    weight: Optional[float] = Field(default=None, ge=0, le=1)
     evidence: List[str] = Field(default_factory=list)
     tier: Optional[str] = Field(default=None, pattern="^(primary|secondary)$")
     children: List[AssetSubtheme] = Field(default_factory=list)

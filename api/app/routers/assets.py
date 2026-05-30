@@ -63,22 +63,30 @@ def _parse_split_ratio(split_str: str) -> Decimal:
     return Decimal(1)
 
 
-def _extract_theme_buckets(themes: Optional[List[Any]]) -> tuple[List[str], List[str]]:
-    """Return de-duplicated top-level theme labels while preserving order."""
-    primary: List[str] = []
-    secondary: List[str] = []
-    seen_primary: set[str] = set()
-    seen_secondary: set[str] = set()
+def _decimal_or_zero(value: Any) -> Decimal:
+    if value is None:
+        return Decimal(0)
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal(0)
+
+
+def _extract_theme_weights(themes: Optional[List[Any]]) -> List[tuple[str, Decimal, List[str]]]:
+    """Return de-duplicated top-level theme labels with normalized allocation weights."""
+    extracted: List[tuple[str, Optional[Decimal], List[str]]] = []
     seen_labels: set[str] = set()
 
     for raw_theme in themes or []:
         if isinstance(raw_theme, dict):
             theme_payload = raw_theme.get("theme") if isinstance(raw_theme.get("theme"), dict) else raw_theme
             raw_label = theme_payload.get("label")
-            raw_tier = theme_payload.get("tier") or raw_theme.get("tier")
+            raw_weight = theme_payload.get("weight", raw_theme.get("weight"))
+            raw_children = theme_payload.get("children", raw_theme.get("children", []))
         else:
             raw_label = getattr(raw_theme, "label", None)
-            raw_tier = getattr(raw_theme, "tier", None)
+            raw_weight = getattr(raw_theme, "weight", None)
+            raw_children = getattr(raw_theme, "children", [])
 
         if raw_label is None:
             continue
@@ -86,34 +94,56 @@ def _extract_theme_buckets(themes: Optional[List[Any]]) -> tuple[List[str], List
         if not label:
             continue
 
-        tier = str(raw_tier or "").strip().lower()
         normalized_label = label.casefold()
-
         if normalized_label in seen_labels:
             continue
 
-        if tier == "primary":
-            if normalized_label not in seen_primary:
-                seen_primary.add(normalized_label)
-                seen_labels.add(normalized_label)
-                primary.append(label)
-        elif tier == "secondary":
-            if normalized_label not in seen_secondary:
-                seen_secondary.add(normalized_label)
-                seen_labels.add(normalized_label)
-                secondary.append(label)
+        weight = None
+        if raw_weight is not None:
+            parsed_weight = _decimal_or_zero(raw_weight)
+            if parsed_weight > 0:
+                weight = parsed_weight
 
-    return primary, secondary
+        seen_labels.add(normalized_label)
+        subthemes: List[str] = []
+        seen_subthemes: set[str] = set()
+        for raw_child in raw_children or []:
+            if isinstance(raw_child, dict):
+                raw_child_label = raw_child.get("label")
+            else:
+                raw_child_label = getattr(raw_child, "label", None)
+            if raw_child_label is None:
+                continue
+            child_label = str(raw_child_label).strip()
+            normalized_child = child_label.casefold()
+            if child_label and normalized_child not in seen_subthemes:
+                seen_subthemes.add(normalized_child)
+                subthemes.append(child_label)
+
+        extracted.append((label, weight, subthemes))
+
+    if not extracted:
+        return []
+
+    if all(weight is not None for _, weight, _ in extracted):
+        total_weight = sum(weight for _, weight, _ in extracted if weight is not None)
+        if total_weight > 0:
+            return [
+                (label, (weight or Decimal(0)) / total_weight, subthemes)
+                for label, weight, subthemes in extracted
+            ]
+
+    equal_weight = Decimal(1) / Decimal(len(extracted))
+    return [(label, equal_weight, subthemes) for label, _, subthemes in extracted]
 
 
 def calculate_theme_allocation(positions) -> List[Dict[str, Any]]:
     """
     Compute portfolio theme allocation from already-loaded positions and their themes.
 
-    Allocation Method 2:
-    - primary + secondary => 70/30 split across each tier
-    - primary only => 100% across primary themes
-    - secondary only => 100% across secondary themes
+    Allocation method:
+    - use stored theme.weight values when all top-level themes have weights
+    - otherwise split equally across asset themes
     - no themes => 100% to Unclassified
     """
     theme_totals: Dict[str, Dict[str, Any]] = {}
@@ -128,74 +158,154 @@ def calculate_theme_allocation(positions) -> List[Dict[str, Any]]:
         if market_value <= 0:
             continue
 
+        cost_basis = _decimal_or_zero(getattr(position, "cost_basis", None))
+        unrealized_pnl = _decimal_or_zero(getattr(position, "unrealized_pnl", None))
         total_portfolio_value += market_value
 
-        primary_themes, secondary_themes = _extract_theme_buckets(getattr(position, "themes", None))
-
-        if primary_themes and secondary_themes:
-            weighted_themes = [
-                (label, Decimal("0.70") / Decimal(len(primary_themes)))
-                for label in primary_themes
-            ]
-            weighted_themes.extend(
-                (label, Decimal("0.30") / Decimal(len(secondary_themes)))
-                for label in secondary_themes
-            )
-        elif primary_themes:
-            weighted_themes = [
-                (label, Decimal(1) / Decimal(len(primary_themes)))
-                for label in primary_themes
-            ]
-        elif secondary_themes:
-            weighted_themes = [
-                (label, Decimal(1) / Decimal(len(secondary_themes)))
-                for label in secondary_themes
-            ]
-        else:
-            weighted_themes = [("Unclassified", Decimal(1))]
+        weighted_themes = _extract_theme_weights(getattr(position, "themes", None))
+        if not weighted_themes:
+            weighted_themes = [("Unclassified", Decimal(1), [])]
 
         symbol = getattr(position, "symbol", "") or ""
         name = getattr(position, "name", None) or symbol
         asset_key = f"{symbol}|{name}"
 
-        for label, weight in weighted_themes:
-            contribution = market_value * weight
+        for label, weight, subthemes in weighted_themes:
+            contribution_value = market_value * weight
+            contribution_cost_basis = cost_basis * weight
+            contribution_unrealized_pnl = unrealized_pnl * weight
             if label not in theme_totals:
                 theme_totals[label] = {
                     "value": Decimal(0),
+                    "cost_basis": Decimal(0),
+                    "unrealized_pnl": Decimal(0),
                     "assets": {},
+                    "subthemes": {},
                 }
 
-            theme_totals[label]["value"] += contribution
+            theme_totals[label]["value"] += contribution_value
+            theme_totals[label]["cost_basis"] += contribution_cost_basis
+            theme_totals[label]["unrealized_pnl"] += contribution_unrealized_pnl
             asset_contributions = theme_totals[label]["assets"]
-            asset_contributions[asset_key] = asset_contributions.get(asset_key, Decimal(0)) + contribution
+            if asset_key not in asset_contributions:
+                asset_contributions[asset_key] = {
+                    "value": Decimal(0),
+                    "cost_basis": Decimal(0),
+                    "unrealized_pnl": Decimal(0),
+                }
+            asset_contributions[asset_key]["value"] += contribution_value
+            asset_contributions[asset_key]["cost_basis"] += contribution_cost_basis
+            asset_contributions[asset_key]["unrealized_pnl"] += contribution_unrealized_pnl
+
+            if subthemes:
+                subtheme_weight = Decimal(1) / Decimal(len(subthemes))
+                subtheme_totals = theme_totals[label]["subthemes"]
+                for subtheme_name in subthemes:
+                    subtheme_value = contribution_value * subtheme_weight
+                    subtheme_cost_basis = contribution_cost_basis * subtheme_weight
+                    subtheme_unrealized_pnl = contribution_unrealized_pnl * subtheme_weight
+
+                    if subtheme_name not in subtheme_totals:
+                        subtheme_totals[subtheme_name] = {
+                            "value": Decimal(0),
+                            "cost_basis": Decimal(0),
+                            "unrealized_pnl": Decimal(0),
+                            "assets": {},
+                        }
+
+                    subtheme_totals[subtheme_name]["value"] += subtheme_value
+                    subtheme_totals[subtheme_name]["cost_basis"] += subtheme_cost_basis
+                    subtheme_totals[subtheme_name]["unrealized_pnl"] += subtheme_unrealized_pnl
+
+                    subtheme_assets = subtheme_totals[subtheme_name]["assets"]
+                    if asset_key not in subtheme_assets:
+                        subtheme_assets[asset_key] = {
+                            "value": Decimal(0),
+                            "cost_basis": Decimal(0),
+                            "unrealized_pnl": Decimal(0),
+                        }
+                    subtheme_assets[asset_key]["value"] += subtheme_value
+                    subtheme_assets[asset_key]["cost_basis"] += subtheme_cost_basis
+                    subtheme_assets[asset_key]["unrealized_pnl"] += subtheme_unrealized_pnl
 
     if total_portfolio_value <= 0:
         return []
 
-    allocations: List[Dict[str, Any]] = []
-    for theme_name, payload in theme_totals.items():
-        theme_value: Decimal = payload["value"]
-        percentage = (theme_value / total_portfolio_value) * Decimal(100)
-
+    def build_contributing_assets(asset_payload: Dict[str, Dict[str, Decimal]]) -> List[Dict[str, Any]]:
         assets = []
-        for asset_key, contribution_value in payload["assets"].items():
+        for asset_key, contributions in asset_payload.items():
             symbol, name = asset_key.split("|", 1)
+            contribution_cost_basis = contributions["cost_basis"]
+            contribution_unrealized_pnl = contributions["unrealized_pnl"]
+            contribution_unrealized_pnl_pct = (
+                (contribution_unrealized_pnl / contribution_cost_basis * Decimal(100))
+                if contribution_cost_basis > 0
+                else Decimal(0)
+            )
             assets.append(
                 {
                     "symbol": symbol,
                     "name": name,
-                    "contribution_value": round(float(contribution_value), 2),
+                    "contribution_value": round(float(contributions["value"]), 2),
+                    "contribution_cost_basis": round(float(contribution_cost_basis), 2),
+                    "contribution_unrealized_pnl": round(float(contribution_unrealized_pnl), 2),
+                    "contribution_unrealized_pnl_pct": round(float(contribution_unrealized_pnl_pct), 2),
                 }
             )
 
         assets.sort(key=lambda item: item["contribution_value"], reverse=True)
+        return assets
+
+    allocations: List[Dict[str, Any]] = []
+    for theme_name, payload in theme_totals.items():
+        theme_value: Decimal = payload["value"]
+        theme_cost_basis: Decimal = payload["cost_basis"]
+        theme_unrealized_pnl: Decimal = payload["unrealized_pnl"]
+        percentage = (theme_value / total_portfolio_value) * Decimal(100)
+        theme_unrealized_pnl_pct = (
+            (theme_unrealized_pnl / theme_cost_basis * Decimal(100))
+            if theme_cost_basis > 0
+            else Decimal(0)
+        )
+
+        subthemes = []
+        for subtheme_name, subtheme_payload in payload["subthemes"].items():
+            subtheme_value: Decimal = subtheme_payload["value"]
+            subtheme_cost_basis: Decimal = subtheme_payload["cost_basis"]
+            subtheme_unrealized_pnl: Decimal = subtheme_payload["unrealized_pnl"]
+            subtheme_percentage = (
+                (subtheme_value / theme_value * Decimal(100))
+                if theme_value > 0
+                else Decimal(0)
+            )
+            subtheme_unrealized_pnl_pct = (
+                (subtheme_unrealized_pnl / subtheme_cost_basis * Decimal(100))
+                if subtheme_cost_basis > 0
+                else Decimal(0)
+            )
+            subthemes.append(
+                {
+                    "name": subtheme_name,
+                    "value": round(float(subtheme_value), 2),
+                    "percentage": round(float(subtheme_percentage), 2),
+                    "cost_basis": round(float(subtheme_cost_basis), 2),
+                    "unrealized_pnl": round(float(subtheme_unrealized_pnl), 2),
+                    "unrealized_pnl_pct": round(float(subtheme_unrealized_pnl_pct), 2),
+                    "assets": build_contributing_assets(subtheme_payload["assets"]),
+                }
+            )
+
+        subthemes.sort(key=lambda item: item["value"], reverse=True)
         allocations.append(
             {
                 "theme": theme_name,
                 "value": round(float(theme_value), 2),
                 "percentage": round(float(percentage), 2),
-                "assets": assets,
+                "cost_basis": round(float(theme_cost_basis), 2),
+                "unrealized_pnl": round(float(theme_unrealized_pnl), 2),
+                "unrealized_pnl_pct": round(float(theme_unrealized_pnl_pct), 2),
+                "assets": build_contributing_assets(payload["assets"]),
+                "subthemes": subthemes,
             }
         )
 

@@ -133,6 +133,7 @@ export interface PositionDTO {
 export interface AssetThemeDTO {
   label: string
   confidence: number
+  weight?: number | null
   evidence: string[]
   tier?: 'primary' | 'secondary' | null
   children?: AssetSubthemeDTO[]
@@ -348,6 +349,7 @@ export interface AssetPositionDTO {
   asset_id: number
   total_value: number
   unrealized_pnl: number
+  unrealized_pnl_pct?: number
   percentage: number
 }
 
@@ -361,19 +363,37 @@ export interface DistributionItemDTO {
   unrealized_pnl_pct: number
   asset_ids: number[]
   asset_positions?: AssetPositionDTO[]
+  subthemes?: DistributionItemDTO[]
 }
 
 export interface ThemeDistributionAssetDTO {
   symbol: string
   name: string
   contribution_value: number
+  contribution_cost_basis: number
+  contribution_unrealized_pnl: number
+  contribution_unrealized_pnl_pct: number
+}
+
+export interface ThemeDistributionSubthemeDTO {
+  name: string
+  value: number
+  percentage: number
+  cost_basis: number
+  unrealized_pnl: number
+  unrealized_pnl_pct: number
+  assets: ThemeDistributionAssetDTO[]
 }
 
 export interface ThemeDistributionItemDTO {
   theme: string
   value: number
   percentage: number
+  cost_basis: number
+  unrealized_pnl: number
+  unrealized_pnl_pct: number
   assets: ThemeDistributionAssetDTO[]
+  subthemes?: ThemeDistributionSubthemeDTO[]
 }
 
 export interface IndustryItemDTO {
