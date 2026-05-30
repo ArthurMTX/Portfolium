@@ -28,7 +28,7 @@ GEMINI_THEME_METHOD = "gpt"
 ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "AI Infrastructure": ("GPU Computing", "Accelerated Computing", "AI Servers", "AI Networking", "Edge AI"),
     "AI Applications": ("Generative AI", "AI Agents", "AI Software", "Enterprise AI", "Sovereign AI"),
-    "Data Center Infrastructure": ("Colocation", "Hyperscale Data Centers", "Data Center Power", "Data Center Cooling"),
+    "Data Center Infrastructure": ("Hyperscale Data Centers", "Data Center Power", "Data Center Cooling"),
     "Networking Infrastructure": ("Ethernet Switching", "Optical Networking", "Routing", "Network Equipment"),
     "Semiconductor Value Chain": ("Chip Design", "Semiconductor Equipment", "Foundry Ecosystem", "Advanced Packaging", "Memory & Storage"),
     "Photonics & Optical Computing": ("Optical Interconnects", "Silicon Photonics", "Optical Transceivers", "Co-Packaged Optics"),

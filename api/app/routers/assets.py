@@ -28,7 +28,7 @@ from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.services.asset_research import AssetResearchService
-from app.services.asset_themes import AssetThemeService
+from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
 from app.services.fundamentals import FundamentalsService
 from app.errors import ( 
     AssetAlreadyExistsError,
@@ -46,6 +46,12 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 cache_service = CacheService()
 logger = logging.getLogger(__name__)
+
+
+@router.get("/themes/hierarchy")
+def get_theme_hierarchy() -> Dict[str, List[str]]:
+    """Return the allowed theme hierarchy used by the classifier."""
+    return {theme: list(subthemes) for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()}
 
 
 def _parse_split_ratio(split_str: str) -> Decimal:
