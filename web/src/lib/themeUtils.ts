@@ -81,6 +81,7 @@ import {
   PersonStanding,
   Pill,
   PillBottle,
+  Plane,
   PlaneTakeoff,
   Plug,
   Radar,
@@ -360,7 +361,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Pet Food': Bone,
   'Veterinary Services': Stethoscope,
 
-  // ===== Food & Beverage =====
+  // Food & Beverage
   'Food & Beverage': UtensilsCrossed,
   'Packaged Foods': Package,
   'Plant-Based Foods': Leaf,
@@ -369,7 +370,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Foodservice': ChefHat,
   'Food Delivery': Bike,
 
-  // ===== Household & Personal Care =====
+  // Household & Personal Care 
   'Household & Personal Care': Home,
   'Home Care': House,
   'Fabric Care': Shirt,
@@ -379,7 +380,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Oral Care': Smile,
   'Paper Products': FileText,
 
-  // ===== Consumer Health =====
+  // Consumer Health
   'Consumer Health': HeartPulse,
   'OTC Health Products': Pill,
   'Vitamins & Supplements': PillBottle,
@@ -387,6 +388,28 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Respiratory Health': Wind,
   'Sleep & Relaxation': Moon,
   'Sexual Wellness': Heart,
+
+  // Retail & Distribution
+  'Retail & Distribution': Store,
+  'Luxury Retail': Gem,
+  'Beauty Retail': Sparkles,
+  'Department Stores': Building2,
+  'Travel Retail': Plane,
+  'Specialty Retail': ShoppingBag,
+  'Direct-to-Consumer': ShoppingCart,
+
+  // Automotive Retail
+  'Automotive Retail': CarFront,
+  'Auto Dealerships': Car,
+  'Vehicle Distribution': Truck,
+
+  // Icons
+  'Mortgage Finance': Home,
+  'Secondary Mortgage Market': Landmark,
+  'Mortgage Securitization': ChartCandlestick,
+  'Mortgage Guarantees': ShieldCheck,
+  'Single-Family Mortgages': House,
+  'Multifamily Mortgages': Building2,
 
   // Fallbacks
   'Unclassified': HelpCircle,
@@ -643,6 +666,25 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Sleep & Relaxation': 'text-indigo-500',
   'Sexual Wellness': 'text-pink-600',
 
+  'Retail & Distribution': 'text-violet-600 dark:text-violet-400',
+  'Luxury Retail': 'text-purple-500 dark:text-purple-400',
+  'Beauty Retail': 'text-pink-500 dark:text-pink-400',
+  'Department Stores': 'text-indigo-500 dark:text-indigo-400',
+  'Travel Retail': 'text-cyan-500 dark:text-cyan-400',
+  'Specialty Retail': 'text-violet-500 dark:text-violet-400',
+  'Direct-to-Consumer': 'text-blue-500 dark:text-blue-400',
+
+  'Automotive Retail': 'text-orange-600 dark:text-orange-400',
+  'Auto Dealerships': 'text-orange-500 dark:text-orange-400',
+  'Vehicle Distribution': 'text-amber-500 dark:text-amber-400',
+
+  'Mortgage Finance': 'text-green-700 dark:text-green-300',
+  'Secondary Mortgage Market': 'text-emerald-700 dark:text-emerald-300',
+  'Mortgage Securitization': 'text-teal-700 dark:text-teal-300',
+  'Mortgage Guarantees': 'text-lime-700 dark:text-lime-300',
+  'Single-Family Mortgages': 'text-green-600 dark:text-green-400',
+  'Multifamily Mortgages': 'text-cyan-700 dark:text-cyan-300',
+
   'Unclassified': 'text-neutral-500 dark:text-neutral-400',
   'Unknown': 'text-neutral-500 dark:text-neutral-400',
   'Other': 'text-neutral-600 dark:text-neutral-400',
@@ -822,6 +864,22 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Respiratory Health': '#0ea5e9',
   'Sleep & Relaxation': '#6366f1',
   'Sexual Wellness': '#db2777',
+  'Retail & Distribution': '#7c3aed',
+  'Luxury Retail': '#a855f7',
+  'Beauty Retail': '#ec4899',
+  'Department Stores': '#6366f1',
+  'Travel Retail': '#06b6d4',
+  'Specialty Retail': '#8b5cf6',
+  'Direct-to-Consumer': '#3b82f6',
+  'Automotive Retail': '#ea580c',
+  'Auto Dealerships': '#f97316',
+  'Vehicle Distribution': '#f59e0b',
+  'Mortgage Finance': '#15803d',
+  'Secondary Mortgage Market': '#047857',
+  'Mortgage Securitization': '#0f766e',
+  'Mortgage Guarantees': '#4d7c0f',
+  'Single-Family Mortgages': '#16a34a',
+  'Multifamily Mortgages': '#0e7490',
   'Unclassified': '#9ca3af',
   'Unknown': '#9ca3af',
   'Other': '#737373',

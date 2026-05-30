@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 ThemePayload = Dict[str, Any]
 
-GEMINI_THEME_MODEL = "gemini-2.5-flash-lite"
+GEMINI_THEME_MODEL = "gemini-2.5-flash"
 GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v4"
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
@@ -92,6 +92,9 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Food & Beverage": ("Packaged Foods","Plant-Based Foods","Alternative Proteins","Meat Alternatives","Foodservice","Food Delivery"),
     "Household & Personal Care": ("Home Care","Fabric Care","Personal Care","Beauty & Grooming","Baby & Family Care",    "Oral Care","Paper Products"),
     "Consumer Health": ("OTC Health Products","Vitamins & Supplements","Digestive Health","Respiratory Health","Sleep & Relaxation","Sexual Wellness"),
+    "Retail & Distribution": ("Luxury Retail","Beauty Retail","Department Stores","Travel Retail","Specialty Retail","Direct-to-Consumer"),
+    "Automotive Retail": ("Auto Dealerships","Vehicle Distribution"),
+    "Mortgage Finance": ("Secondary Mortgage Market","Mortgage Securitization","Mortgage Guarantees","Single-Family Mortgages","Multifamily Mortgages"),
 }
 
 ALLOWED_THEMES: tuple[str, ...] = tuple(ALLOWED_THEME_HIERARCHY.keys())
