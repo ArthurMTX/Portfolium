@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, type KeyboardEvent } from 'react';
 import { Package, RefreshCw, Archive, ChevronUp, ChevronDown, Shuffle, TrendingUp, LineChart, Activity, Search, X, BarChart3, Edit, BookOpen, NotebookPen, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api, { AssetInvestmentNoteDTO, AssetThemeDTO } from '../lib/api';
@@ -272,6 +272,17 @@ export default function Assets() {
       console.error('Error enriching assets:', err);
     } finally {
       setEnriching(false);
+    }
+  };
+
+  const openAssetResearch = (symbol: string) => {
+    navigate(`/assets/${encodeURIComponent(symbol)}`);
+  };
+
+  const handleAssetResearchKeyDown = (event: KeyboardEvent<HTMLElement>, symbol: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openAssetResearch(symbol);
     }
   };
 
@@ -609,7 +620,11 @@ export default function Assets() {
                     sortedAssets.map((asset) => (
                       <div 
                         key={asset.id} 
-                        className={`card p-4 ${asset.total_quantity === 0 ? 'opacity-60' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openAssetResearch(asset.symbol)}
+                        onKeyDown={(event) => handleAssetResearchKeyDown(event, asset.symbol)}
+                        className={`card p-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-neutral-950 ${asset.total_quantity === 0 ? 'opacity-60' : ''}`}
                       >
                         {/* Header: Logo, Symbol, Quantity */}
                         <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
@@ -715,7 +730,11 @@ export default function Assets() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                        <div
+                          className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700"
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
                           {(asset.split_count ?? 0) > 0 && (
                             <button
                               onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}
@@ -738,7 +757,11 @@ export default function Assets() {
                           )}
                           <button
                             onClick={() => setActionMenuAssetId(actionMenuAssetId === asset.id ? null : asset.id)}
-                            className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                            className={`btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 ${
+                              actionMenuAssetId === asset.id
+                                ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100'
+                                : 'hover:bg-neutral-200 dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-neutral-100'
+                            }`}
                             title={t('common.actions')}
                           >
                             <MoreHorizontal size={14} />
@@ -765,7 +788,7 @@ export default function Assets() {
                                 {t('assets.chart')}
                               </button>
                               <button
-                                onClick={() => navigate(`/assets/${encodeURIComponent(asset.symbol)}`)}
+                                onClick={() => openAssetResearch(asset.symbol)}
                                 className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
                                 title={t('assets.searchResearch')}
                               >
@@ -876,7 +899,14 @@ export default function Assets() {
                   </tr>
                 ) : (
                   sortedAssets.map((asset) => (
-                  <tr key={asset.id} className={`hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${asset.total_quantity === 0 ? 'opacity-60 bg-neutral-50 dark:bg-neutral-900' : ''}`}> 
+                  <tr
+                    key={asset.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openAssetResearch(asset.symbol)}
+                    onKeyDown={(event) => handleAssetResearchKeyDown(event, asset.symbol)}
+                    className={`cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-inset ${asset.total_quantity === 0 ? 'opacity-60 bg-neutral-50 dark:bg-neutral-900' : ''}`}
+                  > 
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
@@ -978,7 +1008,11 @@ export default function Assets() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-right"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
                       <div className="flex items-center justify-end gap-2">
                         {(asset.transaction_count ?? 0) > 0 && (
                           <button
@@ -1002,7 +1036,11 @@ export default function Assets() {
                         )}
                         <button
                           onClick={() => setActionMenuAssetId(actionMenuAssetId === asset.id ? null : asset.id)}
-                          className="p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded transition-colors"
+                          className={`p-2 rounded transition-colors ${
+                            actionMenuAssetId === asset.id
+                              ? 'bg-neutral-200 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-100'
+                              : 'text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-700 dark:hover:text-neutral-100'
+                          }`}
                           title={t('common.actions')}
                         >
                           <MoreHorizontal size={16} />
@@ -1026,7 +1064,7 @@ export default function Assets() {
                               <LineChart size={16} />
                             </button>
                             <button
-                              onClick={() => navigate(`/assets/${encodeURIComponent(asset.symbol)}`)}
+                              onClick={() => openAssetResearch(asset.symbol)}
                               className="p-2 text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/20 rounded transition-colors"
                               title={t('assets.searchResearch')}
                             >
