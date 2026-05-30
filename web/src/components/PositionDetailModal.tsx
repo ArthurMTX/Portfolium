@@ -147,6 +147,15 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
   const isPositive = pnlValue >= 0
   const pnlColor = isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
   const themes = detailedMetrics?.themes?.length ? detailedMetrics.themes : position.themes || []
+  const getThemeEvidenceTitle = (theme: AssetThemeDTO) => {
+    const lines = [
+      ...(theme.evidence || []).map((item) => `Theme: ${item}`),
+      ...((theme.children || []).flatMap((child) =>
+        (child.evidence || []).map((item) => `${child.label}: ${item}`)
+      )),
+    ]
+    return lines.length ? lines.join('\n') : undefined
+  }
 
   return (
     <>
@@ -220,7 +229,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                     <div
                       key={theme.label}
                       className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300"
-                      title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
+                      title={getThemeEvidenceTitle(theme)}
                     >
                       <div className="flex items-center gap-2">
                         <span>{theme.label}</span>
@@ -234,6 +243,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                             <span
                               key={`${theme.label}-${subtheme.label}`}
                               className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300"
+                              title={subtheme.evidence?.length ? subtheme.evidence.join('\n') : undefined}
                             >
                               {subtheme.label} {Math.round(subtheme.confidence * 100)}%
                             </span>

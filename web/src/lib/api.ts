@@ -141,6 +141,7 @@ export interface AssetThemeDTO {
 export interface AssetSubthemeDTO {
   label: string
   confidence: number
+  evidence?: string[]
 }
 
 export interface AssetThemeClassificationDTO {

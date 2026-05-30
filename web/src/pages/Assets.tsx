@@ -323,7 +323,10 @@ export default function Assets() {
     return themes
       .map((theme) => {
         const subthemes = theme.children?.length
-          ? ` (${theme.children.map((child) => child.label).join(', ')})`
+          ? ` (${theme.children.map((child) => {
+              const evidence = child.evidence?.length ? `: ${child.evidence.join(', ')}` : '';
+              return `${child.label}${evidence}`;
+            }).join(', ')})`
           : '';
         const evidence = theme.evidence?.length ? `: ${theme.evidence.join(', ')}` : '';
         return `${theme.label}${subthemes}${evidence}`;

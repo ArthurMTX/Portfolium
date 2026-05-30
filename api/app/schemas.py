@@ -290,6 +290,7 @@ class AssetSubtheme(BaseModel):
     """Specific business specialization under a global asset theme."""
     label: str
     confidence: float = Field(ge=0, le=1)
+    evidence: List[str] = Field(default_factory=list)
 
 
 class AssetTheme(BaseModel):

@@ -868,6 +868,16 @@ function MaybeSection({ title, icon, metrics }: { title: string; icon: React.Rea
 function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] }) {
   if (!themes || themes.length === 0) return null
 
+  const getThemeEvidenceTitle = (theme: AssetResearchDTO['asset']['themes'][number]) => {
+    const lines = [
+      ...(theme.evidence || []).map((item) => `Theme: ${item}`),
+      ...((theme.children || []).flatMap((child) =>
+        (child.evidence || []).map((item) => `${child.label}: ${item}`)
+      )),
+    ]
+    return lines.length ? lines.join('\n') : undefined
+  }
+
   return (
     <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -883,7 +893,7 @@ function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] 
                 key={theme.label}
                 className="rounded-md border px-3 py-2 shadow-sm transition-colors dark:shadow-none"
                 style={{ borderColor: `${themeHex}40`, backgroundColor: `${themeHex}12` }}
-                title={theme.evidence?.length ? theme.evidence.join(', ') : undefined}
+                title={getThemeEvidenceTitle(theme)}
               >
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ThemeIcon size={14} className={themeColor} />
@@ -898,6 +908,7 @@ function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] 
                       <span
                         key={`${theme.label}-${subtheme.label}`}
                         className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300"
+                        title={subtheme.evidence?.length ? subtheme.evidence.join('\n') : undefined}
                       >
                         {subtheme.label} {Math.round(subtheme.confidence * 100)}%
                       </span>

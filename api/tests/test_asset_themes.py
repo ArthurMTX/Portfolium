@@ -46,9 +46,15 @@ def test_refresh_gemini_classification_recovers_from_duplicate_insert(
             {
                 "label": "AI Infrastructure",
                 "confidence": 0.91,
+                "weight": 1.0,
+                "evidence": ["AI infrastructure"],
                 "tier": "primary",
                 "children": [
-                    {"label": "GPU Computing", "confidence": 0.88},
+                    {
+                        "label": "GPU Computing",
+                        "confidence": 0.88,
+                        "evidence": ["GPUs"],
+                    },
                 ],
             }
         ],
@@ -108,9 +114,15 @@ def test_refresh_gemini_classification_uses_postgresql_upsert(
             {
                 "label": "AI Infrastructure",
                 "confidence": 0.95,
+                "weight": 1.0,
+                "evidence": ["accelerated computing"],
                 "tier": "primary",
                 "children": [
-                    {"label": "Accelerated Computing", "confidence": 0.92},
+                    {
+                        "label": "Accelerated Computing",
+                        "confidence": 0.92,
+                        "evidence": ["accelerated computing platforms"],
+                    },
                 ],
             }
         ],
@@ -142,16 +154,28 @@ def test_validate_and_flatten_builds_precise_two_level_hierarchy():
             {
                 "label": "AI Infrastructure",
                 "confidence": 0.95,
+                "weight": 0.7,
+                "evidence": ["accelerated computing", "data center"],
                 "subthemes": [
-                    {"label": "GPU Computing", "confidence": 0.92},
-                    {"label": "Accelerated Computing", "confidence": 0.88},
-                    {"label": "Performance Vehicles", "confidence": 0.99},
-                    {"label": "Data Centers", "confidence": 0.2},
+                    {"label": "GPU Computing", "confidence": 0.92, "evidence": ["GPUs"]},
+                    {
+                        "label": "Accelerated Computing",
+                        "confidence": 0.88,
+                        "evidence": ["accelerated computing"],
+                    },
+                    {
+                        "label": "Performance Vehicles",
+                        "confidence": 0.99,
+                        "evidence": ["performance"],
+                    },
+                    {"label": "AI Servers", "confidence": 0.2, "evidence": ["servers"]},
                 ],
             },
             {
                 "label": "Technology",
                 "confidence": 0.99,
+                "weight": 0.9,
+                "evidence": ["technology"],
                 "subthemes": [],
             },
         ],
@@ -159,9 +183,19 @@ def test_validate_and_flatten_builds_precise_two_level_hierarchy():
             {
                 "label": "Space Infrastructure",
                 "confidence": 0.87,
+                "weight": 0.3,
+                "evidence": ["launch services"],
                 "subthemes": [
-                    {"label": "Launch Services", "confidence": 0.8},
-                    {"label": "Satellites", "confidence": 0.78},
+                    {
+                        "label": "Launch Services",
+                        "confidence": 0.8,
+                        "evidence": ["launch"],
+                    },
+                    {
+                        "label": "Satellites",
+                        "confidence": 0.78,
+                        "evidence": ["satellites"],
+                    },
                 ],
             },
         ],
@@ -173,19 +207,27 @@ def test_validate_and_flatten_builds_precise_two_level_hierarchy():
         {
             "label": "AI Infrastructure",
             "confidence": 0.95,
+            "weight": 0.7,
+            "evidence": ["accelerated computing", "data center"],
             "tier": "primary",
             "children": [
-                {"label": "GPU Computing", "confidence": 0.92},
-                {"label": "Accelerated Computing", "confidence": 0.88},
+                {"label": "GPU Computing", "confidence": 0.92, "evidence": ["GPUs"]},
+                {
+                    "label": "Accelerated Computing",
+                    "confidence": 0.88,
+                    "evidence": ["accelerated computing"],
+                },
             ],
         },
         {
             "label": "Space Infrastructure",
             "confidence": 0.87,
+            "weight": 0.3,
+            "evidence": ["launch services"],
             "tier": "secondary",
             "children": [
-                {"label": "Launch Services", "confidence": 0.8},
-                {"label": "Satellites", "confidence": 0.78},
+                {"label": "Launch Services", "confidence": 0.8, "evidence": ["launch"]},
+                {"label": "Satellites", "confidence": 0.78, "evidence": ["satellites"]},
             ],
         },
     ]
