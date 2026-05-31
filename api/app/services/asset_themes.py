@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 ThemePayload = Dict[str, Any]
 
 GEMINI_THEME_MODEL = "gemini-2.5-flash"
-GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v5"
+GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v6"
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
 GEMINI_THEME_METHOD = "gpt"
@@ -34,15 +34,15 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Semiconductor Value Chain": ("Chip Design", "Semiconductor Equipment", "Foundry Ecosystem", "Advanced Packaging", "Memory & Storage"),
     "Photonics & Optical Computing": ("Optical Interconnects", "Silicon Photonics", "Optical Transceivers", "Co-Packaged Optics"),
     "Quantum Technology": ("Quantum Computing", "Quantum Networking", "Quantum Security"),
-    "Cybersecurity Platforms": ("Identity Security", "Zero Trust", "Threat Intelligence", "Network Security", "Cloud Security", "Security Operations"),
-    "Cloud Platforms": ("Cloud Infrastructure", "Hyperscale Cloud", "Developer Platforms", "Observability", "Database Platforms"),
+    "Cybersecurity Platforms": ("Identity Security", "Zero Trust", "Threat Intelligence", "Network Security", "Cloud Security", "Security Operations", "Endpoint Security", "Application Security"),
+    "Cloud Platforms": ("Cloud Infrastructure", "Hyperscale Cloud", "Developer Platforms", "Observability", "Database Platforms", "CDN", "Edge Network"),
     "Enterprise SaaS": ("CRM Software", "ERP Software", "Workflow Automation", "Digital Transformation", "Customer Experience Software", "Productivity Software"),
     "Data Analytics Platforms": ("Business Intelligence", "Data Warehousing", "Data Engineering", "Real-Time Analytics"),
     "Robotics & Automation": ("Humanoid Robotics", "Industrial Robotics", "Warehouse Automation", "Machine Vision", "Industrial Automation", "Sensors & LiDAR"),
     "Electric Mobility": ("Electric Vehicles", "Charging Infrastructure", "Powertrains", "Fleet Electrification"),
     "Autonomous Mobility": ("Autonomous Vehicles", "Robotaxis", "Driver Assistance", "Mobility Platforms"),
     "Battery Value Chain": ("Battery Technology", "Battery Storage", "Lithium Batteries", "Battery Materials", "Battery Recycling"),
-    "Defense Tech": ("Military AI", "ISR & Surveillance", "Drones / UAV", "Electronic Warfare", "Missile Defense", "Secure Communications"),
+    "Defense Tech": ("Military AI", "ISR & Surveillance", "Drones / UAV", "Electronic Warfare", "Missile Defense", "Secure Communications", "Ammunition & Ordnance"),
     "Space Infrastructure": ("Launch Services", "Satellites", "Space Communications", "Earth Observation", "Space Systems"),
     "Nuclear Energy": ("Nuclear", "SMR", "Uranium", "Nuclear Services"),
     "Grid Modernization": ("Grid Infrastructure", "Power Generation", "Transmission Equipment", "Power Electronics", "Smart Grid"),
@@ -54,7 +54,7 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Investment Platforms": ("Asset Management", "Wealth Technology"),
     "Market Infrastructure": ("Exchange Operators", "Trading Infrastructure", "Market Data", "Index Providers", "Credit Ratings"),
     "Insurance": ("P&C Insurance", "Life Insurance", "Reinsurance", "Insurance Brokers"),
-    "Crypto Infrastructure": ("Digital Assets", "Crypto Exchanges", "Blockchain Infrastructure", "Bitcoin Mining"),
+    "Crypto Infrastructure": ("Digital Assets", "Crypto Exchanges", "Blockchain Infrastructure", "Bitcoin Mining", "Stablecoin", "Cryptocurrency"),
     "Biotechnology Platforms": ("Drug Discovery", "Biologics", "Gene Therapy", "Cell Therapy", "Clinical Platforms"),
     "Precision Medicine": ("Diagnostics", "Genomics", "Targeted Therapies", "Personalized Oncology"),
     "Medical Technology": ("Medical Devices", "Robotic Surgery", "Imaging Systems", "Monitoring Devices"),
@@ -66,6 +66,7 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Luxury Goods": ("Luxury", "Premium Apparel", "Jewelry & Watches", "Beauty & Fragrance", "Branded Merchandise", "Lifestyle Licensing"),
     "Travel & Leisure": ("Hotels & Resorts", "Cruise Lines", "Airlines", "Experiences"),
     "Logistics Networks": ("Logistics", "Supply Chain", "Parcel Delivery", "Freight Forwarding", "Cold Chain"),
+    "Air Freight & Logistics": ("Express Delivery", "Air Cargo", "Logistics Solutions"),
     "Marine Transportation": ("Tank Barges", "Petrochemical Transport", "Container Shipping", "Dry Bulk Shipping", "Offshore Vessels"),
     "Rail Transportation": ("Freight Rail", "Intermodal Rail", "Rail Equipment"),
     "Aerospace Systems": ("Commercial Aircraft", "Aircraft Engines", "Avionics"),
@@ -81,7 +82,7 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Critical Minerals": ("Rare Earths", "Lithium", "Nickel", "Graphite", "Mineral Processing"),
     "Copper Electrification": ("Copper", "Copper Mining", "Electrical Wiring", "Power Cables"),
     "Precious Metals": ("Gold", "Silver", "Royalty & Streaming", "Mining Services"),
-    "Telecom Infrastructure": ("Telecommunications", "5G Infrastructure", "Fiber Networks", "Tower Infrastructure", "Broadband Networks"),
+    "Telecom Infrastructure": ("Telecommunications", "5G Infrastructure", "Fiber Networks", "Tower Infrastructure", "Broadband Networks", "Cell Towers", "Wireless Infrastructure"),
     "Data Center Real Estate": ("Data Center REITs", "Colocation", "Hyperscale Leasing"),
     "Real Estate Income": ("Industrial REITs", "Residential REITs", "Healthcare REITs", "Net Lease", "Self Storage"),
     "AdTech": ("Mobile Advertising", "Programmatic Advertising", "Performance Marketing"),
@@ -108,7 +109,7 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Retail & Distribution": ("Luxury Retail","Beauty Retail","Department Stores","Travel Retail","Specialty Retail","Direct-to-Consumer"),
     "Automotive Retail": ("Auto Dealerships","Vehicle Distribution"),
     "Mortgage Finance": ("Secondary Mortgage Market","Mortgage Securitization","Mortgage Guarantees","Single-Family Mortgages","Multifamily Mortgages"),
-    "Physical Security": ("Alarm Monitoring","Security Systems","Smart Home Security","Fire & Life Safety","Emergency Response")
+    "Physical Security": ("Alarm Monitoring","Security Systems","Smart Home Security","Fire & Life Safety","Emergency Response","Access Control")
 }
 
 ALLOWED_THEMES: tuple[str, ...] = tuple(ALLOWED_THEME_HIERARCHY.keys())

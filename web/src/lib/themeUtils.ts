@@ -51,6 +51,7 @@ import {
   ChartCandlestick,
   ChartColumn,
   ChartLine,
+  ChartNetwork,
   ChartNoAxesCombined,
   ChefHat,
   ClipboardCheck,
@@ -60,6 +61,7 @@ import {
   Cpu,
   CreditCard,
   Cross,
+  Crosshair,
   CupSoda,
   Dam,
   Database,
@@ -96,10 +98,12 @@ import {
   Hospital,
   House,
   HouseWifi,
+  KeyRound,
   Landmark,
   Leaf,
   LifeBuoy,
   Lightbulb,
+  Lock,
   LockKeyhole,
   Megaphone,
   MemoryStick,
@@ -182,6 +186,10 @@ import {
   CreativeCommons,
   Columns4,
   Dices,
+  Bomb,
+  Bitcoin,
+  TicketsPlane,
+  ScanFace,
 } from 'lucide-react'
 
 export const THEME_ICONS: Record<string, LucideIcon> = {
@@ -245,6 +253,8 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Network Security': Network,
   'Cloud Security': Cloud,
   'Security Operations': LockKeyhole,
+  'Endpoint Security': Lock,
+  'Application Security': ShieldCheck,
 
   // Cloud Platforms
   'Cloud Platforms': Cloud,
@@ -253,6 +263,8 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Developer Platforms': Code,
   'Observability': Eye,
   'Database Platforms': Database,
+  'CDN': ChartNetwork,
+  'Edge Network': Network,
 
   // Enterprise SaaS
   'Enterprise SaaS': Building2,
@@ -310,6 +322,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Electronic Warfare': RadioTower,
   'Missile Defense': Target,
   'Secure Communications': LockKeyhole,
+  'Ammunition & Ordnance': Bomb,
 
   // Space Infrastructure
   'Space Infrastructure': SatelliteDish,
@@ -397,6 +410,8 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Crypto Exchanges': RefreshCw,
   'Blockchain Infrastructure': Cpu,
   'Bitcoin Mining': Cpu,
+  'Stablecoin': BadgeDollarSign,
+  'Cryptocurrency': Bitcoin,
 
   // Mortgage Finance
   'Mortgage Finance': Home,
@@ -566,6 +581,12 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Freight Forwarding': Truck,
   'Cold Chain': Warehouse,
 
+  // Air Freight & Logistics
+  'Air Freight & Logistics': PlaneTakeoff,
+  'Express Delivery': TicketsPlane,
+  'Air Cargo': Plane,
+  'Logistics Solutions': Network,
+
   // Marine Transportation
   'Marine Transportation': Ship,
   'Tank Barges': Droplets,
@@ -671,6 +692,8 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Fiber Networks': Cable,
   'Tower Infrastructure': RadioTower,
   'Broadband Networks': Globe,
+  'Cell Towers': RadioTower,
+  'Wireless Infrastructure': Antenna,
 
   // Data Center Real Estate
   'Data Center Real Estate': Server,
@@ -771,6 +794,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Smart Home Security': HouseWifi,
   'Fire & Life Safety': Flame,
   'Emergency Response': LifeBuoy,
+  'Access Control': ScanFace,
 
   // Fallbacks
   'Unclassified': HelpCircle,
@@ -839,6 +863,8 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Network Security': 'text-[#b93a57] dark:text-[#e75677]',
   'Cloud Security': 'text-[#be354a] dark:text-[#ec5068]',
   'Security Operations': 'text-[#c32f3c] dark:text-[#f14957]',
+  'Endpoint Security': 'text-[#dc2626] dark:text-[#f87171]',
+  'Application Security': 'text-[#e11d48] dark:text-[#fb7185]',
 
   // Cloud Platforms
   'Cloud Platforms': 'text-[#337cb7] dark:text-[#509bd8]',
@@ -847,6 +873,8 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Developer Platforms': 'text-[#2c79b7] dark:text-[#459de4]',
   'Observability': 'text-[#3b79bd] dark:text-[#579eeb]',
   'Database Platforms': 'text-[#3670c3] dark:text-[#5193f1]',
+  'CDN': 'text-[#2563eb] dark:text-[#60a5fa]',
+  'Edge Network': 'text-[#1d4ed8] dark:text-[#93c5fd]',
 
   // Enterprise SaaS
   'Enterprise SaaS': 'text-[#b0c637] dark:text-[#d0e756]',
@@ -904,6 +932,7 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Electronic Warfare': 'text-[#c83e8c] dark:text-[#f45bb2]',
   'Missile Defense': 'text-[#cd3982] dark:text-[#f452a2]',
   'Secure Communications': 'text-[#d23376] dark:text-[#f44a92]',
+  'Ammunition & Ordnance': 'text-[#be123c] dark:text-[#fb7185]',
 
   // Space Infrastructure
   'Space Infrastructure': 'text-[#33a8b7] dark:text-[#50c8d8]',
@@ -991,6 +1020,8 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Crypto Exchanges': 'text-[#b26b31] dark:text-[#e08e4c]',
   'Blockchain Infrastructure': 'text-[#bb772d] dark:text-[#e99b46]',
   'Bitcoin Mining': 'text-[#c38d3d] dark:text-[#f1b45a]',
+  'Stablecoin': 'text-[#ca8a04] dark:text-[#facc15]',
+  'Cryptocurrency': 'text-[#b45309] dark:text-[#fbbf24]',
 
   // Mortgage Finance
   'Mortgage Finance': 'text-[#333bb7] dark:text-[#5058d8]',
@@ -1160,6 +1191,12 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Freight Forwarding': 'text-[#cc3f9b] dark:text-[#f45bbf]',
   'Cold Chain': 'text-[#d23a93] dark:text-[#f452b1]',
 
+  // Air Freight & Logistics
+  'Air Freight & Logistics': 'text-[#0ea5e9] dark:text-[#7dd3fc]',
+  'Express Delivery': 'text-[#0284c7] dark:text-[#38bdf8]',
+  'Air Cargo': 'text-[#0369a1] dark:text-[#7dd3fc]',
+  'Logistics Solutions': 'text-[#075985] dark:text-[#bae6fd]',
+
   // Marine Transportation
   'Marine Transportation': 'text-[#33b7b5] dark:text-[#50d8d6]',
   'Tank Barges': 'text-[#35aa97] dark:text-[#50d8c2]',
@@ -1265,6 +1302,8 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Fiber Networks': 'text-[#802cb7] dark:text-[#a645e4]',
   'Tower Infrastructure': 'text-[#933bbd] dark:text-[#bb57eb]',
   'Broadband Networks': 'text-[#a036c3] dark:text-[#c951f1]',
+  'Cell Towers': 'text-[#7c3aed] dark:text-[#a78bfa]',
+  'Wireless Infrastructure': 'text-[#6d28d9] dark:text-[#c4b5fd]',
 
   // Data Center Real Estate
   'Data Center Real Estate': 'text-[#33b75d] dark:text-[#50d87b]',
@@ -1365,6 +1404,7 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Smart Home Security': 'text-[#d81d45] dark:text-[#d81d45]',
   'Fire & Life Safety': 'text-[#ea580c] dark:text-[#ea580c]',
   'Emergency Response': 'text-[#e11d48] dark:text-[#e11d48]',
+  'Access Control': 'text-[#991b1b] dark:text-[#fca5a5]',
 
   // Fallbacks
   'Unclassified': 'text-[#9ca3af] dark:text-[#9ca3af]',
@@ -1433,6 +1473,8 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Network Security': '#b93a57',
   'Cloud Security': '#be354a',
   'Security Operations': '#c32f3c',
+  'Endpoint Security': '#dc2626',
+  'Application Security': '#e11d48',
 
   // Cloud Platforms
   'Cloud Platforms': '#337cb7',
@@ -1441,6 +1483,8 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Developer Platforms': '#2c79b7',
   'Observability': '#3b79bd',
   'Database Platforms': '#3670c3',
+  'CDN': '#2563eb',
+  'Edge Network': '#1d4ed8',
 
   // Enterprise SaaS
   'Enterprise SaaS': '#b0c637',
@@ -1498,6 +1542,7 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Electronic Warfare': '#c83e8c',
   'Missile Defense': '#cd3982',
   'Secure Communications': '#d23376',
+  'Ammunition & Ordnance': '#be123c',
 
   // Space Infrastructure
   'Space Infrastructure': '#33a8b7',
@@ -1585,6 +1630,8 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Crypto Exchanges': '#b26b31',
   'Blockchain Infrastructure': '#bb772d',
   'Bitcoin Mining': '#c38d3d',
+  'Stablecoin': '#ca8a04',
+  'Cryptocurrency': '#b45309',
 
   // Mortgage Finance
   'Mortgage Finance': '#333bb7',
@@ -1754,6 +1801,12 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Freight Forwarding': '#cc3f9b',
   'Cold Chain': '#d23a93',
 
+  // Air Freight & Logistics
+  'Air Freight & Logistics': '#0ea5e9',
+  'Express Delivery': '#0284c7',
+  'Air Cargo': '#0369a1',
+  'Logistics Solutions': '#075985',
+
   // Marine Transportation
   'Marine Transportation': '#33b7b5',
   'Tank Barges': '#35aa97',
@@ -1859,6 +1912,8 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Fiber Networks': '#802cb7',
   'Tower Infrastructure': '#933bbd',
   'Broadband Networks': '#a036c3',
+  'Cell Towers': '#7c3aed',
+  'Wireless Infrastructure': '#6d28d9',
 
   // Data Center Real Estate
   'Data Center Real Estate': '#33b75d',
@@ -1959,6 +2014,7 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Smart Home Security': '#d81d45',
   'Fire & Life Safety': '#ea580c',
   'Emergency Response': '#e11d48',
+  'Access Control': '#991b1b',
 
   // Fallbacks
   'Unclassified': '#9ca3af',
