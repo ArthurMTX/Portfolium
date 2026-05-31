@@ -21,6 +21,8 @@ import {
   Activity,
   Antenna,
   Atom,
+  AudioLines,
+  Axe,
   Baby,
   BadgeCheck,
   BadgeDollarSign,
@@ -33,7 +35,9 @@ import {
   Blocks,
   Bone,
   BookOpen,
+  BookOpenCheck,
   Bot,
+  Boxes,
   Brain,
   BrainCircuit,
   BrainCog,
@@ -45,8 +49,11 @@ import {
   Car,
   CarFront,
   ChartCandlestick,
+  ChartColumn,
   ChartLine,
+  ChartNoAxesCombined,
   ChefHat,
+  ClipboardCheck,
   Cloud,
   Code,
   Coins,
@@ -59,10 +66,12 @@ import {
   Dice5,
   Dna,
   Drone,
+  Disc3,
   Droplets,
   Earth,
   Eye,
   Factory,
+  FileStack,
   FileText,
   Fingerprint,
   Flag,
@@ -77,15 +86,19 @@ import {
   GraduationCap,
   Grid3X3,
   Hamburger,
+  Handshake,
   Headset,
   Heart,
+  HeartHandshake,
   HeartPulse,
   HelpCircle,
   Home,
   Hospital,
   House,
+  HouseWifi,
   Landmark,
   Leaf,
+  LifeBuoy,
   Lightbulb,
   LockKeyhole,
   Megaphone,
@@ -95,6 +108,7 @@ import {
   MonitorPlay,
   Moon,
   MousePointerClick,
+  Music,
   Network,
   Orbit,
   Package,
@@ -119,6 +133,7 @@ import {
   Satellite,
   SatelliteDish,
   ScanEye,
+  School,
   Scissors,
   ScrollText,
   Server,
@@ -129,6 +144,7 @@ import {
   ShipWheel,
   Shirt,
   ShoppingBag,
+  Siren,
   ShoppingCart,
   Smartphone,
   Smile,
@@ -140,14 +156,19 @@ import {
   Target,
   TentTree,
   TestTube,
+  Ticket,
   Tractor,
   TrainFront,
   TrainTrack,
   Trash,
+  TreePine,
+  Trees,
   Trophy,
   Truck,
   UtensilsCrossed,
   UtilityPole,
+  UserSearch,
+  Users,
   Video,
   WandSparkles,
   Warehouse,
@@ -156,6 +177,11 @@ import {
   Wine,
   Wrench,
   Zap,
+  ShieldAlert,
+  UserStar,
+  CreativeCommons,
+  Columns4,
+  Dices,
 } from 'lucide-react'
 
 export const THEME_ICONS: Record<string, LucideIcon> = {
@@ -345,12 +371,25 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Payments': Banknote,
   'Lending Platforms': Banknote,
 
-  // Asset & Wealth Platforms
-  'Asset & Wealth Platforms': ChartLine,
+  // Investment Platforms
+  'Investment Platforms': ChartLine,
   'Asset Management': ChartCandlestick,
-  'Capital Markets': Gem,
   'Wealth Technology': Receipt,
+
+  // Market Infrastructure
+  'Market Infrastructure': Landmark,
   'Exchange Operators': Landmark,
+  'Trading Infrastructure': ChartColumn,
+  'Market Data': Database,
+  'Index Providers': ChartNoAxesCombined,
+  'Credit Ratings': BadgeCheck,
+
+  // Insurance
+  'Insurance': Shield,
+  'P&C Insurance': ShieldCheck,
+  'Life Insurance': HeartPulse,
+  'Reinsurance': RefreshCw,
+  'Insurance Brokers': Handshake,
 
   // Crypto Infrastructure
   'Crypto Infrastructure': Blocks,
@@ -452,6 +491,12 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'iGaming': Dice5,
   'Fantasy Sports': Trophy,
 
+  // Gaming & Gambling
+  'Gaming & Gambling': Coins,
+  'Casinos': Dices,
+  'Online Casinos': MonitorPlay,
+  'Lottery Operators': Ticket,
+
   // Restaurant Franchises
   'Restaurant Franchises': UtensilsCrossed,
   'Quick Service Restaurants': Hamburger,
@@ -466,6 +511,9 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Pet Care': PawPrint,
   'Pet Food': Bone,
   'Veterinary Services': Stethoscope,
+  'Veterinary Pharma': Pill,
+  'Livestock Health': HeartPulse,
+  'Pet Diagnostics': Microscope,
 
   // Food & Beverage
   'Food & Beverage': UtensilsCrossed,
@@ -649,6 +697,60 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Professional Training': BriefcaseBusiness,
   'Educational Software': BookOpen,
 
+  // Human Capital
+  'Human Capital': Users,
+  'Staffing': UserStar,
+  'HR Software': BriefcaseBusiness,
+  'Payroll': Receipt,
+  'Recruiting Platforms': UserSearch,
+
+  // Testing & Certification
+  'Testing & Certification': ClipboardCheck,
+  'Industrial Inspection': ScanEye,
+  'Product Certification': BadgeCheck,
+  'Laboratory Testing': FlaskConical,
+
+  // Professional Services
+  'Professional Services': Briefcase,
+  'Consulting': Lightbulb,
+  'Outsourcing': Handshake,
+  'Engineering Services': Brain,
+
+  // Correctional Services
+  'Correctional Services': ShieldHalf,
+  'Private Prisons': Columns4,
+  'Electronic Monitoring': Radar,
+
+  // Funeral Services
+  'Funeral Services': HeartHandshake,
+  'Funeral Homes': House,
+  'Cemeteries': Landmark,
+  'Cremation Services': Flame,
+
+  // Forestry
+  'Forestry': Trees,
+  'Timberlands': TreePine,
+  'Wood Products': Axe,
+  'Pulp & Paper': FileStack,
+
+  // Packaging
+  'Packaging': Package,
+  'Consumer Packaging': ShoppingBag,
+  'Industrial Packaging': Boxes,
+  'Beverage Packaging': CupSoda,
+
+  // Education Services
+  'Education Services': School,
+  'Universities': GraduationCap,
+  'Training Providers': BookOpenCheck,
+  'Student Services': Users,
+
+  // Music Industry
+  'Music Industry': Music,
+  'Music Streaming': AudioLines,
+  'Music Rights': CreativeCommons,
+  'Record Labels': Disc3,
+
   // GovTech
   'GovTech': Landmark,
   'Government Software': Building,
@@ -661,6 +763,14 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Yacht Retail': Sailboat,
   'Yacht Services': Wrench,
   'Boat Financing': BadgeDollarSign,
+
+  // Physical Security
+  'Physical Security': ShieldAlert,
+  'Alarm Monitoring': Siren,
+  'Security Systems': ShieldCheck,
+  'Smart Home Security': HouseWifi,
+  'Fire & Life Safety': Flame,
+  'Emergency Response': LifeBuoy,
 
   // Fallbacks
   'Unclassified': HelpCircle,
@@ -855,12 +965,25 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Payments': 'text-[#bb2dac] dark:text-[#e946d8]',
   'Lending Platforms': 'text-[#c33dac] dark:text-[#f15ad6]',
 
-  // Asset & Wealth Platforms
-  'Asset & Wealth Platforms': 'text-[#37c6a6] dark:text-[#56e7c6]',
+  // Investment Platforms
+  'Investment Platforms': 'text-[#37c6a6] dark:text-[#56e7c6]',
   'Asset Management': 'text-[#39b98f] dark:text-[#56e7b7]',
-  'Capital Markets': 'text-[#35c19d] dark:text-[#50efc6]',
   'Wealth Technology': 'text-[#31caad] dark:text-[#4af4d4]',
+
+  // Market Infrastructure
+  'Market Infrastructure': 'text-[#35c19d] dark:text-[#50efc6]',
   'Exchange Operators': 'text-[#41d2c1] dark:text-[#5bf4e3]',
+  'Trading Infrastructure': 'text-[#2fb7a2] dark:text-[#48dfc8]',
+  'Market Data': 'text-[#2aa899] dark:text-[#43d0c0]',
+  'Index Providers': 'text-[#259b8d] dark:text-[#3ac3b4]',
+  'Credit Ratings': 'text-[#238f84] dark:text-[#35b8aa]',
+
+  // Insurance
+  'Insurance': 'text-[#2563eb] dark:text-[#60a5fa]',
+  'P&C Insurance': 'text-[#1d4ed8] dark:text-[#3b82f6]',
+  'Life Insurance': 'text-[#2563d8] dark:text-[#5b9bff]',
+  'Reinsurance': 'text-[#1e40af] dark:text-[#4f83f1]',
+  'Insurance Brokers': 'text-[#1d4e89] dark:text-[#4ba3d9]',
 
   // Crypto Infrastructure
   'Crypto Infrastructure': 'text-[#b77333] dark:text-[#d89250]',
@@ -962,6 +1085,12 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'iGaming': 'text-[#7db733] dark:text-[#a2e44d]',
   'Fantasy Sports': 'text-[#78c32f] dark:text-[#9bf149]',
 
+  // Gaming & Gambling
+  'Gaming & Gambling': 'text-[#a855f7] dark:text-[#c084fc]',
+  'Casinos': 'text-[#9333ea] dark:text-[#d8b4fe]',
+  'Online Casinos': 'text-[#7e22ce] dark:text-[#c084fc]',
+  'Lottery Operators': 'text-[#6d28d9] dark:text-[#a78bfa]',
+
   // Restaurant Franchises
   'Restaurant Franchises': 'text-[#5e37c6] dark:text-[#7d56e7]',
   'Quick Service Restaurants': 'text-[#5839b9] dark:text-[#7856e7]',
@@ -976,6 +1105,9 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Pet Care': 'text-[#b7335c] dark:text-[#d8507a]',
   'Pet Food': 'text-[#aa355d] dark:text-[#d8507f]',
   'Veterinary Services': 'text-[#c3365d] dark:text-[#f1517d]',
+  'Veterinary Pharma': 'text-[#b91c5c] dark:text-[#ec4899]',
+  'Livestock Health': 'text-[#a21caf] dark:text-[#d946ef]',
+  'Pet Diagnostics': 'text-[#9333ea] dark:text-[#c084fc]',
 
   // Food & Beverage
   'Food & Beverage': 'text-[#378ec6] dark:text-[#56aee7]',
@@ -1159,6 +1291,60 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Professional Training': 'text-[#c637b1] dark:text-[#f352dc]',
   'Educational Software': 'text-[#d233af] dark:text-[#f44acf]',
 
+  // Human Capital
+  'Human Capital': 'text-[#0f766e] dark:text-[#2dd4bf]',
+  'Staffing': 'text-[#0d9488] dark:text-[#5eead4]',
+  'HR Software': 'text-[#0891b2] dark:text-[#67e8f9]',
+  'Payroll': 'text-[#0284c7] dark:text-[#38bdf8]',
+  'Recruiting Platforms': 'text-[#0369a1] dark:text-[#7dd3fc]',
+
+  // Testing & Certification
+  'Testing & Certification': 'text-[#7c3aed] dark:text-[#a78bfa]',
+  'Industrial Inspection': 'text-[#6d28d9] dark:text-[#8b5cf6]',
+  'Product Certification': 'text-[#5b21b6] dark:text-[#a78bfa]',
+  'Laboratory Testing': 'text-[#9333ea] dark:text-[#c084fc]',
+
+  // Professional Services
+  'Professional Services': 'text-[#475569] dark:text-[#94a3b8]',
+  'Consulting': 'text-[#334155] dark:text-[#cbd5e1]',
+  'Outsourcing': 'text-[#4b5563] dark:text-[#9ca3af]',
+  'Engineering Services': 'text-[#64748b] dark:text-[#cbd5e1]',
+
+  // Correctional Services
+  'Correctional Services': 'text-[#7f1d1d] dark:text-[#f87171]',
+  'Private Prisons': 'text-[#991b1b] dark:text-[#ef4444]',
+  'Electronic Monitoring': 'text-[#b91c1c] dark:text-[#fca5a5]',
+
+  // Funeral Services
+  'Funeral Services': 'text-[#52525b] dark:text-[#a1a1aa]',
+  'Funeral Homes': 'text-[#3f3f46] dark:text-[#d4d4d8]',
+  'Cemeteries': 'text-[#71717a] dark:text-[#a1a1aa]',
+  'Cremation Services': 'text-[#a16207] dark:text-[#facc15]',
+
+  // Forestry
+  'Forestry': 'text-[#166534] dark:text-[#4ade80]',
+  'Timberlands': 'text-[#15803d] dark:text-[#86efac]',
+  'Wood Products': 'text-[#854d0e] dark:text-[#fbbf24]',
+  'Pulp & Paper': 'text-[#4d7c0f] dark:text-[#a3e635]',
+
+  // Packaging
+  'Packaging': 'text-[#be123c] dark:text-[#fb7185]',
+  'Consumer Packaging': 'text-[#e11d48] dark:text-[#fda4af]',
+  'Industrial Packaging': 'text-[#9f1239] dark:text-[#fb7185]',
+  'Beverage Packaging': 'text-[#db2777] dark:text-[#f9a8d4]',
+
+  // Education Services
+  'Education Services': 'text-[#1d4ed8] dark:text-[#93c5fd]',
+  'Universities': 'text-[#1e40af] dark:text-[#60a5fa]',
+  'Training Providers': 'text-[#2563eb] dark:text-[#bfdbfe]',
+  'Student Services': 'text-[#3b82f6] dark:text-[#93c5fd]',
+
+  // Music Industry
+  'Music Industry': 'text-[#c026d3] dark:text-[#e879f9]',
+  'Music Streaming': 'text-[#db2777] dark:text-[#f9a8d4]',
+  'Music Rights': 'text-[#a21caf] dark:text-[#f0abfc]',
+  'Record Labels': 'text-[#7e22ce] dark:text-[#d8b4fe]',
+
   // GovTech
   'GovTech': 'text-[#33b7a4] dark:text-[#50d8c4]',
   'Government Software': 'text-[#35aa91] dark:text-[#50d8ba]',
@@ -1171,6 +1357,14 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Yacht Retail': 'text-[#b27531] dark:text-[#e09a4c]',
   'Yacht Services': 'text-[#bb822d] dark:text-[#e9a746]',
   'Boat Financing': 'text-[#c3973d] dark:text-[#f1bf5a]',
+
+  // Physical Security
+  'Physical Security': 'text-[#b91c1c] dark:text-[#b91c1c]',
+  'Alarm Monitoring': 'text-[#dc2626] dark:text-[#dc2626]',
+  'Security Systems': 'text-[#ab0808] dark:text-[#ab0808]',
+  'Smart Home Security': 'text-[#d81d45] dark:text-[#d81d45]',
+  'Fire & Life Safety': 'text-[#ea580c] dark:text-[#ea580c]',
+  'Emergency Response': 'text-[#e11d48] dark:text-[#e11d48]',
 
   // Fallbacks
   'Unclassified': 'text-[#9ca3af] dark:text-[#9ca3af]',
@@ -1365,12 +1559,25 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Payments': '#bb2dac',
   'Lending Platforms': '#c33dac',
 
-  // Asset & Wealth Platforms
-  'Asset & Wealth Platforms': '#37c6a6',
+  // Investment Platforms
+  'Investment Platforms': '#37c6a6',
   'Asset Management': '#39b98f',
-  'Capital Markets': '#35c19d',
   'Wealth Technology': '#31caad',
+
+  // Market Infrastructure
+  'Market Infrastructure': '#35c19d',
   'Exchange Operators': '#41d2c1',
+  'Trading Infrastructure': '#2fb7a2',
+  'Market Data': '#2aa899',
+  'Index Providers': '#259b8d',
+  'Credit Ratings': '#238f84',
+
+  // Insurance
+  'Insurance': '#2563eb',
+  'P&C Insurance': '#1d4ed8',
+  'Life Insurance': '#2563d8',
+  'Reinsurance': '#1e40af',
+  'Insurance Brokers': '#1d4e89',
 
   // Crypto Infrastructure
   'Crypto Infrastructure': '#b77333',
@@ -1472,6 +1679,12 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'iGaming': '#7db733',
   'Fantasy Sports': '#78c32f',
 
+  // Gaming & Gambling
+  'Gaming & Gambling': '#a855f7',
+  'Casinos': '#9333ea',
+  'Online Casinos': '#7e22ce',
+  'Lottery Operators': '#6d28d9',
+
   // Restaurant Franchises
   'Restaurant Franchises': '#5e37c6',
   'Quick Service Restaurants': '#5839b9',
@@ -1486,6 +1699,9 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Pet Care': '#b7335c',
   'Pet Food': '#aa355d',
   'Veterinary Services': '#c3365d',
+  'Veterinary Pharma': '#b91c5c',
+  'Livestock Health': '#a21caf',
+  'Pet Diagnostics': '#9333ea',
 
   // Food & Beverage
   'Food & Beverage': '#378ec6',
@@ -1669,6 +1885,60 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Professional Training': '#c637b1',
   'Educational Software': '#d233af',
 
+  // Human Capital
+  'Human Capital': '#0f766e',
+  'Staffing': '#0d9488',
+  'HR Software': '#0891b2',
+  'Payroll': '#0284c7',
+  'Recruiting Platforms': '#0369a1',
+
+  // Testing & Certification
+  'Testing & Certification': '#7c3aed',
+  'Industrial Inspection': '#6d28d9',
+  'Product Certification': '#5b21b6',
+  'Laboratory Testing': '#9333ea',
+
+  // Professional Services
+  'Professional Services': '#475569',
+  'Consulting': '#334155',
+  'Outsourcing': '#4b5563',
+  'Engineering Services': '#64748b',
+
+  // Correctional Services
+  'Correctional Services': '#7f1d1d',
+  'Private Prisons': '#991b1b',
+  'Electronic Monitoring': '#b91c1c',
+
+  // Funeral Services
+  'Funeral Services': '#52525b',
+  'Funeral Homes': '#3f3f46',
+  'Cemeteries': '#71717a',
+  'Cremation Services': '#a16207',
+
+  // Forestry
+  'Forestry': '#166534',
+  'Timberlands': '#15803d',
+  'Wood Products': '#854d0e',
+  'Pulp & Paper': '#4d7c0f',
+
+  // Packaging
+  'Packaging': '#be123c',
+  'Consumer Packaging': '#e11d48',
+  'Industrial Packaging': '#9f1239',
+  'Beverage Packaging': '#db2777',
+
+  // Education Services
+  'Education Services': '#1d4ed8',
+  'Universities': '#1e40af',
+  'Training Providers': '#2563eb',
+  'Student Services': '#3b82f6',
+
+  // Music Industry
+  'Music Industry': '#c026d3',
+  'Music Streaming': '#db2777',
+  'Music Rights': '#a21caf',
+  'Record Labels': '#7e22ce',
+
   // GovTech
   'GovTech': '#33b7a4',
   'Government Software': '#35aa91',
@@ -1681,6 +1951,14 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Yacht Retail': '#b27531',
   'Yacht Services': '#bb822d',
   'Boat Financing': '#c3973d',
+
+  // Physical Security
+  'Physical Security': '#b91c1c',
+  'Alarm Monitoring': '#dc2626',
+  'Security Systems': '#ab0808',
+  'Smart Home Security': '#d81d45',
+  'Fire & Life Safety': '#ea580c',
+  'Emergency Response': '#e11d48',
 
   // Fallbacks
   'Unclassified': '#9ca3af',

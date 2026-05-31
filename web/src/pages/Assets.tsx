@@ -84,40 +84,12 @@ export default function Assets() {
   const { t } = useTranslation();
   const activePortfolioName = portfolios.find(p => p.id === activePortfolioId)?.name || 'this portfolio';
 
-  // Load portfolio asset IDs when active portfolio changes
-  useEffect(() => {
-    // Clear state immediately when portfolio changes
-    setHeldAssets([]);
-    setSoldAssets([]);
-    setPortfolioAssetIds(new Set());
-    
-    const loadPortfolioAssetIds = async () => {
-      if (!activePortfolioId) {
-        setPortfolioAssetIds(new Set());
-        return;
-      }
-
-      try {
-        const [currentPositions, soldPositions] = await Promise.all([
-          api.getPortfolioPositions(activePortfolioId),
-          api.getSoldPositions(activePortfolioId)
-        ]);
-        const currentAssetIds = currentPositions.map(p => p.asset_id);
-        const soldAssetIds = soldPositions.map(p => p.asset_id);
-        const allAssetIds = new Set([...currentAssetIds, ...soldAssetIds]);
-        setPortfolioAssetIds(allAssetIds);
-      } catch (err) {
-        console.error('Error loading portfolio asset IDs:', err);
-        setPortfolioAssetIds(new Set());
-      }
-    };
-
-    loadPortfolioAssetIds();
-  }, [activePortfolioId]);
-
   const loadAssets = useCallback(async () => {
     try {
       setLoading(true);
+      setHeldAssets([]);
+      setSoldAssets([]);
+      setPortfolioAssetIds(new Set());
       
       // Load both asset lists and portfolio asset IDs if there's an active portfolio
       const promises = [

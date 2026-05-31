@@ -28,7 +28,7 @@ from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.services.asset_research import AssetResearchService
-from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
+from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, GEMINI_THEME_MODEL, AssetThemeService
 from app.services.fundamentals import FundamentalsService
 from app.errors import ( 
     AssetAlreadyExistsError,
@@ -341,6 +341,7 @@ def _refresh_asset_theme_background(asset_id: int) -> None:
         if not asset:
             return
 
+        logger.info("Background asset theme generation starting asset_id=%s symbol=%s", asset.id, asset.symbol)
         company_info = _fetch_theme_company_info(asset)
         AssetThemeService(db).refresh_gemini_classification(
             asset=asset,
@@ -349,6 +350,7 @@ def _refresh_asset_theme_background(asset_id: int) -> None:
             industry=company_info.get("industry") or asset.industry,
             name=company_info.get("longName") or company_info.get("shortName") or asset.name,
         )
+        logger.info("Background asset theme generation finished asset_id=%s symbol=%s", asset.id, asset.symbol)
         _invalidate_asset_list_caches()
     except Exception as exc:
         logger.warning("Background asset theme generation failed for asset %s: %s", asset_id, exc)
@@ -373,7 +375,7 @@ def _needs_gemini_theme_generation(asset) -> bool:
         return True
     return not (
         classification.method in {"gpt", "llm"}
-        and classification.model == "gemini-2.5-flash-lite"
+        and classification.model == GEMINI_THEME_MODEL
     )
 
 # Live ticker search endpoint

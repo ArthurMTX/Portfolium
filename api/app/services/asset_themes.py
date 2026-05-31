@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 ThemePayload = Dict[str, Any]
 
 GEMINI_THEME_MODEL = "gemini-2.5-flash"
-GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v4"
+GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v5"
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
 GEMINI_THEME_METHOD = "gpt"
@@ -50,7 +51,9 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Carbon Management": ("Carbon Capture", "Carbon Markets", "Emissions Monitoring"),
     "Energy Transport": ("Oil & Gas", "LNG", "Pipelines", "Refining", "Energy Services"),
     "Digital Finance": ("Fintech", "Digital Banking", "Payments", "Lending Platforms"),
-    "Asset & Wealth Platforms": ("Asset Management", "Capital Markets", "Wealth Technology", "Exchange Operators"),
+    "Investment Platforms": ("Asset Management", "Wealth Technology"),
+    "Market Infrastructure": ("Exchange Operators", "Trading Infrastructure", "Market Data", "Index Providers", "Credit Ratings"),
+    "Insurance": ("P&C Insurance", "Life Insurance", "Reinsurance", "Insurance Brokers"),
     "Crypto Infrastructure": ("Digital Assets", "Crypto Exchanges", "Blockchain Infrastructure", "Bitcoin Mining"),
     "Biotechnology Platforms": ("Drug Discovery", "Biologics", "Gene Therapy", "Cell Therapy", "Clinical Platforms"),
     "Precision Medicine": ("Diagnostics", "Genomics", "Targeted Therapies", "Personalized Oncology"),
@@ -83,18 +86,29 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Real Estate Income": ("Industrial REITs", "Residential REITs", "Healthcare REITs", "Net Lease", "Self Storage"),
     "AdTech": ("Mobile Advertising", "Programmatic Advertising", "Performance Marketing"),
     "Sports Betting": ("Online Sportsbooks", "iGaming", "Fantasy Sports"),
+    "Gaming & Gambling": ("Casinos", "Online Casinos", "Lottery Operators"),
     "EdTech": ("Online Learning", "Professional Training", "Educational Software"),
+    "Human Capital": ("Staffing", "HR Software", "Payroll", "Recruiting Platforms"),
+    "Testing & Certification": ("Industrial Inspection", "Product Certification", "Laboratory Testing"),
+    "Professional Services": ("Consulting", "Outsourcing", "Engineering Services"),
+    "Correctional Services": ("Private Prisons", "Electronic Monitoring"),
+    "Funeral Services": ("Funeral Homes", "Cemeteries", "Cremation Services"),
+    "Forestry": ("Timberlands", "Wood Products", "Pulp & Paper"),
+    "Packaging": ("Consumer Packaging", "Industrial Packaging", "Beverage Packaging"),
+    "Education Services": ("Universities", "Training Providers", "Student Services"),
+    "Music Industry": ("Music Streaming", "Music Rights", "Record Labels"),
     "GovTech": ("Government Software", "Public Sector IT", "Defense Software"),
     "Marine Recreation": ("Boat Retail", "Yacht Retail", "Yacht Services", "Boat Financing"),
     "Restaurant Franchises": ("Quick Service Restaurants", "Restaurant Franchising"),
     "Beverage Brands": ("Soft Drinks", "Alcoholic Beverages"),
-    "Pet Care": ("Pet Food", "Veterinary Services"),
+    "Pet Care": ("Pet Food", "Veterinary Services", "Veterinary Pharma", "Livestock Health", "Pet Diagnostics"),
     "Food & Beverage": ("Packaged Foods","Plant-Based Foods","Alternative Proteins","Meat Alternatives","Foodservice","Food Delivery"),
     "Household & Personal Care": ("Home Care","Fabric Care","Personal Care","Beauty & Grooming","Baby & Family Care",    "Oral Care","Paper Products"),
     "Consumer Health": ("OTC Health Products","Vitamins & Supplements","Digestive Health","Respiratory Health","Sleep & Relaxation","Sexual Wellness"),
     "Retail & Distribution": ("Luxury Retail","Beauty Retail","Department Stores","Travel Retail","Specialty Retail","Direct-to-Consumer"),
     "Automotive Retail": ("Auto Dealerships","Vehicle Distribution"),
     "Mortgage Finance": ("Secondary Mortgage Market","Mortgage Securitization","Mortgage Guarantees","Single-Family Mortgages","Multifamily Mortgages"),
+    "Physical Security": ("Alarm Monitoring","Security Systems","Smart Home Security","Fire & Life Safety","Emergency Response")
 }
 
 ALLOWED_THEMES: tuple[str, ...] = tuple(ALLOWED_THEME_HIERARCHY.keys())
@@ -219,23 +233,65 @@ class AssetThemeService:
         )
 
         existing = self.get_classification(asset.id)
+        logger.info(
+            "Asset theme classification requested asset_id=%s symbol=%s force=%s model=%s source_hash=%s existing=%s",
+            asset.id,
+            asset.symbol,
+            force,
+            GEMINI_THEME_MODEL,
+            source_hash[:12],
+            bool(existing),
+        )
         if existing and not force:
             if existing.method == "manual":
+                logger.info(
+                    "Asset theme classification skipped asset_id=%s symbol=%s reason=manual",
+                    asset.id,
+                    asset.symbol,
+                )
                 return existing
             if (
                 existing.source_hash == source_hash
                 and existing.method in {"gpt", "llm"}
                 and existing.model == GEMINI_THEME_MODEL
             ):
+                logger.info(
+                    "Asset theme classification skipped asset_id=%s symbol=%s reason=cache_hit generated_at=%s",
+                    asset.id,
+                    asset.symbol,
+                    existing.generated_at,
+                )
                 return existing
 
         themes: List[ThemePayload] = []
         if summary and summary.strip():
+            logger.info(
+                "Asset theme Gemini classification starting asset_id=%s symbol=%s name=%s sector=%s industry=%s summary_chars=%s",
+                asset.id,
+                asset.symbol,
+                name or asset.name or asset.symbol,
+                sector or asset.sector,
+                industry or asset.industry,
+                len(summary),
+            )
             themes = self.generate_themes(
                 name=name or asset.name or asset.symbol,
                 sector=sector or asset.sector,
                 industry=industry or asset.industry,
                 summary=summary,
+            )
+            logger.info(
+                "Asset theme Gemini classification completed asset_id=%s symbol=%s theme_count=%s themes=%s",
+                asset.id,
+                asset.symbol,
+                len(themes),
+                [theme.get("label") for theme in themes],
+            )
+        else:
+            logger.info(
+                "Asset theme classification skipped Gemini asset_id=%s symbol=%s reason=missing_summary",
+                asset.id,
+                asset.symbol,
             )
 
         now = datetime.utcnow()
@@ -288,6 +344,13 @@ class AssetThemeService:
 
         self.db.refresh(classification)
         self._invalidate_theme_dependent_caches()
+        logger.info(
+            "Asset theme classification persisted asset_id=%s symbol=%s classification_id=%s theme_count=%s",
+            asset.id,
+            asset.symbol,
+            classification.id,
+            len(themes),
+        )
         return classification
 
     def _upsert_postgresql_classification(
@@ -347,6 +410,13 @@ class AssetThemeService:
             raise RuntimeError(f"Failed to persist theme classification for asset {asset_id}")
 
         self.db.refresh(classification)
+        logger.info(
+            "Asset theme classification upserted asset_id=%s classification_id=%s theme_count=%s force=%s",
+            asset_id,
+            classification.id,
+            len(themes),
+            force,
+        )
         return classification
 
     @staticmethod
@@ -370,9 +440,33 @@ class AssetThemeService:
             industry=industry,
             summary=summary,
         )
+        started_at = time.perf_counter()
+        logger.info(
+            "Gemini theme request sending model=%s company=%s sector=%s industry=%s prompt_chars=%s",
+            GEMINI_THEME_MODEL,
+            name,
+            sector,
+            industry,
+            len(prompt),
+        )
         raw_response = self.gemini_service.generate_json(prompt, GEMINI_RESPONSE_SCHEMA)
+        elapsed_ms = round((time.perf_counter() - started_at) * 1000)
+        logger.info(
+            "Gemini theme request received model=%s company=%s elapsed_ms=%s response_chars=%s",
+            GEMINI_THEME_MODEL,
+            name,
+            elapsed_ms,
+            len(raw_response),
+        )
         payload = self._parse_json_response(raw_response)
-        return self._validate_and_flatten(payload)
+        themes = self._validate_and_flatten(payload)
+        logger.info(
+            "Gemini theme response validated company=%s theme_count=%s labels=%s",
+            name,
+            len(themes),
+            [theme.get("label") for theme in themes],
+        )
+        return themes
 
     @staticmethod
     def build_source_hash(
