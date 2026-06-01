@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import Asset, AssetThemeClassification, AssetThemeTaxonomySuggestion
 from app.services.gemini import GeminiService
 from app.services.cache import CacheService
@@ -21,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 ThemePayload = Dict[str, Any]
 
-GEMINI_THEME_MODEL = "gemini-2.5-flash"
 GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v6"
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
@@ -217,15 +217,110 @@ GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
     "required": ["primaryThemes", "secondaryThemes", "taxonomyGap"],
 }
 
+GEMINI_PARENT_THEME_RESPONSE_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "primaryThemes": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "confidence": {"type": "number"},
+                    "weight": {"type": "number"},
+                    "evidence": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["label", "confidence", "weight", "evidence"],
+            },
+        },
+        "secondaryThemes": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "confidence": {"type": "number"},
+                    "weight": {"type": "number"},
+                    "evidence": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["label", "confidence", "weight", "evidence"],
+            },
+        },
+        "taxonomyGap": {
+            "type": "object",
+            "properties": {
+                "hasGap": {"type": "boolean"},
+                "reason": {"type": "string"},
+                "suggestedTheme": {"type": "string"},
+                "suggestedSubthemes": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": {"type": "string"},
+                },
+                "confidence": {"type": "number"},
+            },
+            "required": ["hasGap"],
+        },
+    },
+    "required": ["primaryThemes", "secondaryThemes", "taxonomyGap"],
+}
+
+GEMINI_SUBTHEME_RESPONSE_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "themes": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "subthemes": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {"type": "string"},
+                                "confidence": {"type": "number"},
+                                "evidence": {
+                                    "type": "array",
+                                    "maxItems": 3,
+                                    "items": {"type": "string"},
+                                },
+                            },
+                            "required": ["label", "confidence", "evidence"],
+                        },
+                    },
+                },
+                "required": ["label", "subthemes"],
+            },
+        },
+    },
+    "required": ["themes"],
+}
+
 
 class AssetThemeService:
     """Generate, validate, and persist reusable asset theme classifications."""
 
     def __init__(self, db: Session, gemini_service: Optional[GeminiService] = None):
         self.db = db
-        self.gemini_service = gemini_service or GeminiService(model=GEMINI_THEME_MODEL)
+        self.gemini_service = gemini_service or GeminiService()
+        self.gemini_model = self.gemini_service.model
         self.last_taxonomy_gap: Optional[Dict[str, Any]] = None
         self.last_taxonomy_gap_persisted: bool = False
+        self._classification_symbol: Optional[str] = None
 
     def get_classification(self, asset_id: int) -> Optional[AssetThemeClassification]:
         return (
@@ -262,7 +357,7 @@ class AssetThemeService:
             asset.id,
             asset.symbol,
             force,
-            GEMINI_THEME_MODEL,
+            self.gemini_model,
             source_hash[:12],
             bool(existing),
         )
@@ -277,7 +372,7 @@ class AssetThemeService:
             if (
                 existing.source_hash == source_hash
                 and existing.method in {"gpt", "llm"}
-                and existing.model == GEMINI_THEME_MODEL
+                and existing.model == self.gemini_model
             ):
                 logger.info(
                     "Asset theme classification skipped asset_id=%s symbol=%s reason=cache_hit generated_at=%s",
@@ -292,21 +387,28 @@ class AssetThemeService:
         self.last_taxonomy_gap = None
         self.last_taxonomy_gap_persisted = False
         if summary and summary.strip():
+            strategy = self._classification_strategy()
             logger.info(
-                "Asset theme Gemini classification starting asset_id=%s symbol=%s name=%s sector=%s industry=%s summary_chars=%s",
+                "Asset theme Gemini classification starting asset_id=%s symbol=%s name=%s sector=%s industry=%s summary_chars=%s classification_strategy=%s",
                 asset.id,
                 asset.symbol,
                 name or asset.name or asset.symbol,
                 sector or asset.sector,
                 industry or asset.industry,
                 len(summary),
+                strategy,
             )
-            themes, taxonomy_gap = self.generate_theme_payload(
-                name=name or asset.name or asset.symbol,
-                sector=sector or asset.sector,
-                industry=industry or asset.industry,
-                summary=summary,
-            )
+            previous_symbol = self._classification_symbol
+            self._classification_symbol = asset.symbol
+            try:
+                themes, taxonomy_gap = self.generate_theme_payload(
+                    name=name or asset.name or asset.symbol,
+                    sector=sector or asset.sector,
+                    industry=industry or asset.industry,
+                    summary=summary,
+                )
+            finally:
+                self._classification_symbol = previous_symbol
             self.last_taxonomy_gap = taxonomy_gap
             logger.info(
                 "Asset theme Gemini classification completed asset_id=%s symbol=%s theme_count=%s themes=%s",
@@ -347,7 +449,7 @@ class AssetThemeService:
         if existing:
             existing.themes = themes
             existing.method = GEMINI_THEME_METHOD
-            existing.model = GEMINI_THEME_MODEL
+            existing.model = self.gemini_model
             existing.source_hash = source_hash
             existing.generated_at = now
             existing.updated_at = now
@@ -357,7 +459,7 @@ class AssetThemeService:
                 asset_id=asset.id,
                 themes=themes,
                 method=GEMINI_THEME_METHOD,
-                model=GEMINI_THEME_MODEL,
+                model=self.gemini_model,
                 source_hash=source_hash,
                 generated_at=now,
                 updated_at=now,
@@ -374,7 +476,7 @@ class AssetThemeService:
 
             classification.themes = themes
             classification.method = GEMINI_THEME_METHOD
-            classification.model = GEMINI_THEME_MODEL
+            classification.model = self.gemini_model
             classification.source_hash = source_hash
             classification.generated_at = now
             classification.updated_at = now
@@ -403,7 +505,7 @@ class AssetThemeService:
             "asset_id": asset_id,
             "themes": themes,
             "method": GEMINI_THEME_METHOD,
-            "model": GEMINI_THEME_MODEL,
+            "model": self.gemini_model,
             "source_hash": source_hash,
             "generated_at": generated_at,
             "updated_at": generated_at,
@@ -488,6 +590,28 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
+        if settings.ASSET_THEME_TWO_PASS_CLASSIFICATION:
+            return self.generate_theme_payload_two_pass(
+                name=name,
+                sector=sector,
+                industry=industry,
+                summary=summary,
+            )
+
+        return self.generate_theme_payload_one_pass(
+            name=name,
+            sector=sector,
+            industry=industry,
+            summary=summary,
+        )
+
+    def generate_theme_payload_one_pass(
+        self,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: str,
+    ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
         prompt, prompt_metrics = self._build_prompt_with_metrics(
             name=name,
             sector=sector,
@@ -496,10 +620,11 @@ class AssetThemeService:
         )
         started_at = time.perf_counter()
         logger.info(
-            "Gemini theme request sending model=%s company=%s sector=%s industry=%s "
+            "Gemini theme request sending model=%s symbol=%s company=%s sector=%s industry=%s "
             "summary_chars_original=%s summary_chars_used=%s taxonomy_chars=%s "
-            "instruction_chars=%s prompt_chars=%s",
+            "instruction_chars=%s prompt_chars=%s classification_strategy=%s",
             self.gemini_service.model,
+            self._classification_symbol,
             name,
             sector,
             industry,
@@ -508,12 +633,14 @@ class AssetThemeService:
             prompt_metrics["taxonomy_chars"],
             prompt_metrics["instruction_chars"],
             prompt_metrics["prompt_chars"],
+            "one_pass",
         )
         raw_response = self.gemini_service.generate_json(prompt, GEMINI_RESPONSE_SCHEMA)
         elapsed_ms = round((time.perf_counter() - started_at) * 1000)
         logger.info(
-            "Gemini theme request received model=%s company=%s elapsed_ms=%s response_chars=%s",
+            "Gemini theme request received model=%s symbol=%s company=%s elapsed_ms=%s response_chars=%s",
             self.gemini_service.model,
+            self._classification_symbol,
             name,
             elapsed_ms,
             len(raw_response),
@@ -522,13 +649,166 @@ class AssetThemeService:
         themes = self._validate_and_flatten(payload)
         taxonomy_gap = self._clean_taxonomy_gap(payload.get("taxonomyGap"))
         logger.info(
-            "Gemini theme response validated company=%s theme_count=%s labels=%s taxonomy_gap=%s",
+            "Gemini theme response validated symbol=%s company=%s theme_count=%s labels=%s taxonomy_gap=%s",
+            self._classification_symbol,
             name,
             len(themes),
             [theme.get("label") for theme in themes],
             bool(taxonomy_gap and taxonomy_gap.get("hasGap")),
         )
         return themes, taxonomy_gap
+
+    def generate_theme_payload_two_pass(
+        self,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: str,
+    ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
+        pass1_prompt, pass1_metrics = self._build_parent_theme_prompt_with_metrics(
+            name=name,
+            sector=sector,
+            industry=industry,
+            summary=summary,
+        )
+        pass1_started_at = time.perf_counter()
+        logger.info(
+            "Gemini theme pass1 sending model=%s symbol=%s company=%s sector=%s industry=%s "
+            "summary_chars_original=%s summary_chars_used=%s parent_theme_chars=%s "
+            "instruction_chars=%s pass1_prompt_chars=%s classification_strategy=%s",
+            self.gemini_service.model,
+            self._classification_symbol,
+            name,
+            sector,
+            industry,
+            pass1_metrics["summary_chars_original"],
+            pass1_metrics["summary_chars_used"],
+            pass1_metrics["parent_theme_chars"],
+            pass1_metrics["instruction_chars"],
+            pass1_metrics["prompt_chars"],
+            "two_pass",
+        )
+        pass1_response = self.gemini_service.generate_json(
+            pass1_prompt,
+            GEMINI_PARENT_THEME_RESPONSE_SCHEMA,
+        )
+        pass1_duration_ms = round((time.perf_counter() - pass1_started_at) * 1000)
+        pass1_payload = self._parse_json_response(pass1_response)
+        parent_themes = self._validate_parent_themes(pass1_payload, max_total=5)
+        taxonomy_gap = self._clean_taxonomy_gap(pass1_payload.get("taxonomyGap"))
+        selected_parent_themes = [theme["label"] for theme in parent_themes]
+
+        logger.info(
+            "Gemini theme pass1 received model=%s symbol=%s company=%s pass1_duration_ms=%s "
+            "response_chars=%s selected_parent_themes=%s taxonomy_gap=%s",
+            self.gemini_service.model,
+            self._classification_symbol,
+            name,
+            pass1_duration_ms,
+            len(pass1_response),
+            selected_parent_themes,
+            bool(taxonomy_gap and taxonomy_gap.get("hasGap")),
+        )
+
+        if not parent_themes:
+            logger.info(
+                "Gemini theme two-pass completed model=%s symbol=%s company=%s "
+                "classification_strategy=%s pass1_prompt_chars=%s pass2_prompt_chars=%s "
+                "total_prompt_chars=%s pass1_duration_ms=%s pass2_duration_ms=%s "
+                "selected_parent_themes=%s",
+                self.gemini_service.model,
+                self._classification_symbol,
+                name,
+                "two_pass",
+                pass1_metrics["prompt_chars"],
+                0,
+                pass1_metrics["prompt_chars"],
+                pass1_duration_ms,
+                0,
+                selected_parent_themes,
+            )
+            return parent_themes, taxonomy_gap
+
+        pass2_prompt, pass2_metrics = self._build_subtheme_prompt_with_metrics(
+            name=name,
+            sector=sector,
+            industry=industry,
+            summary=summary,
+            parent_themes=parent_themes,
+        )
+        pass2_duration_ms = 0
+        try:
+            pass2_started_at = time.perf_counter()
+            logger.info(
+                "Gemini theme pass2 sending model=%s symbol=%s company=%s selected_parent_themes=%s "
+                "selected_hierarchy_chars=%s instruction_chars=%s pass2_prompt_chars=%s "
+                "classification_strategy=%s",
+                self.gemini_service.model,
+                self._classification_symbol,
+                name,
+                selected_parent_themes,
+                pass2_metrics["selected_hierarchy_chars"],
+                pass2_metrics["instruction_chars"],
+                pass2_metrics["prompt_chars"],
+                "two_pass",
+            )
+            pass2_response = self.gemini_service.generate_json(
+                pass2_prompt,
+                GEMINI_SUBTHEME_RESPONSE_SCHEMA,
+            )
+            pass2_duration_ms = round((time.perf_counter() - pass2_started_at) * 1000)
+            pass2_payload = self._parse_json_response(pass2_response)
+            subthemes_by_parent = self._validate_subtheme_payload(
+                pass2_payload,
+                selected_parent_themes,
+            )
+            themes = self._merge_parent_themes_with_subthemes(
+                parent_themes,
+                subthemes_by_parent,
+            )
+            logger.info(
+                "Gemini theme pass2 received model=%s symbol=%s company=%s pass2_duration_ms=%s "
+                "response_chars=%s selected_parent_themes=%s",
+                self.gemini_service.model,
+                self._classification_symbol,
+                name,
+                pass2_duration_ms,
+                len(pass2_response),
+                selected_parent_themes,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Gemini theme pass2 failed; persisting parent themes without children "
+                "model=%s symbol=%s company=%s selected_parent_themes=%s error=%s",
+                self.gemini_service.model,
+                self._classification_symbol,
+                name,
+                selected_parent_themes,
+                exc,
+            )
+            themes = parent_themes
+
+        logger.info(
+            "Gemini theme two-pass completed model=%s symbol=%s company=%s "
+            "classification_strategy=%s pass1_prompt_chars=%s pass2_prompt_chars=%s "
+            "total_prompt_chars=%s pass1_duration_ms=%s pass2_duration_ms=%s "
+            "selected_parent_themes=%s",
+            self.gemini_service.model,
+            self._classification_symbol,
+            name,
+            "two_pass",
+            pass1_metrics["prompt_chars"],
+            pass2_metrics["prompt_chars"],
+            pass1_metrics["prompt_chars"] + pass2_metrics["prompt_chars"],
+            pass1_duration_ms,
+            pass2_duration_ms,
+            selected_parent_themes,
+        )
+        return themes, taxonomy_gap
+
+    @staticmethod
+    def _classification_strategy() -> str:
+        return "two_pass" if settings.ASSET_THEME_TWO_PASS_CLASSIFICATION else "one_pass"
 
     @staticmethod
     def build_source_hash(
@@ -625,6 +905,121 @@ Return only JSON shaped as:
             {theme: list(subthemes) for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()},
             separators=(",", ":"),
         )
+
+    @staticmethod
+    def _render_parent_theme_labels_for_prompt() -> str:
+        return json.dumps(list(ALLOWED_THEME_HIERARCHY.keys()), separators=(",", ":"))
+
+    @classmethod
+    def _build_parent_theme_prompt_with_metrics(
+        cls,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: str,
+    ) -> tuple[str, Dict[str, int]]:
+        summary_original = summary or ""
+        summary_used = cls._trim_summary_for_prompt(summary_original)
+        parent_themes = cls._render_parent_theme_labels_for_prompt()
+
+        prompt = f"""You classify listed companies into investment theme parent labels.
+
+Input:
+company name: {name or ""}
+sector: {sector or ""}
+industry: {industry or ""}
+longBusinessSummary: {summary_used}
+
+Allowed parent theme labels JSON:
+{parent_themes}
+
+Rules:
+- Use only labels from the allowed parent theme labels.
+- Do not select subthemes in this pass.
+- Select real economic exposures: core activities, operating segments, revenue drivers, or strategic focus.
+- Ignore minor, supporting, customer, partnership, financing, leasing, insurance, payment, marketing, and internal software activities unless they are major segments.
+- Prefer precise investable exposures over broad sectors; never use generic labels like Technology, Software, Industrials, Energy, Consumer Brands, or Infrastructure.
+- Return up to 5 total parent themes across primaryThemes and secondaryThemes.
+- Return fewer themes, or none, when fit is weak or uncertain.
+- If a clear business exposure is missing from the allowed parent labels, set taxonomyGap for admin review; it is not a final classification and must not duplicate an existing theme.
+- If an existing parent label fits well, taxonomyGap.hasGap must be false.
+- Max 3 primary themes. Primary themes are core business exposures; secondary themes are meaningful but not main business exposures.
+- Theme weights estimate economic exposure, must sum to 1.00, and omit any theme below {MIN_THEME_WEIGHT}.
+- Confidence and weight must be between 0 and 1; omit themes below confidence {MIN_THEME_CONFIDENCE}.
+- Evidence must be short exact phrases from longBusinessSummary; do not paraphrase or invent evidence.
+- Do not add explanations, markdown, or non-JSON text.
+
+Return only JSON shaped as:
+{{"primaryThemes":[{{"label":"","confidence":0,"weight":0,"evidence":[]}}],"secondaryThemes":[{{"label":"","confidence":0,"weight":0,"evidence":[]}}],"taxonomyGap":{{"hasGap":false,"reason":"","suggestedTheme":"","suggestedSubthemes":[],"confidence":0}}}}"""
+
+        metrics = {
+            "summary_chars_original": len(summary_original),
+            "summary_chars_used": len(summary_used),
+            "parent_theme_chars": len(parent_themes),
+            "instruction_chars": len(prompt) - len(summary_used) - len(parent_themes),
+            "prompt_chars": len(prompt),
+        }
+        return prompt, metrics
+
+    @classmethod
+    def _build_subtheme_prompt_with_metrics(
+        cls,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: str,
+        parent_themes: List[ThemePayload],
+    ) -> tuple[str, Dict[str, int]]:
+        summary_original = summary or ""
+        summary_used = cls._trim_summary_for_prompt(summary_original)
+        selected_hierarchy = cls._render_selected_hierarchy_for_prompt(parent_themes)
+        selected_parent_labels = [theme["label"] for theme in parent_themes]
+
+        prompt = f"""You select subthemes for already-selected investment theme parent labels.
+
+Input:
+company name: {name or ""}
+sector: {sector or ""}
+industry: {industry or ""}
+longBusinessSummary: {summary_used}
+
+Selected parent themes JSON:
+{json.dumps(selected_parent_labels, separators=(",", ":"))}
+
+Allowed selected hierarchy JSON:
+{selected_hierarchy}
+
+Rules:
+- Use only the selected parent theme labels and their allowed subthemes.
+- Do not add, remove, rename, reorder, or replace parent themes.
+- Do not invent parent themes or subthemes.
+- Return each selected parent theme at most once.
+- Select up to 3 subthemes for each selected parent theme.
+- Return an empty subthemes array when no allowed subtheme fits with confidence.
+- Confidence must be between 0 and 1; omit subthemes below confidence {MIN_THEME_CONFIDENCE}.
+- Evidence must be short exact phrases from longBusinessSummary; do not paraphrase or invent evidence.
+- Do not add explanations, markdown, taxonomy gaps, or non-JSON text.
+
+Return only JSON shaped as:
+{{"themes":[{{"label":"","subthemes":[{{"label":"","confidence":0,"evidence":[]}}]}}]}}"""
+
+        metrics = {
+            "summary_chars_original": len(summary_original),
+            "summary_chars_used": len(summary_used),
+            "selected_hierarchy_chars": len(selected_hierarchy),
+            "instruction_chars": len(prompt) - len(summary_used) - len(selected_hierarchy),
+            "prompt_chars": len(prompt),
+        }
+        return prompt, metrics
+
+    @staticmethod
+    def _render_selected_hierarchy_for_prompt(parent_themes: List[ThemePayload]) -> str:
+        selected = {
+            theme["label"]: list(ALLOWED_THEME_HIERARCHY[theme["label"]])
+            for theme in parent_themes
+            if theme.get("label") in ALLOWED_THEME_HIERARCHY
+        }
+        return json.dumps(selected, separators=(",", ":"))
 
     @classmethod
     def _trim_summary_for_prompt(cls, summary: Optional[str]) -> str:
@@ -769,6 +1164,59 @@ Return only JSON shaped as:
             )
         )
         return themes
+
+    @classmethod
+    def _validate_parent_themes(
+        cls,
+        payload: Dict[str, Any],
+        max_total: int,
+    ) -> List[ThemePayload]:
+        themes = cls._validate_and_flatten(payload)
+        parent_themes: List[ThemePayload] = []
+        for theme in themes:
+            if len(parent_themes) >= max_total:
+                break
+            parent = dict(theme)
+            parent["children"] = []
+            parent_themes.append(parent)
+        return cls._normalize_theme_weights(parent_themes)
+
+    @classmethod
+    def _validate_subtheme_payload(
+        cls,
+        payload: Dict[str, Any],
+        selected_parent_themes: List[str],
+    ) -> Dict[str, List[ThemePayload]]:
+        selected = set(selected_parent_themes)
+        subthemes_by_parent: Dict[str, List[ThemePayload]] = {}
+        raw_themes = payload.get("themes") or []
+        if not isinstance(raw_themes, list):
+            return subthemes_by_parent
+
+        for item in raw_themes:
+            if not isinstance(item, dict):
+                continue
+            label = item.get("label")
+            if label not in selected or label in subthemes_by_parent:
+                continue
+            subthemes_by_parent[label] = cls._clean_subthemes(
+                theme_label=label,
+                value=item.get("subthemes") or item.get("children"),
+            )
+
+        return subthemes_by_parent
+
+    @staticmethod
+    def _merge_parent_themes_with_subthemes(
+        parent_themes: List[ThemePayload],
+        subthemes_by_parent: Dict[str, List[ThemePayload]],
+    ) -> List[ThemePayload]:
+        merged: List[ThemePayload] = []
+        for parent in parent_themes:
+            next_parent = dict(parent)
+            next_parent["children"] = list(subthemes_by_parent.get(parent["label"], []))
+            merged.append(next_parent)
+        return merged
 
     def _persist_taxonomy_gap_suggestion(
         self,

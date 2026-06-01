@@ -4,7 +4,7 @@ Application configuration
 import os
 from typing import List, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator, model_validator
+from pydantic import field_validator, model_validator
 from typing_extensions import Self
 
 
@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-2.5-flash-lite"
     GEMINI_TIMEOUT_SECONDS: int = 20
     GEMINI_MAX_RETRIES: int = 2
+    ASSET_THEME_TWO_PASS_CLASSIFICATION: bool = False
     
     # Redis Configuration
     REDIS_HOST: str = "redis"

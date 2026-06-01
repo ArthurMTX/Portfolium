@@ -10,9 +10,12 @@ from app.models import AssetThemeClassification
 from app.services.asset_themes import (
     ALLOWED_THEME_HIERARCHY,
     AssetThemeService,
-    GEMINI_THEME_MODEL,
+    GEMINI_PARENT_THEME_RESPONSE_SCHEMA,
+    GEMINI_RESPONSE_SCHEMA,
+    GEMINI_SUBTHEME_RESPONSE_SCHEMA,
     MAX_SUMMARY_CHARS,
     MAX_SUMMARY_SENTENCES,
+    settings,
 )
 
 
@@ -31,7 +34,7 @@ def test_refresh_gemini_classification_recovers_from_duplicate_insert(
         asset_id=asset.id,
         themes=[],
         method="gpt",
-        model=GEMINI_THEME_MODEL,
+        model=settings.GEMINI_MODEL,
         source_hash="stale-hash",
         generated_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -104,7 +107,7 @@ def test_refresh_gemini_classification_uses_postgresql_upsert(
         asset_id=asset.id,
         themes=[],
         method="gpt",
-        model=GEMINI_THEME_MODEL,
+        model=settings.GEMINI_MODEL,
         source_hash="old-hash",
         generated_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -290,3 +293,287 @@ def test_build_prompt_metrics_report_prompt_components():
     assert metrics["instruction_chars"] == (
         len(prompt) - metrics["summary_chars_used"] - metrics["taxonomy_chars"]
     )
+
+
+class FakeGeminiService:
+    model = "gemini-test"
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.prompts = []
+        self.schemas = []
+
+    def generate_json(self, prompt, response_schema):
+        self.prompts.append(prompt)
+        self.schemas.append(response_schema)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return json.dumps(response)
+
+
+def test_asset_theme_service_uses_configured_gemini_model(monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-configured")
+
+    service = AssetThemeService(Mock())
+
+    assert service.gemini_service.model == "gemini-configured"
+    assert service.gemini_model == "gemini-configured"
+
+
+def _parent_payload():
+    return {
+        "primaryThemes": [
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.91,
+                "weight": 0.7,
+                "evidence": ["AI infrastructure"],
+            }
+        ],
+        "secondaryThemes": [
+            {
+                "label": "Space Infrastructure",
+                "confidence": 0.82,
+                "weight": 0.3,
+                "evidence": ["satellite systems"],
+            }
+        ],
+        "taxonomyGap": {"hasGap": False},
+    }
+
+
+def _subtheme_payload():
+    return {
+        "themes": [
+            {
+                "label": "AI Infrastructure",
+                "subthemes": [
+                    {
+                        "label": "GPU Computing",
+                        "confidence": 0.88,
+                        "evidence": ["GPU systems"],
+                    }
+                ],
+            },
+            {
+                "label": "Space Infrastructure",
+                "subthemes": [
+                    {
+                        "label": "Satellites",
+                        "confidence": 0.79,
+                        "evidence": ["satellite systems"],
+                    }
+                ],
+            },
+            {
+                "label": "Mortgage Finance",
+                "subthemes": [
+                    {
+                        "label": "Mortgage Securitization",
+                        "confidence": 0.99,
+                        "evidence": ["ignored"],
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_two_pass_parent_prompt_does_not_include_subthemes():
+    prompt, metrics = AssetThemeService._build_parent_theme_prompt_with_metrics(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure and satellite systems.",
+    )
+
+    assert "AI Infrastructure" in prompt
+    assert "Space Infrastructure" in prompt
+    assert "GPU Computing" not in prompt
+    assert "Mortgage Securitization" not in prompt
+    assert "Allowed parent theme labels JSON" in prompt
+    assert metrics["parent_theme_chars"] == len(
+        AssetThemeService._render_parent_theme_labels_for_prompt()
+    )
+
+
+def test_two_pass_subtheme_prompt_includes_only_selected_themes_and_subthemes():
+    parent_themes = AssetThemeService._validate_parent_themes(_parent_payload(), max_total=5)
+
+    prompt, metrics = AssetThemeService._build_subtheme_prompt_with_metrics(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds GPU systems and satellite systems.",
+        parent_themes=parent_themes,
+    )
+
+    assert "AI Infrastructure" in prompt
+    assert "GPU Computing" in prompt
+    assert "Space Infrastructure" in prompt
+    assert "Satellites" in prompt
+    assert "Mortgage Finance" not in prompt
+    assert "Mortgage Securitization" not in prompt
+    assert metrics["selected_hierarchy_chars"] == len(
+        AssetThemeService._render_selected_hierarchy_for_prompt(parent_themes)
+    )
+
+
+def test_two_pass_merge_preserves_parent_fields_and_adds_children():
+    parent_themes = AssetThemeService._validate_parent_themes(_parent_payload(), max_total=5)
+    subthemes_by_parent = AssetThemeService._validate_subtheme_payload(
+        _subtheme_payload(),
+        ["AI Infrastructure", "Space Infrastructure"],
+    )
+
+    merged = AssetThemeService._merge_parent_themes_with_subthemes(
+        parent_themes,
+        subthemes_by_parent,
+    )
+
+    assert merged[0]["label"] == "AI Infrastructure"
+    assert merged[0]["tier"] == "primary"
+    assert merged[0]["weight"] == 0.7
+    assert merged[0]["confidence"] == 0.91
+    assert merged[0]["evidence"] == ["AI infrastructure"]
+    assert merged[0]["children"] == [
+        {"label": "GPU Computing", "confidence": 0.88, "evidence": ["GPU systems"]}
+    ]
+    assert merged[1]["label"] == "Space Infrastructure"
+    assert merged[1]["children"] == [
+        {"label": "Satellites", "confidence": 0.79, "evidence": ["satellite systems"]}
+    ]
+
+
+def test_two_pass_failure_returns_parent_themes_without_children(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    gemini = FakeGeminiService([_parent_payload(), RuntimeError("pass2 failed")])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure and satellite systems.",
+    )
+
+    assert taxonomy_gap == {
+        "hasGap": False,
+        "reason": "",
+        "suggestedTheme": "",
+        "suggestedSubthemes": [],
+        "confidence": None,
+    }
+    assert [theme["label"] for theme in themes] == ["AI Infrastructure", "Space Infrastructure"]
+    assert all(theme["children"] == [] for theme in themes)
+    assert gemini.schemas == [GEMINI_PARENT_THEME_RESPONSE_SCHEMA, GEMINI_SUBTHEME_RESPONSE_SCHEMA]
+
+
+def test_two_pass_taxonomy_gap_comes_from_pass1(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    pass1_payload = {
+        "primaryThemes": [],
+        "secondaryThemes": [],
+        "taxonomyGap": {
+            "hasGap": True,
+            "reason": "No parent label covers orbital debris removal.",
+            "suggestedTheme": "Orbital Services",
+            "suggestedSubthemes": ["Debris Removal"],
+            "confidence": 0.81,
+        },
+    }
+    gemini = FakeGeminiService([pass1_payload])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Industrials",
+        industry="Aerospace",
+        summary="The company provides orbital debris removal services.",
+    )
+
+    assert themes == []
+    assert taxonomy_gap == {
+        "hasGap": True,
+        "reason": "No parent label covers orbital debris removal.",
+        "suggestedTheme": "Orbital Services",
+        "suggestedSubthemes": ["Debris Removal"],
+        "confidence": 0.81,
+    }
+    assert len(gemini.prompts) == 1
+
+
+def test_feature_flag_selects_one_pass_or_two_pass(monkeypatch):
+    one_pass_payload = {
+        "primaryThemes": [
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.91,
+                "weight": 1.0,
+                "evidence": ["AI infrastructure"],
+                "subthemes": [
+                    {
+                        "label": "GPU Computing",
+                        "confidence": 0.88,
+                        "evidence": ["GPU systems"],
+                    }
+                ],
+            }
+        ],
+        "secondaryThemes": [],
+        "taxonomyGap": {"hasGap": False},
+    }
+
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", False)
+    one_pass_gemini = FakeGeminiService([one_pass_payload])
+    one_pass_service = AssetThemeService(Mock(), gemini_service=one_pass_gemini)
+    one_pass_themes, _gap = one_pass_service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure and GPU systems.",
+    )
+
+    assert one_pass_gemini.schemas == [GEMINI_RESPONSE_SCHEMA]
+    assert one_pass_themes[0]["children"][0]["label"] == "GPU Computing"
+
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    two_pass_gemini = FakeGeminiService([_parent_payload(), _subtheme_payload()])
+    two_pass_service = AssetThemeService(Mock(), gemini_service=two_pass_gemini)
+    two_pass_themes, _gap = two_pass_service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure, GPU systems, and satellite systems.",
+    )
+
+    assert two_pass_gemini.schemas == [
+        GEMINI_PARENT_THEME_RESPONSE_SCHEMA,
+        GEMINI_SUBTHEME_RESPONSE_SCHEMA,
+    ]
+    assert [theme["label"] for theme in two_pass_themes] == [
+        "AI Infrastructure",
+        "Space Infrastructure",
+    ]
+    assert two_pass_themes[0]["children"][0]["label"] == "GPU Computing"
+
+
+def test_two_pass_output_shape_remains_frontend_and_allocation_compatible(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    gemini = FakeGeminiService([_parent_payload(), _subtheme_payload()])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, _taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure, GPU systems, and satellite systems.",
+    )
+
+    assert themes
+    for theme in themes:
+        assert set(theme) == {"label", "confidence", "weight", "evidence", "tier", "children"}
+        assert isinstance(theme["children"], list)
+        for child in theme["children"]:
+            assert set(child) == {"label", "confidence", "evidence"}
