@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Asset, AssetThemeClassification
+from app.models import Asset, AssetThemeClassification, AssetThemeTaxonomySuggestion
 from app.services.gemini import GeminiService
 from app.services.cache import CacheService
 
@@ -24,6 +24,7 @@ GEMINI_THEME_MODEL = "gemini-2.5-flash"
 GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v6"
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
+MIN_TAXONOMY_GAP_CONFIDENCE = 0.65
 GEMINI_THEME_METHOD = "gpt"
 
 ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
@@ -192,8 +193,23 @@ GEMINI_RESPONSE_SCHEMA: Dict[str, Any] = {
                 "required": ["label", "confidence", "weight", "evidence", "subthemes"],
             },
         },
+        "taxonomyGap": {
+            "type": "object",
+            "properties": {
+                "hasGap": {"type": "boolean"},
+                "reason": {"type": "string"},
+                "suggestedTheme": {"type": "string"},
+                "suggestedSubthemes": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": {"type": "string"},
+                },
+                "confidence": {"type": "number"},
+            },
+            "required": ["hasGap"],
+        },
     },
-    "required": ["primaryThemes", "secondaryThemes"],
+    "required": ["primaryThemes", "secondaryThemes", "taxonomyGap"],
 }
 
 
@@ -203,6 +219,8 @@ class AssetThemeService:
     def __init__(self, db: Session, gemini_service: Optional[GeminiService] = None):
         self.db = db
         self.gemini_service = gemini_service or GeminiService(model=GEMINI_THEME_MODEL)
+        self.last_taxonomy_gap: Optional[Dict[str, Any]] = None
+        self.last_taxonomy_gap_persisted: bool = False
 
     def get_classification(self, asset_id: int) -> Optional[AssetThemeClassification]:
         return (
@@ -265,6 +283,9 @@ class AssetThemeService:
                 return existing
 
         themes: List[ThemePayload] = []
+        taxonomy_gap: Optional[Dict[str, Any]] = None
+        self.last_taxonomy_gap = None
+        self.last_taxonomy_gap_persisted = False
         if summary and summary.strip():
             logger.info(
                 "Asset theme Gemini classification starting asset_id=%s symbol=%s name=%s sector=%s industry=%s summary_chars=%s",
@@ -275,18 +296,29 @@ class AssetThemeService:
                 industry or asset.industry,
                 len(summary),
             )
-            themes = self.generate_themes(
+            themes, taxonomy_gap = self.generate_theme_payload(
                 name=name or asset.name or asset.symbol,
                 sector=sector or asset.sector,
                 industry=industry or asset.industry,
                 summary=summary,
             )
+            self.last_taxonomy_gap = taxonomy_gap
             logger.info(
                 "Asset theme Gemini classification completed asset_id=%s symbol=%s theme_count=%s themes=%s",
                 asset.id,
                 asset.symbol,
                 len(themes),
                 [theme.get("label") for theme in themes],
+            )
+            self._persist_taxonomy_gap_suggestion(
+                asset=asset,
+                summary_hash=source_hash,
+                taxonomy_gap=taxonomy_gap,
+                summary=summary,
+                sector=sector or asset.sector,
+                industry=industry or asset.industry,
+                company_name=name or asset.name or asset.symbol,
+                themes=themes,
             )
         else:
             logger.info(
@@ -435,6 +467,22 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> List[ThemePayload]:
+        themes, taxonomy_gap = self.generate_theme_payload(
+            name=name,
+            sector=sector,
+            industry=industry,
+            summary=summary,
+        )
+        self.last_taxonomy_gap = taxonomy_gap
+        return themes
+
+    def generate_theme_payload(
+        self,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: str,
+    ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
         prompt = self._build_prompt(
             name=name,
             sector=sector,
@@ -461,13 +509,15 @@ class AssetThemeService:
         )
         payload = self._parse_json_response(raw_response)
         themes = self._validate_and_flatten(payload)
+        taxonomy_gap = self._clean_taxonomy_gap(payload.get("taxonomyGap"))
         logger.info(
-            "Gemini theme response validated company=%s theme_count=%s labels=%s",
+            "Gemini theme response validated company=%s theme_count=%s labels=%s taxonomy_gap=%s",
             name,
             len(themes),
             [theme.get("label") for theme in themes],
+            bool(taxonomy_gap and taxonomy_gap.get("hasGap")),
         )
-        return themes
+        return themes, taxonomy_gap
 
     @staticmethod
     def build_source_hash(
@@ -509,12 +559,16 @@ Allowed hierarchy:
 {allowed_themes}
 
 Instruction:
-Choose ONLY from the allowed hierarchy above.
+First classify using ONLY the allowed hierarchy above.
+If there is no strong existing match, or only weak/generic matches, return fewer themes or no themes.
+If the allowed taxonomy is missing a clear business exposure, fill taxonomyGap for admin review.
+taxonomyGap is not a final classification and must not duplicate an existing theme or subtheme.
 
 Return:
 * max 3 primary themes
 * max 5 secondary themes
 * max 3 subthemes per theme
+* taxonomyGap.hasGap false when the allowed taxonomy already has a good fit
 
 Definitions:
 * Theme = high-level investable exposure for portfolio allocation and dashboard aggregation.
@@ -535,15 +589,20 @@ Business Relevance Rules:
 * Prefer precise investable exposures over broad sectors.
 * Pick subthemes only from the selected theme's allowed subtheme list.
 * If uncertain, return fewer themes.
+* If allowed themes would be weak or generic, prefer no classification plus taxonomyGap when a clear missing exposure exists.
 
 Examples:
 * Deere: Precision Agriculture and Construction & Industrial Equipment are valid. Digital Finance is usually invalid because financing supports equipment sales.
 * MarineMax: Marine Recreation is valid. Luxury Automobiles is invalid because yachts are not automobiles.
 * Xylem: Water Infrastructure is valid. Data Analytics Platforms is usually invalid because analytics supports water operations.
 * Rocket Lab: Space Infrastructure is valid. Cloud Platforms is invalid unless cloud services are a real sold product.
+* Verisure before Physical Security exists: return no themes and taxonomyGap suggestedTheme Physical Security with Alarm Monitoring, Security Systems, Emergency Response.
+* Beyond Meat before Food & Beverage exists: return no themes and taxonomyGap suggestedTheme Food & Beverage with Plant-Based Foods, Alternative Proteins.
+* Freddie Mac before Mortgage Finance exists: return no themes and taxonomyGap suggestedTheme Mortgage Finance with Secondary Mortgage Market, Mortgage Securitization.
+* If a good existing theme exists, taxonomyGap.hasGap must be false.
 
 Rules:
-* do not invent themes or subthemes
+* do not invent themes or subthemes in primaryThemes or secondaryThemes
 * do not use generic sector labels such as Technology, Software, Industrials, Energy, Consumer Brands, or Infrastructure
 * do not return explanations
 * do not return markdown
@@ -555,6 +614,9 @@ Rules:
 * evidence must come from the input description; do not paraphrase or invent evidence
 * do not include themes or subthemes with confidence below {MIN_THEME_CONFIDENCE}
 * do not add a third hierarchy level
+* taxonomyGap.reason must be concise and business-oriented
+* taxonomyGap.confidence must be between 0 and 1
+* taxonomyGap is only for review and must not be included in primaryThemes or secondaryThemes
 
 Expected JSON:
 {{
@@ -592,7 +654,14 @@ Expected JSON:
         }}
       ]
     }}
-  ]
+  ],
+  "taxonomyGap": {{
+    "hasGap": false,
+    "reason": "",
+    "suggestedTheme": "",
+    "suggestedSubthemes": [],
+    "confidence": 0
+  }}
 }}"""
 
     @staticmethod
@@ -667,6 +736,165 @@ Expected JSON:
             )
         )
         return themes
+
+    def _persist_taxonomy_gap_suggestion(
+        self,
+        asset: Asset,
+        summary_hash: str,
+        taxonomy_gap: Optional[Dict[str, Any]],
+        summary: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        company_name: Optional[str],
+        themes: List[ThemePayload],
+    ) -> Optional[AssetThemeTaxonomySuggestion]:
+        self.last_taxonomy_gap_persisted = False
+        if not self._is_valid_taxonomy_gap_suggestion(taxonomy_gap, themes):
+            return None
+
+        assert taxonomy_gap is not None
+        suggested_theme = taxonomy_gap["suggestedTheme"]
+        values = {
+            "asset_id": asset.id,
+            "symbol": asset.symbol,
+            "company_name": company_name or asset.name or asset.symbol,
+            "sector": sector or asset.sector,
+            "industry": industry or asset.industry,
+            "summary_hash": summary_hash,
+            "summary_excerpt": self._summary_excerpt(summary),
+            "suggested_theme": suggested_theme,
+            "suggested_subthemes": taxonomy_gap.get("suggestedSubthemes") or [],
+            "reason": taxonomy_gap["reason"],
+            "confidence": taxonomy_gap["confidence"],
+            "status": "pending",
+        }
+
+        if self.db.bind and self.db.bind.dialect.name == "postgresql":
+            statement = (
+                postgresql_insert(AssetThemeTaxonomySuggestion)
+                .values(**values)
+                .on_conflict_do_nothing(
+                    index_elements=["asset_id", "summary_hash", "suggested_theme"]
+                )
+                .returning(AssetThemeTaxonomySuggestion.id)
+            )
+            try:
+                suggestion_id = self.db.execute(statement).scalar_one_or_none()
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                raise
+
+            if suggestion_id is None:
+                return None
+
+            suggestion = (
+                self.db.query(AssetThemeTaxonomySuggestion)
+                .filter(AssetThemeTaxonomySuggestion.id == suggestion_id)
+                .first()
+            )
+            self.last_taxonomy_gap_persisted = suggestion is not None
+            return suggestion
+
+        suggestion = AssetThemeTaxonomySuggestion(**values)
+        self.db.add(suggestion)
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            return None
+
+        self.db.refresh(suggestion)
+        self.last_taxonomy_gap_persisted = True
+        return suggestion
+
+    @classmethod
+    def _is_valid_taxonomy_gap_suggestion(
+        cls,
+        taxonomy_gap: Optional[Dict[str, Any]],
+        themes: List[ThemePayload],
+    ) -> bool:
+        if not taxonomy_gap or not taxonomy_gap.get("hasGap"):
+            return False
+
+        suggested_theme = taxonomy_gap.get("suggestedTheme")
+        reason = taxonomy_gap.get("reason")
+        confidence = taxonomy_gap.get("confidence")
+        if not suggested_theme or not reason or confidence is None:
+            return False
+        if confidence < MIN_TAXONOMY_GAP_CONFIDENCE:
+            return False
+        if suggested_theme.casefold() in {theme.casefold() for theme in ALLOWED_THEME_SET}:
+            return False
+        if cls._suggested_subthemes_are_already_covered(taxonomy_gap.get("suggestedSubthemes")):
+            return False
+        if cls._has_strong_classification(themes):
+            return False
+
+        return True
+
+    @staticmethod
+    def _has_strong_classification(themes: List[ThemePayload]) -> bool:
+        total_weight = sum(float(theme.get("weight") or 0) for theme in themes)
+        has_strong_primary = any(
+            theme.get("tier") == "primary" and float(theme.get("confidence") or 0) >= 0.75
+            for theme in themes
+        )
+        return has_strong_primary and total_weight >= 0.70
+
+    @staticmethod
+    def _suggested_subthemes_are_already_covered(value: Any) -> bool:
+        if not isinstance(value, list) or not value:
+            return False
+
+        allowed_subthemes = {
+            subtheme.casefold()
+            for subthemes in ALLOWED_THEME_HIERARCHY.values()
+            for subtheme in subthemes
+        }
+        suggested = {
+            item.strip().casefold()
+            for item in value
+            if isinstance(item, str) and item.strip()
+        }
+        return bool(suggested) and suggested.issubset(allowed_subthemes)
+
+    @classmethod
+    def _clean_taxonomy_gap(cls, value: Any) -> Optional[Dict[str, Any]]:
+        if not isinstance(value, dict):
+            return None
+
+        confidence = cls._to_confidence(value.get("confidence"))
+        subthemes = []
+        seen_subthemes: set[str] = set()
+        for item in value.get("suggestedSubthemes") or []:
+            if len(subthemes) >= 5:
+                break
+            if not isinstance(item, str):
+                continue
+            cleaned = " ".join(item.strip().split())[:120]
+            normalized = cleaned.casefold()
+            if cleaned and normalized not in seen_subthemes:
+                seen_subthemes.add(normalized)
+                subthemes.append(cleaned)
+
+        suggested_theme = value.get("suggestedTheme")
+        reason = value.get("reason")
+        return {
+            "hasGap": bool(value.get("hasGap")),
+            "reason": " ".join(reason.strip().split())[:500] if isinstance(reason, str) else "",
+            "suggestedTheme": " ".join(suggested_theme.strip().split())[:160]
+            if isinstance(suggested_theme, str)
+            else "",
+            "suggestedSubthemes": subthemes,
+            "confidence": confidence,
+        }
+
+    @staticmethod
+    def _summary_excerpt(summary: Optional[str]) -> Optional[str]:
+        if not summary:
+            return None
+        return " ".join(summary.strip().split())[:700]
 
     @classmethod
     def _clean_subthemes(cls, theme_label: str, value: Any) -> List[ThemePayload]:

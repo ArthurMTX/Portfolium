@@ -3,7 +3,13 @@ SQLAlchemy ORM models - organized by domain
 """
 from app.models.enums import AssetClass, TransactionType, NotificationType
 from app.models.user import User
-from app.models.asset import Asset, AssetMetadataOverride, AssetInvestmentNote, AssetThemeClassification
+from app.models.asset import (
+    Asset,
+    AssetMetadataOverride,
+    AssetInvestmentNote,
+    AssetThemeClassification,
+    AssetThemeTaxonomySuggestion,
+)
 from app.models.portfolio import Portfolio, Transaction
 from app.models.price import Price
 from app.models.watchlist import Watchlist, WatchlistTag, watchlist_item_tags
@@ -26,6 +32,7 @@ __all__ = [
     "AssetMetadataOverride",
     "AssetInvestmentNote",
     "AssetThemeClassification",
+    "AssetThemeTaxonomySuggestion",
     "Portfolio",
     "Transaction",
     "Price",

@@ -20,11 +20,16 @@ from app.schemas import (
     AssetMetadataOverride,
     AssetResearchResponse,
     AssetThemeClassification,
+    AssetThemeClassifyRequest,
+    AssetThemeClassifyResponse,
+    AssetThemeTaxonomySuggestion,
+    AssetThemeTaxonomySuggestionStats,
+    AssetThemeTaxonomySuggestionUpdate,
     AssetWithOverrides,
 )
 from app.crud import assets as crud
 from app.auth import get_current_admin_user, get_current_user
-from app.models import Asset as AssetModel, User
+from app.models import Asset as AssetModel, AssetThemeTaxonomySuggestion as AssetThemeTaxonomySuggestionModel, User
 from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
@@ -53,6 +58,38 @@ logger = logging.getLogger(__name__)
 def get_theme_hierarchy() -> Dict[str, List[str]]:
     """Return the allowed theme hierarchy used by the classifier."""
     return {theme: list(subthemes) for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()}
+
+
+def _serialize_taxonomy_suggestion(
+    suggestion: AssetThemeTaxonomySuggestionModel,
+) -> Dict[str, Any]:
+    asset = suggestion.asset
+    return {
+        "id": suggestion.id,
+        "asset_id": suggestion.asset_id,
+        "symbol": suggestion.symbol,
+        "company_name": suggestion.company_name,
+        "sector": suggestion.sector,
+        "industry": suggestion.industry,
+        "summary_hash": suggestion.summary_hash,
+        "summary_excerpt": suggestion.summary_excerpt,
+        "suggested_theme": suggestion.suggested_theme,
+        "suggested_subthemes": suggestion.suggested_subthemes or [],
+        "reason": suggestion.reason,
+        "confidence": float(suggestion.confidence) if suggestion.confidence is not None else 0,
+        "status": suggestion.status,
+        "reviewer_note": suggestion.reviewer_note,
+        "current_themes": asset.themes if asset else [],
+        "created_at": suggestion.created_at,
+        "updated_at": suggestion.updated_at,
+        "reviewed_at": suggestion.reviewed_at,
+    }
+
+
+def _taxonomy_gap_response(gap: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not gap or not gap.get("hasGap"):
+        return None
+    return gap
 
 
 def _parse_split_ratio(split_str: str) -> Decimal:
@@ -504,6 +541,177 @@ async def get_asset_research(symbol: str, db: Session = Depends(get_db)):
     """
     service = AssetResearchService(db)
     return await service.get_asset_research(symbol)
+
+
+@router.get("/themes/taxonomy-suggestions", response_model=List[AssetThemeTaxonomySuggestion])
+def list_theme_taxonomy_suggestions(
+    status_filter: str = Query(default="pending", alias="status", pattern="^(pending|accepted|rejected|ignored|all)$"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    search: Optional[str] = Query(default=None),
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """List taxonomy gap suggestions for admin review."""
+    query = db.query(AssetThemeTaxonomySuggestionModel).join(AssetModel)
+    if status_filter != "all":
+        query = query.filter(AssetThemeTaxonomySuggestionModel.status == status_filter)
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            or_(
+                AssetThemeTaxonomySuggestionModel.symbol.ilike(like),
+                AssetThemeTaxonomySuggestionModel.company_name.ilike(like),
+                AssetThemeTaxonomySuggestionModel.suggested_theme.ilike(like),
+                AssetThemeTaxonomySuggestionModel.reason.ilike(like),
+            )
+        )
+
+    suggestions = (
+        query.order_by(AssetThemeTaxonomySuggestionModel.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [_serialize_taxonomy_suggestion(suggestion) for suggestion in suggestions]
+
+
+@router.get("/themes/taxonomy-suggestions/stats", response_model=AssetThemeTaxonomySuggestionStats)
+def get_theme_taxonomy_suggestion_stats(
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Return review counts and top taxonomy suggestions."""
+    suggestions = db.query(AssetThemeTaxonomySuggestionModel).all()
+    counts = {"pending": 0, "accepted": 0, "rejected": 0, "ignored": 0}
+    theme_counts: Dict[str, int] = {}
+    subtheme_counts: Dict[str, int] = {}
+
+    for suggestion in suggestions:
+        counts[suggestion.status] = counts.get(suggestion.status, 0) + 1
+        theme_counts[suggestion.suggested_theme] = theme_counts.get(suggestion.suggested_theme, 0) + 1
+        for subtheme in suggestion.suggested_subthemes or []:
+            if isinstance(subtheme, str):
+                subtheme_counts[subtheme] = subtheme_counts.get(subtheme, 0) + 1
+
+    top_themes = [
+        {"label": label, "count": count}
+        for label, count in sorted(theme_counts.items(), key=lambda item: (-item[1], item[0]))[:10]
+    ]
+    top_subthemes = [
+        {"label": label, "count": count}
+        for label, count in sorted(subtheme_counts.items(), key=lambda item: (-item[1], item[0]))[:10]
+    ]
+    return {
+        "counts_by_status": counts,
+        "top_suggested_themes": top_themes,
+        "top_suggested_subthemes": top_subthemes,
+    }
+
+
+@router.patch("/themes/taxonomy-suggestions/{suggestion_id}", response_model=AssetThemeTaxonomySuggestion)
+def update_theme_taxonomy_suggestion(
+    suggestion_id: int,
+    payload: AssetThemeTaxonomySuggestionUpdate,
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Mark a taxonomy suggestion as accepted, rejected, or ignored."""
+    suggestion = (
+        db.query(AssetThemeTaxonomySuggestionModel)
+        .filter(AssetThemeTaxonomySuggestionModel.id == suggestion_id)
+        .first()
+    )
+    if not suggestion:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Taxonomy suggestion not found")
+
+    suggestion.status = payload.status
+    suggestion.reviewer_note = payload.reviewer_note
+    suggestion.reviewed_at = datetime.utcnow()
+    suggestion.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(suggestion)
+    return _serialize_taxonomy_suggestion(suggestion)
+
+
+@router.post("/themes/classify", response_model=AssetThemeClassifyResponse)
+def classify_asset_themes(
+    payload: AssetThemeClassifyRequest,
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Classify one or more assets and collect taxonomy gap suggestions for review."""
+    service = AssetThemeService(db)
+    results: List[Dict[str, Any]] = []
+    classified = 0
+    skipped = 0
+    failed = 0
+
+    symbols = []
+    seen_symbols: set[str] = set()
+    for raw_symbol in payload.symbols:
+        symbol = raw_symbol.strip().upper()
+        if symbol and symbol not in seen_symbols:
+            seen_symbols.add(symbol)
+            symbols.append(symbol)
+
+    for symbol in symbols:
+        try:
+            asset = crud.get_asset_by_symbol(db, symbol)
+            if not asset:
+                asset = crud.create_asset(db, AssetCreate(symbol=symbol))
+
+            existing = service.get_classification(asset.id)
+            if payload.missing_only and existing and existing.themes and not payload.force:
+                skipped += 1
+                results.append({
+                    "symbol": asset.symbol,
+                    "status": "skipped",
+                    "company_name": asset.name,
+                    "themes": existing.themes or [],
+                    "taxonomy_gap": None,
+                    "skipped_reason": "existing_classification",
+                })
+                continue
+
+            company_info = _fetch_theme_company_info(asset)
+            classification = service.refresh_gemini_classification(
+                asset=asset,
+                summary=company_info.get("longBusinessSummary") or company_info.get("description"),
+                sector=company_info.get("sector") or asset.sector,
+                industry=company_info.get("industry") or asset.industry,
+                name=company_info.get("longName") or company_info.get("shortName") or asset.name,
+                force=payload.force,
+            )
+            classified += 1
+            results.append({
+                "symbol": asset.symbol,
+                "status": "classified",
+                "company_name": asset.name,
+                "themes": classification.themes or [],
+                "taxonomy_gap": _taxonomy_gap_response(service.last_taxonomy_gap),
+            })
+        except Exception as exc:
+            db.rollback()
+            failed += 1
+            logger.warning("Asset theme classification failed for %s: %s", symbol, exc)
+            results.append({
+                "symbol": symbol,
+                "status": "failed",
+                "company_name": None,
+                "themes": [],
+                "taxonomy_gap": None,
+                "failure_reason": str(exc),
+            })
+
+    _invalidate_asset_list_caches()
+    return {
+        "total": len(symbols),
+        "classified": classified,
+        "skipped": skipped,
+        "failed": failed,
+        "results": results,
+    }
 
 
 @router.get("/{asset_id}/themes", response_model=AssetThemeClassification)

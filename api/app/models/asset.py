@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Index,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -65,6 +66,11 @@ class Asset(Base):
         back_populates="asset",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+    theme_taxonomy_suggestions = relationship(
+        "AssetThemeTaxonomySuggestion",
+        back_populates="asset",
+        cascade="all, delete-orphan",
     )
 
     @property
@@ -151,3 +157,44 @@ class AssetThemeClassification(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     asset = relationship("Asset", back_populates="theme_classification")
+
+
+class AssetThemeTaxonomySuggestion(Base):
+    """LLM-proposed taxonomy gap for admin review only."""
+    __tablename__ = "asset_theme_taxonomy_suggestions"
+    __table_args__ = (
+        UniqueConstraint(
+            "asset_id",
+            "summary_hash",
+            "suggested_theme",
+            name="uq_asset_theme_taxonomy_suggestions_asset_hash_theme",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'rejected', 'ignored')",
+            name="ck_asset_theme_taxonomy_suggestions_status",
+        ),
+        Index("idx_asset_theme_taxonomy_suggestions_status", "status"),
+        Index("idx_asset_theme_taxonomy_suggestions_symbol", "symbol"),
+        Index("idx_asset_theme_taxonomy_suggestions_theme", "suggested_theme"),
+        {"schema": "portfolio"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    symbol = Column(String, nullable=False)
+    company_name = Column(String, nullable=True)
+    sector = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    summary_hash = Column(String(64), nullable=False)
+    summary_excerpt = Column(Text, nullable=True)
+    suggested_theme = Column(String, nullable=False)
+    suggested_subthemes = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    reason = Column(Text, nullable=False)
+    confidence = Column(Numeric(5, 4), nullable=False)
+    status = Column(String(20), nullable=False, default="pending", server_default=text("'pending'"))
+    reviewer_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    asset = relationship("Asset", back_populates="theme_taxonomy_suggestions")

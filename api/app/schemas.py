@@ -317,6 +317,75 @@ class AssetThemeClassification(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AssetThemeTaxonomyGap(BaseModel):
+    """LLM-proposed taxonomy gap payload."""
+    hasGap: bool = False
+    reason: Optional[str] = None
+    suggestedTheme: Optional[str] = None
+    suggestedSubthemes: List[str] = Field(default_factory=list)
+    confidence: Optional[float] = Field(default=None, ge=0, le=1)
+
+
+class AssetThemeTaxonomySuggestion(BaseModel):
+    """Stored taxonomy gap suggestion for admin review."""
+    id: int
+    asset_id: int
+    symbol: str
+    company_name: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    summary_hash: str
+    summary_excerpt: Optional[str] = None
+    suggested_theme: str
+    suggested_subthemes: List[str] = Field(default_factory=list)
+    reason: str
+    confidence: float
+    status: str = Field(pattern="^(pending|accepted|rejected|ignored)$")
+    reviewer_note: Optional[str] = None
+    current_themes: List[AssetTheme] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssetThemeTaxonomySuggestionUpdate(BaseModel):
+    """Admin review update for a taxonomy suggestion."""
+    status: str = Field(pattern="^(accepted|rejected|ignored)$")
+    reviewer_note: Optional[str] = None
+
+
+class AssetThemeTaxonomySuggestionStats(BaseModel):
+    counts_by_status: Dict[str, int] = Field(default_factory=dict)
+    top_suggested_themes: List[Dict[str, Any]] = Field(default_factory=list)
+    top_suggested_subthemes: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AssetThemeClassifyRequest(BaseModel):
+    symbols: List[str] = Field(min_length=1, max_length=100)
+    force: bool = False
+    missing_only: bool = True
+
+
+class AssetThemeClassifyResult(BaseModel):
+    symbol: str
+    status: str
+    company_name: Optional[str] = None
+    themes: List[AssetTheme] = Field(default_factory=list)
+    taxonomy_gap: Optional[AssetThemeTaxonomyGap] = None
+    failure_reason: Optional[str] = None
+    skipped_reason: Optional[str] = None
+
+
+class AssetThemeClassifyResponse(BaseModel):
+    total: int
+    classified: int
+    skipped: int
+    failed: int
+    results: List[AssetThemeClassifyResult] = Field(default_factory=list)
+
+
 class AssetWithOverrides(AssetBase):
     """Asset response schema with user-specific overrides"""
     id: int

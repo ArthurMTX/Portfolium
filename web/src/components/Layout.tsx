@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText, Folder, Calendar } from 'lucide-react'
+import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText, Folder, Calendar, Tags } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
@@ -7,12 +7,14 @@ import NotificationBell from './NotificationBell'
 import LanguageSwitcher from './LanguageSwitcher'
 import { VERSION } from '../version'
 import usePortfolioStore from '../store/usePortfolioStore'
+import api from '../lib/api'
 
 export default function Layout() {
   const location = useLocation()
   const [darkMode, setDarkMode] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [pendingThemeSuggestions, setPendingThemeSuggestions] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
@@ -44,6 +46,15 @@ export default function Layout() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (!(user?.is_admin || user?.is_superuser)) return
+
+    api
+      .getThemeTaxonomySuggestionStats()
+      .then((stats) => setPendingThemeSuggestions(stats.counts_by_status.pending || 0))
+      .catch(() => setPendingThemeSuggestions(0))
+  }, [user?.is_admin, user?.is_superuser])
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -264,6 +275,19 @@ export default function Layout() {
                         >
                           <ShieldCheck size={16} />
                           {t('navigation.adminDashboard')}
+                        </Link>
+                        <Link
+                          to="/admin/theme-taxonomy"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                        >
+                          <Tags size={16} />
+                          <span className="flex-1">Theme Suggestions</span>
+                          {pendingThemeSuggestions > 0 && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                              {pendingThemeSuggestions}
+                            </span>
+                          )}
                         </Link>
                         <Link
                           to="/dev"

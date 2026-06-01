@@ -31,6 +31,7 @@ import AssetsList from './pages/AssetsList'
 import WidgetDebug from './pages/WidgetDebug'
 import PublicPortfolio from './pages/PublicPortfolio'
 import Calendar from './pages/Calendar'
+import AdminThemeTaxonomy from './pages/AdminThemeTaxonomy'
 
 // Configure React Query for optimal performance
 const queryClient = new QueryClient({
@@ -104,6 +105,14 @@ function App() {
                   element={
                     <ProtectedRoute requireAdmin>
                       <Admin />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin/theme-taxonomy"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AdminThemeTaxonomy />
                     </ProtectedRoute>
                   }
                 />

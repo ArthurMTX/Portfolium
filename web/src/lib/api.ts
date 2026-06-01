@@ -156,6 +156,61 @@ export interface AssetThemeClassificationDTO {
   updated_at: string | null
 }
 
+export interface AssetThemeTaxonomyGapDTO {
+  hasGap: boolean
+  reason?: string | null
+  suggestedTheme?: string | null
+  suggestedSubthemes: string[]
+  confidence?: number | null
+}
+
+export type AssetThemeTaxonomySuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'ignored'
+
+export interface AssetThemeTaxonomySuggestionDTO {
+  id: number
+  asset_id: number
+  symbol: string
+  company_name: string | null
+  sector: string | null
+  industry: string | null
+  summary_hash: string
+  summary_excerpt: string | null
+  suggested_theme: string
+  suggested_subthemes: string[]
+  reason: string
+  confidence: number
+  status: AssetThemeTaxonomySuggestionStatus
+  reviewer_note: string | null
+  current_themes: AssetThemeDTO[]
+  created_at: string
+  updated_at: string
+  reviewed_at: string | null
+}
+
+export interface AssetThemeTaxonomySuggestionStatsDTO {
+  counts_by_status: Record<AssetThemeTaxonomySuggestionStatus, number>
+  top_suggested_themes: { label: string; count: number }[]
+  top_suggested_subthemes: { label: string; count: number }[]
+}
+
+export interface AssetThemeClassifyResultDTO {
+  symbol: string
+  status: 'classified' | 'skipped' | 'failed' | string
+  company_name: string | null
+  themes: AssetThemeDTO[]
+  taxonomy_gap: AssetThemeTaxonomyGapDTO | null
+  failure_reason?: string | null
+  skipped_reason?: string | null
+}
+
+export interface AssetThemeClassifyResponseDTO {
+  total: number
+  classified: number
+  skipped: number
+  failed: number
+  results: AssetThemeClassifyResultDTO[]
+}
+
 export interface PortfolioMetricsDTO {
   portfolio_id: number
   portfolio_name: string
@@ -908,6 +963,43 @@ class ApiClient {
   async refreshAssetThemes(assetId: number) {
     return this.request<AssetThemeClassificationDTO>(`/assets/${assetId}/themes/refresh`, {
       method: 'POST',
+    })
+  }
+
+  async getThemeTaxonomySuggestions(params?: {
+    status?: AssetThemeTaxonomySuggestionStatus | 'all'
+    limit?: number
+    offset?: number
+    search?: string
+  }) {
+    const query = new URLSearchParams()
+    query.set('status', params?.status || 'pending')
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    if (params?.search) query.set('search', params.search)
+    return this.request<AssetThemeTaxonomySuggestionDTO[]>(
+      `/assets/themes/taxonomy-suggestions?${query.toString()}`
+    )
+  }
+
+  async getThemeTaxonomySuggestionStats() {
+    return this.request<AssetThemeTaxonomySuggestionStatsDTO>('/assets/themes/taxonomy-suggestions/stats')
+  }
+
+  async updateThemeTaxonomySuggestion(
+    suggestionId: number,
+    payload: { status: AssetThemeTaxonomySuggestionStatus; reviewer_note?: string | null }
+  ) {
+    return this.request<AssetThemeTaxonomySuggestionDTO>(`/assets/themes/taxonomy-suggestions/${suggestionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async classifyAssetThemes(payload: { symbols: string[]; force: boolean; missing_only: boolean }) {
+    return this.request<AssetThemeClassifyResponseDTO>('/assets/themes/classify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     })
   }
 
