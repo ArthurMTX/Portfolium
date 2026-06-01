@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -26,6 +27,10 @@ MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
 MIN_TAXONOMY_GAP_CONFIDENCE = 0.65
 GEMINI_THEME_METHOD = "gpt"
+MAX_SUMMARY_CHARS = 2500
+MAX_SUMMARY_SENTENCES = 10
+
+_SUMMARY_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
 
 ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "AI Infrastructure": ("GPU Computing", "Accelerated Computing", "AI Servers", "AI Networking", "Edge AI"),
@@ -483,7 +488,7 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
-        prompt = self._build_prompt(
+        prompt, prompt_metrics = self._build_prompt_with_metrics(
             name=name,
             sector=sector,
             industry=industry,
@@ -491,18 +496,24 @@ class AssetThemeService:
         )
         started_at = time.perf_counter()
         logger.info(
-            "Gemini theme request sending model=%s company=%s sector=%s industry=%s prompt_chars=%s",
-            GEMINI_THEME_MODEL,
+            "Gemini theme request sending model=%s company=%s sector=%s industry=%s "
+            "summary_chars_original=%s summary_chars_used=%s taxonomy_chars=%s "
+            "instruction_chars=%s prompt_chars=%s",
+            self.gemini_service.model,
             name,
             sector,
             industry,
-            len(prompt),
+            prompt_metrics["summary_chars_original"],
+            prompt_metrics["summary_chars_used"],
+            prompt_metrics["taxonomy_chars"],
+            prompt_metrics["instruction_chars"],
+            prompt_metrics["prompt_chars"],
         )
         raw_response = self.gemini_service.generate_json(prompt, GEMINI_RESPONSE_SCHEMA)
         elapsed_ms = round((time.perf_counter() - started_at) * 1000)
         logger.info(
             "Gemini theme request received model=%s company=%s elapsed_ms=%s response_chars=%s",
-            GEMINI_THEME_MODEL,
+            self.gemini_service.model,
             name,
             elapsed_ms,
             len(raw_response),
@@ -535,134 +546,156 @@ class AssetThemeService:
         ])
         return hashlib.sha256(source.encode("utf-8")).hexdigest()
 
-    @staticmethod
-    def _build_prompt(
+    @classmethod
+    def _build_prompt_with_metrics(
+        cls,
         name: Optional[str],
         sector: Optional[str],
         industry: Optional[str],
         summary: str,
-    ) -> str:
-        allowed_themes = "\n".join(
-            f"- {theme}: {', '.join(subthemes)}"
-            for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()
-        )
+    ) -> tuple[str, Dict[str, int]]:
+        summary_original = summary or ""
+        summary_used = cls._trim_summary_for_prompt(summary_original)
+        taxonomy = cls._render_taxonomy_for_prompt()
 
-        return f"""You classify listed companies into investment themes.
+        prompt = f"""You classify listed companies into investment themes.
 
 Input:
 company name: {name or ""}
 sector: {sector or ""}
 industry: {industry or ""}
-longBusinessSummary: {summary}
+longBusinessSummary: {summary_used}
 
-Allowed hierarchy:
-{allowed_themes}
-
-Instruction:
-First classify using ONLY the allowed hierarchy above.
-If there is no strong existing match, or only weak/generic matches, return fewer themes or no themes.
-If the allowed taxonomy is missing a clear business exposure, fill taxonomyGap for admin review.
-taxonomyGap is not a final classification and must not duplicate an existing theme or subtheme.
-
-Return:
-* max 3 primary themes
-* max 5 secondary themes
-* max 3 subthemes per theme
-* taxonomyGap.hasGap false when the allowed taxonomy already has a good fit
-
-Definitions:
-* Theme = high-level investable exposure for portfolio allocation and dashboard aggregation.
-* Subtheme = precise business specialization for asset research and detailed exposure analysis.
-* Primary themes = core business activities, main revenue drivers, or main strategic focus.
-* Secondary themes = meaningful top-level exposure, but not the main business.
-* Theme weight = estimated share of the company's real economic exposure.
-* All selected theme weights combined must sum to exactly 1.00.
-* Primary themes usually receive 0.40 to 0.90 weight.
-* Secondary themes usually receive 0.05 to 0.40 weight.
-* If a theme would receive less than {MIN_THEME_WEIGHT}, omit it.
-
-Business Relevance Rules:
-* Identify the company's real economic exposures, not every activity mentioned.
-* Select themes based on core business activities, operating segments, revenue drivers, or strategic focus.
-* Ignore financing, leasing, insurance, payment processing, support services, minor software tools, ancillary cloud services, distribution agreements, partnerships, customer examples, marketing initiatives, temporary projects, and small business units unless they are a major business segment.
-* Do NOT select a theme simply because a related keyword appears.
-* Prefer precise investable exposures over broad sectors.
-* Pick subthemes only from the selected theme's allowed subtheme list.
-* If uncertain, return fewer themes.
-* If allowed themes would be weak or generic, prefer no classification plus taxonomyGap when a clear missing exposure exists.
-
-Examples:
-* Deere: Precision Agriculture and Construction & Industrial Equipment are valid. Digital Finance is usually invalid because financing supports equipment sales.
-* MarineMax: Marine Recreation is valid. Luxury Automobiles is invalid because yachts are not automobiles.
-* Xylem: Water Infrastructure is valid. Data Analytics Platforms is usually invalid because analytics supports water operations.
-* Rocket Lab: Space Infrastructure is valid. Cloud Platforms is invalid unless cloud services are a real sold product.
-* Verisure before Physical Security exists: return no themes and taxonomyGap suggestedTheme Physical Security with Alarm Monitoring, Security Systems, Emergency Response.
-* Beyond Meat before Food & Beverage exists: return no themes and taxonomyGap suggestedTheme Food & Beverage with Plant-Based Foods, Alternative Proteins.
-* Freddie Mac before Mortgage Finance exists: return no themes and taxonomyGap suggestedTheme Mortgage Finance with Secondary Mortgage Market, Mortgage Securitization.
-* If a good existing theme exists, taxonomyGap.hasGap must be false.
+Allowed hierarchy JSON:
+{taxonomy}
 
 Rules:
-* do not invent themes or subthemes in primaryThemes or secondaryThemes
-* do not use generic sector labels such as Technology, Software, Industrials, Energy, Consumer Brands, or Infrastructure
-* do not return explanations
-* do not return markdown
-* only valid JSON
-* confidence between 0 and 1
-* weight between 0 and 1
-* all theme weights must sum to 1.00
-* evidence must be short exact phrases from longBusinessSummary that justify the selected theme or subtheme
-* evidence must come from the input description; do not paraphrase or invent evidence
-* do not include themes or subthemes with confidence below {MIN_THEME_CONFIDENCE}
-* do not add a third hierarchy level
-* taxonomyGap.reason must be concise and business-oriented
-* taxonomyGap.confidence must be between 0 and 1
-* taxonomyGap is only for review and must not be included in primaryThemes or secondaryThemes
+- Use only labels from the allowed hierarchy for primaryThemes, secondaryThemes, and subthemes.
+- Select real economic exposures: core activities, operating segments, revenue drivers, or strategic focus.
+- Ignore minor, supporting, customer, partnership, financing, leasing, insurance, payment, marketing, and internal software activities unless they are major segments.
+- Prefer precise investable exposures over broad sectors; never use generic labels like Technology, Software, Industrials, Energy, Consumer Brands, or Infrastructure.
+- Return fewer themes, or none, when fit is weak or uncertain.
+- If a clear business exposure is missing from the allowed hierarchy, set taxonomyGap for admin review; it is not a final classification and must not duplicate an existing theme or subtheme.
+- If an existing theme fits well, taxonomyGap.hasGap must be false.
+- Max 3 primary themes, max 5 secondary themes, max 3 subthemes per theme.
+- Theme weights estimate economic exposure, must sum to 1.00, and omit any theme below {MIN_THEME_WEIGHT}.
+- Primary themes are core business exposures; secondary themes are meaningful but not main business exposures.
+- Confidence and weight must be between 0 and 1; omit themes or subthemes below confidence {MIN_THEME_CONFIDENCE}.
+- Evidence must be short exact phrases from longBusinessSummary; do not paraphrase or invent evidence.
+- Do not add a third hierarchy level, explanations, markdown, or non-JSON text.
+- taxonomyGap.reason must be concise and business-oriented; taxonomyGap.confidence must be between 0 and 1.
 
-Expected JSON:
-{{
-  "primaryThemes": [
-    {{
-      "label": "AI Infrastructure",
-      "confidence": 0.95,
-      "weight": 0.65,
-      "evidence": ["accelerated computing", "data center"],
-      "subthemes": [
-        {{
-          "label": "GPU Computing",
-          "confidence": 0.92,
-          "evidence": ["graphics processing units"]
-        }},
-        {{
-          "label": "Accelerated Computing",
-          "confidence": 0.88,
-          "evidence": ["accelerated computing"]
-        }}
-      ]
-    }}
-  ],
-  "secondaryThemes": [
-    {{
-      "label": "Data Center Infrastructure",
-      "confidence": 0.87,
-      "weight": 0.35,
-      "evidence": ["data center"],
-      "subthemes": [
-        {{
-          "label": "Hyperscale Data Centers",
-          "confidence": 0.84,
-          "evidence": ["hyperscale data centers"]
-        }}
-      ]
-    }}
-  ],
-  "taxonomyGap": {{
-    "hasGap": false,
-    "reason": "",
-    "suggestedTheme": "",
-    "suggestedSubthemes": [],
-    "confidence": 0
-  }}
-}}"""
+Examples:
+- Deere: Precision Agriculture and Construction & Industrial Equipment can be valid; Digital Finance is usually invalid when financing only supports equipment sales.
+- MarineMax: Marine Recreation can be valid; Luxury Automobiles is invalid for yachts.
+- Xylem: Water Infrastructure can be valid; Data Analytics Platforms is invalid when analytics only supports water operations.
+- If no existing theme fits a clear exposure, return no weak theme and provide taxonomyGap. If a good theme exists, taxonomyGap.hasGap=false.
+
+Return only JSON shaped as:
+{{"primaryThemes":[{{"label":"","confidence":0,"weight":0,"evidence":[],"subthemes":[{{"label":"","confidence":0,"evidence":[]}}]}}],"secondaryThemes":[{{"label":"","confidence":0,"weight":0,"evidence":[],"subthemes":[{{"label":"","confidence":0,"evidence":[]}}]}}],"taxonomyGap":{{"hasGap":false,"reason":"","suggestedTheme":"","suggestedSubthemes":[],"confidence":0}}}}"""
+
+        metrics = {
+            "summary_chars_original": len(summary_original),
+            "summary_chars_used": len(summary_used),
+            "taxonomy_chars": len(taxonomy),
+            "instruction_chars": len(prompt) - len(summary_used) - len(taxonomy),
+            "prompt_chars": len(prompt),
+        }
+        return prompt, metrics
+
+    @classmethod
+    def _build_prompt(
+        cls,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: str,
+    ) -> str:
+        prompt, _metrics = cls._build_prompt_with_metrics(
+            name=name,
+            sector=sector,
+            industry=industry,
+            summary=summary,
+        )
+        return prompt
+
+    @staticmethod
+    def _render_taxonomy_for_prompt() -> str:
+        return json.dumps(
+            {theme: list(subthemes) for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()},
+            separators=(",", ":"),
+        )
+
+    @classmethod
+    def _trim_summary_for_prompt(cls, summary: Optional[str]) -> str:
+        if not summary:
+            return ""
+
+        normalized = " ".join(summary.strip().split())
+        if not normalized:
+            return ""
+
+        sentences = cls._split_summary_sentences(normalized)
+        if len(normalized) <= MAX_SUMMARY_CHARS and len(sentences) <= MAX_SUMMARY_SENTENCES:
+            return normalized
+
+        should_skip_low_signal_lists = (
+            len(normalized) > MAX_SUMMARY_CHARS
+            or len(sentences) > MAX_SUMMARY_SENTENCES
+        )
+
+        kept: List[str] = []
+        for sentence in sentences:
+            if len(kept) >= MAX_SUMMARY_SENTENCES:
+                break
+            if (
+                should_skip_low_signal_lists
+                and kept
+                and cls._looks_like_excessive_brand_list(sentence)
+            ):
+                continue
+
+            candidate = " ".join([*kept, sentence])
+            if len(candidate) > MAX_SUMMARY_CHARS:
+                if not kept:
+                    return cls._truncate_at_word_boundary(sentence, MAX_SUMMARY_CHARS)
+                break
+            kept.append(sentence)
+
+        if kept:
+            return " ".join(kept)
+
+        return cls._truncate_at_word_boundary(normalized, MAX_SUMMARY_CHARS)
+
+    @staticmethod
+    def _split_summary_sentences(summary: str) -> List[str]:
+        sentences = [
+            sentence.strip()
+            for sentence in _SUMMARY_SENTENCE_RE.split(summary)
+            if sentence.strip()
+        ]
+        return sentences or [summary]
+
+    @staticmethod
+    def _looks_like_excessive_brand_list(sentence: str) -> bool:
+        lower = sentence.casefold()
+        if "brand" not in lower and "trademark" not in lower:
+            return False
+
+        comma_count = sentence.count(",")
+        semicolon_count = sentence.count(";")
+        return comma_count >= 8 or semicolon_count >= 4
+
+    @staticmethod
+    def _truncate_at_word_boundary(text: str, max_chars: int) -> str:
+        if len(text) <= max_chars:
+            return text
+
+        truncated = text[:max_chars].rstrip()
+        boundary = truncated.rfind(" ")
+        if boundary >= max_chars * 0.8:
+            truncated = truncated[:boundary].rstrip()
+        return truncated.rstrip(" ,;:")
 
     @staticmethod
     def _parse_json_response(raw_response: str) -> Dict[str, Any]:

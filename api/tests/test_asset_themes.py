@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -6,7 +7,13 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
 from app.models import AssetThemeClassification
-from app.services.asset_themes import AssetThemeService, GEMINI_THEME_MODEL
+from app.services.asset_themes import (
+    ALLOWED_THEME_HIERARCHY,
+    AssetThemeService,
+    GEMINI_THEME_MODEL,
+    MAX_SUMMARY_CHARS,
+    MAX_SUMMARY_SENTENCES,
+)
 
 
 def test_refresh_gemini_classification_recovers_from_duplicate_insert(
@@ -41,23 +48,26 @@ def test_refresh_gemini_classification_recovers_from_duplicate_insert(
     monkeypatch.setattr(service, "get_classification", get_classification)
     monkeypatch.setattr(
         service,
-        "generate_themes",
-        lambda name, sector, industry, summary: [
-            {
-                "label": "AI Infrastructure",
-                "confidence": 0.91,
-                "weight": 1.0,
-                "evidence": ["AI infrastructure"],
-                "tier": "primary",
-                "children": [
-                    {
-                        "label": "GPU Computing",
-                        "confidence": 0.88,
-                        "evidence": ["GPUs"],
-                    },
-                ],
-            }
-        ],
+        "generate_theme_payload",
+        lambda name, sector, industry, summary: (
+            [
+                {
+                    "label": "AI Infrastructure",
+                    "confidence": 0.91,
+                    "weight": 1.0,
+                    "evidence": ["AI infrastructure"],
+                    "tier": "primary",
+                    "children": [
+                        {
+                            "label": "GPU Computing",
+                            "confidence": 0.88,
+                            "evidence": ["GPUs"],
+                        },
+                    ],
+                }
+            ],
+            None,
+        ),
     )
 
     classification = service.refresh_gemini_classification(
@@ -109,23 +119,26 @@ def test_refresh_gemini_classification_uses_postgresql_upsert(
     monkeypatch.setattr(service, "get_classification", Mock(return_value=None))
     monkeypatch.setattr(
         service,
-        "generate_themes",
-        lambda name, sector, industry, summary: [
-            {
-                "label": "AI Infrastructure",
-                "confidence": 0.95,
-                "weight": 1.0,
-                "evidence": ["accelerated computing"],
-                "tier": "primary",
-                "children": [
-                    {
-                        "label": "Accelerated Computing",
-                        "confidence": 0.92,
-                        "evidence": ["accelerated computing platforms"],
-                    },
-                ],
-            }
-        ],
+        "generate_theme_payload",
+        lambda name, sector, industry, summary: (
+            [
+                {
+                    "label": "AI Infrastructure",
+                    "confidence": 0.95,
+                    "weight": 1.0,
+                    "evidence": ["accelerated computing"],
+                    "tier": "primary",
+                    "children": [
+                        {
+                            "label": "Accelerated Computing",
+                            "confidence": 0.92,
+                            "evidence": ["accelerated computing platforms"],
+                        },
+                    ],
+                }
+            ],
+            None,
+        ),
     )
 
     result = service.refresh_gemini_classification(
@@ -231,3 +244,49 @@ def test_validate_and_flatten_builds_precise_two_level_hierarchy():
             ],
         },
     ]
+
+
+def test_render_taxonomy_for_prompt_uses_compact_json():
+    taxonomy = AssetThemeService._render_taxonomy_for_prompt()
+    parsed = json.loads(taxonomy)
+
+    assert parsed["AI Infrastructure"] == list(ALLOWED_THEME_HIERARCHY["AI Infrastructure"])
+    assert "\n" not in taxonomy
+    assert ": " not in taxonomy
+
+
+def test_trim_summary_for_prompt_limits_sentences_and_skips_long_brand_lists():
+    brand_list = ", ".join(f"Brand {index}" for index in range(12))
+    summary = (
+        "The company develops water treatment systems for utilities. "
+        f"The company sells products under the {brand_list} brands. "
+        "It provides pumping systems and smart water networks. "
+        + " ".join(f"Additional operating detail {index}." for index in range(20))
+    )
+
+    trimmed = AssetThemeService._trim_summary_for_prompt(summary)
+
+    assert len(trimmed) <= MAX_SUMMARY_CHARS
+    assert len(AssetThemeService._split_summary_sentences(trimmed)) <= MAX_SUMMARY_SENTENCES
+    assert "water treatment systems" in trimmed
+    assert "smart water networks" in trimmed
+    assert "Brand 11" not in trimmed
+
+
+def test_build_prompt_metrics_report_prompt_components():
+    summary = " ".join(f"Sentence {index}." for index in range(20))
+
+    prompt, metrics = AssetThemeService._build_prompt_with_metrics(
+        name="Xylem",
+        sector="Industrials",
+        industry="Specialty Industrial Machinery",
+        summary=summary,
+    )
+
+    assert metrics["summary_chars_original"] == len(summary)
+    assert metrics["summary_chars_used"] <= MAX_SUMMARY_CHARS
+    assert metrics["taxonomy_chars"] == len(AssetThemeService._render_taxonomy_for_prompt())
+    assert metrics["prompt_chars"] == len(prompt)
+    assert metrics["instruction_chars"] == (
+        len(prompt) - metrics["summary_chars_used"] - metrics["taxonomy_chars"]
+    )
