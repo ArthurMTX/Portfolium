@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Database, Search, ExternalLink, TrendingUp, Calendar, Globe, Tag, Loader } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import type { ReactNode } from 'react'
+import { Database, Search, ExternalLink, TrendingUp, Calendar, Globe, Tag, Loader, ChevronUp, ChevronDown } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import api from '../lib/api'
+import api, { type AssetThemeDTO } from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import { getThemeHexColor, getThemeIcon } from '../lib/themeUtils'
 
 interface Asset {
   id: number
@@ -17,12 +19,28 @@ interface Asset {
   effective_sector: string | null
   effective_industry: string | null
   effective_country: string | null
+  themes?: AssetThemeDTO[]
   created_at: string
   updated_at: string
   first_transaction_date: string | null
   logo_fetched_at: string | null
   logo_content_type: string | null
 }
+
+type SortKey =
+  | 'id'
+  | 'symbol'
+  | 'name'
+  | 'asset_type'
+  | 'currency'
+  | 'sector'
+  | 'industry'
+  | 'country'
+  | 'themes'
+  | 'created_at'
+  | 'first_transaction_date'
+
+type SortDir = 'asc' | 'desc'
 
 export default function AssetsList() {
   const [assets, setAssets] = useState<Asset[]>([])
@@ -31,6 +49,8 @@ export default function AssetsList() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState<string>('all')
   const [filterCurrency, setFilterCurrency] = useState<string>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('symbol')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   useEffect(() => {
     loadAssets()
@@ -47,7 +67,8 @@ export default function AssetsList() {
           asset.symbol.toLowerCase().includes(query) ||
           asset.name?.toLowerCase().includes(query) ||
           asset.sector?.toLowerCase().includes(query) ||
-          asset.industry?.toLowerCase().includes(query)
+          asset.industry?.toLowerCase().includes(query) ||
+          getThemeSortValue(asset.themes).toLowerCase().includes(query)
       )
     }
 
@@ -67,19 +88,10 @@ export default function AssetsList() {
   const loadAssets = async () => {
     try {
       setLoading(true)
-      // Use getHeldAssets which includes first_transaction_date and logo info
-      // We get ALL assets by not passing a portfolio_id
-      const heldData = await api.getHeldAssets()
-      const soldData = await api.getSoldAssets()
-      
-      // Combine and deduplicate by asset_id
-      const allAssets = [...heldData, ...soldData]
-      const uniqueAssets = Array.from(
-        new Map(allAssets.map(asset => [asset.id, asset])).values()
-      )
-      
-      setAssets(uniqueAssets)
-      setFilteredAssets(uniqueAssets)
+      const data = await api.getAssetDatabaseList()
+
+      setAssets(data)
+      setFilteredAssets(data)
     } catch (err) {
       console.error('Failed to load assets:', err)
     } finally {
@@ -90,9 +102,108 @@ export default function AssetsList() {
   const uniqueTypes = Array.from(new Set(assets.map((a) => a.asset_type).filter(Boolean)))
   const uniqueCurrencies = Array.from(new Set(assets.map((a) => a.currency)))
 
+  const sortedAssets = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+
+    return [...filteredAssets].sort((a, b) => {
+      const aVal = getSortValue(a, sortKey)
+      const bVal = getSortValue(b, sortKey)
+      const aEmpty = aVal === null || aVal === undefined || aVal === ''
+      const bEmpty = bVal === null || bVal === undefined || bVal === ''
+
+      if (aEmpty && bEmpty) return 0
+      if (aEmpty) return 1
+      if (bEmpty) return -1
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return (aVal - bVal) * dir
+      }
+
+      return String(aVal).localeCompare(String(bVal), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      }) * dir
+    })
+  }, [filteredAssets, sortKey, sortDir])
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString()
+  }
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(key)
+    setSortDir('asc')
+  }
+
+  const SortButton = ({ column, children }: { column: SortKey; children: ReactNode }) => (
+    <button
+      type="button"
+      onClick={() => handleSort(column)}
+      className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium uppercase transition-colors ${
+        sortKey === column
+          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+          : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
+      }`}
+    >
+      {children}
+      {sortKey === column ? (
+        sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+      ) : (
+        <ChevronUp size={14} className="opacity-20" />
+      )}
+    </button>
+  )
+
+  const renderThemes = (themes?: AssetThemeDTO[]) => {
+    if (!themes || themes.length === 0) {
+      return <span className="text-neutral-400 dark:text-neutral-500">-</span>
+    }
+
+    return (
+      <div className="flex max-w-full flex-wrap gap-1.5">
+        {themes.map((theme) => {
+          const Icon = getThemeIcon(theme.label)
+          const color = getThemeHexColor(theme.label)
+          const subthemes = theme.children || []
+
+          return (
+            <div
+              key={theme.label}
+              className="inline-flex max-w-full items-center gap-1 rounded border px-2 py-1 text-xs font-medium"
+              style={{ color, borderColor: `${color}66`, backgroundColor: `${color}14` }}
+              title={getThemeTitle(theme)}
+            >
+              <Icon size={13} className="shrink-0" />
+              <span className="truncate">{theme.label}</span>
+              {subthemes.map((subtheme) => {
+                const SubthemeIcon = getThemeIcon(subtheme.label)
+                const subthemeColor = getThemeHexColor(subtheme.label)
+
+                return (
+                  <span
+                    key={subtheme.label}
+                    className="ml-1 inline-flex max-w-32 items-center gap-1 rounded px-1.5 py-0.5 text-[11px]"
+                    style={{
+                      color: subthemeColor,
+                      backgroundColor: `${subthemeColor}18`,
+                    }}
+                  >
+                    <SubthemeIcon size={11} className="shrink-0" />
+                    <span className="truncate">{subtheme.label}</span>
+                  </span>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   return (
@@ -119,7 +230,7 @@ export default function AssetsList() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by symbol, name, sector, or industry..."
+            placeholder="Search by symbol, name, sector, industry, or theme..."
             className="w-full pl-12 pr-4 py-3 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
@@ -172,121 +283,168 @@ export default function AssetsList() {
         </div>
       )}
 
-      {/* Assets Table */}
+      {/* Assets List */}
       {!loading && (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-neutral-100 dark:bg-neutral-800 sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Logo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Symbol</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Currency</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Sector</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Industry</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Country</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">First Transaction</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                {filteredAssets.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
-                      No assets found matching your filters
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAssets.map((asset) => (
-                    <tr key={asset.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <img
-                          src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
-                          alt={`${asset.symbol} logo`}
-                          className="w-10 h-10 object-cover rounded"
-                          onLoad={(e) => {
-                            const img = e.currentTarget as HTMLImageElement
-                            if (!validateLogoImage(img)) {
-                              img.dispatchEvent(new Event('error'))
-                            }
-                          }}
-                          onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp size={14} className="text-blue-600 dark:text-blue-400" />
-                          <span className="font-bold text-blue-600 dark:text-blue-400">{asset.symbol}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 max-w-xs truncate">
+        <div className="space-y-3">
+          <div className="card p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs font-medium uppercase text-neutral-500 dark:text-neutral-400">Sort</span>
+              <SortButton column="id">ID</SortButton>
+              <SortButton column="symbol">Symbol</SortButton>
+              <SortButton column="name">Name</SortButton>
+              <SortButton column="asset_type">Type</SortButton>
+              <SortButton column="currency">Currency</SortButton>
+              <SortButton column="sector">Sector</SortButton>
+              <SortButton column="industry">Industry</SortButton>
+              <SortButton column="country">Country</SortButton>
+              <SortButton column="themes">Themes</SortButton>
+              <SortButton column="created_at">Created</SortButton>
+              <SortButton column="first_transaction_date">First Tx</SortButton>
+            </div>
+          </div>
+
+          {filteredAssets.length === 0 ? (
+            <div className="card px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
+              No assets found matching your filters
+            </div>
+          ) : (
+            sortedAssets.map((asset) => (
+              <article
+                key={asset.id}
+                className="card p-4 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+              >
+                <div className="grid gap-4 lg:grid-cols-[minmax(240px,1.2fr)_minmax(220px,1fr)_minmax(260px,1.4fr)_minmax(160px,auto)] lg:items-start">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <img
+                      src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                      alt={`${asset.symbol} logo`}
+                      className="h-12 w-12 shrink-0 rounded object-cover"
+                      onLoad={(e) => {
+                        const img = e.currentTarget as HTMLImageElement
+                        if (!validateLogoImage(img)) {
+                          img.dispatchEvent(new Event('error'))
+                        }
+                      }}
+                      onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
+                    />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400">#{asset.id}</span>
+                        <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
+                          <TrendingUp size={14} />
+                          {asset.symbol}
+                        </span>
+                      </div>
+                      <div className="mt-1 break-words text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         {asset.name || '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded text-xs font-medium">
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
                           {asset.asset_type || '-'}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-medium">
+                        <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
                           {asset.currency}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100">
-                        <div className="flex items-center gap-1">
-                          {asset.effective_sector !== asset.sector && asset.effective_sector && (
-                            <span title="User override">
-                              <Tag size={12} className="text-yellow-600 dark:text-yellow-400" />
-                            </span>
-                          )}
-                          <span className={asset.effective_sector !== asset.sector ? 'font-semibold' : ''}>
-                            {asset.effective_sector || asset.sector || '-'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100">
-                        <div className="flex items-center gap-1">
-                          {asset.effective_industry !== asset.industry && asset.effective_industry && (
-                            <span title="User override">
-                              <Tag size={12} className="text-yellow-600 dark:text-yellow-400" />
-                            </span>
-                          )}
-                          <span className={asset.effective_industry !== asset.industry ? 'font-semibold' : ''}>
-                            {asset.effective_industry || asset.industry || '-'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100">
-                        <div className="flex items-center gap-1">
-                          <Globe size={12} className="text-neutral-400" />
-                          {asset.effective_country || asset.country || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100">
-                        <div className="flex items-center gap-1">
-                          <Calendar size={12} className="text-neutral-400" />
-                          {formatDate(asset.first_transaction_date)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Link
-                          to={`/dev/assets?symbol=${asset.symbol}`}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
-                        >
-                          <ExternalLink size={12} />
-                          Debug
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-neutral-900 dark:text-neutral-100">
+                    <MetadataLine
+                      label="Sector"
+                      overridden={asset.effective_sector !== asset.sector && Boolean(asset.effective_sector)}
+                      value={asset.effective_sector || asset.sector}
+                    />
+                    <MetadataLine
+                      label="Industry"
+                      overridden={asset.effective_industry !== asset.industry && Boolean(asset.effective_industry)}
+                      value={asset.effective_industry || asset.industry}
+                    />
+                    <div className="flex gap-2">
+                      <span className="w-16 shrink-0 text-xs font-medium uppercase text-neutral-500 dark:text-neutral-400">Country</span>
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <span className="break-words">{asset.effective_country || asset.country || '-'}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>{renderThemes(asset.themes)}</div>
+
+                  <div className="space-y-3 text-sm text-neutral-900 dark:text-neutral-100">
+                    <DateLine label="Created" value={formatDate(asset.created_at)} />
+                    <DateLine label="First Tx" value={formatDate(asset.first_transaction_date)} />
+                    <Link
+                      to={`/dev/assets?symbol=${asset.symbol}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                    >
+                      <ExternalLink size={12} />
+                      Debug
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
         </div>
       )}
     </div>
   )
+}
+
+function getSortValue(asset: Asset, key: SortKey): string | number | null {
+  switch (key) {
+    case 'id':
+      return asset.id
+    case 'sector':
+      return asset.effective_sector || asset.sector
+    case 'industry':
+      return asset.effective_industry || asset.industry
+    case 'country':
+      return asset.effective_country || asset.country
+    case 'themes':
+      return getThemeSortValue(asset.themes)
+    default:
+      return asset[key] ?? null
+  }
+}
+
+function MetadataLine({ label, value, overridden }: { label: string; value: string | null | undefined; overridden?: boolean }) {
+  return (
+    <div className="flex gap-2">
+      <span className="w-16 shrink-0 text-xs font-medium uppercase text-neutral-500 dark:text-neutral-400">{label}</span>
+      <span className={`inline-flex min-w-0 items-center gap-1 ${overridden ? 'font-semibold' : ''}`}>
+        {overridden && (
+          <span title="User override">
+            <Tag size={12} className="text-yellow-600 dark:text-yellow-400" />
+          </span>
+        )}
+        <span className="break-words">{value || '-'}</span>
+      </span>
+    </div>
+  )
+}
+
+function DateLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase text-neutral-500 dark:text-neutral-400">{label}</div>
+      <div className="mt-1 inline-flex items-center gap-1 whitespace-nowrap">
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function getThemeSortValue(themes?: AssetThemeDTO[]): string {
+  return (themes || [])
+    .map((theme) => [
+      theme.label,
+      ...(theme.children || []).map((subtheme) => subtheme.label),
+    ].join(' '))
+    .join(' ')
+}
+
+function getThemeTitle(theme: AssetThemeDTO): string {
+  const subthemes = theme.children?.map((child) => child.label).join(', ')
+  return subthemes ? `${theme.label}: ${subthemes}` : theme.label
 }

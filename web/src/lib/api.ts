@@ -921,6 +921,10 @@ class ApiClient {
     return this.request<any[]>(`/assets/sold/all${params}`)
   }
 
+  async getAssetDatabaseList() {
+    return this.request<any[]>('/assets/database/list')
+  }
+
   async enrichAsset(assetId: number) {
     return this.request<any>(`/assets/enrich/${assetId}`, {
       method: 'POST',

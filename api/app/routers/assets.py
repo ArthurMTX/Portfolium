@@ -8,6 +8,7 @@ import logging
 import json
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, get_db
@@ -23,7 +24,7 @@ from app.schemas import (
 )
 from app.crud import assets as crud
 from app.auth import get_current_admin_user, get_current_user
-from app.models import User
+from app.models import Asset as AssetModel, User
 from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
@@ -644,6 +645,58 @@ def get_assets(
     """
     assets = crud.get_assets(db, skip=skip, limit=limit, query=query)
     return assets
+
+
+@router.get("/database/list")
+def get_asset_database_list(
+    query: Optional[str] = None,
+    skip: int = 0,
+    limit: int = Query(default=10000, ge=1, le=50000),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Return the full asset database for the developer assets list.
+
+    Unlike the held/sold endpoints, this is based on the assets table itself, so
+    assets created by research lookups are included even before any transaction
+    exists for them.
+    """
+    q = db.query(AssetModel)
+
+    if query:
+        search = f"%{query}%"
+        q = q.filter(or_(AssetModel.symbol.ilike(search), AssetModel.name.ilike(search)))
+
+    assets = q.order_by(AssetModel.symbol).offset(skip).limit(limit).all()
+
+    results = []
+    for asset in assets:
+        effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
+        themes_payload = asset.themes or AssetThemeService(db).get_themes(asset.id)
+
+        results.append({
+            "id": asset.id,
+            "symbol": asset.symbol,
+            "name": asset.name,
+            "currency": asset.currency,
+            "class": asset.class_.value if asset.class_ else None,
+            "sector": asset.sector,
+            "industry": asset.industry,
+            "asset_type": asset.asset_type,
+            "country": asset.country,
+            "effective_sector": effective_data["effective_sector"],
+            "effective_industry": effective_data["effective_industry"],
+            "effective_country": effective_data["effective_country"],
+            "themes": themes_payload,
+            "first_transaction_date": asset.first_transaction_date.isoformat() if asset.first_transaction_date else None,
+            "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
+            "logo_content_type": asset.logo_content_type,
+            "created_at": asset.created_at.isoformat() if asset.created_at else None,
+            "updated_at": asset.updated_at.isoformat() if asset.updated_at else None,
+        })
+
+    return results
 
 
 @router.get("/{asset_id}", response_model=Asset)
