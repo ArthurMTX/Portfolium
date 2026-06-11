@@ -499,7 +499,7 @@ def test_two_pass_taxonomy_gap_comes_from_pass1(monkeypatch):
         "hasGap": True,
         "reason": "No parent label covers orbital debris removal.",
         "suggestedTheme": "Orbital Services",
-        "suggestedSubthemes": ["Debris Removal"],
+        "suggestedSubthemes": [],
         "confidence": 0.81,
     }
     assert len(gemini.prompts) == 1
@@ -582,6 +582,7 @@ def test_two_pass_output_shape_remains_frontend_and_allocation_compatible(monkey
 
 def test_two_pass_collects_gemini_subtheme_gap_suggestions(monkeypatch):
     monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED", True)
     pass1_payload = {
         "primaryThemes": [
             {
@@ -625,3 +626,51 @@ def test_two_pass_collects_gemini_subtheme_gap_suggestions(monkeypatch):
             "confidence": 0.88,
         }
     ]
+
+
+def test_two_pass_ignores_gemini_subtheme_gap_suggestions_when_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED", False)
+    pass1_payload = {
+        "primaryThemes": [
+            {
+                "label": "Specialty Chemicals",
+                "confidence": 0.9,
+                "weight": 1.0,
+                "evidence": ["electronic specialty and advanced materials"],
+            }
+        ],
+        "secondaryThemes": [],
+        "taxonomyGap": {
+            "hasGap": True,
+            "reason": "No parent label covers electronic materials.",
+            "suggestedTheme": "Electronic Materials",
+            "suggestedSubthemes": ["Electronic Specialty Materials"],
+            "confidence": 0.88,
+        },
+    }
+    pass2_payload = {
+        "themes": [{"label": "Specialty Chemicals", "subthemes": []}],
+        "subthemeGaps": [
+            {
+                "label": "Specialty Chemicals",
+                "reason": "Current subthemes do not cover electronic materials.",
+                "suggestedSubthemes": ["Electronic Specialty Materials", "Industrial Gases"],
+                "confidence": 0.88,
+            }
+        ],
+    }
+    gemini = FakeGeminiService([pass1_payload, pass2_payload])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, taxonomy_gap = service.generate_theme_payload(
+        name="Air Liquide",
+        sector="Basic Materials",
+        industry="Specialty Chemicals",
+        summary="The company provides electronic specialty and advanced materials.",
+    )
+
+    assert themes[0]["children"] == []
+    assert taxonomy_gap["suggestedSubthemes"] == []
+    assert service.last_subtheme_taxonomy_gaps == []
+    assert "subthemeGaps must always be an empty array" in gemini.prompts[1]

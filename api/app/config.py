@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     GEMINI_TIMEOUT_SECONDS: int = 20
     GEMINI_MAX_RETRIES: int = 2
     ASSET_THEME_TWO_PASS_CLASSIFICATION: bool = False
+    ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED: bool = False
 
     # Local MiniLM theme benchmark/runtime. Production writes still use Gemini.
     THEME_MINILM_MODEL_PATH: str = ""

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.models import Asset, AssetThemeClassification, AssetThemeTaxonomySuggestion
 from app.models.enums import AssetClass
-from app.services.asset_themes import AssetThemeService
+from app.services.asset_themes import AssetThemeService, settings
 
 
 def _asset(db, symbol="TEST", name="Test Co"):
@@ -51,6 +51,7 @@ def test_stores_valid_taxonomy_gap_suggestion(test_db):
 
     assert suggestion is not None
     assert suggestion.suggested_theme == "Home Safety"
+    assert suggestion.suggested_subthemes == []
     assert suggestion.status == "pending"
 
 
@@ -73,7 +74,27 @@ def test_does_not_store_duplicate_suggestion(test_db):
     assert test_db.query(AssetThemeTaxonomySuggestion).count() == 1
 
 
-def test_stores_existing_theme_gap_for_admin_review(test_db):
+def test_does_not_store_subtheme_gap_when_disabled(test_db):
+    asset = _asset(test_db)
+    service = AssetThemeService(test_db)
+
+    suggestion = service._persist_taxonomy_gap_suggestion(
+        asset=asset,
+        summary_hash="hash-1",
+        taxonomy_gap=_gap(theme="Physical Security"),
+        summary="Provides monitored security response services.",
+        sector=None,
+        industry=None,
+        company_name=asset.name,
+        themes=[],
+    )
+
+    assert suggestion is None
+    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 0
+
+
+def test_stores_subtheme_gap_when_enabled(test_db, monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED", True)
     asset = _asset(test_db)
     service = AssetThemeService(test_db)
 
@@ -90,6 +111,7 @@ def test_stores_existing_theme_gap_for_admin_review(test_db):
 
     assert suggestion is not None
     assert suggestion.suggested_theme == "Physical Security"
+    assert suggestion.suggested_subthemes == ["Remote Dispatch", "Security Response"]
     assert test_db.query(AssetThemeTaxonomySuggestion).count() == 1
 
 

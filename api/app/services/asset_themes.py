@@ -802,10 +802,13 @@ class AssetThemeService:
                 pass2_payload,
                 selected_parent_themes,
             )
-            self.last_subtheme_taxonomy_gaps = self._clean_subtheme_gap_suggestions(
-                pass2_payload,
-                selected_parent_themes,
-            )
+            if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+                self.last_subtheme_taxonomy_gaps = self._clean_subtheme_gap_suggestions(
+                    pass2_payload,
+                    selected_parent_themes,
+                )
+            else:
+                self.last_subtheme_taxonomy_gaps = []
             themes = self._merge_parent_themes_with_subthemes(
                 parent_themes,
                 subthemes_by_parent,
@@ -881,6 +884,7 @@ class AssetThemeService:
         summary_original = summary or ""
         summary_used = cls._trim_summary_for_prompt(summary_original)
         taxonomy = cls._render_taxonomy_for_prompt()
+        taxonomy_gap_subtheme_rule = cls._taxonomy_gap_subtheme_rule_for_prompt()
 
         prompt = f"""You classify listed companies into investment themes.
 
@@ -901,6 +905,7 @@ Rules:
 - Return fewer themes, or none, when fit is weak or uncertain.
 - If a clear business exposure is missing from the allowed hierarchy, set taxonomyGap for admin review; it is not a final classification and must not duplicate an existing theme or subtheme.
 - If an existing theme fits well, taxonomyGap.hasGap must be false.
+- {taxonomy_gap_subtheme_rule}
 - Max 3 primary themes, max 5 secondary themes, max 3 subthemes per theme.
 - Theme weights estimate economic exposure, must sum to 1.00, and omit any theme below {MIN_THEME_WEIGHT}.
 - Primary themes are core business exposures; secondary themes are meaningful but not main business exposures.
@@ -965,6 +970,7 @@ Return only JSON shaped as:
         summary_original = summary or ""
         summary_used = cls._trim_summary_for_prompt(summary_original)
         parent_themes = cls._render_parent_theme_labels_for_prompt()
+        taxonomy_gap_subtheme_rule = cls._taxonomy_gap_subtheme_rule_for_prompt()
 
         prompt = f"""You classify listed companies into investment theme parent labels.
 
@@ -987,6 +993,7 @@ Rules:
 - Return fewer themes, or none, when fit is weak or uncertain.
 - If a clear business exposure is missing from the allowed parent labels, set taxonomyGap for admin review; it is not a final classification and must not duplicate an existing theme.
 - If an existing parent label fits well, taxonomyGap.hasGap must be false.
+- {taxonomy_gap_subtheme_rule}
 - Max 3 primary themes. Primary themes are core business exposures; secondary themes are meaningful but not main business exposures.
 - Theme weights estimate economic exposure, must sum to 1.00, and omit any theme below {MIN_THEME_WEIGHT}.
 - Confidence and weight must be between 0 and 1; omit themes below confidence {MIN_THEME_CONFIDENCE}.
@@ -1018,6 +1025,7 @@ Return only JSON shaped as:
         summary_used = cls._trim_summary_for_prompt(summary_original)
         selected_hierarchy = cls._render_selected_hierarchy_for_prompt(parent_themes)
         selected_parent_labels = [theme["label"] for theme in parent_themes]
+        subtheme_gap_rule = cls._subtheme_gap_rule_for_prompt()
 
         prompt = f"""You select subthemes for already-selected investment theme parent labels.
 
@@ -1040,7 +1048,7 @@ Rules:
 - Return each selected parent theme at most once.
 - Select up to 3 subthemes for each selected parent theme.
 - Return an empty subthemes array when no allowed subtheme fits with confidence.
-- When a selected parent has no allowed subtheme fit but the summary clearly implies a missing specialization, add a subthemeGaps item for that parent with 1-5 concise suggestedSubthemes to add.
+- {subtheme_gap_rule}
 - Do not suggest subthemes that already exist in the allowed selected hierarchy.
 - Confidence must be between 0 and 1; omit subthemes below confidence {MIN_THEME_CONFIDENCE}.
 - Evidence must be short exact phrases from longBusinessSummary; do not paraphrase or invent evidence.
@@ -1058,6 +1066,18 @@ Return only JSON shaped as:
             "prompt_chars": len(prompt),
         }
         return prompt, metrics
+
+    @staticmethod
+    def _taxonomy_gap_subtheme_rule_for_prompt() -> str:
+        if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+            return "taxonomyGap.suggestedSubthemes may include up to 5 concise suggestions for a genuinely missing new parent theme."
+        return "Do not suggest new subthemes; taxonomyGap.suggestedSubthemes must always be an empty array."
+
+    @staticmethod
+    def _subtheme_gap_rule_for_prompt() -> str:
+        if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+            return "When a selected parent has no allowed subtheme fit but the summary clearly implies a missing specialization, add a subthemeGaps item for that parent with 1-5 concise suggestedSubthemes to add."
+        return "Do not propose missing subthemes; subthemeGaps must always be an empty array."
 
     @staticmethod
     def _render_selected_hierarchy_for_prompt(parent_themes: List[ThemePayload]) -> str:
@@ -1259,6 +1279,9 @@ Return only JSON shaped as:
         payload: Dict[str, Any],
         selected_parent_themes: List[str],
     ) -> List[Dict[str, Any]]:
+        if not settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+            return []
+
         selected = set(selected_parent_themes)
         gaps: List[Dict[str, Any]] = []
         seen_labels: set[str] = set()
@@ -1312,6 +1335,9 @@ Return only JSON shaped as:
 
     @staticmethod
     def _clean_suggested_subthemes(parent_label: str, value: Any) -> List[str]:
+        if not settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+            return []
+
         if not isinstance(value, list):
             return []
 
@@ -1374,7 +1400,11 @@ Return only JSON shaped as:
             "summary_hash": summary_hash,
             "summary_excerpt": self._summary_excerpt(summary),
             "suggested_theme": suggested_theme,
-            "suggested_subthemes": taxonomy_gap.get("suggestedSubthemes") or [],
+            "suggested_subthemes": (
+                taxonomy_gap.get("suggestedSubthemes") or []
+                if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED
+                else []
+            ),
             "reason": taxonomy_gap["reason"],
             "confidence": taxonomy_gap["confidence"],
             "status": "pending",
@@ -1433,6 +1463,13 @@ Return only JSON shaped as:
         if not suggested_theme or not reason or confidence is None:
             return False
 
+        if (
+            not settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED
+            and suggested_theme in ALLOWED_THEME_SET
+            and taxonomy_gap.get("suggestedSubthemes")
+        ):
+            return False
+
         return True
 
     @classmethod
@@ -1442,17 +1479,18 @@ Return only JSON shaped as:
 
         confidence = cls._to_confidence(value.get("confidence"))
         subthemes = []
-        seen_subthemes: set[str] = set()
-        for item in value.get("suggestedSubthemes") or []:
-            if len(subthemes) >= 5:
-                break
-            if not isinstance(item, str):
-                continue
-            cleaned = " ".join(item.strip().split())[:120]
-            normalized = cleaned.casefold()
-            if cleaned and normalized not in seen_subthemes:
-                seen_subthemes.add(normalized)
-                subthemes.append(cleaned)
+        if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+            seen_subthemes: set[str] = set()
+            for item in value.get("suggestedSubthemes") or []:
+                if len(subthemes) >= 5:
+                    break
+                if not isinstance(item, str):
+                    continue
+                cleaned = " ".join(item.strip().split())[:120]
+                normalized = cleaned.casefold()
+                if cleaned and normalized not in seen_subthemes:
+                    seen_subthemes.add(normalized)
+                    subthemes.append(cleaned)
 
         suggested_theme = value.get("suggestedTheme")
         reason = value.get("reason")
