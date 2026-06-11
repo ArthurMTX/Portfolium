@@ -477,6 +477,14 @@ export interface AssetResearchDTO {
   }
 }
 
+export type AssetResearchSummaryDTO = Pick<AssetResearchDTO, 'asset' | 'quote' | 'metadata'>
+export type AssetResearchFundamentalsDTO = AssetResearchDTO['fundamentals']
+export type AssetResearchBusinessDTO = AssetResearchDTO['business']
+export type AssetResearchOwnershipDTO = AssetResearchDTO['ownership']
+export type AssetResearchRiskDTO = AssetResearchDTO['risk']
+export type AssetResearchRelativePerformanceDTO = AssetResearchDTO['relative_performance']
+export type AssetResearchMetadataDTO = AssetResearchDTO['metadata']
+
 export type AssetInvestmentConviction = 'low' | 'medium' | 'high'
 export type AssetInvestmentHorizon = 'short' | 'medium' | 'long'
 
@@ -1203,8 +1211,36 @@ class ApiClient {
     return this.request<{ id: number; symbol: string; name: string; currency: string }>(`/assets/by-symbol/${encodeURIComponent(symbol)}`)
   }
 
-  async getAssetResearch(symbol: string) {
-    return this.request<AssetResearchDTO>(`/assets/research/${encodeURIComponent(symbol)}`)
+  async getAssetResearchSummary(symbol: string) {
+    return this.request<AssetResearchSummaryDTO>(`/assets/research/${encodeURIComponent(symbol)}/summary`)
+  }
+
+  async getAssetResearchFundamentals(symbol: string) {
+    return this.request<AssetResearchFundamentalsDTO>(`/assets/research/${encodeURIComponent(symbol)}/fundamentals`)
+  }
+
+  async getAssetResearchBusiness(symbol: string) {
+    return this.request<AssetResearchBusinessDTO>(`/assets/research/${encodeURIComponent(symbol)}/business`)
+  }
+
+  async getAssetResearchOwnership(symbol: string) {
+    return this.request<AssetResearchOwnershipDTO>(`/assets/research/${encodeURIComponent(symbol)}/ownership`)
+  }
+
+  async getAssetResearchThemes(symbol: string) {
+    return this.request<AssetThemeClassificationDTO>(`/assets/research/${encodeURIComponent(symbol)}/themes`)
+  }
+
+  async getAssetResearchRisk(symbol: string) {
+    return this.request<AssetResearchRiskDTO>(`/assets/research/${encodeURIComponent(symbol)}/risk`)
+  }
+
+  async getAssetResearchPerformance(symbol: string) {
+    return this.request<AssetResearchRelativePerformanceDTO>(`/assets/research/${encodeURIComponent(symbol)}/performance`)
+  }
+
+  async getAssetResearchMetadata(symbol: string) {
+    return this.request<AssetResearchMetadataDTO>(`/assets/research/${encodeURIComponent(symbol)}/metadata`)
   }
 
   async getAssetInvestmentNote(assetId: number) {

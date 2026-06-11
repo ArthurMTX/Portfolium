@@ -31,44 +31,84 @@ class AssetResearchService:
         self.risk_service = RiskAnalysisService(db)
         self.relative_performance_service = RelativePerformanceService(db)
 
-    async def get_asset_research(self, symbol: str) -> Dict[str, Any]:
-        normalized_symbol = symbol.strip().upper()
-        asset = self._get_or_create_asset(normalized_symbol)
-
-        company_info = self._get_company_info(asset.symbol)
+    async def get_summary(self, symbol: str) -> Dict[str, Any]:
+        """Return the fast data needed to paint the page shell."""
+        asset = self._get_or_create_asset(symbol.strip().upper())
         quote = await self._get_quote(asset.symbol)
-        fundamentals = self._get_fundamentals(asset.symbol, company_info)
+        return {
+            "asset": asset,
+            "quote": quote,
+            "metadata": self._get_metadata(asset),
+        }
+
+    def get_fundamentals(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        company_info = self._get_company_info(asset.symbol)
+        return self._get_fundamentals(asset.symbol, company_info)
+
+    def get_business(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        company_info = self._get_company_info(asset.symbol)
+        return self._get_business(asset, company_info)
+
+    def get_ownership(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        company_info = self._get_company_info(asset.symbol)
+        return self._get_ownership(company_info)
+
+    def get_themes(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        company_info = self._get_company_info(asset.symbol)
         business = self._get_business(asset, company_info)
         self._ensure_theme_classification(asset, business)
-        ownership = self._get_ownership(company_info)
-        self._ensure_market_metadata(asset)
-        risk = self._get_risk(asset, quote)
-        relative_performance = self._get_relative_performance(asset, quote)
 
+        classification = AssetThemeService(self.db).get_classification(asset.id)
+        if classification:
+            return classification
+
+        return {
+            "id": None,
+            "asset_id": asset.id,
+            "themes": [],
+            "method": "gpt",
+            "model": None,
+            "source_hash": None,
+            "generated_at": None,
+            "updated_at": None,
+        }
+
+    async def get_risk(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        quote = await self._get_quote(asset.symbol)
+        risk = self._get_risk(asset, quote)
         risk["risk_score"] = self._calculate_asset_risk_score(
             volatility_30d=risk.get("volatility_30d"),
             volatility_90d=risk.get("volatility_90d"),
             beta=risk.get("beta"),
             distance_to_ath_pct=risk.get("distance_to_ath_pct"),
-            relative_perf_30d=relative_performance.get("relative_perf_30d"),
-            relative_perf_1y=relative_performance.get("relative_perf_1y"),
+            relative_perf_30d=None,
+            relative_perf_1y=None,
         )
+        return risk
 
+    async def get_relative_performance(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        quote = await self._get_quote(asset.symbol)
+        return self._get_relative_performance(asset, quote)
+
+    def get_metadata(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        self._ensure_market_metadata(asset)
+        return self._get_metadata(asset)
+
+    @staticmethod
+    def _get_metadata(asset: Asset) -> Dict[str, Any]:
         return {
-            "asset": asset,
-            "quote": quote,
-            "fundamentals": fundamentals,
-            "business": business,
-            "ownership": ownership,
-            "risk": risk,
-            "relative_performance": relative_performance,
-            "metadata": {
-                "ath_price": asset.ath_price,
-                "ath_date": asset.ath_date,
-                "atl_price": asset.atl_price,
-                "atl_date": asset.atl_date,
-                "asset_currency": asset.currency,
-            },
+            "ath_price": asset.ath_price,
+            "ath_date": asset.ath_date,
+            "atl_price": asset.atl_price,
+            "atl_date": asset.atl_date,
+            "asset_currency": asset.currency,
         }
 
     def _ensure_theme_classification(self, asset: Asset, business: Dict[str, Any]) -> None:

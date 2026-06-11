@@ -23,7 +23,15 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
-import api, { AssetInvestmentNoteDTO, AssetResearchDTO } from '../lib/api'
+import api, {
+  AssetInvestmentNoteDTO,
+  AssetResearchDTO,
+  AssetResearchFundamentalsDTO,
+  AssetResearchMetadataDTO,
+  AssetResearchRelativePerformanceDTO,
+  AssetResearchRiskDTO,
+  AssetThemeClassificationDTO,
+} from '../lib/api'
 import AssetPriceChart from '../components/AssetPriceChart'
 import AssetInvestmentNoteModal from '../components/AssetInvestmentNoteModal'
 import AssetInvestmentNoteSummary from '../components/AssetInvestmentNoteSummary'
@@ -70,6 +78,8 @@ interface TickerSearchResult {
   exchange?: string
 }
 
+type ResearchSection = 'fundamentals' | 'business' | 'ownership' | 'themes' | 'risk' | 'performance' | 'metadata'
+
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'fundamentals', label: 'Fundamentals' },
@@ -107,6 +117,93 @@ function formatOwnershipPercent(value: number | null | undefined): string {
   return `${formatNumber(value * 100, 1)}%`
 }
 
+const emptyFundamentals: AssetResearchFundamentalsDTO = {
+  market_cap: null,
+  volume: null,
+  avg_volume: null,
+  pe_ratio: null,
+  eps: null,
+  price: null,
+  liquidity_score: null,
+  revenue_growth: null,
+  earnings_growth: null,
+  profit_margins: null,
+  operating_margins: null,
+  return_on_equity: null,
+  net_cash: null,
+  debt_to_equity: null,
+  current_ratio: null,
+  quick_ratio: null,
+  recommendation_key: null,
+  recommendation_mean: null,
+  num_analysts: null,
+  target_mean: null,
+  target_high: null,
+  target_low: null,
+  implied_upside_pct: null,
+}
+
+const emptyBusiness: AssetResearchDTO['business'] = {
+  founded: null,
+  employees: null,
+  headquarters: null,
+  country: null,
+  sector: null,
+  industry: null,
+  description: null,
+}
+
+const emptyOwnership: AssetResearchDTO['ownership'] = {
+  institutional_ownership: null,
+  insider_ownership: null,
+  short_interest: null,
+}
+
+const emptyRisk: AssetResearchRiskDTO = {
+  volatility_30d: null,
+  volatility_90d: null,
+  beta: null,
+  beta_benchmark: null,
+  risk_score: null,
+  distance_to_ath_pct: null,
+}
+
+const emptyRelativePerformance: AssetResearchRelativePerformanceDTO = {
+  relative_perf_30d: null,
+  relative_perf_90d: null,
+  relative_perf_ytd: null,
+  relative_perf_1y: null,
+  asset_perf_30d: null,
+  asset_perf_90d: null,
+  asset_perf_ytd: null,
+  asset_perf_1y: null,
+  etf_perf_30d: null,
+  etf_perf_90d: null,
+  etf_perf_ytd: null,
+  etf_perf_1y: null,
+  sector_etf: null,
+}
+
+const emptySectionLoading: Record<ResearchSection, boolean> = {
+  fundamentals: false,
+  business: false,
+  ownership: false,
+  themes: false,
+  risk: false,
+  performance: false,
+  metadata: false,
+}
+
+const emptySectionErrors: Record<ResearchSection, string | null> = {
+  fundamentals: null,
+  business: null,
+  ownership: null,
+  themes: null,
+  risk: null,
+  performance: null,
+  metadata: null,
+}
+
 export default function AssetResearch() {
   const { symbol = '' } = useParams()
   const routeSymbol = symbol.trim()
@@ -116,7 +213,9 @@ export default function AssetResearch() {
   const [investmentNote, setInvestmentNote] = useState<AssetInvestmentNoteDTO | null>(null)
   const [investmentNoteLoading, setInvestmentNoteLoading] = useState(false)
   const [investmentNoteOpen, setInvestmentNoteOpen] = useState(false)
-  const [loading, setLoading] = useState(Boolean(routeSymbol))
+  const [summaryLoading, setSummaryLoading] = useState(Boolean(routeSymbol))
+  const [sectionLoading, setSectionLoading] = useState<Record<ResearchSection, boolean>>(emptySectionLoading)
+  const [sectionErrors, setSectionErrors] = useState<Record<ResearchSection, string | null>>(emptySectionErrors)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [watchlistMessage, setWatchlistMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -134,19 +233,35 @@ export default function AssetResearch() {
       if (!routeSymbol) {
         setAssetResearch(null)
         setError(null)
-        setLoading(false)
+        setSummaryLoading(false)
+        setSectionLoading(emptySectionLoading)
+        setSectionErrors(emptySectionErrors)
         return
       }
 
       try {
-        setLoading(true)
+        const normalizedSymbol = routeSymbol.toUpperCase()
+        setSummaryLoading(true)
+        setSectionLoading(emptySectionLoading)
+        setSectionErrors(emptySectionErrors)
         setError(null)
+        setAssetResearch(null)
+        setInvestmentNote(null)
         setDescriptionExpanded(false)
-        const data = await api.getAssetResearch(routeSymbol.toUpperCase())
+        const summary = await api.getAssetResearchSummary(normalizedSymbol)
         if (!cancelled) {
-          setAssetResearch(data)
+          setAssetResearch({
+            asset: summary.asset,
+            quote: summary.quote,
+            metadata: summary.metadata,
+            fundamentals: emptyFundamentals,
+            business: emptyBusiness,
+            ownership: emptyOwnership,
+            risk: emptyRisk,
+            relative_performance: emptyRelativePerformance,
+          })
           setInvestmentNoteLoading(true)
-          api.getAssetInvestmentNote(data.asset.id)
+          api.getAssetInvestmentNote(summary.asset.id)
             .then((note) => {
               if (!cancelled) setInvestmentNote(note)
             })
@@ -157,6 +272,75 @@ export default function AssetResearch() {
               if (!cancelled) setInvestmentNoteLoading(false)
             })
         }
+
+        const loadSection = async <T,>(
+          section: ResearchSection,
+          request: Promise<T>,
+          applyData: (current: AssetResearchDTO, data: T) => AssetResearchDTO,
+        ) => {
+          if (!cancelled) {
+            setSectionLoading((current) => ({ ...current, [section]: true }))
+            setSectionErrors((current) => ({ ...current, [section]: null }))
+          }
+
+          try {
+            const data = await request
+            if (!cancelled) {
+              setAssetResearch((current) => current ? applyData(current, data) : current)
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : `Failed to load ${section}`
+            if (!cancelled) {
+              setSectionErrors((current) => ({ ...current, [section]: message }))
+            }
+          } finally {
+            if (!cancelled) {
+              setSectionLoading((current) => ({ ...current, [section]: false }))
+            }
+          }
+        }
+
+        void loadSection(
+          'fundamentals',
+          api.getAssetResearchFundamentals(normalizedSymbol),
+          (current, fundamentals) => ({ ...current, fundamentals }),
+        )
+        void loadSection(
+          'business',
+          api.getAssetResearchBusiness(normalizedSymbol),
+          (current, business) => ({ ...current, business }),
+        )
+        void loadSection(
+          'ownership',
+          api.getAssetResearchOwnership(normalizedSymbol),
+          (current, ownership) => ({ ...current, ownership }),
+        )
+        void loadSection(
+          'themes',
+          api.getAssetResearchThemes(normalizedSymbol),
+          (current, classification: AssetThemeClassificationDTO) => ({
+            ...current,
+            asset: {
+              ...current.asset,
+              themes: classification.themes,
+            },
+          }),
+        )
+        void loadSection(
+          'risk',
+          api.getAssetResearchRisk(normalizedSymbol),
+          (current, risk) => ({ ...current, risk }),
+        )
+        void loadSection(
+          'performance',
+          api.getAssetResearchPerformance(normalizedSymbol),
+          (current, relative_performance) => ({ ...current, relative_performance }),
+        )
+        void loadSection(
+          'metadata',
+          api.getAssetResearchMetadata(normalizedSymbol),
+          (current, metadata: AssetResearchMetadataDTO) => ({ ...current, metadata }),
+        )
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Failed to load asset research'
@@ -164,7 +348,7 @@ export default function AssetResearch() {
           setInvestmentNote(null)
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setSummaryLoading(false)
       }
     }
 
@@ -423,7 +607,7 @@ export default function AssetResearch() {
     openResearchForSymbol(searchQuery)
   }
 
-  if (loading) {
+  if (summaryLoading) {
     return (
       <div className="space-y-6">
         <div className="h-10 w-24 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
@@ -674,20 +858,43 @@ export default function AssetResearch() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <MetricGrid metrics={metrics.overview} />
+          {(sectionLoading.fundamentals || sectionLoading.risk) && <MetricSkeletonGrid count={2} />}
+          <SectionErrorBanner message={sectionErrors.fundamentals || sectionErrors.risk} />
           <AssetInvestmentNoteSummary
             note={investmentNote}
             currency={metrics.currency}
             loading={investmentNoteLoading}
             onEdit={() => setInvestmentNoteOpen(true)}
           />
-          <ThemeSection themes={asset.themes || []} />
-          <BusinessSection
-            business={assetResearch.business}
-            asset={asset}
-            descriptionExpanded={descriptionExpanded}
-            onToggleDescription={() => setDescriptionExpanded((expanded) => !expanded)}
-          />
-          <OwnershipSection ownership={assetResearch.ownership} />
+          {sectionLoading.themes ? (
+            <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+              <CardSkeleton rows={4} />
+            </Section>
+          ) : (
+            <ThemeSection themes={asset.themes || []} />
+          )}
+          <SectionErrorBanner message={sectionErrors.themes} />
+          {sectionLoading.business ? (
+            <Section title="Business" icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+              <CardSkeleton rows={6} />
+            </Section>
+          ) : (
+            <BusinessSection
+              business={assetResearch.business}
+              asset={asset}
+              descriptionExpanded={descriptionExpanded}
+              onToggleDescription={() => setDescriptionExpanded((expanded) => !expanded)}
+            />
+          )}
+          <SectionErrorBanner message={sectionErrors.business} />
+          {sectionLoading.ownership ? (
+            <Section title="Ownership" icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+              <MetricSkeletonGrid count={3} />
+            </Section>
+          ) : (
+            <OwnershipSection ownership={assetResearch.ownership} />
+          )}
+          <SectionErrorBanner message={sectionErrors.ownership} />
           <AssetPriceChart
             assetId={asset.id}
             symbol={asset.symbol}
@@ -698,44 +905,82 @@ export default function AssetResearch() {
             ensureAllTimeHistory
           />
           <Section title="Market Metadata" icon={<BarChart3 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <InfoCard label="ATH" value={formatCurrency(metadata.ath_price, metrics.currency)} />
-              <InfoCard label="ATH Date" value={metadata.ath_date ? new Date(metadata.ath_date).toLocaleDateString() : '-'} />
-              <InfoCard label="ATL" value={formatCurrency(metadata.atl_price, metrics.currency)} />
-              <InfoCard label="ATL Date" value={metadata.atl_date ? new Date(metadata.atl_date).toLocaleDateString() : '-'} />
-            </div>
+            {sectionLoading.metadata ? (
+              <MetricSkeletonGrid count={4} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <InfoCard label="ATH" value={formatCurrency(metadata.ath_price, metrics.currency)} />
+                <InfoCard label="ATH Date" value={metadata.ath_date ? new Date(metadata.ath_date).toLocaleDateString() : '-'} />
+                <InfoCard label="ATL" value={formatCurrency(metadata.atl_price, metrics.currency)} />
+                <InfoCard label="ATL Date" value={metadata.atl_date ? new Date(metadata.atl_date).toLocaleDateString() : '-'} />
+              </div>
+            )}
+            <SectionErrorBanner message={sectionErrors.metadata} />
           </Section>
         </div>
       )}
 
       {activeTab === 'fundamentals' && (
         <div className="space-y-6">
-          <MaybeSection title="Fundamentals & Liquidity" metrics={metrics.fundamentals} icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />} />
-          <MaybeSection title="Growth & Profitability" metrics={metrics.growth} icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />} />
-          <MaybeSection title="Balance Sheet" metrics={metrics.balanceSheet} icon={<Shield size={20} className="text-cyan-600 dark:text-cyan-400" />} />
+          {sectionLoading.fundamentals ? (
+            <>
+              <Section title="Fundamentals & Liquidity" icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />}>
+                <MetricSkeletonGrid />
+              </Section>
+              <Section title="Growth & Profitability" icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />}>
+                <MetricSkeletonGrid />
+              </Section>
+            </>
+          ) : (
+            <>
+              <MaybeSection title="Fundamentals & Liquidity" metrics={metrics.fundamentals} icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />} />
+              <MaybeSection title="Growth & Profitability" metrics={metrics.growth} icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />} />
+              <MaybeSection title="Balance Sheet" metrics={metrics.balanceSheet} icon={<Shield size={20} className="text-cyan-600 dark:text-cyan-400" />} />
+            </>
+          )}
+          <SectionErrorBanner message={sectionErrors.fundamentals} />
         </div>
       )}
 
       {activeTab === 'performance' && (
         <Section title={`Relative Performance${metrics.relative.sector_etf ? ` vs ${metrics.relative.sector_etf}` : ''}`} icon={<BarChart3 size={20} className="text-indigo-600 dark:text-indigo-400" />}>
-          <MetricGrid
-            metrics={[
-              buildRelativeMetric('1M', metrics.relative.relative_perf_30d, metrics.relative.asset_perf_30d, metrics.relative.etf_perf_30d, asset.symbol, metrics.relative.sector_etf),
-              buildRelativeMetric('3M', metrics.relative.relative_perf_90d, metrics.relative.asset_perf_90d, metrics.relative.etf_perf_90d, asset.symbol, metrics.relative.sector_etf),
-              buildRelativeMetric('YTD', metrics.relative.relative_perf_ytd, metrics.relative.asset_perf_ytd, metrics.relative.etf_perf_ytd, asset.symbol, metrics.relative.sector_etf),
-              buildRelativeMetric('1Y', metrics.relative.relative_perf_1y, metrics.relative.asset_perf_1y, metrics.relative.etf_perf_1y, asset.symbol, metrics.relative.sector_etf),
-            ].filter((metric): metric is MetricConfig => metric !== null)}
-            emptyMessage="No relative performance data available yet."
-          />
+          {sectionLoading.performance ? (
+            <MetricSkeletonGrid />
+          ) : (
+            <MetricGrid
+              metrics={[
+                buildRelativeMetric('1M', metrics.relative.relative_perf_30d, metrics.relative.asset_perf_30d, metrics.relative.etf_perf_30d, asset.symbol, metrics.relative.sector_etf),
+                buildRelativeMetric('3M', metrics.relative.relative_perf_90d, metrics.relative.asset_perf_90d, metrics.relative.etf_perf_90d, asset.symbol, metrics.relative.sector_etf),
+                buildRelativeMetric('YTD', metrics.relative.relative_perf_ytd, metrics.relative.asset_perf_ytd, metrics.relative.etf_perf_ytd, asset.symbol, metrics.relative.sector_etf),
+                buildRelativeMetric('1Y', metrics.relative.relative_perf_1y, metrics.relative.asset_perf_1y, metrics.relative.etf_perf_1y, asset.symbol, metrics.relative.sector_etf),
+              ].filter((metric): metric is MetricConfig => metric !== null)}
+              emptyMessage="No relative performance data available yet."
+            />
+          )}
+          <SectionErrorBanner message={sectionErrors.performance} />
         </Section>
       )}
 
       {activeTab === 'risk' && (
-        <MaybeSection title="Risk Metrics" metrics={metrics.risk} icon={<AlertTriangle size={20} className="text-orange-600 dark:text-orange-400" />} />
+        <Section title="Risk Metrics" icon={<AlertTriangle size={20} className="text-orange-600 dark:text-orange-400" />}>
+          {sectionLoading.risk ? (
+            <MetricSkeletonGrid />
+          ) : (
+            <MetricGrid metrics={metrics.risk} />
+          )}
+          <SectionErrorBanner message={sectionErrors.risk} />
+        </Section>
       )}
 
       {activeTab === 'analyst' && (
-        <MaybeSection title="Analyst View & Valuation" metrics={metrics.analyst} icon={<Users size={20} className="text-violet-600 dark:text-violet-400" />} />
+        <Section title="Analyst View & Valuation" icon={<Users size={20} className="text-violet-600 dark:text-violet-400" />}>
+          {sectionLoading.fundamentals ? (
+            <MetricSkeletonGrid />
+          ) : (
+            <MetricGrid metrics={metrics.analyst} />
+          )}
+          <SectionErrorBanner message={sectionErrors.fundamentals} />
+        </Section>
       )}
 
       <AssetInvestmentNoteModal
@@ -862,6 +1107,47 @@ function MaybeSection({ title, icon, metrics }: { title: string; icon: React.Rea
     <Section title={title} icon={icon}>
       <MetricGrid metrics={metrics} />
     </Section>
+  )
+}
+
+function MetricSkeletonGrid({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="card p-5 bg-neutral-50 dark:bg-neutral-800/50">
+          <div className="h-4 w-24 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+          <div className="mt-4 h-8 w-32 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+          <div className="mt-4 h-4 w-full rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CardSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="card p-5 sm:p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <div className="h-8 w-8 rounded-lg bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+            <div className="min-w-0 flex-1">
+              <div className="h-3 w-20 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+              <div className="mt-2 h-4 w-32 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SectionErrorBanner({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+      {message}
+    </div>
   )
 }
 

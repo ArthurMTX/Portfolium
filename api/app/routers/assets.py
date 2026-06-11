@@ -19,7 +19,13 @@ from app.schemas import (
     AssetInvestmentNoteUpdate,
     AssetInvalidProviderCleanupRequest,
     AssetMetadataOverride,
-    AssetResearchResponse,
+    AssetResearchBusiness,
+    AssetResearchFundamentals,
+    AssetResearchMetadata,
+    AssetResearchOwnership,
+    AssetResearchRelativePerformance,
+    AssetResearchRisk,
+    AssetResearchSummaryResponse,
     AssetThemeClassification,
     AssetThemeClassifyRequest,
     AssetThemeClassifyResponse,
@@ -647,17 +653,60 @@ def get_asset_by_symbol(symbol: str, db: Session = Depends(get_db)):
     return asset
 
 
-@router.get("/research/{symbol}", response_model=AssetResearchResponse)
-async def get_asset_research(symbol: str, db: Session = Depends(get_db)):
-    """
-    Get asset research data without requiring a portfolio position.
-
-    This endpoint intentionally excludes position-specific fields such as
-    quantity, average cost, cost basis, unrealized P&L, allocation, personal
-    drawdown, and average-down calculations.
-    """
+@router.get("/research/{symbol}/summary", response_model=AssetResearchSummaryResponse)
+async def get_asset_research_summary(symbol: str, db: Session = Depends(get_db)):
+    """Get the fast first payload for an asset research page."""
     service = AssetResearchService(db)
-    return await service.get_asset_research(symbol)
+    return await service.get_summary(symbol)
+
+
+@router.get("/research/{symbol}/fundamentals", response_model=AssetResearchFundamentals)
+def get_asset_research_fundamentals(symbol: str, db: Session = Depends(get_db)):
+    """Get asset fundamentals and valuation data."""
+    service = AssetResearchService(db)
+    return service.get_fundamentals(symbol)
+
+
+@router.get("/research/{symbol}/business", response_model=AssetResearchBusiness)
+def get_asset_research_business(symbol: str, db: Session = Depends(get_db)):
+    """Get asset business profile data."""
+    service = AssetResearchService(db)
+    return service.get_business(symbol)
+
+
+@router.get("/research/{symbol}/ownership", response_model=AssetResearchOwnership)
+def get_asset_research_ownership(symbol: str, db: Session = Depends(get_db)):
+    """Get asset ownership and short-interest data."""
+    service = AssetResearchService(db)
+    return service.get_ownership(symbol)
+
+
+@router.get("/research/{symbol}/themes", response_model=AssetThemeClassification)
+def get_asset_research_themes(symbol: str, db: Session = Depends(get_db)):
+    """Get or refresh asset theme/exposure classification."""
+    service = AssetResearchService(db)
+    return service.get_themes(symbol)
+
+
+@router.get("/research/{symbol}/risk", response_model=AssetResearchRisk)
+async def get_asset_research_risk(symbol: str, db: Session = Depends(get_db)):
+    """Get asset-level risk metrics."""
+    service = AssetResearchService(db)
+    return await service.get_risk(symbol)
+
+
+@router.get("/research/{symbol}/performance", response_model=AssetResearchRelativePerformance)
+async def get_asset_research_performance(symbol: str, db: Session = Depends(get_db)):
+    """Get relative performance data for an asset."""
+    service = AssetResearchService(db)
+    return await service.get_relative_performance(symbol)
+
+
+@router.get("/research/{symbol}/metadata", response_model=AssetResearchMetadata)
+def get_asset_research_metadata(symbol: str, db: Session = Depends(get_db)):
+    """Get ATH/ATL market metadata for an asset."""
+    service = AssetResearchService(db)
+    return service.get_metadata(symbol)
 
 
 @router.get("/themes/taxonomy-suggestions", response_model=List[AssetThemeTaxonomySuggestion])
