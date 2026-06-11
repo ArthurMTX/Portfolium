@@ -8,6 +8,7 @@ import {
   BookOpenText,
   Building2,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronUp,
   DollarSign,
@@ -220,6 +221,8 @@ export default function AssetResearch() {
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [watchlistMessage, setWatchlistMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [addingToWatchlist, setAddingToWatchlist] = useState(false)
+  const [watchlistItemId, setWatchlistItemId] = useState<number | null>(null)
+  const [watchlistStatusLoading, setWatchlistStatusLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<TickerSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -236,6 +239,8 @@ export default function AssetResearch() {
         setSummaryLoading(false)
         setSectionLoading(emptySectionLoading)
         setSectionErrors(emptySectionErrors)
+        setWatchlistItemId(null)
+        setWatchlistStatusLoading(false)
         return
       }
 
@@ -247,6 +252,9 @@ export default function AssetResearch() {
         setError(null)
         setAssetResearch(null)
         setInvestmentNote(null)
+        setWatchlistItemId(null)
+        setWatchlistStatusLoading(false)
+        setWatchlistMessage(null)
         setDescriptionExpanded(false)
         const summary = await api.getAssetResearchSummary(normalizedSymbol)
         if (!cancelled) {
@@ -270,6 +278,18 @@ export default function AssetResearch() {
             })
             .finally(() => {
               if (!cancelled) setInvestmentNoteLoading(false)
+            })
+
+          setWatchlistStatusLoading(true)
+          api.getWatchlistItemByAsset(summary.asset.id)
+            .then((item) => {
+              if (!cancelled) setWatchlistItemId(item?.id ?? null)
+            })
+            .catch(() => {
+              if (!cancelled) setWatchlistItemId(null)
+            })
+            .finally(() => {
+              if (!cancelled) setWatchlistStatusLoading(false)
             })
         }
 
@@ -560,11 +580,12 @@ export default function AssetResearch() {
   }, [assetResearch, t])
 
   async function handleAddToWatchlist() {
-    if (!assetResearch) return
+    if (!assetResearch || watchlistItemId !== null) return
     try {
       setAddingToWatchlist(true)
       setWatchlistMessage(null)
-      await api.addToWatchlist({ symbol: assetResearch.asset.symbol })
+      const item = await api.addToWatchlist({ symbol: assetResearch.asset.symbol })
+      setWatchlistItemId(item.id)
       setWatchlistMessage({ type: 'success', text: `${assetResearch.asset.symbol} added to watchlist.` })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to add to watchlist'
@@ -809,11 +830,17 @@ export default function AssetResearch() {
             <div className="flex flex-wrap gap-2 justify-start sm:justify-end">
               <button
                 onClick={handleAddToWatchlist}
-                disabled={addingToWatchlist}
-                className="btn-primary inline-flex items-center gap-2"
+                disabled={addingToWatchlist || watchlistStatusLoading || watchlistItemId !== null}
+                className={`${watchlistItemId !== null ? 'btn-secondary' : 'btn-primary'} inline-flex items-center gap-2`}
               >
-                <Plus size={16} />
-                {addingToWatchlist ? 'Adding...' : 'Add to watchlist'}
+                {watchlistItemId !== null ? <Check size={16} /> : <Plus size={16} />}
+                {watchlistStatusLoading
+                  ? 'Checking...'
+                  : watchlistItemId !== null
+                    ? 'In watchlist'
+                    : addingToWatchlist
+                      ? 'Adding...'
+                      : 'Add to watchlist'}
               </button>
               <button
                 onClick={() => navigate(`/transactions?symbol=${encodeURIComponent(asset.symbol)}`)}

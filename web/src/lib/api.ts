@@ -1953,10 +1953,32 @@ class ApiClient {
   }) {
     const { symbol, ...rest } = data;
     const params = new URLSearchParams({ symbol });
-    return this.request<any>(`/watchlist/by-symbol?${params.toString()}`, {
+    return this.request<{
+      id: number
+      user_id: number
+      asset_id: number
+      notes: string | null
+      alert_target_price: number | string | null
+      alert_enabled: boolean
+      created_at: string
+      updated_at: string
+    }>(`/watchlist/by-symbol?${params.toString()}`, {
       method: 'POST',
       body: JSON.stringify(rest),
     });
+  }
+
+  async getWatchlistItemByAsset(assetId: number) {
+    return this.request<{
+      id: number
+      user_id: number
+      asset_id: number
+      notes: string | null
+      alert_target_price: number | string | null
+      alert_enabled: boolean
+      created_at: string
+      updated_at: string
+    } | null>(`/watchlist/by-asset/${assetId}`)
   }
 
   async updateWatchlistItem(itemId: number, data: {
