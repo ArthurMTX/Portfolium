@@ -190,6 +190,11 @@ import {
   Bitcoin,
   TicketsPlane,
   ScanFace,
+  BugOff,
+  SoapDispenserDroplet,
+  BrickWall,
+  Grid2X2Plus,
+  WavesLadder,
 } from 'lucide-react'
 
 export const THEME_ICONS: Record<string, LucideIcon> = {
@@ -332,6 +337,14 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Earth Observation': Earth,
   'Space Systems': SatelliteDish,
 
+  // Geospatial Technology
+  'Geospatial Technology': Globe,
+  'GNSS Positioning': Satellite,
+  'Surveying Technology': ScanEye,
+  'Geospatial Software': Code,
+  'Mapping Systems': Route,
+  'Location Intelligence': Radar,
+
   // Energy & decarbonization
   // Nuclear Energy
   'Nuclear Energy': Radiation,
@@ -368,13 +381,25 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Carbon Markets': ChartLine,
   'Emissions Monitoring': Radar,
 
-  // Energy Transport
-  'Energy Transport': Fuel,
+  // Oil & Gas & Energy Transport
   'Oil & Gas': Flame,
+  'Crude Oil Production': Fuel,
+  'Natural Gas Production': Droplets,
+  'Natural Gas Liquids': Droplets,
+  'Integrated Energy': Factory,
   'LNG': Droplets,
+
+  'Energy Transport': Route,
   'Pipelines': Route,
+  'LNG Infrastructure': Ship,
+  'Storage Terminals': Warehouse,
+  'Midstream Infrastructure': Truck,
   'Refining': Factory,
+
   'Energy Services': Wrench,
+  'Oilfield Services': Wrench,
+  'Drilling Services': Pickaxe,
+  'Completion Services': Wrench,
 
   // Finance, crypto & real estate finance
   // Digital Finance
@@ -641,6 +666,13 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Construction Technology': Building2,
   'Rental Equipment': Briefcase,
 
+  // Construction Materials
+  'Construction Materials': BrickWall,
+  'Roofing Systems': House,
+  'Flooring Systems': Grid2X2Plus,
+  'Concrete Admixtures': FlaskConical,
+  'Sealants & Coatings': Sparkles,
+
   // Precision Agriculture
   'Precision Agriculture': Sprout,
   'Agricultural Equipment': Wheat,
@@ -654,6 +686,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Water Utilities': RefreshCw,
   'Pumping Systems': FlaskRound,
   'Desalination': FlaskRound,
+  'Pool Equipment': WavesLadder,
 
   // Environmental Services
   'Environmental Services': Recycle,
@@ -662,6 +695,27 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Industrial Cleanup': Factory,
   'Recycling': Recycle,
   'Environmental Remediation': Leaf,
+  'Pest Control Services': BugOff,
+
+  // Agricultural & Specialty Chemicals
+  'Agricultural Chemicals': FlaskConical,
+  'Fertilizer Production': Factory,
+  'Ammonia Production': FlaskRound,
+  'Nitrogen Products': TestTube,
+
+  'Industrial Gases': FlaskRound,
+  'Industrial Oxygen': Droplets,
+  'Industrial Nitrogen': TestTube,
+  'Argon & Noble Gases': Sparkles,
+  'Hydrogen Supply': Fuel,
+  'Medical Gases': Cross,
+  'Electronic Specialty Gases': Microchip,
+
+  'Specialty Chemicals': Factory,
+  'Industrial Maintenance Chemicals': Wrench,
+  'Lubricants': SoapDispenserDroplet,
+  'Surface Treatments': Sparkles,
+  'Cleaning Chemicals': Droplets,
 
   // Critical Minerals
   'Critical Minerals': FlaskConical,
@@ -707,6 +761,12 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Healthcare REITs': Hospital,
   'Net Lease': FileText,
   'Self Storage': Warehouse,
+  // Real Estate Services
+  'Real Estate Services': Landmark,
+  'Property Management': Home,
+  'Commercial Brokerage': Handshake,
+  'Facilities Management': Wrench,
+  'Real Estate Advisory': Lightbulb,
 
   // AdTech
   'AdTech': Megaphone,
@@ -942,6 +1002,14 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Earth Observation': 'text-[#3ba5bd] dark:text-[#57cfeb]',
   'Space Systems': 'text-[#369fc3] dark:text-[#51c8f1]',
 
+  // Geospatial Technology
+  'Geospatial Technology': 'text-[#2f9bb7] dark:text-[#50c8d8]',
+  'GNSS Positioning': 'text-[#2c8fb0] dark:text-[#4bb8d8]',
+  'Surveying Technology': 'text-[#2fa7b7] dark:text-[#4bd2de]',
+  'Geospatial Software': 'text-[#317fb7] dark:text-[#50a8e7]',
+  'Mapping Systems': 'text-[#2d94b0] dark:text-[#4bb0d8]',
+  'Location Intelligence': 'text-[#2aa1b0] dark:text-[#48c6d8]',
+
   // Energy & decarbonization
   // Nuclear Energy
   'Nuclear Energy': 'text-[#b79f33] dark:text-[#d8bf50]',
@@ -979,12 +1047,22 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Emissions Monitoring': 'text-[#335fd2] dark:text-[#4a79f4]',
 
   // Energy Transport
+  'Oil & Gas': 'text-[#b75a27] dark:text-[#e89250]',
+  'Crude Oil Production': 'text-[#a84f2a] dark:text-[#d87e4a]',
+  'Natural Gas Production': 'text-[#7fb031] dark:text-[#b4e44b]',
+  'Natural Gas Liquids': 'text-[#86a02f] dark:text-[#c1e04a]',
+  'Integrated Energy': 'text-[#8b5f31] dark:text-[#b87e50]',
+
   'Energy Transport': 'text-[#87b733] dark:text-[#a6d850]',
-  'Oil & Gas': 'text-[#90aa35] dark:text-[#bad850]',
-  'LNG': 'text-[#8bb031] dark:text-[#b3de4b]',
   'Pipelines': 'text-[#84b72c] dark:text-[#aae445]',
-  'Refining': 'text-[#84bd3b] dark:text-[#abeb57]',
+  'LNG Infrastructure': 'text-[#8bb031] dark:text-[#b3de4b]',
+  'Storage Terminals': 'text-[#6b5f3a] dark:text-[#a68f50]',
+  'Midstream Infrastructure': 'text-[#5f7a3b] dark:text-[#8fb150]',
+
   'Energy Services': 'text-[#7cc336] dark:text-[#a0f151]',
+  'Oilfield Services': 'text-[#6f6f34] dark:text-[#9f9f57]',
+  'Drilling Services': 'text-[#8b4f2f] dark:text-[#c77b50]',
+  'Completion Services': 'text-[#7a5f3a] dark:text-[#ad8f58]',
 
   // Finance, crypto & real estate finance
   // Digital Finance
@@ -1251,6 +1329,13 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Construction Technology': 'text-[#31ca9a] dark:text-[#4af4bf]',
   'Rental Equipment': 'text-[#41d2af] dark:text-[#5bf4cf]',
 
+  // Construction Materials
+  'Construction Materials': 'text-[#b76f33] dark:text-[#d89250]',
+  'Roofing Systems': 'text-[#aa6a35] dark:text-[#d88e50]',
+  'Flooring Systems': 'text-[#b27335] dark:text-[#e29b50]',
+  'Concrete Admixtures': 'text-[#c36f2f] dark:text-[#f19149]',
+  'Sealants & Coatings': 'text-[#7a5530] dark:text-[#a37650]',
+
   // Precision Agriculture
   'Precision Agriculture': 'text-[#b76233] dark:text-[#d88050]',
   'Agricultural Equipment': 'text-[#aa5635] dark:text-[#d87750]',
@@ -1264,6 +1349,7 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Water Utilities': 'text-[#362cb7] dark:text-[#5045e4]',
   'Pumping Systems': 'text-[#4d3bbd] dark:text-[#6c57eb]',
   'Desalination': 'text-[#5436c3] dark:text-[#7351f1]',
+  'Pool Equipment': 'text-[#2fa8c8] dark:text-[#50d2ee]',
 
   // Environmental Services
   'Environmental Services': 'text-[#58c637] dark:text-[#77e756]',
@@ -1272,6 +1358,27 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Industrial Cleanup': 'text-[#52c630] dark:text-[#71f349]',
   'Recycling': 'text-[#56cc3f] dark:text-[#73f45b]',
   'Environmental Remediation': 'text-[#47d23a] dark:text-[#60f452]',
+  'Pest Control Services': 'text-[#67b93a] dark:text-[#89e85a]',
+
+  // Agricultural & Specialty Chemicals
+  'Agricultural Chemicals': 'text-[#c07b2e] dark:text-[#e09c50]',
+  'Fertilizer Production': 'text-[#b96f2a] dark:text-[#d88f48]',
+  'Ammonia Production': 'text-[#c68331] dark:text-[#e2a84f]',
+  'Nitrogen Products': 'text-[#d39440] dark:text-[#f1c060]',
+
+  'Industrial Gases': 'text-[#1785a6] dark:text-[#43c1df]',
+  'Industrial Oxygen': 'text-[#147999] dark:text-[#3db7d5]',
+  'Industrial Nitrogen': 'text-[#1a8daf] dark:text-[#52c7e5]',
+  'Argon & Noble Gases': 'text-[#229cb9] dark:text-[#65d4ed]',
+  'Hydrogen Supply': 'text-[#0f8f93] dark:text-[#42d1d5]',
+  'Medical Gases': 'text-[#2e8fc7] dark:text-[#65c7f1]',
+  'Electronic Specialty Gases': 'text-[#336fc2] dark:text-[#6aa4f4]',
+
+  'Specialty Chemicals': 'text-[#6b33b7] dark:text-[#8f50d8]',
+  'Industrial Maintenance Chemicals': 'text-[#5d2db0] dark:text-[#7b4bd6]',
+  'Lubricants': 'text-[#5530a8] dark:text-[#7a4ad0]',
+  'Surface Treatments': 'text-[#7a4ad0] dark:text-[#9a6cf1]',
+  'Cleaning Chemicals': 'text-[#8a5ae0] dark:text-[#b08cf8]',
 
   // Critical Minerals
   'Critical Minerals': 'text-[#b73377] dark:text-[#d85096]',
@@ -1317,6 +1424,12 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Healthcare REITs': 'text-[#c63330] dark:text-[#f34d49]',
   'Net Lease': 'text-[#cc4c3f] dark:text-[#f4695b]',
   'Self Storage': 'text-[#d2533a] dark:text-[#f46d52]',
+  // Real Estate Services
+  'Real Estate Services': 'text-[#3356b7] dark:text-[#5074d8]',
+  'Property Management': 'text-[#355caa] dark:text-[#507ed8]',
+  'Commercial Brokerage': 'text-[#334155] dark:text-[#cbd5e1]',
+  'Facilities Management': 'text-[#64748b] dark:text-[#cbd5e1]',
+  'Real Estate Advisory': 'text-[#3b82f6] dark:text-[#93c5fd]',
 
   // AdTech
   'AdTech': 'text-[#3356b7] dark:text-[#5074d8]',
@@ -1552,6 +1665,14 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Earth Observation': '#3ba5bd',
   'Space Systems': '#369fc3',
 
+  // Geospatial Technology
+  'Geospatial Technology': '#2f9bb7',
+  'GNSS Positioning': '#2c8fb0',
+  'Surveying Technology': '#2fa7b7',
+  'Geospatial Software': '#317fb7',
+  'Mapping Systems': '#2d94b0',
+  'Location Intelligence': '#2aa1b0',
+
   // Energy & decarbonization
   // Nuclear Energy
   'Nuclear Energy': '#b79f33',
@@ -1589,12 +1710,22 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Emissions Monitoring': '#335fd2',
 
   // Energy Transport
+  'Oil & Gas': '#b75a27',
+  'Crude Oil Production': '#a84f2a',
+  'Natural Gas Production': '#7fb031',
+  'Natural Gas Liquids': '#86a02f',
+  'Integrated Energy': '#8b5f31',
+
   'Energy Transport': '#87b733',
-  'Oil & Gas': '#90aa35',
-  'LNG': '#8bb031',
   'Pipelines': '#84b72c',
-  'Refining': '#84bd3b',
+  'LNG Infrastructure': '#8bb031',
+  'Storage Terminals': '#6b5f3a',
+  'Midstream Infrastructure': '#5f7a3b',
+
   'Energy Services': '#7cc336',
+  'Oilfield Services': '#6f6f34',
+  'Drilling Services': '#8b4f2f',
+  'Completion Services': '#7a5f3a',
 
   // Finance, crypto & real estate finance
   // Digital Finance
@@ -1861,6 +1992,13 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Construction Technology': '#31ca9a',
   'Rental Equipment': '#41d2af',
 
+  // Construction Materials
+  'Construction Materials': '#b76f33',
+  'Roofing Systems': '#aa6a35',
+  'Flooring Systems': '#b27335',
+  'Concrete Admixtures': '#c36f2f',
+  'Sealants & Coatings': '#7a5530',
+
   // Precision Agriculture
   'Precision Agriculture': '#b76233',
   'Agricultural Equipment': '#aa5635',
@@ -1874,6 +2012,7 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Water Utilities': '#362cb7',
   'Pumping Systems': '#4d3bbd',
   'Desalination': '#5436c3',
+  'Pool Equipment': '#2fa8c8',
 
   // Environmental Services
   'Environmental Services': '#58c637',
@@ -1882,6 +2021,27 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Industrial Cleanup': '#52c630',
   'Recycling': '#56cc3f',
   'Environmental Remediation': '#47d23a',
+  'Pest Control Services': '#67b93a',
+
+  // Agricultural & Specialty Chemicals
+  'Agricultural Chemicals': '#c07b2e',
+  'Fertilizer Production': '#b96f2a',
+  'Ammonia Production': '#c68331',
+  'Nitrogen Products': '#d39440',
+
+  'Industrial Gases': '#1785a6',
+  'Industrial Oxygen': '#147999',
+  'Industrial Nitrogen': '#1a8daf',
+  'Argon & Noble Gases': '#229cb9',
+  'Hydrogen Supply': '#0f8f93',
+  'Medical Gases': '#2e8fc7',
+  'Electronic Specialty Gases': '#336fc2',
+
+  'Specialty Chemicals': '#6b33b7',
+  'Industrial Maintenance Chemicals': '#5d2db0',
+  'Lubricants': '#5530a8',
+  'Surface Treatments': '#7a4ad0',
+  'Cleaning Chemicals': '#8a5ae0',
 
   // Critical Minerals
   'Critical Minerals': '#b73377',
@@ -1927,6 +2087,12 @@ export const THEME_HEX_COLORS: Record<string, string> = {
   'Healthcare REITs': '#c63330',
   'Net Lease': '#cc4c3f',
   'Self Storage': '#d2533a',
+  // Real Estate Services
+  'Real Estate Services': '#3356b7',
+  'Property Management': '#355caa',
+  'Commercial Brokerage': '#334155',
+  'Facilities Management': '#64748b',
+  'Real Estate Advisory': '#3b82f6',
 
   // AdTech
   'AdTech': '#3356b7',

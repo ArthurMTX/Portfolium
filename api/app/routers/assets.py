@@ -8,7 +8,7 @@ import logging
 import json
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, get_db
@@ -17,6 +17,7 @@ from app.schemas import (
     AssetCreate,
     AssetInvestmentNote,
     AssetInvestmentNoteUpdate,
+    AssetInvalidProviderCleanupRequest,
     AssetMetadataOverride,
     AssetResearchResponse,
     AssetThemeClassification,
@@ -35,6 +36,11 @@ from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.services.asset_research import AssetResearchService
 from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, GEMINI_THEME_MODEL, AssetThemeService
+from app.services.asset_theme_benchmark import (
+    build_classification_benchmark_report,
+    build_taxonomy_gap_report,
+    serialize_theme_registry,
+)
 from app.services.fundamentals import FundamentalsService
 from app.errors import ( 
     AssetAlreadyExistsError,
@@ -58,6 +64,50 @@ logger = logging.getLogger(__name__)
 def get_theme_hierarchy() -> Dict[str, List[str]]:
     """Return the allowed theme hierarchy used by the classifier."""
     return {theme: list(subthemes) for theme, subthemes in ALLOWED_THEME_HIERARCHY.items()}
+
+
+@router.get("/themes/registry")
+def get_theme_registry(
+    _current_user: User = Depends(get_current_admin_user),
+) -> Dict[str, Any]:
+    """Return taxonomy definitions used by MiniLM evaluation tooling."""
+    return serialize_theme_registry()
+
+
+@router.get("/themes/classification-benchmark")
+def get_classification_benchmark(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    symbols: Optional[str] = Query(default=None),
+    retrieved_candidate_limit: int = Query(default=10, ge=1, le=50),
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Run a read-only MiniLM benchmark against stored Gemini classifications."""
+    symbol_list = [
+        item.strip().upper()
+        for item in (symbols or "").split(",")
+        if item.strip()
+    ] or None
+    try:
+        return build_classification_benchmark_report(
+            db,
+            limit=limit,
+            offset=offset,
+            symbols=symbol_list,
+            retrieved_candidate_limit=retrieved_candidate_limit,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+
+@router.get("/themes/gap-analysis")
+def get_theme_gap_analysis(
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Return taxonomy assignment coverage and frequent gap suggestions."""
+    return build_taxonomy_gap_report(db)
 
 
 def _serialize_taxonomy_suggestion(
@@ -365,6 +415,73 @@ def _fetch_theme_company_info(asset):
         return {}
 
 
+def _asset_reference_counts(db: Session, asset_ids: List[int]) -> Dict[int, Dict[str, int]]:
+    counts = {
+        asset_id: {
+            "transaction_count": 0,
+            "watchlist_count": 0,
+            "pending_dividend_count": 0,
+            "investment_note_count": 0,
+            "metadata_override_count": 0,
+        }
+        for asset_id in asset_ids
+    }
+    if not asset_ids:
+        return counts
+
+    from app.models import (
+        AssetInvestmentNote as AssetInvestmentNoteModel,
+        AssetMetadataOverride as AssetMetadataOverrideModel,
+        PendingDividend,
+        Transaction,
+        Watchlist,
+    )
+
+    count_queries = (
+        ("transaction_count", Transaction.asset_id, Transaction.id),
+        ("watchlist_count", Watchlist.asset_id, Watchlist.id),
+        ("pending_dividend_count", PendingDividend.asset_id, PendingDividend.id),
+        ("investment_note_count", AssetInvestmentNoteModel.asset_id, AssetInvestmentNoteModel.id),
+        ("metadata_override_count", AssetMetadataOverrideModel.asset_id, AssetMetadataOverrideModel.id),
+    )
+
+    for count_key, asset_id_column, id_column in count_queries:
+        rows = (
+            db.query(asset_id_column, func.count(id_column))
+            .filter(asset_id_column.in_(asset_ids))
+            .group_by(asset_id_column)
+            .all()
+        )
+        for asset_id, count in rows:
+            counts[int(asset_id)][count_key] = int(count)
+
+    return counts
+
+
+def _has_asset_user_references(counts: Dict[str, int]) -> bool:
+    return any(counts.get(key, 0) > 0 for key in counts)
+
+
+def _serialize_asset_cleanup_candidate(
+    asset: AssetModel,
+    *,
+    reason: Optional[str] = None,
+    reference_counts: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    payload = {
+        "id": asset.id,
+        "symbol": asset.symbol,
+        "name": asset.name,
+        "asset_type": asset.asset_type,
+        "created_at": asset.created_at.isoformat() if asset.created_at else None,
+    }
+    if reason is not None:
+        payload["reason"] = reason
+    if reference_counts is not None:
+        payload.update(reference_counts)
+    return payload
+
+
 def _invalidate_asset_list_caches() -> None:
     cache_service.delete_pattern("assets_held:*")
     cache_service.delete_pattern("assets_sold:*")
@@ -634,6 +751,14 @@ def update_theme_taxonomy_suggestion(
     return _serialize_taxonomy_suggestion(suggestion)
 
 
+def _get_or_create_classifiable_asset(db: Session, symbol: str) -> AssetModel:
+    """Return an existing asset or create it from provider metadata for classification."""
+    asset = crud.get_asset_by_symbol(db, symbol)
+    if asset:
+        return asset
+    return crud.create_asset(db, AssetCreate(symbol=symbol))
+
+
 @router.post("/themes/classify", response_model=AssetThemeClassifyResponse)
 def classify_asset_themes(
     payload: AssetThemeClassifyRequest,
@@ -657,9 +782,7 @@ def classify_asset_themes(
 
     for symbol in symbols:
         try:
-            asset = crud.get_asset_by_symbol(db, symbol)
-            if not asset:
-                asset = crud.create_asset(db, AssetCreate(symbol=symbol))
+            asset = _get_or_create_classifiable_asset(db, symbol)
 
             existing = service.get_classification(asset.id)
             if payload.missing_only and existing and existing.themes and not payload.force:
@@ -877,11 +1000,14 @@ def get_asset_database_list(
         q = q.filter(or_(AssetModel.symbol.ilike(search), AssetModel.name.ilike(search)))
 
     assets = q.order_by(AssetModel.symbol).offset(skip).limit(limit).all()
+    asset_ids = [asset.id for asset in assets]
+    reference_counts = _asset_reference_counts(db, asset_ids)
 
     results = []
     for asset in assets:
         effective_data = crud.get_effective_asset_metadata(db, asset, current_user.id)
         themes_payload = asset.themes or AssetThemeService(db).get_themes(asset.id)
+        counts = reference_counts.get(asset.id, {})
 
         results.append({
             "id": asset.id,
@@ -897,6 +1023,7 @@ def get_asset_database_list(
             "effective_industry": effective_data["effective_industry"],
             "effective_country": effective_data["effective_country"],
             "themes": themes_payload,
+            **counts,
             "first_transaction_date": asset.first_transaction_date.isoformat() if asset.first_transaction_date else None,
             "logo_fetched_at": asset.logo_fetched_at.isoformat() if asset.logo_fetched_at else None,
             "logo_content_type": asset.logo_content_type,
@@ -905,6 +1032,126 @@ def get_asset_database_list(
         })
 
     return results
+
+
+def _cleanup_invalid_provider_assets(
+    db: Session,
+    *,
+    dry_run: bool,
+    symbols: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Validate assets against Yahoo Finance and delete only provider-not-found rows
+    that have no user-facing references.
+
+    Assets are never deleted merely because they have no transactions or
+    portfolios linked. yfinance sometimes logs a 404 internally but returns a
+    sparse info dict instead of raising; those no-identity responses are treated
+    as not-found cleanup candidates. Other provider failures are unresolved.
+    """
+    query = db.query(AssetModel)
+    parsed_symbols: List[str] = []
+    if symbols:
+        parsed_symbols = [
+            str(item).strip().upper()
+            for item in symbols
+            if str(item).strip()
+        ]
+        if parsed_symbols:
+            query = query.filter(AssetModel.symbol.in_(parsed_symbols))
+
+    assets = query.order_by(AssetModel.symbol).all()
+    asset_ids = [asset.id for asset in assets]
+    reference_counts = _asset_reference_counts(db, asset_ids)
+    provider = get_market_data_provider()
+
+    candidates: List[Dict[str, Any]] = []
+    blocked: List[Dict[str, Any]] = []
+    unresolved: List[Dict[str, Any]] = []
+    valid_count = 0
+
+    for asset in assets:
+        reason: Optional[str] = None
+        try:
+            info = provider.get_info(
+                asset.symbol,
+                action="asset_invalid_provider_cleanup_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
+            if crud.is_valid_provider_info(asset.symbol, info):
+                valid_count += 1
+                continue
+            reason = "Yahoo Finance returned no identity metadata after quote lookup"
+        except Exception as exc:
+            reason = str(exc).strip() or exc.__class__.__name__
+            if not crud.is_provider_not_found_error(exc):
+                unresolved.append(
+                    _serialize_asset_cleanup_candidate(
+                        asset,
+                        reason=reason,
+                        reference_counts=reference_counts.get(asset.id, {}),
+                    )
+                )
+                continue
+
+        counts = reference_counts.get(asset.id, {})
+        payload = _serialize_asset_cleanup_candidate(
+            asset,
+            reason=reason,
+            reference_counts=counts,
+        )
+        if _has_asset_user_references(counts):
+            blocked.append(payload)
+        else:
+            candidates.append(payload)
+
+    if not dry_run and candidates:
+        candidate_ids = [candidate["id"] for candidate in candidates]
+        for asset in db.query(AssetModel).filter(AssetModel.id.in_(candidate_ids)).all():
+            db.delete(asset)
+        db.commit()
+        _invalidate_asset_list_caches()
+
+    return {
+        "dry_run": dry_run,
+        "scanned": len(assets),
+        "valid": valid_count,
+        "invalid": len(candidates) + len(blocked),
+        "deleted": 0 if dry_run else len(candidates),
+        "candidates": candidates,
+        "blocked": blocked,
+        "unresolved": unresolved,
+    }
+
+
+@router.post("/database/invalid-provider")
+def cleanup_invalid_provider_assets(
+    payload: AssetInvalidProviderCleanupRequest,
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Body-based cleanup endpoint to avoid huge query strings in dev tools."""
+    return _cleanup_invalid_provider_assets(
+        db,
+        dry_run=payload.dry_run,
+        symbols=payload.symbols,
+    )
+
+
+@router.delete("/database/invalid-provider")
+def delete_invalid_provider_assets(
+    dry_run: bool = Query(default=True, description="Preview provider-invalid assets without deleting"),
+    symbols: Optional[str] = Query(default=None, description="Optional comma-separated symbols to validate"),
+    _current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Compatibility endpoint. Prefer POST with JSON body for large symbol sets."""
+    parsed_symbols = symbols.split(",") if symbols else None
+    return _cleanup_invalid_provider_assets(
+        db,
+        dry_run=dry_run,
+        symbols=parsed_symbols,
+    )
 
 
 @router.get("/{asset_id}", response_model=Asset)

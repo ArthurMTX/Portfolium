@@ -1,13 +1,79 @@
 """
 CRUD operations for assets
 """
-from typing import List, Optional
+import logging
+import re
+from typing import Any, List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
+from app.errors import InvalidAssetSymbolError
 from app.models import Asset
 from app.schemas import AssetCreate, AssetInvestmentNoteUpdate
+
+logger = logging.getLogger(__name__)
+
+
+_CRYPTO_CURRENCY_SUFFIX_RE = re.compile(
+    r"\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$",
+    flags=re.IGNORECASE,
+)
+
+
+def _strip_crypto_currency_suffix(name: str) -> str:
+    return _CRYPTO_CURRENCY_SUFFIX_RE.sub("", name)
+
+
+def is_valid_provider_info(symbol: str, info: Any) -> bool:
+    """
+    Return whether Yahoo returned enough metadata to trust asset creation.
+
+    yfinance may raise on 404s, but some bad symbols can return sparse placeholder
+    dictionaries. Do not create an asset unless the provider gives an identity
+    field that real instruments normally have.
+    """
+    if not isinstance(info, dict) or not info:
+        return False
+
+    quote_type = str(info.get("quoteType") or "").strip().upper()
+    if quote_type and quote_type not in {"NONE", "UNKNOWN"}:
+        return True
+
+    for name_field in ("longName", "shortName"):
+        name = info.get(name_field)
+        if isinstance(name, str) and name.strip():
+            return True
+
+    provider_symbol = info.get("symbol")
+    if isinstance(provider_symbol, str) and provider_symbol.strip():
+        return any(
+            info.get(field) is not None
+            for field in ("regularMarketPrice", "previousClose", "currency")
+        )
+
+    return False
+
+
+def _invalid_symbol_reason(exc: Exception) -> str:
+    message = str(exc).strip()
+    if not message:
+        message = exc.__class__.__name__
+    return f"Yahoo Finance did not return usable metadata ({message})"
+
+
+def is_provider_not_found_error(exc: Exception) -> bool:
+    """Best-effort detection for provider-confirmed missing symbols."""
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "404",
+            "not found",
+            "quote not found",
+            "symbol may be delisted",
+        )
+    )
 
 
 def get_asset(db: Session, asset_id: int) -> Optional[Asset]:
@@ -51,45 +117,43 @@ def get_assets(
 
 def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
-    import re
     from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+
+    symbol = asset.symbol.strip().upper()
     
     # Fetch additional info from yfinance
     try:
         provider = get_market_data_provider()
         info = provider.get_info(
-            asset.symbol,
+            symbol,
             action="asset_create_info",
             timeout_seconds=yahoo_timeout_seconds(),
         )
-        sector = info.get('sector')
-        industry = info.get('industry')
-        asset_type = info.get('quoteType')  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
-        country = info.get('country')
-        # Get currency from yfinance if available
-        currency = info.get('currency') or asset.currency
-        # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
-        if not asset.name or asset.name == asset.symbol:
-            name = info.get('longName') or info.get('shortName') or asset.symbol
-        else:
-            name = asset.name
-        # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
-        if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
-            name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
-    except Exception:
-        # If yfinance fails, use provided values
-        sector = None
-        industry = None
-        asset_type = asset.asset_type  # Use passed asset_type if yfinance fails
-        country = None
-        currency = asset.currency
-        name = asset.name or asset.symbol
-        # Strip currency suffixes from cryptocurrency names even in exception path
-        if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
-            name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
+    except Exception as exc:
+        logger.warning("Rejecting asset creation for %s: provider lookup failed: %s", symbol, exc)
+        raise InvalidAssetSymbolError(symbol, _invalid_symbol_reason(exc))
+
+    if not is_valid_provider_info(symbol, info):
+        logger.warning("Rejecting asset creation for %s: provider returned sparse info: %s", symbol, info)
+        raise InvalidAssetSymbolError(symbol, "Yahoo Finance returned no usable metadata")
+
+    sector = info.get('sector')
+    industry = info.get('industry')
+    asset_type = info.get('quoteType') or asset.asset_type  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
+    country = info.get('country')
+    # Get currency from yfinance if available
+    currency = info.get('currency') or asset.currency
+    # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
+    if not asset.name or asset.name.strip().upper() == symbol:
+        name = info.get('longName') or info.get('shortName') or symbol
+    else:
+        name = asset.name
+    # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
+    if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+        name = _strip_crypto_currency_suffix(name)
     
     db_asset = Asset(
-        symbol=asset.symbol.upper(),
+        symbol=symbol,
         name=name,
         currency=currency,
         class_=asset.class_,

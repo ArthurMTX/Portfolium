@@ -376,7 +376,8 @@ def _subtheme_payload():
                     }
                 ],
             },
-        ]
+        ],
+        "subthemeGaps": [],
     }
 
 
@@ -577,3 +578,50 @@ def test_two_pass_output_shape_remains_frontend_and_allocation_compatible(monkey
         assert isinstance(theme["children"], list)
         for child in theme["children"]:
             assert set(child) == {"label", "confidence", "evidence"}
+
+
+def test_two_pass_collects_gemini_subtheme_gap_suggestions(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    pass1_payload = {
+        "primaryThemes": [
+            {
+                "label": "Specialty Chemicals",
+                "confidence": 0.9,
+                "weight": 1.0,
+                "evidence": ["electronic specialty and advanced materials"],
+            }
+        ],
+        "secondaryThemes": [],
+        "taxonomyGap": {"hasGap": False},
+    }
+    pass2_payload = {
+        "themes": [{"label": "Specialty Chemicals", "subthemes": []}],
+        "subthemeGaps": [
+            {
+                "label": "Specialty Chemicals",
+                "reason": "Current subthemes do not cover electronic materials.",
+                "suggestedSubthemes": ["Electronic Specialty Materials", "Industrial Gases"],
+                "confidence": 0.88,
+            }
+        ],
+    }
+    gemini = FakeGeminiService([pass1_payload, pass2_payload])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, _taxonomy_gap = service.generate_theme_payload(
+        name="Air Liquide",
+        sector="Basic Materials",
+        industry="Specialty Chemicals",
+        summary="The company provides electronic specialty and advanced materials.",
+    )
+
+    assert themes[0]["children"] == []
+    assert service.last_subtheme_taxonomy_gaps == [
+        {
+            "hasGap": True,
+            "reason": "Current subthemes do not cover electronic materials.",
+            "suggestedTheme": "Specialty Chemicals",
+            "suggestedSubthemes": ["Electronic Specialty Materials", "Industrial Gases"],
+            "confidence": 0.88,
+        }
+    ]

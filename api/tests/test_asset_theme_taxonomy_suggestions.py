@@ -73,7 +73,7 @@ def test_does_not_store_duplicate_suggestion(test_db):
     assert test_db.query(AssetThemeTaxonomySuggestion).count() == 1
 
 
-def test_does_not_store_existing_theme_suggestion(test_db):
+def test_stores_existing_theme_gap_for_admin_review(test_db):
     asset = _asset(test_db)
     service = AssetThemeService(test_db)
 
@@ -88,11 +88,12 @@ def test_does_not_store_existing_theme_suggestion(test_db):
         themes=[],
     )
 
-    assert suggestion is None
-    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 0
+    assert suggestion is not None
+    assert suggestion.suggested_theme == "Physical Security"
+    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 1
 
 
-def test_does_not_store_low_confidence_suggestion(test_db):
+def test_stores_low_confidence_gap_for_admin_review(test_db):
     asset = _asset(test_db)
     service = AssetThemeService(test_db)
 
@@ -107,11 +108,12 @@ def test_does_not_store_low_confidence_suggestion(test_db):
         themes=[],
     )
 
-    assert suggestion is None
-    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 0
+    assert suggestion is not None
+    assert float(suggestion.confidence) == 0.4
+    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 1
 
 
-def test_does_not_store_when_classification_is_strong(test_db):
+def test_stores_gap_even_when_classification_is_strong(test_db):
     asset = _asset(test_db)
     service = AssetThemeService(test_db)
     themes = [{"label": "AI Infrastructure", "confidence": 0.9, "weight": 1.0, "tier": "primary"}]
@@ -127,8 +129,8 @@ def test_does_not_store_when_classification_is_strong(test_db):
         themes=themes,
     )
 
-    assert suggestion is None
-    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 0
+    assert suggestion is not None
+    assert test_db.query(AssetThemeTaxonomySuggestion).count() == 1
 
 
 def test_patch_taxonomy_suggestion_status(client, test_db, test_user):
@@ -193,6 +195,68 @@ def test_classify_single_symbol(client, test_db, test_user, monkeypatch):
     assert response.status_code == 200
     assert response.json()["classified"] == 1
     assert calls == [("HZO", False)]
+
+
+def test_classify_missing_symbol_creates_asset(client, test_db, test_user, monkeypatch):
+    calls = []
+
+    def fake_create(db, asset_create):
+        asset = Asset(
+            symbol=asset_create.symbol,
+            name="GATX Corporation",
+            currency=asset_create.currency,
+            class_=AssetClass.STOCK,
+            sector="Industrials",
+            industry="Rental & Leasing Services",
+            asset_type="EQUITY",
+        )
+        db.add(asset)
+        db.commit()
+        db.refresh(asset)
+        return asset
+
+    def fake_refresh(self, asset, summary, sector=None, industry=None, name=None, force=False):
+        calls.append((asset.symbol, asset.name, sector, industry, name))
+        classification = AssetThemeClassification(
+            asset_id=asset.id,
+            themes=[{"label": "Industrial Automation", "confidence": 0.8, "weight": 1.0, "tier": "primary", "children": []}],
+            method="gpt",
+            model="test",
+            source_hash="hash",
+            generated_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        self.db.add(classification)
+        self.db.commit()
+        self.db.refresh(classification)
+        self.last_taxonomy_gap = None
+        return classification
+
+    monkeypatch.setattr("app.routers.assets.crud.create_asset", fake_create)
+    monkeypatch.setattr(
+        "app.routers.assets._fetch_theme_company_info",
+        lambda asset: {
+            "longBusinessSummary": "Leases railcars and related transport equipment.",
+            "sector": asset.sector,
+            "industry": asset.industry,
+            "longName": asset.name,
+        },
+    )
+    monkeypatch.setattr(AssetThemeService, "refresh_gemini_classification", fake_refresh)
+
+    response = client.post(
+        "/assets/themes/classify",
+        headers=_admin_headers(client, test_db, test_user),
+        json={"symbols": ["GATX"], "force": False, "missing_only": False},
+    )
+
+    payload = response.json()
+    created = test_db.query(Asset).filter(Asset.symbol == "GATX").first()
+    assert response.status_code == 200
+    assert payload["classified"] == 1
+    assert payload["failed"] == 0
+    assert created is not None
+    assert calls == [("GATX", "GATX Corporation", "Industrials", "Rental & Leasing Services", "GATX Corporation")]
 
 
 def test_classify_multiple_symbols_with_partial_failure(client, test_db, test_user, monkeypatch):

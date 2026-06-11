@@ -20,6 +20,24 @@ import api, {
 import { getThemeHexColor, getThemeIcon } from '../lib/themeUtils'
 
 type Tab = 'suggestions' | 'classify'
+type ClassifyLogStatus = 'queued' | 'running' | 'classified' | 'skipped' | 'failed'
+
+type ClassifyLogEntry = {
+  symbol: string
+  status: ClassifyLogStatus
+  message: string
+  startedAt?: number
+  completedAt?: number
+  durationMs?: number
+}
+
+type ClassifyProgress = {
+  total: number
+  completed: number
+  classified: number
+  skipped: number
+  failed: number
+}
 
 const statuses: Array<AssetThemeTaxonomySuggestionStatus | 'all'> = [
   'pending',
@@ -43,10 +61,29 @@ export default function AdminThemeTaxonomy() {
   const [missingOnly, setMissingOnly] = useState(true)
   const [classifying, setClassifying] = useState(false)
   const [classifyResults, setClassifyResults] = useState<AssetThemeClassifyResultDTO[]>([])
+  const [classifyLog, setClassifyLog] = useState<ClassifyLogEntry[]>([])
+  const [classifyProgress, setClassifyProgress] = useState<ClassifyProgress>({
+    total: 0,
+    completed: 0,
+    classified: 0,
+    skipped: 0,
+    failed: 0,
+  })
+  const [activeSymbol, setActiveSymbol] = useState<string | null>(null)
+  const [activeStartedAt, setActiveStartedAt] = useState<number | null>(null)
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    if (!classifying) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [classifying])
 
   useEffect(() => {
     loadSuggestions()
     loadStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
   const filteredSuggestions = useMemo(() => suggestions, [suggestions])
@@ -91,23 +128,169 @@ export default function AdminThemeTaxonomy() {
   }, [singleSymbol, bulkSymbols])
 
   const classify = async (override?: { force?: boolean; missing_only?: boolean }) => {
-    if (!parsedSymbols.length) return
+    const symbols = parsedSymbols
+    if (!symbols.length || classifying) return
+
+    const runForce = override?.force ?? force
+    const runMissingOnly = override?.missing_only ?? missingOnly
+    const startedAt = Date.now()
+
     setClassifying(true)
+    setRunStartedAt(startedAt)
+    setActiveSymbol(null)
+    setActiveStartedAt(null)
+    setClassifyResults([])
+    setClassifyProgress({
+      total: symbols.length,
+      completed: 0,
+      classified: 0,
+      skipped: 0,
+      failed: 0,
+    })
+    setClassifyLog(
+      symbols.map((symbol) => ({
+        symbol,
+        status: 'queued',
+        message: 'Queued',
+      }))
+    )
+
+    const results: AssetThemeClassifyResultDTO[] = []
+    let classified = 0
+    let skipped = 0
+    let failed = 0
+
     try {
-      const response = await api.classifyAssetThemes({
-        symbols: parsedSymbols,
-        force: override?.force ?? force,
-        missing_only: override?.missing_only ?? missingOnly,
-      })
-      setClassifyResults(response.results)
-      loadSuggestions()
-      loadStats()
+      for (let index = 0; index < symbols.length; index += 1) {
+        const symbol = symbols[index]
+        const symbolStartedAt = Date.now()
+        setActiveSymbol(symbol)
+        setActiveStartedAt(symbolStartedAt)
+        setClassifyLog((items) =>
+          items.map((item) =>
+            item.symbol === symbol
+              ? {
+                  ...item,
+                  status: 'running',
+                  message: `Running ${index + 1}/${symbols.length}: Yahoo info + Gemini`,
+                  startedAt: symbolStartedAt,
+                }
+              : item
+          )
+        )
+
+        try {
+          const response = await api.classifyAssetThemes({
+            symbols: [symbol],
+            force: runForce,
+            missing_only: runMissingOnly,
+          })
+          const completedAt = Date.now()
+          const durationMs = completedAt - symbolStartedAt
+          const result = response.results[0] || {
+            symbol,
+            status: 'failed',
+            company_name: null,
+            themes: [],
+            taxonomy_gap: null,
+            failure_reason: 'Classification returned no result',
+          }
+          const resultWithDuration: AssetThemeClassifyResultDTO = { ...result, duration_ms: durationMs }
+
+          if (result.status === 'classified') classified += 1
+          else if (result.status === 'skipped') skipped += 1
+          else failed += 1
+
+          results.push(resultWithDuration)
+          setClassifyResults([...results])
+          setClassifyProgress({
+            total: symbols.length,
+            completed: results.length,
+            classified,
+            skipped,
+            failed,
+          })
+          setClassifyLog((items) =>
+            items.map((item) =>
+              item.symbol === symbol
+                ? {
+                    ...item,
+                    status: classifyLogStatus(result.status),
+                    message: classifyResultMessage(resultWithDuration),
+                    completedAt,
+                    durationMs,
+                  }
+                : item
+            )
+          )
+        } catch (error) {
+          const completedAt = Date.now()
+          const durationMs = completedAt - symbolStartedAt
+          const result: AssetThemeClassifyResultDTO = {
+            symbol,
+            status: 'failed',
+            company_name: null,
+            themes: [],
+            taxonomy_gap: null,
+            duration_ms: durationMs,
+            failure_reason: errorMessage(error),
+          }
+
+          failed += 1
+          results.push(result)
+          setClassifyResults([...results])
+          setClassifyProgress({
+            total: symbols.length,
+            completed: results.length,
+            classified,
+            skipped,
+            failed,
+          })
+          setClassifyLog((items) =>
+            items.map((item) =>
+              item.symbol === symbol
+                ? {
+                    ...item,
+                    status: 'failed',
+                    message: errorMessage(error),
+                    completedAt,
+                    durationMs,
+                  }
+                : item
+            )
+          )
+        }
+      }
+
+      setActiveSymbol(null)
+      setActiveStartedAt(null)
+      try {
+        await Promise.all([loadSuggestions(), loadStats()])
+      } catch (error) {
+        setClassifyLog((items) => [
+          ...items,
+          {
+            symbol: 'REFRESH',
+            status: 'failed',
+            message: `Suggestions refresh failed: ${errorMessage(error)}`,
+            completedAt: Date.now(),
+          },
+        ])
+      }
     } finally {
+      setNow(Date.now())
       setClassifying(false)
+      setActiveSymbol(null)
+      setActiveStartedAt(null)
     }
   }
 
   const count = (key: AssetThemeTaxonomySuggestionStatus) => stats?.counts_by_status?.[key] || 0
+  const progressPercent = classifyProgress.total
+    ? Math.round((classifyProgress.completed / classifyProgress.total) * 100)
+    : 0
+  const activeElapsedMs = activeStartedAt ? now - activeStartedAt : null
+  const runElapsedMs = runStartedAt ? now - runStartedAt : null
 
   return (
     <div className="space-y-6">
@@ -244,7 +427,7 @@ export default function AdminThemeTaxonomy() {
             <div className="flex flex-wrap gap-2 lg:col-span-2">
               <button type="button" onClick={() => classify()} disabled={classifying} className="btn-primary inline-flex items-center gap-2">
                 {classifying ? <Loader className="animate-spin" size={16} /> : <Play size={16} />}
-                Classify
+                {classifying ? `Classifying ${classifyProgress.completed}/${classifyProgress.total}` : 'Classify'}
               </button>
               <button
                 type="button"
@@ -265,6 +448,18 @@ export default function AdminThemeTaxonomy() {
             </div>
           </div>
 
+          {!!classifyLog.length && (
+            <ClassifyRunPanel
+              classifying={classifying}
+              progress={classifyProgress}
+              progressPercent={progressPercent}
+              activeSymbol={activeSymbol}
+              activeElapsedMs={activeElapsedMs}
+              runElapsedMs={runElapsedMs}
+              log={classifyLog}
+            />
+          )}
+
           <div className="space-y-3">
             {classifyResults.map((result) => (
               <ClassifyResult key={result.symbol} result={result} />
@@ -272,6 +467,87 @@ export default function AdminThemeTaxonomy() {
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+function ClassifyRunPanel({
+  classifying,
+  progress,
+  progressPercent,
+  activeSymbol,
+  activeElapsedMs,
+  runElapsedMs,
+  log,
+}: {
+  classifying: boolean
+  progress: ClassifyProgress
+  progressPercent: number
+  activeSymbol: string | null
+  activeElapsedMs: number | null
+  runElapsedMs: number | null
+  log: ClassifyLogEntry[]
+}) {
+  return (
+    <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            {classifying ? 'Classification running' : 'Classification finished'}
+          </div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400">
+            {progress.completed}/{progress.total} complete
+            {activeSymbol && activeElapsedMs !== null ? ` · ${activeSymbol} ${formatDuration(activeElapsedMs)}` : ''}
+            {runElapsedMs !== null ? ` · run ${formatDuration(runElapsedMs)}` : ''}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <RunCount label="Classified" value={progress.classified} tone="green" />
+          <RunCount label="Skipped" value={progress.skipped} tone="neutral" />
+          <RunCount label="Failed" value={progress.failed} tone="red" />
+        </div>
+      </div>
+
+      <div className="h-2 overflow-hidden rounded bg-neutral-100 dark:bg-neutral-800">
+        <div
+          className="h-full rounded bg-pink-500 transition-all"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      <div className="mt-4 max-h-72 overflow-y-auto rounded border border-neutral-200 dark:border-neutral-800">
+        {log.map((entry) => (
+          <div
+            key={entry.symbol}
+            className="grid gap-2 border-b border-neutral-100 px-3 py-2 text-sm last:border-b-0 dark:border-neutral-800 sm:grid-cols-[92px_120px_1fr_72px]"
+          >
+            <span className="font-mono font-semibold">{entry.symbol}</span>
+            <span className={`w-fit rounded px-2 py-0.5 text-xs ${logStatusClass(entry.status)}`}>
+              {entry.status}
+            </span>
+            <span className="min-w-0 text-neutral-600 dark:text-neutral-300">{entry.message}</span>
+            <span className="text-right text-xs text-neutral-500 dark:text-neutral-400">
+              {entry.durationMs !== undefined ? formatDuration(entry.durationMs) : ''}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function RunCount({ label, value, tone }: { label: string; value: number; tone: 'green' | 'red' | 'neutral' }) {
+  const color =
+    tone === 'green'
+      ? 'text-green-700 dark:text-green-300'
+      : tone === 'red'
+        ? 'text-red-700 dark:text-red-300'
+        : 'text-neutral-700 dark:text-neutral-300'
+
+  return (
+    <div className="rounded border border-neutral-200 px-3 py-1 dark:border-neutral-800">
+      <div className={`font-semibold ${color}`}>{value}</div>
+      <div className="text-neutral-500 dark:text-neutral-400">{label}</div>
     </div>
   )
 }
@@ -388,6 +664,11 @@ function ClassifyResult({ result }: { result: AssetThemeClassifyResultDTO }) {
             Taxonomy gap
           </span>
         )}
+        {result.duration_ms !== undefined && (
+          <span className="rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            {formatDuration(result.duration_ms)}
+          </span>
+        )}
       </div>
       <ThemePills themes={result.themes} />
       {result.taxonomy_gap?.hasGap && (
@@ -403,6 +684,43 @@ function ClassifyResult({ result }: { result: AssetThemeClassifyResultDTO }) {
       )}
     </article>
   )
+}
+
+function classifyResultMessage(result: AssetThemeClassifyResultDTO) {
+  if (result.status === 'classified') {
+    const labels = result.themes.map((theme) => theme.label).join(', ')
+    return labels ? `Classified: ${labels}` : 'Classified with no stored themes'
+  }
+  if (result.status === 'skipped') {
+    return result.skipped_reason || 'Skipped'
+  }
+  return result.failure_reason || 'Failed'
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Classification failed'
+}
+
+function classifyLogStatus(status: string): ClassifyLogStatus {
+  if (status === 'classified' || status === 'skipped') return status
+  return 'failed'
+}
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${ms}ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.round(seconds % 60)
+  return `${minutes}m ${remainingSeconds}s`
+}
+
+function logStatusClass(status: ClassifyLogStatus) {
+  if (status === 'running') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+  if (status === 'classified') return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+  if (status === 'skipped') return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+  if (status === 'failed') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+  return 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
 }
 
 function ThemePills({ themes }: { themes?: AssetThemeDTO[] }) {

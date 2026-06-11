@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     GEMINI_TIMEOUT_SECONDS: int = 20
     GEMINI_MAX_RETRIES: int = 2
     ASSET_THEME_TWO_PASS_CLASSIFICATION: bool = False
+
+    # Local MiniLM theme benchmark/runtime. Production writes still use Gemini.
+    THEME_MINILM_MODEL_PATH: str = ""
+    THEME_MINILM_TOP_K: int = 15
     
     # Redis Configuration
     REDIS_HOST: str = "redis"

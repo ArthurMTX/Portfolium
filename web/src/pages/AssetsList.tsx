@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { Database, Search, ExternalLink, TrendingUp, Calendar, Globe, Tag, Loader, ChevronUp, ChevronDown } from 'lucide-react'
+import { AlertTriangle, Database, Search, ExternalLink, TrendingUp, Tag, Loader, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import api, { type AssetThemeDTO } from '../lib/api'
+import api, { type AssetCleanupCandidateDTO, type AssetThemeDTO, type DeleteInvalidProviderAssetsResponseDTO } from '../lib/api'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { getThemeHexColor, getThemeIcon } from '../lib/themeUtils'
 
@@ -25,6 +25,11 @@ interface Asset {
   first_transaction_date: string | null
   logo_fetched_at: string | null
   logo_content_type: string | null
+  transaction_count?: number
+  watchlist_count?: number
+  pending_dividend_count?: number
+  investment_note_count?: number
+  metadata_override_count?: number
 }
 
 type SortKey =
@@ -41,6 +46,8 @@ type SortKey =
   | 'first_transaction_date'
 
 type SortDir = 'asc' | 'desc'
+const CLEANUP_VALIDATE_BATCH_SIZE = 20
+const CLEANUP_DELETE_BATCH_SIZE = 50
 
 export default function AssetsList() {
   const [assets, setAssets] = useState<Asset[]>([])
@@ -51,6 +58,10 @@ export default function AssetsList() {
   const [filterCurrency, setFilterCurrency] = useState<string>('all')
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [cleanupRunning, setCleanupRunning] = useState(false)
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null)
+  const [cleanupError, setCleanupError] = useState<string | null>(null)
+  const [cleanupProgress, setCleanupProgress] = useState<string | null>(null)
 
   useEffect(() => {
     loadAssets()
@@ -125,6 +136,72 @@ export default function AssetsList() {
       }) * dir
     })
   }, [filteredAssets, sortKey, sortDir])
+
+  const handleDeleteInvalidProviderAssets = async () => {
+    const symbols = sortedAssets.map((asset) => asset.symbol)
+    if (symbols.length === 0) return
+
+    try {
+      setCleanupRunning(true)
+      setCleanupMessage(null)
+      setCleanupError(null)
+      setCleanupProgress(`Validating 0/${symbols.length}`)
+
+      const preview = await runInvalidProviderCleanupBatches({
+        symbols,
+        dryRun: true,
+        batchSize: CLEANUP_VALIDATE_BATCH_SIZE,
+        onProgress: (processed, total) => setCleanupProgress(`Validating ${processed}/${total}`),
+      })
+      const deletableSymbols = preview.candidates.map((asset) => asset.symbol)
+      const blockedSymbols = preview.blocked.map((asset) => asset.symbol)
+      const unresolvedSymbols = preview.unresolved.map((asset) => asset.symbol)
+
+      if (deletableSymbols.length === 0) {
+        const blockedText = blockedSymbols.length > 0
+          ? ` ${blockedSymbols.length} not-found rows are blocked because they have user references: ${formatSymbolList(blockedSymbols)}.`
+          : ''
+        const unresolvedText = unresolvedSymbols.length > 0
+          ? ` ${unresolvedSymbols.length} rows had non-404 provider issues and were left untouched: ${formatSymbolList(unresolvedSymbols)}.`
+          : ''
+        setCleanupMessage(`Checked ${preview.scanned} visible assets. No safe not-found rows to delete.${blockedText}${unresolvedText}`)
+        return
+      }
+
+      const confirmationLines = [
+        `Yahoo returned not-found or no identity metadata for ${preview.invalid} of ${preview.scanned} checked assets.`,
+        `Delete ${deletableSymbols.length} safe not-found rows?`,
+        formatSymbolList(deletableSymbols),
+      ]
+      if (blockedSymbols.length > 0) {
+        confirmationLines.push(`${blockedSymbols.length} not-found rows are blocked: ${formatSymbolList(blockedSymbols)}`)
+      }
+      if (unresolvedSymbols.length > 0) {
+        confirmationLines.push(`${unresolvedSymbols.length} non-404 provider failures will be left untouched: ${formatSymbolList(unresolvedSymbols)}`)
+      }
+
+      if (!window.confirm(confirmationLines.join('\n\n'))) {
+        setCleanupMessage(`Found ${deletableSymbols.length} deletable not-found rows. No changes made.`)
+        return
+      }
+
+      setCleanupProgress(`Deleting 0/${deletableSymbols.length}`)
+      const result = await runInvalidProviderCleanupBatches({
+        symbols: deletableSymbols,
+        dryRun: false,
+        batchSize: CLEANUP_DELETE_BATCH_SIZE,
+        onProgress: (processed, total) => setCleanupProgress(`Deleting ${processed}/${total}`),
+      })
+      const blockedText = result.blocked.length > 0 ? ` ${result.blocked.length} not-found rows were blocked.` : ''
+      setCleanupMessage(`Deleted ${result.deleted} not-found asset${result.deleted === 1 ? '' : 's'}.${blockedText}`)
+      await loadAssets()
+    } catch (err) {
+      setCleanupError(err instanceof Error ? err.message : 'Failed to delete provider-invalid assets')
+    } finally {
+      setCleanupRunning(false)
+      setCleanupProgress(null)
+    }
+  }
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-'
@@ -219,7 +296,28 @@ export default function AssetsList() {
             {filteredAssets.length} of {assets.length} assets
           </p>
         </div>
+        <button
+          type="button"
+          onClick={handleDeleteInvalidProviderAssets}
+          disabled={cleanupRunning || sortedAssets.length === 0}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Validate visible assets with Yahoo Finance and delete not-found rows that have no user references"
+        >
+          {cleanupRunning ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
+          {cleanupRunning ? cleanupProgress || 'Working...' : 'Delete Not-Found Tickers'}
+        </button>
       </div>
+
+      {(cleanupMessage || cleanupError) && (
+        <div className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${
+          cleanupError
+            ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200'
+            : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200'
+        }`}>
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>{cleanupError || cleanupMessage}</span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card p-6 space-y-4">
@@ -447,4 +545,84 @@ function getThemeSortValue(themes?: AssetThemeDTO[]): string {
 function getThemeTitle(theme: AssetThemeDTO): string {
   const subthemes = theme.children?.map((child) => child.label).join(', ')
   return subthemes ? `${theme.label}: ${subthemes}` : theme.label
+}
+
+function formatSymbolList(symbols: string[]): string {
+  if (symbols.length <= 20) {
+    return symbols.join(', ')
+  }
+  return `${symbols.slice(0, 20).join(', ')} and ${symbols.length - 20} more`
+}
+
+async function runInvalidProviderCleanupBatches({
+  symbols,
+  dryRun,
+  batchSize,
+  onProgress,
+}: {
+  symbols: string[]
+  dryRun: boolean
+  batchSize: number
+  onProgress: (processed: number, total: number) => void
+}): Promise<DeleteInvalidProviderAssetsResponseDTO> {
+  const batches = chunk(symbols, batchSize)
+  let processed = 0
+  let merged = emptyCleanupResponse(dryRun)
+
+  for (const batch of batches) {
+    const result = await api.deleteInvalidProviderAssets({ dryRun, symbols: batch })
+    merged = mergeCleanupResponses(merged, result)
+    processed += batch.length
+    onProgress(Math.min(processed, symbols.length), symbols.length)
+  }
+
+  return merged
+}
+
+function emptyCleanupResponse(dryRun: boolean): DeleteInvalidProviderAssetsResponseDTO {
+  return {
+    dry_run: dryRun,
+    scanned: 0,
+    valid: 0,
+    invalid: 0,
+    deleted: 0,
+    candidates: [],
+    blocked: [],
+    unresolved: [],
+  }
+}
+
+function mergeCleanupResponses(
+  current: DeleteInvalidProviderAssetsResponseDTO,
+  next: DeleteInvalidProviderAssetsResponseDTO
+): DeleteInvalidProviderAssetsResponseDTO {
+  return {
+    dry_run: next.dry_run,
+    scanned: current.scanned + next.scanned,
+    valid: current.valid + next.valid,
+    invalid: current.invalid + next.invalid,
+    deleted: current.deleted + next.deleted,
+    candidates: mergeCandidates(current.candidates, next.candidates),
+    blocked: mergeCandidates(current.blocked, next.blocked),
+    unresolved: mergeCandidates(current.unresolved, next.unresolved),
+  }
+}
+
+function mergeCandidates(
+  current: AssetCleanupCandidateDTO[],
+  next: AssetCleanupCandidateDTO[]
+): AssetCleanupCandidateDTO[] {
+  const bySymbol = new Map(current.map((candidate) => [candidate.symbol, candidate]))
+  for (const candidate of next) {
+    bySymbol.set(candidate.symbol, candidate)
+  }
+  return Array.from(bySymbol.values())
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+  return chunks
 }

@@ -35,6 +35,9 @@ dependencies = [
     "qrcode[pil]>=7.4.0",
     "pywebpush>=2.0.0",
     "exchange-calendars>=4.5.0",
+    "numpy>=1.26.0",
+    "onnxruntime>=1.17.0",
+    "tokenizers>=0.15.0",
 ]
 
 [project.optional-dependencies]

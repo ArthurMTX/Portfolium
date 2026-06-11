@@ -22,10 +22,11 @@ logger = logging.getLogger(__name__)
 
 ThemePayload = Dict[str, Any]
 
-GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v6"
+GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v7"
+GEMINI_THEME_MODEL = settings.GEMINI_MODEL
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
-MIN_TAXONOMY_GAP_CONFIDENCE = 0.65
+MIN_MISSING_SUBTHEME_SUGGESTION_CONFIDENCE = 0.75
 GEMINI_THEME_METHOD = "gpt"
 MAX_SUMMARY_CHARS = 2500
 MAX_SUMMARY_SENTENCES = 10
@@ -50,12 +51,15 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Battery Value Chain": ("Battery Technology", "Battery Storage", "Lithium Batteries", "Battery Materials", "Battery Recycling"),
     "Defense Tech": ("Military AI", "ISR & Surveillance", "Drones / UAV", "Electronic Warfare", "Missile Defense", "Secure Communications", "Ammunition & Ordnance"),
     "Space Infrastructure": ("Launch Services", "Satellites", "Space Communications", "Earth Observation", "Space Systems"),
+    "Geospatial Technology": ("GNSS Positioning", "Surveying Technology", "Geospatial Software", "Mapping Systems", "Location Intelligence"),
     "Nuclear Energy": ("Nuclear", "SMR", "Uranium", "Nuclear Services"),
     "Grid Modernization": ("Grid Infrastructure", "Power Generation", "Transmission Equipment", "Power Electronics", "Smart Grid"),
     "Renewable Power": ("Solar", "Wind", "Renewable Developers", "Renewable Equipment"),
     "Clean Fuels": ("Hydrogen", "Renewable Natural Gas", "Sustainable Aviation Fuel", "Biofuels"),
     "Carbon Management": ("Carbon Capture", "Carbon Markets", "Emissions Monitoring"),
-    "Energy Transport": ("Oil & Gas", "LNG", "Pipelines", "Refining", "Energy Services"),
+    "Oil & Gas": ("Crude Oil Production", "Natural Gas Production", "Natural Gas Liquids", "Integrated Energy"),
+    "Energy Transport": ("Pipelines", "LNG Infrastructure", "Storage Terminals", "Midstream Infrastructure"),
+    "Energy Services": ("Oilfield Services", "Drilling Services", "Completion Services"),
     "Digital Finance": ("Fintech", "Digital Banking", "Payments", "Lending Platforms"),
     "Investment Platforms": ("Asset Management", "Wealth Technology"),
     "Market Infrastructure": ("Exchange Operators", "Trading Infrastructure", "Market Data", "Index Providers", "Credit Ratings"),
@@ -83,14 +87,19 @@ ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "Industrial Digitalization": ("Digital Twins", "Industrial Software", "Simulation Software", "Engineering Software"),
     "Construction & Industrial Equipment": ("Construction Equipment", "Industrial Machinery", "Construction Technology", "Rental Equipment"),
     "Precision Agriculture": ("Agricultural Equipment", "Smart Farming", "Crop Inputs"),
-    "Water Infrastructure": ("Water Treatment", "Smart Water Networks", "Water Utilities", "Pumping Systems", "Desalination"),
-    "Environmental Services": ("Waste Management", "Hazardous Waste", "Industrial Cleanup", "Recycling", "Environmental Remediation"),
+    "Construction Materials": ("Roofing Systems", "Flooring Systems", "Concrete Admixtures", "Sealants & Coatings"),
+    "Water Infrastructure": ("Water Treatment", "Smart Water Networks", "Water Utilities", "Pumping Systems", "Desalination", "Pool Equipment"),
+    "Environmental Services": ("Waste Management", "Hazardous Waste", "Industrial Cleanup", "Recycling", "Environmental Remediation", "Pest Control Services"),
+    "Agricultural Chemicals": ("Fertilizer Production", "Ammonia Production", "Nitrogen Products"),
+    "Industrial Gases": ("Industrial Oxygen", "Industrial Nitrogen", "Argon & Noble Gases", "Hydrogen Supply", "Medical Gases", "Electronic Specialty Gases"),
+    "Specialty Chemicals": ("Industrial Maintenance Chemicals", "Lubricants", "Surface Treatments", "Cleaning Chemicals"),
     "Critical Minerals": ("Rare Earths", "Lithium", "Nickel", "Graphite", "Mineral Processing"),
     "Copper Electrification": ("Copper", "Copper Mining", "Electrical Wiring", "Power Cables"),
     "Precious Metals": ("Gold", "Silver", "Royalty & Streaming", "Mining Services"),
     "Telecom Infrastructure": ("Telecommunications", "5G Infrastructure", "Fiber Networks", "Tower Infrastructure", "Broadband Networks", "Cell Towers", "Wireless Infrastructure"),
     "Data Center Real Estate": ("Data Center REITs", "Colocation", "Hyperscale Leasing"),
     "Real Estate Income": ("Industrial REITs", "Residential REITs", "Healthcare REITs", "Net Lease", "Self Storage"),
+    "Real Estate Services": ("Property Management", "Commercial Brokerage", "Facilities Management", "Real Estate Advisory"),
     "AdTech": ("Mobile Advertising", "Programmatic Advertising", "Performance Marketing"),
     "Sports Betting": ("Online Sportsbooks", "iGaming", "Fantasy Sports"),
     "Gaming & Gambling": ("Casinos", "Online Casinos", "Lottery Operators"),
@@ -306,8 +315,26 @@ GEMINI_SUBTHEME_RESPONSE_SCHEMA: Dict[str, Any] = {
                 "required": ["label", "subthemes"],
             },
         },
+        "subthemeGaps": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "suggestedSubthemes": {
+                        "type": "array",
+                        "maxItems": 5,
+                        "items": {"type": "string"},
+                    },
+                    "confidence": {"type": "number"},
+                },
+                "required": ["label", "reason", "suggestedSubthemes", "confidence"],
+            },
+        },
     },
-    "required": ["themes"],
+    "required": ["themes", "subthemeGaps"],
 }
 
 
@@ -319,6 +346,7 @@ class AssetThemeService:
         self.gemini_service = gemini_service or GeminiService()
         self.gemini_model = self.gemini_service.model
         self.last_taxonomy_gap: Optional[Dict[str, Any]] = None
+        self.last_subtheme_taxonomy_gaps: List[Dict[str, Any]] = []
         self.last_taxonomy_gap_persisted: bool = False
         self._classification_symbol: Optional[str] = None
 
@@ -385,6 +413,7 @@ class AssetThemeService:
         themes: List[ThemePayload] = []
         taxonomy_gap: Optional[Dict[str, Any]] = None
         self.last_taxonomy_gap = None
+        self.last_subtheme_taxonomy_gaps = []
         self.last_taxonomy_gap_persisted = False
         if summary and summary.strip():
             strategy = self._classification_strategy()
@@ -427,6 +456,17 @@ class AssetThemeService:
                 company_name=name or asset.name or asset.symbol,
                 themes=themes,
             )
+            for subtheme_gap in self.last_subtheme_taxonomy_gaps:
+                self._persist_taxonomy_gap_suggestion(
+                    asset=asset,
+                    summary_hash=source_hash,
+                    taxonomy_gap=subtheme_gap,
+                    summary=summary,
+                    sector=sector or asset.sector,
+                    industry=industry or asset.industry,
+                    company_name=name or asset.name or asset.symbol,
+                    themes=themes,
+                )
         else:
             logger.info(
                 "Asset theme classification skipped Gemini asset_id=%s symbol=%s reason=missing_summary",
@@ -762,6 +802,10 @@ class AssetThemeService:
                 pass2_payload,
                 selected_parent_themes,
             )
+            self.last_subtheme_taxonomy_gaps = self._clean_subtheme_gap_suggestions(
+                pass2_payload,
+                selected_parent_themes,
+            )
             themes = self._merge_parent_themes_with_subthemes(
                 parent_themes,
                 subthemes_by_parent,
@@ -996,12 +1040,15 @@ Rules:
 - Return each selected parent theme at most once.
 - Select up to 3 subthemes for each selected parent theme.
 - Return an empty subthemes array when no allowed subtheme fits with confidence.
+- When a selected parent has no allowed subtheme fit but the summary clearly implies a missing specialization, add a subthemeGaps item for that parent with 1-5 concise suggestedSubthemes to add.
+- Do not suggest subthemes that already exist in the allowed selected hierarchy.
 - Confidence must be between 0 and 1; omit subthemes below confidence {MIN_THEME_CONFIDENCE}.
 - Evidence must be short exact phrases from longBusinessSummary; do not paraphrase or invent evidence.
-- Do not add explanations, markdown, taxonomy gaps, or non-JSON text.
+- subthemeGaps.reason must be concise and business-oriented.
+- Do not add explanations, markdown, or non-JSON text.
 
 Return only JSON shaped as:
-{{"themes":[{{"label":"","subthemes":[{{"label":"","confidence":0,"evidence":[]}}]}}]}}"""
+{{"themes":[{{"label":"","subthemes":[{{"label":"","confidence":0,"evidence":[]}}]}}],"subthemeGaps":[{{"label":"","reason":"","suggestedSubthemes":[],"confidence":0}}]}}"""
 
         metrics = {
             "summary_chars_original": len(summary_original),
@@ -1206,6 +1253,89 @@ Return only JSON shaped as:
 
         return subthemes_by_parent
 
+    @classmethod
+    def _clean_subtheme_gap_suggestions(
+        cls,
+        payload: Dict[str, Any],
+        selected_parent_themes: List[str],
+    ) -> List[Dict[str, Any]]:
+        selected = set(selected_parent_themes)
+        gaps: List[Dict[str, Any]] = []
+        seen_labels: set[str] = set()
+        raw_gaps = payload.get("subthemeGaps") or []
+        if not isinstance(raw_gaps, list):
+            return gaps
+
+        for item in raw_gaps:
+            if len(gaps) >= 5:
+                break
+            if not isinstance(item, dict):
+                continue
+
+            label = item.get("label")
+            if label not in selected or label in seen_labels:
+                continue
+
+            confidence = cls._to_confidence(item.get("confidence"))
+            if (
+                confidence is None
+                or confidence < MIN_MISSING_SUBTHEME_SUGGESTION_CONFIDENCE
+            ):
+                continue
+
+            suggested_subthemes = cls._clean_suggested_subthemes(
+                parent_label=label,
+                value=item.get("suggestedSubthemes"),
+            )
+            if not suggested_subthemes:
+                continue
+
+            reason = item.get("reason")
+            cleaned_reason = (
+                " ".join(reason.strip().split())[:500]
+                if isinstance(reason, str)
+                else ""
+            )
+            if not cleaned_reason:
+                cleaned_reason = "Selected parent theme has no accepted subtheme."
+
+            seen_labels.add(label)
+            gaps.append({
+                "hasGap": True,
+                "reason": cleaned_reason,
+                "suggestedTheme": label,
+                "suggestedSubthemes": suggested_subthemes,
+                "confidence": confidence,
+            })
+
+        return gaps
+
+    @staticmethod
+    def _clean_suggested_subthemes(parent_label: str, value: Any) -> List[str]:
+        if not isinstance(value, list):
+            return []
+
+        allowed = {
+            subtheme.casefold()
+            for subtheme in ALLOWED_THEME_HIERARCHY.get(parent_label, ())
+        }
+        subthemes: List[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if len(subthemes) >= 5:
+                break
+            if not isinstance(item, str):
+                continue
+
+            cleaned = " ".join(item.strip().split())[:120]
+            normalized = cleaned.casefold()
+            if not cleaned or normalized in seen or normalized in allowed:
+                continue
+            seen.add(normalized)
+            subthemes.append(cleaned)
+
+        return subthemes
+
     @staticmethod
     def _merge_parent_themes_with_subthemes(
         parent_themes: List[ThemePayload],
@@ -1289,11 +1419,10 @@ Return only JSON shaped as:
         self.last_taxonomy_gap_persisted = True
         return suggestion
 
-    @classmethod
+    @staticmethod
     def _is_valid_taxonomy_gap_suggestion(
-        cls,
         taxonomy_gap: Optional[Dict[str, Any]],
-        themes: List[ThemePayload],
+        _themes: List[ThemePayload],
     ) -> bool:
         if not taxonomy_gap or not taxonomy_gap.get("hasGap"):
             return False
@@ -1303,42 +1432,8 @@ Return only JSON shaped as:
         confidence = taxonomy_gap.get("confidence")
         if not suggested_theme or not reason or confidence is None:
             return False
-        if confidence < MIN_TAXONOMY_GAP_CONFIDENCE:
-            return False
-        if suggested_theme.casefold() in {theme.casefold() for theme in ALLOWED_THEME_SET}:
-            return False
-        if cls._suggested_subthemes_are_already_covered(taxonomy_gap.get("suggestedSubthemes")):
-            return False
-        if cls._has_strong_classification(themes):
-            return False
 
         return True
-
-    @staticmethod
-    def _has_strong_classification(themes: List[ThemePayload]) -> bool:
-        total_weight = sum(float(theme.get("weight") or 0) for theme in themes)
-        has_strong_primary = any(
-            theme.get("tier") == "primary" and float(theme.get("confidence") or 0) >= 0.75
-            for theme in themes
-        )
-        return has_strong_primary and total_weight >= 0.70
-
-    @staticmethod
-    def _suggested_subthemes_are_already_covered(value: Any) -> bool:
-        if not isinstance(value, list) or not value:
-            return False
-
-        allowed_subthemes = {
-            subtheme.casefold()
-            for subthemes in ALLOWED_THEME_HIERARCHY.values()
-            for subtheme in subthemes
-        }
-        suggested = {
-            item.strip().casefold()
-            for item in value
-            if isinstance(item, str) and item.strip()
-        }
-        return bool(suggested) and suggested.issubset(allowed_subthemes)
 
     @classmethod
     def _clean_taxonomy_gap(cls, value: Any) -> Optional[Dict[str, Any]]:

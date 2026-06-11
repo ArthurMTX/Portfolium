@@ -193,12 +193,95 @@ export interface AssetThemeTaxonomySuggestionStatsDTO {
   top_suggested_subthemes: { label: string; count: number }[]
 }
 
+export interface ThemeRegistryEntryDTO {
+  definition: string
+  subthemes: Record<string, string>
+}
+
+export type ThemeRegistryDTO = Record<string, ThemeRegistryEntryDTO>
+
+export interface MiniLMBenchmarkCandidateDTO {
+  label: string
+  parent_label: string
+  level: string
+  score: number
+}
+
+export interface MiniLMBenchmarkDefinitionDTO {
+  theme: string
+  definition: string | null
+  subthemes: Array<{
+    subtheme: string
+    definition: string | null
+  }>
+}
+
+export interface MiniLMBenchmarkRowDTO {
+  asset_id: number
+  symbol: string
+  company_name: string | null
+  sector: string | null
+  industry: string | null
+  summary_excerpt: string
+  gemini_themes: AssetThemeDTO[]
+  minilm_themes: AssetThemeDTO[]
+  retrieved_candidates: MiniLMBenchmarkCandidateDTO[]
+  parent_top1_match: boolean
+  parent_top3_match: boolean
+  parent_top5_match: boolean
+  subtheme_top1_match: boolean | null
+  subtheme_top3_match: boolean | null
+  parent_agreement_rank: number | null
+  subtheme_agreement_rank: number | null
+  gemini_top_confidence: number | null
+  minilm_top_confidence: number | null
+  confidence_delta: number | null
+  runtime_ms: number
+  definitions_used: MiniLMBenchmarkDefinitionDTO[]
+}
+
+export interface MiniLMBenchmarkReportDTO {
+  generated_at: string
+  metrics: {
+    sample_size_requested: number
+    sample_size_used: number
+    skipped: Record<string, number>
+    failed: number
+    top1_parent_agreement: number
+    top3_parent_agreement: number
+    top5_parent_agreement: number
+    top1_subtheme_agreement: number | null
+    top3_subtheme_agreement: number | null
+    theme_confidence_distribution: Array<{ bucket: string; count: number }>
+    candidate_score_distribution: Array<{ bucket: string; count: number }>
+    average_runtime_ms: number
+    p95_runtime_ms: number
+    embedding_document_count: number
+    model_load_ms: number
+    estimated_model_disk_mb: number | null
+    estimated_memory_mb: number | null
+  }
+  rows: MiniLMBenchmarkRowDTO[]
+}
+
+export interface ThemeGapAnalysisDTO {
+  generated_at: string
+  classified_asset_count: number
+  themes_never_assigned: Array<{ theme: string; asset_count: number }>
+  subthemes_never_assigned: Array<{ theme: string; subtheme: string; asset_count: number }>
+  themes_under_3_assets: Array<{ theme: string; asset_count: number }>
+  themes_over_50_assets: Array<{ theme: string; asset_count: number }>
+  most_frequent_taxonomy_suggestions: Array<{ theme: string; count: number }>
+  most_frequent_subtheme_suggestions: Array<{ subtheme: string; count: number }>
+}
+
 export interface AssetThemeClassifyResultDTO {
   symbol: string
   status: 'classified' | 'skipped' | 'failed' | string
   company_name: string | null
   themes: AssetThemeDTO[]
   taxonomy_gap: AssetThemeTaxonomyGapDTO | null
+  duration_ms?: number
   failure_reason?: string | null
   skipped_reason?: string | null
 }
@@ -209,6 +292,31 @@ export interface AssetThemeClassifyResponseDTO {
   skipped: number
   failed: number
   results: AssetThemeClassifyResultDTO[]
+}
+
+export interface AssetCleanupCandidateDTO {
+  id: number
+  symbol: string
+  name: string | null
+  asset_type: string | null
+  created_at: string | null
+  reason?: string
+  transaction_count?: number
+  watchlist_count?: number
+  pending_dividend_count?: number
+  investment_note_count?: number
+  metadata_override_count?: number
+}
+
+export interface DeleteInvalidProviderAssetsResponseDTO {
+  dry_run: boolean
+  scanned: number
+  valid: number
+  invalid: number
+  deleted: number
+  candidates: AssetCleanupCandidateDTO[]
+  blocked: AssetCleanupCandidateDTO[]
+  unresolved: AssetCleanupCandidateDTO[]
 }
 
 export interface PortfolioMetricsDTO {
@@ -966,6 +1074,34 @@ class ApiClient {
     })
   }
 
+  async getThemeRegistry() {
+    return this.request<ThemeRegistryDTO>('/assets/themes/registry')
+  }
+
+  async getClassificationBenchmark(params?: {
+    limit?: number
+    offset?: number
+    symbols?: string
+    retrieved_candidate_limit?: number
+  }) {
+    const query = new URLSearchParams()
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    if (params?.symbols) query.set('symbols', params.symbols)
+    if (params?.retrieved_candidate_limit) {
+      query.set('retrieved_candidate_limit', String(params.retrieved_candidate_limit))
+    }
+    const queryString = query.toString()
+    return this.request<MiniLMBenchmarkReportDTO>(
+      `/assets/themes/classification-benchmark${queryString ? `?${queryString}` : ''}`,
+      { timeout: 120000 }
+    )
+  }
+
+  async getThemeGapAnalysis() {
+    return this.request<ThemeGapAnalysisDTO>('/assets/themes/gap-analysis')
+  }
+
   async getThemeTaxonomySuggestions(params?: {
     status?: AssetThemeTaxonomySuggestionStatus | 'all'
     limit?: number
@@ -1015,6 +1151,19 @@ class ApiClient {
 
   async getAssetDatabaseList() {
     return this.request<any[]>('/assets/database/list')
+  }
+
+  async deleteInvalidProviderAssets(payload?: { dryRun?: boolean; symbols?: string[] }) {
+    return this.request<DeleteInvalidProviderAssetsResponseDTO>(
+      '/assets/database/invalid-provider',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          dry_run: payload?.dryRun !== false,
+          symbols: payload?.symbols,
+        }),
+      }
+    )
   }
 
   async enrichAsset(assetId: number) {

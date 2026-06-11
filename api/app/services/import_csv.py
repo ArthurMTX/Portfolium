@@ -49,9 +49,8 @@ class CsvImportService:
                     timeout_seconds=yahoo_timeout_seconds(),
                 )
                 
-                # Check if we got meaningful data back
-                # Valid tickers will have at least a symbol or regularMarketPrice
-                if not info or (not info.get('symbol') and not info.get('regularMarketPrice') and not info.get('previousClose')):
+                # Check if we got meaningful data back.
+                if not crud_assets.is_valid_provider_info(symbol, info):
                     logger.warning(f"Symbol {symbol} not found in market data provider")
                     invalid_symbols.append(symbol)
                 else:

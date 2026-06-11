@@ -368,6 +368,11 @@ class AssetThemeClassifyRequest(BaseModel):
     missing_only: bool = True
 
 
+class AssetInvalidProviderCleanupRequest(BaseModel):
+    dry_run: bool = True
+    symbols: Optional[List[str]] = None
+
+
 class AssetThemeClassifyResult(BaseModel):
     symbol: str
     status: str

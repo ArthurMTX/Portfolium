@@ -32,6 +32,7 @@ import WidgetDebug from './pages/WidgetDebug'
 import PublicPortfolio from './pages/PublicPortfolio'
 import Calendar from './pages/Calendar'
 import AdminThemeTaxonomy from './pages/AdminThemeTaxonomy'
+import AdminClassificationBenchmark from './pages/AdminClassificationBenchmark'
 
 // Configure React Query for optimal performance
 const queryClient = new QueryClient({
@@ -113,6 +114,14 @@ function App() {
                   element={
                     <ProtectedRoute requireAdmin>
                       <AdminThemeTaxonomy />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin/classification-benchmark"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AdminClassificationBenchmark />
                     </ProtectedRoute>
                   }
                 />
