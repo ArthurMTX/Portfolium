@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type KeyboardEvent } from 'react'
 import { api } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown, Tag, Filter } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
@@ -120,7 +120,7 @@ export default function Watchlist() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [showAddModal, showImportModal, showImportProgress, convertItem, deleteConfirm])
+  }, [showAddModal, showImportModal, showImportProgress, convertItem, deleteConfirm, showTagManager, editingItem])
 
   const openConvertModal = (item: WatchlistItem) => {
     setConvertItem(item)
@@ -284,11 +284,22 @@ export default function Watchlist() {
     return labels[key]
   }
 
+  const openAssetResearch = (symbol: string) => {
+    navigate(`/assets/${encodeURIComponent(symbol)}`)
+  }
+
+  const handleAssetResearchKeyDown = (event: KeyboardEvent<HTMLElement>, symbol: string) => {
+    if (event.target !== event.currentTarget) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openAssetResearch(symbol)
+    }
+  }
+
   useEffect(() => {
-    loadWatchlist(selectedTagIds.length > 0 ? selectedTagIds : undefined, tagFilterMode)
     loadPortfolios()
     loadTags()
-  }, [loadWatchlist, loadPortfolios, loadTags])
+  }, [loadPortfolios, loadTags])
 
   // Re-load watchlist when tag filter changes
   useEffect(() => {
@@ -760,7 +771,14 @@ export default function Watchlist() {
                     : 'text-neutral-500 dark:text-neutral-400'
 
                   return (
-                    <div key={item.id} className="card p-4">
+                    <div
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openAssetResearch(item.symbol)}
+                      onKeyDown={(event) => handleAssetResearchKeyDown(event, item.symbol)}
+                      className="card p-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-neutral-950"
+                    >
                       {/* Header: Logo, Symbol, Price & Change */}
                       <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -780,7 +798,7 @@ export default function Watchlist() {
                           <div className="flex-1 min-w-0">
                             <button
                               type="button"
-                              onClick={() => navigate(`/assets/${encodeURIComponent(item.symbol)}`)}
+                              onClick={() => openAssetResearch(item.symbol)}
                               className="font-bold text-base text-neutral-900 dark:text-neutral-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
                             >
                               {item.symbol}
@@ -842,7 +860,10 @@ export default function Watchlist() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                      <div
+                        className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <button
                           onClick={() => startEdit(item)}
                           className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
@@ -927,7 +948,14 @@ export default function Watchlist() {
                 </tr>
               ) : (
                 sortedWatchlist.map((item) => (
-                  <tr key={item.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
+                  <tr
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openAssetResearch(item.symbol)}
+                    onKeyDown={(event) => handleAssetResearchKeyDown(event, item.symbol)}
+                    className="cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-inset"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-neutral-900 dark:text-neutral-100">
                       <span className="flex items-center gap-2">
                         <img
@@ -945,7 +973,7 @@ export default function Watchlist() {
                         />
                         <button
                           type="button"
-                          onClick={() => navigate(`/assets/${encodeURIComponent(item.symbol)}`)}
+                          onClick={() => openAssetResearch(item.symbol)}
                           className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
                         >
                           {item.symbol}
@@ -1017,7 +1045,10 @@ export default function Watchlist() {
                         <div className="text-sm text-neutral-400">-</div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => startEdit(item)}
