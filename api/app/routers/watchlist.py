@@ -126,6 +126,7 @@ async def get_watchlist(
             daily_change_pct=daily_change_pct,
             currency=asset.currency,
             asset_type=asset.asset_type,
+            themes=asset.themes,
             last_updated=last_updated,
             created_at=item.created_at,
             tags=tags_response

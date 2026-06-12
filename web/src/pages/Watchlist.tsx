@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type KeyboardEvent } from 'react'
-import { api } from '../lib/api'
+import { api, type AssetThemeDTO } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown, Tag, Filter } from 'lucide-react'
 import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency } from '../lib/formatUtils'
@@ -35,6 +35,7 @@ interface WatchlistItem {
   daily_change_pct: number | null
   currency: string
   asset_type: string | null
+  themes?: AssetThemeDTO[]
   last_updated: string | null
   created_at: string
   tags: WatchlistTag[]
@@ -184,6 +185,7 @@ export default function Watchlist() {
         alert_target_price: toNumber(d.alert_target_price),
         current_price: toNumber(d.current_price),
         daily_change_pct: toNumber(d.daily_change_pct),
+        themes: d.themes || [],
         tags: d.tags || [],
       })) as unknown as WatchlistItem[]
       setWatchlist(normalized)
@@ -510,6 +512,40 @@ export default function Watchlist() {
     return formatCurrency(n, currency)
   }
 
+  const getThemesTitle = (themes?: AssetThemeDTO[]) => {
+    if (!themes || themes.length === 0) return undefined
+    return themes
+      .map((theme) => {
+        const subthemes = theme.children?.length
+          ? ` (${theme.children.map((child) => {
+              const evidence = child.evidence?.length ? `: ${child.evidence.join(', ')}` : ''
+              return `${child.label}${evidence}`
+            }).join(', ')})`
+          : ''
+        const evidence = theme.evidence?.length ? `: ${theme.evidence.join(', ')}` : ''
+        return `${theme.label}${subthemes}${evidence}`
+      })
+      .join('\n')
+  }
+
+  const renderCompactThemes = (themes?: AssetThemeDTO[], className = 'mt-2 flex flex-wrap gap-1.5 max-w-xs') => {
+    if (!themes || themes.length === 0) return null
+    const [primaryTheme, ...extraThemes] = themes
+
+    return (
+      <div className={className} title={getThemesTitle(themes)}>
+        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+          {primaryTheme.label}
+        </span>
+        {extraThemes.length > 0 && (
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            +{extraThemes.length}
+          </span>
+        )}
+      </div>
+    )
+  }
+
   // percentage formatting in table rows is done inline to match Dashboard style
 
   if (loading) {
@@ -806,6 +842,7 @@ export default function Watchlist() {
                             <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
                               {item.name || 'N/A'}
                             </div>
+                            {renderCompactThemes(item.themes, 'mt-2 flex flex-wrap gap-1')}
                           </div>
                         </div>
                         <div className="text-right ml-3">
@@ -980,7 +1017,10 @@ export default function Watchlist() {
                         </button>
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">{item.name || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs">
+                      <div className="truncate">{item.name || 'N/A'}</div>
+                      {renderCompactThemes(item.themes)}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-neutral-900 dark:text-neutral-100">{formatPrice(item.current_price, item.currency)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       {(() => {

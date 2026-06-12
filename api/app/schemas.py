@@ -950,6 +950,7 @@ class WatchlistItemWithPrice(BaseModel):
     daily_change_pct: Optional[Decimal]
     currency: str
     asset_type: Optional[str]
+    themes: List[AssetTheme] = Field(default_factory=list)
     last_updated: Optional[datetime]
     created_at: datetime
     tags: List['WatchlistTagResponse'] = []

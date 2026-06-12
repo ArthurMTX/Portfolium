@@ -1930,6 +1930,7 @@ class ApiClient {
       daily_change_pct: number | string | null
       currency: string
       asset_type: string | null
+      themes: AssetThemeDTO[]
       last_updated: string | null
       created_at: string
       tags: Array<{

@@ -15,6 +15,8 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.schema import DefaultClause
+from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi.testclient import TestClient
 
@@ -133,9 +135,17 @@ def test_db() -> Generator[Session, None, None]:
     
     # Store original schemas to restore later
     original_schemas = {}
+    original_server_defaults = {}
     for table_name, table in Base.metadata.tables.items():
         original_schemas[table_name] = table.schema
         table.schema = None
+        for column in table.columns:
+            server_default = column.server_default
+            if server_default is not None and "::jsonb" in str(server_default.arg):
+                original_server_defaults[(table_name, column.name)] = server_default
+                column.server_default = DefaultClause(
+                    text(str(server_default.arg).replace("::jsonb", ""))
+                )
     
     # Create all tables
     Base.metadata.create_all(bind=engine)
@@ -158,6 +168,12 @@ def test_db() -> Generator[Session, None, None]:
         for table_name, schema in original_schemas.items():
             if table_name in Base.metadata.tables:
                 Base.metadata.tables[table_name].schema = schema
+        for (table_name, column_name), server_default in original_server_defaults.items():
+            if (
+                table_name in Base.metadata.tables
+                and column_name in Base.metadata.tables[table_name].columns
+            ):
+                Base.metadata.tables[table_name].columns[column_name].server_default = server_default
 
 
 @pytest.fixture(scope="function")
