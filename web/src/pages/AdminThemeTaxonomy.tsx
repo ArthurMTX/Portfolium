@@ -172,7 +172,7 @@ export default function AdminThemeTaxonomy() {
               ? {
                   ...item,
                   status: 'running',
-                  message: `Running ${index + 1}/${symbols.length}: Yahoo info + Gemini`,
+                  message: `Running ${index + 1}/${symbols.length}: Yahoo info + classifier`,
                   startedAt: symbolStartedAt,
                 }
               : item

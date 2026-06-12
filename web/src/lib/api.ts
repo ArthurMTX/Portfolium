@@ -151,6 +151,8 @@ export interface AssetThemeClassificationDTO {
   themes: AssetThemeDTO[]
   method: 'keyword' | 'gpt' | 'manual'
   model: string | null
+  source?: 'minilm' | 'gemini' | 'manual' | null
+  model_name?: string | null
   source_hash: string | null
   generated_at: string | null
   updated_at: string | null

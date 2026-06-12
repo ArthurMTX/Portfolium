@@ -157,29 +157,41 @@ class OnnxMiniLMEmbeddingBackend:
         return round((disk_mb * 4.0) + 50.0, 2)
 
 
-def resolve_model_paths(model_path: Optional[str | Path] = None) -> MiniLMModelPaths:
-    configured_path = model_path or settings.THEME_MINILM_MODEL_PATH or default_model_directory()
-    path = Path(configured_path).expanduser()
+def resolve_model_paths(
+    model_path: Optional[str | Path] = None,
+    auto_download: Optional[bool] = None,
+) -> MiniLMModelPaths:
+    configured_path = model_path or settings.THEME_MINILM_MODEL_PATH
+    path = Path(configured_path).expanduser() if configured_path else default_model_directory()
 
-    if path.is_file():
-        model_file = path
-        tokenizer_file = _find_tokenizer_near(path.parent)
-    else:
-        model_file = _find_model_in_directory(path)
-        tokenizer_file = _find_tokenizer_near(path)
+    model_file, tokenizer_file = _resolve_existing_model_paths(path)
+    if model_file and model_file.exists() and tokenizer_file and tokenizer_file.exists():
+        return MiniLMModelPaths(model_path=model_file, tokenizer_path=tokenizer_file)
 
+    should_download = settings.THEME_MINILM_AUTO_DOWNLOAD if auto_download is None else auto_download
+    if should_download:
+        try:
+            download_target = path.parent if path.suffix == ".onnx" else path
+            return download_default_model(download_target)
+        except Exception as exc:
+            raise RuntimeError(
+                "MiniLM model assets were not found locally and automatic download failed. "
+                "Set THEME_MINILM_MODEL_PATH to a directory containing an ONNX model and "
+                "tokenizer.json, or set THEME_MINILM_AUTO_DOWNLOAD=true when network access "
+                "is available."
+            ) from exc
+
+    missing_parts = []
     if not model_file or not model_file.exists():
-        raise RuntimeError(
-            "MiniLM ONNX model file was not found. Set THEME_MINILM_MODEL_PATH, "
-            "or run with --download-model to populate the local cache."
-        )
+        missing_parts.append("ONNX model")
     if not tokenizer_file or not tokenizer_file.exists():
-        raise RuntimeError(
-            "MiniLM tokenizer.json was not found next to the model directory. Download the "
-            "model assets or point THEME_MINILM_MODEL_PATH at a directory containing tokenizer.json."
-        )
-
-    return MiniLMModelPaths(model_path=model_file, tokenizer_path=tokenizer_file)
+        missing_parts.append("tokenizer.json")
+    missing = " and ".join(missing_parts) or "MiniLM model assets"
+    raise RuntimeError(
+        f"MiniLM {missing} was not found. Set THEME_MINILM_MODEL_PATH to a directory "
+        "containing an ONNX model and tokenizer.json, or enable THEME_MINILM_AUTO_DOWNLOAD=true "
+        "to populate the local cache automatically."
+    )
 
 
 def default_model_directory() -> Path:
@@ -207,6 +219,12 @@ def download_default_model(target_dir: Optional[str | Path] = None) -> MiniLMMod
         urlretrieve(url, local_path)
 
     return MiniLMModelPaths(model_path=model_path, tokenizer_path=tokenizer_path)
+
+
+def _resolve_existing_model_paths(path: Path) -> tuple[Optional[Path], Optional[Path]]:
+    if path.is_file():
+        return path, _find_tokenizer_near(path.parent)
+    return _find_model_in_directory(path), _find_tokenizer_near(path)
 
 
 def _find_model_in_directory(directory: Path) -> Optional[Path]:

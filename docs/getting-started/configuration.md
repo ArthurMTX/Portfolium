@@ -133,6 +133,31 @@ BRANDFETCH_API_KEY=your_brandfetch_key
 |----------|-------------|----------|
 | `BRANDFETCH_API_KEY` | Brandfetch API key for company logos | No |
 
+### Asset Theme Classification
+
+Portfolium uses the local MiniLM classifier by default, so a fresh installation does not need a Gemini API key.
+
+```env
+ASSET_THEME_CLASSIFIER_MODE=minilm
+THEME_MINILM_MODEL_PATH=
+THEME_MINILM_AUTO_DOWNLOAD=true
+```
+
+To use Gemini instead:
+
+```env
+ASSET_THEME_CLASSIFIER_MODE=gemini
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ASSET_THEME_CLASSIFIER_MODE` | Theme classifier provider: `minilm` or `gemini` | `minilm` |
+| `THEME_MINILM_MODEL_PATH` | Optional path to a local MiniLM ONNX model directory | Empty |
+| `THEME_MINILM_AUTO_DOWNLOAD` | Download/cache MiniLM assets when missing | `true` |
+| `THEME_MINILM_TOP_K` | Candidate count used by MiniLM retrieval | `15` |
+| `GEMINI_API_KEY` | Required only when classifier mode is `gemini` | Empty |
+
 ### Frontend
 
 ```env

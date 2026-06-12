@@ -41,7 +41,7 @@ from app.dependencies import MetricsServiceDep
 from app.services.cache import CacheService
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.services.asset_research import AssetResearchService
-from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, GEMINI_THEME_MODEL, AssetThemeService
+from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
 from app.services.asset_theme_benchmark import (
     build_classification_benchmark_report,
     build_taxonomy_gap_report,
@@ -504,7 +504,7 @@ def _refresh_asset_theme_background(asset_id: int) -> None:
 
         logger.info("Background asset theme generation starting asset_id=%s symbol=%s", asset.id, asset.symbol)
         company_info = _fetch_theme_company_info(asset)
-        AssetThemeService(db).refresh_gemini_classification(
+        AssetThemeService(db).refresh_classification(
             asset=asset,
             summary=company_info.get("longBusinessSummary") or company_info.get("description"),
             sector=company_info.get("sector") or asset.sector,
@@ -520,11 +520,11 @@ def _refresh_asset_theme_background(asset_id: int) -> None:
         db.close()
 
 
-def _needs_gemini_theme_generation(asset) -> bool:
+def _needs_theme_generation(asset) -> bool:
     classification = getattr(asset, "theme_classification", None)
     if not classification:
         return True
-    if classification.method == "manual":
+    if AssetThemeService.classification_source(classification) == "manual":
         return False
     themes = classification.themes or []
     if themes and any(
@@ -534,10 +534,7 @@ def _needs_gemini_theme_generation(asset) -> bool:
         for theme in themes
     ):
         return True
-    return not (
-        classification.method in {"gpt", "llm"}
-        and classification.model == GEMINI_THEME_MODEL
-    )
+    return not bool(themes)
 
 # Live ticker search endpoint
 @router.get("/search_ticker")
@@ -847,7 +844,7 @@ def classify_asset_themes(
                 continue
 
             company_info = _fetch_theme_company_info(asset)
-            classification = service.refresh_gemini_classification(
+            classification = service.refresh_classification(
                 asset=asset,
                 summary=company_info.get("longBusinessSummary") or company_info.get("description"),
                 sector=company_info.get("sector") or asset.sector,
@@ -855,6 +852,17 @@ def classify_asset_themes(
                 name=company_info.get("longName") or company_info.get("shortName") or asset.name,
                 force=payload.force,
             )
+            if service.last_classification_unavailable_reason and not classification.themes:
+                skipped += 1
+                results.append({
+                    "symbol": asset.symbol,
+                    "status": "skipped",
+                    "company_name": asset.name,
+                    "themes": [],
+                    "taxonomy_gap": None,
+                    "skipped_reason": "classification_unavailable",
+                })
+                continue
             classified += 1
             results.append({
                 "symbol": asset.symbol,
@@ -908,6 +916,8 @@ def get_asset_themes(
         "themes": [],
         "method": "gpt",
         "model": None,
+        "source": None,
+        "model_name": None,
         "source_hash": None,
         "generated_at": None,
         "updated_at": None,
@@ -927,7 +937,7 @@ def refresh_asset_themes(
 
     company_info = _fetch_theme_company_info(asset)
     service = AssetThemeService(db)
-    classification = service.refresh_gemini_classification(
+    classification = service.refresh_classification(
         asset=asset,
         summary=company_info.get("longBusinessSummary") or company_info.get("description"),
         sector=company_info.get("sector") or asset.sector,
@@ -945,7 +955,7 @@ def refresh_held_asset_themes(
     _current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    """Refresh Gemini theme classifications for currently held assets (admin only)."""
+    """Refresh theme classifications for currently held assets (admin only)."""
     from app.models import Asset, Transaction, TransactionType
 
     asset_ids = [row[0] for row in db.query(Transaction.asset_id.distinct()).all()]
@@ -984,7 +994,7 @@ def refresh_held_asset_themes(
             company_info = _fetch_theme_company_info(asset)
             before = service.get_classification(asset.id)
             before_updated_at = before.updated_at if before else None
-            classification = service.refresh_gemini_classification(
+            classification = service.refresh_classification(
                 asset=asset,
                 summary=company_info.get("longBusinessSummary") or company_info.get("description"),
                 sector=company_info.get("sector") or asset.sector,
@@ -1449,7 +1459,7 @@ async def get_held_assets(
         if total_quantity > 0:
             asset = db.query(Asset).filter(Asset.id == asset_id).first()
             if asset:
-                if background_tasks is not None and _needs_gemini_theme_generation(asset):
+                if background_tasks is not None and _needs_theme_generation(asset):
                     background_tasks.add_task(_refresh_asset_theme_background, asset.id)
 
                 # Count splits and buy/sell/conversion transactions (portfolio-specific if portfolio_id provided)

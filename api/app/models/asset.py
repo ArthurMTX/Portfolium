@@ -25,6 +25,11 @@ from app.db import Base
 from app.models.enums import AssetClass
 
 
+def _default_theme_source(context):
+    method = (context.get_current_parameters().get("method") or "").lower()
+    return "manual" if method == "manual" else "gemini"
+
+
 class Asset(Base):
     """Financial asset (stock, ETF, crypto)"""
     __tablename__ = "assets"
@@ -144,6 +149,10 @@ class AssetThemeClassification(Base):
             "method IN ('keyword', 'gpt', 'manual')",
             name="ck_asset_theme_classifications_method",
         ),
+        CheckConstraint(
+            "source IN ('minilm', 'gemini', 'manual')",
+            name="ck_asset_theme_classifications_source",
+        ),
         {"schema": "portfolio"},
     )
 
@@ -152,6 +161,13 @@ class AssetThemeClassification(Base):
     themes = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     method = Column(String(20), nullable=False)
     model = Column(String, nullable=True)
+    source = Column(
+        String(20),
+        nullable=False,
+        default=_default_theme_source,
+        server_default=text("'gemini'"),
+    )
+    model_name = Column(String, nullable=True)
     source_hash = Column(String(64), nullable=True)
     generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

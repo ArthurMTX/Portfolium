@@ -19,6 +19,7 @@ x-api-common: &api_common
   volumes:
     - ./api:/app
     - ./web/src/locales:/app/locales:ro
+    - theme_minilm_cache:/root/.cache/portfolium/theme-minilm
 
 services:
   api-test:
@@ -89,6 +90,7 @@ services:
       - "8000:8000"
     volumes:
       - ./web/public/favicon-96x96.png:/app/static/logo.png:ro
+      - theme_minilm_cache:/root/.cache/portfolium/theme-minilm
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -167,6 +169,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  theme_minilm_cache:
 
 networks:
   portfolium:

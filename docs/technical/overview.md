@@ -78,6 +78,15 @@ User-specific asset classification system:
 - Automatic integration with distributions and insights
 - Database table for override storage
 
+### Asset Theme Classification
+
+Global asset theme/exposure classification uses one configured provider at a time:
+
+- `ASSET_THEME_CLASSIFIER_MODE=minilm` uses the local MiniLM ONNX classifier and is the default for fresh installs.
+- `ASSET_THEME_CLASSIFIER_MODE=gemini` uses Gemini and requires `GEMINI_API_KEY`.
+- Persisted theme classifications store `source` (`minilm`, `gemini`, or `manual`) and `model_name` for provenance.
+- Manual classifications are authoritative and are not overwritten by automatic jobs unless a force refresh is requested.
+
 ## Technology Stack
 
 ### Backend

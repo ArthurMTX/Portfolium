@@ -14,8 +14,8 @@ from app.services.asset_theme_minilm import (
     get_theme_definition,
     validate_theme_registry,
 )
-from app.services.asset_theme_minilm_runtime import resolve_model_paths
-from app.services.asset_themes import ALLOWED_THEME_HIERARCHY
+from app.services.asset_theme_minilm_runtime import MiniLMModelPaths, resolve_model_paths
+from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, settings
 
 
 class KeywordEmbeddingBackend:
@@ -87,6 +87,28 @@ def test_model_path_resolution_accepts_local_onnx_export(tmp_path: Path):
 
     assert paths.model_path == model_path
     assert paths.tokenizer_path == tokenizer_path
+
+
+def test_model_path_resolution_auto_downloads_when_allowed(tmp_path: Path, monkeypatch):
+    model_path = tmp_path / "onnx" / "model_quint8_avx2.onnx"
+    tokenizer_path = tmp_path / "tokenizer.json"
+    expected = MiniLMModelPaths(model_path=model_path, tokenizer_path=tokenizer_path)
+    calls = []
+
+    def fake_download(target_dir=None):
+        calls.append(target_dir)
+        return expected
+
+    monkeypatch.setattr(settings, "THEME_MINILM_AUTO_DOWNLOAD", True)
+    monkeypatch.setattr(
+        "app.services.asset_theme_minilm_runtime.download_default_model",
+        fake_download,
+    )
+
+    paths = resolve_model_paths(tmp_path)
+
+    assert paths == expected
+    assert calls == [tmp_path]
 
 
 def test_classifier_output_shape_is_stable():

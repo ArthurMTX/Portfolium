@@ -64,7 +64,8 @@ class Settings(BaseSettings):
     # Brandfetch API (for fetching company logos)
     BRANDFETCH_API_KEY: str = ""  # Optional: Leave empty to disable logo fetching
 
-    # Gemini API (asset theme classification)
+    # Asset theme classification
+    ASSET_THEME_CLASSIFIER_MODE: str = "minilm"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash-lite"
     GEMINI_TIMEOUT_SECONDS: int = 20
@@ -72,8 +73,9 @@ class Settings(BaseSettings):
     ASSET_THEME_TWO_PASS_CLASSIFICATION: bool = False
     ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED: bool = False
 
-    # Local MiniLM theme benchmark/runtime. Production writes still use Gemini.
+    # Local MiniLM theme benchmark/runtime
     THEME_MINILM_MODEL_PATH: str = ""
+    THEME_MINILM_AUTO_DOWNLOAD: bool = True
     THEME_MINILM_TOP_K: int = 15
     
     # Redis Configuration
@@ -144,6 +146,15 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [ip.strip() for ip in v.split(',') if ip.strip()]
         return v
+
+    @field_validator('ASSET_THEME_CLASSIFIER_MODE')
+    @classmethod
+    def validate_asset_theme_classifier_mode(cls, v):
+        """Validate asset theme classifier mode."""
+        mode = (v or "minilm").strip().lower()
+        if mode not in {"minilm", "gemini"}:
+            raise ValueError("ASSET_THEME_CLASSIFIER_MODE must be 'minilm' or 'gemini'")
+        return mode
     
     @model_validator(mode='after')
     def validate_settings(self) -> Self:

@@ -310,6 +310,8 @@ class AssetThemeClassification(BaseModel):
     themes: List[AssetTheme] = Field(default_factory=list)
     method: str = Field(default="gpt", pattern="^(keyword|gpt|manual)$")
     model: Optional[str] = None
+    source: Optional[str] = Field(default=None, pattern="^(minilm|gemini|manual)$")
+    model_name: Optional[str] = None
     source_hash: Optional[str] = None
     generated_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

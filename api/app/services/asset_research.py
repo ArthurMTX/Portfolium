@@ -72,6 +72,8 @@ class AssetResearchService:
             "themes": [],
             "method": "gpt",
             "model": None,
+            "source": None,
+            "model_name": None,
             "source_hash": None,
             "generated_at": None,
             "updated_at": None,
@@ -113,7 +115,7 @@ class AssetResearchService:
 
     def _ensure_theme_classification(self, asset: Asset, business: Dict[str, Any]) -> None:
         try:
-            AssetThemeService(self.db).refresh_gemini_classification(
+            AssetThemeService(self.db).refresh_classification(
                 asset=asset,
                 summary=business.get("description"),
                 sector=business.get("sector"),

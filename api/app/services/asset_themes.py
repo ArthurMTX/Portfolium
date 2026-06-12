@@ -1,13 +1,14 @@
-"""Asset theme classification service backed by LLM."""
+"""Asset theme classification service."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 import hashlib
 import json
 import logging
 import re
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
@@ -15,19 +16,23 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Asset, AssetThemeClassification, AssetThemeTaxonomySuggestion
-from app.services.gemini import GeminiService
 from app.services.cache import CacheService
 
 logger = logging.getLogger(__name__)
 
 ThemePayload = Dict[str, Any]
 
-GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v7"
+GEMINI_THEME_TAXONOMY_VERSION = "hierarchical-weighted-evidence-v8"
 GEMINI_THEME_MODEL = settings.GEMINI_MODEL
+MINILM_THEME_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 MIN_THEME_CONFIDENCE = 0.55
 MIN_THEME_WEIGHT = 0.05
 MIN_MISSING_SUBTHEME_SUGGESTION_CONFIDENCE = 0.75
 GEMINI_THEME_METHOD = "gpt"
+AUTOMATIC_THEME_METHOD = "gpt"
+THEME_SOURCE_MINILM = "minilm"
+THEME_SOURCE_GEMINI = "gemini"
+THEME_SOURCE_MANUAL = "manual"
 MAX_SUMMARY_CHARS = 2500
 MAX_SUMMARY_SENTENCES = 10
 
@@ -338,17 +343,235 @@ GEMINI_SUBTHEME_RESPONSE_SCHEMA: Dict[str, Any] = {
 }
 
 
+@dataclass(frozen=True)
+class AssetThemeClassifierResult:
+    """Normalized classifier result plus provider metadata."""
+
+    themes: List[ThemePayload]
+    taxonomy_gap: Optional[Dict[str, Any]] = None
+    unavailable_reason: Optional[str] = None
+
+
+class AssetThemeClassifier(Protocol):
+    """Common interface for asset theme classifiers."""
+
+    source: str
+    model_name: Optional[str]
+
+    def classify_asset(
+        self,
+        *,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: Optional[str],
+    ) -> AssetThemeClassifierResult:
+        ...
+
+
+class MiniLMAssetThemeClassifier:
+    """Production wrapper for the local MiniLM theme classifier."""
+
+    source = THEME_SOURCE_MINILM
+    model_name = MINILM_THEME_MODEL
+
+    def __init__(self, classifier: Optional[Any] = None) -> None:
+        self._classifier = classifier
+
+    def classify_asset(
+        self,
+        *,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: Optional[str],
+    ) -> AssetThemeClassifierResult:
+        if not summary or not summary.strip():
+            return AssetThemeClassifierResult(themes=[])
+
+        try:
+            classifier = self._get_classifier()
+            raw_themes = classifier.classify_asset(
+                name=name,
+                sector=sector,
+                industry=industry,
+                summary=summary,
+            )
+        except Exception as exc:
+            logger.warning(
+                "MiniLM theme classification unavailable: %s. Set THEME_MINILM_MODEL_PATH "
+                "to a local ONNX export directory or enable THEME_MINILM_AUTO_DOWNLOAD=true.",
+                exc,
+            )
+            return AssetThemeClassifierResult(
+                themes=[],
+                unavailable_reason="classification unavailable",
+            )
+
+        return AssetThemeClassifierResult(
+            themes=_normalize_classifier_theme_payload(raw_themes),
+        )
+
+    def _get_classifier(self) -> Any:
+        if self._classifier is None:
+            from app.services.asset_theme_minilm import AssetThemeMiniLMClassifier
+
+            self._classifier = AssetThemeMiniLMClassifier()
+        return self._classifier
+
+
+class GeminiAssetThemeClassifier:
+    """Production wrapper for Gemini theme classification."""
+
+    source = THEME_SOURCE_GEMINI
+
+    def __init__(
+        self,
+        generate_theme_payload: Callable[
+            [Optional[str], Optional[str], Optional[str], str],
+            tuple[List[ThemePayload], Optional[Dict[str, Any]]],
+        ],
+        gemini_service: Optional[Any] = None,
+    ) -> None:
+        if gemini_service is None:
+            from app.services.gemini import GeminiService
+
+            gemini_service = GeminiService()
+        self.gemini_service = gemini_service
+        self.model_name = getattr(gemini_service, "model", settings.GEMINI_MODEL)
+        self._generate_theme_payload = generate_theme_payload
+
+    def classify_asset(
+        self,
+        *,
+        name: Optional[str],
+        sector: Optional[str],
+        industry: Optional[str],
+        summary: Optional[str],
+    ) -> AssetThemeClassifierResult:
+        if not summary or not summary.strip():
+            return AssetThemeClassifierResult(themes=[])
+
+        api_key = getattr(self.gemini_service, "api_key", None)
+        if api_key is not None and not api_key:
+            logger.warning(
+                "Asset theme classification unavailable: ASSET_THEME_CLASSIFIER_MODE=gemini "
+                "but GEMINI_API_KEY is not configured."
+            )
+            return AssetThemeClassifierResult(
+                themes=[],
+                unavailable_reason="classification unavailable",
+            )
+
+        themes, taxonomy_gap = self._generate_theme_payload(
+            name,
+            sector,
+            industry,
+            summary,
+        )
+        return AssetThemeClassifierResult(
+            themes=_normalize_classifier_theme_payload(themes),
+            taxonomy_gap=taxonomy_gap,
+        )
+
+
+def _normalize_classifier_theme_payload(themes: List[ThemePayload]) -> List[ThemePayload]:
+    """Return the provider-neutral theme payload persisted by the service."""
+
+    normalized: List[ThemePayload] = []
+    for index, raw_theme in enumerate(themes or []):
+        if not isinstance(raw_theme, dict):
+            continue
+
+        label = raw_theme.get("label") or raw_theme.get("theme")
+        if not isinstance(label, str) or not label.strip():
+            continue
+
+        confidence = AssetThemeService._to_confidence(raw_theme.get("confidence"))
+        if confidence is None:
+            confidence = 0.0
+
+        weight = AssetThemeService._to_weight(raw_theme.get("weight"))
+        if weight is None:
+            weight = 0.0
+
+        tier = raw_theme.get("tier")
+        if tier not in {"primary", "secondary"}:
+            tier = "primary" if index < 3 else "secondary"
+
+        children = []
+        for child in raw_theme.get("children") or raw_theme.get("subthemes") or []:
+            if not isinstance(child, dict):
+                continue
+            child_label = child.get("label")
+            if not isinstance(child_label, str) or not child_label.strip():
+                continue
+            child_confidence = AssetThemeService._to_confidence(child.get("confidence"))
+            children.append({
+                "label": child_label.strip(),
+                "confidence": child_confidence if child_confidence is not None else 0.0,
+                "evidence": AssetThemeService._clean_evidence(child.get("evidence")),
+            })
+
+        normalized.append({
+            "label": label.strip(),
+            "confidence": confidence,
+            "weight": weight,
+            "evidence": AssetThemeService._clean_evidence(raw_theme.get("evidence")),
+            "tier": tier,
+            "children": children,
+            "needs_review": bool(raw_theme.get("needs_review", False)),
+            "review_reasons": [
+                str(reason)
+                for reason in raw_theme.get("review_reasons", [])
+                if isinstance(reason, str) and reason.strip()
+            ],
+        })
+
+    return AssetThemeService._normalize_theme_weights(normalized)
+
+
 class AssetThemeService:
     """Generate, validate, and persist reusable asset theme classifications."""
 
-    def __init__(self, db: Session, gemini_service: Optional[GeminiService] = None):
+    def __init__(
+        self,
+        db: Session,
+        gemini_service: Optional[Any] = None,
+        classifier: Optional[AssetThemeClassifier] = None,
+    ):
         self.db = db
-        self.gemini_service = gemini_service or GeminiService()
-        self.gemini_model = self.gemini_service.model
         self.last_taxonomy_gap: Optional[Dict[str, Any]] = None
         self.last_subtheme_taxonomy_gaps: List[Dict[str, Any]] = []
         self.last_taxonomy_gap_persisted: bool = False
+        self.last_classification_unavailable_reason: Optional[str] = None
         self._classification_symbol: Optional[str] = None
+        self.gemini_service: Optional[Any] = None
+        self.gemini_model: Optional[str] = None
+        self.classifier = classifier or self._build_classifier(gemini_service=gemini_service)
+        if isinstance(self.classifier, GeminiAssetThemeClassifier):
+            self.gemini_service = self.classifier.gemini_service
+            self.gemini_model = self.classifier.model_name
+
+    def _build_classifier(self, gemini_service: Optional[Any] = None) -> AssetThemeClassifier:
+        if gemini_service is not None:
+            return GeminiAssetThemeClassifier(
+                generate_theme_payload=self.generate_theme_payload,
+                gemini_service=gemini_service,
+            )
+
+        mode = settings.ASSET_THEME_CLASSIFIER_MODE
+        if mode == THEME_SOURCE_GEMINI:
+            return GeminiAssetThemeClassifier(generate_theme_payload=self.generate_theme_payload)
+        return MiniLMAssetThemeClassifier()
+
+    def _ensure_gemini_service(self) -> None:
+        if self.gemini_service is not None:
+            return
+        from app.services.gemini import GeminiService
+
+        self.gemini_service = GeminiService()
+        self.gemini_model = self.gemini_service.model
 
     def get_classification(self, asset_id: int) -> Optional[AssetThemeClassification]:
         return (
@@ -363,7 +586,7 @@ class AssetThemeService:
             return []
         return classification.themes or []
 
-    def refresh_gemini_classification(
+    def refresh_classification(
         self,
         asset: Asset,
         summary: Optional[str],
@@ -372,6 +595,9 @@ class AssetThemeService:
         name: Optional[str] = None,
         force: bool = False,
     ) -> AssetThemeClassification:
+        provider = self.classifier
+        provider_source = provider.source
+        provider_model_name = provider.model_name
         source_hash = self.build_source_hash(
             summary=summary,
             sector=sector or asset.sector,
@@ -381,26 +607,39 @@ class AssetThemeService:
 
         existing = self.get_classification(asset.id)
         logger.info(
-            "Asset theme classification requested asset_id=%s symbol=%s force=%s model=%s source_hash=%s existing=%s",
+            "Asset theme classification requested asset_id=%s symbol=%s force=%s source=%s model=%s source_hash=%s existing=%s",
             asset.id,
             asset.symbol,
             force,
-            self.gemini_model,
+            provider_source,
+            provider_model_name,
             source_hash[:12],
             bool(existing),
         )
         if existing and not force:
-            if existing.method == "manual":
+            existing_source = self.classification_source(existing)
+            if existing_source == THEME_SOURCE_MANUAL:
                 logger.info(
                     "Asset theme classification skipped asset_id=%s symbol=%s reason=manual",
                     asset.id,
                     asset.symbol,
                 )
                 return existing
+
+            if existing.themes and existing_source and existing_source != provider_source:
+                logger.info(
+                    "Asset theme classification skipped asset_id=%s symbol=%s reason=existing_provider source=%s requested_source=%s",
+                    asset.id,
+                    asset.symbol,
+                    existing_source,
+                    provider_source,
+                )
+                return existing
+
             if (
                 existing.source_hash == source_hash
-                and existing.method in {"gpt", "llm"}
-                and existing.model == self.gemini_model
+                and existing_source == provider_source
+                and self.classification_model_name(existing) == provider_model_name
             ):
                 logger.info(
                     "Asset theme classification skipped asset_id=%s symbol=%s reason=cache_hit generated_at=%s",
@@ -415,22 +654,22 @@ class AssetThemeService:
         self.last_taxonomy_gap = None
         self.last_subtheme_taxonomy_gaps = []
         self.last_taxonomy_gap_persisted = False
+        self.last_classification_unavailable_reason = None
         if summary and summary.strip():
-            strategy = self._classification_strategy()
             logger.info(
-                "Asset theme Gemini classification starting asset_id=%s symbol=%s name=%s sector=%s industry=%s summary_chars=%s classification_strategy=%s",
+                "Asset theme classification starting asset_id=%s symbol=%s source=%s name=%s sector=%s industry=%s summary_chars=%s",
                 asset.id,
                 asset.symbol,
+                provider_source,
                 name or asset.name or asset.symbol,
                 sector or asset.sector,
                 industry or asset.industry,
                 len(summary),
-                strategy,
             )
             previous_symbol = self._classification_symbol
             self._classification_symbol = asset.symbol
             try:
-                themes, taxonomy_gap = self.generate_theme_payload(
+                result = provider.classify_asset(
                     name=name or asset.name or asset.symbol,
                     sector=sector or asset.sector,
                     industry=industry or asset.industry,
@@ -438,11 +677,35 @@ class AssetThemeService:
                 )
             finally:
                 self._classification_symbol = previous_symbol
+            if result.unavailable_reason:
+                self.last_classification_unavailable_reason = result.unavailable_reason
+                logger.warning(
+                    "Asset theme classification unavailable asset_id=%s symbol=%s source=%s reason=%s",
+                    asset.id,
+                    asset.symbol,
+                    provider_source,
+                    result.unavailable_reason,
+                )
+                if existing and existing.themes:
+                    logger.info(
+                        "Asset theme classification using existing stored result asset_id=%s symbol=%s",
+                        asset.id,
+                        asset.symbol,
+                    )
+                    return existing
+                return self._empty_classification(
+                    asset_id=asset.id,
+                    source=provider_source,
+                    model_name=provider_model_name,
+                )
+            themes = result.themes
+            taxonomy_gap = result.taxonomy_gap
             self.last_taxonomy_gap = taxonomy_gap
             logger.info(
-                "Asset theme Gemini classification completed asset_id=%s symbol=%s theme_count=%s themes=%s",
+                "Asset theme classification completed asset_id=%s symbol=%s source=%s theme_count=%s themes=%s",
                 asset.id,
                 asset.symbol,
+                provider_source,
                 len(themes),
                 [theme.get("label") for theme in themes],
             )
@@ -469,9 +732,10 @@ class AssetThemeService:
                 )
         else:
             logger.info(
-                "Asset theme classification skipped Gemini asset_id=%s symbol=%s reason=missing_summary",
+                "Asset theme classification skipped asset_id=%s symbol=%s source=%s reason=missing_summary",
                 asset.id,
                 asset.symbol,
+                provider_source,
             )
 
         now = datetime.utcnow()
@@ -479,6 +743,10 @@ class AssetThemeService:
             classification = self._upsert_postgresql_classification(
                 asset_id=asset.id,
                 themes=themes,
+                method=AUTOMATIC_THEME_METHOD,
+                model=provider_model_name,
+                source=provider_source,
+                model_name=provider_model_name,
                 source_hash=source_hash,
                 generated_at=now,
                 force=force,
@@ -488,8 +756,10 @@ class AssetThemeService:
 
         if existing:
             existing.themes = themes
-            existing.method = GEMINI_THEME_METHOD
-            existing.model = self.gemini_model
+            existing.method = AUTOMATIC_THEME_METHOD
+            existing.model = provider_model_name
+            existing.source = provider_source
+            existing.model_name = provider_model_name
             existing.source_hash = source_hash
             existing.generated_at = now
             existing.updated_at = now
@@ -498,8 +768,10 @@ class AssetThemeService:
             classification = AssetThemeClassification(
                 asset_id=asset.id,
                 themes=themes,
-                method=GEMINI_THEME_METHOD,
-                model=self.gemini_model,
+                method=AUTOMATIC_THEME_METHOD,
+                model=provider_model_name,
+                source=provider_source,
+                model_name=provider_model_name,
                 source_hash=source_hash,
                 generated_at=now,
                 updated_at=now,
@@ -515,8 +787,10 @@ class AssetThemeService:
                 raise
 
             classification.themes = themes
-            classification.method = GEMINI_THEME_METHOD
-            classification.model = self.gemini_model
+            classification.method = AUTOMATIC_THEME_METHOD
+            classification.model = provider_model_name
+            classification.source = provider_source
+            classification.model_name = provider_model_name
             classification.source_hash = source_hash
             classification.generated_at = now
             classification.updated_at = now
@@ -533,10 +807,46 @@ class AssetThemeService:
         )
         return classification
 
+    def refresh_gemini_classification(
+        self,
+        asset: Asset,
+        summary: Optional[str],
+        sector: Optional[str] = None,
+        industry: Optional[str] = None,
+        name: Optional[str] = None,
+        force: bool = False,
+    ) -> AssetThemeClassification:
+        previous_classifier = self.classifier
+        previous_gemini_service = self.gemini_service
+        previous_gemini_model = self.gemini_model
+        self.classifier = GeminiAssetThemeClassifier(
+            generate_theme_payload=self.generate_theme_payload,
+            gemini_service=previous_gemini_service,
+        )
+        self.gemini_service = self.classifier.gemini_service
+        self.gemini_model = self.classifier.model_name
+        try:
+            return self.refresh_classification(
+                asset=asset,
+                summary=summary,
+                sector=sector,
+                industry=industry,
+                name=name,
+                force=force,
+            )
+        finally:
+            self.classifier = previous_classifier
+            self.gemini_service = previous_gemini_service
+            self.gemini_model = previous_gemini_model
+
     def _upsert_postgresql_classification(
         self,
         asset_id: int,
         themes: List[ThemePayload],
+        method: str,
+        model: Optional[str],
+        source: str,
+        model_name: Optional[str],
         source_hash: str,
         generated_at: datetime,
         force: bool,
@@ -544,8 +854,10 @@ class AssetThemeService:
         values = {
             "asset_id": asset_id,
             "themes": themes,
-            "method": GEMINI_THEME_METHOD,
-            "model": self.gemini_model,
+            "method": method,
+            "model": model,
+            "source": source,
+            "model_name": model_name,
             "source_hash": source_hash,
             "generated_at": generated_at,
             "updated_at": generated_at,
@@ -558,6 +870,8 @@ class AssetThemeService:
                 "themes": statement.excluded.themes,
                 "method": statement.excluded.method,
                 "model": statement.excluded.model,
+                "source": statement.excluded.source,
+                "model_name": statement.excluded.model_name,
                 "source_hash": statement.excluded.source_hash,
                 "generated_at": statement.excluded.generated_at,
                 "updated_at": statement.excluded.updated_at,
@@ -600,6 +914,41 @@ class AssetThemeService:
         return classification
 
     @staticmethod
+    def classification_source(classification: AssetThemeClassification) -> Optional[str]:
+        source = getattr(classification, "source", None)
+        if source in {THEME_SOURCE_MINILM, THEME_SOURCE_GEMINI, THEME_SOURCE_MANUAL}:
+            return source
+
+        method = getattr(classification, "method", None)
+        if method == "manual":
+            return THEME_SOURCE_MANUAL
+        if method in {"gpt", "llm"}:
+            return THEME_SOURCE_GEMINI
+        return None
+
+    @staticmethod
+    def classification_model_name(classification: AssetThemeClassification) -> Optional[str]:
+        return getattr(classification, "model_name", None) or getattr(classification, "model", None)
+
+    @staticmethod
+    def _empty_classification(
+        asset_id: int,
+        source: str,
+        model_name: Optional[str],
+    ) -> AssetThemeClassification:
+        return AssetThemeClassification(
+            asset_id=asset_id,
+            themes=[],
+            method=AUTOMATIC_THEME_METHOD,
+            model=model_name,
+            source=source,
+            model_name=model_name,
+            source_hash=None,
+            generated_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+
+    @staticmethod
     def _invalidate_theme_dependent_caches() -> None:
         cache = CacheService()
         cache.delete_pattern("assets_held:*")
@@ -630,6 +979,7 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
+        self._ensure_gemini_service()
         if settings.ASSET_THEME_TWO_PASS_CLASSIFICATION:
             return self.generate_theme_payload_two_pass(
                 name=name,

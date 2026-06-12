@@ -206,7 +206,7 @@ def test_classify_single_symbol(client, test_db, test_user, monkeypatch):
         return classification
 
     monkeypatch.setattr("app.routers.assets._fetch_theme_company_info", lambda asset: {"longBusinessSummary": "Boats"})
-    monkeypatch.setattr(AssetThemeService, "refresh_gemini_classification", fake_refresh)
+    monkeypatch.setattr(AssetThemeService, "refresh_classification", fake_refresh)
 
     response = client.post(
         "/assets/themes/classify",
@@ -264,7 +264,7 @@ def test_classify_missing_symbol_creates_asset(client, test_db, test_user, monke
             "longName": asset.name,
         },
     )
-    monkeypatch.setattr(AssetThemeService, "refresh_gemini_classification", fake_refresh)
+    monkeypatch.setattr(AssetThemeService, "refresh_classification", fake_refresh)
 
     response = client.post(
         "/assets/themes/classify",
@@ -321,7 +321,7 @@ def test_classify_multiple_symbols_with_partial_failure(client, test_db, test_us
 
     monkeypatch.setattr("app.routers.assets._fetch_theme_company_info", lambda asset: {"longBusinessSummary": "Summary"})
     monkeypatch.setattr("app.routers.assets.crud.create_asset", fake_create)
-    monkeypatch.setattr(AssetThemeService, "refresh_gemini_classification", fake_refresh)
+    monkeypatch.setattr(AssetThemeService, "refresh_classification", fake_refresh)
 
     response = client.post(
         "/assets/themes/classify",
@@ -355,7 +355,7 @@ def test_missing_only_skips_existing_classification(client, test_db, test_user, 
     def fail_refresh(*args, **kwargs):
         raise AssertionError("refresh should not be called")
 
-    monkeypatch.setattr(AssetThemeService, "refresh_gemini_classification", fail_refresh)
+    monkeypatch.setattr(AssetThemeService, "refresh_classification", fail_refresh)
     response = client.post(
         "/assets/themes/classify",
         headers=_admin_headers(client, test_db, test_user),
@@ -389,7 +389,7 @@ def test_force_refresh_overrides_missing_only(client, test_db, test_user, monkey
         return classification
 
     monkeypatch.setattr("app.routers.assets._fetch_theme_company_info", lambda asset: {"longBusinessSummary": "Boats"})
-    monkeypatch.setattr(AssetThemeService, "refresh_gemini_classification", fake_refresh)
+    monkeypatch.setattr(AssetThemeService, "refresh_classification", fake_refresh)
 
     response = client.post(
         "/assets/themes/classify",

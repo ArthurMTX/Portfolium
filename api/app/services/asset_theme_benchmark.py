@@ -16,7 +16,7 @@ from app.services.asset_theme_minilm import (
     get_subtheme_definition,
     get_theme_definition,
 )
-from app.services.asset_themes import ALLOWED_THEME_HIERARCHY
+from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
 from app.services.fundamentals import FundamentalsService
 
 
@@ -281,7 +281,12 @@ def serialize_theme_registry() -> Dict[str, Any]:
 
 def _stored_gemini_theme_payload(asset: Asset) -> list[dict]:
     classification = getattr(asset, "theme_classification", None)
-    if not classification or classification.method not in {"gpt", "llm"}:
+    if not classification:
+        return []
+    source = AssetThemeService.classification_source(classification)
+    if source and source != "gemini":
+        return []
+    if not source and classification.method not in {"gpt", "llm"}:
         return []
     return list(classification.themes or [])
 

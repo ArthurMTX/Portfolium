@@ -62,7 +62,7 @@ def refresh_themes(symbol: Optional[str], force: bool) -> None:
                     print(f"[{index}/{len(assets)}] SKIP {asset.symbol}: no summary", flush=True)
                     continue
 
-                classification = service.refresh_gemini_classification(
+                classification = service.refresh_classification(
                     asset=asset,
                     summary=summary,
                     sector=info.get("sector") or asset.sector,
@@ -483,7 +483,10 @@ def _stored_gemini_theme_payload(asset: Asset) -> list[dict]:
     classification = getattr(asset, "theme_classification", None)
     if not classification:
         return []
-    if classification.method not in {"gpt", "llm"}:
+    source = getattr(classification, "source", None)
+    if source and source != "gemini":
+        return []
+    if not source and classification.method not in {"gpt", "llm"}:
         return []
     if not classification.themes:
         return []
