@@ -18,6 +18,10 @@ from app.services.asset_theme_minilm import (
     cosine_similarity,
     download_default_model,
 )
+from app.services.asset_theme_taxonomy_separability import (
+    build_taxonomy_separability_report,
+    write_taxonomy_separability_reports,
+)
 from app.services.asset_themes import AssetThemeService
 from app.services.fundamentals import FundamentalsService
 
@@ -178,6 +182,7 @@ def benchmark_theme_minilm(
     download_model: bool = False,
     json_output: Optional[str] = None,
     csv_output: Optional[str] = None,
+    compare_json: Optional[str] = None,
     db=None,
     classifier: Optional[AssetThemeMiniLMClassifier] = None,
 ) -> dict:
@@ -232,6 +237,7 @@ def benchmark_theme_minilm(
         "high_confidence_disagreements": [],
         "low_confidence_assets": [],
         "potential_taxonomy_gaps": [],
+        "comparison": None,
         "asset_results": [],
     }
 
@@ -462,6 +468,8 @@ def benchmark_theme_minilm(
         result["estimated_memory_mb"] = memory_estimate() if callable(memory_estimate) else None
         result["embedding_document_count"] = int(getattr(classifier, "embedding_document_count", 0) or 0)
         result["segments"] = _finalize_segment_stats(segment_stats)
+        if compare_json:
+            result["comparison"] = _compare_benchmark_reports(compare_json, result)
 
         _write_benchmark_reports(result, json_output=json_output, csv_output=csv_output)
         print(json.dumps(result, indent=2), flush=True)
@@ -469,6 +477,35 @@ def benchmark_theme_minilm(
     finally:
         if owns_db:
             db.close()
+
+
+def analyze_theme_taxonomy_separability(
+    *,
+    json_output: Optional[str] = None,
+    csv_output: Optional[str] = None,
+    parent_similarity_threshold: float = 0.68,
+    subtheme_similarity_threshold: float = 0.72,
+    cluster_similarity_threshold: float = 0.70,
+    nearest_neighbors: int = 5,
+    classifier: Optional[AssetThemeMiniLMClassifier] = None,
+) -> dict:
+    """Run read-only MiniLM taxonomy document separability diagnostics."""
+
+    classifier = classifier or AssetThemeMiniLMClassifier()
+    report = build_taxonomy_separability_report(
+        classifier=classifier,
+        parent_similarity_threshold=parent_similarity_threshold,
+        subtheme_similarity_threshold=subtheme_similarity_threshold,
+        cluster_similarity_threshold=cluster_similarity_threshold,
+        nearest_neighbors=nearest_neighbors,
+    )
+    write_taxonomy_separability_reports(
+        report,
+        json_output=json_output,
+        csv_output=csv_output,
+    )
+    print(json.dumps(report, indent=2), flush=True)
+    return report
 
 
 def _select_benchmark_assets(db, sample: int, symbols: Optional[list[str]]) -> list[Asset]:
@@ -666,6 +703,99 @@ def _write_benchmark_reports(
         print(f"Wrote CSV benchmark report to {path}", flush=True)
 
 
+def _compare_benchmark_reports(baseline_json: str, current: dict) -> dict:
+    path = Path(baseline_json).expanduser()
+    baseline = json.loads(path.read_text(encoding="utf-8"))
+    baseline_metrics = baseline.get("metrics") if isinstance(baseline.get("metrics"), dict) else baseline
+    current_metrics = current.get("metrics") if isinstance(current.get("metrics"), dict) else current
+
+    metric_names = (
+        "top1_parent_match_rate",
+        "top3_parent_match_rate",
+        "top5_parent_match_rate",
+        "top1_subtheme_match_rate",
+        "top3_subtheme_match_rate",
+    )
+    metric_deltas = {}
+    for metric_name in metric_names:
+        baseline_value = baseline_metrics.get(metric_name)
+        current_value = current_metrics.get(metric_name)
+        metric_deltas[metric_name] = {
+            "before": baseline_value,
+            "after": current_value,
+            "delta": _numeric_delta(current_value, baseline_value),
+        }
+
+    baseline_assets = {
+        row.get("symbol"): row
+        for row in baseline.get("asset_results", [])
+        if isinstance(row, dict) and row.get("symbol")
+    }
+    current_assets = {
+        row.get("symbol"): row
+        for row in current.get("asset_results", [])
+        if isinstance(row, dict) and row.get("symbol")
+    }
+    common_symbols = sorted(set(baseline_assets).intersection(current_assets))
+    asset_deltas = []
+    for symbol in common_symbols:
+        before = baseline_assets[symbol]
+        after = current_assets[symbol]
+        before_score = _agreement_score(before)
+        after_score = _agreement_score(after)
+        before_confidence = float(before.get("minilm_top_confidence") or 0.0)
+        after_confidence = float(after.get("minilm_top_confidence") or 0.0)
+        asset_deltas.append(
+            {
+                "symbol": symbol,
+                "company_name": after.get("company_name") or before.get("company_name"),
+                "before_score": before_score,
+                "after_score": after_score,
+                "agreement_delta": round(after_score - before_score, 4),
+                "before_minilm_parent_themes": before.get("minilm_parent_themes", []),
+                "after_minilm_parent_themes": after.get("minilm_parent_themes", []),
+                "stored_gemini_parent_themes": after.get("stored_gemini_parent_themes")
+                or before.get("stored_gemini_parent_themes", []),
+                "before_needs_review": before.get("needs_review"),
+                "after_needs_review": after.get("needs_review"),
+                "confidence_delta": round(after_confidence - before_confidence, 4),
+            }
+        )
+
+    return {
+        "baseline_json": str(path),
+        "common_asset_count": len(common_symbols),
+        "metric_deltas": metric_deltas,
+        "most_improved_assets": sorted(
+            asset_deltas,
+            key=lambda row: (-row["agreement_delta"], -row["confidence_delta"], row["symbol"]),
+        )[:10],
+        "most_degraded_assets": sorted(
+            asset_deltas,
+            key=lambda row: (row["agreement_delta"], row["confidence_delta"], row["symbol"]),
+        )[:10],
+    }
+
+
+def _numeric_delta(current_value, baseline_value) -> Optional[float]:
+    if current_value is None or baseline_value is None:
+        return None
+    try:
+        return round(float(current_value) - float(baseline_value), 4)
+    except (TypeError, ValueError):
+        return None
+
+
+def _agreement_score(row: dict) -> float:
+    if row.get("parent_top1_match"):
+        return 1.0
+    if row.get("parent_top3_match"):
+        return 0.66
+    if row.get("parent_top5_match"):
+        return 0.33
+    return 0.0
+
+
 def _csv_value(value) -> object:
     if isinstance(value, (list, dict)):
         return json.dumps(value, ensure_ascii=False)
@@ -769,6 +899,20 @@ def main() -> None:
     benchmark_parser.add_argument("--download-model", action="store_true")
     benchmark_parser.add_argument("--json-output", type=str, default=None)
     benchmark_parser.add_argument("--csv-output", type=str, default=None)
+    benchmark_parser.add_argument(
+        "--compare-json",
+        type=str,
+        default=None,
+        help="Optional prior benchmark JSON to compare against this run.",
+    )
+
+    separability_parser = subparsers.add_parser("analyze-theme-taxonomy-separability")
+    separability_parser.add_argument("--json-output", type=str, default=None)
+    separability_parser.add_argument("--csv-output", type=str, default=None)
+    separability_parser.add_argument("--parent-threshold", type=float, default=0.68)
+    separability_parser.add_argument("--subtheme-threshold", type=float, default=0.72)
+    separability_parser.add_argument("--cluster-threshold", type=float, default=0.70)
+    separability_parser.add_argument("--nearest-neighbors", type=int, default=5)
 
     subparsers.add_parser("sanity-theme-minilm")
 
@@ -789,6 +933,16 @@ def main() -> None:
             download_model=args.download_model,
             json_output=args.json_output,
             csv_output=args.csv_output,
+            compare_json=args.compare_json,
+        )
+    elif args.command == "analyze-theme-taxonomy-separability":
+        analyze_theme_taxonomy_separability(
+            json_output=args.json_output,
+            csv_output=args.csv_output,
+            parent_similarity_threshold=args.parent_threshold,
+            subtheme_similarity_threshold=args.subtheme_threshold,
+            cluster_similarity_threshold=args.cluster_threshold,
+            nearest_neighbors=args.nearest_neighbors,
         )
     elif args.command == "sanity-theme-minilm":
         sanity_theme_minilm()

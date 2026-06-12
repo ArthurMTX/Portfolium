@@ -236,16 +236,41 @@ class AssetThemeMiniLMClassifier:
         self.model_load_ms = load_ms or ((time.perf_counter() - started_at) * 1000)
 
     @staticmethod
+    def _build_parent_documents(
+        registry: ThemeRegistry,
+    ) -> List[ThemeDocument]:
+        documents: List[ThemeDocument] = []
+        for parent, definition in registry.items():
+            parent_definition = str(definition.get("definition") or "")
+            contrast_text = AssetThemeMiniLMClassifier._contrast_document_text(definition)
+            document = f"Theme: {parent}\nTheme Definition: {parent_definition}"
+            if contrast_text:
+                document = f"{document}\n{contrast_text}"
+            documents.append(
+                ThemeDocument(
+                    label=parent,
+                    parent_label=parent,
+                    level="parent",
+                    document=document,
+                )
+            )
+        return documents
+
+    @staticmethod
     def _build_subtheme_documents(
         registry: ThemeRegistry,
     ) -> List[ThemeDocument]:
         documents: List[ThemeDocument] = []
         for parent, definition in registry.items():
             parent_definition = str(definition.get("definition") or "")
+            contrast_text = AssetThemeMiniLMClassifier._contrast_document_text(definition)
             subtheme_definitions = definition.get("subthemes") or {}
             if not isinstance(subtheme_definitions, dict):
                 continue
             for subtheme, subtheme_definition in subtheme_definitions.items():
+                parent_section = f"Theme Definition: {parent_definition}"
+                if contrast_text:
+                    parent_section = f"{parent_section}\n{contrast_text}"
                 documents.append(
                     ThemeDocument(
                         label=subtheme,
@@ -253,13 +278,27 @@ class AssetThemeMiniLMClassifier:
                         level="subtheme",
                         document=(
                             f"Theme: {parent}\n"
-                            f"Theme Definition: {parent_definition}\n\n"
+                            f"{parent_section}\n\n"
                             f"Subtheme: {subtheme}\n"
                             f"Subtheme Definition: {subtheme_definition}"
                         ),
                     )
                 )
         return documents
+
+    @staticmethod
+    def _contrast_document_text(definition: Dict[str, Any]) -> str:
+        contrasts = definition.get("contrasts_with") or {}
+        if not isinstance(contrasts, dict) or not contrasts:
+            return ""
+        lines = []
+        for other_theme, note in contrasts.items():
+            if not isinstance(other_theme, str) or not isinstance(note, str):
+                continue
+            stripped = " ".join(note.strip().split())
+            if stripped:
+                lines.append(f"Contrast with {other_theme}: {stripped}")
+        return "\n".join(lines)
 
     @staticmethod
     def _build_asset_document(

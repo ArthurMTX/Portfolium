@@ -32,7 +32,7 @@ _LABEL_EXPANSIONS = {
 
 _PARENT_THEME_DEFINITIONS: Dict[str, str] = {
     "AI Infrastructure": "Accelerator chips, AI server racks, high-bandwidth memory, networking fabrics and edge inference hardware used to train and run machine-learning models.",
-    "AI Applications": "Revenue from generative copilots, autonomous agents, prediction engines and machine-learning workflow automation sold to enterprise or consumer users.",
+    "AI Applications": "Applied AI products that automate knowledge work, decisions, content generation or user workflows; distinct from raw compute, generic SaaS records or industrial design software.",
     "Data Center Infrastructure": "Power distribution, thermal management, backup generation, modular buildings and electrical systems required by hyperscale computing campuses.",
     "Networking Infrastructure": "Ethernet switches, routers, optical transport, carrier access gear and network operating systems moving traffic across enterprise, telecom and cloud environments.",
     "Semiconductor Value Chain": "Chip architecture, wafer fabrication, lithography tools, test equipment, packaging, memory and storage components tied to integrated-circuit production.",
@@ -40,11 +40,11 @@ _PARENT_THEME_DEFINITIONS: Dict[str, str] = {
     "Quantum Technology": "Quantum processors, cryogenic control systems, quantum networking, post-quantum security and specialized software for quantum computing workloads.",
     "Cybersecurity Platforms": "Identity protection, endpoint defense, cloud workload security, network controls, threat intelligence and security operations software for digital risk reduction.",
     "Cloud Platforms": "Hyperscale compute, storage, databases, developer tooling, content delivery and edge networks monetized through cloud consumption or platform subscriptions.",
-    "Enterprise SaaS": "Subscription software for sales, finance, human resources, productivity, workflow orchestration, customer support and business-process digitization.",
+    "Enterprise SaaS": "Horizontal business applications and systems of record for CRM, ERP, HR, productivity, finance and support workflows; not primarily AI model products or engineering simulation tools.",
     "Data Analytics Platforms": "Data warehouses, lakehouses, streaming analytics, transformation pipelines and business intelligence layers used to query operational and financial data.",
-    "Robotics & Automation": "Industrial robots, warehouse automation, machine vision, LiDAR, sensors and control systems that automate physical labor and manufacturing tasks.",
+    "Robotics & Automation": "Physical robots, factory cells, warehouse automation, machine vision, LiDAR, sensors, PLCs and motion controls that automate material handling or manufacturing tasks.",
     "Electric Mobility": "Battery-electric vehicles, charging networks, electric drivetrains, fleet charging depots and vehicle electrification components.",
-    "Autonomous Mobility": "Self-driving software, robotaxi networks, driver-assistance sensors and mobility platforms built around automated vehicle operation.",
+    "Autonomous Mobility": "Vehicle autonomy, robotaxi fleets, ADAS perception, driving policy, fleet routing and mobility dispatch for cars, trucks or passenger transport.",
     "Battery Value Chain": "Battery cells, cathode and anode materials, lithium supply, stationary storage, recycling and battery management technology.",
     "Defense Tech": "Military software, surveillance sensors, drones, electronic warfare, secure communications, missile systems and munitions sold to defense customers.",
     "Space Infrastructure": "Launch vehicles, satellites, ground stations, orbital systems, space communications and earth-observation capabilities for commercial or civil missions.",
@@ -57,18 +57,18 @@ _PARENT_THEME_DEFINITIONS: Dict[str, str] = {
     "Oil & Gas": "Exploration, production and integrated operations for crude oil, natural gas and natural-gas liquids.",
     "Energy Transport": "Pipelines, LNG terminals, storage tanks, compression stations and midstream networks moving hydrocarbons between producers and end users.",
     "Energy Services": "Drilling rigs, pressure pumping, completion tools, downhole equipment and field crews supporting oil and gas development.",
-    "Digital Finance": "Payments, digital wallets, online banking, embedded finance, software-led lending and merchant financial workflows.",
-    "Investment Platforms": "Asset managers, wealth platforms, robo-advisors, brokerage custody and investment-account technology for individuals or institutions.",
-    "Market Infrastructure": "Exchanges, trading venues, market data, indices, clearing workflows, benchmarks and credit ratings used by capital-market participants.",
+    "Digital Finance": "Payments, card networks, merchant acquiring, checkout, digital wallets, online banking, embedded finance, fintech workflows and software-led lending.",
+    "Investment Platforms": "Asset management, ETFs, mutual funds, wealth accounts, robo-advice, brokerage, portfolio management, investor custody and advisor technology.",
+    "Market Infrastructure": "Exchange operators, trading venues, clearing houses, settlement rails, financial indices, benchmarks, market data terminals and credit ratings.",
     "Insurance": "Underwriting, brokerage and reinsurance for property, casualty, life, annuity and specialty risk pools.",
-    "Crypto Infrastructure": "Digital-asset exchanges, custody, staking, mining, stablecoins, blockchain nodes and token-based financial rails.",
-    "Biotechnology Platforms": "Therapeutic discovery, biologics, gene editing, cell therapy and clinical development capabilities focused on novel medicines.",
-    "Precision Medicine": "Diagnostics, sequencing, companion tests, targeted oncology and patient-specific treatment decisions based on molecular biology.",
-    "Medical Technology": "Implantable devices, surgical tools, robotic surgery, imaging equipment and patient-monitoring hardware used in clinical care.",
+    "Crypto Infrastructure": "Blockchain networks, crypto tokens, digital-asset exchanges, wallets, miners, validators, staking, stablecoins, nodes and token custody.",
+    "Biotechnology Platforms": "Drug-development platforms for novel therapeutics, biologics, gene editing, cell therapy, clinical pipelines and regulated medicines.",
+    "Precision Medicine": "Molecular diagnostics, sequencing, companion tests, tumor profiling, biomarkers and targeted treatment selection for specific patient biology.",
+    "Medical Technology": "Regulated clinical hardware such as implants, surgical systems, imaging equipment, instruments, disposables and patient-monitoring devices.",
     "Healthcare Delivery": "Managed care, pharmacies, hospitals, outpatient clinics and care-coordination businesses serving patients, payers and clinicians.",
-    "Digital Commerce": "Online storefronts, app stores, marketplaces, merchant tools, ecommerce logistics and advertising monetization tied to digital transactions.",
+    "Digital Commerce": "Online retail transactions, marketplaces, app stores, merchant storefront tools, checkout, fulfillment links and commerce take rates.",
     "Gaming & Interactive Media": "Video games, game engines, esports, interactive entertainment franchises and developer ecosystems for playable digital content.",
-    "Digital Media": "Streaming video, social networks, creator monetization, digital audiences and online advertising inventory.",
+    "Digital Media": "Streaming libraries, social feeds, creator platforms, digital audiences, subscriptions and publisher-owned advertising inventory.",
     "Luxury Automobiles": "Premium performance cars, luxury electric vehicles, high-end brand distribution and motorsport-linked automotive revenue.",
     "Luxury Goods": "Premium fashion, watches, jewelry, beauty, fragrance and licensed lifestyle brands sold through luxury retail channels.",
     "Travel & Leisure": "Hotels, resorts, airlines, cruise ships, booking flows and leisure experiences driven by consumer travel spending.",
@@ -79,9 +79,9 @@ _PARENT_THEME_DEFINITIONS: Dict[str, str] = {
     "Aerospace Systems": "Commercial aircraft, jet engines, avionics, flight controls and cabin systems sold into civil aviation programs.",
     "Observability Platforms": "Logs, metrics, traces, telemetry, application performance monitoring and incident workflows for software reliability teams.",
     "National Security Space": "Defense satellites, classified payloads, space-based surveillance and military communications for national-security missions.",
-    "AI Drug Discovery": "Machine learning, computational biology and molecular simulation used to identify, design or optimize therapeutic candidates.",
+    "AI Drug Discovery": "Machine learning, computational biology, protein modeling, molecule generation and simulation used before or during therapeutic discovery.",
     "Electrification": "Electrical distribution gear, switchgear, transformers, inverters, power conversion and efficiency systems enabling higher electricity use.",
-    "Industrial Digitalization": "Digital twins, engineering software, simulation, industrial data models and factory or plant optimization workflows.",
+    "Industrial Digitalization": "Digital twins, CAD, PLM, simulation, engineering software, industrial data models and factory or plant optimization workflows.",
     "Construction & Industrial Equipment": "Heavy machinery, rental fleets, construction technology, industrial tools and equipment used at job sites or factories.",
     "Precision Agriculture": "Farm machinery, crop analytics, planting technology, agronomy software and inputs used to improve yields and farm economics.",
     "Construction Materials": "Roofing, flooring, concrete additives, waterproofing, sealants and coatings used in buildings, repair and construction projects.",
@@ -97,7 +97,7 @@ _PARENT_THEME_DEFINITIONS: Dict[str, str] = {
     "Data Center Real Estate": "REITs and landlords leasing colocation or hyperscale data-center capacity to cloud, enterprise and AI tenants.",
     "Real Estate Income": "Recurring rental income from industrial, residential, healthcare, net-lease and self-storage properties.",
     "Real Estate Services": "Property management, leasing, brokerage, facilities management and advisory work for commercial real estate owners and occupiers.",
-    "AdTech": "Programmatic buying, mobile advertising, attribution, demand-side platforms and performance marketing software for advertisers and publishers.",
+    "AdTech": "Programmatic ad buying, DSPs, SSPs, mobile attribution, campaign measurement, bidding systems and performance marketing tools.",
     "Sports Betting": "Online sportsbooks, fantasy sports, odds-making, iGaming wallets and regulated wagering operations.",
     "Gaming & Gambling": "Casinos, online casino games, lottery systems and wagering operations not limited to sports betting.",
     "EdTech": "Learning management software, online courses, professional certification, tutoring and education platforms delivered through digital channels.",
@@ -117,11 +117,90 @@ _PARENT_THEME_DEFINITIONS: Dict[str, str] = {
     "Pet Care": "Pet food, veterinary clinics, animal health drugs, livestock medicines and diagnostics for companion or production animals.",
     "Food & Beverage": "Packaged food, food delivery, restaurant supply, plant-based protein and alternative-meat categories sold through grocery or foodservice channels.",
     "Household & Personal Care": "Home cleaning, laundry, grooming, beauty, oral care, family care and paper categories sold to households.",
-    "Consumer Health": "Over-the-counter medicines, supplements, digestive remedies, respiratory treatments, sleep aids and sexual wellness brands sold to consumers.",
+    "Consumer Health": "Non-prescription medicines, vitamins, supplements, digestive remedies, cold and allergy treatments, sleep aids and sexual wellness brands sold directly to consumers.",
     "Retail & Distribution": "Specialty retail, beauty retail, department stores, travel retail and direct-to-consumer distribution through stores or online channels.",
     "Automotive Retail": "Auto dealerships, vehicle distribution, parts sales, financing and used-car retail networks.",
     "Mortgage Finance": "Mortgage guarantees, securitization, secondary-market liquidity and agency-style funding for single-family or multifamily housing loans.",
     "Physical Security": "Alarm monitoring, access control, fire safety, emergency response and smart-home security systems protecting buildings and people.",
+}
+
+_PARENT_THEME_CONTRASTS: Dict[str, Dict[str, str]] = {
+    "Investment Platforms": {
+        "Crypto Infrastructure": "Traditional securities, funds and wealth accounts rather than blockchain tokens, validators or crypto networks.",
+        "Market Infrastructure": "Manages investor assets and portfolios rather than operating exchanges, indices, ratings or market data utilities.",
+        "Digital Finance": "Investing, advisory and custody workflows rather than payments, merchant acquiring, banking or lending workflows.",
+    },
+    "Digital Finance": {
+        "Investment Platforms": "Payments, wallets, banking and lending workflows rather than portfolio management, ETFs or advisor platforms.",
+        "Crypto Infrastructure": "Fiat payment and banking workflows rather than blockchain-native tokens, mining, staking or validator networks.",
+        "Market Infrastructure": "Consumer or merchant financial workflows rather than exchanges, clearing, indices, benchmarks or ratings.",
+    },
+    "Market Infrastructure": {
+        "Investment Platforms": "Capital-market utilities, data and benchmarks rather than managing client portfolios or wealth accounts.",
+        "Crypto Infrastructure": "Regulated market data, exchanges, clearing, indices and ratings rather than token networks or crypto custody.",
+        "Digital Finance": "Trading venues and market utilities rather than payments, wallets, merchant finance or online banking.",
+    },
+    "Crypto Infrastructure": {
+        "Investment Platforms": "Blockchain tokens, wallets, mining, staking and validators rather than traditional securities accounts or ETFs.",
+        "Digital Finance": "Crypto-native rails and token custody rather than fiat payments, merchant acquiring or online banking.",
+        "Market Infrastructure": "Decentralized or crypto trading infrastructure rather than conventional indices, ratings or clearing utilities.",
+    },
+    "Enterprise SaaS": {
+        "AI Applications": "Systems of record and recurring business applications rather than AI-native copilots, agents or model products.",
+        "Industrial Digitalization": "Horizontal office and back-office workflows rather than CAD, PLM, simulation or factory data models.",
+    },
+    "AI Applications": {
+        "Enterprise SaaS": "AI-native automation, prediction or generation rather than generic subscription systems of record.",
+        "Industrial Digitalization": "Knowledge-work AI products rather than engineering simulation, CAD or industrial digital twins.",
+    },
+    "Industrial Digitalization": {
+        "Enterprise SaaS": "Engineering, plant, asset and factory workflows rather than horizontal CRM, HR, finance or productivity apps.",
+        "Robotics & Automation": "Software models and simulation rather than physical robots, sensors, PLCs or motion control hardware.",
+        "Autonomous Mobility": "Industrial design and operations software rather than self-driving vehicle stacks or robotaxi fleets.",
+    },
+    "Biotechnology Platforms": {
+        "Precision Medicine": "Therapeutic creation and clinical pipelines rather than diagnostics or treatment selection tests.",
+        "AI Drug Discovery": "Broad therapeutic platform and clinical development exposure, not only computational discovery tools.",
+        "Consumer Health": "Regulated drug development rather than non-prescription wellness or supplement brands.",
+    },
+    "Precision Medicine": {
+        "Biotechnology Platforms": "Diagnostics, sequencing and biomarker-guided treatment selection rather than broad drug-development platforms.",
+        "AI Drug Discovery": "Patient testing and molecular stratification rather than molecule generation or target discovery software.",
+        "Consumer Health": "Clinical diagnostics and targeted therapy decisions rather than OTC remedies or vitamins.",
+    },
+    "AI Drug Discovery": {
+        "Biotechnology Platforms": "Computational discovery and simulation rather than full clinical-stage biotech platform exposure.",
+        "Precision Medicine": "Drug-design models rather than diagnostic tests, sequencing or companion diagnostics.",
+    },
+    "Consumer Health": {
+        "Biotechnology Platforms": "OTC remedies and wellness brands rather than clinical-stage therapeutics or gene and cell therapy.",
+        "Precision Medicine": "Consumer products rather than molecular diagnostics, sequencing or companion tests.",
+        "Medical Technology": "Consumable health brands rather than regulated clinical devices, implants or surgical equipment.",
+    },
+    "Medical Technology": {
+        "Consumer Health": "Regulated devices and clinical hardware rather than OTC medicines, supplements or wellness brands.",
+        "Biotechnology Platforms": "Physical clinical equipment rather than drug discovery or therapeutic pipelines.",
+    },
+    "Digital Commerce": {
+        "Digital Media": "Buyer-seller transactions, storefronts and marketplace take rates rather than audience content or social feeds.",
+        "AdTech": "Commerce platforms and retail media attached to transactions rather than standalone ad-buying software.",
+    },
+    "Digital Media": {
+        "Digital Commerce": "Content, audiences, streaming and social engagement rather than storefront checkout or merchant transactions.",
+        "AdTech": "Owned media inventory and audiences rather than ad-buying tools, attribution or campaign workflow software.",
+    },
+    "AdTech": {
+        "Digital Commerce": "Advertising workflow and measurement software rather than operating marketplaces or storefront transactions.",
+        "Digital Media": "Tools for advertisers and publishers rather than owning content libraries, social feeds or creator audiences.",
+    },
+    "Robotics & Automation": {
+        "Industrial Digitalization": "Physical machines, controls and automation hardware rather than CAD, PLM, simulation or digital twins.",
+        "Autonomous Mobility": "Factory and warehouse automation rather than self-driving cars, robotaxis or passenger mobility platforms.",
+    },
+    "Autonomous Mobility": {
+        "Robotics & Automation": "Vehicle autonomy and mobility networks rather than factory robots or warehouse automation.",
+        "Industrial Digitalization": "Driving stacks and fleet dispatch rather than engineering simulation or industrial software.",
+    },
 }
 
 
@@ -713,6 +792,7 @@ def build_theme_registry(
                 parent,
                 _default_theme_definition(parent),
             ),
+            "contrasts_with": dict(_PARENT_THEME_CONTRASTS.get(parent, {})),
             "subthemes": subtheme_definitions,
         }
     return registry
