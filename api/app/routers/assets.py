@@ -906,7 +906,10 @@ def get_asset_themes(
         raise AssetNotFoundError(id=asset_id)
 
     service = AssetThemeService(db)
-    classification = service.get_classification(asset_id)
+    classification = service.get_classification_for_fetch(
+        asset,
+        company_info_loader=lambda: _fetch_theme_company_info(asset),
+    )
     if classification:
         return classification
 

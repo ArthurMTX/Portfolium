@@ -546,6 +546,8 @@ class AssetThemeService:
         self.last_taxonomy_gap_persisted: bool = False
         self.last_classification_unavailable_reason: Optional[str] = None
         self._classification_symbol: Optional[str] = None
+        self._classifier_injected = classifier is not None
+        self._fetch_reclassification_attempted_asset_ids: set[int] = set()
         self.gemini_service: Optional[Any] = None
         self.gemini_model: Optional[str] = None
         self.classifier = classifier or self._build_classifier(gemini_service=gemini_service)
@@ -585,6 +587,121 @@ class AssetThemeService:
         if not classification:
             return []
         return classification.themes or []
+
+    def get_classification_for_fetch(
+        self,
+        asset: Asset,
+        *,
+        summary: Optional[str] = None,
+        sector: Optional[str] = None,
+        industry: Optional[str] = None,
+        name: Optional[str] = None,
+        company_info_loader: Optional[Callable[[], Dict[str, Any]]] = None,
+    ) -> Optional[AssetThemeClassification]:
+        """Return stored classification, refreshing once when its provider is stale."""
+        existing = self.get_classification(asset.id)
+        if not existing:
+            return None
+
+        current_mode = self.current_classifier_mode()
+        provider_stale = self.is_provider_stale(existing, current_mode=current_mode)
+        if not provider_stale:
+            self._annotate_fetch_metadata(
+                existing,
+                current_mode=current_mode,
+                provider_stale=False,
+                reclassified_on_fetch=False,
+            )
+            return existing
+
+        if asset.id in self._fetch_reclassification_attempted_asset_ids:
+            self._annotate_fetch_metadata(
+                existing,
+                current_mode=current_mode,
+                provider_stale=True,
+                reclassified_on_fetch=False,
+                unavailable_reason="reclassification_already_attempted",
+            )
+            return existing
+        self._fetch_reclassification_attempted_asset_ids.add(asset.id)
+
+        unavailable_reason = self._configured_provider_unavailable_reason(current_mode)
+        if unavailable_reason:
+            self._annotate_fetch_metadata(
+                existing,
+                current_mode=current_mode,
+                provider_stale=True,
+                reclassified_on_fetch=False,
+                unavailable_reason=unavailable_reason,
+            )
+            return existing
+
+        if (not summary or not summary.strip()) and company_info_loader is not None:
+            company_info = company_info_loader() or {}
+            summary = company_info.get("longBusinessSummary") or company_info.get("description")
+            sector = company_info.get("sector") or sector
+            industry = company_info.get("industry") or industry
+            name = company_info.get("longName") or company_info.get("shortName") or name
+
+        if not summary or not summary.strip():
+            self._annotate_fetch_metadata(
+                existing,
+                current_mode=current_mode,
+                provider_stale=True,
+                reclassified_on_fetch=False,
+                unavailable_reason="missing_summary",
+            )
+            return existing
+
+        try:
+            self._ensure_classifier_matches_mode(current_mode)
+            classification = self.refresh_classification(
+                asset=asset,
+                summary=summary,
+                sector=sector or asset.sector,
+                industry=industry or asset.industry,
+                name=name or asset.name,
+                force=True,
+            )
+        except Exception as exc:
+            self.db.rollback()
+            logger.warning(
+                "Asset theme reclassification on fetch failed asset_id=%s symbol=%s current_mode=%s: %s",
+                asset.id,
+                asset.symbol,
+                current_mode,
+                exc,
+            )
+            preserved = self.get_classification(asset.id) or existing
+            self._annotate_fetch_metadata(
+                preserved,
+                current_mode=current_mode,
+                provider_stale=True,
+                reclassified_on_fetch=False,
+                error=str(exc),
+            )
+            return preserved
+
+        if (
+            self.last_classification_unavailable_reason
+            and self.is_provider_stale(classification, current_mode=current_mode)
+        ):
+            self._annotate_fetch_metadata(
+                classification,
+                current_mode=current_mode,
+                provider_stale=True,
+                reclassified_on_fetch=False,
+                unavailable_reason=self.last_classification_unavailable_reason,
+            )
+            return classification
+
+        self._annotate_fetch_metadata(
+            classification,
+            current_mode=current_mode,
+            provider_stale=self.is_provider_stale(classification, current_mode=current_mode),
+            reclassified_on_fetch=True,
+        )
+        return classification
 
     def refresh_classification(
         self,
@@ -929,6 +1046,64 @@ class AssetThemeService:
     @staticmethod
     def classification_model_name(classification: AssetThemeClassification) -> Optional[str]:
         return getattr(classification, "model_name", None) or getattr(classification, "model", None)
+
+    @staticmethod
+    def current_classifier_mode() -> str:
+        mode = (getattr(settings, "ASSET_THEME_CLASSIFIER_MODE", None) or THEME_SOURCE_MINILM)
+        mode = str(mode).strip().lower()
+        if mode not in {THEME_SOURCE_MINILM, THEME_SOURCE_GEMINI}:
+            return THEME_SOURCE_MINILM
+        return mode
+
+    @classmethod
+    def is_provider_stale(
+        cls,
+        classification: AssetThemeClassification,
+        *,
+        current_mode: Optional[str] = None,
+    ) -> bool:
+        source = cls.classification_source(classification)
+        if source == THEME_SOURCE_MANUAL:
+            return False
+        if source not in {THEME_SOURCE_MINILM, THEME_SOURCE_GEMINI}:
+            return False
+        return source != (current_mode or cls.current_classifier_mode())
+
+    def _ensure_classifier_matches_mode(self, current_mode: str) -> None:
+        if self._classifier_injected:
+            return
+        if getattr(self.classifier, "source", None) == current_mode:
+            return
+        self.classifier = self._build_classifier()
+        if isinstance(self.classifier, GeminiAssetThemeClassifier):
+            self.gemini_service = self.classifier.gemini_service
+            self.gemini_model = self.classifier.model_name
+        else:
+            self.gemini_service = None
+            self.gemini_model = None
+
+    @staticmethod
+    def _configured_provider_unavailable_reason(current_mode: str) -> Optional[str]:
+        gemini_api_key = str(settings.GEMINI_API_KEY or "").strip()
+        if current_mode == THEME_SOURCE_GEMINI and not gemini_api_key:
+            return "gemini_api_key_missing"
+        return None
+
+    @staticmethod
+    def _annotate_fetch_metadata(
+        classification: AssetThemeClassification,
+        *,
+        current_mode: str,
+        provider_stale: bool,
+        reclassified_on_fetch: bool,
+        unavailable_reason: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        setattr(classification, "current_classifier_mode", current_mode)
+        setattr(classification, "provider_stale", provider_stale)
+        setattr(classification, "reclassified_on_fetch", reclassified_on_fetch)
+        setattr(classification, "classification_unavailable_reason", unavailable_reason)
+        setattr(classification, "reclassification_error", error)
 
     @staticmethod
     def _empty_classification(

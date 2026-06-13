@@ -315,6 +315,11 @@ class AssetThemeClassification(BaseModel):
     source_hash: Optional[str] = None
     generated_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    current_classifier_mode: Optional[str] = Field(default=None, pattern="^(minilm|gemini)$")
+    provider_stale: Optional[bool] = None
+    classification_unavailable_reason: Optional[str] = None
+    reclassified_on_fetch: Optional[bool] = None
+    reclassification_error: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

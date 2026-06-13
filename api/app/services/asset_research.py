@@ -60,9 +60,20 @@ class AssetResearchService:
         asset = self._get_or_create_asset(symbol.strip().upper())
         company_info = self._get_company_info(asset.symbol)
         business = self._get_business(asset, company_info)
-        self._ensure_theme_classification(asset, business)
 
-        classification = AssetThemeService(self.db).get_classification(asset.id)
+        theme_service = AssetThemeService(self.db)
+        classification = theme_service.get_classification_for_fetch(
+            asset,
+            summary=business.get("description"),
+            sector=business.get("sector"),
+            industry=business.get("industry"),
+            name=asset.name,
+        )
+        if classification:
+            return classification
+
+        self._ensure_theme_classification(asset, business)
+        classification = theme_service.get_classification(asset.id)
         if classification:
             return classification
 

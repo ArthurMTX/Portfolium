@@ -8,6 +8,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
 from app.models import AssetThemeClassification
+from app.schemas import AssetThemeClassification as AssetThemeClassificationSchema
 from app.services.asset_themes import (
     ALLOWED_THEME_HIERARCHY,
     AssetThemeService,
@@ -333,6 +334,7 @@ class FakeClassifier:
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         themes=None,
         unavailable_reason=None,
+        error=None,
     ):
         self.source = source
         self.model_name = model_name
@@ -349,8 +351,13 @@ class FakeClassifier:
             }
         ]
         self.unavailable_reason = unavailable_reason
+        self.error = error
+        self.calls = 0
 
     def classify_asset(self, *, name, sector, industry, summary):
+        self.calls += 1
+        if self.error:
+            raise self.error
         return AssetThemeClassifierResult(
             themes=self.themes,
             unavailable_reason=self.unavailable_reason,
@@ -585,6 +592,375 @@ def test_existing_stored_gemini_classification_is_kept_in_minilm_mode(test_db, s
     assert classification.source == "gemini"
     assert classification.model_name == "gemini-2.5-flash"
     assert classification.themes[0]["label"] == "AI Infrastructure"
+
+
+def test_fetch_reclassifies_stored_minilm_when_current_mode_is_gemini(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    existing = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.8,
+                "weight": 1.0,
+                "evidence": ["old"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="gpt",
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        source="minilm",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        source_hash="old-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(existing)
+    test_db.commit()
+
+    classifier = FakeClassifier(
+        source="gemini",
+        model_name="gemini-test",
+        themes=[
+            {
+                "label": "Semiconductor Value Chain",
+                "confidence": 0.93,
+                "weight": 1.0,
+                "evidence": ["new"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+    )
+    service = AssetThemeService(test_db, classifier=classifier)
+
+    classification = service.get_classification_for_fetch(
+        sample_asset,
+        summary="Designs GPUs and accelerated computing platforms.",
+        sector=sample_asset.sector,
+        industry=sample_asset.industry,
+        name=sample_asset.name,
+    )
+
+    assert classification.id == existing.id
+    assert classification.source == "gemini"
+    assert classification.model_name == "gemini-test"
+    assert classification.themes[0]["label"] == "Semiconductor Value Chain"
+    assert classification.provider_stale is False
+    assert classification.current_classifier_mode == "gemini"
+    assert classification.reclassified_on_fetch is True
+    assert classifier.calls == 1
+
+
+def test_fetch_reclassifies_stored_gemini_when_current_mode_is_minilm(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "minilm")
+    existing = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.8,
+                "weight": 1.0,
+                "evidence": ["old"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="gpt",
+        model="gemini-2.5-flash",
+        source="gemini",
+        model_name="gemini-2.5-flash",
+        source_hash="old-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(existing)
+    test_db.commit()
+
+    classifier = FakeClassifier(
+        source="minilm",
+        themes=[
+            {
+                "label": "Digital Commerce",
+                "confidence": 0.9,
+                "weight": 1.0,
+                "evidence": ["new"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+    )
+    service = AssetThemeService(test_db, classifier=classifier)
+
+    classification = service.get_classification_for_fetch(
+        sample_asset,
+        summary="Operates consumer technology platforms and digital services.",
+        sector=sample_asset.sector,
+        industry=sample_asset.industry,
+        name=sample_asset.name,
+    )
+
+    assert classification.id == existing.id
+    assert classification.source == "minilm"
+    assert classification.model_name == "sentence-transformers/all-MiniLM-L6-v2"
+    assert classification.themes[0]["label"] == "Digital Commerce"
+    assert classification.provider_stale is False
+    assert classification.reclassified_on_fetch is True
+    assert classifier.calls == 1
+
+
+def test_fetch_does_not_reclassify_manual_classification(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    manual = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "Manual Theme",
+                "confidence": 1.0,
+                "weight": 1.0,
+                "evidence": [],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="manual",
+        model=None,
+        source="manual",
+        model_name=None,
+        source_hash="manual-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(manual)
+    test_db.commit()
+
+    classifier = FakeClassifier(source="gemini", model_name="gemini-test")
+    classification = AssetThemeService(test_db, classifier=classifier).get_classification_for_fetch(
+        sample_asset,
+        summary="Would otherwise be classified.",
+    )
+
+    assert classification.id == manual.id
+    assert classification.source == "manual"
+    assert classification.themes[0]["label"] == "Manual Theme"
+    assert classification.provider_stale is False
+    assert classification.reclassified_on_fetch is False
+    assert classifier.calls == 0
+
+
+def test_fetch_preserves_old_classification_when_gemini_api_key_missing(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    existing = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.8,
+                "weight": 1.0,
+                "evidence": ["old"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="gpt",
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        source="minilm",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        source_hash="old-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(existing)
+    test_db.commit()
+
+    classifier = FakeClassifier(source="gemini", model_name="gemini-test")
+    classification = AssetThemeService(test_db, classifier=classifier).get_classification_for_fetch(
+        sample_asset,
+        summary="Designs GPUs and accelerated computing platforms.",
+    )
+
+    assert classification.id == existing.id
+    assert classification.source == "minilm"
+    assert classification.themes[0]["label"] == "AI Infrastructure"
+    assert classification.provider_stale is True
+    assert classification.classification_unavailable_reason == "gemini_api_key_missing"
+    assert classification.reclassified_on_fetch is False
+    assert classifier.calls == 0
+
+
+def test_fetch_preserves_old_classification_when_reclassification_fails(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    existing = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.8,
+                "weight": 1.0,
+                "evidence": ["old"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="gpt",
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        source="minilm",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        source_hash="old-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(existing)
+    test_db.commit()
+
+    classifier = FakeClassifier(
+        source="gemini",
+        model_name="gemini-test",
+        error=RuntimeError("provider failed"),
+    )
+    service = AssetThemeService(test_db, classifier=classifier)
+
+    classification = service.get_classification_for_fetch(
+        sample_asset,
+        summary="Designs GPUs and accelerated computing platforms.",
+    )
+
+    assert classification.id == existing.id
+    assert classification.source == "minilm"
+    assert classification.themes[0]["label"] == "AI Infrastructure"
+    assert classification.provider_stale is True
+    assert classification.reclassified_on_fetch is False
+    assert "provider failed" in classification.reclassification_error
+    assert classifier.calls == 1
+
+
+def test_fetch_reclassification_is_attempted_once_per_service_instance(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    existing = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.8,
+                "weight": 1.0,
+                "evidence": ["old"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="gpt",
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        source="minilm",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        source_hash="old-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(existing)
+    test_db.commit()
+
+    classifier = FakeClassifier(
+        source="gemini",
+        model_name="gemini-test",
+        error=RuntimeError("provider failed"),
+    )
+    service = AssetThemeService(test_db, classifier=classifier)
+
+    service.get_classification_for_fetch(
+        sample_asset,
+        summary="Designs GPUs and accelerated computing platforms.",
+    )
+    classification = service.get_classification_for_fetch(
+        sample_asset,
+        summary="Designs GPUs and accelerated computing platforms.",
+    )
+
+    assert classifier.calls == 1
+    assert classification.provider_stale is True
+    assert classification.classification_unavailable_reason == "reclassification_already_attempted"
+
+
+def test_asset_theme_fetch_response_keeps_core_shape(
+    monkeypatch,
+    test_db,
+    sample_asset,
+):
+    monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "minilm")
+    classification = AssetThemeClassification(
+        asset_id=sample_asset.id,
+        themes=[
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.91,
+                "weight": 1.0,
+                "evidence": ["stored"],
+                "tier": "primary",
+                "children": [],
+            }
+        ],
+        method="gpt",
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        source="minilm",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        source_hash="shape-hash",
+        generated_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    test_db.add(classification)
+    test_db.commit()
+
+    service = AssetThemeService(test_db)
+    response_model = AssetThemeClassificationSchema.model_validate(
+        service.get_classification_for_fetch(sample_asset)
+    )
+    payload = response_model.model_dump(mode="json")
+
+    for key in {
+        "id",
+        "asset_id",
+        "themes",
+        "method",
+        "model",
+        "source",
+        "model_name",
+        "source_hash",
+        "generated_at",
+        "updated_at",
+    }:
+        assert key in payload
+    assert payload["asset_id"] == sample_asset.id
+    assert payload["themes"][0]["label"] == "AI Infrastructure"
+    assert payload["source"] == "minilm"
 
 
 def _parent_payload():
