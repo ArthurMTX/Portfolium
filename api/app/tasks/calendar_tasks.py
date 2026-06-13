@@ -11,8 +11,6 @@ from app.db import get_db_context
 from app.models import Asset, Transaction, EarningsCache
 from app.tasks.decorators import singleton_task
 from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
-from sqlalchemy import distinct
-
 logger = logging.getLogger(__name__)
 
 
@@ -117,11 +115,12 @@ def refresh_earnings_cache(self) -> dict:
             # Get all unique STOCK symbols that have transactions
             # Filter to only stocks - exclude ETFs, crypto, etc.
             active_stocks = (
-                db.query(distinct(Asset.symbol), Asset.id)
+                db.query(Asset.symbol, Asset.id)
                 .join(Asset.transactions)
                 .filter(
                     Asset.asset_type.in_(['EQUITY', 'stock', 'Stock', 'STOCK']),
                 )
+                .distinct()
                 .all()
             )
             
@@ -129,7 +128,7 @@ def refresh_earnings_cache(self) -> dict:
                 logger.info("No active stocks to fetch earnings for")
                 return {"status": "success", "symbols_processed": 0, "cached": 0}
             
-            symbols = [(s.symbol, s.id) for s in active_stocks]
+            symbols = [(symbol, asset_id) for symbol, asset_id in active_stocks]
             logger.info(f"Fetching earnings for {len(symbols)} active stocks")
             
             cached_count = 0
