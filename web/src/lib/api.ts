@@ -483,6 +483,34 @@ export interface AssetResearchDTO {
   }
 }
 
+export interface AssetEtfCompositionHoldingDTO {
+  symbol: string
+  name: string
+  weight: number
+}
+
+export interface AssetEtfCompositionSectorWeightingDTO {
+  sector: string
+  weight: number
+}
+
+export interface AssetEtfCompositionAssetClassDTO {
+  name: string
+  weight: number
+}
+
+export interface AssetEtfCompositionDTO {
+  available: boolean
+  holdings_available?: boolean
+  sector_weightings_available?: boolean
+  asset_classes_available?: boolean
+  total_top10_weight?: number | null
+  largest_holding?: AssetEtfCompositionHoldingDTO | null
+  holdings?: AssetEtfCompositionHoldingDTO[]
+  sector_weightings?: AssetEtfCompositionSectorWeightingDTO[]
+  asset_classes?: AssetEtfCompositionAssetClassDTO[]
+}
+
 export type AssetResearchSummaryDTO = Pick<AssetResearchDTO, 'asset' | 'quote' | 'metadata'>
 export type AssetResearchFundamentalsDTO = AssetResearchDTO['fundamentals']
 export type AssetResearchBusinessDTO = AssetResearchDTO['business']
@@ -1385,6 +1413,10 @@ class ApiClient {
 
   async getAssetResearchMetadata(symbol: string) {
     return this.request<AssetResearchMetadataDTO>(`/assets/research/${encodeURIComponent(symbol)}/metadata`)
+  }
+
+  async getAssetEtfComposition(symbol: string) {
+    return this.request<AssetEtfCompositionDTO>(`/assets/${encodeURIComponent(symbol)}/etf-composition`)
   }
 
   async getAssetInvestmentNote(assetId: number) {

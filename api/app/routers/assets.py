@@ -21,6 +21,7 @@ from app.schemas import (
     AssetInvalidProviderCleanupRequest,
     AssetMetadataOverride,
     AssetResearchBusiness,
+    AssetEtfCompositionResponse,
     AssetResearchFundamentals,
     AssetResearchMetadata,
     AssetResearchOwnership,
@@ -755,6 +756,13 @@ def get_asset_research_metadata(symbol: str, db: Session = Depends(get_db)):
     """Get ATH/ATL market metadata for an asset."""
     service = AssetResearchService(db)
     return service.get_metadata(symbol)
+
+
+@router.get("/{symbol}/etf-composition", response_model=AssetEtfCompositionResponse)
+def get_asset_etf_composition(symbol: str, db: Session = Depends(get_db)):
+    """Get Yahoo Finance ETF composition data when available."""
+    service = AssetResearchService(db)
+    return service.get_etf_composition(symbol)
 
 
 @router.get("/themes/taxonomy-suggestions", response_model=List[AssetThemeTaxonomySuggestion])

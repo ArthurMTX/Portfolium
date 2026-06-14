@@ -13,11 +13,13 @@ from sqlalchemy.orm import Session
 from app.crud import assets as crud_assets
 from app.models import Asset, Price
 from app.schemas import AssetCreate, PriceQuote
+from app.services.cache import CacheService
 from app.services.fundamentals import FundamentalsService
 from app.services.pricing import PricingService
 from app.services.relative_performance import RelativePerformanceService
 from app.services.risk_analysis import RiskAnalysisService
 from app.services.asset_themes import AssetThemeService
+from app.services.yahoo_finance import call_yahoo, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +27,14 @@ logger = logging.getLogger(__name__)
 class AssetResearchService:
     """Build an asset research payload without relying on portfolio transactions."""
 
+    ETF_COMPOSITION_CACHE_TTL_SECONDS = 24 * 60 * 60
+
     def __init__(self, db: Session):
         self.db = db
         self.pricing_service = PricingService(db)
         self.risk_service = RiskAnalysisService(db)
         self.relative_performance_service = RelativePerformanceService(db)
+        self.cache_service = CacheService()
 
     async def get_summary(self, symbol: str) -> Dict[str, Any]:
         """Return the fast data needed to paint the page shell."""
@@ -120,6 +125,15 @@ class AssetResearchService:
         asset = self._get_or_create_asset(symbol.strip().upper())
         self._ensure_market_metadata(asset)
         return self._get_metadata(asset)
+
+    def get_etf_composition(self, symbol: str) -> Dict[str, Any]:
+        asset = self._get_or_create_asset(symbol.strip().upper())
+        cache_key = f"asset_etf_composition:{asset.symbol}"
+        return self.cache_service.get_or_set(
+            cache_key,
+            lambda: self._build_etf_composition(asset.symbol),
+            ttl=self.ETF_COMPOSITION_CACHE_TTL_SECONDS,
+        )
 
     @staticmethod
     def _get_metadata(asset: Asset) -> Dict[str, Any]:
@@ -250,6 +264,141 @@ class AssetResearchService:
                 or company_info.get("sharesPercentSharesOut")
             ),
         }
+
+    def _build_etf_composition(self, symbol: str) -> Dict[str, Any]:
+        company_info = self._get_company_info(symbol)
+        quote_type = str(company_info.get("quoteType") or "").strip().upper()
+        if quote_type != "ETF":
+            return {"available": False}
+
+        try:
+            funds_data = self._get_funds_data(symbol)
+        except Exception as exc:
+            logger.warning("ETF composition funds data failed for %s: %s", symbol, exc)
+            return {
+                "available": True,
+                "holdings_available": False,
+                "sector_weightings_available": False,
+                "asset_classes_available": False,
+                "holdings": [],
+                "sector_weightings": [],
+                "asset_classes": [],
+            }
+
+        holdings = self._normalize_holdings(getattr(funds_data, "top_holdings", None))
+        sector_weightings = self._normalize_sector_weightings(getattr(funds_data, "sector_weightings", None))
+        asset_classes = self._normalize_asset_classes(getattr(funds_data, "asset_classes", None))
+
+        payload: Dict[str, Any] = {
+            "available": True,
+            "holdings_available": bool(holdings),
+            "sector_weightings_available": bool(sector_weightings),
+            "asset_classes_available": bool(asset_classes),
+            "holdings": holdings,
+            "sector_weightings": sector_weightings,
+            "asset_classes": asset_classes,
+        }
+
+        if holdings:
+            payload["total_top10_weight"] = round(sum(item["weight"] for item in holdings[:10]), 6)
+            payload["largest_holding"] = holdings[0]
+
+        return payload
+
+    def _get_funds_data(self, symbol: str) -> Any:
+        import yfinance as yf
+
+        return call_yahoo(
+            lambda: yf.Ticker(symbol).funds_data,
+            symbol=symbol,
+            action="funds_data",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
+
+    @staticmethod
+    def _normalize_holdings(raw_holdings: Any) -> list[Dict[str, Any]]:
+        rows: list[Dict[str, Any]] = []
+        if raw_holdings is None:
+            return rows
+
+        try:
+            iterable = raw_holdings.reset_index().to_dict("records")
+        except Exception:
+            iterable = raw_holdings if isinstance(raw_holdings, list) else []
+
+        for item in iterable:
+            if not isinstance(item, dict):
+                continue
+
+            symbol = str(item.get("Symbol") or item.get("symbol") or item.get("ticker") or "").strip().upper()
+            name = str(item.get("Name") or item.get("name") or symbol).strip() or symbol
+            weight = AssetResearchService._to_float(
+                item.get("Holding Percent") or item.get("holding_percent") or item.get("weight")
+            )
+            if not symbol or weight is None or weight <= 0:
+                continue
+
+            rows.append({"symbol": symbol, "name": name, "weight": float(weight)})
+
+        rows.sort(key=lambda item: item["weight"], reverse=True)
+        return rows[:10]
+
+    @staticmethod
+    def _normalize_sector_weightings(raw_weightings: Any) -> list[Dict[str, Any]]:
+        if not isinstance(raw_weightings, dict):
+            return []
+
+        sector_labels = {
+            "realestate": "Real Estate",
+            "consumer_cyclical": "Consumer Cyclical",
+            "basic_materials": "Basic Materials",
+            "consumer_defensive": "Consumer Defensive",
+            "technology": "Technology",
+            "communication_services": "Communication Services",
+            "financial_services": "Financial Services",
+            "utilities": "Utilities",
+            "industrials": "Industrials",
+            "energy": "Energy",
+            "healthcare": "Healthcare",
+        }
+
+        rows: list[Dict[str, Any]] = []
+        for raw_label, raw_weight in raw_weightings.items():
+            weight = AssetResearchService._to_float(raw_weight)
+            if weight is None or weight <= 0:
+                continue
+            label = sector_labels.get(str(raw_label).strip().lower(), str(raw_label).replace("_", " ").title())
+            rows.append({"sector": label, "weight": float(weight)})
+
+        rows.sort(key=lambda item: item["weight"], reverse=True)
+        return rows
+
+    @staticmethod
+    def _normalize_asset_classes(raw_asset_classes: Any) -> list[Dict[str, Any]]:
+        if not isinstance(raw_asset_classes, dict):
+            return []
+
+        class_labels = {
+            "stockPosition": "Stocks",
+            "cashPosition": "Cash",
+            "bondPosition": "Bonds",
+            "preferredPosition": "Preferred",
+            "convertiblePosition": "Convertibles",
+            "otherPosition": "Other",
+        }
+
+        rows: list[Dict[str, Any]] = []
+        for raw_label, raw_weight in raw_asset_classes.items():
+            weight = AssetResearchService._to_float(raw_weight)
+            if weight is None or weight <= 0:
+                continue
+            label = class_labels.get(str(raw_label), str(raw_label).replace("Position", "").replace("_", " ").title())
+            rows.append({"name": label, "weight": float(weight)})
+
+        rows.sort(key=lambda item: item["weight"], reverse=True)
+        if len(rows) == 1 and rows[0]["name"] == "Other" and rows[0]["weight"] >= 0.999:
+            return []
+        return rows
 
     def _get_risk(self, asset: Asset, quote: Optional[PriceQuote]) -> Dict[str, Optional[float]]:
         volatility_30d = None

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -15,6 +16,8 @@ import {
   LineChart,
   MapPin,
   Plus,
+  PieChart,
+  Coins,
   Search,
   Shield,
   ShoppingCart,
@@ -22,10 +25,12 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
+  Wallet,
   Users,
 } from 'lucide-react'
 import api, {
   AssetInvestmentNoteDTO,
+  AssetEtfCompositionDTO,
   AssetResearchDTO,
   AssetResearchFundamentalsDTO,
   AssetResearchMetadataDTO,
@@ -242,6 +247,15 @@ export default function AssetResearch() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+  const isResearchEtf = assetResearch ? isEtfAsset(assetResearch.asset) : false
+
+  const etfCompositionQuery = useQuery({
+    queryKey: ['asset-etf-composition', routeSymbol.toUpperCase()],
+    queryFn: () => api.getAssetEtfComposition(routeSymbol.toUpperCase()),
+    enabled: Boolean(routeSymbol) && isResearchEtf,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -961,6 +975,11 @@ export default function AssetResearch() {
               <SectionErrorBanner message={sectionErrors.ownership} />
             </>
           )}
+          <EtfCompositionSection
+            query={etfCompositionQuery}
+            enabled={isResearchEtf}
+            symbol={asset.symbol}
+          />
           <AssetPriceChart
             assetId={asset.id}
             symbol={asset.symbol}
@@ -1381,6 +1400,252 @@ function OwnershipSection({ ownership }: { ownership: AssetResearchDTO['ownershi
       </div>
     </Section>
   )
+}
+
+function EtfCompositionSection({
+  query,
+  enabled,
+  symbol,
+}: {
+  query: {
+    data?: AssetEtfCompositionDTO
+    isLoading: boolean
+    error: Error | null
+  }
+  enabled: boolean
+  symbol: string
+}) {
+  if (!enabled && !query.data && !query.isLoading) return null
+
+  if (query.isLoading) {
+    return (
+      <Section title="ETF Composition" icon={<PieChart size={20} className="text-indigo-600 dark:text-indigo-400" />}>
+        <div className="space-y-4">
+          <div className="card p-5 sm:p-6">
+            <div className="h-5 w-56 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="h-20 rounded-lg bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+              <div className="h-20 rounded-lg bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+            </div>
+            <div className="mt-5 space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                    <div className="h-3 w-24 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                  </div>
+                  <div className="h-4 w-14 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((index) => (
+              <div key={index} className="card p-5 sm:p-6 space-y-3">
+                <div className="h-5 w-36 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                <div className="h-3 w-48 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                <div className="h-3 w-full rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                <div className="h-3 w-3/4 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+    )
+  }
+
+  if (query.error) {
+    return (
+      <Section title="ETF Composition" icon={<PieChart size={20} className="text-indigo-600 dark:text-indigo-400" />}>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+          {query.error.message || `Unable to load ETF composition for ${symbol}.`}
+        </div>
+      </Section>
+    )
+  }
+
+  const data = query.data
+  if (!data || !data.available) return null
+
+  const holdings = (data.holdings || []).slice(0, 10)
+  const sectorWeightings = data.sector_weightings || []
+  const assetClasses = data.asset_classes || []
+  const hasHoldings = Boolean(data.holdings_available && holdings.length > 0)
+  const hasSectorWeightings = Boolean(data.sector_weightings_available && sectorWeightings.length > 0)
+  const hasAssetClasses = Boolean(data.asset_classes_available && assetClasses.length > 0)
+
+  if (!hasHoldings && !hasSectorWeightings && !hasAssetClasses) {
+    return null
+  }
+
+  return (
+    <Section title="ETF Composition" icon={<PieChart size={20} className="text-indigo-600 dark:text-indigo-400" />}>
+      <div className="space-y-4">
+        {(hasHoldings || hasSectorWeightings || hasAssetClasses) && (
+          <div className="grid gap-4 xl:grid-cols-2 items-start">
+            {hasHoldings && (
+              <div className="card p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Top Holdings</h3>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
+                    <div className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Top 10 concentration</div>
+                    <div className="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+                      {formatNumber((data.total_top10_weight || 0) * 100, 1)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                    {holdings.map((holding) => (
+                      <Link
+                        key={holding.symbol}
+                        to={`/assets/${encodeURIComponent(holding.symbol)}`}
+                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                      >
+                        <AssetHoldingAvatar symbol={holding.symbol} name={holding.name} />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">{holding.name}</div>
+                          <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{holding.symbol}</div>
+                        </div>
+                        <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+                          {formatNumber(holding.weight * 100, 2)}%
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {hasSectorWeightings && (
+                <div className="card p-5 sm:p-6 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Sector Allocation</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {sectorWeightings.map((item) => {
+                      const SectorIcon = getSectorIcon(item.sector)
+                      const sectorColor = getSectorColor(item.sector)
+
+                      return (
+                        <div key={item.sector} className="space-y-2">
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <div className="flex min-w-0 items-center gap-2 font-medium text-neutral-800 dark:text-neutral-200">
+                              <SectorIcon size={15} className={sectorColor} />
+                              <span className="truncate">{item.sector}</span>
+                            </div>
+                            <div className="font-semibold text-neutral-900 dark:text-neutral-100">{formatNumber(item.weight * 100, 1)}%</div>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                            <div
+                              className="h-full rounded-full bg-pink-500 dark:bg-pink-400"
+                              style={{ width: `${Math.max(0, Math.min(100, item.weight * 100))}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {hasAssetClasses && (
+                <div className="card p-5 sm:p-6 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Asset Allocation</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {assetClasses.map((item) => {
+                      const AssetClassIcon = getAssetAllocationIcon(item.name)
+
+                      return (
+                        <div key={item.name} className="space-y-2">
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <div className="flex min-w-0 items-center gap-2 font-medium text-neutral-800 dark:text-neutral-200">
+                              <AssetClassIcon size={15} className="text-pink-600 dark:text-pink-400" />
+                              <span className="truncate">{item.name}</span>
+                            </div>
+                            <div className="font-semibold text-neutral-900 dark:text-neutral-100">{formatNumber(item.weight * 100, 1)}%</div>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                            <div
+                              className="h-full rounded-full bg-pink-500 dark:bg-pink-400"
+                              style={{ width: `${Math.max(0, Math.min(100, item.weight * 100))}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </Section>
+  )
+}
+
+function AssetHoldingAvatar({ symbol, name }: { symbol: string; name: string }) {
+  const [logoFailed, setLogoFailed] = useState(false)
+  const initials = getAssetInitials(symbol, name)
+
+  if (logoFailed) {
+    return (
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-indigo-100 text-sm font-semibold text-indigo-700 dark:border-neutral-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+        {initials}
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={getAssetLogoUrl(symbol, null, name)}
+      alt={`${symbol} logo`}
+      className="h-10 w-10 flex-shrink-0 border border-neutral-200 object-cover dark:border-neutral-700"
+      onLoad={(event) => {
+        const image = event.currentTarget as HTMLImageElement
+        if (!validateLogoImage(image)) {
+          setLogoFailed(true)
+        }
+      }}
+      onError={() => setLogoFailed(true)}
+    />
+  )
+}
+
+function getAssetInitials(symbol: string, name: string): string {
+  const text = (name || symbol || '').trim()
+  if (!text) return symbol.slice(0, 2).toUpperCase()
+  const parts = text.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
+}
+
+function getAssetAllocationIcon(name: string) {
+  switch (name) {
+    case 'Stocks':
+      return BarChart3
+    case 'Cash':
+      return Wallet
+    case 'Bonds':
+      return Shield
+    case 'Other':
+      return Coins
+    default:
+      return PieChart
+  }
 }
 
 function MetricGrid({ metrics, emptyMessage = 'No data available.' }: { metrics: MetricConfig[]; emptyMessage?: string }) {

@@ -510,6 +510,38 @@ class AssetResearchMetadata(BaseModel):
     asset_currency: Optional[str] = None
 
 
+class AssetEtfCompositionHolding(BaseModel):
+    """Single ETF holding row."""
+    symbol: str
+    name: str
+    weight: float
+
+
+class AssetEtfCompositionSectorWeighting(BaseModel):
+    """Single sector allocation row."""
+    sector: str
+    weight: float
+
+
+class AssetEtfCompositionAssetClass(BaseModel):
+    """Single asset allocation row."""
+    name: str
+    weight: float
+
+
+class AssetEtfCompositionResponse(BaseModel):
+    """ETF composition payload derived from Yahoo Finance."""
+    available: bool
+    holdings_available: bool = False
+    sector_weightings_available: bool = False
+    asset_classes_available: bool = False
+    total_top10_weight: Optional[float] = None
+    largest_holding: Optional[AssetEtfCompositionHolding] = None
+    holdings: List[AssetEtfCompositionHolding] = Field(default_factory=list)
+    sector_weightings: List[AssetEtfCompositionSectorWeighting] = Field(default_factory=list)
+    asset_classes: List[AssetEtfCompositionAssetClass] = Field(default_factory=list)
+
+
 # ============================================================================
 # Portfolio Schemas
 # ============================================================================
