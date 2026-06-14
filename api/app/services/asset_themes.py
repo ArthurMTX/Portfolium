@@ -1,7 +1,8 @@
 """Asset theme classification service."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 import hashlib
 import json
 import logging
@@ -37,6 +38,177 @@ MAX_SUMMARY_CHARS = 2500
 MAX_SUMMARY_SENTENCES = 10
 
 _SUMMARY_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
+
+
+def _estimated_token_count(text_or_chars: Any) -> int:
+    chars = len(text_or_chars) if isinstance(text_or_chars, str) else int(text_or_chars or 0)
+    return max(1, (chars + 3) // 4) if chars else 0
+
+
+@dataclass
+class ClassificationTimingEvent:
+    label: str
+    duration_seconds: float
+    status: str = "success"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class GeminiTimingCall:
+    pass_label: str
+    attempt: int
+    model: Optional[str]
+    prompt_chars: int
+    prompt_tokens_estimate: int
+    response_chars: int
+    duration_seconds: float
+    status: str
+    error: Optional[str] = None
+
+
+class ClassificationTimingReport:
+    """Collect high precision timings for one asset theme classification."""
+
+    def __init__(self, *, symbol: Optional[str], source: Optional[str], model: Optional[str]) -> None:
+        self.symbol = symbol
+        self.source = source
+        self.model = model
+        self.started_at = time.perf_counter()
+        self.events: List[ClassificationTimingEvent] = []
+        self.gemini_calls: List[GeminiTimingCall] = []
+        self.prompt_metrics: List[Dict[str, Any]] = []
+
+    @contextmanager
+    def time_block(
+        self,
+        label: str,
+        *,
+        metadata: Optional[Dict[str, Any]] = None,
+        status: str = "success",
+    ):
+        started_at = time.perf_counter()
+        event_status = status
+        try:
+            yield
+        except Exception:
+            event_status = "failed"
+            raise
+        finally:
+            self.add_event(
+                label,
+                time.perf_counter() - started_at,
+                status=event_status,
+                metadata=metadata,
+            )
+
+    def add_event(
+        self,
+        label: str,
+        duration_seconds: float,
+        *,
+        status: str = "success",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.events.append(
+            ClassificationTimingEvent(
+                label=label,
+                duration_seconds=duration_seconds,
+                status=status,
+                metadata=metadata or {},
+            )
+        )
+
+    def add_gemini_call(
+        self,
+        *,
+        pass_label: str,
+        attempt: int,
+        model: Optional[str],
+        prompt_chars: int,
+        response_chars: int,
+        duration_seconds: float,
+        status: str,
+        error: Optional[str] = None,
+    ) -> None:
+        self.gemini_calls.append(
+            GeminiTimingCall(
+                pass_label=pass_label,
+                attempt=attempt,
+                model=model,
+                prompt_chars=prompt_chars,
+                prompt_tokens_estimate=_estimated_token_count(prompt_chars),
+                response_chars=response_chars,
+                duration_seconds=duration_seconds,
+                status=status,
+                error=error,
+            )
+        )
+
+    def add_prompt_metrics(self, pass_label: str, metrics: Dict[str, int]) -> None:
+        sections = {
+            key: value
+            for key, value in metrics.items()
+            if key.endswith("_chars") and key != "prompt_chars"
+        }
+        self.prompt_metrics.append({
+            "pass_label": pass_label,
+            "prompt_chars": metrics.get("prompt_chars", 0),
+            "prompt_tokens_estimate": _estimated_token_count(metrics.get("prompt_chars", 0)),
+            "sections": sections,
+        })
+
+    @property
+    def total_seconds(self) -> float:
+        return time.perf_counter() - self.started_at
+
+    def print_report(self) -> None:
+        total = self.total_seconds
+        print("", flush=True)
+        print("Classification timing", flush=True)
+        if self.symbol:
+            print(f"Asset.......................{self.symbol}", flush=True)
+        if self.source:
+            print(f"Classifier source..........{self.source}", flush=True)
+        if self.model:
+            print(f"Model.......................{self.model}", flush=True)
+
+        for event in self.events:
+            suffix = f" {event.status}" if event.status != "success" else ""
+            print(f"{event.label[:27]:.<27}{event.duration_seconds:>7.2f}s{suffix}", flush=True)
+
+        print(f"{'TOTAL':.<27}{total:>7.2f}s", flush=True)
+        print("", flush=True)
+        print(f"Gemini calls: {len(self.gemini_calls)}", flush=True)
+        for call in self.gemini_calls:
+            error = f" error={call.error[:120]}" if call.error else ""
+            print(
+                f"{call.pass_label} attempt {call.attempt}: "
+                f"{call.duration_seconds:.2f}s {call.status} "
+                f"model={call.model} prompt={call.prompt_chars} chars "
+                f"(~{call.prompt_tokens_estimate} tokens) response={call.response_chars} chars"
+                f"{error}",
+                flush=True,
+            )
+
+        if self.prompt_metrics:
+            print("", flush=True)
+            print("Prompt analysis", flush=True)
+            for prompt in self.prompt_metrics:
+                print(
+                    f"{prompt['pass_label']}: {prompt['prompt_chars']} chars "
+                    f"(~{prompt['prompt_tokens_estimate']} tokens)",
+                    flush=True,
+                )
+                largest_sections = sorted(
+                    prompt["sections"].items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )[:4]
+                for name, chars in largest_sections:
+                    print(
+                        f"  {name}: {chars} chars (~{_estimated_token_count(chars)} tokens)",
+                        flush=True,
+                    )
 
 ALLOWED_THEME_HIERARCHY: Dict[str, tuple[str, ...]] = {
     "AI Infrastructure": ("GPU Computing", "Accelerated Computing", "AI Servers", "AI Networking", "Edge AI"),
@@ -390,13 +562,34 @@ class MiniLMAssetThemeClassifier:
             return AssetThemeClassifierResult(themes=[])
 
         try:
+            classifier_started_at = time.perf_counter()
             classifier = self._get_classifier()
+            classifier_init_seconds = time.perf_counter() - classifier_started_at
+            timing_report = getattr(self, "_asset_theme_timing", None)
+            if timing_report is not None and hasattr(timing_report, "add_event"):
+                timing_report.add_event(
+                    "MiniLM initialization",
+                    classifier_init_seconds,
+                    metadata={"cached": self._classifier is classifier},
+                )
             raw_themes = classifier.classify_asset(
                 name=name,
                 sector=sector,
                 industry=industry,
                 summary=summary,
             )
+            if timing_report is not None and hasattr(timing_report, "add_event"):
+                timing_report.add_event(
+                    "MiniLM model load",
+                    (getattr(classifier, "model_load_ms", 0.0) or 0.0) / 1000,
+                    metadata={
+                        "embedding_document_count": getattr(
+                            classifier,
+                            "embedding_document_count",
+                            None,
+                        ),
+                    },
+                )
         except Exception as exc:
             logger.warning(
                 "MiniLM theme classification unavailable: %s. Set THEME_MINILM_MODEL_PATH "
@@ -541,6 +734,8 @@ class AssetThemeService:
         classifier: Optional[AssetThemeClassifier] = None,
     ):
         self.db = db
+        self._current_timing_report: Optional[ClassificationTimingReport] = None
+        self._pending_timing_events: List[ClassificationTimingEvent] = []
         self.last_taxonomy_gap: Optional[Dict[str, Any]] = None
         self.last_subtheme_taxonomy_gaps: List[Dict[str, Any]] = []
         self.last_taxonomy_gap_persisted: bool = False
@@ -550,10 +745,101 @@ class AssetThemeService:
         self._fetch_reclassification_attempted_asset_ids: set[int] = set()
         self.gemini_service: Optional[Any] = None
         self.gemini_model: Optional[str] = None
+        classifier_started_at = time.perf_counter()
         self.classifier = classifier or self._build_classifier(gemini_service=gemini_service)
+        classifier_duration = time.perf_counter() - classifier_started_at
         if isinstance(self.classifier, GeminiAssetThemeClassifier):
             self.gemini_service = self.classifier.gemini_service
             self.gemini_model = self.classifier.model_name
+            self._pending_timing_events.append(
+                ClassificationTimingEvent(
+                    label="Gemini client",
+                    duration_seconds=classifier_duration,
+                    metadata={
+                        "model": self.gemini_model,
+                        "injected": gemini_service is not None or classifier is not None,
+                    },
+                )
+            )
+        elif isinstance(self.classifier, MiniLMAssetThemeClassifier):
+            self._pending_timing_events.append(
+                ClassificationTimingEvent(
+                    label="MiniLM wrapper init",
+                    duration_seconds=classifier_duration,
+                    metadata={"injected": classifier is not None},
+                )
+            )
+
+    def record_external_timing(
+        self,
+        label: str,
+        duration_seconds: float,
+        *,
+        status: str = "success",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._pending_timing_events.append(
+            ClassificationTimingEvent(
+                label=label,
+                duration_seconds=duration_seconds,
+                status=status,
+                metadata=metadata or {},
+            )
+        )
+
+    def _start_timing_report(
+        self,
+        *,
+        symbol: Optional[str],
+        source: Optional[str],
+        model: Optional[str],
+    ) -> ClassificationTimingReport:
+        report = ClassificationTimingReport(symbol=symbol, source=source, model=model)
+        for event in self._pending_timing_events:
+            report.add_event(
+                event.label,
+                event.duration_seconds,
+                status=event.status,
+                metadata=event.metadata,
+            )
+        self._pending_timing_events = []
+        return report
+
+    @contextmanager
+    def _time_block(
+        self,
+        label: str,
+        *,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        if not self._current_timing_report:
+            yield
+            return
+        with self._current_timing_report.time_block(label, metadata=metadata):
+            yield
+
+    def _record_timing_event(
+        self,
+        label: str,
+        duration_seconds: float,
+        *,
+        status: str = "success",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if self._current_timing_report:
+            self._current_timing_report.add_event(
+                label,
+                duration_seconds,
+                status=status,
+                metadata=metadata,
+            )
+        else:
+            self.record_external_timing(
+                label,
+                duration_seconds,
+                status=status,
+                metadata=metadata,
+            )
 
     def _build_classifier(self, gemini_service: Optional[Any] = None) -> AssetThemeClassifier:
         if gemini_service is not None:
@@ -569,11 +855,23 @@ class AssetThemeService:
 
     def _ensure_gemini_service(self) -> None:
         if self.gemini_service is not None:
+            self._record_timing_event(
+                "Gemini client",
+                0.0,
+                status="cached",
+                metadata={"model": self.gemini_model},
+            )
             return
         from app.services.gemini import GeminiService
 
+        started_at = time.perf_counter()
         self.gemini_service = GeminiService()
         self.gemini_model = self.gemini_service.model
+        self._record_timing_event(
+            "Gemini client",
+            time.perf_counter() - started_at,
+            metadata={"model": self.gemini_model},
+        )
 
     def get_classification(self, asset_id: int) -> Optional[AssetThemeClassification]:
         return (
@@ -599,7 +897,8 @@ class AssetThemeService:
         company_info_loader: Optional[Callable[[], Dict[str, Any]]] = None,
     ) -> Optional[AssetThemeClassification]:
         """Return stored classification, refreshing once when its provider is stale."""
-        existing = self.get_classification(asset.id)
+        with self._time_block("DB lookup existing"):
+            existing = self.get_classification(asset.id)
         if not existing:
             return None
 
@@ -637,7 +936,20 @@ class AssetThemeService:
             return existing
 
         if (not summary or not summary.strip()) and company_info_loader is not None:
-            company_info = company_info_loader() or {}
+            started_at = time.perf_counter()
+            status = "success"
+            try:
+                company_info = company_info_loader() or {}
+            except Exception:
+                status = "failed"
+                raise
+            finally:
+                self.record_external_timing(
+                    "Yahoo metadata",
+                    time.perf_counter() - started_at,
+                    status=status,
+                    metadata={"symbol": getattr(asset, "symbol", None)},
+                )
             summary = company_info.get("longBusinessSummary") or company_info.get("description")
             sector = company_info.get("sector") or sector
             industry = company_info.get("industry") or industry
@@ -713,20 +1025,74 @@ class AssetThemeService:
         force: bool = False,
     ) -> AssetThemeClassification:
         provider = self.classifier
+        timing_report = self._start_timing_report(
+            symbol=getattr(asset, "symbol", None),
+            source=getattr(provider, "source", None),
+            model=getattr(provider, "model_name", None),
+        )
+        previous_timing_report = self._current_timing_report
+        self._current_timing_report = timing_report
+
+        provider_timing_target = getattr(provider, "__dict__", None)
+        previous_provider_timing = None
+        if provider_timing_target is not None:
+            previous_provider_timing = provider_timing_target.get("_asset_theme_timing")
+            provider_timing_target["_asset_theme_timing"] = timing_report
+
+        try:
+            return self._refresh_classification_impl(
+                asset=asset,
+                summary=summary,
+                sector=sector,
+                industry=industry,
+                name=name,
+                force=force,
+            )
+        finally:
+            if provider_timing_target is not None:
+                if previous_provider_timing is None:
+                    provider_timing_target.pop("_asset_theme_timing", None)
+                else:
+                    provider_timing_target["_asset_theme_timing"] = previous_provider_timing
+            timing_report.print_report()
+            self._current_timing_report = previous_timing_report
+
+    def _refresh_classification_impl(
+        self,
+        asset: Asset,
+        summary: Optional[str],
+        sector: Optional[str] = None,
+        industry: Optional[str] = None,
+        name: Optional[str] = None,
+        force: bool = False,
+    ) -> AssetThemeClassification:
+        provider = self.classifier
         provider_source = provider.source
         provider_model_name = provider.model_name
-        source_hash = self.build_source_hash(
-            summary=summary,
-            sector=sector or asset.sector,
-            industry=industry or asset.industry,
-            name=name or asset.name,
-        )
+        with self._time_block("Load asset metadata"):
+            asset_id = asset.id
+            asset_symbol = asset.symbol
+            asset_sector = asset.sector
+            asset_industry = asset.industry
+            asset_name = asset.name
+            resolved_sector = sector or asset_sector
+            resolved_industry = industry or asset_industry
+            resolved_name = name or asset_name
 
-        existing = self.get_classification(asset.id)
+        with self._time_block("Source hash"):
+            source_hash = self.build_source_hash(
+                summary=summary,
+                sector=resolved_sector,
+                industry=resolved_industry,
+                name=resolved_name,
+            )
+
+        with self._time_block("DB lookup existing"):
+            existing = self.get_classification(asset_id)
         logger.info(
             "Asset theme classification requested asset_id=%s symbol=%s force=%s source=%s model=%s source_hash=%s existing=%s",
-            asset.id,
-            asset.symbol,
+            asset_id,
+            asset_symbol,
             force,
             provider_source,
             provider_model_name,
@@ -738,16 +1104,16 @@ class AssetThemeService:
             if existing_source == THEME_SOURCE_MANUAL:
                 logger.info(
                     "Asset theme classification skipped asset_id=%s symbol=%s reason=manual",
-                    asset.id,
-                    asset.symbol,
+                    asset_id,
+                    asset_symbol,
                 )
                 return existing
 
             if existing.themes and existing_source and existing_source != provider_source:
                 logger.info(
                     "Asset theme classification skipped asset_id=%s symbol=%s reason=existing_provider source=%s requested_source=%s",
-                    asset.id,
-                    asset.symbol,
+                    asset_id,
+                    asset_symbol,
                     existing_source,
                     provider_source,
                 )
@@ -760,8 +1126,8 @@ class AssetThemeService:
             ):
                 logger.info(
                     "Asset theme classification skipped asset_id=%s symbol=%s reason=cache_hit generated_at=%s",
-                    asset.id,
-                    asset.symbol,
+                    asset_id,
+                    asset_symbol,
                     existing.generated_at,
                 )
                 return existing
@@ -775,43 +1141,44 @@ class AssetThemeService:
         if summary and summary.strip():
             logger.info(
                 "Asset theme classification starting asset_id=%s symbol=%s source=%s name=%s sector=%s industry=%s summary_chars=%s",
-                asset.id,
-                asset.symbol,
+                asset_id,
+                asset_symbol,
                 provider_source,
-                name or asset.name or asset.symbol,
-                sector or asset.sector,
-                industry or asset.industry,
+                resolved_name or asset_symbol,
+                resolved_sector,
+                resolved_industry,
                 len(summary),
             )
             previous_symbol = self._classification_symbol
-            self._classification_symbol = asset.symbol
+            self._classification_symbol = asset_symbol
             try:
-                result = provider.classify_asset(
-                    name=name or asset.name or asset.symbol,
-                    sector=sector or asset.sector,
-                    industry=industry or asset.industry,
-                    summary=summary,
-                )
+                with self._time_block("Classifier execution"):
+                    result = provider.classify_asset(
+                        name=resolved_name or asset_symbol,
+                        sector=resolved_sector,
+                        industry=resolved_industry,
+                        summary=summary,
+                    )
             finally:
                 self._classification_symbol = previous_symbol
             if result.unavailable_reason:
                 self.last_classification_unavailable_reason = result.unavailable_reason
                 logger.warning(
                     "Asset theme classification unavailable asset_id=%s symbol=%s source=%s reason=%s",
-                    asset.id,
-                    asset.symbol,
+                    asset_id,
+                    asset_symbol,
                     provider_source,
                     result.unavailable_reason,
                 )
                 if existing and existing.themes:
                     logger.info(
                         "Asset theme classification using existing stored result asset_id=%s symbol=%s",
-                        asset.id,
-                        asset.symbol,
+                        asset_id,
+                        asset_symbol,
                     )
                     return existing
                 return self._empty_classification(
-                    asset_id=asset.id,
+                    asset_id=asset_id,
                     source=provider_source,
                     model_name=provider_model_name,
                 )
@@ -820,55 +1187,58 @@ class AssetThemeService:
             self.last_taxonomy_gap = taxonomy_gap
             logger.info(
                 "Asset theme classification completed asset_id=%s symbol=%s source=%s theme_count=%s themes=%s",
-                asset.id,
-                asset.symbol,
+                asset_id,
+                asset_symbol,
                 provider_source,
                 len(themes),
                 [theme.get("label") for theme in themes],
             )
-            self._persist_taxonomy_gap_suggestion(
-                asset=asset,
-                summary_hash=source_hash,
-                taxonomy_gap=taxonomy_gap,
-                summary=summary,
-                sector=sector or asset.sector,
-                industry=industry or asset.industry,
-                company_name=name or asset.name or asset.symbol,
-                themes=themes,
-            )
-            for subtheme_gap in self.last_subtheme_taxonomy_gaps:
+            with self._time_block("Taxonomy gap persistence"):
                 self._persist_taxonomy_gap_suggestion(
                     asset=asset,
                     summary_hash=source_hash,
-                    taxonomy_gap=subtheme_gap,
+                    taxonomy_gap=taxonomy_gap,
                     summary=summary,
-                    sector=sector or asset.sector,
-                    industry=industry or asset.industry,
-                    company_name=name or asset.name or asset.symbol,
+                    sector=resolved_sector,
+                    industry=resolved_industry,
+                    company_name=resolved_name or asset_symbol,
                     themes=themes,
                 )
+            for subtheme_gap in self.last_subtheme_taxonomy_gaps:
+                with self._time_block("Subtheme gap persistence"):
+                    self._persist_taxonomy_gap_suggestion(
+                        asset=asset,
+                        summary_hash=source_hash,
+                        taxonomy_gap=subtheme_gap,
+                        summary=summary,
+                        sector=resolved_sector,
+                        industry=resolved_industry,
+                        company_name=resolved_name or asset_symbol,
+                        themes=themes,
+                    )
         else:
             logger.info(
                 "Asset theme classification skipped asset_id=%s symbol=%s source=%s reason=missing_summary",
-                asset.id,
-                asset.symbol,
+                asset_id,
+                asset_symbol,
                 provider_source,
             )
 
         now = datetime.utcnow()
         if self.db.bind and self.db.bind.dialect.name == "postgresql":
-            classification = self._upsert_postgresql_classification(
-                asset_id=asset.id,
-                themes=themes,
-                method=AUTOMATIC_THEME_METHOD,
-                model=provider_model_name,
-                source=provider_source,
-                model_name=provider_model_name,
-                source_hash=source_hash,
-                generated_at=now,
-                force=force,
-            )
-            self._invalidate_theme_dependent_caches()
+            with self._time_block("DB save"):
+                classification = self._upsert_postgresql_classification(
+                    asset_id=asset_id,
+                    themes=themes,
+                    method=AUTOMATIC_THEME_METHOD,
+                    model=provider_model_name,
+                    source=provider_source,
+                    model_name=provider_model_name,
+                    source_hash=source_hash,
+                    generated_at=now,
+                    force=force,
+                )
+            self._invalidate_theme_dependent_caches_timed()
             return classification
 
         if existing:
@@ -883,7 +1253,7 @@ class AssetThemeService:
             classification = existing
         else:
             classification = AssetThemeClassification(
-                asset_id=asset.id,
+                asset_id=asset_id,
                 themes=themes,
                 method=AUTOMATIC_THEME_METHOD,
                 model=provider_model_name,
@@ -893,13 +1263,17 @@ class AssetThemeService:
                 generated_at=now,
                 updated_at=now,
             )
-            self.db.add(classification)
+            with self._time_block("DB add classification"):
+                self.db.add(classification)
 
         try:
-            self.db.commit()
+            with self._time_block("DB commit"):
+                self.db.commit()
         except IntegrityError:
-            self.db.rollback()
-            classification = self.get_classification(asset.id)
+            with self._time_block("DB rollback duplicate"):
+                self.db.rollback()
+            with self._time_block("DB duplicate lookup"):
+                classification = self.get_classification(asset_id)
             if not classification:
                 raise
 
@@ -911,14 +1285,16 @@ class AssetThemeService:
             classification.source_hash = source_hash
             classification.generated_at = now
             classification.updated_at = now
-            self.db.commit()
+            with self._time_block("DB duplicate update commit"):
+                self.db.commit()
 
-        self.db.refresh(classification)
-        self._invalidate_theme_dependent_caches()
+        with self._time_block("DB refresh classification"):
+            self.db.refresh(classification)
+        self._invalidate_theme_dependent_caches_timed()
         logger.info(
             "Asset theme classification persisted asset_id=%s symbol=%s classification_id=%s theme_count=%s",
-            asset.id,
-            asset.symbol,
+            asset_id,
+            asset_symbol,
             classification.id,
             len(themes),
         )
@@ -936,12 +1312,21 @@ class AssetThemeService:
         previous_classifier = self.classifier
         previous_gemini_service = self.gemini_service
         previous_gemini_model = self.gemini_model
+        classifier_started_at = time.perf_counter()
         self.classifier = GeminiAssetThemeClassifier(
             generate_theme_payload=self.generate_theme_payload,
             gemini_service=previous_gemini_service,
         )
         self.gemini_service = self.classifier.gemini_service
         self.gemini_model = self.classifier.model_name
+        self.record_external_timing(
+            "Gemini client",
+            time.perf_counter() - classifier_started_at,
+            metadata={
+                "model": self.gemini_model,
+                "injected": previous_gemini_service is not None,
+            },
+        )
         try:
             return self.refresh_classification(
                 asset=asset,
@@ -1002,25 +1387,31 @@ class AssetThemeService:
         )
 
         try:
-            classification_id = self.db.execute(update_statement).scalar_one_or_none()
-            self.db.commit()
+            with self._time_block("DB upsert execute"):
+                classification_id = self.db.execute(update_statement).scalar_one_or_none()
+            with self._time_block("DB upsert commit"):
+                self.db.commit()
         except Exception:
-            self.db.rollback()
+            with self._time_block("DB upsert rollback"):
+                self.db.rollback()
             raise
 
         if classification_id is not None:
-            classification = (
-                self.db.query(AssetThemeClassification)
-                .filter(AssetThemeClassification.id == classification_id)
-                .first()
-            )
+            with self._time_block("DB fetch saved row"):
+                classification = (
+                    self.db.query(AssetThemeClassification)
+                    .filter(AssetThemeClassification.id == classification_id)
+                    .first()
+                )
         else:
-            classification = self.get_classification(asset_id)
+            with self._time_block("DB fetch existing row"):
+                classification = self.get_classification(asset_id)
 
         if not classification:
             raise RuntimeError(f"Failed to persist theme classification for asset {asset_id}")
 
-        self.db.refresh(classification)
+        with self._time_block("DB refresh classification"):
+            self.db.refresh(classification)
         logger.info(
             "Asset theme classification upserted asset_id=%s classification_id=%s theme_count=%s force=%s",
             asset_id,
@@ -1074,13 +1465,21 @@ class AssetThemeService:
             return
         if getattr(self.classifier, "source", None) == current_mode:
             return
+        started_at = time.perf_counter()
         self.classifier = self._build_classifier()
+        duration_seconds = time.perf_counter() - started_at
         if isinstance(self.classifier, GeminiAssetThemeClassifier):
             self.gemini_service = self.classifier.gemini_service
             self.gemini_model = self.classifier.model_name
+            self.record_external_timing(
+                "Gemini client",
+                duration_seconds,
+                metadata={"model": self.gemini_model},
+            )
         else:
             self.gemini_service = None
             self.gemini_model = None
+            self.record_external_timing("MiniLM wrapper init", duration_seconds)
 
     @staticmethod
     def _configured_provider_unavailable_reason(current_mode: str) -> Optional[str]:
@@ -1131,6 +1530,20 @@ class AssetThemeService:
         cache.delete_pattern("positions:*")
         cache.delete_pattern("dashboard_batch:*")
 
+    def _invalidate_theme_dependent_caches_timed(self) -> None:
+        cache = CacheService()
+        for pattern in (
+            "assets_held:*",
+            "assets_sold:*",
+            "positions:*",
+            "dashboard_batch:*",
+        ):
+            with self._time_block(
+                "Cache invalidation",
+                metadata={"pattern": pattern},
+            ):
+                cache.delete_pattern(pattern)
+
     def generate_themes(
         self,
         name: Optional[str],
@@ -1155,7 +1568,7 @@ class AssetThemeService:
         summary: str,
     ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
         self._ensure_gemini_service()
-        if settings.ASSET_THEME_TWO_PASS_CLASSIFICATION:
+        if self._classification_strategy() == "two_pass":
             return self.generate_theme_payload_two_pass(
                 name=name,
                 sector=sector,
@@ -1177,12 +1590,15 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
-        prompt, prompt_metrics = self._build_prompt_with_metrics(
-            name=name,
-            sector=sector,
-            industry=industry,
-            summary=summary,
-        )
+        with self._time_block("Prompt generation"):
+            prompt, prompt_metrics = self._build_prompt_with_metrics(
+                name=name,
+                sector=sector,
+                industry=industry,
+                summary=summary,
+            )
+        if self._current_timing_report:
+            self._current_timing_report.add_prompt_metrics("Gemini One Pass", prompt_metrics)
         started_at = time.perf_counter()
         logger.info(
             "Gemini theme request sending model=%s symbol=%s company=%s sector=%s industry=%s "
@@ -1200,7 +1616,11 @@ class AssetThemeService:
             prompt_metrics["prompt_chars"],
             "one_pass",
         )
-        raw_response = self.gemini_service.generate_json(prompt, GEMINI_RESPONSE_SCHEMA)
+        raw_response = self._generate_gemini_json(
+            pass_label="Gemini One Pass",
+            prompt=prompt,
+            response_schema=GEMINI_RESPONSE_SCHEMA,
+        )
         elapsed_ms = round((time.perf_counter() - started_at) * 1000)
         logger.info(
             "Gemini theme request received model=%s symbol=%s company=%s elapsed_ms=%s response_chars=%s",
@@ -1210,9 +1630,12 @@ class AssetThemeService:
             elapsed_ms,
             len(raw_response),
         )
-        payload = self._parse_json_response(raw_response)
-        themes = self._validate_and_flatten(payload)
-        taxonomy_gap = self._clean_taxonomy_gap(payload.get("taxonomyGap"))
+        with self._time_block("JSON parsing"):
+            payload = self._parse_json_response(raw_response)
+        with self._time_block("Validation"):
+            themes = self._validate_and_flatten(payload)
+            taxonomy_gap = self._clean_taxonomy_gap(payload.get("taxonomyGap"))
+            themes = self._mark_parent_only_review(themes, taxonomy_gap=taxonomy_gap)
         logger.info(
             "Gemini theme response validated symbol=%s company=%s theme_count=%s labels=%s taxonomy_gap=%s",
             self._classification_symbol,
@@ -1230,12 +1653,15 @@ class AssetThemeService:
         industry: Optional[str],
         summary: str,
     ) -> tuple[List[ThemePayload], Optional[Dict[str, Any]]]:
-        pass1_prompt, pass1_metrics = self._build_parent_theme_prompt_with_metrics(
-            name=name,
-            sector=sector,
-            industry=industry,
-            summary=summary,
-        )
+        with self._time_block("Prompt generation Pass 1"):
+            pass1_prompt, pass1_metrics = self._build_parent_theme_prompt_with_metrics(
+                name=name,
+                sector=sector,
+                industry=industry,
+                summary=summary,
+            )
+        if self._current_timing_report:
+            self._current_timing_report.add_prompt_metrics("Gemini Pass 1", pass1_metrics)
         pass1_started_at = time.perf_counter()
         logger.info(
             "Gemini theme pass1 sending model=%s symbol=%s company=%s sector=%s industry=%s "
@@ -1253,14 +1679,17 @@ class AssetThemeService:
             pass1_metrics["prompt_chars"],
             "two_pass",
         )
-        pass1_response = self.gemini_service.generate_json(
-            pass1_prompt,
-            GEMINI_PARENT_THEME_RESPONSE_SCHEMA,
+        pass1_response = self._generate_gemini_json(
+            pass_label="Gemini Pass 1",
+            prompt=pass1_prompt,
+            response_schema=GEMINI_PARENT_THEME_RESPONSE_SCHEMA,
         )
         pass1_duration_ms = round((time.perf_counter() - pass1_started_at) * 1000)
-        pass1_payload = self._parse_json_response(pass1_response)
-        parent_themes = self._validate_parent_themes(pass1_payload, max_total=5)
-        taxonomy_gap = self._clean_taxonomy_gap(pass1_payload.get("taxonomyGap"))
+        with self._time_block("JSON parsing Pass 1"):
+            pass1_payload = self._parse_json_response(pass1_response)
+        with self._time_block("Validation Pass 1"):
+            parent_themes = self._validate_parent_themes(pass1_payload, max_total=5)
+            taxonomy_gap = self._clean_taxonomy_gap(pass1_payload.get("taxonomyGap"))
         selected_parent_themes = [theme["label"] for theme in parent_themes]
 
         logger.info(
@@ -1294,13 +1723,16 @@ class AssetThemeService:
             )
             return parent_themes, taxonomy_gap
 
-        pass2_prompt, pass2_metrics = self._build_subtheme_prompt_with_metrics(
-            name=name,
-            sector=sector,
-            industry=industry,
-            summary=summary,
-            parent_themes=parent_themes,
-        )
+        with self._time_block("Prompt generation Pass 2"):
+            pass2_prompt, pass2_metrics = self._build_subtheme_prompt_with_metrics(
+                name=name,
+                sector=sector,
+                industry=industry,
+                summary=summary,
+                parent_themes=parent_themes,
+            )
+        if self._current_timing_report:
+            self._current_timing_report.add_prompt_metrics("Gemini Pass 2", pass2_metrics)
         pass2_duration_ms = 0
         try:
             pass2_started_at = time.perf_counter()
@@ -1317,27 +1749,30 @@ class AssetThemeService:
                 pass2_metrics["prompt_chars"],
                 "two_pass",
             )
-            pass2_response = self.gemini_service.generate_json(
-                pass2_prompt,
-                GEMINI_SUBTHEME_RESPONSE_SCHEMA,
+            pass2_response = self._generate_gemini_json(
+                pass_label="Gemini Pass 2",
+                prompt=pass2_prompt,
+                response_schema=GEMINI_SUBTHEME_RESPONSE_SCHEMA,
             )
             pass2_duration_ms = round((time.perf_counter() - pass2_started_at) * 1000)
-            pass2_payload = self._parse_json_response(pass2_response)
-            subthemes_by_parent = self._validate_subtheme_payload(
-                pass2_payload,
-                selected_parent_themes,
-            )
-            if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
-                self.last_subtheme_taxonomy_gaps = self._clean_subtheme_gap_suggestions(
+            with self._time_block("JSON parsing Pass 2"):
+                pass2_payload = self._parse_json_response(pass2_response)
+            with self._time_block("Validation Pass 2"):
+                subthemes_by_parent = self._validate_subtheme_payload(
                     pass2_payload,
                     selected_parent_themes,
                 )
-            else:
-                self.last_subtheme_taxonomy_gaps = []
-            themes = self._merge_parent_themes_with_subthemes(
-                parent_themes,
-                subthemes_by_parent,
-            )
+                if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+                    self.last_subtheme_taxonomy_gaps = self._clean_subtheme_gap_suggestions(
+                        pass2_payload,
+                        selected_parent_themes,
+                    )
+                else:
+                    self.last_subtheme_taxonomy_gaps = []
+                themes = self._merge_parent_themes_with_subthemes(
+                    parent_themes,
+                    subthemes_by_parent,
+                )
             logger.info(
                 "Gemini theme pass2 received model=%s symbol=%s company=%s pass2_duration_ms=%s "
                 "response_chars=%s selected_parent_themes=%s",
@@ -1378,9 +1813,59 @@ class AssetThemeService:
         )
         return themes, taxonomy_gap
 
+    def _generate_gemini_json(
+        self,
+        *,
+        pass_label: str,
+        prompt: str,
+        response_schema: Dict[str, Any],
+    ) -> str:
+        if self.gemini_service is None:
+            raise RuntimeError("Gemini service is not initialized")
+
+        previous_timing = getattr(self.gemini_service, "_asset_theme_timing", None)
+        previous_call_context = getattr(
+            self.gemini_service,
+            "_asset_theme_call_context",
+            None,
+        )
+        try:
+            setattr(self.gemini_service, "_asset_theme_timing", self._current_timing_report)
+            setattr(
+                self.gemini_service,
+                "_asset_theme_call_context",
+                {
+                    "pass_label": pass_label,
+                    "prompt_chars": len(prompt),
+                },
+            )
+            with self._time_block(pass_label):
+                return self.gemini_service.generate_json(prompt, response_schema)
+        finally:
+            if previous_timing is None:
+                try:
+                    delattr(self.gemini_service, "_asset_theme_timing")
+                except AttributeError:
+                    pass
+            else:
+                setattr(self.gemini_service, "_asset_theme_timing", previous_timing)
+            if previous_call_context is None:
+                try:
+                    delattr(self.gemini_service, "_asset_theme_call_context")
+                except AttributeError:
+                    pass
+            else:
+                setattr(
+                    self.gemini_service,
+                    "_asset_theme_call_context",
+                    previous_call_context,
+                )
+
     @staticmethod
     def _classification_strategy() -> str:
-        return "two_pass" if settings.ASSET_THEME_TWO_PASS_CLASSIFICATION else "one_pass"
+        strategy = str(getattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass") or "one_pass")
+        strategy = strategy.strip().lower()
+        return "two_pass" if strategy == "two_pass" else "one_pass"
 
     @staticmethod
     def build_source_hash(
@@ -1409,7 +1894,7 @@ class AssetThemeService:
         summary_original = summary or ""
         summary_used = cls._trim_summary_for_prompt(summary_original)
         taxonomy = cls._render_taxonomy_for_prompt()
-        taxonomy_gap_subtheme_rule = cls._taxonomy_gap_subtheme_rule_for_prompt()
+        taxonomy_gap_subtheme_rule = cls._one_pass_taxonomy_gap_rule_for_prompt()
 
         prompt = f"""You classify listed companies into investment themes.
 
@@ -1591,6 +2076,16 @@ Return only JSON shaped as:
             "prompt_chars": len(prompt),
         }
         return prompt, metrics
+
+    @staticmethod
+    def _one_pass_taxonomy_gap_rule_for_prompt() -> str:
+        if settings.ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED:
+            return (
+                "taxonomyGap.suggestedSubthemes may include up to 5 concise suggestions "
+                "when a selected existing parent theme fits but none of its allowed subthemes "
+                "fit, or when a genuinely missing new parent theme is needed."
+            )
+        return "Do not suggest new subthemes; taxonomyGap.suggestedSubthemes must always be an empty array."
 
     @staticmethod
     def _taxonomy_gap_subtheme_rule_for_prompt() -> str:
@@ -1899,6 +2394,36 @@ Return only JSON shaped as:
             merged.append(next_parent)
         return merged
 
+    @staticmethod
+    def _mark_parent_only_review(
+        themes: List[ThemePayload],
+        *,
+        taxonomy_gap: Optional[Dict[str, Any]],
+    ) -> List[ThemePayload]:
+        if not themes or (taxonomy_gap and taxonomy_gap.get("hasGap")):
+            return themes
+
+        reviewed: List[ThemePayload] = []
+        for theme in themes:
+            children = theme.get("children") or []
+            if children:
+                reviewed.append(theme)
+                continue
+
+            next_theme = dict(theme)
+            next_theme["needs_review"] = True
+            review_reasons = [
+                reason
+                for reason in next_theme.get("review_reasons", [])
+                if isinstance(reason, str) and reason.strip()
+            ]
+            if "no_valid_subthemes" not in review_reasons:
+                review_reasons.append("no_valid_subthemes")
+            next_theme["review_reasons"] = review_reasons
+            reviewed.append(next_theme)
+
+        return reviewed
+
     def _persist_taxonomy_gap_suggestion(
         self,
         asset: Asset,
@@ -2019,8 +2544,9 @@ Return only JSON shaped as:
 
         suggested_theme = value.get("suggestedTheme")
         reason = value.get("reason")
+        has_gap = bool(value.get("hasGap")) or bool(subthemes)
         return {
-            "hasGap": bool(value.get("hasGap")),
+            "hasGap": has_gap,
             "reason": " ".join(reason.strip().split())[:500] if isinstance(reason, str) else "",
             "suggestedTheme": " ".join(suggested_theme.strip().split())[:160]
             if isinstance(suggested_theme, str)

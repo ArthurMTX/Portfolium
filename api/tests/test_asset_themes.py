@@ -327,6 +327,34 @@ class FakeGeminiService:
         return json.dumps(response)
 
 
+def _one_pass_payload(
+    *,
+    subthemes=None,
+    taxonomy_gap=None,
+):
+    return {
+        "primaryThemes": [
+            {
+                "label": "AI Infrastructure",
+                "confidence": 0.91,
+                "weight": 1.0,
+                "evidence": ["AI infrastructure"],
+                "subthemes": subthemes
+                if subthemes is not None
+                else [
+                    {
+                        "label": "GPU Computing",
+                        "confidence": 0.88,
+                        "evidence": ["GPU systems"],
+                    }
+                ],
+            }
+        ],
+        "secondaryThemes": [],
+        "taxonomyGap": taxonomy_gap if taxonomy_gap is not None else {"hasGap": False},
+    }
+
+
 class FakeClassifier:
     def __init__(
         self,
@@ -1090,7 +1118,7 @@ def test_two_pass_merge_preserves_parent_fields_and_adds_children():
 
 
 def test_two_pass_failure_returns_parent_themes_without_children(monkeypatch):
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
     gemini = FakeGeminiService([_parent_payload(), RuntimeError("pass2 failed")])
     service = AssetThemeService(Mock(), gemini_service=gemini)
 
@@ -1114,7 +1142,7 @@ def test_two_pass_failure_returns_parent_themes_without_children(monkeypatch):
 
 
 def test_two_pass_taxonomy_gap_comes_from_pass1(monkeypatch):
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
     pass1_payload = {
         "primaryThemes": [],
         "secondaryThemes": [],
@@ -1147,29 +1175,9 @@ def test_two_pass_taxonomy_gap_comes_from_pass1(monkeypatch):
     assert len(gemini.prompts) == 1
 
 
-def test_feature_flag_selects_one_pass_or_two_pass(monkeypatch):
-    one_pass_payload = {
-        "primaryThemes": [
-            {
-                "label": "AI Infrastructure",
-                "confidence": 0.91,
-                "weight": 1.0,
-                "evidence": ["AI infrastructure"],
-                "subthemes": [
-                    {
-                        "label": "GPU Computing",
-                        "confidence": 0.88,
-                        "evidence": ["GPU systems"],
-                    }
-                ],
-            }
-        ],
-        "secondaryThemes": [],
-        "taxonomyGap": {"hasGap": False},
-    }
-
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", False)
-    one_pass_gemini = FakeGeminiService([one_pass_payload])
+def test_gemini_strategy_selects_one_pass_or_two_pass(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass")
+    one_pass_gemini = FakeGeminiService([_one_pass_payload()])
     one_pass_service = AssetThemeService(Mock(), gemini_service=one_pass_gemini)
     one_pass_themes, _gap = one_pass_service.generate_theme_payload(
         name="Example",
@@ -1179,9 +1187,10 @@ def test_feature_flag_selects_one_pass_or_two_pass(monkeypatch):
     )
 
     assert one_pass_gemini.schemas == [GEMINI_RESPONSE_SCHEMA]
+    assert len(one_pass_gemini.prompts) == 1
     assert one_pass_themes[0]["children"][0]["label"] == "GPU Computing"
 
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
     two_pass_gemini = FakeGeminiService([_parent_payload(), _subtheme_payload()])
     two_pass_service = AssetThemeService(Mock(), gemini_service=two_pass_gemini)
     two_pass_themes, _gap = two_pass_service.generate_theme_payload(
@@ -1202,8 +1211,139 @@ def test_feature_flag_selects_one_pass_or_two_pass(monkeypatch):
     assert two_pass_themes[0]["children"][0]["label"] == "GPU Computing"
 
 
+def test_one_pass_performs_exactly_one_gemini_call(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass")
+    gemini = FakeGeminiService([_one_pass_payload()])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure and GPU systems.",
+    )
+
+    assert len(gemini.prompts) == 1
+    assert gemini.schemas == [GEMINI_RESPONSE_SCHEMA]
+    assert themes[0]["children"][0]["label"] == "GPU Computing"
+    assert taxonomy_gap["hasGap"] is False
+
+
+def test_two_pass_still_performs_two_gemini_calls(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
+    gemini = FakeGeminiService([_parent_payload(), _subtheme_payload()])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure, GPU systems, and satellite systems.",
+    )
+
+    assert len(gemini.prompts) == 2
+    assert gemini.schemas == [
+        GEMINI_PARENT_THEME_RESPONSE_SCHEMA,
+        GEMINI_SUBTHEME_RESPONSE_SCHEMA,
+    ]
+
+
+def test_one_pass_filters_invalid_subthemes_against_taxonomy(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass")
+    payload = _one_pass_payload(
+        subthemes=[
+            {"label": "GPU Computing", "confidence": 0.88, "evidence": ["GPU systems"]},
+            {"label": "Satellites", "confidence": 0.91, "evidence": ["satellites"]},
+            {"label": "Not A Subtheme", "confidence": 0.99, "evidence": ["invalid"]},
+        ]
+    )
+    gemini = FakeGeminiService([payload])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, _taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure and GPU systems.",
+    )
+
+    assert themes[0]["children"] == [
+        {"label": "GPU Computing", "confidence": 0.88, "evidence": ["GPU systems"]}
+    ]
+
+
+def test_one_pass_parent_only_output_is_marked_needs_review(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass")
+    gemini = FakeGeminiService([_one_pass_payload(subthemes=[])])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure but no specific accepted subtheme fits.",
+    )
+
+    assert taxonomy_gap["hasGap"] is False
+    assert themes[0]["children"] == []
+    assert themes[0]["needs_review"] is True
+    assert "no_valid_subthemes" in themes[0]["review_reasons"]
+
+
+def test_one_pass_missing_subtheme_suggestion_creates_taxonomy_gap(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass")
+    monkeypatch.setattr(settings, "ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED", True)
+    gemini = FakeGeminiService([
+        _one_pass_payload(
+            subthemes=[],
+            taxonomy_gap={
+                "hasGap": False,
+                "reason": "Allowed AI Infrastructure subthemes do not cover inference chips.",
+                "suggestedTheme": "AI Infrastructure",
+                "suggestedSubthemes": ["Inference Chips"],
+                "confidence": 0.83,
+            },
+        )
+    ])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Semiconductors",
+        summary="The company builds inference chips for AI workloads.",
+    )
+
+    assert taxonomy_gap == {
+        "hasGap": True,
+        "reason": "Allowed AI Infrastructure subthemes do not cover inference chips.",
+        "suggestedTheme": "AI Infrastructure",
+        "suggestedSubthemes": ["Inference Chips"],
+        "confidence": 0.83,
+    }
+    assert themes[0]["children"] == []
+    assert "needs_review" not in themes[0]
+
+
+def test_one_pass_output_shape_matches_existing_classifier_output(monkeypatch):
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "one_pass")
+    gemini = FakeGeminiService([_one_pass_payload()])
+    service = AssetThemeService(Mock(), gemini_service=gemini)
+
+    themes, _taxonomy_gap = service.generate_theme_payload(
+        name="Example",
+        sector="Technology",
+        industry="Infrastructure",
+        summary="The company builds AI infrastructure and GPU systems.",
+    )
+
+    assert themes
+    assert set(themes[0]) == {"label", "confidence", "weight", "evidence", "tier", "children"}
+    assert set(themes[0]["children"][0]) == {"label", "confidence", "evidence"}
+
+
 def test_two_pass_output_shape_remains_frontend_and_allocation_compatible(monkeypatch):
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
     gemini = FakeGeminiService([_parent_payload(), _subtheme_payload()])
     service = AssetThemeService(Mock(), gemini_service=gemini)
 
@@ -1223,7 +1363,7 @@ def test_two_pass_output_shape_remains_frontend_and_allocation_compatible(monkey
 
 
 def test_two_pass_collects_gemini_subtheme_gap_suggestions(monkeypatch):
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
     monkeypatch.setattr(settings, "ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED", True)
     pass1_payload = {
         "primaryThemes": [
@@ -1271,7 +1411,7 @@ def test_two_pass_collects_gemini_subtheme_gap_suggestions(monkeypatch):
 
 
 def test_two_pass_ignores_gemini_subtheme_gap_suggestions_when_disabled(monkeypatch):
-    monkeypatch.setattr(settings, "ASSET_THEME_TWO_PASS_CLASSIFICATION", True)
+    monkeypatch.setattr(settings, "ASSET_THEME_GEMINI_STRATEGY", "two_pass")
     monkeypatch.setattr(settings, "ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED", False)
     pass1_payload = {
         "primaryThemes": [

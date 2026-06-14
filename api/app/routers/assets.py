@@ -6,6 +6,7 @@ from decimal import Decimal
 from datetime import datetime
 import logging
 import json
+import time
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import func, or_
@@ -421,6 +422,21 @@ def _fetch_theme_company_info(asset):
         return {}
 
 
+def _fetch_theme_company_info_timed(service: AssetThemeService, asset):
+    started_at = time.perf_counter()
+    info = _fetch_theme_company_info(asset)
+    service.record_external_timing(
+        "Yahoo metadata",
+        time.perf_counter() - started_at,
+        metadata={
+            "symbol": getattr(asset, "symbol", None),
+            "fields": len(info or {}),
+            "action": "asset_theme_refresh_info",
+        },
+    )
+    return info
+
+
 def _asset_reference_counts(db: Session, asset_ids: List[int]) -> Dict[int, Dict[str, int]]:
     counts = {
         asset_id: {
@@ -503,8 +519,9 @@ def _refresh_asset_theme_background(asset_id: int) -> None:
             return
 
         logger.info("Background asset theme generation starting asset_id=%s symbol=%s", asset.id, asset.symbol)
-        company_info = _fetch_theme_company_info(asset)
-        AssetThemeService(db).refresh_classification(
+        service = AssetThemeService(db)
+        company_info = _fetch_theme_company_info_timed(service, asset)
+        service.refresh_classification(
             asset=asset,
             summary=company_info.get("longBusinessSummary") or company_info.get("description"),
             sector=company_info.get("sector") or asset.sector,
@@ -843,7 +860,7 @@ def classify_asset_themes(
                 })
                 continue
 
-            company_info = _fetch_theme_company_info(asset)
+            company_info = _fetch_theme_company_info_timed(service, asset)
             classification = service.refresh_classification(
                 asset=asset,
                 summary=company_info.get("longBusinessSummary") or company_info.get("description"),
@@ -938,8 +955,8 @@ def refresh_asset_themes(
     if not asset:
         raise AssetNotFoundError(id=asset_id)
 
-    company_info = _fetch_theme_company_info(asset)
     service = AssetThemeService(db)
+    company_info = _fetch_theme_company_info_timed(service, asset)
     classification = service.refresh_classification(
         asset=asset,
         summary=company_info.get("longBusinessSummary") or company_info.get("description"),
@@ -994,7 +1011,7 @@ def refresh_held_asset_themes(
             continue
 
         try:
-            company_info = _fetch_theme_company_info(asset)
+            company_info = _fetch_theme_company_info_timed(service, asset)
             before = service.get_classification(asset.id)
             before_updated_at = before.updated_at if before else None
             classification = service.refresh_classification(

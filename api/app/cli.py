@@ -54,10 +54,12 @@ def refresh_themes(symbol: Optional[str], force: bool) -> None:
 
         for index, asset in enumerate(assets, start=1):
             try:
+                yahoo_started_at = time.perf_counter()
                 info = FundamentalsService.fetch_info(
                     asset.symbol,
                     action="asset_theme_cli_refresh",
                 ) or {}
+                yahoo_duration = time.perf_counter() - yahoo_started_at
 
                 summary = info.get("longBusinessSummary") or info.get("description")
 
@@ -65,6 +67,16 @@ def refresh_themes(symbol: Optional[str], force: bool) -> None:
                     result["skipped_no_summary"] += 1
                     print(f"[{index}/{len(assets)}] SKIP {asset.symbol}: no summary", flush=True)
                     continue
+
+                service.record_external_timing(
+                    "Yahoo metadata",
+                    yahoo_duration,
+                    metadata={
+                        "symbol": asset.symbol,
+                        "fields": len(info),
+                        "action": "asset_theme_cli_refresh",
+                    },
+                )
 
                 classification = service.refresh_classification(
                     asset=asset,

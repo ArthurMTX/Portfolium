@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-2.5-flash-lite"
     GEMINI_TIMEOUT_SECONDS: int = 20
     GEMINI_MAX_RETRIES: int = 2
+    ASSET_THEME_GEMINI_STRATEGY: str = "one_pass"
     ASSET_THEME_TWO_PASS_CLASSIFICATION: bool = False
     ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED: bool = False
 
@@ -155,6 +156,15 @@ class Settings(BaseSettings):
         if mode not in {"minilm", "gemini"}:
             raise ValueError("ASSET_THEME_CLASSIFIER_MODE must be 'minilm' or 'gemini'")
         return mode
+
+    @field_validator('ASSET_THEME_GEMINI_STRATEGY')
+    @classmethod
+    def validate_asset_theme_gemini_strategy(cls, v):
+        """Validate Gemini asset theme classification strategy."""
+        strategy = (v or "one_pass").strip().lower()
+        if strategy not in {"one_pass", "two_pass"}:
+            raise ValueError("ASSET_THEME_GEMINI_STRATEGY must be 'one_pass' or 'two_pass'")
+        return strategy
     
     @model_validator(mode='after')
     def validate_settings(self) -> Self:

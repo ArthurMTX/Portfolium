@@ -55,6 +55,7 @@ class GeminiService:
 
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
+            attempt_started_at = time.perf_counter()
             try:
                 response = requests.post(
                     url,
@@ -64,15 +65,82 @@ class GeminiService:
                 )
                 response.raise_for_status()
                 data = response.json()
-                return self._extract_text(data)
+                text = self._extract_text(data)
+                self._record_timing_attempt(
+                    attempt=attempt + 1,
+                    prompt=prompt,
+                    response_text=text,
+                    duration_seconds=time.perf_counter() - attempt_started_at,
+                    status="success",
+                )
+                return text
             except (requests.RequestException, ValueError, GeminiError) as exc:
+                duration_seconds = time.perf_counter() - attempt_started_at
                 last_error = exc
+                self._record_timing_attempt(
+                    attempt=attempt + 1,
+                    prompt=prompt,
+                    response_text=None,
+                    duration_seconds=duration_seconds,
+                    status="timeout"
+                    if isinstance(exc, requests.Timeout)
+                    else "failed",
+                    error=str(exc),
+                )
                 if attempt >= self.max_retries:
                     break
-                time.sleep(0.5 * (2 ** attempt))
+                backoff_seconds = 0.5 * (2 ** attempt)
+                backoff_started_at = time.perf_counter()
+                time.sleep(backoff_seconds)
+                self._record_timing_event(
+                    "Gemini retry backoff",
+                    time.perf_counter() - backoff_started_at,
+                    metadata={
+                        "attempt": attempt + 1,
+                        "configured_backoff_seconds": backoff_seconds,
+                    },
+                )
 
         logger.warning("Gemini generation failed after retries: %s", last_error)
         raise GeminiError(str(last_error) if last_error else "Gemini generation failed")
+
+    def _record_timing_attempt(
+        self,
+        *,
+        attempt: int,
+        prompt: str,
+        response_text: str | None,
+        duration_seconds: float,
+        status: str,
+        error: str | None = None,
+    ) -> None:
+        timing = getattr(self, "_asset_theme_timing", None)
+        if timing is None or not hasattr(timing, "add_gemini_call"):
+            return
+
+        context = getattr(self, "_asset_theme_call_context", {}) or {}
+        timing.add_gemini_call(
+            pass_label=context.get("pass_label") or "Gemini",
+            attempt=attempt,
+            model=self.model,
+            prompt_chars=context.get("prompt_chars") or len(prompt),
+            response_chars=len(response_text or ""),
+            duration_seconds=duration_seconds,
+            status=status,
+            error=error,
+        )
+
+    def _record_timing_event(
+        self,
+        label: str,
+        duration_seconds: float,
+        *,
+        metadata: Dict[str, Any] | None = None,
+    ) -> None:
+        timing = getattr(self, "_asset_theme_timing", None)
+        if timing is None or not hasattr(timing, "add_event"):
+            return
+        timing.add_event(label, duration_seconds, metadata=metadata)
 
     @staticmethod
     def _extract_text(data: Dict[str, Any]) -> str:
