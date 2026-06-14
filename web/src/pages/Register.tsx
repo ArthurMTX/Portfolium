@@ -2,11 +2,12 @@ import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle, Moon, Sun } from 'lucide-react'
+import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
-import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
 import { translateApiError } from '../lib/errorUtils'
+import AuthPageShell from '../components/AuthPageShell'
+import useAuthTheme from '../hooks/useAuthTheme'
 
 export default function Register() {
   const { t, i18n } = useTranslation()
@@ -19,7 +20,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [emailEnabled, setEmailEnabled] = useState(true) // Default to true
-  const [darkMode, setDarkMode] = useState(false)
+  const { darkMode, toggleDarkMode } = useAuthTheme()
 
   const { register, user } = useAuth()
   const navigate = useNavigate()
@@ -30,26 +31,6 @@ export default function Register() {
       navigate('/dashboard', { replace: true })
     }
   }, [user, navigate])
-
-  // Check system preference or localStorage for dark mode
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('auth-theme')
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setDarkMode(true)
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    if (!darkMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('auth-theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('auth-theme', 'light')
-    }
-  }
 
   // Check if email system is enabled
   useEffect(() => {
@@ -158,28 +139,7 @@ export default function Register() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${
-      darkMode 
-        ? 'bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900' 
-        : 'bg-gradient-to-br from-indigo-100 via-white to-pink-100'
-    }`}>
-      <div className="max-w-md w-full">
-        {/* Theme and Language controls */}
-        <div className="flex justify-end gap-2 mb-4">
-          <AuthLanguageSwitcher darkMode={darkMode} />
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2 rounded-lg transition-colors ${
-              darkMode
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-100'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
-            }`}
-            aria-label={t('navigation.toggleDarkMode')}
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-
+    <AuthPageShell darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className={`inline-block p-3 rounded-2xl mb-4 ${
@@ -407,7 +367,6 @@ export default function Register() {
             </p>
           </div>
         </div>
-      </div>
-    </div>
+    </AuthPageShell>
   )
 }

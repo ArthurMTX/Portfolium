@@ -1,13 +1,14 @@
 import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LogIn, Mail, Lock, AlertCircle, Moon, Sun } from 'lucide-react'
+import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import TwoFactorLogin from '../components/TwoFactorLogin'
 import { useTranslation } from 'react-i18next'
-import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
 import { translateApiError } from '../lib/errorUtils'
 import { api } from '../lib/api'
+import AuthPageShell from '../components/AuthPageShell'
+import useAuthTheme from '../hooks/useAuthTheme'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -15,8 +16,8 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
   const [requires2FA, setRequires2FA] = useState(false)
+  const { darkMode, toggleDarkMode } = useAuthTheme()
 
   const { login, user } = useAuth()
   const navigate = useNavigate()
@@ -30,26 +31,6 @@ export default function Login() {
       navigate('/dashboard', { replace: true })
     }
   }, [user, navigate])
-
-  useEffect(() => {
-    // Check system preference or localStorage
-    const savedTheme = localStorage.getItem('auth-theme')
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setDarkMode(true)
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    if (!darkMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('auth-theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('auth-theme', 'light')
-    }
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -91,28 +72,7 @@ export default function Login() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${
-      darkMode 
-        ? 'bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900' 
-        : 'bg-gradient-to-br from-indigo-100 via-white to-pink-100'
-    }`}>
-      <div className="max-w-md w-full">
-        {/* Theme and Language controls */}
-        <div className="flex justify-end gap-2 mb-4">
-          <AuthLanguageSwitcher darkMode={darkMode} />
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2 rounded-lg transition-colors ${
-              darkMode
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-100'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
-            }`}
-            aria-label={t('navigation.toggleDarkMode')}
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-
+    <AuthPageShell darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
         {/* Show 2FA form or regular login */}
         <div className={`rounded-2xl shadow-xl p-8 ${
           darkMode ? 'bg-neutral-800 border border-neutral-700' : 'bg-white'
@@ -306,7 +266,6 @@ export default function Login() {
             {t('login.privacyPolicy')}
           </a>
         </p>
-      </div>
-    </div>
+    </AuthPageShell>
   )
 }

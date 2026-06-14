@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '../../types'
 import api from '@/lib/api'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
+import MarketIndexCard from './MarketIndexCard'
 
 interface VIXWidgetProps extends BaseWidgetProps {
   title: string
@@ -90,51 +91,19 @@ export default function VIXWidget({
   }, [vixPrice, t])
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-start gap-2.5 mb-4">
-        <div className={`w-9 h-9 ${bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <Activity className={iconColor} size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            {t(title)}
-          </h3>
-          {subtitle && (
-            <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {t(subtitle)}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col justify-center -mt-2">
-        {loading ? (
-          <div className="flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-blue-500 rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-2">
-              <p className={`text-3xl font-bold ${volatilityColor}`}>
-                {vixPrice !== null ? vixPrice.toFixed(2) : 'N/A'}
-              </p>
-              {vixChange !== null && (
-                <span
-                  className={`text-xs font-medium ${
-                    vixChange >= 0
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-green-600 dark:text-green-400'
-                  }`}
-                >
-                  {vixChange >= 0 ? '+' : ''}{vixChange.toFixed(2)}%
-                </span>
-              )}
-            </div>
-            <p className={`text-sm font-semibold mt-1 ${volatilityColor}`}>
-              {volatilityLevel}
-            </p>
-          </>
-        )}
-      </div>
-    </div>
+    <MarketIndexCard
+      icon={Activity}
+      iconClass={iconColor}
+      bgColor={bgColor}
+      title={t(title)}
+      subtitle={subtitle ? t(subtitle) : undefined}
+      loading={loading}
+      value={vixPrice !== null ? vixPrice.toFixed(2) : 'N/A'}
+      valueClass={volatilityColor}
+      change={vixChange}
+      changePositiveClass="text-red-600 dark:text-red-400"
+      changeNegativeClass="text-green-600 dark:text-green-400"
+      level={volatilityLevel}
+    />
   )
 }

@@ -1,12 +1,13 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { Lock, AlertCircle, CheckCircle, Moon, Sun } from 'lucide-react'
+import { Lock, AlertCircle, CheckCircle } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { translateApiError } from '../lib/errorUtils'
 import { useTranslation } from 'react-i18next'
-import AuthLanguageSwitcher from '../components/AuthLanguageSwitcher'
 import { useAuth } from '../contexts/AuthContext'
+import AuthPageShell from '../components/AuthPageShell'
+import useAuthTheme from '../hooks/useAuthTheme'
 
 export default function ResetPassword() {
   const { t } = useTranslation()
@@ -20,7 +21,7 @@ export default function ResetPassword() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const { darkMode, toggleDarkMode } = useAuthTheme()
 
   // Redirect if already logged in
   useEffect(() => {
@@ -28,26 +29,6 @@ export default function ResetPassword() {
       navigate('/dashboard', { replace: true })
     }
   }, [user, navigate])
-
-  useEffect(() => {
-    // Check system preference or localStorage
-    const savedTheme = localStorage.getItem('auth-theme')
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setDarkMode(true)
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    if (!darkMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('auth-theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('auth-theme', 'light')
-    }
-  }
 
   useEffect(() => {
     if (!token) {
@@ -140,28 +121,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${
-      darkMode 
-        ? 'bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900' 
-        : 'bg-gradient-to-br from-indigo-100 via-white to-pink-100'
-    }`}>
-      <div className="max-w-md w-full">
-        {/* Theme and Language controls */}
-        <div className="flex justify-end gap-2 mb-4">
-          <AuthLanguageSwitcher darkMode={darkMode} />
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2 rounded-lg transition-colors ${
-              darkMode
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-100'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
-            }`}
-            aria-label={t('navigation.toggleDarkMode')}
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-
+    <AuthPageShell darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className={`inline-block p-3 rounded-2xl mb-4 ${
@@ -293,7 +253,6 @@ export default function ResetPassword() {
             </Link>
           </div>
         </div>
-      </div>
-    </div>
+    </AuthPageShell>
   )
 }

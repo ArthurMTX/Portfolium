@@ -1,64 +1,29 @@
-import { useEffect, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
-import api, { PortfolioHistoryPointDTO } from '../lib/api'
-import usePortfolioStore from '../store/usePortfolioStore'
 import { useTranslation } from 'react-i18next'
+import {
+  ChartPeriodButtons,
+  PortfolioChartSkeleton,
+} from './chartShared'
+import {
+  createChartHoverHandler,
+  formatChartDateLabel,
+  formatChartTooltipDate,
+  getCurrencySymbol,
+  getSignedColorClass,
+} from './chartUtils'
+import { usePortfolioHistoryChart } from './usePortfolioHistoryChart'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler)
-
-type PeriodOption = '1W' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'ALL'
 
 interface Props {
   portfolioId: number
 }
 
 export default function InvestmentPerformanceChart({ portfolioId }: Props) {
-  const { portfolios } = usePortfolioStore()
-  const [period, setPeriod] = useState<PeriodOption>('1M')
-  const [loading, setLoading] = useState(false)
-  const [history, setHistory] = useState<PortfolioHistoryPointDTO[]>([])
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const { t, i18n } = useTranslation()
-
-  // Get the current locale for date formatting
-  const currentLocale = i18n.language || 'en-US'
-  
-  // Period labels translation mapping
-  const getPeriodLabel = (period: PeriodOption): string => {
-    const labelMap: Record<PeriodOption, string> = {
-      '1W': t('charts.periods.1W'),
-      '1M': t('charts.periods.1M'),
-      '3M': t('charts.periods.3M'),
-      '6M': t('charts.periods.6M'),
-      'YTD': t('charts.periods.YTD'),
-      '1Y': t('charts.periods.1Y'),
-      'ALL': t('charts.periods.ALL'),
-    }
-    return labelMap[period]
-  }
-  
-  // Get portfolio currency
-  const portfolio = portfolios.find(p => p.id === portfolioId)
-  const currency = portfolio?.base_currency || 'USD'
-
-  useEffect(() => {
-    let canceled = false
-    const load = async () => {
-      setLoading(true)
-      setHoveredIndex(null) // Reset hover state when changing period
-      try {
-        const data = await api.getPortfolioHistory(portfolioId, period)
-        if (!canceled) setHistory(data)
-      } finally {
-        if (!canceled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      canceled = true
-    }
-  }, [portfolioId, period])
+  const { period, setPeriod, loading, history, hoveredIndex, setHoveredIndex, currentLocale, currency } =
+    usePortfolioHistoryChart(portfolioId, i18n.language)
 
   // Calculate performance percentages
   // For ALL: show unrealized P&L % (current holdings only, matches Dashboard)
@@ -110,18 +75,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
   const chartData = {
     labels: history.map(h => {
       const date = new Date(h.date)
-      // Format date based on period using current locale
-      if (period === '1W') {
-        return date.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
-      } else if (period === '1M') {
-        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-      } else if (period === '3M') {
-        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-      } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-        return date.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
-      } else {
-        return date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
-      }
+      return formatChartDateLabel(date, period, currentLocale)
     }),
     datasets: [
       {
@@ -197,12 +151,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             // Show full date in tooltip title using current locale
             if (context.length > 0) {
               const date = new Date(history[context[0].dataIndex].date)
-              return date.toLocaleDateString(currentLocale, { 
-                weekday: 'short',
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-              })
+              return formatChartTooltipDate(date, currentLocale)
             }
             return ''
           },
@@ -241,10 +190,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             
             if (point.invested) {
               const gain = point.value - point.invested
-              const currencySymbols: Record<string, string> = {
-                'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
-              }
-              const symbol = currencySymbols[currency] || currency + ' '
+              const symbol = getCurrencySymbol(currency)
               lines.push(`${t('charts.totalGainLoss')}: ${gain >= 0 ? '+' : ''}${symbol}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
             }
             return lines
@@ -299,13 +245,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       duration: 400,
       easing: 'easeInOutQuart' as const,
     },
-    onHover: (_event: unknown, activeElements: { index: number }[]) => {
-      if (activeElements && activeElements.length > 0) {
-        setHoveredIndex(activeElements[0].index)
-      } else {
-        setHoveredIndex(null)
-      }
-    },
+    onHover: createChartHoverHandler(setHoveredIndex),
   }
 
   // Determine which data point to display (hovered or last)
@@ -339,44 +279,30 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     <div>
       <div style={{ minHeight: 320 }} className="p-4">
         {loading ? (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
-              <div className="h-8 w-24 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
-            </div>
-            <div style={{ height: '320px' }} className="relative">
-              <div className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse overflow-hidden">
-                {/* Fake performance chart with zero baseline */}
-                <svg className="w-full h-full opacity-30" viewBox="0 0 100 50" preserveAspectRatio="none">
-                  {/* Zero baseline */}
-                  <line
-                    x1="0"
-                    y1="25"
-                    x2="100"
-                    y2="25"
-                    stroke="currentColor"
-                    strokeWidth="0.3"
-                    strokeDasharray="2,2"
-                    className="text-neutral-400"
-                  />
-                  {/* Performance line crossing zero */}
-                  <path
-                    d="M 0,30 L 15,28 L 25,22 L 35,20 L 45,24 L 55,26 L 65,23 L 75,20 L 85,18 L 100,16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="0.5"
-                    className="text-green-400"
-                  />
-                  {/* Gradient fill */}
-                  <path
-                    d="M 0,30 L 15,28 L 25,22 L 35,20 L 45,24 L 55,26 L 65,23 L 75,20 L 85,18 L 100,16 L 100,25 L 0,25 Z"
-                    fill="currentColor"
-                    className="text-green-200 dark:text-green-900 opacity-20"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
+          <PortfolioChartSkeleton metricWidthClass="w-24">
+            <line
+              x1="0"
+              y1="25"
+              x2="100"
+              y2="25"
+              stroke="currentColor"
+              strokeWidth="0.3"
+              strokeDasharray="2,2"
+              className="text-neutral-400"
+            />
+            <path
+              d="M 0,30 L 15,28 L 25,22 L 35,20 L 45,24 L 55,26 L 65,23 L 75,20 L 85,18 L 100,16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="0.5"
+              className="text-green-400"
+            />
+            <path
+              d="M 0,30 L 15,28 L 25,22 L 35,20 L 45,24 L 55,26 L 65,23 L 75,20 L 85,18 L 100,16 L 100,25 L 0,25 Z"
+              fill="currentColor"
+              className="text-green-200 dark:text-green-900 opacity-20"
+            />
+          </PortfolioChartSkeleton>
         ) : history.length === 0 ? (
           <div className="text-neutral-400 text-center py-12">
             <p className="font-semibold mb-2">{t('charts.noPortfolioPerformance')}</p>
@@ -393,19 +319,8 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
               </div>
               {displayPoint && (() => {
                 const isPositive = displayPerformance > 0
-                const isZero = displayPerformance === 0
-                
-                const currencySymbols: Record<string, string> = {
-                  'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'
-                }
-                const symbol = currencySymbols[currency] || currency + ' '
-                
-                // Determine color class based on value
-                const colorClass = isZero 
-                  ? 'text-neutral-500 dark:text-neutral-400'
-                  : isPositive 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-red-600 dark:text-red-400'
+                const symbol = getCurrencySymbol(currency)
+                const colorClass = getSignedColorClass(displayPerformance)
                 
                 return (
                   <div className="flex items-center gap-3">
@@ -432,21 +347,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       </div>
       
       {/* Time period buttons */}
-      <div className="flex gap-2 mb-4 flex-wrap justify-center">
-        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
-          <button
-            key={opt}
-            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
-              period === opt 
-                ? 'bg-pink-600 text-white border-pink-600' 
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
-            }`}
-            onClick={() => setPeriod(opt)}
-          >
-            {getPeriodLabel(opt)}
-          </button>
-        ))}
-      </div>
+      <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
     </div>
   )
 }

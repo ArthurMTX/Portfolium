@@ -31,70 +31,7 @@ import { PREDEFINED_LAYOUTS } from '../utils/predefinedLayouts'
 import { useTranslation } from 'react-i18next'
 import { loadLayout } from '../utils/defaultLayouts'
 import { useAuth } from '../../../contexts/AuthContext'
-
-/**
- * Compact layout vertically - removes gaps between widgets
- */
-const compactLayout = (layout: Layout[], breakpoint: 'lg' | 'md' | 'sm'): Layout[] => {
-  if (!layout || layout.length === 0) return layout
-  
-  // Sort by y position, then x position
-  const sorted = [...layout].sort((a, b) => {
-    if (a.y === b.y) return a.x - b.x
-    return a.y - b.y
-  })
-  
-  // Track occupied spaces using a grid
-  const cols = breakpoint === 'lg' ? 12 : breakpoint === 'md' ? 8 : 4
-  const grid: boolean[][] = []
-  
-  // Place each widget in the next available position
-  const compacted = sorted.map(item => {
-    // Find the first available y position for this widget
-    let targetY = 0
-    let foundPosition = false
-    
-    while (!foundPosition && targetY < 1000) { // Safety limit
-      foundPosition = true
-      
-      // Check if this position has enough space
-      for (let dy = 0; dy < item.h; dy++) {
-        const row = targetY + dy
-        if (!grid[row]) grid[row] = Array(cols).fill(false)
-        
-        for (let dx = 0; dx < item.w; dx++) {
-          const col = item.x + dx
-          if (col >= cols || grid[row][col]) {
-            foundPosition = false
-            break
-          }
-        }
-        if (!foundPosition) break
-      }
-      
-      if (!foundPosition) targetY++
-    }
-    
-    // Mark this space as occupied
-    for (let dy = 0; dy < item.h; dy++) {
-      const row = targetY + dy
-      if (!grid[row]) grid[row] = Array(cols).fill(false)
-      for (let dx = 0; dx < item.w; dx++) {
-        const col = item.x + dx
-        if (col < cols) {
-          grid[row][col] = true
-        }
-      }
-    }
-    
-    return {
-      ...item,
-      y: targetY
-    }
-  })
-  
-  return compacted
-}
+import { compactLayout } from '../utils/layoutCompaction'
 
 interface LayoutManagerProps {
   isOpen: boolean

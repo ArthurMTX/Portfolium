@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '../../types'
 import api from '@/lib/api'
 import { useWidgetVisibility } from '@/contexts/DashboardContext'
+import MarketIndexCard from './MarketIndexCard'
 
 interface DXYWidgetProps extends BaseWidgetProps {
   title: string
@@ -96,51 +97,19 @@ export default function DXYWidget({
   }, [dxyPrice, t])
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-start gap-2.5 mb-4">
-        <div className={`w-9 h-9 ${bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <DollarSign className={iconColor} size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            {t(title)}
-          </h3>
-          {subtitle && (
-            <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {t(subtitle)}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col justify-center -mt-2">
-        {loading ? (
-          <div className="flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-blue-500 rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-2">
-              <p className={`text-3xl font-bold ${strengthColor}`}>
-                {dxyPrice !== null ? dxyPrice.toFixed(2) : 'N/A'}
-              </p>
-              {dxyChange !== null && (
-                <span
-                  className={`text-xs font-medium ${
-                    dxyChange >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}
-                >
-                  {dxyChange >= 0 ? '+' : ''}{dxyChange.toFixed(2)}%
-                </span>
-              )}
-            </div>
-            <p className={`text-sm font-semibold mt-1 ${strengthColor}`}>
-              {strengthLevel}
-            </p>
-          </>
-        )}
-      </div>
-    </div>
+    <MarketIndexCard
+      icon={DollarSign}
+      iconClass={iconColor}
+      bgColor={bgColor}
+      title={t(title)}
+      subtitle={subtitle ? t(subtitle) : undefined}
+      loading={loading}
+      value={dxyPrice !== null ? dxyPrice.toFixed(2) : 'N/A'}
+      valueClass={strengthColor}
+      change={dxyChange}
+      changePositiveClass="text-green-600 dark:text-green-400"
+      changeNegativeClass="text-red-600 dark:text-red-400"
+      level={strengthLevel}
+    />
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import GridLayout, { Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -15,6 +15,7 @@ import { DashboardProvider } from '@/contexts/DashboardContext'
 import { getWidget } from '../widgets/registry'
 import { extractBaseWidgetId } from '../utils/widgetUtils'
 import { WidgetContext } from '../types'
+import { cleanLayout, compactLayout } from '../utils/layoutCompaction'
 
 interface DashboardGridProps {
   metrics: {
@@ -72,125 +73,12 @@ export default function DashboardGrid({
   const portfolioCurrency = activePortfolio?.base_currency || 'USD'
   const { t } = useTranslation()
 
-  /**
-   * Compact layout vertically - removes gaps between widgets
-   * This ensures widgets are tightly packed without empty spaces
-   */
-  // Clean layout utility - removes invalid properties
-  const cleanLayout = useCallback((layout: Layout[]): Layout[] => {
-    return layout.map(item => {
-      const cleaned: Layout = {
-        i: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-      }
-      
-      // Only include minW/minH if they're valid numbers
-      if (typeof item.minW === 'number' && isFinite(item.minW)) {
-        cleaned.minW = item.minW
-      }
-      if (typeof item.minH === 'number' && isFinite(item.minH)) {
-        cleaned.minH = item.minH
-      }
-      
-      // Only include maxW/maxH if they're valid numbers (not Infinity)
-      if (typeof item.maxW === 'number' && isFinite(item.maxW)) {
-        cleaned.maxW = item.maxW
-      }
-      if (typeof item.maxH === 'number' && isFinite(item.maxH)) {
-        cleaned.maxH = item.maxH
-      }
-      
-      return cleaned
-    })
-  }, [])
-
-  const compactLayoutUtil = useCallback((layout: Layout[], breakpoint: 'lg' | 'md' | 'sm'): Layout[] => {
-    if (!layout || layout.length === 0) {
-      return layout
-    }
-    
-    // Clean the layout first to remove any invalid properties
-    const cleanedLayout = cleanLayout(layout)
-    
-    // Sort by y position, then x position
-    const sorted = [...cleanedLayout].sort((a, b) => {
-      if (a.y === b.y) return a.x - b.x
-      return a.y - b.y
-    })
-    
-    // Track occupied spaces using a grid
-    const cols = breakpoint === 'lg' ? 12 : breakpoint === 'md' ? 8 : 4
-    const grid: boolean[][] = []
-    
-    // Initialize grid helper function
-    const ensureGridRow = (row: number) => {
-      if (!grid[row]) grid[row] = Array(cols).fill(false)
-    }
-    
-    // Check if a position is available
-    const isPositionAvailable = (x: number, y: number, w: number, h: number): boolean => {
-      for (let dy = 0; dy < h; dy++) {
-        const row = y + dy
-        ensureGridRow(row)
-        for (let dx = 0; dx < w; dx++) {
-          const col = x + dx
-          if (col >= cols || grid[row][col]) {
-            return false
-          }
-        }
-      }
-      return true
-    }
-    
-    // Mark position as occupied
-    const markOccupied = (x: number, y: number, w: number, h: number) => {
-      for (let dy = 0; dy < h; dy++) {
-        const row = y + dy
-        ensureGridRow(row)
-        for (let dx = 0; dx < w; dx++) {
-          const col = x + dx
-          if (col < cols) {
-            grid[row][col] = true
-          }
-        }
-      }
-    }
-    
-    // Place each widget in the next available position
-    const compacted = sorted.map(item => {
-      // Start from y=0 and find the first available position
-      let targetY = 0
-      
-      // Keep moving down until we find a spot where this widget fits
-      while (targetY < 1000) { // Safety limit
-        if (isPositionAvailable(item.x, targetY, item.w, item.h)) {
-          // Found a valid position!
-          break
-        }
-        targetY++
-      }
-      
-      // Mark this space as occupied
-      markOccupied(item.x, targetY, item.w, item.h)
-      
-      return {
-        ...item,
-        y: targetY
-      }
-    })
-    
-    return compacted
-  }, [cleanLayout])
-
   // Reload layouts when userId changes (layouts are now global across portfolios)
   useEffect(() => {
     const loadedLayouts = {
-      lg: compactLayoutUtil(loadLayout('lg', userId), 'lg'),
-      md: compactLayoutUtil(loadLayout('md', userId), 'md'),
-      sm: compactLayoutUtil(loadLayout('sm', userId), 'sm'),
+      lg: compactLayout(loadLayout('lg', userId), 'lg'),
+      md: compactLayout(loadLayout('md', userId), 'md'),
+      sm: compactLayout(loadLayout('sm', userId), 'sm'),
     }
     setLayouts(loadedLayouts)
     
@@ -198,16 +86,16 @@ export default function DashboardGrid({
     saveLayout(loadedLayouts.lg, 'lg', userId)
     saveLayout(loadedLayouts.md, 'md', userId)
     saveLayout(loadedLayouts.sm, 'sm', userId)
-  }, [userId, compactLayoutUtil])
+  }, [userId])
 
   // Reload layouts when requested
   useEffect(() => {
     if (onRefreshVisibility) {
       const handleRefresh = () => {
         const loadedLayouts = {
-          lg: compactLayoutUtil(loadLayout('lg', userId), 'lg'),
-          md: compactLayoutUtil(loadLayout('md', userId), 'md'),
-          sm: compactLayoutUtil(loadLayout('sm', userId), 'sm'),
+          lg: compactLayout(loadLayout('lg', userId), 'lg'),
+          md: compactLayout(loadLayout('md', userId), 'md'),
+          sm: compactLayout(loadLayout('sm', userId), 'sm'),
         }
         setLayouts(loadedLayouts)
         
@@ -220,7 +108,7 @@ export default function DashboardGrid({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).__refreshDashboardVisibility = handleRefresh
     }
-  }, [onRefreshVisibility, userId, compactLayoutUtil])
+  }, [onRefreshVisibility, userId])
 
   // Determine breakpoint based on window width
   useEffect(() => {
