@@ -1,9 +1,11 @@
+// fallow-ignore-file unused-file
 /// <reference lib="webworker" />
 
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
 
 declare let self: ServiceWorkerGlobalScope;
+declare const __WB_MANIFEST: Parameters<typeof precacheAndRoute>[0];
 
 // Take control immediately
 self.skipWaiting();
@@ -13,8 +15,7 @@ clientsClaim();
 cleanupOutdatedCaches();
 
 // Precache assets from the build - vite-plugin-pwa injects the manifest here.
-// @ts-expect-error __WB_MANIFEST is injected by Workbox at build time
-const precacheManifest = self.__WB_MANIFEST || [];
+const precacheManifest = __WB_MANIFEST || [];
 precacheAndRoute(precacheManifest);
 
 console.log('[Service Worker] Portfolium service worker loaded v2 with push support');

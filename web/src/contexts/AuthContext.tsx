@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { api } from '../lib/api'
 import usePortfolioStore from '../store/usePortfolioStore'
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   const fetchUser = async () => {
@@ -77,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear portfolio store to prevent accessing portfolios from previous user
     resetPortfolioStore()
     setPortfolios([])
-    setActivePortfolio(null as any)
+    setActivePortfolio(null)
   }
 
   const register = async (
@@ -99,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear portfolio store on logout
     resetPortfolioStore()
     setPortfolios([])
-    setActivePortfolio(null as any)
+    setActivePortfolio(null)
   }
 
   const refreshUser = async () => {

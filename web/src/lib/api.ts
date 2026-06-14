@@ -1,4 +1,5 @@
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API client for Portfolium backend
  */

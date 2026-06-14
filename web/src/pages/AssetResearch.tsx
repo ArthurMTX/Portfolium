@@ -1591,7 +1591,6 @@ function EtfTopHoldingsCard({
   overlap: AssetEtfCompositionDTO['portfolio_overlap'] | null
 }) {
   const overlapHoldings = overlap?.holdings || []
-  const largest = overlap?.largest_overlapping_holding || null
   const overlapBySymbol = new Map(overlapHoldings.map((holding) => [holding.symbol, holding]))
   const hasOverlapData = Boolean(overlap)
 

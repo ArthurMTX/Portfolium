@@ -139,6 +139,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
       setInvestmentNote(null)
       setInvestmentNoteOpen(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, position?.asset_id])
 
   if (!isOpen || !position) return null

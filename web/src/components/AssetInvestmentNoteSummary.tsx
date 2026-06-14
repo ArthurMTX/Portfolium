@@ -34,7 +34,7 @@ export default function AssetInvestmentNoteSummary({
   const hasContent = hasNoteContent(note)
   const targetPrice = note?.target_price
   const formattedTargetPrice =
-    targetPrice !== null && !Number.isNaN(targetPrice)
+    targetPrice != null && !Number.isNaN(targetPrice)
       ? formatCurrency(targetPrice, currency || 'USD')
       : null
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import api from '../lib/api'

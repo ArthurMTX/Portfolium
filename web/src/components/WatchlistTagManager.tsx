@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import { X, Plus, Trash2, Check, Pencil, Tag, Search } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import iconTags from 'lucide-static/tags.json'
 
@@ -67,7 +68,8 @@ const kebabToPascal = (str: string): string => {
 // Render an icon by name - exported for use in other components
 const IconComponent = ({ name, size = 16, className = '' }: { name: string; size?: number; className?: string }) => {
   const pascalName = kebabToPascal(name)
-  const Icon = (LucideIcons as any)[pascalName]
+  const iconMap = LucideIcons as unknown as Record<string, LucideIcon | undefined>
+  const Icon = iconMap[pascalName]
   if (!Icon) return <Tag size={size} className={className} />
   return <Icon size={size} className={className} />
 }

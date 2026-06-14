@@ -27,7 +27,6 @@ export default function MetricWidget({
   iconBgColor,
   iconColor,
   valueColor = 'text-neutral-900 dark:text-neutral-100',
-  isPreview: _isPreview = false,
 }: MetricWidgetProps) {
   const { t } = useTranslation()
   
@@ -38,7 +37,6 @@ export default function MetricWidget({
     ? `${t(subtitleKey)}: ${subtitleValue}`  // Label: Value format (e.g., "Fees: $123.45")
     : subtitle  // Plain text or ReactNode
   
-  // isPreview can be used for future optimizations
   return (
     <div className="card h-full flex flex-col p-5">
       <div className="flex items-start gap-2.5 mb-4">

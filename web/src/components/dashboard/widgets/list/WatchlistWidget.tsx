@@ -23,6 +23,22 @@ interface WatchlistWidgetProps extends BaseWidgetProps {
   batchData?: { watchlist?: unknown }
 }
 
+interface BatchWatchlistItem {
+  id: number
+  symbol?: string
+  name?: string | null
+  current_price?: number | null
+  daily_change_pct?: number | null
+  currency?: string
+  asset_type?: string | null
+  asset?: {
+    symbol?: string
+    name?: string | null
+    currency?: string
+    asset_type?: string | null
+  }
+}
+
 // Mock watchlist for preview mode
 const mockWatchlist: WatchlistItem[] = [
   {
@@ -88,7 +104,7 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
 
   // Process batch data to match expected format
   const batchWatchlistData = hasBatchData 
-    ? (batchData.watchlist as any[]).slice(0, 5).map(item => ({
+    ? (batchData.watchlist as BatchWatchlistItem[]).slice(0, 5).map(item => ({
         id: item.id,
         symbol: item.asset?.symbol || item.symbol,
         name: item.asset?.name || item.name,

@@ -71,7 +71,7 @@ interface PortfolioStore {
 
   // Actions
   setPortfolios: (portfolios: Portfolio[]) => void
-  setActivePortfolio: (id: number) => void
+  setActivePortfolio: (id: number | null) => void
   setPositions: (positions: Position[]) => void
   setMetrics: (metrics: PortfolioMetrics) => void
   setTransactions: (transactions: Transaction[]) => void

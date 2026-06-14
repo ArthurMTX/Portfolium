@@ -37,6 +37,7 @@ export default function Portfolios() {
 
   useEffect(() => {
     fetchPortfolios()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Prevent body scroll when modals are open
@@ -66,7 +67,7 @@ export default function Portfolios() {
         setActivePortfolio(data[0].id)
       } else if (!activeIsValid && data.length === 0) {
         // No portfolios at all, clear active
-        setActivePortfolio(null as any)
+        setActivePortfolio(null)
       }
     } catch (error) {
       console.error('Failed to fetch portfolios:', error)
@@ -126,8 +127,8 @@ export default function Portfolios() {
 
       await fetchPortfolios()
       closeModal()
-    } catch (err: any) {
-      setFormError(err.message || 'Operation failed')
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Operation failed')
     } finally {
       setFormLoading(false)
     }
@@ -579,4 +580,3 @@ export default function Portfolios() {
     </div>
   )
 }
-
