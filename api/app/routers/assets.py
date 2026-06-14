@@ -9,9 +9,12 @@ import json
 import time
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import SessionLocal, get_db
 from app.schemas import (
     Asset,
@@ -66,6 +69,29 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 cache_service = CacheService()
 logger = logging.getLogger(__name__)
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+
+
+def get_optional_current_user(
+    token: Optional[str] = Depends(optional_oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("user_id")
+    except JWTError:
+        return None
+
+    if user_id is None:
+        return None
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        return None
+    return user
 
 
 def _asset_market_cap_bucket(asset: AssetModel) -> str:
@@ -759,10 +785,19 @@ def get_asset_research_metadata(symbol: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{symbol}/etf-composition", response_model=AssetEtfCompositionResponse)
-def get_asset_etf_composition(symbol: str, db: Session = Depends(get_db)):
+def get_asset_etf_composition(
+    symbol: str,
+    portfolio_id: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+):
     """Get Yahoo Finance ETF composition data when available."""
     service = AssetResearchService(db)
-    return service.get_etf_composition(symbol)
+    return service.get_etf_composition(
+        symbol,
+        portfolio_id=portfolio_id,
+        user_id=current_user.id if current_user else None,
+    )
 
 
 @router.get("/themes/taxonomy-suggestions", response_model=List[AssetThemeTaxonomySuggestion])

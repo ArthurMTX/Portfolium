@@ -489,6 +489,25 @@ export interface AssetEtfCompositionHoldingDTO {
   weight: number
 }
 
+export interface AssetEtfThemeExposureDTO {
+  theme: string
+  weight: number
+}
+
+export interface AssetEtfPortfolioOverlapHoldingDTO {
+  symbol: string
+  name: string
+  weight: number
+}
+
+export interface AssetEtfPortfolioOverlapDTO {
+  portfolio_id?: number | null
+  overlap_weight: number
+  overlapping_holdings_count: number
+  largest_overlapping_holding?: AssetEtfPortfolioOverlapHoldingDTO | null
+  holdings: AssetEtfPortfolioOverlapHoldingDTO[]
+}
+
 export interface AssetEtfCompositionSectorWeightingDTO {
   sector: string
   weight: number
@@ -504,9 +523,14 @@ export interface AssetEtfCompositionDTO {
   holdings_available?: boolean
   sector_weightings_available?: boolean
   asset_classes_available?: boolean
+  theme_exposure_available?: boolean
+  theme_coverage?: number
+  portfolio_overlap_available?: boolean
   total_top10_weight?: number | null
   largest_holding?: AssetEtfCompositionHoldingDTO | null
   holdings?: AssetEtfCompositionHoldingDTO[]
+  theme_exposure?: AssetEtfThemeExposureDTO[]
+  portfolio_overlap?: AssetEtfPortfolioOverlapDTO | null
   sector_weightings?: AssetEtfCompositionSectorWeightingDTO[]
   asset_classes?: AssetEtfCompositionAssetClassDTO[]
 }
@@ -1415,8 +1439,11 @@ class ApiClient {
     return this.request<AssetResearchMetadataDTO>(`/assets/research/${encodeURIComponent(symbol)}/metadata`)
   }
 
-  async getAssetEtfComposition(symbol: string) {
-    return this.request<AssetEtfCompositionDTO>(`/assets/${encodeURIComponent(symbol)}/etf-composition`)
+  async getAssetEtfComposition(symbol: string, portfolioId?: number | null) {
+    const params = new URLSearchParams()
+    if (portfolioId) params.set('portfolio_id', String(portfolioId))
+    const query = params.toString()
+    return this.request<AssetEtfCompositionDTO>(`/assets/${encodeURIComponent(symbol)}/etf-composition${query ? `?${query}` : ''}`)
   }
 
   async getAssetInvestmentNote(assetId: number) {

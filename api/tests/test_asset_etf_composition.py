@@ -1,10 +1,12 @@
+from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
-from app.models import Asset
-from app.models.enums import AssetClass
+from app.models import Asset, AssetThemeClassification, Portfolio, Transaction, User
+from app.models.enums import AssetClass, TransactionType
 from app.services.asset_research import AssetResearchService
 
 
@@ -114,11 +116,119 @@ def test_etf_composition_returns_unavailable_for_non_etf(test_db, monkeypatch):
     assert result == {"available": False}
 
 
+def test_etf_theme_exposure_reuses_existing_holding_classifications(test_db):
+    holdings = [
+        Asset(symbol="AAPL", name="Apple Inc", currency="USD", class_=AssetClass.STOCK, asset_type="EQUITY"),
+        Asset(symbol="MSFT", name="Microsoft Corp", currency="USD", class_=AssetClass.STOCK, asset_type="EQUITY"),
+        Asset(symbol="NVDA", name="NVIDIA Corp", currency="USD", class_=AssetClass.STOCK, asset_type="EQUITY"),
+    ]
+    test_db.add_all(holdings)
+    test_db.commit()
+
+    by_symbol = {asset.symbol: asset for asset in holdings}
+    test_db.add_all([
+        AssetThemeClassification(
+            asset_id=by_symbol["AAPL"].id,
+            themes=[
+                {"label": "AI Infrastructure", "weight": 0.75, "confidence": 0.9, "tier": "primary"},
+                {"label": "Cloud Platforms", "weight": 0.25, "confidence": 0.8, "tier": "secondary"},
+            ],
+            method="gpt",
+            source="gemini",
+        ),
+        AssetThemeClassification(
+            asset_id=by_symbol["MSFT"].id,
+            themes=[
+                {"label": "Cloud Platforms", "weight": 1.0, "confidence": 0.9, "tier": "primary"},
+            ],
+            method="gpt",
+            source="gemini",
+        ),
+    ])
+    test_db.commit()
+
+    service = AssetResearchService(test_db)
+    payload = service._enrich_etf_composition({
+        "available": True,
+        "holdings": [
+            {"symbol": "NVDA", "name": "NVIDIA Corp", "weight": 0.08},
+            {"symbol": "AAPL", "name": "Apple Inc", "weight": 0.07},
+            {"symbol": "MSFT", "name": "Microsoft Corp", "weight": 0.05},
+        ],
+    })
+
+    exposure = {item["theme"]: item["weight"] for item in payload["theme_exposure"]}
+    assert payload["theme_exposure_available"] is True
+    assert payload["theme_coverage"] == pytest.approx(0.12)
+    assert exposure["Cloud Platforms"] == pytest.approx(0.5625)
+    assert exposure["AI Infrastructure"] == pytest.approx(0.4375)
+    assert "NVDA" not in exposure
+
+
+def test_etf_portfolio_overlap_uses_selected_users_current_holdings(test_db, test_user):
+    portfolio = Portfolio(user_id=test_user.id, name="Main", base_currency="USD")
+    other_user = User(username="other", email="other@example.com", hashed_password="hash", is_active=True)
+    test_db.add_all([portfolio, other_user])
+    test_db.commit()
+    other_portfolio = Portfolio(user_id=other_user.id, name="Other", base_currency="USD")
+    assets = [
+        Asset(symbol="AAPL", name="Apple Inc", currency="USD", class_=AssetClass.STOCK, asset_type="EQUITY"),
+        Asset(symbol="MSFT", name="Microsoft Corp", currency="USD", class_=AssetClass.STOCK, asset_type="EQUITY"),
+        Asset(symbol="NVDA", name="NVIDIA Corp", currency="USD", class_=AssetClass.STOCK, asset_type="EQUITY"),
+    ]
+    test_db.add_all([other_portfolio, *assets])
+    test_db.commit()
+
+    by_symbol = {asset.symbol: asset for asset in assets}
+    test_db.add_all([
+        Transaction(
+            portfolio_id=portfolio.id,
+            asset_id=by_symbol["AAPL"].id,
+            tx_date=date.today(),
+            type=TransactionType.BUY,
+            quantity=Decimal("2"),
+            price=Decimal("100"),
+            currency="USD",
+        ),
+        Transaction(
+            portfolio_id=other_portfolio.id,
+            asset_id=by_symbol["MSFT"].id,
+            tx_date=date.today(),
+            type=TransactionType.BUY,
+            quantity=Decimal("2"),
+            price=Decimal("100"),
+            currency="USD",
+        ),
+    ])
+    test_db.commit()
+
+    service = AssetResearchService(test_db)
+    payload = service._enrich_etf_composition(
+        {
+            "available": True,
+            "holdings": [
+                {"symbol": "NVDA", "name": "NVIDIA Corp", "weight": 0.08},
+                {"symbol": "AAPL", "name": "Apple Inc", "weight": 0.07},
+                {"symbol": "MSFT", "name": "Microsoft Corp", "weight": 0.05},
+            ],
+        },
+        portfolio_id=portfolio.id,
+        user_id=test_user.id,
+    )
+
+    overlap = payload["portfolio_overlap"]
+    assert payload["portfolio_overlap_available"] is True
+    assert overlap["overlap_weight"] == pytest.approx(0.07)
+    assert overlap["overlapping_holdings_count"] == 1
+    assert overlap["largest_overlapping_holding"]["symbol"] == "AAPL"
+    assert [item["symbol"] for item in overlap["holdings"]] == ["AAPL"]
+
+
 def test_etf_composition_endpoint_returns_payload(client, monkeypatch):
     monkeypatch.setattr(
         AssetResearchService,
         "get_etf_composition",
-        lambda self, symbol: {
+        lambda self, symbol, *args, **kwargs: {
             "available": True,
             "holdings_available": False,
             "sector_weightings_available": False,

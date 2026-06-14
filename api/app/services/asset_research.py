@@ -2,16 +2,17 @@
 Asset research service - asset-level analytics that do not require ownership.
 """
 import logging
+import copy
 import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, case, desc, func, literal
 from sqlalchemy.orm import Session
 
 from app.crud import assets as crud_assets
-from app.models import Asset, Price
+from app.models import Asset, AssetThemeClassification, Portfolio, Price, Transaction, TransactionType
 from app.schemas import AssetCreate, PriceQuote
 from app.services.cache import CacheService
 from app.services.fundamentals import FundamentalsService
@@ -126,14 +127,22 @@ class AssetResearchService:
         self._ensure_market_metadata(asset)
         return self._get_metadata(asset)
 
-    def get_etf_composition(self, symbol: str) -> Dict[str, Any]:
-        asset = self._get_or_create_asset(symbol.strip().upper())
-        cache_key = f"asset_etf_composition:{asset.symbol}"
-        return self.cache_service.get_or_set(
+    def get_etf_composition(
+        self,
+        symbol: str,
+        portfolio_id: Optional[int] = None,
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        normalized_symbol = symbol.strip().upper()
+        asset = crud_assets.get_asset_by_symbol(self.db, normalized_symbol)
+        cache_symbol = asset.symbol if asset else normalized_symbol
+        cache_key = f"asset_etf_composition:{cache_symbol}"
+        payload = self.cache_service.get_or_set(
             cache_key,
-            lambda: self._build_etf_composition(asset.symbol),
+            lambda: self._build_etf_composition(cache_symbol),
             ttl=self.ETF_COMPOSITION_CACHE_TTL_SECONDS,
         )
+        return self._enrich_etf_composition(copy.deepcopy(payload), portfolio_id=portfolio_id, user_id=user_id)
 
     @staticmethod
     def _get_metadata(asset: Asset) -> Dict[str, Any]:
@@ -304,6 +313,193 @@ class AssetResearchService:
             payload["largest_holding"] = holdings[0]
 
         return payload
+
+    def _enrich_etf_composition(
+        self,
+        payload: Dict[str, Any],
+        portfolio_id: Optional[int] = None,
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        payload.setdefault("theme_exposure_available", False)
+        payload.setdefault("theme_coverage", 0)
+        payload.setdefault("theme_exposure", [])
+        payload.setdefault("portfolio_overlap_available", False)
+        payload.setdefault("portfolio_overlap", None)
+
+        if not payload.get("available"):
+            return payload
+
+        holdings = payload.get("holdings") or []
+        if not holdings:
+            if portfolio_id is not None:
+                payload["portfolio_overlap_available"] = True
+                payload["portfolio_overlap"] = self._empty_portfolio_overlap(portfolio_id)
+            return payload
+
+        holdings_by_symbol = {
+            str(item.get("symbol") or "").strip().upper(): item
+            for item in holdings
+            if isinstance(item, dict) and str(item.get("symbol") or "").strip()
+        }
+        symbols = list(holdings_by_symbol)
+        if not symbols:
+            return payload
+
+        position_subquery = None
+        if portfolio_id is not None and user_id is not None:
+            position_quantity = func.sum(
+                case(
+                    (Transaction.type.in_([
+                        TransactionType.BUY,
+                        TransactionType.TRANSFER_IN,
+                        TransactionType.CONVERSION_IN,
+                    ]), Transaction.quantity),
+                    (Transaction.type.in_([
+                        TransactionType.SELL,
+                        TransactionType.TRANSFER_OUT,
+                        TransactionType.CONVERSION_OUT,
+                    ]), -Transaction.quantity),
+                    else_=0,
+                )
+            ).label("quantity")
+            position_subquery = (
+                self.db.query(
+                    Transaction.asset_id.label("asset_id"),
+                    position_quantity,
+                )
+                .join(Portfolio, Portfolio.id == Transaction.portfolio_id)
+                .filter(
+                    Transaction.portfolio_id == portfolio_id,
+                    Portfolio.user_id == user_id,
+                    Transaction.type != TransactionType.SPLIT,
+                )
+                .group_by(Transaction.asset_id)
+                .subquery()
+            )
+
+        query = (
+            self.db.query(
+                Asset.symbol,
+                Asset.name,
+                AssetThemeClassification.themes,
+                position_subquery.c.quantity if position_subquery is not None else literal(None).label("quantity"),
+            )
+            .outerjoin(AssetThemeClassification, AssetThemeClassification.asset_id == Asset.id)
+        )
+        if position_subquery is not None:
+            query = query.outerjoin(position_subquery, position_subquery.c.asset_id == Asset.id)
+
+        rows = query.filter(Asset.symbol.in_(symbols)).all()
+
+        theme_totals: Dict[str, Decimal] = {}
+        classified_weight = Decimal(0)
+        overlapping_holdings: list[Dict[str, Any]] = []
+
+        for row in rows:
+            holding = holdings_by_symbol.get(str(row.symbol or "").upper())
+            if not holding:
+                continue
+
+            holding_weight = Decimal(str(holding.get("weight") or 0))
+            if holding_weight <= 0:
+                continue
+
+            theme_weights = self._extract_theme_allocations(row.themes)
+            if theme_weights:
+                classified_weight += holding_weight
+                for theme, allocation in theme_weights:
+                    theme_totals[theme] = theme_totals.get(theme, Decimal(0)) + holding_weight * allocation
+
+            quantity = getattr(row, "quantity", None)
+            if quantity is not None and Decimal(str(quantity)) > 0:
+                overlapping_holdings.append({
+                    "symbol": str(row.symbol),
+                    "name": str(row.name or holding.get("name") or row.symbol),
+                    "weight": float(holding_weight),
+                })
+
+        total_theme_weight = sum(theme_totals.values(), Decimal(0))
+        if total_theme_weight > 0:
+            theme_exposure = [
+                {"theme": theme, "weight": float(weight / total_theme_weight)}
+                for theme, weight in theme_totals.items()
+            ]
+            theme_exposure.sort(key=lambda item: item["weight"], reverse=True)
+            payload["theme_exposure"] = theme_exposure[:8]
+            payload["theme_exposure_available"] = True
+            payload["theme_coverage"] = float(min(classified_weight, Decimal(1)))
+
+        if portfolio_id is not None:
+            overlapping_holdings.sort(key=lambda item: item["weight"], reverse=True)
+            overlap_weight = sum(Decimal(str(item["weight"])) for item in overlapping_holdings)
+            payload["portfolio_overlap_available"] = True
+            payload["portfolio_overlap"] = {
+                "portfolio_id": portfolio_id,
+                "overlap_weight": float(overlap_weight),
+                "overlapping_holdings_count": len(overlapping_holdings),
+                "largest_overlapping_holding": overlapping_holdings[0] if overlapping_holdings else None,
+                "holdings": overlapping_holdings,
+            }
+
+        return payload
+
+    @staticmethod
+    def _empty_portfolio_overlap(portfolio_id: int) -> Dict[str, Any]:
+        return {
+            "portfolio_id": portfolio_id,
+            "overlap_weight": 0,
+            "overlapping_holdings_count": 0,
+            "largest_overlapping_holding": None,
+            "holdings": [],
+        }
+
+    @staticmethod
+    def _extract_theme_allocations(themes: Any) -> list[tuple[str, Decimal]]:
+        extracted: list[tuple[str, Optional[Decimal]]] = []
+        seen_labels: set[str] = set()
+
+        for raw_theme in themes or []:
+            if isinstance(raw_theme, dict):
+                theme_payload = raw_theme.get("theme") if isinstance(raw_theme.get("theme"), dict) else raw_theme
+                raw_label = theme_payload.get("label")
+                raw_weight = theme_payload.get("weight", raw_theme.get("weight"))
+            else:
+                raw_label = getattr(raw_theme, "label", None)
+                raw_weight = getattr(raw_theme, "weight", None)
+
+            if raw_label is None:
+                continue
+
+            label = str(raw_label).strip()
+            normalized_label = label.casefold()
+            if not label or normalized_label in seen_labels:
+                continue
+
+            weight = None
+            if raw_weight is not None:
+                try:
+                    parsed_weight = Decimal(str(raw_weight))
+                    if parsed_weight > 0:
+                        weight = parsed_weight
+                except Exception:
+                    weight = None
+
+            seen_labels.add(normalized_label)
+            extracted.append((label, weight))
+
+        if not extracted:
+            return []
+
+        if all(weight is not None for _, weight in extracted):
+            total_weight = sum(weight for _, weight in extracted if weight is not None)
+            if total_weight > 0:
+                return [
+                    (label, (weight or Decimal(0)) / total_weight)
+                    for label, weight in extracted
+                ]
+
+        equal_weight = Decimal(1) / Decimal(len(extracted))
+        return [(label, equal_weight) for label, _ in extracted]
 
     def _get_funds_data(self, symbol: str) -> Any:
         import yfinance as yf

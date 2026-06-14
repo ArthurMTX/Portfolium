@@ -517,6 +517,28 @@ class AssetEtfCompositionHolding(BaseModel):
     weight: float
 
 
+class AssetEtfThemeExposure(BaseModel):
+    """Single theme exposure row aggregated from classified ETF holdings."""
+    theme: str
+    weight: float
+
+
+class AssetEtfPortfolioOverlapHolding(BaseModel):
+    """Single ETF holding that is also currently owned in the selected portfolio."""
+    symbol: str
+    name: str
+    weight: float
+
+
+class AssetEtfPortfolioOverlap(BaseModel):
+    """Overlap between ETF holdings and the selected user portfolio."""
+    portfolio_id: Optional[int] = None
+    overlap_weight: float = 0
+    overlapping_holdings_count: int = 0
+    largest_overlapping_holding: Optional[AssetEtfPortfolioOverlapHolding] = None
+    holdings: List[AssetEtfPortfolioOverlapHolding] = Field(default_factory=list)
+
+
 class AssetEtfCompositionSectorWeighting(BaseModel):
     """Single sector allocation row."""
     sector: str
@@ -535,9 +557,14 @@ class AssetEtfCompositionResponse(BaseModel):
     holdings_available: bool = False
     sector_weightings_available: bool = False
     asset_classes_available: bool = False
+    theme_exposure_available: bool = False
+    theme_coverage: float = 0
+    portfolio_overlap_available: bool = False
     total_top10_weight: Optional[float] = None
     largest_holding: Optional[AssetEtfCompositionHolding] = None
     holdings: List[AssetEtfCompositionHolding] = Field(default_factory=list)
+    theme_exposure: List[AssetEtfThemeExposure] = Field(default_factory=list)
+    portfolio_overlap: Optional[AssetEtfPortfolioOverlap] = None
     sector_weightings: List[AssetEtfCompositionSectorWeighting] = Field(default_factory=list)
     asset_classes: List[AssetEtfCompositionAssetClass] = Field(default_factory=list)
 
