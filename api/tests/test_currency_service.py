@@ -1,6 +1,8 @@
 """
 Tests for currency conversion service
 """
+import logging
+
 import pytest
 from decimal import Decimal
 from unittest.mock import patch
@@ -169,6 +171,27 @@ class TestCurrencyCaching:
             
             # Provider should be called twice
             assert len(provider.history_calls) == 2
+
+    def test_rate_limited_no_cache_warning_is_throttled(self, caplog):
+        """Avoid logging one warning per conversion when the FX circuit breaker is open."""
+        CurrencyService.clear_cache()
+
+        with (
+            patch("app.services.currency._is_yf_rate_limited", return_value=True),
+            patch("app.services.currency.get_market_data_provider") as get_provider,
+            caplog.at_level(logging.WARNING, logger="app.services.currency"),
+        ):
+            assert CurrencyService.get_exchange_rate("USD", "EUR") is None
+            assert CurrencyService.get_exchange_rate("USD", "EUR") is None
+            assert CurrencyService.get_exchange_rate("USD", "EUR") is None
+
+        assert get_provider.call_count == 0
+        warnings = [
+            record.message
+            for record in caplog.records
+            if record.message == "Rate limited, no cached rate for USDEUR"
+        ]
+        assert warnings == ["Rate limited, no cached rate for USDEUR"]
 
 
 @pytest.mark.integration

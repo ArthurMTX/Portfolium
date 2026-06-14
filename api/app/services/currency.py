@@ -14,8 +14,10 @@ logger = logging.getLogger(__name__)
 # Cache for exchange rates (currency_pair -> (rate, timestamp))
 _exchange_rate_cache: Dict[str, tuple[Decimal, datetime]] = {}
 _historical_exchange_rate_cache: Dict[str, tuple[Decimal, datetime]] = {}
+_rate_limited_missing_rate_logs: Dict[str, datetime] = {}
 _CACHE_DURATION = timedelta(hours=4)  # Cache rates for 4 hours (reduce API calls)
 _HISTORICAL_CACHE_DURATION = timedelta(days=7)
+_RATE_LIMITED_MISSING_RATE_LOG_INTERVAL = timedelta(minutes=5)
 
 
 def _is_yf_rate_limited() -> bool:
@@ -25,6 +27,16 @@ def _is_yf_rate_limited() -> bool:
         return is_rate_limited()
     except ImportError:
         return False
+
+
+def _should_log_rate_limited_missing_rate(cache_key: str) -> bool:
+    """Limit repeated no-cache FX warnings for the same currency pair."""
+    now = datetime.utcnow()
+    last_logged_at = _rate_limited_missing_rate_logs.get(cache_key)
+    if last_logged_at and now - last_logged_at < _RATE_LIMITED_MISSING_RATE_LOG_INTERVAL:
+        return False
+    _rate_limited_missing_rate_logs[cache_key] = now
+    return True
 
 
 class CurrencyService:
@@ -69,7 +81,8 @@ class CurrencyService:
         
         # If rate limited and no cache, return None
         if _is_yf_rate_limited():
-            logger.warning(f"Rate limited, no cached rate for {cache_key}")
+            if _should_log_rate_limited_missing_rate(cache_key):
+                logger.warning(f"Rate limited, no cached rate for {cache_key}")
             return None
         
         # Fetch from Yahoo Finance using forex pair format
@@ -343,3 +356,4 @@ class CurrencyService:
     def clear_cache():
         """Clear the exchange rate cache"""
         _exchange_rate_cache.clear()
+        _rate_limited_missing_rate_logs.clear()
