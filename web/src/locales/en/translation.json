@@ -1354,15 +1354,18 @@
     "bySector": "By Sector",
     "byType": "By Type",
     "byCountry": "By Country",
+    "byMarketCap": "By Marketcap",
     "byTheme": "By Theme",
     "sector": "Sector",
     "industry": "Industry",
+    "marketCap": "Marketcap",
     "theme": "Theme",
     "pieChart": "Pie Chart",
     "barChart": "Bar Chart",
     "sectorDistribution": "Sector Distribution",
     "typeDistribution": "Type Distribution",
     "countryDistribution": "Country Distribution",
+    "marketCapDistribution": "Marketcap Distribution",
     "themeDistribution": "Theme Distribution",
     "distribution": "Distribution",
     "andPerformance": "& Performance",
@@ -1376,7 +1379,17 @@
     "details": "Details",
     "industriesIn": "Industries in {{sector}}",
     "loadingIndustries": "Loading industries...",
-    "noIndustriesFound": "No industries found."
+    "noIndustriesFound": "No industries found.",
+    "marketCapBuckets": {
+      "Mega Cap": "Mega Cap",
+      "Large Cap": "Large Cap",
+      "Mid Cap": "Mid Cap",
+      "Small Cap": "Small Cap",
+      "Micro Cap": "Micro Cap",
+      "Funds / ETFs": "Funds / ETFs",
+      "Crypto assets": "Crypto assets",
+      "Market cap unavailable": "Market cap unavailable"
+    }
   },
   "transactionHistory": {
     "title": "Transaction History",

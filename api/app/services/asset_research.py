@@ -44,7 +44,11 @@ class AssetResearchService:
     def get_fundamentals(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         company_info = self._get_company_info(asset.symbol)
-        return self._get_fundamentals(asset.symbol, company_info)
+        fundamentals = self._get_fundamentals(asset.symbol, company_info)
+        if company_info and crud_assets.update_asset_market_cap_from_info(asset, company_info):
+            self.db.commit()
+            self.db.refresh(asset)
+        return fundamentals
 
     def get_business(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
@@ -58,6 +62,9 @@ class AssetResearchService:
 
     def get_themes(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
+        if not AssetThemeService.is_theme_supported_asset(asset):
+            return AssetThemeService.empty_classification_for_asset(asset)
+
         company_info = self._get_company_info(asset.symbol)
         business = self._get_business(asset, company_info)
 

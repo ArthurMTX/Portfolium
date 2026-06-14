@@ -67,6 +67,29 @@ cache_service = CacheService()
 logger = logging.getLogger(__name__)
 
 
+def _asset_market_cap_bucket(asset: AssetModel) -> str:
+    market_cap = asset.market_cap_usd or asset.market_cap
+    if market_cap is not None:
+        parsed_market_cap = Decimal(str(market_cap))
+        if parsed_market_cap >= Decimal("200000000000"):
+            return "Mega Cap"
+        if parsed_market_cap >= Decimal("10000000000"):
+            return "Large Cap"
+        if parsed_market_cap >= Decimal("2000000000"):
+            return "Mid Cap"
+        if parsed_market_cap >= Decimal("300000000"):
+            return "Small Cap"
+        if parsed_market_cap > 0:
+            return "Micro Cap"
+
+    asset_type = (asset.asset_type or "").upper()
+    if asset_type in {"ETF", "FUND", "MUTUALFUND", "MUTUAL_FUND"}:
+        return "Funds / ETFs"
+    if asset_type in {"CRYPTO", "CRYPTOCURRENCY"}:
+        return "Crypto assets"
+    return "Market cap unavailable"
+
+
 @router.get("/themes/hierarchy")
 def get_theme_hierarchy() -> Dict[str, List[str]]:
     """Return the allowed theme hierarchy used by the classifier."""
@@ -425,6 +448,9 @@ def _fetch_theme_company_info(asset):
 def _fetch_theme_company_info_timed(service: AssetThemeService, asset):
     started_at = time.perf_counter()
     info = _fetch_theme_company_info(asset)
+    if crud.update_asset_market_cap_from_info(asset, info):
+        service.db.commit()
+        service.db.refresh(asset)
     service.record_external_timing(
         "Yahoo metadata",
         time.perf_counter() - started_at,
@@ -516,6 +542,14 @@ def _refresh_asset_theme_background(asset_id: int) -> None:
 
         asset = db.query(Asset).filter(Asset.id == asset_id).first()
         if not asset:
+            return
+        if not AssetThemeService.is_theme_supported_asset(asset):
+            logger.info(
+                "Background asset theme generation skipped asset_id=%s symbol=%s reason=non_equity asset_type=%s",
+                asset.id,
+                asset.symbol,
+                asset.asset_type,
+            )
             return
 
         logger.info("Background asset theme generation starting asset_id=%s symbol=%s", asset.id, asset.symbol)
@@ -846,6 +880,17 @@ def classify_asset_themes(
     for symbol in symbols:
         try:
             asset = _get_or_create_classifiable_asset(db, symbol)
+            if not AssetThemeService.is_theme_supported_asset(asset):
+                skipped += 1
+                results.append({
+                    "symbol": asset.symbol,
+                    "status": "skipped",
+                    "company_name": asset.name,
+                    "themes": [],
+                    "taxonomy_gap": None,
+                    "skipped_reason": "non_equity_asset",
+                })
+                continue
 
             existing = service.get_classification(asset.id)
             if payload.missing_only and existing and existing.themes and not payload.force:
@@ -921,6 +966,8 @@ def get_asset_themes(
     asset = crud.get_asset(db, asset_id)
     if not asset:
         raise AssetNotFoundError(id=asset_id)
+    if not AssetThemeService.is_theme_supported_asset(asset):
+        return AssetThemeService.empty_classification_for_asset(asset)
 
     service = AssetThemeService(db)
     classification = service.get_classification_for_fetch(
@@ -954,6 +1001,8 @@ def refresh_asset_themes(
     asset = crud.get_asset(db, asset_id)
     if not asset:
         raise AssetNotFoundError(id=asset_id)
+    if not AssetThemeService.is_theme_supported_asset(asset):
+        return AssetThemeService.empty_classification_for_asset(asset)
 
     service = AssetThemeService(db)
     company_info = _fetch_theme_company_info_timed(service, asset)
@@ -1007,6 +1056,9 @@ def refresh_held_asset_themes(
 
         asset = db.query(Asset).filter(Asset.id == asset_id).first()
         if not asset:
+            skipped += 1
+            continue
+        if not AssetThemeService.is_theme_supported_asset(asset):
             skipped += 1
             continue
 
@@ -2218,6 +2270,114 @@ async def get_types_distribution(
     else:
         result.sort(key=lambda x: x["count"], reverse=True)
     
+    return result
+
+
+@router.get("/distribution/market-caps")
+async def get_market_caps_distribution(
+    metrics_service: MetricsServiceDep,
+    portfolio_id: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distribution of assets by company market-cap bucket with performance metrics.
+
+    Buckets use stored asset market-cap metadata. Funds, crypto assets, and missing
+    equity market caps are shown as separate groups.
+    """
+    from collections import defaultdict
+
+    held_assets_data = await get_held_assets(portfolio_id=portfolio_id, current_user=current_user, db=db)
+    held_asset_ids = [asset["id"] for asset in held_assets_data]
+    asset_models = {
+        asset.id: asset
+        for asset in db.query(AssetModel).filter(AssetModel.id.in_(held_asset_ids)).all()
+    } if held_asset_ids else {}
+
+    positions_map = {}
+    if portfolio_id is not None:
+        positions = await metrics_service.get_positions(portfolio_id)
+        sold_positions = await metrics_service.get_sold_positions_only(portfolio_id)
+        all_positions = positions + sold_positions
+        positions_map = {pos.asset_id: pos for pos in all_positions}
+
+    bucket_data = defaultdict(lambda: {
+        "assets": [],
+        "count": 0,
+        "total_value": Decimal(0),
+        "cost_basis": Decimal(0),
+        "unrealized_pnl": Decimal(0),
+    })
+
+    total_assets = len(held_assets_data)
+    total_portfolio_value = Decimal(0)
+
+    if portfolio_id is not None:
+        total_portfolio_value = sum(
+            (positions_map[asset["id"]].market_value or Decimal(0))
+            for asset in held_assets_data
+            if asset["id"] in positions_map
+        )
+
+    for asset in held_assets_data:
+        asset_model = asset_models.get(asset["id"])
+        bucket = _asset_market_cap_bucket(asset_model) if asset_model else "Market cap unavailable"
+        bucket_data[bucket]["assets"].append(asset["id"])
+        bucket_data[bucket]["count"] += 1
+
+        if portfolio_id is not None and asset["id"] in positions_map:
+            pos = positions_map[asset["id"]]
+            bucket_data[bucket]["total_value"] += pos.market_value or Decimal(0)
+            bucket_data[bucket]["cost_basis"] += pos.cost_basis or Decimal(0)
+            bucket_data[bucket]["unrealized_pnl"] += pos.unrealized_pnl or Decimal(0)
+
+    result = []
+    for bucket, data in bucket_data.items():
+        unrealized_pnl_pct = (
+            (data["unrealized_pnl"] / data["cost_basis"] * 100)
+            if data["cost_basis"] > 0
+            else Decimal(0)
+        )
+
+        if portfolio_id is not None and total_portfolio_value > 0:
+            percentage = float(data["total_value"] / total_portfolio_value * 100)
+        else:
+            percentage = (data["count"] / total_assets * 100) if total_assets > 0 else 0
+
+        asset_positions = []
+        if portfolio_id is not None:
+            bucket_total = data["total_value"]
+            for asset_id in data["assets"]:
+                if asset_id in positions_map:
+                    pos = positions_map[asset_id]
+                    asset_value = pos.market_value or Decimal(0)
+                    asset_pct = float(asset_value / bucket_total * 100) if bucket_total > 0 else 0
+                    asset_positions.append({
+                        "asset_id": asset_id,
+                        "total_value": float(asset_value),
+                        "unrealized_pnl": float(pos.unrealized_pnl or Decimal(0)),
+                        "unrealized_pnl_pct": float(getattr(pos, "unrealized_pnl_pct", None) or Decimal(0)),
+                        "percentage": asset_pct,
+                    })
+
+        result.append({
+            "name": bucket,
+            "count": data["count"],
+            "percentage": percentage,
+            "total_value": float(data["total_value"]),
+            "cost_basis": float(data["cost_basis"]),
+            "unrealized_pnl": float(data["unrealized_pnl"]),
+            "unrealized_pnl_pct": float(unrealized_pnl_pct),
+            "asset_ids": data["assets"],
+            "asset_positions": asset_positions,
+        })
+
+    if portfolio_id is not None:
+        result.sort(key=lambda x: x["total_value"], reverse=True)
+    else:
+        result.sort(key=lambda x: x["count"], reverse=True)
+
     return result
 
 

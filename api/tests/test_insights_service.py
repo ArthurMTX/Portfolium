@@ -4,9 +4,10 @@ Tests for portfolio insights and analytics service
 import pytest
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import Mock, patch, AsyncMock
 
-from app.services.insights import InsightsService
+from app.services.insights import InsightsService, PortfolioInsightsSnapshot
 from app.models import TransactionType
 from tests.factories import (
     UserFactory, PortfolioFactory, AssetFactory, 
@@ -196,6 +197,236 @@ class TestInsightsCaching:
             assert insights2 is not None
             # Cached results should have same values
             assert insights1.total_value == insights2.total_value
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestInsightsDomainSnapshots:
+    """Test domain-level Insights payloads reuse one base snapshot."""
+
+    def _empty_snapshot(self) -> PortfolioInsightsSnapshot:
+        return PortfolioInsightsSnapshot(
+            portfolio_id=1,
+            user_id=2,
+            portfolio=SimpleNamespace(name="Test Portfolio", base_currency="USD"),
+            positions=[],
+            total_value=Decimal(0),
+            total_cost=Decimal(0),
+            asset_map={},
+            effective_metadata={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_attribution_domain_builds_snapshot_once(self):
+        service = InsightsService(Mock())
+        snapshot = self._empty_snapshot()
+        service.build_portfolio_insights_snapshot = AsyncMock(return_value=snapshot)
+
+        result = await service.get_attribution_domain(1, 2)
+
+        service.build_portfolio_insights_snapshot.assert_awaited_once_with(1, 2)
+        assert result.move.portfolio_id == 1
+        assert result.concentration.positions_count == 0
+        assert result.top_contributors == []
+
+    @pytest.mark.asyncio
+    async def test_exposure_domain_reuses_snapshot_for_theme_evolution(self):
+        service = InsightsService(Mock())
+        snapshot = self._empty_snapshot()
+        service.build_portfolio_insights_snapshot = AsyncMock(return_value=snapshot)
+        service.get_theme_evolution = AsyncMock(return_value=[])
+
+        result = await service.get_exposure_domain(1, 2, period="1y")
+
+        service.build_portfolio_insights_snapshot.assert_awaited_once_with(1, 2)
+        service.get_theme_evolution.assert_awaited_once_with(1, "1y", snapshot=snapshot)
+        assert result.theme_exposure == []
+        assert result.portfolio_dna.portfolio_id == 1
+
+    @pytest.mark.asyncio
+    async def test_risk_domain_builds_snapshot_once(self):
+        from app.schemas import BenchmarkComparison, RiskMetrics
+
+        service = InsightsService(Mock())
+        snapshot = self._empty_snapshot()
+        service.build_portfolio_insights_snapshot = AsyncMock(return_value=snapshot)
+        service.get_risk_metrics = AsyncMock(
+            return_value=RiskMetrics(
+                period="1y",
+                volatility=Decimal(0),
+                sharpe_ratio=None,
+                max_drawdown=Decimal(0),
+                max_drawdown_date=None,
+                beta=None,
+                var_95=None,
+                var_99=None,
+                cvar_95=None,
+                cvar_99=None,
+                var_95_1w=None,
+                var_95_1m=None,
+                tail_exposure=None,
+                downside_deviation=Decimal(0),
+            )
+        )
+        service.compare_to_benchmark = AsyncMock(
+            return_value=BenchmarkComparison(
+                benchmark_symbol="SPY",
+                benchmark_name="S&P 500",
+                period="1y",
+                portfolio_return=Decimal(0),
+                benchmark_return=Decimal(0),
+                alpha=Decimal(0),
+                portfolio_series=[],
+                benchmark_series=[],
+                correlation=None,
+            )
+        )
+
+        result = await service.get_risk_domain(1, 2, period="1y", benchmark_symbol="SPY")
+
+        service.build_portfolio_insights_snapshot.assert_awaited_once_with(1, 2)
+        service.get_risk_metrics.assert_awaited_once_with(1, "1y", positions=snapshot.positions)
+        service.compare_to_benchmark.assert_awaited_once_with(1, "SPY", "1y", positions=snapshot.positions)
+        assert result.scenarios
+        assert result.stress_tests == []
+
+    def test_move_summary_splits_best_and_worst_daily_movers(self):
+        service = InsightsService(Mock())
+        snapshot = self._empty_snapshot()
+        snapshot.positions = [
+            SimpleNamespace(
+                asset_id=1,
+                symbol="AAA",
+                name="Alpha",
+                asset_type="EQUITY",
+                market_value=Decimal("1000"),
+                cost_basis=Decimal("900"),
+                daily_change_pct=Decimal("2.0"),
+            ),
+            SimpleNamespace(
+                asset_id=2,
+                symbol="BBB",
+                name="Beta",
+                asset_type="EQUITY",
+                market_value=Decimal("500"),
+                cost_basis=Decimal("600"),
+                daily_change_pct=Decimal("-3.0"),
+            ),
+            SimpleNamespace(
+                asset_id=3,
+                symbol="CCC",
+                name="Gamma",
+                asset_type="EQUITY",
+                market_value=Decimal("250"),
+                cost_basis=Decimal("200"),
+                daily_change_pct=Decimal("1.0"),
+            ),
+        ]
+        snapshot.total_value = Decimal("1750")
+        snapshot.total_cost = Decimal("1700")
+
+        result = service._move_summary_from_snapshot(snapshot)
+
+        assert [item.symbol for item in result.best_movers] == ["AAA", "CCC"]
+        assert [item.symbol for item in result.worst_movers] == ["BBB"]
+        assert result.daily_change_value == Decimal("7.5")
+
+    def test_market_cap_exposure_uses_available_buckets_and_explicit_unknowns(self):
+        service = InsightsService(Mock())
+        snapshot = self._empty_snapshot()
+        snapshot.positions = [
+            SimpleNamespace(
+                asset_id=1,
+                symbol="MEGA",
+                asset_type="EQUITY",
+                market_value=Decimal("1000"),
+                cost_basis=Decimal("800"),
+                unrealized_pnl=Decimal("200"),
+            ),
+            SimpleNamespace(
+                asset_id=2,
+                symbol="ETF",
+                asset_type="ETF",
+                market_value=Decimal("500"),
+                cost_basis=Decimal("500"),
+                unrealized_pnl=Decimal("0"),
+            ),
+            SimpleNamespace(
+                asset_id=3,
+                symbol="BTC",
+                asset_type="CRYPTOCURRENCY",
+                market_value=Decimal("250"),
+                cost_basis=Decimal("200"),
+                unrealized_pnl=Decimal("50"),
+            ),
+            SimpleNamespace(
+                asset_id=4,
+                symbol="UNK",
+                asset_type="EQUITY",
+                market_value=Decimal("125"),
+                cost_basis=Decimal("100"),
+                unrealized_pnl=Decimal("25"),
+            ),
+        ]
+        snapshot.total_value = Decimal("1875")
+        snapshot.total_cost = Decimal("1600")
+        snapshot.asset_map = {
+            1: SimpleNamespace(market_cap=Decimal("250000000000"), market_cap_usd=Decimal("250000000000"), asset_type="EQUITY"),
+            2: SimpleNamespace(market_cap=None, market_cap_usd=None, asset_type="ETF"),
+            3: SimpleNamespace(market_cap=None, market_cap_usd=None, asset_type="CRYPTOCURRENCY"),
+            4: SimpleNamespace(market_cap=None, market_cap_usd=None, asset_type="EQUITY"),
+        }
+
+        result = service._group_contribution_from_snapshot(snapshot, "market_cap")
+        labels = {item.name for item in result}
+
+        assert labels == {"Mega Cap", "Funds / ETFs", "Crypto assets", "Market cap unavailable"}
+
+    def test_provider_market_cap_metadata_is_persisted_on_asset(self):
+        from app.crud.assets import update_asset_market_cap_from_info
+
+        asset = SimpleNamespace(
+            symbol="MEGA",
+            currency="USD",
+            market_cap=None,
+            market_cap_currency=None,
+            market_cap_usd=None,
+            market_cap_fetched_at=None,
+        )
+
+        updated = update_asset_market_cap_from_info(
+            asset,
+            {
+                "marketCap": 250_000_000_000,
+                "currency": "USD",
+            },
+        )
+
+        assert updated is True
+        assert asset.market_cap == Decimal("250000000000")
+        assert asset.market_cap_currency == "USD"
+        assert asset.market_cap_usd == Decimal("250000000000")
+        assert asset.market_cap_fetched_at is not None
+
+    def test_zero_provider_market_cap_is_treated_as_unavailable(self):
+        from app.crud.assets import update_asset_market_cap_from_info
+        from app.services.fundamentals import FundamentalsService
+
+        asset = SimpleNamespace(
+            symbol="ZERO",
+            currency="USD",
+            market_cap=None,
+            market_cap_currency=None,
+            market_cap_usd=None,
+            market_cap_fetched_at=None,
+        )
+
+        updated = update_asset_market_cap_from_info(asset, {"marketCap": 0, "currency": "USD"})
+        fundamentals = FundamentalsService.build_fundamentals_from_info({"marketCap": 0})
+
+        assert updated is False
+        assert asset.market_cap is None
+        assert fundamentals["market_cap"] is None
 
 
 @pytest.mark.unit

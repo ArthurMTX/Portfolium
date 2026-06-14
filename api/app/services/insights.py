@@ -2,10 +2,11 @@
 Portfolio insights and analytics service
 """
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from datetime import datetime, timedelta, date
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 import math
 import hashlib
@@ -15,6 +16,7 @@ from app.models import Transaction, Asset, TransactionType, Price
 from app.services.analytics_cache import get_cached_analytics
 from app.schemas import (
     PortfolioInsights,
+    PortfolioInsightsSummary,
     AssetAllocation,
     PerformanceMetrics,
     RiskMetrics,
@@ -22,7 +24,20 @@ from app.schemas import (
     TimeSeriesPoint,
     TopPerformer,
     SectorAllocation,
-    GeographicAllocation
+    GeographicAllocation,
+    ContributionItem,
+    PortfolioMoveSummary,
+    ConcentrationMetrics,
+    ThemeEvolutionPoint,
+    PortfolioDNA,
+    PortfolioDNATrait,
+    DuplicateExposureItem,
+    HiddenConcentrationItem,
+    ScenarioResult,
+    PerformanceInsightsDomain,
+    AttributionInsights,
+    ExposureInsights,
+    RiskInsights,
 )
 from app.services.metrics import MetricsService
 from app.services.pricing import PricingService
@@ -32,6 +47,19 @@ from app.crud import prices as crud_prices
 logger = logging.getLogger(__name__)
 
 from app.services.cache import CacheService
+
+
+@dataclass
+class PortfolioInsightsSnapshot:
+    """Shared base data for domain-level Insights calculations."""
+    portfolio_id: int
+    user_id: Optional[int]
+    portfolio: Any
+    positions: List[Any]
+    total_value: Decimal
+    total_cost: Decimal
+    asset_map: Dict[int, Asset]
+    effective_metadata: Dict[int, Dict[str, Any]]
 
 
 class InsightsService:
@@ -401,10 +429,16 @@ class InsightsService:
             win_rate=win_rate
         )
     
-    async def get_risk_metrics(self, portfolio_id: int, period: str) -> RiskMetrics:
+    async def get_risk_metrics(
+        self,
+        portfolio_id: int,
+        period: str,
+        positions: Optional[List[Any]] = None,
+    ) -> RiskMetrics:
         """Calculate risk metrics with smart caching"""
-        # Get current positions for fingerprint (need to await since it's async)
-        positions = await self.metrics_service.get_positions(portfolio_id)
+        # Current positions are used only for the analytics-cache fingerprint.
+        if positions is None:
+            positions = await self.metrics_service.get_positions(portfolio_id)
         
         # Get last transaction date
         last_txn = self.db.query(func.max(Transaction.tx_date)).filter(
@@ -585,11 +619,13 @@ class InsightsService:
         self, 
         portfolio_id: int, 
         benchmark_symbol: str, 
-        period: str
+        period: str,
+        positions: Optional[List[Any]] = None,
     ) -> BenchmarkComparison:
         """Compare portfolio performance to benchmark with smart caching"""
-        # Get current positions for fingerprint (need to await since it's async)
-        positions = await self.metrics_service.get_positions(portfolio_id)
+        # Current positions are used only for the analytics-cache fingerprint.
+        if positions is None:
+            positions = await self.metrics_service.get_positions(portfolio_id)
         
         # Get last transaction date
         last_txn = self.db.query(func.max(Transaction.tx_date)).filter(
@@ -1085,6 +1121,988 @@ class InsightsService:
             var_95_1m=None,
             tail_exposure=None,
             downside_deviation=Decimal(0)
+        )
+
+    def _decimal_or_zero(self, value: Any) -> Decimal:
+        if value is None:
+            return Decimal(0)
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return Decimal(0)
+
+    def _safe_pct(self, numerator: Decimal, denominator: Decimal) -> Decimal:
+        return (numerator / denominator * Decimal(100)) if denominator > 0 else Decimal(0)
+
+    def _parse_split_ratio(self, split_str: str) -> Decimal:
+        try:
+            parts = split_str.split(":")
+            if len(parts) == 2:
+                denominator = Decimal(parts[1])
+                if denominator != 0:
+                    return Decimal(parts[0]) / denominator
+        except Exception:
+            pass
+        return Decimal(1)
+
+    def _extract_theme_weights(self, themes: Optional[List[Any]]) -> List[tuple[str, Decimal, List[str]]]:
+        """Return normalized top-level theme weights for a position."""
+        extracted: List[tuple[str, Optional[Decimal], List[str]]] = []
+        seen_labels: set[str] = set()
+
+        for raw_theme in themes or []:
+            if isinstance(raw_theme, dict):
+                theme_payload = raw_theme.get("theme") if isinstance(raw_theme.get("theme"), dict) else raw_theme
+                raw_label = theme_payload.get("label")
+                raw_weight = theme_payload.get("weight", raw_theme.get("weight"))
+                raw_children = theme_payload.get("children", raw_theme.get("children", []))
+            else:
+                raw_label = getattr(raw_theme, "label", None)
+                raw_weight = getattr(raw_theme, "weight", None)
+                raw_children = getattr(raw_theme, "children", [])
+
+            if raw_label is None:
+                continue
+
+            label = str(raw_label).strip()
+            normalized_label = label.casefold()
+            if not label or normalized_label in seen_labels:
+                continue
+
+            weight = None
+            if raw_weight is not None:
+                parsed_weight = self._decimal_or_zero(raw_weight)
+                if parsed_weight > 0:
+                    weight = parsed_weight
+
+            subthemes: List[str] = []
+            seen_subthemes: set[str] = set()
+            for raw_child in raw_children or []:
+                raw_child_label = raw_child.get("label") if isinstance(raw_child, dict) else getattr(raw_child, "label", None)
+                if raw_child_label is None:
+                    continue
+                child_label = str(raw_child_label).strip()
+                normalized_child = child_label.casefold()
+                if child_label and normalized_child not in seen_subthemes:
+                    seen_subthemes.add(normalized_child)
+                    subthemes.append(child_label)
+
+            seen_labels.add(normalized_label)
+            extracted.append((label, weight, subthemes))
+
+        if not extracted:
+            return []
+
+        if all(weight is not None for _, weight, _ in extracted):
+            total_weight = sum(weight for _, weight, _ in extracted if weight is not None)
+            if total_weight > 0:
+                return [
+                    (label, (weight or Decimal(0)) / total_weight, subthemes)
+                    for label, weight, subthemes in extracted
+                ]
+
+        equal_weight = Decimal(1) / Decimal(len(extracted))
+        return [(label, equal_weight, subthemes) for label, _, subthemes in extracted]
+
+    def _build_contribution_item(
+        self,
+        *,
+        name: str,
+        value: Decimal,
+        cost_basis: Decimal,
+        unrealized_pnl: Decimal,
+        total_value: Decimal,
+        total_cost: Decimal,
+        count: int = 1,
+        symbol: Optional[str] = None,
+        asset_type: Optional[str] = None,
+    ) -> ContributionItem:
+        return ContributionItem(
+            name=name,
+            symbol=symbol,
+            asset_type=asset_type,
+            value=value,
+            cost_basis=cost_basis,
+            unrealized_pnl=unrealized_pnl,
+            unrealized_pnl_pct=self._safe_pct(unrealized_pnl, cost_basis),
+            portfolio_weight=self._safe_pct(value, total_value),
+            contribution_to_return=self._safe_pct(unrealized_pnl, total_cost),
+            count=count,
+        )
+
+    async def _get_position_context(self, portfolio_id: int) -> tuple[List[Any], Decimal, Decimal]:
+        positions = await self.metrics_service.get_positions(portfolio_id)
+        total_value = sum((p.market_value or Decimal(0)) for p in positions)
+        total_cost = sum((p.cost_basis or Decimal(0)) for p in positions)
+        return positions, total_value, total_cost
+
+    async def build_portfolio_insights_snapshot(
+        self,
+        portfolio_id: int,
+        user_id: Optional[int] = None,
+    ) -> PortfolioInsightsSnapshot:
+        """Build shared base data once for a domain-level Insights request."""
+        portfolio = crud_portfolios.get_portfolio(self.db, portfolio_id)
+        if not portfolio:
+            raise ValueError(f"Portfolio {portfolio_id} not found")
+
+        positions, total_value, total_cost = await self._get_position_context(portfolio_id)
+        asset_ids = sorted({position.asset_id for position in positions if getattr(position, "asset_id", None) is not None})
+        assets = (
+            self.db.query(Asset)
+            .options(joinedload(Asset.theme_classification))
+            .filter(Asset.id.in_(asset_ids))
+            .all()
+            if asset_ids
+            else []
+        )
+        asset_map = {asset.id: asset for asset in assets}
+        effective_metadata: Dict[int, Dict[str, Any]] = {}
+
+        if user_id is not None:
+            from app.crud import assets as crud_assets
+
+            effective_metadata = {
+                asset.id: crud_assets.get_effective_asset_metadata(self.db, asset, user_id)
+                for asset in assets
+            }
+
+        logger.debug(
+            "Built insights snapshot portfolio_id=%s holdings=%s assets=%s user_metadata=%s",
+            portfolio_id,
+            len(positions),
+            len(asset_map),
+            bool(effective_metadata),
+        )
+        return PortfolioInsightsSnapshot(
+            portfolio_id=portfolio_id,
+            user_id=user_id,
+            portfolio=portfolio,
+            positions=positions,
+            total_value=total_value,
+            total_cost=total_cost,
+            asset_map=asset_map,
+            effective_metadata=effective_metadata,
+        )
+
+    def _themes_for_position(self, snapshot: PortfolioInsightsSnapshot, position: Any) -> Optional[List[Any]]:
+        themes = getattr(position, "themes", None)
+        if themes:
+            return themes
+        asset = snapshot.asset_map.get(getattr(position, "asset_id", None))
+        return getattr(asset, "themes", None) if asset else None
+
+    def _effective_metadata_for_position(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        position: Any,
+    ) -> Dict[str, Optional[str]]:
+        asset_id = getattr(position, "asset_id", None)
+        metadata = snapshot.effective_metadata.get(asset_id)
+        if metadata:
+            return metadata
+
+        asset = snapshot.asset_map.get(asset_id)
+        return {
+            "effective_sector": getattr(asset, "sector", None) if asset else None,
+            "effective_country": getattr(asset, "country", None) if asset else None,
+        }
+
+    def _summary_from_snapshot(self, snapshot: PortfolioInsightsSnapshot, period: str) -> PortfolioInsightsSummary:
+        total_return = snapshot.total_value - snapshot.total_cost
+        allocations = [
+            AssetAllocation(
+                symbol=position.symbol,
+                name=position.name,
+                percentage=self._safe_pct(position.market_value or Decimal(0), snapshot.total_value),
+                value=position.market_value or Decimal(0),
+                quantity=position.quantity,
+                asset_type=position.asset_type,
+            )
+            for position in snapshot.positions
+            if position.market_value
+        ]
+
+        return PortfolioInsightsSummary(
+            portfolio_id=snapshot.portfolio_id,
+            portfolio_name=snapshot.portfolio.name,
+            as_of_date=datetime.utcnow(),
+            period=period,
+            total_value=snapshot.total_value,
+            total_cost=snapshot.total_cost,
+            total_return=total_return,
+            total_return_pct=self._safe_pct(total_return, snapshot.total_cost),
+            positions_count=len(snapshot.positions),
+            diversification_score=self._calculate_diversification_score(allocations),
+        )
+
+    def _asset_contributions_from_snapshot(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        limit: int = 10,
+        ascending: bool = False,
+    ) -> List[ContributionItem]:
+        items = [
+            self._build_contribution_item(
+                name=position.name or position.symbol,
+                symbol=position.symbol,
+                asset_type=position.asset_type,
+                value=position.market_value or Decimal(0),
+                cost_basis=position.cost_basis or Decimal(0),
+                unrealized_pnl=position.unrealized_pnl or Decimal(0),
+                total_value=snapshot.total_value,
+                total_cost=snapshot.total_cost,
+            )
+            for position in snapshot.positions
+            if position.market_value
+        ]
+        items.sort(key=lambda item: item.unrealized_pnl, reverse=not ascending)
+        return items[:limit]
+
+    def _move_summary_from_snapshot(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        limit: int = 10,
+        side_limit: int = 5,
+    ) -> PortfolioMoveSummary:
+        movers: List[ContributionItem] = []
+        explained_value = Decimal(0)
+        has_daily_data = False
+
+        for position in snapshot.positions:
+            value = position.market_value or Decimal(0)
+            if value <= 0 or position.daily_change_pct is None:
+                continue
+            has_daily_data = True
+            daily_change_value = value * position.daily_change_pct / Decimal(100)
+            explained_value += daily_change_value
+            movers.append(
+                ContributionItem(
+                    name=position.name or position.symbol,
+                    symbol=position.symbol,
+                    asset_type=position.asset_type,
+                    value=value,
+                    cost_basis=position.cost_basis or Decimal(0),
+                    unrealized_pnl=daily_change_value,
+                    unrealized_pnl_pct=position.daily_change_pct,
+                    portfolio_weight=self._safe_pct(value, snapshot.total_value),
+                    contribution_to_return=self._safe_pct(daily_change_value, snapshot.total_value),
+                    count=1,
+                )
+            )
+
+        best_movers = sorted(
+            (item for item in movers if item.unrealized_pnl > 0),
+            key=lambda item: item.unrealized_pnl,
+            reverse=True,
+        )[:side_limit]
+        worst_movers = sorted(
+            (item for item in movers if item.unrealized_pnl < 0),
+            key=lambda item: item.unrealized_pnl,
+        )[:side_limit]
+        movers.sort(key=lambda item: abs(item.unrealized_pnl), reverse=True)
+        daily_change_pct = self._safe_pct(explained_value, snapshot.total_value) if has_daily_data else None
+        return PortfolioMoveSummary(
+            portfolio_id=snapshot.portfolio_id,
+            total_value=snapshot.total_value,
+            daily_change_value=explained_value if has_daily_data else None,
+            daily_change_pct=daily_change_pct,
+            explained_value=explained_value,
+            unexplained_value=Decimal(0),
+            movers=movers[:limit],
+            best_movers=best_movers,
+            worst_movers=worst_movers,
+        )
+
+    def _group_contribution_from_snapshot(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        group_by: str,
+    ) -> List[ContributionItem]:
+        groups: Dict[str, Dict[str, Any]] = {}
+
+        def add_to_group(label: str, position: Any, weight: Decimal = Decimal(1)) -> None:
+            value = (position.market_value or Decimal(0)) * weight
+            cost_basis = (position.cost_basis or Decimal(0)) * weight
+            unrealized_pnl = (position.unrealized_pnl or Decimal(0)) * weight
+            if value <= 0:
+                return
+            payload = groups.setdefault(
+                label or "Unknown",
+                {"value": Decimal(0), "cost_basis": Decimal(0), "unrealized_pnl": Decimal(0), "symbols": set()},
+            )
+            payload["value"] += value
+            payload["cost_basis"] += cost_basis
+            payload["unrealized_pnl"] += unrealized_pnl
+            payload["symbols"].add(position.symbol)
+
+        for position in snapshot.positions:
+            if not position.market_value:
+                continue
+
+            if group_by == "asset":
+                add_to_group(position.symbol, position)
+            elif group_by == "theme":
+                weighted_themes = self._extract_theme_weights(self._themes_for_position(snapshot, position))
+                if not weighted_themes:
+                    weighted_themes = [("Unclassified", Decimal(1), [])]
+                for theme_label, weight, _subthemes in weighted_themes:
+                    add_to_group(theme_label, position, weight)
+            elif group_by == "currency":
+                add_to_group(position.currency or "Unknown", position)
+            elif group_by == "asset_type":
+                add_to_group(position.asset_type or "Unknown", position)
+            elif group_by == "market_cap":
+                add_to_group(self._market_cap_bucket_for_position(snapshot, position), position)
+            elif group_by in {"sector", "country"}:
+                metadata = self._effective_metadata_for_position(snapshot, position)
+                label = (
+                    metadata.get("effective_sector")
+                    if group_by == "sector"
+                    else metadata.get("effective_country")
+                )
+                add_to_group(label or "Unknown", position)
+            else:
+                raise ValueError(f"Unsupported group_by: {group_by}")
+
+        result = [
+            self._build_contribution_item(
+                name=label,
+                value=payload["value"],
+                cost_basis=payload["cost_basis"],
+                unrealized_pnl=payload["unrealized_pnl"],
+                total_value=snapshot.total_value,
+                total_cost=snapshot.total_cost,
+                count=len(payload["symbols"]),
+            )
+            for label, payload in groups.items()
+        ]
+        result.sort(key=lambda item: item.value, reverse=True)
+        return result
+
+    def _market_cap_bucket_for_position(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        position: Any,
+    ) -> str:
+        asset = snapshot.asset_map.get(getattr(position, "asset_id", None))
+        market_cap = getattr(position, "market_cap_usd", None)
+        if market_cap is None and asset is not None:
+            market_cap = getattr(asset, "market_cap_usd", None)
+        if market_cap is None:
+            market_cap = getattr(position, "market_cap", None)
+        if market_cap is None and asset is not None:
+            market_cap = getattr(asset, "market_cap", None)
+
+        if market_cap is not None:
+            parsed_market_cap = self._decimal_or_zero(market_cap)
+            if parsed_market_cap >= Decimal("200000000000"):
+                return "Mega Cap"
+            if parsed_market_cap >= Decimal("10000000000"):
+                return "Large Cap"
+            if parsed_market_cap >= Decimal("2000000000"):
+                return "Mid Cap"
+            if parsed_market_cap >= Decimal("300000000"):
+                return "Small Cap"
+            if parsed_market_cap > 0:
+                return "Micro Cap"
+
+        asset_type = (getattr(position, "asset_type", None) or getattr(asset, "asset_type", None) or "").upper()
+        if asset_type in {"ETF", "FUND", "MUTUALFUND", "MUTUAL_FUND"}:
+            return "Funds / ETFs"
+        if asset_type in {"CRYPTO", "CRYPTOCURRENCY"}:
+            return "Crypto assets"
+        return "Market cap unavailable"
+
+    def _concentration_from_snapshot(self, snapshot: PortfolioInsightsSnapshot) -> ConcentrationMetrics:
+        items = self._asset_contributions_from_snapshot(snapshot, limit=len(snapshot.positions), ascending=False)
+        items.sort(key=lambda item: item.value, reverse=True)
+        weights = [item.portfolio_weight / Decimal(100) for item in items]
+        hhi = sum(weight * weight for weight in weights)
+        effective_positions = (Decimal(1) / hhi) if hhi > 0 else Decimal(0)
+
+        allocations = [
+            AssetAllocation(
+                symbol=item.symbol or item.name,
+                name=item.name,
+                percentage=item.portfolio_weight,
+                value=item.value,
+                quantity=Decimal(0),
+                asset_type=item.asset_type,
+            )
+            for item in items
+        ]
+
+        return ConcentrationMetrics(
+            portfolio_id=snapshot.portfolio_id,
+            positions_count=len(items),
+            largest_position_weight=items[0].portfolio_weight if items else Decimal(0),
+            top_3_weight=sum((item.portfolio_weight for item in items[:3]), Decimal(0)),
+            top_5_weight=sum((item.portfolio_weight for item in items[:5]), Decimal(0)),
+            herfindahl_index=hhi,
+            effective_positions=effective_positions,
+            diversification_score=self._calculate_diversification_score(allocations),
+            largest_position=items[0] if items else None,
+        )
+
+    def _group_members_from_snapshot(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        group_by: str,
+    ) -> Dict[str, set[str]]:
+        members: Dict[str, set[str]] = {}
+
+        def add_member(label: str, symbol: str) -> None:
+            members.setdefault(label or "Unknown", set()).add(symbol)
+
+        for position in snapshot.positions:
+            if not position.market_value:
+                continue
+            if group_by == "theme":
+                weighted_themes = self._extract_theme_weights(self._themes_for_position(snapshot, position))
+                if not weighted_themes:
+                    weighted_themes = [("Unclassified", Decimal(1), [])]
+                for theme_label, _weight, _subthemes in weighted_themes:
+                    add_member(theme_label, position.symbol)
+            elif group_by == "currency":
+                add_member(position.currency or "Unknown", position.symbol)
+            elif group_by in {"sector", "country"}:
+                metadata = self._effective_metadata_for_position(snapshot, position)
+                label = (
+                    metadata.get("effective_sector")
+                    if group_by == "sector"
+                    else metadata.get("effective_country")
+                )
+                add_member(label or "Unknown", position.symbol)
+
+        return members
+
+    def _duplicate_exposure_from_groups(
+        self,
+        contributions_by_group: Dict[str, List[ContributionItem]],
+        members_by_group: Dict[str, Dict[str, set[str]]],
+    ) -> List[DuplicateExposureItem]:
+        groups: List[DuplicateExposureItem] = []
+        for exposure_type in ("theme", "sector", "country", "currency"):
+            for item in contributions_by_group.get(exposure_type, []):
+                if item.count >= 2 and item.portfolio_weight >= Decimal(15):
+                    groups.append(
+                        DuplicateExposureItem(
+                            label=item.name,
+                            exposure_type=exposure_type,
+                            portfolio_weight=item.portfolio_weight,
+                            count=item.count,
+                            assets=sorted(members_by_group.get(exposure_type, {}).get(item.name, set())),
+                        )
+                    )
+        groups.sort(key=lambda item: item.portfolio_weight, reverse=True)
+        return groups[:10]
+
+    def _hidden_concentration_from_groups(
+        self,
+        contributions_by_group: Dict[str, List[ContributionItem]],
+    ) -> List[HiddenConcentrationItem]:
+        concentrations: List[HiddenConcentrationItem] = []
+        for exposure_type in ("theme", "sector", "country", "currency"):
+            for item in contributions_by_group.get(exposure_type, []):
+                if item.count >= 2 and item.portfolio_weight >= Decimal(35):
+                    concentrations.append(
+                        HiddenConcentrationItem(
+                            label=item.name,
+                            exposure_type=exposure_type,
+                            portfolio_weight=item.portfolio_weight,
+                            count=item.count,
+                        )
+                    )
+        concentrations.sort(key=lambda item: item.portfolio_weight, reverse=True)
+        return concentrations[:10]
+
+    def _portfolio_dna_from_groups(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        concentration: ConcentrationMetrics,
+        type_exposure: List[ContributionItem],
+        country_exposure: List[ContributionItem],
+        currency_exposure: List[ContributionItem],
+        theme_exposure: List[ContributionItem],
+    ) -> PortfolioDNA:
+        def top_label(items: List[ContributionItem], fallback: str = "Unknown") -> tuple[str, Decimal]:
+            if not items:
+                return fallback, Decimal(0)
+            return items[0].name, items[0].portfolio_weight
+
+        concentration_label = (
+            "Concentrated"
+            if concentration.largest_position_weight >= Decimal(35)
+            else "Balanced"
+            if concentration.largest_position_weight >= Decimal(20)
+            else "Diversified"
+        )
+        type_label, type_weight = top_label(type_exposure)
+        country_label, country_weight = top_label(country_exposure)
+        currency_label, currency_weight = top_label(currency_exposure)
+        theme_label, theme_weight = top_label(theme_exposure, "Unclassified")
+
+        return PortfolioDNA(
+            portfolio_id=snapshot.portfolio_id,
+            traits=[
+                PortfolioDNATrait(label="Concentration", value=concentration_label, score=concentration.largest_position_weight),
+                PortfolioDNATrait(label="Instrument tilt", value=type_label, score=type_weight),
+                PortfolioDNATrait(label="Geographic tilt", value=country_label, score=country_weight),
+                PortfolioDNATrait(label="Currency tilt", value=currency_label, score=currency_weight),
+                PortfolioDNATrait(
+                    label="Theme profile",
+                    value="Thematic" if theme_weight >= Decimal(50) else theme_label,
+                    score=theme_weight,
+                ),
+                PortfolioDNATrait(label="Breadth", value=f"{concentration.positions_count} positions", score=concentration.effective_positions),
+            ],
+        )
+
+    async def get_portfolio_summary(self, portfolio_id: int, period: str) -> PortfolioInsightsSummary:
+        """Return a small summary payload for independently loaded metric blocks."""
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id)
+        return self._summary_from_snapshot(snapshot, period)
+
+    async def get_asset_contributions(
+        self,
+        portfolio_id: int,
+        limit: int = 10,
+        ascending: bool = False,
+    ) -> List[ContributionItem]:
+        """Return position-level contribution rows sorted by P&L."""
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id)
+        return self._asset_contributions_from_snapshot(snapshot, limit=limit, ascending=ascending)
+
+    async def get_portfolio_move_summary(self, portfolio_id: int, limit: int = 8) -> PortfolioMoveSummary:
+        """Explain daily portfolio movement from position daily change percentages."""
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id)
+        return self._move_summary_from_snapshot(snapshot, limit=limit)
+
+    async def get_group_contribution(
+        self,
+        portfolio_id: int,
+        user_id: int,
+        group_by: str,
+    ) -> List[ContributionItem]:
+        """Aggregate contribution by deterministic exposure groups."""
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        return self._group_contribution_from_snapshot(snapshot, group_by)
+
+    async def get_concentration_metrics(self, portfolio_id: int) -> ConcentrationMetrics:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id)
+        return self._concentration_from_snapshot(snapshot)
+
+    async def _get_group_members(
+        self,
+        portfolio_id: int,
+        user_id: int,
+        group_by: str,
+    ) -> Dict[str, set[str]]:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        return self._group_members_from_snapshot(snapshot, group_by)
+
+    async def get_duplicate_exposure(self, portfolio_id: int, user_id: int) -> List[DuplicateExposureItem]:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        contributions_by_group = {
+            group: self._group_contribution_from_snapshot(snapshot, group)
+            for group in ("theme", "sector", "country", "currency")
+        }
+        members_by_group = {
+            group: self._group_members_from_snapshot(snapshot, group)
+            for group in ("theme", "sector", "country", "currency")
+        }
+        return self._duplicate_exposure_from_groups(contributions_by_group, members_by_group)
+
+    async def get_hidden_concentration(self, portfolio_id: int, user_id: int) -> List[HiddenConcentrationItem]:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        contributions_by_group = {
+            group: self._group_contribution_from_snapshot(snapshot, group)
+            for group in ("theme", "sector", "country", "currency")
+        }
+        return self._hidden_concentration_from_groups(contributions_by_group)
+
+    def _theme_groups_for_basis(
+        self,
+        asset: Asset,
+        basis_value: Decimal,
+    ) -> List[tuple[str, Decimal]]:
+        weighted_themes = self._extract_theme_weights(asset.themes)
+        if not weighted_themes:
+            return [("Unclassified", basis_value)]
+        return [(label, basis_value * weight) for label, weight, _subthemes in weighted_themes]
+
+    def _theme_bucket_dates(self, start_date: date, end_date: date) -> List[date]:
+        days = max((end_date - start_date).days, 0)
+        if days <= 35:
+            step = 7
+        elif days <= 370:
+            step = 30
+        else:
+            step = max(days // 12, 30)
+
+        dates: List[date] = []
+        cursor = start_date
+        while cursor < end_date:
+            dates.append(cursor)
+            cursor += timedelta(days=step)
+        if not dates or dates[-1] != end_date:
+            dates.append(end_date)
+        return dates
+
+    async def get_theme_evolution(
+        self,
+        portfolio_id: int,
+        period: str,
+        snapshot: Optional[PortfolioInsightsSnapshot] = None,
+    ) -> List[ThemeEvolutionPoint]:
+        """Return deterministic theme exposure snapshots based on transaction cost basis."""
+        portfolio = snapshot.portfolio if snapshot else crud_portfolios.get_portfolio(self.db, portfolio_id)
+        start_date, end_date = self._get_date_range(period, portfolio_id)
+
+        transactions = (
+            self.db.query(Transaction)
+            .filter(Transaction.portfolio_id == portfolio_id, Transaction.tx_date <= end_date)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
+        )
+        if not transactions:
+            return []
+
+        asset_ids = sorted({tx.asset_id for tx in transactions})
+        asset_map = dict(snapshot.asset_map) if snapshot else {}
+        missing_asset_ids = [asset_id for asset_id in asset_ids if asset_id not in asset_map]
+        if missing_asset_ids:
+            assets = (
+                self.db.query(Asset)
+                .options(joinedload(Asset.theme_classification))
+                .filter(Asset.id.in_(missing_asset_ids))
+                .all()
+            )
+            asset_map.update({asset.id: asset for asset in assets})
+
+        from app.services.currency import CurrencyService
+
+        def convert_amount(amount: Decimal, from_currency: Optional[str], snapshot_date: date) -> Decimal:
+            target_currency = portfolio.base_currency if portfolio else from_currency
+            if not from_currency or not target_currency or from_currency == target_currency:
+                return amount
+            converted = CurrencyService.convert_historical(
+                amount,
+                from_currency=from_currency,
+                to_currency=target_currency,
+                date=datetime.combine(snapshot_date, datetime.min.time()),
+            )
+            return converted or amount
+
+        points: List[ThemeEvolutionPoint] = []
+        for snapshot_date in self._theme_bucket_dates(start_date, end_date):
+            quantities: Dict[int, Decimal] = {}
+            cost_basis: Dict[int, Decimal] = {}
+            shares_for_cost: Dict[int, Decimal] = {}
+
+            for tx in transactions:
+                if tx.tx_date > snapshot_date:
+                    break
+                quantities.setdefault(tx.asset_id, Decimal(0))
+                cost_basis.setdefault(tx.asset_id, Decimal(0))
+                shares_for_cost.setdefault(tx.asset_id, Decimal(0))
+
+                if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                    amount = convert_amount((tx.quantity * tx.price) + tx.fees, tx.currency, tx.tx_date)
+                    quantities[tx.asset_id] += tx.quantity
+                    cost_basis[tx.asset_id] += amount
+                    shares_for_cost[tx.asset_id] += tx.quantity
+                elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
+                    quantity_to_remove = min(tx.quantity, quantities[tx.asset_id])
+                    if shares_for_cost[tx.asset_id] > 0 and quantity_to_remove > 0:
+                        avg_cost = cost_basis[tx.asset_id] / shares_for_cost[tx.asset_id]
+                        cost_basis[tx.asset_id] -= avg_cost * quantity_to_remove
+                        shares_for_cost[tx.asset_id] -= quantity_to_remove
+                    quantities[tx.asset_id] -= tx.quantity
+                elif tx.type == TransactionType.SPLIT:
+                    split_ratio = self._parse_split_ratio(tx.meta_data.get("split", "1:1") if tx.meta_data else "1:1")
+                    quantities[tx.asset_id] *= split_ratio
+                    shares_for_cost[tx.asset_id] *= split_ratio
+
+            theme_totals: Dict[str, Decimal] = {}
+            total_basis = Decimal(0)
+            for asset_id, basis in cost_basis.items():
+                if quantities.get(asset_id, Decimal(0)) <= 0 or basis <= 0:
+                    continue
+                asset = asset_map.get(asset_id)
+                if not asset:
+                    continue
+                total_basis += basis
+                for theme_label, theme_value in self._theme_groups_for_basis(asset, basis):
+                    theme_totals[theme_label] = theme_totals.get(theme_label, Decimal(0)) + theme_value
+
+            if total_basis <= 0:
+                exposures = {}
+            else:
+                exposures = {
+                    label: self._safe_pct(value, total_basis)
+                    for label, value in sorted(theme_totals.items(), key=lambda item: item[1], reverse=True)
+                }
+
+            points.append(ThemeEvolutionPoint(date=snapshot_date.isoformat(), exposures=exposures))
+
+        return points
+
+    async def get_portfolio_dna(self, portfolio_id: int, user_id: int) -> PortfolioDNA:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        concentration = self._concentration_from_snapshot(snapshot)
+        return self._portfolio_dna_from_groups(
+            snapshot,
+            concentration,
+            self._group_contribution_from_snapshot(snapshot, "asset_type"),
+            self._group_contribution_from_snapshot(snapshot, "country"),
+            self._group_contribution_from_snapshot(snapshot, "currency"),
+            self._group_contribution_from_snapshot(snapshot, "theme"),
+        )
+
+    def _scenario_definitions(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "name": "Broad equity selloff",
+                "description": "Global risk assets fall, with higher shocks for crypto and single-name equities.",
+                "default": Decimal("-10"),
+                "asset_type": {"CRYPTO": Decimal("-25"), "CRYPTOCURRENCY": Decimal("-25"), "EQUITY": Decimal("-15"), "ETF": Decimal("-10")},
+            },
+            {
+                "name": "Rate shock",
+                "description": "Interest rates rise sharply; long-duration growth sectors are hit hardest.",
+                "default": Decimal("-4"),
+                "sector": {"Technology": Decimal("-12"), "Real Estate": Decimal("-14"), "Utilities": Decimal("-8"), "Financial Services": Decimal("3"), "Financials": Decimal("3")},
+            },
+            {
+                "name": "USD strength",
+                "description": "The US dollar strengthens; non-base-currency exposure faces translation pressure.",
+                "default": Decimal("0"),
+                "foreign_currency": Decimal("-5"),
+            },
+            {
+                "name": "Crypto winter",
+                "description": "Digital assets reprice materially lower while other holdings are unchanged.",
+                "default": Decimal("0"),
+                "asset_type": {"CRYPTO": Decimal("-35"), "CRYPTOCURRENCY": Decimal("-35")},
+            },
+        ]
+
+    async def get_scenario_analysis(self, portfolio_id: int, user_id: int) -> List[ScenarioResult]:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        return self._simulate_scenarios_from_snapshot(snapshot, self._scenario_definitions())
+
+    async def get_stress_tests(self, portfolio_id: int, user_id: int) -> List[ScenarioResult]:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        return self._stress_tests_from_snapshot(snapshot)
+
+    def _stress_tests_from_snapshot(self, snapshot: PortfolioInsightsSnapshot) -> List[ScenarioResult]:
+        concentration = self._concentration_from_snapshot(snapshot)
+        sector_exposure = self._group_contribution_from_snapshot(snapshot, "sector")
+        currency_exposure = self._group_contribution_from_snapshot(snapshot, "currency")
+        results: List[ScenarioResult] = []
+
+        if concentration.largest_position:
+            impact_value = concentration.largest_position.value * Decimal("-0.30")
+            results.append(
+                ScenarioResult(
+                    name="Largest position drawdown",
+                    description=f"{concentration.largest_position.symbol or concentration.largest_position.name} falls 30%.",
+                    estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
+                    estimated_impact_value=impact_value,
+                )
+            )
+
+        if sector_exposure:
+            top_sector = sector_exposure[0]
+            impact_value = top_sector.value * Decimal("-0.20")
+            results.append(
+                ScenarioResult(
+                    name="Top sector shock",
+                    description=f"{top_sector.name} exposure falls 20%.",
+                    estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
+                    estimated_impact_value=impact_value,
+                )
+            )
+
+        if currency_exposure:
+            top_currency = currency_exposure[0]
+            impact_value = top_currency.value * Decimal("-0.08")
+            results.append(
+                ScenarioResult(
+                    name="Top currency translation shock",
+                    description=f"{top_currency.name} exposure weakens 8% versus the portfolio base currency.",
+                    estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
+                    estimated_impact_value=impact_value,
+                )
+            )
+
+        total_position_value = sum((position.market_value or Decimal(0)) for position in snapshot.positions)
+        if total_position_value > 0:
+            impact_value = total_position_value * Decimal("-0.12")
+            results.append(
+                ScenarioResult(
+                    name="Liquidity stress",
+                    description="All marked positions are shocked by 12% to approximate forced-sale pressure.",
+                    estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
+                    estimated_impact_value=impact_value,
+                )
+            )
+
+        return results
+
+    async def _simulate_scenarios(
+        self,
+        portfolio_id: int,
+        user_id: int,
+        scenarios: List[Dict[str, Any]],
+    ) -> List[ScenarioResult]:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        return self._simulate_scenarios_from_snapshot(snapshot, scenarios)
+
+    def _simulate_scenarios_from_snapshot(
+        self,
+        snapshot: PortfolioInsightsSnapshot,
+        scenarios: List[Dict[str, Any]],
+    ) -> List[ScenarioResult]:
+        results: List[ScenarioResult] = []
+
+        for scenario in scenarios:
+            impact_value = Decimal(0)
+            for position in snapshot.positions:
+                value = position.market_value or Decimal(0)
+                if value <= 0:
+                    continue
+
+                shock = scenario.get("default", Decimal(0))
+                asset_type = (position.asset_type or "").upper()
+                asset_type_shocks = scenario.get("asset_type", {})
+                if asset_type in asset_type_shocks:
+                    shock = asset_type_shocks[asset_type]
+
+                if "sector" in scenario:
+                    sector = self._effective_metadata_for_position(snapshot, position).get("effective_sector")
+                    if sector in scenario["sector"]:
+                        shock = scenario["sector"][sector]
+
+                if "foreign_currency" in scenario and snapshot.portfolio and position.currency != snapshot.portfolio.base_currency:
+                    shock = scenario["foreign_currency"]
+
+                impact_value += value * shock / Decimal(100)
+
+            results.append(
+                ScenarioResult(
+                    name=scenario["name"],
+                    description=scenario["description"],
+                    estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
+                    estimated_impact_value=impact_value,
+                )
+            )
+
+        return results
+
+    async def get_performance_domain(
+        self,
+        portfolio_id: int,
+        period: str = "1y",
+    ) -> PerformanceInsightsDomain:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id)
+        logger.debug("Building performance insights domain portfolio_id=%s period=%s", portfolio_id, period)
+        return PerformanceInsightsDomain(
+            summary=self._summary_from_snapshot(snapshot, period),
+            performance=self.get_performance_metrics(portfolio_id, period),
+            risk=await self.get_risk_metrics(portfolio_id, period, positions=snapshot.positions),
+        )
+
+    async def get_attribution_domain(
+        self,
+        portfolio_id: int,
+        user_id: int,
+    ) -> AttributionInsights:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        logger.debug("Building attribution insights domain portfolio_id=%s holdings=%s", portfolio_id, len(snapshot.positions))
+        return AttributionInsights(
+            move=self._move_summary_from_snapshot(snapshot, limit=10),
+            top_contributors=self._asset_contributions_from_snapshot(snapshot, limit=5, ascending=False),
+            top_detractors=self._asset_contributions_from_snapshot(snapshot, limit=5, ascending=True),
+            asset_contribution=self._asset_contributions_from_snapshot(snapshot, limit=20, ascending=False),
+            theme_contribution=self._group_contribution_from_snapshot(snapshot, "theme"),
+            sector_contribution=self._group_contribution_from_snapshot(snapshot, "sector"),
+            country_contribution=self._group_contribution_from_snapshot(snapshot, "country"),
+            currency_contribution=self._group_contribution_from_snapshot(snapshot, "currency"),
+            concentration=self._concentration_from_snapshot(snapshot),
+        )
+
+    async def get_exposure_domain(
+        self,
+        portfolio_id: int,
+        user_id: int,
+        period: str = "1y",
+    ) -> ExposureInsights:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        logger.debug("Building exposure insights domain portfolio_id=%s holdings=%s", portfolio_id, len(snapshot.positions))
+
+        theme_exposure = self._group_contribution_from_snapshot(snapshot, "theme")
+        sector_exposure = self._group_contribution_from_snapshot(snapshot, "sector")
+        country_exposure = self._group_contribution_from_snapshot(snapshot, "country")
+        currency_exposure = self._group_contribution_from_snapshot(snapshot, "currency")
+        contributions_by_group = {
+            "theme": theme_exposure,
+            "sector": sector_exposure,
+            "country": country_exposure,
+            "currency": currency_exposure,
+        }
+        members_by_group = {
+            group: self._group_members_from_snapshot(snapshot, group)
+            for group in ("theme", "sector", "country", "currency")
+        }
+        concentration = self._concentration_from_snapshot(snapshot)
+
+        return ExposureInsights(
+            theme_exposure=theme_exposure,
+            sector_exposure=sector_exposure,
+            country_exposure=country_exposure,
+            currency_exposure=currency_exposure,
+            market_cap_exposure=self._group_contribution_from_snapshot(snapshot, "market_cap"),
+            duplicate_exposure=self._duplicate_exposure_from_groups(contributions_by_group, members_by_group),
+            hidden_concentration=self._hidden_concentration_from_groups(contributions_by_group),
+            portfolio_dna=self._portfolio_dna_from_groups(
+                snapshot,
+                concentration,
+                self._group_contribution_from_snapshot(snapshot, "asset_type"),
+                country_exposure,
+                currency_exposure,
+                theme_exposure,
+            ),
+            theme_evolution=await self.get_theme_evolution(portfolio_id, period, snapshot=snapshot),
+        )
+
+    async def get_risk_domain(
+        self,
+        portfolio_id: int,
+        user_id: int,
+        period: str = "1y",
+        benchmark_symbol: str = "SPY",
+    ) -> RiskInsights:
+        snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        logger.debug(
+            "Building risk insights domain portfolio_id=%s period=%s benchmark=%s holdings=%s",
+            portfolio_id,
+            period,
+            benchmark_symbol,
+            len(snapshot.positions),
+        )
+        return RiskInsights(
+            risk=await self.get_risk_metrics(portfolio_id, period, positions=snapshot.positions),
+            benchmark_comparison=await self.compare_to_benchmark(
+                portfolio_id,
+                benchmark_symbol,
+                period,
+                positions=snapshot.positions,
+            ),
+            scenarios=self._simulate_scenarios_from_snapshot(snapshot, self._scenario_definitions()),
+            stress_tests=self._stress_tests_from_snapshot(snapshot),
         )
     
     def get_average_holding_period(self, portfolio_id: int) -> Optional[Decimal]:

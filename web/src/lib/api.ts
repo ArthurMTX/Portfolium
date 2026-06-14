@@ -397,6 +397,10 @@ export interface AssetResearchDTO {
     industry: string | null
     asset_type: string | null
     country: string | null
+    market_cap: number | null
+    market_cap_currency: string | null
+    market_cap_usd: number | null
+    market_cap_fetched_at: string | null
     themes: AssetThemeDTO[]
     created_at: string
     updated_at: string
@@ -613,7 +617,18 @@ export interface RiskMetricsDTO {
   max_drawdown_date: string | null
   beta: number | null
   var_95: number | null
+  var_99: number | null
+  cvar_95: number | null
+  cvar_99: number | null
+  var_95_1w: number | null
+  var_95_1m: number | null
+  tail_exposure: number | null
   downside_deviation: number
+}
+
+export interface TimeSeriesPointDTO {
+  date: string
+  value: number
 }
 
 export interface BenchmarkComparisonDTO {
@@ -623,12 +638,139 @@ export interface BenchmarkComparisonDTO {
   portfolio_return: number
   benchmark_return: number
   alpha: number
+  portfolio_series: TimeSeriesPointDTO[]
+  benchmark_series: TimeSeriesPointDTO[]
   correlation: number | null
 }
 
 export interface AverageHoldingPeriodDTO {
   portfolio_id: number
   average_holding_period_days: number | null
+}
+
+export interface PortfolioInsightsSummaryDTO {
+  portfolio_id: number
+  portfolio_name: string
+  as_of_date: string
+  period: string
+  total_value: number
+  total_cost: number
+  total_return: number
+  total_return_pct: number
+  positions_count: number
+  diversification_score: number | null
+}
+
+export interface ContributionItemDTO {
+  name: string
+  value: number
+  cost_basis: number
+  unrealized_pnl: number
+  unrealized_pnl_pct: number
+  portfolio_weight: number
+  contribution_to_return: number
+  count: number
+  symbol?: string | null
+  asset_type?: string | null
+}
+
+export interface PortfolioMoveSummaryDTO {
+  portfolio_id: number
+  total_value: number
+  daily_change_value: number | null
+  daily_change_pct: number | null
+  explained_value: number
+  unexplained_value: number
+  movers: ContributionItemDTO[]
+  best_movers: ContributionItemDTO[]
+  worst_movers: ContributionItemDTO[]
+}
+
+export interface ConcentrationMetricsDTO {
+  portfolio_id: number
+  positions_count: number
+  largest_position_weight: number
+  top_3_weight: number
+  top_5_weight: number
+  herfindahl_index: number
+  effective_positions: number
+  diversification_score: number
+  largest_position: ContributionItemDTO | null
+}
+
+export interface ThemeEvolutionPointDTO {
+  date: string
+  exposures: Record<string, number>
+}
+
+export interface PortfolioDNATraitDTO {
+  label: string
+  value: string
+  score: number
+}
+
+export interface PortfolioDNADTO {
+  portfolio_id: number
+  traits: PortfolioDNATraitDTO[]
+}
+
+export interface DuplicateExposureItemDTO {
+  label: string
+  exposure_type: string
+  portfolio_weight: number
+  count: number
+  assets: string[]
+}
+
+export interface HiddenConcentrationItemDTO {
+  label: string
+  exposure_type: string
+  portfolio_weight: number
+  count: number
+}
+
+export interface ScenarioResultDTO {
+  name: string
+  description: string
+  estimated_impact_pct: number
+  estimated_impact_value: number
+}
+
+export interface PerformanceInsightsDTO {
+  summary: PortfolioInsightsSummaryDTO
+  performance: PerformanceMetricsDTO
+  risk: RiskMetricsDTO
+}
+
+export interface AttributionInsightsDTO {
+  move: PortfolioMoveSummaryDTO
+  top_contributors: ContributionItemDTO[]
+  top_detractors: ContributionItemDTO[]
+  asset_contribution: ContributionItemDTO[]
+  theme_contribution: ContributionItemDTO[]
+  sector_contribution: ContributionItemDTO[]
+  country_contribution: ContributionItemDTO[]
+  currency_contribution: ContributionItemDTO[]
+  concentration: ConcentrationMetricsDTO
+}
+
+export interface ExposureInsightsDTO {
+  theme_exposure: ContributionItemDTO[]
+  sector_exposure: ContributionItemDTO[]
+  country_exposure: ContributionItemDTO[]
+  currency_exposure: ContributionItemDTO[]
+  market_cap_exposure: ContributionItemDTO[]
+  duplicate_exposure: DuplicateExposureItemDTO[]
+  hidden_concentration: HiddenConcentrationItemDTO[]
+  portfolio_dna: PortfolioDNADTO
+  theme_evolution: ThemeEvolutionPointDTO[]
+}
+
+export interface RiskInsightsDTO {
+  risk: RiskMetricsDTO
+  benchmark_comparison: BenchmarkComparisonDTO
+  scenarios: ScenarioResultDTO[]
+  stress_tests: ScenarioResultDTO[]
 }
 
 // Price Quote
@@ -1355,6 +1497,11 @@ class ApiClient {
   async getTypesDistribution(portfolioId?: number) {
     const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
     return this.request<DistributionItemDTO[]>(`/assets/distribution/types${params}`)
+  }
+
+  async getMarketCapsDistribution(portfolioId?: number) {
+    const params = portfolioId ? `?portfolio_id=${portfolioId}` : '';
+    return this.request<DistributionItemDTO[]>(`/assets/distribution/market-caps${params}`)
   }
 
   async getThemesDistribution(portfolioId: number) {
@@ -2105,6 +2252,26 @@ class ApiClient {
     return this.request<any>(`/insights/${portfolioId}?period=${period}&benchmark=${benchmark}`, { signal })
   }
 
+  async getPortfolioInsightsSummary(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<PortfolioInsightsSummaryDTO>(`/insights/${portfolioId}/summary?period=${period}`, { signal })
+  }
+
+  async getPerformanceInsights(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<PerformanceInsightsDTO>(`/insights/${portfolioId}/performance/overview?period=${period}`, { signal })
+  }
+
+  async getAttributionInsights(portfolioId: number, signal?: AbortSignal) {
+    return this.request<AttributionInsightsDTO>(`/insights/${portfolioId}/attribution`, { signal })
+  }
+
+  async getExposureInsights(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<ExposureInsightsDTO>(`/insights/${portfolioId}/exposure?period=${period}`, { signal })
+  }
+
+  async getRiskInsights(portfolioId: number, benchmark: string = 'SPY', period: string = '1y', signal?: AbortSignal) {
+    return this.request<RiskInsightsDTO>(`/insights/${portfolioId}/risk/overview?benchmark=${benchmark}&period=${period}`, { signal })
+  }
+
   async getTopPerformers(portfolioId: number, period: string = '1y', limit: number = 5, signal?: AbortSignal) {
     return this.request<TopPerformerDTO[]>(`/insights/${portfolioId}/top-performers?period=${period}&limit=${limit}`, { signal })
   }
@@ -2123,6 +2290,81 @@ class ApiClient {
 
   async getAverageHoldingPeriod(portfolioId: number, signal?: AbortSignal) {
     return this.request<AverageHoldingPeriodDTO>(`/insights/${portfolioId}/average-holding-period`, { signal })
+  }
+
+  async getPortfolioMoveSummary(portfolioId: number, limit: number = 8, signal?: AbortSignal) {
+    return this.request<PortfolioMoveSummaryDTO>(`/insights/${portfolioId}/attribution/move?limit=${limit}`, { signal })
+  }
+
+  async getAssetContributions(portfolioId: number, limit: number = 10, ascending: boolean = false, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(
+      `/insights/${portfolioId}/attribution/assets?limit=${limit}&ascending=${ascending}`,
+      { signal }
+    )
+  }
+
+  async getThemeContribution(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/attribution/themes`, { signal })
+  }
+
+  async getSectorContribution(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/attribution/sectors`, { signal })
+  }
+
+  async getCountryContribution(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/attribution/countries`, { signal })
+  }
+
+  async getCurrencyContribution(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/attribution/currencies`, { signal })
+  }
+
+  async getConcentrationMetrics(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ConcentrationMetricsDTO>(`/insights/${portfolioId}/attribution/concentration`, { signal })
+  }
+
+  async getThemeExposure(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/exposure/themes`, { signal })
+  }
+
+  async getSectorExposure(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/exposure/sectors`, { signal })
+  }
+
+  async getCountryExposure(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/exposure/countries`, { signal })
+  }
+
+  async getCurrencyExposure(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/exposure/currencies`, { signal })
+  }
+
+  async getMarketCapExposure(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ContributionItemDTO[]>(`/insights/${portfolioId}/exposure/market-caps`, { signal })
+  }
+
+  async getDuplicateExposure(portfolioId: number, signal?: AbortSignal) {
+    return this.request<DuplicateExposureItemDTO[]>(`/insights/${portfolioId}/exposure/duplicates`, { signal })
+  }
+
+  async getHiddenConcentration(portfolioId: number, signal?: AbortSignal) {
+    return this.request<HiddenConcentrationItemDTO[]>(`/insights/${portfolioId}/exposure/hidden-concentration`, { signal })
+  }
+
+  async getThemeEvolution(portfolioId: number, period: string = '1y', signal?: AbortSignal) {
+    return this.request<ThemeEvolutionPointDTO[]>(`/insights/${portfolioId}/exposure/theme-evolution?period=${period}`, { signal })
+  }
+
+  async getPortfolioDNA(portfolioId: number, signal?: AbortSignal) {
+    return this.request<PortfolioDNADTO>(`/insights/${portfolioId}/exposure/dna`, { signal })
+  }
+
+  async getScenarioAnalysis(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ScenarioResultDTO[]>(`/insights/${portfolioId}/risk/scenarios`, { signal })
+  }
+
+  async getStressTests(portfolioId: number, signal?: AbortSignal) {
+    return this.request<ScenarioResultDTO[]>(`/insights/${portfolioId}/risk/stress-tests`, { signal })
   }
 
   async getRecentTransactions(portfolioId: number, limit: number = 5, signal?: AbortSignal) {

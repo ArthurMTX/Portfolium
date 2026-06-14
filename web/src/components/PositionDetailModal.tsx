@@ -280,7 +280,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
                   </div>
                 ) : detailedMetrics ? (
                   <div className="grid grid-cols-2 gap-5">
-                    {detailedMetrics.market_cap !== null && detailedMetrics.market_cap !== undefined && (
+                    {detailedMetrics.market_cap !== null && detailedMetrics.market_cap !== undefined && detailedMetrics.market_cap > 0 && (
                       <MetricCard
                         label={t('dashboard.positionDetail.marketCap')}
                         value={`${formatLargeNumber(detailedMetrics.market_cap, 2)} ${detailedMetrics.asset_currency || 'USD'}`}

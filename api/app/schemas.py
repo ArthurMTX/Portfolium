@@ -249,6 +249,10 @@ class AssetBase(BaseModel):
     industry: Optional[str] = None
     asset_type: Optional[str] = None  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
     country: Optional[str] = None
+    market_cap: Optional[Decimal] = None
+    market_cap_currency: Optional[str] = None
+    market_cap_usd: Optional[Decimal] = None
+    market_cap_fetched_at: Optional[datetime] = None
 
 
 class AssetCreate(AssetBase):
@@ -1210,6 +1214,145 @@ class PortfolioInsights(BaseModel):
     total_return: Decimal
     total_return_pct: Decimal
     diversification_score: Optional[Decimal]  # 0-100, higher is more diversified
+
+
+class PortfolioInsightsSummary(BaseModel):
+    """Small portfolio summary for progressive insights blocks."""
+    portfolio_id: int
+    portfolio_name: str
+    as_of_date: datetime
+    period: str
+    total_value: Decimal
+    total_cost: Decimal
+    total_return: Decimal
+    total_return_pct: Decimal
+    positions_count: int
+    diversification_score: Optional[Decimal]
+
+
+class ContributionItem(BaseModel):
+    """Deterministic contribution row for attribution and exposure blocks."""
+    name: str
+    value: Decimal
+    cost_basis: Decimal
+    unrealized_pnl: Decimal
+    unrealized_pnl_pct: Decimal
+    portfolio_weight: Decimal
+    contribution_to_return: Decimal
+    count: int = 1
+    symbol: Optional[str] = None
+    asset_type: Optional[str] = None
+
+
+class PortfolioMoveSummary(BaseModel):
+    """Explains portfolio movement from position-level daily changes."""
+    portfolio_id: int
+    total_value: Decimal
+    daily_change_value: Optional[Decimal]
+    daily_change_pct: Optional[Decimal]
+    explained_value: Decimal
+    unexplained_value: Decimal
+    movers: List[ContributionItem]
+    best_movers: List[ContributionItem] = Field(default_factory=list)
+    worst_movers: List[ContributionItem] = Field(default_factory=list)
+
+
+class ConcentrationMetrics(BaseModel):
+    """Portfolio concentration diagnostics."""
+    portfolio_id: int
+    positions_count: int
+    largest_position_weight: Decimal
+    top_3_weight: Decimal
+    top_5_weight: Decimal
+    herfindahl_index: Decimal
+    effective_positions: Decimal
+    diversification_score: Decimal
+    largest_position: Optional[ContributionItem] = None
+
+
+class ThemeEvolutionPoint(BaseModel):
+    """Theme exposure snapshot over time."""
+    date: str
+    exposures: Dict[str, Decimal]
+
+
+class PortfolioDNATrait(BaseModel):
+    """Deterministic style trait for the portfolio DNA block."""
+    label: str
+    value: str
+    score: Decimal
+
+
+class PortfolioDNA(BaseModel):
+    """Portfolio style summary built from deterministic exposures."""
+    portfolio_id: int
+    traits: List[PortfolioDNATrait]
+
+
+class DuplicateExposureItem(BaseModel):
+    """Potential duplicate exposure across holdings."""
+    label: str
+    exposure_type: str
+    portfolio_weight: Decimal
+    count: int
+    assets: List[str]
+
+
+class HiddenConcentrationItem(BaseModel):
+    """Non-obvious concentration by a grouped exposure."""
+    label: str
+    exposure_type: str
+    portfolio_weight: Decimal
+    count: int
+
+
+class ScenarioResult(BaseModel):
+    """Result of a deterministic predefined market scenario."""
+    name: str
+    description: str
+    estimated_impact_pct: Decimal
+    estimated_impact_value: Decimal
+
+
+class PerformanceInsightsDomain(BaseModel):
+    """Performance-tab payload for shared frontend cache reuse."""
+    summary: PortfolioInsightsSummary
+    performance: PerformanceMetrics
+    risk: RiskMetrics
+
+
+class AttributionInsights(BaseModel):
+    """Attribution-tab payload derived from one portfolio snapshot."""
+    move: PortfolioMoveSummary
+    top_contributors: List[ContributionItem]
+    top_detractors: List[ContributionItem]
+    asset_contribution: List[ContributionItem]
+    theme_contribution: List[ContributionItem]
+    sector_contribution: List[ContributionItem]
+    country_contribution: List[ContributionItem]
+    currency_contribution: List[ContributionItem]
+    concentration: ConcentrationMetrics
+
+
+class ExposureInsights(BaseModel):
+    """Exposure-tab payload derived from one portfolio snapshot."""
+    theme_exposure: List[ContributionItem]
+    sector_exposure: List[ContributionItem]
+    country_exposure: List[ContributionItem]
+    currency_exposure: List[ContributionItem]
+    market_cap_exposure: List[ContributionItem]
+    duplicate_exposure: List[DuplicateExposureItem]
+    hidden_concentration: List[HiddenConcentrationItem]
+    portfolio_dna: PortfolioDNA
+    theme_evolution: List[ThemeEvolutionPoint]
+
+
+class RiskInsights(BaseModel):
+    """Risk-tab payload for shared frontend cache reuse."""
+    risk: RiskMetrics
+    benchmark_comparison: BenchmarkComparison
+    scenarios: List[ScenarioResult]
+    stress_tests: List[ScenarioResult]
 
 
 # ============================================================================

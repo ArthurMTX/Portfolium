@@ -44,6 +44,10 @@ class Asset(Base):
     industry = Column(String)
     asset_type = Column(String)  # 'EQUITY', 'ETF', 'CRYPTO', etc.
     country = Column(String)
+    market_cap = Column(Numeric(24, 2))
+    market_cap_currency = Column(String(3))
+    market_cap_usd = Column(Numeric(24, 2))
+    market_cap_fetched_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

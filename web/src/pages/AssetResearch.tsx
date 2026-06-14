@@ -99,6 +99,20 @@ function hasAny(values: Array<unknown>): boolean {
   return values.some((value) => value !== null && value !== undefined)
 }
 
+function normalizeAssetType(value: string | null | undefined): string {
+  return (value || '').trim().toUpperCase()
+}
+
+function isEtfAsset(asset: AssetResearchDTO['asset']): boolean {
+  return normalizeAssetType(asset.asset_type) === 'ETF' || (asset.class || '').trim().toLowerCase() === 'etf'
+}
+
+function isEquityAsset(asset: AssetResearchDTO['asset']): boolean {
+  const assetType = normalizeAssetType(asset.asset_type)
+  if (assetType) return assetType === 'EQUITY' || assetType === 'STOCK'
+  return (asset.class || '').trim().toLowerCase() === 'stock'
+}
+
 function formatPercent(value: number | null | undefined, decimals = 2): string {
   if (value === null || value === undefined) return '-'
   return `${value >= 0 ? '+' : ''}${formatNumber(value, decimals)}%`
@@ -257,9 +271,11 @@ export default function AssetResearch() {
         setWatchlistMessage(null)
         setDescriptionExpanded(false)
         const summary = await api.getAssetResearchSummary(normalizedSymbol)
+        const shouldLoadProfileSections = !isEtfAsset(summary.asset)
+        const shouldLoadThemes = isEquityAsset(summary.asset)
         if (!cancelled) {
           setAssetResearch({
-            asset: summary.asset,
+            asset: shouldLoadThemes ? summary.asset : { ...summary.asset, themes: [] },
             quote: summary.quote,
             metadata: summary.metadata,
             fundamentals: emptyFundamentals,
@@ -325,27 +341,39 @@ export default function AssetResearch() {
           api.getAssetResearchFundamentals(normalizedSymbol),
           (current, fundamentals) => ({ ...current, fundamentals }),
         )
-        void loadSection(
-          'business',
-          api.getAssetResearchBusiness(normalizedSymbol),
-          (current, business) => ({ ...current, business }),
-        )
-        void loadSection(
-          'ownership',
-          api.getAssetResearchOwnership(normalizedSymbol),
-          (current, ownership) => ({ ...current, ownership }),
-        )
-        void loadSection(
-          'themes',
-          api.getAssetResearchThemes(normalizedSymbol),
-          (current, classification: AssetThemeClassificationDTO) => ({
+        if (shouldLoadProfileSections) {
+          void loadSection(
+            'business',
+            api.getAssetResearchBusiness(normalizedSymbol),
+            (current, business) => ({ ...current, business }),
+          )
+          void loadSection(
+            'ownership',
+            api.getAssetResearchOwnership(normalizedSymbol),
+            (current, ownership) => ({ ...current, ownership }),
+          )
+        }
+        if (shouldLoadThemes) {
+          void loadSection(
+            'themes',
+            api.getAssetResearchThemes(normalizedSymbol),
+            (current, classification: AssetThemeClassificationDTO) => ({
+              ...current,
+              asset: {
+                ...current.asset,
+                themes: classification.themes,
+              },
+            }),
+          )
+        } else if (!cancelled) {
+          setAssetResearch((current) => current ? {
             ...current,
             asset: {
               ...current.asset,
-              themes: classification.themes,
+              themes: [],
             },
-          }),
-        )
+          } : current)
+        }
         void loadSection(
           'risk',
           api.getAssetResearchRisk(normalizedSymbol),
@@ -388,6 +416,7 @@ export default function AssetResearch() {
     const currency = assetResearch.metadata.asset_currency || assetResearch.asset.currency || quote?.currency || 'USD'
     const dailyChange = toNumber(quote?.daily_change_pct)
     const price = toNumber(quote?.price)
+    const marketCap = toNumber(fundamentals.market_cap)
 
     return {
       currency,
@@ -417,20 +446,20 @@ export default function AssetResearch() {
               icon: <AlertTriangle size={16} />,
             }
           : null,
-        fundamentals.market_cap !== null
+        marketCap !== null && marketCap > 0
           ? {
               label: 'Market Cap',
-              value: `${formatLargeNumber(fundamentals.market_cap, 2)} ${currency}`,
-              subtitle: getMarketCapConclusion(fundamentals.market_cap, t),
+              value: `${formatLargeNumber(marketCap, 2)} ${currency}`,
+              subtitle: getMarketCapConclusion(marketCap, t),
               icon: <BarChart3 size={16} />,
             }
           : null,
       ].filter(Boolean) as MetricConfig[],
       fundamentals: [
-        fundamentals.market_cap !== null ? {
+        marketCap !== null && marketCap > 0 ? {
           label: 'Market Cap',
-          value: `${formatLargeNumber(fundamentals.market_cap, 2)} ${currency}`,
-          subtitle: getMarketCapConclusion(fundamentals.market_cap, t),
+          value: `${formatLargeNumber(marketCap, 2)} ${currency}`,
+          subtitle: getMarketCapConclusion(marketCap, t),
           icon: <DollarSign size={16} />,
         } : null,
         fundamentals.volume !== null ? {
@@ -769,6 +798,8 @@ export default function AssetResearch() {
   }
 
   const { asset, quote, metadata } = assetResearch
+  const showProfileSections = !isEtfAsset(asset)
+  const showThemeSection = isEquityAsset(asset)
   const dailyChangeColor = metrics.dailyChange === null
     ? 'text-neutral-500 dark:text-neutral-400'
     : metrics.dailyChange >= 0
@@ -893,35 +924,43 @@ export default function AssetResearch() {
             loading={investmentNoteLoading}
             onEdit={() => setInvestmentNoteOpen(true)}
           />
-          {sectionLoading.themes ? (
-            <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
-              <CardSkeleton rows={4} />
-            </Section>
-          ) : (
-            <ThemeSection themes={asset.themes || []} />
+          {showThemeSection && (
+            <>
+              {sectionLoading.themes ? (
+                <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                  <CardSkeleton rows={4} />
+                </Section>
+              ) : (
+                <ThemeSection themes={asset.themes || []} />
+              )}
+              <SectionErrorBanner message={sectionErrors.themes} />
+            </>
           )}
-          <SectionErrorBanner message={sectionErrors.themes} />
-          {sectionLoading.business ? (
-            <Section title="Business" icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
-              <CardSkeleton rows={6} />
-            </Section>
-          ) : (
-            <BusinessSection
-              business={assetResearch.business}
-              asset={asset}
-              descriptionExpanded={descriptionExpanded}
-              onToggleDescription={() => setDescriptionExpanded((expanded) => !expanded)}
-            />
+          {showProfileSections && (
+            <>
+              {sectionLoading.business ? (
+                <Section title="Business" icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                  <CardSkeleton rows={6} />
+                </Section>
+              ) : (
+                <BusinessSection
+                  business={assetResearch.business}
+                  asset={asset}
+                  descriptionExpanded={descriptionExpanded}
+                  onToggleDescription={() => setDescriptionExpanded((expanded) => !expanded)}
+                />
+              )}
+              <SectionErrorBanner message={sectionErrors.business} />
+              {sectionLoading.ownership ? (
+                <Section title="Ownership" icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                  <MetricSkeletonGrid count={3} />
+                </Section>
+              ) : (
+                <OwnershipSection ownership={assetResearch.ownership} />
+              )}
+              <SectionErrorBanner message={sectionErrors.ownership} />
+            </>
           )}
-          <SectionErrorBanner message={sectionErrors.business} />
-          {sectionLoading.ownership ? (
-            <Section title="Ownership" icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
-              <MetricSkeletonGrid count={3} />
-            </Section>
-          ) : (
-            <OwnershipSection ownership={assetResearch.ownership} />
-          )}
-          <SectionErrorBanner message={sectionErrors.ownership} />
           <AssetPriceChart
             assetId={asset.id}
             symbol={asset.symbol}

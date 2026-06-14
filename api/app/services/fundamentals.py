@@ -53,6 +53,12 @@ class FundamentalsService:
         """Map raw provider info to the compact fundamentals payload."""
         # Basic metrics
         market_cap = info.get('marketCap')
+        try:
+            market_cap = float(market_cap) if market_cap is not None else None
+        except (TypeError, ValueError):
+            market_cap = None
+        if market_cap is not None and market_cap <= 0:
+            market_cap = None
         volume = info.get('volume')
         avg_volume = info.get('averageVolume')
         pe_ratio = info.get('trailingPE') or info.get('forwardPE')

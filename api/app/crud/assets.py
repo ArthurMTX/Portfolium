@@ -3,6 +3,7 @@ CRUD operations for assets
 """
 import logging
 import re
+from decimal import Decimal
 from typing import Any, List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -23,6 +24,56 @@ _CRYPTO_CURRENCY_SUFFIX_RE = re.compile(
 
 def _strip_crypto_currency_suffix(name: str) -> str:
     return _CRYPTO_CURRENCY_SUFFIX_RE.sub("", name)
+
+
+def _decimal_or_none(value: Any) -> Optional[Decimal]:
+    if value is None:
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except Exception:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def update_asset_market_cap_from_info(asset: Asset, info: Any) -> bool:
+    """Persist provider market-cap metadata on an asset when available."""
+    if not isinstance(info, dict):
+        return False
+
+    market_cap = _decimal_or_none(info.get("marketCap"))
+    if market_cap is None:
+        return False
+
+    market_cap_currency = (
+        info.get("financialCurrency")
+        or info.get("currency")
+        or getattr(asset, "currency", None)
+        or "USD"
+    )
+    market_cap_currency = str(market_cap_currency).upper()[:3]
+    market_cap_usd = market_cap if market_cap_currency == "USD" else None
+
+    if market_cap_currency != "USD":
+        try:
+            from app.services.currency import CurrencyService
+
+            converted = CurrencyService.convert(market_cap, market_cap_currency, "USD")
+            if converted is not None:
+                market_cap_usd = converted
+        except Exception as exc:
+            logger.warning(
+                "Failed to convert market cap for %s from %s to USD: %s",
+                getattr(asset, "symbol", None),
+                market_cap_currency,
+                exc,
+            )
+
+    asset.market_cap = market_cap
+    asset.market_cap_currency = market_cap_currency
+    asset.market_cap_usd = market_cap_usd
+    asset.market_cap_fetched_at = datetime.utcnow()
+    return True
 
 
 def is_valid_provider_info(symbol: str, info: Any) -> bool:
@@ -162,6 +213,7 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
         asset_type=asset_type,
         country=country
     )
+    update_asset_market_cap_from_info(db_asset, info)
     db.add(db_asset)
     db.commit()
     db.refresh(db_asset)
@@ -181,6 +233,12 @@ def update_asset(db: Session, asset_id: int, asset: AssetCreate) -> Optional[Ass
     db_asset.sector = asset.sector
     db_asset.industry = asset.industry
     db_asset.asset_type = asset.asset_type
+    db_asset.country = asset.country
+    if asset.market_cap is not None:
+        db_asset.market_cap = asset.market_cap
+        db_asset.market_cap_currency = asset.market_cap_currency or db_asset.currency
+        db_asset.market_cap_usd = asset.market_cap_usd
+        db_asset.market_cap_fetched_at = asset.market_cap_fetched_at or datetime.utcnow()
     
     db.commit()
     db.refresh(db_asset)
@@ -223,6 +281,7 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
             db_asset.asset_type = info.get('quoteType')
         if not db_asset.country:
             db_asset.country = info.get('country')
+        update_asset_market_cap_from_info(db_asset, info)
         # Update currency from yfinance if available (always update to correct currency from source)
         yf_currency = info.get('currency')
         if yf_currency:
@@ -282,7 +341,7 @@ def enrich_all_assets(db: Session) -> dict:
             
             # Skip if already has all metadata and name doesn't need updating
             if (asset.sector and asset.industry and asset.asset_type and 
-                asset.country and not needs_name_update and not is_crypto_with_suffix):
+                asset.country and asset.market_cap and not needs_name_update and not is_crypto_with_suffix):
                 continue
             
             provider = get_market_data_provider()
@@ -305,6 +364,8 @@ def enrich_all_assets(db: Session) -> dict:
                 updated = True
             if not asset.country and info.get('country'):
                 asset.country = info.get('country')
+                updated = True
+            if update_asset_market_cap_from_info(asset, info):
                 updated = True
             # Update currency from yfinance if available (always update to correct currency from source)
             yf_currency = info.get('currency')

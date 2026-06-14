@@ -34,6 +34,8 @@ AUTOMATIC_THEME_METHOD = "gpt"
 THEME_SOURCE_MINILM = "minilm"
 THEME_SOURCE_GEMINI = "gemini"
 THEME_SOURCE_MANUAL = "manual"
+THEME_ELIGIBLE_ASSET_TYPES = {"EQUITY", "STOCK"}
+THEME_ELIGIBLE_ASSET_CLASSES = {"stock"}
 MAX_SUMMARY_CHARS = 2500
 MAX_SUMMARY_SENTENCES = 10
 
@@ -727,6 +729,36 @@ def _normalize_classifier_theme_payload(themes: List[ThemePayload]) -> List[Them
 class AssetThemeService:
     """Generate, validate, and persist reusable asset theme classifications."""
 
+    @classmethod
+    def is_theme_supported_asset(cls, asset: Asset) -> bool:
+        """Theme classification is only supported for equity-like assets."""
+        asset_type = str(getattr(asset, "asset_type", "") or "").strip().upper()
+        if asset_type:
+            return asset_type in THEME_ELIGIBLE_ASSET_TYPES
+
+        asset_class = getattr(asset, "class_", None)
+        if asset_class is not None:
+            asset_class_value = getattr(asset_class, "value", asset_class)
+            return str(asset_class_value).strip().lower() in THEME_ELIGIBLE_ASSET_CLASSES
+
+        # Older tests and lightweight call sites may omit both fields while still
+        # representing stocks. Real non-equity assets should carry one of them.
+        return True
+
+    @staticmethod
+    def empty_classification_for_asset(asset: Asset) -> AssetThemeClassification:
+        return AssetThemeClassification(
+            asset_id=asset.id,
+            themes=[],
+            method=AUTOMATIC_THEME_METHOD,
+            model=None,
+            source=None,
+            model_name=None,
+            source_hash=None,
+            generated_at=None,
+            updated_at=None,
+        )
+
     def __init__(
         self,
         db: Session,
@@ -897,6 +929,9 @@ class AssetThemeService:
         company_info_loader: Optional[Callable[[], Dict[str, Any]]] = None,
     ) -> Optional[AssetThemeClassification]:
         """Return stored classification, refreshing once when its provider is stale."""
+        if not self.is_theme_supported_asset(asset):
+            return self.empty_classification_for_asset(asset)
+
         with self._time_block("DB lookup existing"):
             existing = self.get_classification(asset.id)
         if not existing:
@@ -1066,6 +1101,20 @@ class AssetThemeService:
         name: Optional[str] = None,
         force: bool = False,
     ) -> AssetThemeClassification:
+        if not self.is_theme_supported_asset(asset):
+            self.last_taxonomy_gap = None
+            self.last_subtheme_taxonomy_gaps = []
+            self.last_taxonomy_gap_persisted = False
+            self.last_classification_unavailable_reason = "non_equity_asset"
+            logger.info(
+                "Asset theme classification skipped asset_id=%s symbol=%s reason=non_equity asset_type=%s class=%s",
+                getattr(asset, "id", None),
+                getattr(asset, "symbol", None),
+                getattr(asset, "asset_type", None),
+                getattr(asset, "class_", None),
+            )
+            return self.empty_classification_for_asset(asset)
+
         provider = self.classifier
         provider_source = provider.source
         provider_model_name = provider.model_name

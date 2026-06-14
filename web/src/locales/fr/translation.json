@@ -1353,15 +1353,18 @@
     "bySector": "Par secteur",
     "byType": "Par type",
     "byCountry": "Par pays",
+    "byMarketCap": "Par capitalisation",
     "byTheme": "Par thème",
     "sector": "Secteur",
     "industry": "Industrie",
+    "marketCap": "Capitalisation",
     "theme": "Thème",
     "pieChart": "Graphique circulaire",
     "barChart": "Graphique à barres",
     "sectorDistribution": "Répartition par secteur",
     "typeDistribution": "Répartition par type",
     "countryDistribution": "Répartition par pays",
+    "marketCapDistribution": "Répartition par capitalisation",
     "themeDistribution": "Répartition par thème",
     "distribution": "Répartition",
     "andPerformance": "& Performance",
@@ -1375,7 +1378,17 @@
     "details": "Détails",
     "industriesIn": "Industries dans {{sector}}",
     "loadingIndustries": "Chargement des industries...",
-    "noIndustriesFound": "Aucune industrie trouvée."
+    "noIndustriesFound": "Aucune industrie trouvée.",
+    "marketCapBuckets": {
+      "Mega Cap": "Mega Cap",
+      "Large Cap": "Large Cap",
+      "Mid Cap": "Mid Cap",
+      "Small Cap": "Small Cap",
+      "Micro Cap": "Micro Cap",
+      "Funds / ETFs": "Fonds / ETF",
+      "Crypto assets": "Crypto-actifs",
+      "Market cap unavailable": "Capitalisation indisponible"
+    }
   },
   "transactionHistory": {
     "title": "Historique des Transactions",
