@@ -15,7 +15,7 @@ export interface WidgetSizeConfig {
   maxH?: number
 }
 
-export const widgetSizes: Record<string, WidgetSizeConfig> = {
+const widgetSizes: Record<string, WidgetSizeConfig> = {
   // Metrics
   'total-value': { w: 3, h: 2, minW: 2, minH: 2 },
   'daily-gain': { w: 3, h: 2, minW: 2, minH: 2 },
@@ -68,7 +68,7 @@ export const widgetSizes: Record<string, WidgetSizeConfig> = {
 /**
  * Helper to extract widget base ID (removes -1, -2, etc. suffixes for multiple instances)
  */
-export const getWidgetBaseId = (widgetId: string): string => {
+const getWidgetBaseId = (widgetId: string): string => {
   return widgetId.replace(/-\d+$/, '')
 }
 

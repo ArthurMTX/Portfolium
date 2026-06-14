@@ -93,14 +93,6 @@ export function useRiskMetrics(period: string = '1y', isPreview: boolean = false
   return { data, loading, error }
 }
 
-/**
- * Clear the risk metrics cache
- * Useful when you want to force a refresh
- */
-export function clearRiskMetricsCache() {
-  riskMetricsCache.clear()
-}
-
 // Benchmark comparison cache
 interface BenchmarkData {
   alpha: number

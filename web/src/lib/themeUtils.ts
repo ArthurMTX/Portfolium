@@ -61,7 +61,6 @@ import {
   Cpu,
   CreditCard,
   Cross,
-  Crosshair,
   CupSoda,
   Dam,
   Database,
@@ -98,7 +97,6 @@ import {
   Hospital,
   House,
   HouseWifi,
-  KeyRound,
   Landmark,
   Leaf,
   LifeBuoy,
@@ -197,7 +195,7 @@ import {
   WavesLadder,
 } from 'lucide-react'
 
-export const THEME_ICONS: Record<string, LucideIcon> = {
+const THEME_ICONS: Record<string, LucideIcon> = {
   // AI, compute, software & security
   // AI Infrastructure
   'AI Infrastructure': BrainCircuit,
@@ -862,7 +860,7 @@ export const THEME_ICONS: Record<string, LucideIcon> = {
   'Other': Briefcase,
 }
 
-export const THEME_TEXT_COLORS: Record<string, string> = {
+const THEME_TEXT_COLORS: Record<string, string> = {
   // AI, compute, software & security
   // AI Infrastructure
   'AI Infrastructure': 'text-[#3757c6] dark:text-[#5676e7]',
@@ -1525,7 +1523,7 @@ export const THEME_TEXT_COLORS: Record<string, string> = {
   'Other': 'text-[#737373] dark:text-[#737373]',
 }
 
-export const THEME_HEX_COLORS: Record<string, string> = {
+const THEME_HEX_COLORS: Record<string, string> = {
   // AI, compute, software & security
   // AI Infrastructure
   'AI Infrastructure': '#3757c6',
@@ -2201,10 +2199,4 @@ export function getThemeColor(theme: string | null | undefined): string {
 export function getThemeHexColor(theme: string | null | undefined): string {
   if (!theme) return '#9ca3af'
   return THEME_HEX_COLORS[theme] || '#737373'
-}
-
-export function getAllThemes(): string[] {
-  return Object.keys(THEME_ICONS)
-    .filter((theme) => theme !== 'Unknown' && theme !== 'Other')
-    .sort()
 }

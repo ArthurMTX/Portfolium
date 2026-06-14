@@ -1,27 +1,9 @@
 import { Layout } from 'react-grid-layout'
 import { getWidgetSize } from './widgetConstraints'
 
-export interface WidgetConfig {
-  id: string
-  type: 'metric' | 'positions' | 'notifications' | 'watchlist'
-  title: string
-  visible: boolean
-}
-
-export const defaultWidgets: WidgetConfig[] = [
-  { id: 'total-value', type: 'metric', title: 'Total Value', visible: true },
-  { id: 'daily-gain', type: 'metric', title: 'Daily Gain', visible: true },
-  { id: 'unrealized-pnl', type: 'metric', title: 'Unrealized P&L', visible: true },
-  { id: 'realized-pnl', type: 'metric', title: 'Realized P&L', visible: true },
-  { id: 'dividends', type: 'metric', title: 'Dividends & Fees', visible: true },
-  { id: 'notifications', type: 'notifications', title: 'Recent Notifications', visible: true },
-  { id: 'watchlist', type: 'watchlist', title: 'Watchlist', visible: true },
-  { id: 'positions', type: 'positions', title: 'Positions', visible: true },
-]
-
 // Desktop layout (cols: 12)
 // Note: rowHeight is 50px, so h: 2 = 100px
-export const defaultLayout: Layout[] = [
+const defaultLayout: Layout[] = [
   // Executive KPI stack: anchor value first, daily movement second, supporting KPIs secondary.
   { i: 'total-value', x: 0, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
   { i: 'daily-gain', x: 4, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
@@ -38,7 +20,7 @@ export const defaultLayout: Layout[] = [
 ]
 
 // Tablet layout (cols: 8)
-export const tabletLayout: Layout[] = [
+const tabletLayout: Layout[] = [
   // Row 1: primary metrics
   { i: 'total-value', x: 0, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
   { i: 'daily-gain', x: 4, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
@@ -57,7 +39,7 @@ export const tabletLayout: Layout[] = [
 ]
 
 // Mobile layout (cols: 4)
-export const mobileLayout: Layout[] = [
+const mobileLayout: Layout[] = [
   // Stack everything vertically
   { i: 'total-value', x: 0, y: 0, w: 4, h: 3, minW: 4, minH: 2 },
   { i: 'daily-gain', x: 0, y: 4, w: 4, h: 3, minW: 4, minH: 2 },
@@ -163,35 +145,4 @@ export const saveLayout = (layout: Layout[], breakpoint: 'lg' | 'md' | 'sm', use
   }
   
   localStorage.setItem(storageKey, JSON.stringify(layout))
-}
-
-export const resetLayout = (breakpoint: 'lg' | 'md' | 'sm', userId?: number) => {
-  // Create a storage key based on user only (layouts are global across portfolios)
-  let storageKey = `dashboard-layout-${breakpoint}`
-  if (userId) {
-    storageKey = `dashboard-layout-${userId}-${breakpoint}`
-  }
-  
-  localStorage.removeItem(storageKey)
-}
-
-export const loadWidgetVisibility = (): Record<string, boolean> => {
-  const saved = localStorage.getItem('dashboard-widget-visibility')
-  if (saved) {
-    try {
-      return JSON.parse(saved)
-    } catch {
-      // If parsing fails, return default (all visible)
-    }
-  }
-  
-  // Default: all widgets visible
-  return defaultWidgets.reduce((acc, widget) => {
-    acc[widget.id] = widget.visible
-    return acc
-  }, {} as Record<string, boolean>)
-}
-
-export const saveWidgetVisibility = (visibility: Record<string, boolean>) => {
-  localStorage.setItem('dashboard-widget-visibility', JSON.stringify(visibility))
 }

@@ -72,7 +72,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Failed to load this block.'
 }
 
-export function InfoTooltip({
+function InfoTooltip({
   children,
   label = 'More information',
   align = 'right',
@@ -102,7 +102,7 @@ export function InfoTooltip({
   )
 }
 
-export function ScopePill({ children }: { children: ReactNode }) {
+function ScopePill({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex max-w-full items-center rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
       {children}

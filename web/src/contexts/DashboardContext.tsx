@@ -58,5 +58,3 @@ export function useWidgetVisibility(widgetIdPrefix: string): boolean {
     id === widgetIdPrefix || id.startsWith(`${widgetIdPrefix}-`)
   )
 }
-
-export default DashboardContext

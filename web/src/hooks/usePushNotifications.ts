@@ -311,5 +311,3 @@ export function usePushNotifications(): PushNotificationsHook {
     sendTestNotification,
   };
 }
-
-export default usePushNotifications;

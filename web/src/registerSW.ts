@@ -13,5 +13,3 @@ const updateSW = registerSW({
   },
   immediate: true
 })
-
-export { updateSW }

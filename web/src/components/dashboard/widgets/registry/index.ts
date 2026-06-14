@@ -72,15 +72,10 @@ class WidgetRegistry {
   }
 }
 
-// Create and export the singleton registry instance
-export const widgetRegistry = new WidgetRegistry(widgetDefinitions)
+const widgetRegistry = new WidgetRegistry(widgetDefinitions)
 
 // Export convenience functions
 export const getWidget = (id: string) => widgetRegistry.getWidget(id)
 export const getAllWidgets = () => widgetRegistry.getAllWidgets()
-export const getWidgetsByCategory = (category: WidgetCategory) => 
-  widgetRegistry.getWidgetsByCategory(category)
 export const getWidgetsGroupedByCategory = () => 
   widgetRegistry.getWidgetsGroupedByCategory()
-export const hasWidget = (id: string) => widgetRegistry.hasWidget(id)
-export const searchWidgets = (query: string) => widgetRegistry.searchWidgets(query)

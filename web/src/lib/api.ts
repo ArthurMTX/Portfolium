@@ -19,7 +19,7 @@ interface ApiError {
 }
 
 // Auth Types
-export interface UserDTO {
+interface UserDTO {
   id: number
   email: string
   username: string
@@ -39,7 +39,7 @@ export interface UserDTO {
   totp_enabled: boolean
 }
 
-export interface LoginResponseDTO {
+interface LoginResponseDTO {
   access_token: string
   token_type: string
   user: UserDTO
@@ -58,7 +58,7 @@ export interface TwoFactorStatusResponse {
 }
 
 // Types aligning with store shapes
-export interface PortfolioDTO {
+interface PortfolioDTO {
   id: number
   name: string
   base_currency: string
@@ -288,7 +288,7 @@ export interface AssetThemeClassifyResultDTO {
   skipped_reason?: string | null
 }
 
-export interface AssetThemeClassifyResponseDTO {
+interface AssetThemeClassifyResponseDTO {
   total: number
   classified: number
   skipped: number
@@ -321,7 +321,7 @@ export interface DeleteInvalidProviderAssetsResponseDTO {
   unresolved: AssetCleanupCandidateDTO[]
 }
 
-export interface PortfolioMetricsDTO {
+interface PortfolioMetricsDTO {
   portfolio_id: number
   portfolio_name: string
   total_value: number
@@ -349,7 +349,7 @@ export interface TodayBriefItemDTO {
   action_url?: string | null
 }
 
-export interface TodayBriefResponseDTO {
+interface TodayBriefResponseDTO {
   portfolio_id: number
   generated_at: string
   cached: boolean
@@ -378,7 +378,7 @@ export interface BatchPriceDTO {
   asset_type: string | null
 }
 
-export interface BatchPricesResponseDTO {
+interface BatchPricesResponseDTO {
   portfolio_id: number
   base_currency: string  // Portfolio's base currency for all converted prices
   prices: BatchPriceDTO[]
@@ -535,10 +535,10 @@ export interface AssetEtfCompositionDTO {
   asset_classes?: AssetEtfCompositionAssetClassDTO[]
 }
 
-export type AssetResearchSummaryDTO = Pick<AssetResearchDTO, 'asset' | 'quote' | 'metadata'>
+type AssetResearchSummaryDTO = Pick<AssetResearchDTO, 'asset' | 'quote' | 'metadata'>
 export type AssetResearchFundamentalsDTO = AssetResearchDTO['fundamentals']
-export type AssetResearchBusinessDTO = AssetResearchDTO['business']
-export type AssetResearchOwnershipDTO = AssetResearchDTO['ownership']
+type AssetResearchBusinessDTO = AssetResearchDTO['business']
+type AssetResearchOwnershipDTO = AssetResearchDTO['ownership']
 export type AssetResearchRiskDTO = AssetResearchDTO['risk']
 export type AssetResearchRelativePerformanceDTO = AssetResearchDTO['relative_performance']
 export type AssetResearchMetadataDTO = AssetResearchDTO['metadata']
@@ -614,7 +614,7 @@ export interface ThemeDistributionSubthemeDTO {
   assets: ThemeDistributionAssetDTO[]
 }
 
-export interface ThemeDistributionItemDTO {
+interface ThemeDistributionItemDTO {
   theme: string
   value: number
   percentage: number
@@ -625,14 +625,14 @@ export interface ThemeDistributionItemDTO {
   subthemes?: ThemeDistributionSubthemeDTO[]
 }
 
-export interface IndustryItemDTO {
+interface IndustryItemDTO {
   name: string
   count: number
   asset_ids: number[]
 }
 
 // Insights Types
-export interface TopPerformerDTO {
+interface TopPerformerDTO {
   symbol: string
   name: string | null
   return_pct: number
@@ -643,7 +643,7 @@ export interface TopPerformerDTO {
   asset_type?: string | null
 }
 
-export interface PerformanceMetricsDTO {
+interface PerformanceMetricsDTO {
   period: string
   total_return: number
   total_return_pct: number
@@ -661,7 +661,7 @@ export interface PerformanceMetricsDTO {
   win_rate: number
 }
 
-export interface RiskMetricsDTO {
+interface RiskMetricsDTO {
   period: string
   volatility: number
   sharpe_ratio: number | null
@@ -678,12 +678,12 @@ export interface RiskMetricsDTO {
   downside_deviation: number
 }
 
-export interface TimeSeriesPointDTO {
+interface TimeSeriesPointDTO {
   date: string
   value: number
 }
 
-export interface BenchmarkComparisonDTO {
+interface BenchmarkComparisonDTO {
   benchmark_symbol: string
   benchmark_name: string
   period: string
@@ -695,12 +695,12 @@ export interface BenchmarkComparisonDTO {
   correlation: number | null
 }
 
-export interface AverageHoldingPeriodDTO {
+interface AverageHoldingPeriodDTO {
   portfolio_id: number
   average_holding_period_days: number | null
 }
 
-export interface PortfolioInsightsSummaryDTO {
+interface PortfolioInsightsSummaryDTO {
   portfolio_id: number
   portfolio_name: string
   as_of_date: string
@@ -726,7 +726,7 @@ export interface ContributionItemDTO {
   asset_type?: string | null
 }
 
-export interface PortfolioMoveSummaryDTO {
+interface PortfolioMoveSummaryDTO {
   portfolio_id: number
   total_value: number
   daily_change_value: number | null
@@ -738,7 +738,7 @@ export interface PortfolioMoveSummaryDTO {
   worst_movers: ContributionItemDTO[]
 }
 
-export interface ConcentrationMetricsDTO {
+interface ConcentrationMetricsDTO {
   portfolio_id: number
   positions_count: number
   largest_position_weight: number
@@ -750,18 +750,18 @@ export interface ConcentrationMetricsDTO {
   largest_position: ContributionItemDTO | null
 }
 
-export interface ThemeEvolutionPointDTO {
+interface ThemeEvolutionPointDTO {
   date: string
   exposures: Record<string, number>
 }
 
-export interface PortfolioDNATraitDTO {
+interface PortfolioDNATraitDTO {
   label: string
   value: string
   score: number
 }
 
-export interface PortfolioDNADTO {
+interface PortfolioDNADTO {
   portfolio_id: number
   traits: PortfolioDNATraitDTO[]
 }
@@ -788,13 +788,13 @@ export interface ScenarioResultDTO {
   estimated_impact_value: number
 }
 
-export interface PerformanceInsightsDTO {
+interface PerformanceInsightsDTO {
   summary: PortfolioInsightsSummaryDTO
   performance: PerformanceMetricsDTO
   risk: RiskMetricsDTO
 }
 
-export interface AttributionInsightsDTO {
+interface AttributionInsightsDTO {
   move: PortfolioMoveSummaryDTO
   top_contributors: ContributionItemDTO[]
   top_detractors: ContributionItemDTO[]
@@ -806,7 +806,7 @@ export interface AttributionInsightsDTO {
   concentration: ConcentrationMetricsDTO
 }
 
-export interface ExposureInsightsDTO {
+interface ExposureInsightsDTO {
   theme_exposure: ContributionItemDTO[]
   sector_exposure: ContributionItemDTO[]
   country_exposure: ContributionItemDTO[]
@@ -818,7 +818,7 @@ export interface ExposureInsightsDTO {
   theme_evolution: ThemeEvolutionPointDTO[]
 }
 
-export interface RiskInsightsDTO {
+interface RiskInsightsDTO {
   risk: RiskMetricsDTO
   benchmark_comparison: BenchmarkComparisonDTO
   scenarios: ScenarioResultDTO[]
@@ -826,7 +826,7 @@ export interface RiskInsightsDTO {
 }
 
 // Price Quote
-export interface PriceQuote {
+interface PriceQuote {
   symbol: string
   current_price: number
   price: number
@@ -837,7 +837,7 @@ export interface PriceQuote {
 }
 
 // Market Status
-export interface MarketStatusDTO {
+interface MarketStatusDTO {
   status: string
   timestamp: string
   database: string
@@ -855,7 +855,7 @@ export interface MarketStatusDTO {
   current_time?: string
 }
 
-export interface TransactionDTO {
+interface TransactionDTO {
   id: number
   portfolio_id: number
   asset_id: number
@@ -870,7 +870,7 @@ export interface TransactionDTO {
   created_at: string
 }
 
-export interface PortfolioGoalDTO {
+interface PortfolioGoalDTO {
   id: number
   portfolio_id: number
   title: string
@@ -885,7 +885,7 @@ export interface PortfolioGoalDTO {
   updated_at: string
 }
 
-export interface PortfolioGoalCreate {
+interface PortfolioGoalCreate {
   title: string
   target_amount: number
   target_date?: string | null
@@ -896,7 +896,7 @@ export interface PortfolioGoalCreate {
   is_active?: boolean
 }
 
-export interface PortfolioGoalUpdate {
+interface PortfolioGoalUpdate {
   title?: string
   target_amount?: number
   target_date?: string | null
@@ -907,7 +907,7 @@ export interface PortfolioGoalUpdate {
   is_active?: boolean
 }
 
-export interface GoalScenario {
+interface GoalScenario {
   label: 'Pessimistic' | 'Median' | 'Optimistic'
   return_rate: number
   projected_months: number
@@ -916,14 +916,14 @@ export interface GoalScenario {
   color: string
 }
 
-export interface GoalMilestone {
+interface GoalMilestone {
   percentage: number
   amount: number
   achieved: boolean
   label: string
 }
 
-export interface GoalProjectionsDTO {
+interface GoalProjectionsDTO {
   scenarios: GoalScenario[]
   milestones: GoalMilestone[]
   probability: number
@@ -934,32 +934,6 @@ export interface GoalProjectionsDTO {
   is_past_target_date?: boolean
   warning?: string
 }
-
-export interface PublicTimeSeriesPoint {
-  date: string
-  value: number
-}
-
-export interface PublicPerformanceMetrics {
-  period: string
-  total_return_pct: number
-  annualized_return: number
-  best_day_date: string | null
-  worst_day_date: string | null
-  positive_days: number
-  negative_days: number
-  win_rate: number
-}
-
-export interface PublicRiskMetrics {
-  period: string
-  volatility: number
-  sharpe_ratio: number | null
-  max_drawdown: number
-  max_drawdown_date: string | null
-  beta: number | null
-}
-
 
 export interface PublicSectorAllocation {
   sector: string
@@ -2909,7 +2883,7 @@ export interface PendingDividendDTO {
   asset_name: string | null
 }
 
-export interface PendingDividendStatsDTO {
+interface PendingDividendStatsDTO {
   pending_count: number
   pending_total_amount: number | string
   accepted_count: number
@@ -2946,7 +2920,7 @@ export interface EarningsEvent extends CalendarEventBase {
   source?: 'portfolio' | 'watchlist'
 }
 
-export interface DailyPerformanceEvent extends CalendarEventBase {
+interface DailyPerformanceEvent extends CalendarEventBase {
   type: 'daily_performance'
   portfolio_id: number
   portfolio_name: string
@@ -2957,9 +2931,9 @@ export interface DailyPerformanceEvent extends CalendarEventBase {
   currency: string
 }
 
-export type CalendarEvent = EarningsEvent | DailyPerformanceEvent
+type CalendarEvent = EarningsEvent | DailyPerformanceEvent
 
-export interface CalendarEventsResponse {
+interface CalendarEventsResponse {
   events: CalendarEvent[]
   start_date: string
   end_date: string
@@ -2967,7 +2941,7 @@ export interface CalendarEventsResponse {
   today: string
 }
 
-export interface EarningsCalendarResponse {
+interface EarningsCalendarResponse {
   earnings: EarningsEvent[]
   start_date: string
   end_date: string
@@ -2990,27 +2964,11 @@ export interface DailyPerformanceDay {
   }>
 }
 
-export interface DailyPerformanceResponse {
+interface DailyPerformanceResponse {
   days: DailyPerformanceDay[]
   start_date: string
   end_date: string
   today: string
-}
-
-export interface LegacyTransactionDTO {
-  id: number
-  portfolio_id: number
-  asset_id: number
-  tx_date: string
-  type: string
-  quantity: number | string
-  price: number | string
-  fees: number | string
-  currency: string
-  notes: string | null
-  metadata?: Record<string, unknown>
-  created_at: string
-  updated_at: string
 }
 
 export const api = new ApiClient(API_BASE_URL)

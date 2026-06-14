@@ -22,18 +22,6 @@ export function calculateHitRatio(positions: PositionDTO[]): number | null {
 }
 
 /**
- * Calculate average holding period for sold positions
- * Returns the average number of days positions were held
- */
-export function calculateAvgHoldingPeriod(soldPositions: PositionDTO[]): number | null {
-  if (!soldPositions || soldPositions.length === 0) return null
-  
-  // This would require transaction dates from the backend
-  // For now, return null as we need more data
-  return null
-}
-
-/**
  * Calculate diversification score based on position concentration
  * Score from 0-100, higher is better
  */
@@ -84,14 +72,4 @@ export function formatHoldingPeriod(days: number): string {
     const years = (days / 365).toFixed(1)
     return `${years} year${years !== '1.0' ? 's' : ''}`
   }
-}
-
-/**
- * Format percentage with appropriate color class
- */
-export function getPercentageColorClass(value: number | null): string {
-  if (value === null) return 'text-neutral-600 dark:text-neutral-400'
-  if (value > 0) return 'text-emerald-600 dark:text-emerald-400'
-  if (value < 0) return 'text-red-600 dark:text-red-400'
-  return 'text-neutral-600 dark:text-neutral-400'
 }

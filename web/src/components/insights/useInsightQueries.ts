@@ -11,7 +11,7 @@ const insightQueryDefaults = {
   refetchOnWindowFocus: false,
 }
 
-export const insightQueryKeys = {
+const insightQueryKeys = {
   performance: (portfolioId: number, period: string) => ['insights', portfolioId, 'performance-overview', period] as const,
   benchmark: (portfolioId: number, benchmark: string, period: string) => ['insights', portfolioId, 'benchmark', benchmark, period] as const,
   attribution: (portfolioId: number) => ['insights', portfolioId, 'attribution-domain'] as const,

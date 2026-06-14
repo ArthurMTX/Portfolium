@@ -3,7 +3,7 @@ import { CategoryConfig } from '../../types'
 /**
  * Widget category configurations
  */
-export const widgetCategories: CategoryConfig[] = [
+const widgetCategories: CategoryConfig[] = [
   {
     id: 'metrics',
     label: 'dashboard.widgets.categories.metrics.label',

@@ -387,7 +387,7 @@ export const SECTOR_ICONS: Record<string, LucideIcon> = SECTOR_ICON_MAP;
  * Derived: Mapping of sectors to their valid industries
  * Automatically generated from INDUSTRY_CONFIG
  */
-export const SECTOR_TO_INDUSTRIES: Record<string, string[]> = Object.entries(INDUSTRY_CONFIG)
+const SECTOR_TO_INDUSTRIES: Record<string, string[]> = Object.entries(INDUSTRY_CONFIG)
   .reduce((acc, [industry, config]) => {
     const sector = config.sector;
     if (!acc[sector]) {
@@ -490,42 +490,6 @@ export function getIndustryColor(industry: string | null | undefined): string {
 export function getIndustriesForSector(sector: string | null | undefined): string[] {
   if (!sector) return Object.keys(INDUSTRY_ICONS).sort();
   return SECTOR_TO_INDUSTRIES[sector] || Object.keys(INDUSTRY_ICONS).sort();
-}
-
-/**
- * Get all available sectors
- * @returns Array of all sector names
- */
-export function getAllSectors(): string[] {
-  return Object.keys(SECTOR_ICONS).filter(s => s !== 'Unknown' && s !== 'Other').sort();
-}
-
-/**
- * Get all available industries
- * @returns Array of all industry names
- */
-export function getAllIndustries(): string[] {
-  return Object.keys(INDUSTRY_ICONS).filter(i => i !== 'Unknown' && i !== 'Other').sort();
-}
-
-/**
- * Check if a sector is valid
- * @param sector - Sector name to validate
- * @returns True if the sector exists in our mappings
- */
-export function isValidSector(sector: string | null | undefined): boolean {
-  if (!sector) return false;
-  return sector in SECTOR_ICONS;
-}
-
-/**
- * Check if an industry is valid
- * @param industry - Industry name to validate
- * @returns True if the industry exists in our mappings
- */
-export function isValidIndustry(industry: string | null | undefined): boolean {
-  if (!industry) return false;
-  return industry in INDUSTRY_ICONS;
 }
 
 /**

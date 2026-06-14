@@ -103,7 +103,7 @@ export const mockMetrics = {
 }
 
 // Mock performance metrics for PerformanceMetricsWidget
-export const mockPerformanceMetrics = {
+const mockPerformanceMetrics = {
   weeklyReturn: 2.34,
   monthlyReturn: 5.67,
   ytdReturn: 17.16,
@@ -434,27 +434,27 @@ export const mockCountriesDistribution = [
 ]
 
 // Mock market indicator data
-export const mockVIXData = {
+const mockVIXData = {
   price: 17.28,
   change_pct: -0.5,
 }
 
-export const mockTNXData = {
+const mockTNXData = {
   price: 4.32,
   change_pct: 0.15,
 }
 
-export const mockDXYData = {
+const mockDXYData = {
   price: 103.45,
   change_pct: -0.23,
 }
 
-export const mockBitcoinPizzaData = {
+const mockBitcoinPizzaData = {
   btc_price: 43250.80,
   pizza_value: 432508000, // 10,000 BTC value
 }
 
-export const mockSentimentData = {
+const mockSentimentData = {
   stock: {
     sentiment: 'bullish',
     score: 72,
@@ -468,7 +468,7 @@ export const mockSentimentData = {
 }
 
 // Mock risk metrics data
-export const mockRiskMetrics = {
+const mockRiskMetrics = {
   volatility: 18.5,
   sharpe_ratio: 1.42,
   max_drawdown: -12.3,
@@ -478,20 +478,20 @@ export const mockRiskMetrics = {
 }
 
 // Mock benchmark comparison data
-export const mockBenchmarkData = {
+const mockBenchmarkData = {
   alpha: 2.3,
   r_squared: 85.4,
 }
 
 // Mock goal tracker data
-export const mockGoalData = {
+const mockGoalData = {
   target: 15000.00,
   current: 11174.56,
   percentage: 74.5,
 }
 
 // Mock holding period data
-export const mockHoldingPeriod = {
+const mockHoldingPeriod = {
   average_days: 127,
   median_days: 95,
   longest_days: 387,
@@ -503,7 +503,7 @@ export const mockHoldingPeriod = {
 /**
  * Create a mock QueryClient that returns fake data for preview mode
  */
-export function createMockQueryClient(): QueryClient {
+function createMockQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {

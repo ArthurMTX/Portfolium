@@ -2,7 +2,7 @@
  * Determine optimal decimal places based on price value
  * For very small prices (like penny stocks or some crypto), show more decimal places
  */
-export function getOptimalDecimalPlaces(price: number | string | null): number {
+function getOptimalDecimalPlaces(price: number | string | null): number {
   if (price === null || price === undefined) return 2
   
   const numPrice = typeof price === 'string' ? parseFloat(price) : price

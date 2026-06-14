@@ -535,4 +535,4 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
   )
 }
 
-export { IconComponent, ALL_ICONS, AVAILABLE_COLORS }
+export { IconComponent }

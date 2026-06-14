@@ -107,15 +107,6 @@ export interface DashboardMetrics {
 }
 
 /**
- * Performance metrics for period-based widgets
- */
-export interface PerformanceMetrics {
-  weeklyReturn?: number
-  monthlyReturn?: number
-  ytdReturn?: number
-}
-
-/**
  * Props for base widget wrapper component
  */
 export interface BaseWidgetWrapperProps {

@@ -51,7 +51,7 @@ export const validateLogoImage = (img: HTMLImageElement): boolean => {
 /**
  * Normalize ticker symbol for logo lookup by removing currency suffixes
  */
-export const normalizeTickerForLogo = (symbol: string): string => {
+const normalizeTickerForLogo = (symbol: string): string => {
   if (!symbol) return ''
   return symbol.replace(/-(USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$/i, '')
 }
@@ -96,36 +96,6 @@ export const getAssetLogoUrl = (
   
   // For non-crypto, just use the ticker
   return `/api/assets/logo/${normalizedSymbol}`
-}
-
-/**
- * Get a fallback logo URL with asset type and name for better SVG generation
- * Use this only when the primary logo URL fails
- */
-export const getFallbackLogoUrl = (
-  symbol: string,
-  assetType?: string | null,
-  assetName?: string | null
-): string => {
-  if (!symbol) return ''
-  const normalizedSymbol = normalizeTickerForLogo(symbol)
-  
-  const params = new URLSearchParams()
-  if (assetType) {
-    params.set('asset_type', assetType)
-  }
-  if (assetName) {
-    // Clean crypto names to remove currency suffixes like " USD"
-    const assetTypeUpper = assetType?.toUpperCase()
-    const isCrypto = assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO'
-    const cleanedName = isCrypto ? cleanCryptoName(assetName) : assetName
-    if (cleanedName) {
-      params.set('name', cleanedName)
-    }
-  }
-  
-  const queryString = params.toString()
-  return `/api/assets/logo/${normalizedSymbol}${queryString ? '?' + queryString : ''}`
 }
 
 /**

@@ -32,7 +32,7 @@ import { getTranslatedSector, getTranslatedIndustry, getTranslatedAssetType } fr
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-export interface HeldAsset {
+interface HeldAsset {
   id: number;
   symbol: string;
   name: string;
@@ -46,22 +46,6 @@ export interface HeldAsset {
   country?: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface Position {
-  asset_id: number;
-  symbol: string;
-  name: string | null;
-  quantity: number;
-  avg_cost: number;
-  current_price: number | null;
-  market_value: number | null;
-  cost_basis: number;
-  unrealized_pnl: number | null;
-  unrealized_pnl_pct: number | null;
-  daily_change_pct: number | null;
-  currency: string;
-  last_updated: string | null;
 }
 
 interface AssetDistributionProps {

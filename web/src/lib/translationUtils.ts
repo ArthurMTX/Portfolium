@@ -65,35 +65,6 @@ export function getTranslatedIndustry(
 }
 
 /**
- * Get all translated sectors
- * @param t - Translation function from react-i18next
- * @returns Array of objects with original and translated sector names
- */
-export function getAllTranslatedSectors(t: TranslationFunction): Array<{
-  original: string;
-  translated: string;
-}> {
-  const sectors = [
-    'Technology',
-    'Communication Services',
-    'Healthcare',
-    'Financial Services',
-    'Energy',
-    'Utilities',
-    'Consumer Cyclical',
-    'Consumer Defensive',
-    'Industrials',
-    'Basic Materials',
-    'Real Estate',
-  ];
-
-  return sectors.map(sector => ({
-    original: sector,
-    translated: getTranslatedSector(sector, t),
-  }));
-}
-
-/**
  * Get translated asset class name
  * @param assetClass - Original asset class from API (stock, etf, crypto, cash)
  * @param t - Translation function from react-i18next

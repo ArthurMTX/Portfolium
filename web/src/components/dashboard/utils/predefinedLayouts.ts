@@ -25,17 +25,3 @@ const createLayoutExport = (layout: DashboardLayoutExport): DashboardLayoutExpor
 // Automatically build the layouts array from all imported files
 export const PREDEFINED_LAYOUTS: DashboardLayoutExport[] = Object.values(layoutModules)
   .map((module) => createLayoutExport((module as { default: DashboardLayoutExport }).default))
-
-/**
- * Get a predefined layout by name
- */
-export const getPredefinedLayout = (name: string): DashboardLayoutExport | undefined => {
-  return PREDEFINED_LAYOUTS.find(layout => layout.name === name)
-}
-
-/**
- * Get all predefined layout names
- */
-export const getPredefinedLayoutNames = (): string[] => {
-  return PREDEFINED_LAYOUTS.map(layout => layout.name)
-}
