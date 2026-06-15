@@ -1,0 +1,271 @@
+import { useState, FormEvent, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '@/app/providers/AuthContext'
+import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react'
+import LoadingSpinner from '@/shared/components/LoadingSpinner'
+import TwoFactorLogin from '@/features/auth/components/TwoFactorLogin'
+import { useTranslation } from 'react-i18next'
+import { translateApiError } from '@/shared/lib/errorUtils'
+import { api } from '@/api'
+import AuthPageShell from '@/features/auth/components/AuthPageShell'
+import useAuthTheme from '@/features/auth/hooks/useAuthTheme'
+
+export default function Login() {
+  const { t } = useTranslation()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [requires2FA, setRequires2FA] = useState(false)
+  const { darkMode, toggleDarkMode } = useAuthTheme()
+
+  const { login, user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      await login(email, password)
+      navigate(from, { replace: true })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Invalid email or password'
+      
+      // Check if 2FA is required
+      if (message.includes('Two-factor authentication token required') || 
+          message.includes('2FA') ||
+          message.includes('two-factor')) {
+        setRequires2FA(true)
+        setError('')
+      } else {
+        setError(translateApiError(message, t))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handle2FASubmit = async (token: string) => {
+    const response = await api.loginWith2FA(email, password, token)
+    localStorage.setItem('auth_token', response.access_token)
+    
+    // Manually trigger auth context refresh (similar to login flow)
+    window.location.href = from
+  }
+
+  const handleBack = () => {
+    setRequires2FA(false)
+    setPassword('')
+    setError('')
+  }
+
+  return (
+    <AuthPageShell darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+        {/* Show 2FA form or regular login */}
+        <div className={`rounded-2xl shadow-xl p-8 ${
+          darkMode ? 'bg-neutral-800 border border-neutral-700' : 'bg-white'
+        }`}>
+          {requires2FA ? (
+            <TwoFactorLogin
+              email={email}
+              password={password}
+              onSubmit={handle2FASubmit}
+              onBack={handleBack}
+              darkMode={darkMode}
+            />
+          ) : (
+            <>
+              {/* Logo/Header */}
+              <div className="text-center mb-8">
+                <div className={`inline-block p-3 rounded-2xl mb-4 ${
+                  darkMode ? 'bg-pink-600' : 'bg-indigo-600'
+                }`}>
+                  <LogIn className="w-8 h-8 text-white" />
+                </div>
+                <h1 className={`text-2xl sm:text-3xl font-bold ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>{t('login.title')}</h1>
+                <p className={`mt-2 text-sm sm:text-base ${
+                  darkMode ? 'text-neutral-400' : 'text-gray-600'
+                }`}>{t('login.description')}</p>
+              </div>
+          {error && (
+            <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
+              darkMode 
+                ? 'bg-red-900/20 border border-red-800' 
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                darkMode ? 'text-red-400' : 'text-red-600'
+              }`} />
+              <p className={`text-sm ${
+                darkMode ? 'text-red-300' : 'text-red-800'
+              }`}>{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className={`block text-sm font-medium mb-2 ${
+                darkMode ? 'text-neutral-200' : 'text-gray-700'
+              }`}>
+                {t('login.emailLabel')}
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className={`h-5 w-5 ${
+                    darkMode ? 'text-neutral-500' : 'text-gray-400'
+                  }`} />
+                </div>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={`block w-full pl-10 pr-3 py-3 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                    darkMode
+                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
+                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
+                  placeholder={t('login.emailPlaceholder')}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="password" className={`block text-sm font-medium mb-2 ${
+                darkMode ? 'text-neutral-200' : 'text-gray-700'
+              }`}>
+                {t('login.passwordLabel')}
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className={`h-5 w-5 ${
+                    darkMode ? 'text-neutral-500' : 'text-gray-400'
+                  }`} />
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`block w-full pl-10 pr-3 py-3 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                    darkMode
+                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
+                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
+                  placeholder="••••••••"
+                  disabled={loading}
+                  minLength={8}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <Link
+                  to="/forgot-password"
+                  className={`font-medium transition-colors ${
+                    darkMode
+                      ? 'text-pink-400 hover:text-pink-300'
+                      : 'text-indigo-600 hover:text-indigo-500'
+                  }`}
+                >
+                  {t('login.forgotPassword')}
+                </Link>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                darkMode
+                  ? 'bg-pink-600 hover:bg-pink-700 focus:ring-pink-500'
+                  : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+              }`}
+            >
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" color="white" />
+                  {t('login.signingIn')}
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  {t('login.signIn')}
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className={`w-full border-t ${
+                  darkMode ? 'border-neutral-700' : 'border-gray-300'
+                }`} />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className={`px-2 ${
+                  darkMode ? 'bg-neutral-800 text-neutral-400' : 'bg-white text-gray-500'
+                }`}>{t('login.newToPortfolium')}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <Link
+                to="/register"
+                className={`font-medium transition-colors ${
+                  darkMode
+                    ? 'text-pink-400 hover:text-pink-300'
+                    : 'text-indigo-600 hover:text-indigo-500'
+                }`}
+              >
+                {t('login.createAccount')}
+              </Link>
+            </div>
+          </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <p className={`mt-8 text-center text-sm ${
+          darkMode ? 'text-neutral-400' : 'text-gray-600'
+        }`}>
+          {t('login.termsPrefix')}{' '}
+          <a href="#" className={`transition-colors ${
+            darkMode
+              ? 'text-pink-400 hover:text-pink-300'
+              : 'text-indigo-600 hover:text-indigo-500'
+          }`}>
+            {t('login.termsOfService')}
+          </a>{' '}
+          {t('login.and')}{' '}
+          <a href="#" className={`transition-colors ${
+            darkMode
+              ? 'text-pink-400 hover:text-pink-300'
+              : 'text-indigo-600 hover:text-indigo-500'
+          }`}>
+            {t('login.privacyPolicy')}
+          </a>
+        </p>
+    </AuthPageShell>
+  )
+}

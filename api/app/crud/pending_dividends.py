@@ -224,7 +224,7 @@ def get_pending_dividend_stats_for_portfolio(
     Computes the converted total amount in the portfolio's base currency
     to avoid N+1 FX rate lookups on the frontend.
     """
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     
     # Get all pending dividends for this portfolio
     pending_list = db.query(PendingDividend).filter(

@@ -17,9 +17,9 @@ from app.models import User, Portfolio as PortfolioModel
 from app.crud import portfolios as crud_portfolios
 from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
-from app.services.cache import CacheService
-from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.platform.cache import CacheService
+from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +258,7 @@ async def _fetch_watchlist(user: User, db: Session) -> Optional[List]:
     """Fetch user watchlist with current prices"""
     try:
         from app.crud import watchlist as crud_watchlist
-        from app.services.pricing import PricingService
+        from app.services.market_data.pricing import PricingService
         
         pricing_service = PricingService(db)
         items = crud_watchlist.get_watchlist_items_by_user(db, user.id)
@@ -494,7 +494,7 @@ async def _fetch_theme_allocation(portfolio_id: int, db: Session, metrics_servic
 async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional[Dict]:
     """Fetch portfolio performance history for different periods"""
     try:
-        from app.services.metrics import MetricsService
+        from app.services.portfolio_analytics.metrics import MetricsService
         metrics_service = MetricsService(db)
         # Fetch multiple periods in parallel
         periods = ['1W', '1M', 'YTD', '1Y']

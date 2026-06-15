@@ -5,8 +5,8 @@ from datetime import datetime
 
 from app.db import get_db
 from app.errors import PublicPortfolioNotFoundError
-from app.services.insights import InsightsService
-from app.services.metrics import MetricsService
+from app.services.portfolio_analytics.insights import InsightsService
+from app.services.portfolio_analytics.metrics import MetricsService
 from app.crud import assets as crud_assets
 from app.schemas_public import (
     PublicPortfolioInsights,
@@ -35,7 +35,7 @@ async def get_public_portfolio(
     Aggressively cached for 30 minutes since public data is identical
     for all visitors and rarely changes. Cache is invalidated on transaction changes.
     """
-    from app.services.cache import CacheService
+    from app.services.platform.cache import CacheService
     import logging
     
     logger = logging.getLogger(__name__)

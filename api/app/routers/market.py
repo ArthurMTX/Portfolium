@@ -18,8 +18,8 @@ from app.errors import (
     TNXDataFetchError,
     VIXDataFetchError,
 )
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
-from app.services.cache import CacheService
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.platform.cache import CacheService
 from app.redis_client import get_redis
 
 logger = logging.getLogger(__name__)

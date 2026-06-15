@@ -89,7 +89,7 @@ def _fetch_market_cap(symbol: str) -> Optional[float]:
         Market cap as float or None if unavailable
     """
     try:
-        from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+        from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
         provider = get_market_data_provider()
         info = provider.get_info(

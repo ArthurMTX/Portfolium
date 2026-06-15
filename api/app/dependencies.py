@@ -9,11 +9,11 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services.insights import InsightsService
-from app.services.metrics import MetricsService
-from app.services.pricing import PricingService
-from app.services.notifications import NotificationService
-from app.services.currency import CurrencyService
+from app.services.portfolio_analytics.insights import InsightsService
+from app.services.portfolio_analytics.metrics import MetricsService
+from app.services.market_data.pricing import PricingService
+from app.services.communications.notifications import NotificationService
+from app.services.market_data.currency import CurrencyService
 
 
 # Service factory functions

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.models import Asset, AssetThemeClassification, AssetThemeTaxonomySuggestion
 from app.models.enums import AssetClass
-from app.services.asset_themes import AssetThemeService, settings
+from app.services.asset_intelligence.asset_themes import AssetThemeService, settings
 
 
 def _asset(db, symbol="TEST", name="Test Co"):

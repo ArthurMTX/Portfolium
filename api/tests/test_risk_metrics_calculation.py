@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from unittest.mock import Mock, patch
 import math
 
-from app.services.insights import InsightsService
+from app.services.portfolio_analytics.insights import InsightsService
 from app.schemas import RiskMetrics
 
 @pytest.mark.unit

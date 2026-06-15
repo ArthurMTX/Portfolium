@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("exchange_calendars")
 
-from app.services.market_calendar import MarketCalendarService
+from app.services.market_data.market_calendar import MarketCalendarService
 
 
 def test_as_utc_timestamp_uses_zoneinfo_for_naive_and_aware_datetimes():

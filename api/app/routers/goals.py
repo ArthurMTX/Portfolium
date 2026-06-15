@@ -11,7 +11,7 @@ from app.schemas import PortfolioGoal, PortfolioGoalCreate, PortfolioGoalUpdate
 from app.crud import goals as crud
 from app.auth import get_current_user, verify_portfolio_access
 from app.models import User, Portfolio
-from app.services.goal_projections import GoalProjectionsService, GoalProjectionResult
+from app.services.portfolio_analytics.goal_projections import GoalProjectionsService, GoalProjectionResult
 
 router = APIRouter()
 
@@ -206,7 +206,7 @@ async def calculate_goal_projections(
         raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     # Get current portfolio value by calculating from positions
-    from app.services.metrics import MetricsService
+    from app.services.portfolio_analytics.metrics import MetricsService
     metrics_service = MetricsService(db)
     
     try:

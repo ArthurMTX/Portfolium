@@ -32,9 +32,9 @@ from app.crud import watchlist as crud_watchlist
 from app.crud import notifications as crud_notifications
 from app.crud import pending_dividends as crud_pending_dividends
 from app.dependencies import PricingServiceDep, MetricsServiceDep
-from app.services.metrics import MetricsService, get_metrics_service
-from app.services.pricing import get_pricing_service
-from app.services.cache import CacheService
+from app.services.portfolio_analytics.metrics import MetricsService, get_metrics_service
+from app.services.market_data.pricing import get_pricing_service
+from app.services.platform.cache import CacheService
 from app.auth import get_current_user, verify_portfolio_access
 from app.models import (
     User,
@@ -583,7 +583,7 @@ async def generate_portfolio_report(
     what their daily email report will look like.
     """
     from fastapi.responses import Response
-    from app.services.pdf_reports import PDFReportService
+    from app.services.communications.pdf_reports import PDFReportService
     from datetime import datetime, timedelta
     
     try:
@@ -661,7 +661,7 @@ async def get_batch_prices(
     """
     import logging
     from datetime import datetime, timezone
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     
     logger = logging.getLogger(__name__)
 
@@ -670,7 +670,7 @@ async def get_batch_prices(
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc).isoformat()
     
-    from app.services.cache import CacheService
+    from app.services.platform.cache import CacheService
     
     # Check cache first (5 minute TTL)
     cache = CacheService()

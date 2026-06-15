@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 import pandas as pd
 
-from app.services.pricing import PricingService
+from app.services.market_data.pricing import PricingService
 from app.models import Asset, Price
 from tests.factories import AssetFactory, PriceFactory
 
@@ -112,7 +112,7 @@ class TestYFinanceFetching:
             }
         )
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             result = service._fetch_from_yfinance("AAPL")
             
             assert result is not None
@@ -135,7 +135,7 @@ class TestYFinanceFetching:
             history={"AAPL": hist_data},
         )
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             result = service._fetch_from_yfinance("AAPL")
             
             assert result is not None
@@ -152,7 +152,7 @@ class TestYFinanceFetching:
             history={"INVALID": pd.DataFrame()},
         )
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             result = service._fetch_from_yfinance("INVALID")
             
             assert result is None
@@ -227,7 +227,7 @@ class TestPriceService:
             }
         )
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             result = await service.get_price("MSFT")
             
             assert result is not None
@@ -272,7 +272,7 @@ class TestPriceService:
         )
         provider = FakeMarketDataProvider(download=download_data)
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             results = await service.get_multiple_prices(["AAPL", "GOOGL", "MSFT"])
             
             assert len(results) == 3
@@ -403,7 +403,7 @@ class TestHistoricalPrices:
         
         provider = FakeMarketDataProvider(history={"AAPL": hist_data})
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             count = service.ensure_historical_prices(
                 asset, start_date, end_date, interval='1d'
             )
@@ -436,7 +436,7 @@ class TestPriceCaching:
             info={"AAPL": {'regularMarketPrice': 150.00, 'previousClose': 148.00}}
         )
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             # First fetch
             await service.get_price("AAPL")
             
@@ -464,7 +464,7 @@ class TestPriceCaching:
             info={"AAPL": {'regularMarketPrice': 155.00, 'previousClose': 150.00}}
         )
         
-        with patch('app.services.pricing.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
             result = await service.get_price("AAPL", force_refresh=True)
             
             # Should get fresh price, not cached

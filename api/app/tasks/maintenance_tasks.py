@@ -23,8 +23,8 @@ from app.models import (
     User,
     Watchlist,
 )
-from app.services.notifications import notification_service
-from app.services.pricing import PricingService
+from app.services.communications.notifications import notification_service
+from app.services.market_data.pricing import PricingService
 from app.tasks.decorators import singleton_task
 
 logger = logging.getLogger(__name__)
@@ -248,7 +248,7 @@ def check_daily_changes() -> dict:
         return {"status": "skipped", "reason": "market_closed"}
 
     try:
-        from app.services.metrics import MetricsService
+        from app.services.portfolio_analytics.metrics import MetricsService
         from app.utils.notification_thresholds import get_daily_change_threshold
 
         with get_db_context() as db:

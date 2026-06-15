@@ -13,8 +13,7 @@ from app.db import get_db
 from app.models import User
 from app.auth import get_current_user
 from app.crud import push_subscriptions
-from app.services import push_service
-
+from app.services.communications import push_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 

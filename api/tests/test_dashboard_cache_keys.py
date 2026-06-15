@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
+from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key
 
 
 @pytest.mark.unit
@@ -32,7 +32,7 @@ class TestDashboardCacheKeys:
         """A separate Python process should compute the exact same cache key."""
         api_dir = Path(__file__).resolve().parents[1]
         code = (
-            "from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key; "
+            "from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key; "
             "print(build_dashboard_batch_cache_key(42, ['watchlist', 'positions-table', 'market-indices']))"
         )
 

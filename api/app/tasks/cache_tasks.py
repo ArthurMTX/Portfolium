@@ -10,9 +10,9 @@ from datetime import datetime
 from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Asset, Portfolio
-from app.services.cache import CacheService
-from app.services.pricing import PricingService
-from app.services.analytics_cache import invalidate_portfolio_analytics
+from app.services.platform.cache import CacheService
+from app.services.market_data.pricing import PricingService
+from app.services.platform.analytics_cache import invalidate_portfolio_analytics
 from app.tasks.decorators import singleton_task
 
 logger = logging.getLogger(__name__)

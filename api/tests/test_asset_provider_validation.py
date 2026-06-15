@@ -20,7 +20,7 @@ class FakeProvider:
 
 def patch_provider(monkeypatch, provider):
     monkeypatch.setattr(
-        "app.services.yahoo_finance.get_market_data_provider",
+        "app.services.market_data.yahoo_finance.get_market_data_provider",
         lambda: provider,
     )
 

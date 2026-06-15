@@ -32,10 +32,10 @@ from app.routers.batch import (
     _fetch_transactions,
     _make_json_serializable,
 )
-from app.services.metrics import MetricsService
-from app.services.insights import InsightsService
-from app.services.cache import CacheService
-from app.services.dashboard_cache_keys import build_dashboard_batch_cache_key
+from app.services.portfolio_analytics.metrics import MetricsService
+from app.services.portfolio_analytics.insights import InsightsService
+from app.services.platform.cache import CacheService
+from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key
 from app.tasks.decorators import singleton_task, deduplicate_task
 
 logger = logging.getLogger(__name__)
@@ -217,8 +217,8 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
             from fastapi import Request
             
             # Import the batch prices functionality
-            from app.services.pricing import PricingService
-            from app.services.currency import CurrencyService
+            from app.services.market_data.pricing import PricingService
+            from app.services.market_data.currency import CurrencyService
             from app.models import Asset, Transaction
             from decimal import Decimal
             

@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models import AssetThemeClassification
 from app.schemas import AssetThemeClassification as AssetThemeClassificationSchema
-from app.services.asset_themes import (
+from app.services.asset_intelligence.asset_themes import (
     ALLOWED_THEME_HIERARCHY,
     AssetThemeService,
     AssetThemeClassifierResult,
@@ -394,13 +394,13 @@ class FakeClassifier:
 
 def test_asset_theme_service_defaults_to_minilm_without_importing_gemini(monkeypatch):
     monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "minilm")
-    sys.modules.pop("app.services.gemini", None)
+    sys.modules.pop("app.services.asset_intelligence.gemini", None)
 
     service = AssetThemeService(Mock())
 
     assert isinstance(service.classifier, MiniLMAssetThemeClassifier)
     assert service.gemini_service is None
-    assert "app.services.gemini" not in sys.modules
+    assert "app.services.asset_intelligence.gemini" not in sys.modules
 
 
 def test_asset_theme_service_uses_gemini_mode(monkeypatch):
@@ -416,7 +416,7 @@ def test_asset_theme_service_uses_gemini_mode(monkeypatch):
 
 def test_minilm_refresh_never_imports_gemini(monkeypatch, test_db, sample_asset):
     monkeypatch.setattr(settings, "ASSET_THEME_CLASSIFIER_MODE", "minilm")
-    sys.modules.pop("app.services.gemini", None)
+    sys.modules.pop("app.services.asset_intelligence.gemini", None)
     service = AssetThemeService(test_db, classifier=FakeClassifier(source="minilm"))
 
     classification = service.refresh_classification(
@@ -429,7 +429,7 @@ def test_minilm_refresh_never_imports_gemini(monkeypatch, test_db, sample_asset)
 
     assert classification.source == "minilm"
     assert classification.model_name == "sentence-transformers/all-MiniLM-L6-v2"
-    assert "app.services.gemini" not in sys.modules
+    assert "app.services.asset_intelligence.gemini" not in sys.modules
 
 
 def test_gemini_mode_without_api_key_returns_classification_unavailable(

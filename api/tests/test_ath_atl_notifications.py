@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models import User, Portfolio, Asset, Transaction, TransactionType, AssetClass, NotificationType
-from app.services.notifications import notification_service
+from app.services.communications.notifications import notification_service
 from app.crud import notifications as crud_notifications
 from app.tasks.ath_tasks import update_asset_ath, _notify_users_for_ath_atl
 

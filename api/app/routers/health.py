@@ -151,7 +151,7 @@ async def redis_health():
     Detailed Redis health check and statistics
     """
     from app.redis_client import get_redis_manager
-    from app.services.cache import CacheService
+    from app.services.platform.cache import CacheService
     
     redis_manager = get_redis_manager()
     
@@ -166,6 +166,6 @@ async def core_health():
     """
     Lightweight core signals for market data, stale fallbacks, and scheduled jobs.
     """
-    from app.services.core_observability import get_core_observability
+    from app.services.platform.core_observability import get_core_observability
 
     return get_core_observability()

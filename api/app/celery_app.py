@@ -80,7 +80,7 @@ def record_successful_task(sender=None, task_id=None, state=None, retval=None, *
             return
 
     try:
-        from app.services.core_observability import record_task_success
+        from app.services.platform.core_observability import record_task_success
 
         record_task_success(getattr(sender, "name", None), task_id)
     except Exception:

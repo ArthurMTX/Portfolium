@@ -276,7 +276,7 @@ def clear_cache():
 
 ```python
 # In Python console or endpoint
-from app.services.currency import CurrencyService
+from app.services.market_data.currency import CurrencyService
 CurrencyService.clear_cache()
 ```
 
@@ -662,7 +662,7 @@ CurrencyService.clear_cache()
 
 ```python
 # Test manually
-from app.services.currency import CurrencyService
+from app.services.market_data.currency import CurrencyService
 rate = CurrencyService.get_exchange_rate('USD', 'EUR')
 print(rate)  # Should print Decimal or None
 
@@ -688,7 +688,7 @@ CURRENCY_CACHE_TTL_HOURS=0.5  # 30 minutes
 
 ```bash
 # In API container
-docker compose exec api python -c "from app.services.currency import CurrencyService; CurrencyService.clear_cache()"
+docker compose exec api python -c "from app.services.market_data.currency import CurrencyService; CurrencyService.clear_cache()"
 ```
 
 3. Restart API (clears in-memory cache)
@@ -721,7 +721,7 @@ def test_exchange_rate_caching():
 def test_cache_expiration():
     """Test cache expires after TTL"""
     # Mock time advancement
-    with patch('app.services.currency.datetime') as mock_dt:
+    with patch('app.services.market_data.currency.datetime') as mock_dt:
         # First call caches rate
         mock_dt.utcnow.return_value = datetime(2024, 1, 1, 10, 0, 0)
         rate1 = CurrencyService.get_exchange_rate('USD', 'EUR')

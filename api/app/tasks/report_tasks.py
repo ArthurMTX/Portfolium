@@ -25,9 +25,9 @@ def send_daily_reports(self):
     db = SessionLocal()
     try:
         from app.models import User, Portfolio
-        from app.services.pdf_reports import PDFReportService
-        from app.services.email import email_service
-        from app.services.notifications import notification_service
+        from app.services.communications.pdf_reports import PDFReportService
+        from app.services.communications.email import email_service
+        from app.services.communications.notifications import notification_service
         
         try:
             from zoneinfo import ZoneInfo

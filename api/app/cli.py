@@ -13,17 +13,17 @@ from sqlalchemy.orm import joinedload
 
 from app.db import SessionLocal
 from app.models import Asset
-from app.services.asset_theme_minilm import (
+from app.services.asset_intelligence.asset_theme_minilm import (
     AssetThemeMiniLMClassifier,
     cosine_similarity,
     download_default_model,
 )
-from app.services.asset_theme_taxonomy_separability import (
+from app.services.asset_intelligence.asset_theme_taxonomy_separability import (
     build_taxonomy_separability_report,
     write_taxonomy_separability_reports,
 )
-from app.services.asset_themes import AssetThemeService
-from app.services.fundamentals import FundamentalsService
+from app.services.asset_intelligence.asset_themes import AssetThemeService
+from app.services.market_data.fundamentals import FundamentalsService
 
 
 def refresh_themes(symbol: Optional[str], force: bool) -> None:

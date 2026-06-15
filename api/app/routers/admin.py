@@ -389,7 +389,7 @@ async def backfill_all_assets(
     from app.models import Asset, Transaction
     from app.crud import prices as crud_prices
     from app.utils.exchange_calendars import calculate_coverage
-    from app.services.pricing import PricingService
+    from app.services.market_data.pricing import PricingService
     from datetime import datetime, timedelta
     from sqlalchemy import distinct
     
@@ -729,7 +729,7 @@ def update_email_config(
         db.commit()
     
     # Reload email service settings after updating config
-    from app.services.email import email_service
+    from app.services.communications.email import email_service
     email_service.reload_settings()
     
     # Get updated config from database
@@ -768,7 +768,7 @@ async def test_email_connection(
     if not settings.ENABLE_EMAIL:
         raise EmailSystemDisabledError()
     
-    from app.services.email import email_service
+    from app.services.communications.email import email_service
     
     # Reload settings before sending test email
     email_service.reload_settings()
@@ -900,7 +900,7 @@ async def test_email_connection(
                 # Use current admin user as fallback for generating test report
                 user = current_user
             
-            from app.services.pdf_reports import PDFReportService
+            from app.services.communications.pdf_reports import PDFReportService
             from datetime import datetime, timedelta
             from zoneinfo import ZoneInfo
             

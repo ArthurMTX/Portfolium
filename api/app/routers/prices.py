@@ -13,9 +13,9 @@ import logging
 from app.errors import InvalidPriceRequestError, PortfolioNotFoundError
 from app.db import get_db
 from app.schemas import PriceQuote
-from app.services.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
-from app.services.cache import CacheService
+from app.services.market_data.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.platform.cache import CacheService
 from app.redis_client import get_redis
 from app.crud import portfolios as portfolio_crud
 
@@ -167,7 +167,7 @@ def _batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
     except Exception as e:
         error_msg = str(e).lower()
         if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
-            from app.services.pricing import set_rate_limited
+            from app.services.market_data.pricing import set_rate_limited
             set_rate_limited(60)
         logger.warning(f"Failed to fetch market indices: {e}")
         return {}
@@ -305,7 +305,7 @@ async def get_price_quote(
     
     Example: `/prices/quote/BTC-USD` or `/prices/quote/ETH-EUR?target_currency=USD`
     """
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     
     symbol = symbol.strip().upper()
     target_currency = target_currency.upper() if target_currency else None

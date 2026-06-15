@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
-from app.services.pricing import PricingService
+from app.services.market_data.pricing import PricingService
 from app.models import Asset, Price
 from app.schemas import PriceCreate
 
@@ -38,7 +38,7 @@ async def test_get_price_from_cache_when_fresh(pricing_service, mock_db):
         asof=datetime.utcnow() - timedelta(seconds=60)  # 1 minute ago
     )
     
-    with patch('app.services.pricing.crud_prices') as mock_crud:
+    with patch('app.services.market_data.pricing.crud_prices') as mock_crud:
         mock_crud.get_latest_price.return_value = fresh_price
         
         result = await pricing_service.get_price("AAPL")
@@ -63,7 +63,7 @@ async def test_get_price_fetches_when_stale(pricing_service, mock_db):
         asof=datetime.utcnow() - timedelta(hours=1)  # 1 hour ago
     )
     
-    with patch('app.services.pricing.crud_prices') as mock_crud, \
+    with patch('app.services.market_data.pricing.crud_prices') as mock_crud, \
          patch.object(pricing_service, '_fetch_from_yfinance') as mock_fetch:
         
         mock_crud.get_latest_price.return_value = stale_price
@@ -93,7 +93,7 @@ async def test_get_price_fallback_on_fetch_failure(pricing_service, mock_db):
         asof=datetime.utcnow() - timedelta(hours=1)
     )
     
-    with patch('app.services.pricing.crud_prices') as mock_crud, \
+    with patch('app.services.market_data.pricing.crud_prices') as mock_crud, \
          patch.object(pricing_service, '_fetch_from_yfinance') as mock_fetch:
         
         mock_crud.get_latest_price.return_value = stale_price

@@ -7,7 +7,7 @@ import pytest
 
 from app.models import Asset, AssetThemeClassification, Portfolio, Transaction, User
 from app.models.enums import AssetClass, TransactionType
-from app.services.asset_research import AssetResearchService
+from app.services.asset_intelligence.asset_research import AssetResearchService
 
 
 def test_etf_composition_returns_normalized_payload_for_etf(test_db, monkeypatch):

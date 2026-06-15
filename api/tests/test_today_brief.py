@@ -93,8 +93,8 @@ def test_today_brief_composes_multiple_signals(client, auth_headers, sample_port
 
     metrics = _make_metrics(sample_portfolio.id, "1.80", "312.40")
 
-    with patch("app.services.metrics.MetricsService.get_metrics", new=AsyncMock(return_value=metrics)), \
-         patch("app.services.metrics.MetricsService.get_positions", new=AsyncMock(return_value=positions)):
+    with patch("app.services.portfolio_analytics.metrics.MetricsService.get_metrics", new=AsyncMock(return_value=metrics)), \
+         patch("app.services.portfolio_analytics.metrics.MetricsService.get_positions", new=AsyncMock(return_value=positions)):
         response = client.get(f"/portfolios/{sample_portfolio.id}/today-brief", headers=auth_headers)
 
     assert response.status_code == 200
@@ -119,8 +119,8 @@ def test_today_brief_composes_multiple_signals(client, auth_headers, sample_port
 def test_today_brief_stays_calm_when_no_signals(client, auth_headers, sample_portfolio):
     metrics = _make_metrics(sample_portfolio.id, "0.00", "0.00")
 
-    with patch("app.services.metrics.MetricsService.get_metrics", new=AsyncMock(return_value=metrics)), \
-         patch("app.services.metrics.MetricsService.get_positions", new=AsyncMock(return_value=[])):
+    with patch("app.services.portfolio_analytics.metrics.MetricsService.get_metrics", new=AsyncMock(return_value=metrics)), \
+         patch("app.services.portfolio_analytics.metrics.MetricsService.get_positions", new=AsyncMock(return_value=[])):
         response = client.get(f"/portfolios/{sample_portfolio.id}/today-brief", headers=auth_headers)
 
     assert response.status_code == 200

@@ -44,7 +44,7 @@ def update_asset_ath(asset_id: int, current_price: float, price_date: Optional[s
     db = next(get_db())
     try:
         from app.models import User, Portfolio, Transaction
-        from app.services.notifications import notification_service
+        from app.services.communications.notifications import notification_service
         
         # Get the asset
         asset = db.query(Asset).filter(Asset.id == asset_id).first()
@@ -161,7 +161,7 @@ def _notify_users_for_ath_atl(
         Number of users notified
     """
     from app.models import User, Portfolio, Transaction
-    from app.services.notifications import notification_service
+    from app.services.communications.notifications import notification_service
     
     try:
         # Find all users who have transactions with this asset and have notifications enabled
@@ -232,7 +232,7 @@ def backfill_ath_from_yfinance(asset_id: Optional[int] = None) -> dict:
     """
     db = next(get_db())
     try:
-        from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+        from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
         
         processed = 0
         ath_updated = 0

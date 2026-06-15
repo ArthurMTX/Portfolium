@@ -22,11 +22,11 @@ from app.db import get_db
 from app.schemas import Transaction, TransactionCreate, CsvImportResult, CsvImportPreviewResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
 from app.models import TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
-from app.services.import_csv import get_csv_import_service, CsvImportService
-from app.services.notifications import notification_service
+from app.services.workflows.import_csv import get_csv_import_service, CsvImportService
+from app.services.communications.notifications import notification_service
 from app.auth import get_current_user, verify_portfolio_access
 from app.dependencies import PricingServiceDep
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -73,7 +73,7 @@ def fetch_price_for_date(
     """
     from datetime import timedelta
     from decimal import Decimal
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     from app.crud.assets import get_asset_by_symbol
     
     provider = get_market_data_provider()
@@ -157,7 +157,7 @@ def get_fx_rate_for_date(
     """
     from decimal import Decimal
     from fastapi import HTTPException
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
 
     src = (from_currency or "").upper().strip()
     dst = (to_currency or "").upper().strip()
@@ -278,7 +278,7 @@ def add_position_transaction(
     # Fetch price from yfinance for the given date
     from datetime import timedelta
     from decimal import Decimal
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     
     # Add a day buffer to ensure we get data
     start_date = tx_date - timedelta(days=1)
@@ -366,8 +366,8 @@ def add_position_transaction(
         logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -586,8 +586,8 @@ def create_conversion(
             logger.warning(f"Failed to auto-backfill prices for {to_asset.symbol}: {e}")
     
     # Invalidate caches
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -940,8 +940,8 @@ def create_transaction(
                 logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -1057,8 +1057,8 @@ def update_transaction(
     updated = crud.update_transaction(db, transaction_id, transaction)
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import CacheService
     cache_service = CacheService()
     
     invalidate_portfolio_analytics(portfolio_id)
@@ -1147,8 +1147,8 @@ def delete_transaction(
         crud.delete_transaction(db, linked_transaction.id)
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import CacheService
     cache_service = CacheService()
     
     invalidate_portfolio_analytics(portfolio_id)
@@ -1205,8 +1205,8 @@ async def import_csv_stream(
             
             # On completion, invalidate caches
             if update.get("type") == "complete":
-                from app.services.analytics_cache import invalidate_portfolio_analytics
-                from app.services.cache import invalidate_positions, CacheService
+                from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+                from app.services.platform.cache import invalidate_positions, CacheService
                 invalidate_portfolio_analytics(portfolio_id)
                 invalidate_positions(portfolio_id)
                 
@@ -1289,8 +1289,8 @@ async def import_csv(
         raise ImportTransactionsError(result.errors, result.imported_count)
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     

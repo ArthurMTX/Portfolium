@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Portfolio, User
-from app.services.metrics import MetricsService
-from app.services.cache import CacheService
+from app.services.portfolio_analytics.metrics import MetricsService
+from app.services.platform.cache import CacheService
 from app.tasks.decorators import singleton_task, deduplicate_task
 
 logger = logging.getLogger(__name__)

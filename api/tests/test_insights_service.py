@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, patch, AsyncMock
 
-from app.services.insights import InsightsService, PortfolioInsightsSnapshot
+from app.services.portfolio_analytics.insights import InsightsService, PortfolioInsightsSnapshot
 from app.models import TransactionType
 from tests.factories import (
     UserFactory, PortfolioFactory, AssetFactory, 
@@ -410,7 +410,7 @@ class TestInsightsDomainSnapshots:
 
     def test_zero_provider_market_cap_is_treated_as_unavailable(self):
         from app.crud.assets import update_asset_market_cap_from_info
-        from app.services.fundamentals import FundamentalsService
+        from app.services.market_data.fundamentals import FundamentalsService
 
         asset = SimpleNamespace(
             symbol="ZERO",

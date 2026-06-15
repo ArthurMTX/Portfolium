@@ -59,14 +59,14 @@ def clear_caches():
         pass
 
     # Clear metrics service caches
-    from app.services import metrics
+    from app.services.portfolio_analytics import metrics
     if hasattr(metrics, '_task_cache'):
         metrics._task_cache.clear()
     if hasattr(metrics, '_result_cache'):
         metrics._result_cache.clear()
     
     # Clear pricing service caches
-    from app.services import pricing
+    from app.services.market_data import pricing
     if hasattr(pricing, '_price_memory_cache'):
         pricing._price_memory_cache.clear()
     if hasattr(pricing, '_ongoing_fetches'):
@@ -80,12 +80,12 @@ def clear_caches():
         pricing._memory_cache_loop = None
     
     # Clear currency service cache
-    from app.services import currency
+    from app.services.market_data import currency
     if hasattr(currency, '_exchange_rate_cache'):
         currency._exchange_rate_cache.clear()
     
     # Clear insights service cache
-    from app.services import insights
+    from app.services.portfolio_analytics import insights
     if hasattr(insights, '_insights_cache'):
         insights._insights_cache.clear()
 

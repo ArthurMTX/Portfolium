@@ -56,7 +56,7 @@ def update_asset_market_cap_from_info(asset: Asset, info: Any) -> bool:
 
     if market_cap_currency != "USD":
         try:
-            from app.services.currency import CurrencyService
+            from app.services.market_data.currency import CurrencyService
 
             converted = CurrencyService.convert(market_cap, market_cap_currency, "USD")
             if converted is not None:
@@ -168,7 +168,7 @@ def get_assets(
 
 def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
-    from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+    from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
     symbol = asset.symbol.strip().upper()
     
@@ -259,7 +259,7 @@ def delete_asset(db: Session, asset_id: int) -> bool:
 def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     """Enrich asset with metadata from yfinance"""
     import re
-    from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+    from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
     
     db_asset = get_asset(db, asset_id)
     if not db_asset:
@@ -321,7 +321,7 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
 def enrich_all_assets(db: Session) -> dict:
     """Enrich all assets with metadata from yfinance"""
     import re
-    from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+    from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
     
     assets = db.query(Asset).all()
     enriched = 0

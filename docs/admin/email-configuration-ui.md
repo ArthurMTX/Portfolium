@@ -111,8 +111,8 @@ The **Email Statistics** section provides real-time insights:
 
 ### Frontend Components
 
-- **Location**: `web/src/pages/Admin.tsx`
-- **API Client**: `web/src/lib/api.ts`
+- **Location**: `web/src/features/admin/pages/Admin.tsx`
+- **API Client**: `web/src/api/index.ts`
 - **Features**:
   - Real-time form validation
   - Loading states for async operations

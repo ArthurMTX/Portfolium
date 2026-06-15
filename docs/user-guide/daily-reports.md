@@ -199,7 +199,7 @@ Potential improvements:
 For programmatic access, you can generate reports on-demand:
 
 ```python
-from app.services.pdf_reports import PDFReportService
+from app.services.communications.pdf_reports import PDFReportService
 
 # Generate report for specific user/portfolio
 pdf_service = PDFReportService(db)

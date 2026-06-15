@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import date, datetime
 from unittest.mock import Mock, MagicMock, patch
 
-from app.services.metrics import MetricsService
+from app.services.portfolio_analytics.metrics import MetricsService
 from app.models import Asset, Transaction, TransactionType, Portfolio
 from app.schemas import PriceQuote
 
@@ -44,7 +44,7 @@ async def test_calculate_position_simple_buy(metrics_service, mock_db):
     
     mock_db.query().filter().first.return_value = asset
     
-    with patch('app.services.metrics.crud_prices') as mock_crud:
+    with patch('app.services.portfolio_analytics.metrics.crud_prices') as mock_crud:
         from app.models import Price
         mock_crud.get_latest_price.return_value = Price(
             id=1,
@@ -94,7 +94,7 @@ async def test_calculate_position_buy_and_sell(metrics_service, mock_db):
     
     mock_db.query().filter().first.return_value = asset
     
-    with patch('app.services.metrics.crud_prices') as mock_crud:
+    with patch('app.services.portfolio_analytics.metrics.crud_prices') as mock_crud:
         from app.models import Price
         mock_crud.get_latest_price.return_value = Price(
             id=1,
@@ -140,8 +140,8 @@ async def test_calculate_position_keeps_asset_visible_when_price_fx_conversion_f
         daily_change_pct=Decimal("1.25"),
     )
 
-    with patch('app.services.pricing.PricingService.get_price', return_value=quote), \
-         patch('app.services.currency.CurrencyService.convert', return_value=None):
+    with patch('app.services.market_data.pricing.PricingService.get_price', return_value=quote), \
+         patch('app.services.market_data.currency.CurrencyService.convert', return_value=None):
         position = await metrics_service._calculate_position(
             1,
             transactions,
@@ -189,7 +189,7 @@ async def test_calculate_position_with_split(metrics_service, mock_db):
     
     mock_db.query().filter().first.return_value = asset
     
-    with patch('app.services.metrics.crud_prices') as mock_crud:
+    with patch('app.services.portfolio_analytics.metrics.crud_prices') as mock_crud:
         from app.models import Price
         mock_crud.get_latest_price.return_value = Price(
             id=1,

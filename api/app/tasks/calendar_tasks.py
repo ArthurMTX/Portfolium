@@ -10,7 +10,7 @@ from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Asset, Transaction, EarningsCache
 from app.tasks.decorators import singleton_task
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 logger = logging.getLogger(__name__)
 
 

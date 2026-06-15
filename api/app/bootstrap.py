@@ -8,8 +8,8 @@ import logging
 import sys
 
 from app.db import SessionLocal
-from app.services.admin import ensure_admin_user, ensure_email_config
-from app.services.migrations import run_migrations
+from app.services.platform.admin import ensure_admin_user, ensure_email_config
+from app.services.platform.migrations import run_migrations
 
 
 logging.basicConfig(

@@ -8,7 +8,7 @@ from decimal import Decimal
 from unittest.mock import patch
 import pandas as pd
 
-from app.services.currency import CurrencyService
+from app.services.market_data.currency import CurrencyService
 
 
 class FakeMarketDataProvider:
@@ -45,7 +45,7 @@ class TestCurrencyConversion:
         })
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             rate = CurrencyService.get_exchange_rate("USD", "EUR")
             
             assert rate is not None
@@ -67,7 +67,7 @@ class TestCurrencyConversion:
 
         provider = FakeMarketDataProvider(history_for)
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             rate = CurrencyService.get_exchange_rate("USD", "EUR")
             
             # Should calculate 1/1.18 ≈ 0.847
@@ -78,7 +78,7 @@ class TestCurrencyConversion:
         """Test that None is returned when no data available"""
         provider = FakeMarketDataProvider({"USDINVALID=X": pd.DataFrame()})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             rate = CurrencyService.get_exchange_rate("USD", "INVALID")
             assert rate is None
 
@@ -100,7 +100,7 @@ class TestCurrencyConversionAmounts:
         hist_data = pd.DataFrame({'Close': [0.85]})
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("100.00"), "USD", "EUR"
             )
@@ -112,7 +112,7 @@ class TestCurrencyConversionAmounts:
         """Test that None is returned when rate unavailable"""
         provider = FakeMarketDataProvider({"USDINVALID=X": pd.DataFrame()})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("100.00"), "USD", "INVALID"
             )
@@ -123,7 +123,7 @@ class TestCurrencyConversionAmounts:
         hist_data = pd.DataFrame({'Close': [0.847458]})
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("10000.00"), "USD", "EUR"
             )
@@ -143,7 +143,7 @@ class TestCurrencyCaching:
         hist_data = pd.DataFrame({'Close': [0.85]})
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             # First call
             rate1 = CurrencyService.get_exchange_rate("USD", "EUR")
             
@@ -159,7 +159,7 @@ class TestCurrencyCaching:
         hist_data = pd.DataFrame({'Close': [0.85]})
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             # Get rate (populates cache)
             CurrencyService.get_exchange_rate("USD", "EUR")
             
@@ -177,9 +177,9 @@ class TestCurrencyCaching:
         CurrencyService.clear_cache()
 
         with (
-            patch("app.services.currency._is_yf_rate_limited", return_value=True),
-            patch("app.services.currency.get_market_data_provider") as get_provider,
-            caplog.at_level(logging.WARNING, logger="app.services.currency"),
+            patch("app.services.market_data.currency._is_yf_rate_limited", return_value=True),
+            patch("app.services.market_data.currency.get_market_data_provider") as get_provider,
+            caplog.at_level(logging.WARNING, logger="app.services.market_data.currency"),
         ):
             assert CurrencyService.get_exchange_rate("USD", "EUR") is None
             assert CurrencyService.get_exchange_rate("USD", "EUR") is None
@@ -212,7 +212,7 @@ class TestMultiCurrencyConversion:
 
         provider = FakeMarketDataProvider(history_for)
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             # Convert USD -> EUR
             eur_amount = CurrencyService.convert(
                 Decimal("100.00"), "USD", "EUR"
@@ -243,7 +243,7 @@ class TestMultiCurrencyConversion:
 
         provider = FakeMarketDataProvider(history_for)
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             # Test various conversions
             eur = CurrencyService.convert(Decimal("100"), "USD", "EUR")
             assert eur == Decimal("85.00")
@@ -268,7 +268,7 @@ class TestCurrencyEdgeCases:
         hist_data = pd.DataFrame({'Close': [0.85]})
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("0.00"), "USD", "EUR"
             )
@@ -279,7 +279,7 @@ class TestCurrencyEdgeCases:
         hist_data = pd.DataFrame({'Close': [0.85]})
         provider = FakeMarketDataProvider({"USDEUR=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("-50.00"), "USD", "EUR"
             )
@@ -290,7 +290,7 @@ class TestCurrencyEdgeCases:
         hist_data = pd.DataFrame({'Close': [149.5]})  # USD to JPY
         provider = FakeMarketDataProvider({"USDJPY=X": hist_data})
         
-        with patch('app.services.currency.get_market_data_provider', return_value=provider):
+        with patch('app.services.market_data.currency.get_market_data_provider', return_value=provider):
             result = CurrencyService.convert(
                 Decimal("0.01"), "USD", "JPY"
             )

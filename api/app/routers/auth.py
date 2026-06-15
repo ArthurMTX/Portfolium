@@ -33,10 +33,10 @@ from app.schemas import (
     TwoFactorStatusResponse
 )
 from app.crud import users as crud_users
-from app.services.email import email_service
-from app.services.notifications import notification_service
+from app.services.communications.email import email_service
+from app.services.communications.notifications import notification_service
 from app.utils.client_ip import get_client_ip
-from app.services.totp import totp_service
+from app.services.security.totp import totp_service
 from app.errors import (
     EmailAlreadyRegisteredError,
     EmailAlreadyVerifiedError,

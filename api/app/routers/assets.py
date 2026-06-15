@@ -43,16 +43,16 @@ from app.crud import assets as crud
 from app.auth import get_current_admin_user, get_current_user
 from app.models import Asset as AssetModel, AssetThemeTaxonomySuggestion as AssetThemeTaxonomySuggestionModel, User
 from app.dependencies import MetricsServiceDep
-from app.services.cache import CacheService
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
-from app.services.asset_research import AssetResearchService
-from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
-from app.services.asset_theme_benchmark import (
+from app.services.platform.cache import CacheService
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.asset_intelligence.asset_research import AssetResearchService
+from app.services.asset_intelligence.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
+from app.services.asset_intelligence.asset_theme_benchmark import (
     build_classification_benchmark_report,
     build_taxonomy_gap_report,
     serialize_theme_registry,
 )
-from app.services.fundamentals import FundamentalsService
+from app.services.market_data.fundamentals import FundamentalsService
 from app.errors import ( 
     AssetAlreadyExistsError,
     AssetNotFoundError,
@@ -1788,7 +1788,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
     - asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') to determine if generic logo should be used.
     """
     # Lazy imports to avoid import-time issues
-    from app.services.logos import fetch_logo_with_validation
+    from app.services.market_data.logos import fetch_logo_with_validation
     from app.crud import assets as crud_assets
     from fastapi.responses import Response
     import hashlib
@@ -2957,7 +2957,7 @@ def backfill_asset_prices(
     Useful for filling gaps in price history.
     """
     from datetime import datetime, timedelta
-    from app.services.pricing import PricingService
+    from app.services.market_data.pricing import PricingService
     
     # Verify asset exists
     asset = crud.get_asset(db, asset_id)

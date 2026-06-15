@@ -8,7 +8,7 @@ from app.cli import (
     benchmark_theme_minilm,
     sanity_theme_minilm,
 )
-from app.services.asset_theme_minilm import (
+from app.services.asset_intelligence.asset_theme_minilm import (
     AssetThemeMiniLMClassifier,
     ScoredThemeDocument,
     THEME_REGISTRY,
@@ -18,9 +18,9 @@ from app.services.asset_theme_minilm import (
     get_theme_definition,
     validate_theme_registry,
 )
-from app.services.asset_theme_minilm_registry import _default_theme_definition
-from app.services.asset_theme_minilm_runtime import MiniLMModelPaths, resolve_model_paths
-from app.services.asset_themes import ALLOWED_THEME_HIERARCHY, settings
+from app.services.asset_intelligence.asset_theme_minilm_registry import _default_theme_definition
+from app.services.asset_intelligence.asset_theme_minilm_runtime import MiniLMModelPaths, resolve_model_paths
+from app.services.asset_intelligence.asset_themes import ALLOWED_THEME_HIERARCHY, settings
 
 
 class KeywordEmbeddingBackend:
@@ -161,7 +161,7 @@ def test_model_path_resolution_auto_downloads_when_allowed(tmp_path: Path, monke
 
     monkeypatch.setattr(settings, "THEME_MINILM_AUTO_DOWNLOAD", True)
     monkeypatch.setattr(
-        "app.services.asset_theme_minilm_runtime.download_default_model",
+        "app.services.asset_intelligence.asset_theme_minilm_runtime.download_default_model",
         fake_download,
     )
 

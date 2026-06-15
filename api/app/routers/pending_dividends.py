@@ -19,8 +19,8 @@ from app.schemas import (
     Transaction as TransactionSchema
 )
 from app.crud import pending_dividends as crud_pending
-from app.services.dividends import get_dividend_service, DividendService
-from app.services.notifications import notification_service
+from app.services.workflows.dividends import get_dividend_service, DividendService
+from app.services.communications.notifications import notification_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

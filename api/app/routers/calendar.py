@@ -11,11 +11,11 @@ from decimal import Decimal
 
 from app.db import get_db
 from app.auth import get_current_user
-from app.services.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.models import User, Portfolio, Transaction, TransactionType, Asset, EarningsCache, Watchlist
 from app.crud import portfolios as crud
-from app.services.metrics import get_metrics_service
-from app.services.market_calendar import MarketCalendarService
+from app.services.portfolio_analytics.metrics import get_metrics_service
+from app.services.market_data.market_calendar import MarketCalendarService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -629,7 +629,7 @@ def get_market_holidays(
     - XTKS: Tokyo Stock Exchange
     """
     from datetime import date
-    from app.services.market_calendar import CURRENCY_TO_EXCHANGE
+    from app.services.market_data.market_calendar import CURRENCY_TO_EXCHANGE
     
     today = date.today()
     
@@ -720,7 +720,7 @@ def list_market_exchanges(
     exchanges = MarketCalendarService.list_available_exchanges()
     
     # Also include the currency mappings
-    from app.services.market_calendar import CURRENCY_TO_EXCHANGE
+    from app.services.market_data.market_calendar import CURRENCY_TO_EXCHANGE
     
     return {
         "exchanges": exchanges,

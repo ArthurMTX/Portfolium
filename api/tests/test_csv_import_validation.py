@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.models import Asset, Transaction, TransactionType
-from app.services.import_csv import CsvImportService
+from app.services.workflows.import_csv import CsvImportService
 from tests.factories import AssetFactory, PortfolioFactory, TransactionFactory, UserFactory
 
 

@@ -2,7 +2,7 @@ import pytest
 
 from app.models import Asset
 from app.models.enums import AssetClass
-from app.services.asset_research import AssetResearchService
+from app.services.asset_intelligence.asset_research import AssetResearchService
 
 
 def test_research_themes_skip_non_equity_without_fetching_company_info(monkeypatch, test_db):

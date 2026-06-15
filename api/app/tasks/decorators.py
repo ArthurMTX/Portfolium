@@ -5,7 +5,7 @@ import functools
 import hashlib
 import logging
 from typing import Callable, Any
-from app.services.cache import CacheService
+from app.services.platform.cache import CacheService
 
 logger = logging.getLogger(__name__)
 

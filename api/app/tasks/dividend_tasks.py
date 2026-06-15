@@ -8,8 +8,8 @@ from typing import Optional
 from app.celery_app import celery_app
 from app.db import get_db
 from app.models import Portfolio, User, PendingDividendStatus
-from app.services.dividends import DividendService
-from app.services.notifications import notification_service
+from app.services.workflows.dividends import DividendService
+from app.services.communications.notifications import notification_service
 from app.crud import pending_dividends as crud_pending
 
 logger = logging.getLogger(__name__)
