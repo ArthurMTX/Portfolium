@@ -25,7 +25,7 @@ import { getSectorIcon, getSectorColor, getSectorHexColor, getIndustryIcon, getI
 import { getThemeIcon, getThemeColor, getThemeHexColor } from '../lib/themeUtils';
 import { getCountryCode } from '../lib/countryUtils';
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils';
-import api, { DistributionItemDTO, ThemeDistributionSubthemeDTO } from '../lib/api';
+import api, { AssetPositionDTO, DistributionItemDTO, ThemeDistributionSubthemeDTO } from '../lib/api';
 import SortIcon from './SortIcon';
 import { useTranslation } from 'react-i18next';
 import { getTranslatedSector, getTranslatedIndustry, getTranslatedAssetType } from '../lib/translationUtils';
@@ -54,6 +54,8 @@ interface AssetDistributionProps {
   currency?: string;
 }
 
+type AssetPosition = AssetPositionDTO;
+
 interface DistributionSubtheme {
   name: string;
   count: number;
@@ -63,13 +65,15 @@ interface DistributionSubtheme {
   unrealizedPnl: number;
   unrealizedPnlPct: number;
   assets: HeldAsset[];
-  assetPositions: Array<{ asset_id: number; total_value: number; unrealized_pnl: number; unrealized_pnl_pct?: number; percentage: number }>;
+  assetPositions: AssetPosition[];
 }
 
 type DistributionType = 'sector' | 'type' | 'country' | 'theme' | 'marketCap';
 type ChartType = 'pie' | 'bar';
 type DetailedSortField = 'name' | 'count' | 'totalValue' | 'unrealizedPnl' | 'percentage';
+type AssetSortField = 'symbol' | 'name' | 'percentage' | 'totalValue' | 'unrealizedPnl';
 type SortDirection = 'asc' | 'desc';
+type Translate = ReturnType<typeof useTranslation>['t'];
 
 const marketCapColors: Record<string, string> = {
   'Mega Cap': '#4338ca',
@@ -100,6 +104,157 @@ function getMarketCapTextColor(label: string) {
   return textColors[label] || 'text-neutral-500 dark:text-neutral-400';
 }
 
+interface AssetBreakdownTableProps {
+  assets: HeldAsset[];
+  assetPositions?: AssetPosition[];
+  percentageHeader: React.ReactNode;
+  hasPerformanceData: boolean;
+  showUnrealizedPnl: boolean;
+  assetSortField: AssetSortField;
+  assetSortDirection: SortDirection;
+  onAssetSort: (field: AssetSortField) => void;
+  sortAssets: (assets: HeldAsset[], assetPositions?: AssetPosition[]) => HeldAsset[];
+  formatCurrency: (value: number) => string;
+  formatPercentage: (value: number) => string;
+  t: Translate;
+}
+
+function AssetBreakdownTable({
+  assets,
+  assetPositions,
+  percentageHeader,
+  hasPerformanceData,
+  showUnrealizedPnl,
+  assetSortField,
+  assetSortDirection,
+  onAssetSort,
+  sortAssets,
+  formatCurrency,
+  formatPercentage,
+  t,
+}: AssetBreakdownTableProps) {
+  return (
+    <table className="min-w-full">
+      <thead>
+        <tr className="border-b border-neutral-200 dark:border-neutral-700">
+          <th
+            className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+            onClick={() => onAssetSort('symbol')}
+          >
+            {t('fields.symbol')}
+            <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
+          </th>
+          <th
+            className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+            onClick={() => onAssetSort('name')}
+          >
+            {t('fields.name')}
+            <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
+          </th>
+          {hasPerformanceData && (
+            <>
+              <th
+                className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+                onClick={() => onAssetSort('totalValue')}
+              >
+                {t('assetsDistribution.totalValue')}
+                <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
+              </th>
+              {showUnrealizedPnl && (
+                <th
+                  className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+                  onClick={() => onAssetSort('unrealizedPnl')}
+                >
+                  {t('assetsDistribution.unrealizedPnL')}
+                  <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
+                </th>
+              )}
+            </>
+          )}
+          <th
+            className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+            onClick={() => onAssetSort('percentage')}
+          >
+            {percentageHeader}
+            <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {sortAssets(assets, assetPositions).map((asset) => {
+          const assetPosition = assetPositions?.find(p => p.asset_id === asset.id);
+          const assetPercentage = assetPosition?.percentage ?? (1 / assets.length) * 100;
+
+          return (
+            <tr key={asset.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+              <td className="px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                    <img
+                      src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                      alt={asset.symbol}
+                      loading="lazy"
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
+                    />
+                  </div>
+                  <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    {asset.symbol}
+                  </span>
+                </div>
+              </td>
+              <td className="px-3 py-2">
+                <span className="text-xs text-neutral-600 dark:text-neutral-400 truncate max-w-xs block">
+                  {asset.name}
+                </span>
+              </td>
+              {hasPerformanceData && (
+                <>
+                  <td className="px-3 py-2 text-right">
+                    <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
+                      {assetPosition ? formatCurrency(assetPosition.total_value) : '-'}
+                    </span>
+                  </td>
+                  {showUnrealizedPnl && (
+                    <td className="px-3 py-2 text-right">
+                      <div className={`text-xs font-medium ${
+                        assetPosition && assetPosition.unrealized_pnl >= 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {assetPosition ? (
+                          <>
+                            {assetPosition.unrealized_pnl >= 0 ? '+' : ''}
+                            {formatCurrency(assetPosition.unrealized_pnl)}
+                          </>
+                        ) : '-'}
+                      </div>
+                      {assetPosition?.unrealized_pnl_pct !== undefined && (
+                        <div className={`text-[11px] font-medium ${
+                          assetPosition.unrealized_pnl_pct >= 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {formatPercentage(assetPosition.unrealized_pnl_pct)}
+                        </div>
+                      )}
+                    </td>
+                  )}
+                </>
+              )}
+              <td className="px-3 py-2 text-right">
+                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  {assetPercentage.toFixed(1)}%
+                </span>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 export default function AssetDistribution({ assets, portfolioId, currency = 'USD' }: AssetDistributionProps) {
   const [activeTab, setActiveTab] = useState<DistributionType>('sector');
   const [chartType, setChartType] = useState<ChartType>('pie');
@@ -112,7 +267,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
   const [industrySortDirection, setIndustrySortDirection] = useState<SortDirection>('desc');
   const [sectorIndustriesData, setSectorIndustriesData] = useState<Map<string, DistributionItemDTO[]>>(new Map());
   const [loadingIndustries, setLoadingIndustries] = useState<Set<string>>(new Set());
-  const [assetSortField, setAssetSortField] = useState<'symbol' | 'name' | 'percentage' | 'totalValue' | 'unrealizedPnl'>('percentage');
+  const [assetSortField, setAssetSortField] = useState<AssetSortField>('percentage');
   const [assetSortDirection, setAssetSortDirection] = useState<SortDirection>('desc');
   const [apiDistributionData, setApiDistributionData] = useState<DistributionItemDTO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -152,9 +307,9 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
               const assetIds = theme.assets
                 .map((asset) => assetBySymbol.get(asset.symbol)?.id)
                 .filter((id): id is number => id !== undefined);
-              const mapThemeAssetsToPositions = (themeAssets: ThemeDistributionSubthemeDTO['assets'], totalValue: number) =>
+              const mapThemeAssetsToPositions = (themeAssets: ThemeDistributionSubthemeDTO['assets'], totalValue: number): AssetPosition[] =>
                 themeAssets
-                  .map((asset) => {
+                  .map((asset): AssetPosition | null => {
                     const heldAsset = assetBySymbol.get(asset.symbol);
                     if (!heldAsset) return null;
 
@@ -166,7 +321,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                       percentage: totalValue > 0 ? (asset.contribution_value / totalValue) * 100 : 0,
                     };
                   })
-                  .filter((asset): asset is { asset_id: number; total_value: number; unrealized_pnl: number; unrealized_pnl_pct: number; percentage: number } => asset !== null);
+                  .filter((asset): asset is AssetPosition => asset !== null);
 
               return {
                 name: theme.theme,
@@ -536,7 +691,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
   };
 
   // Handle asset table sorting
-  const handleAssetSort = (field: 'symbol' | 'name' | 'percentage' | 'totalValue' | 'unrealizedPnl') => {
+  const handleAssetSort = (field: AssetSortField) => {
     if (assetSortField === field) {
       setAssetSortDirection(assetSortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -546,7 +701,7 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
   };
 
   // Sort assets helper function
-  const sortAssets = (assets: HeldAsset[], assetPositions?: Array<{ asset_id: number; total_value: number; unrealized_pnl: number; percentage: number }>) => {
+  const sortAssets = (assets: HeldAsset[], assetPositions?: AssetPosition[]) => {
     return [...assets].sort((a, b) => {
       let aValue: string | number;
       let bValue: string | number;
@@ -1132,121 +1287,20 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                           {isExpanded && (
                                             <tr key={`${industry.name}-assets`}>
                                               <td colSpan={hasPerformanceData ? 6 : 4} className="px-4 py-2 bg-white dark:bg-neutral-900">
-                                                <table className="min-w-full">
-                                                  <thead>
-                                                    <tr className="border-b border-neutral-200 dark:border-neutral-700">
-                                                      <th
-                                                        className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                                        onClick={() => handleAssetSort('symbol')}
-                                                      >
-                                                        {t('fields.symbol')}
-                                                        <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                      </th>
-                                                      <th
-                                                        className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                                        onClick={() => handleAssetSort('name')}
-                                                      >
-                                                        {t('fields.name')}
-                                                        <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                      </th>
-                                                      {hasPerformanceData && (
-                                                        <>
-                                                          <th
-                                                            className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                                            onClick={() => handleAssetSort('totalValue')}
-                                                          >
-                                                            {t('assetsDistribution.totalValue')}
-                                                            <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                          </th>
-                                                          <th
-                                                            className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                                            onClick={() => handleAssetSort('unrealizedPnl')}
-                                                          >
-                                                            {t('assetsDistribution.unrealizedPnL')}
-                                                            <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                          </th>
-                                                        </>
-                                                      )}
-                                                      <th
-                                                        className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                                        onClick={() => handleAssetSort('percentage')}
-                                                      >
-                                                        {t('assetsDistribution.percentageOfIndustry')}
-                                                        <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                      </th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody>
-                                                    {sortAssets(industryAssets, industry.asset_positions).map((asset) => {
-                                                      // Get position data if available
-                                                      const assetPosition = industry.asset_positions?.find(p => p.asset_id === asset.id);
-                                                      const assetPercentage = assetPosition?.percentage ?? (1 / industryAssets.length) * 100;
-
-                                                      return (
-                                                        <tr key={asset.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                                                          <td className="px-3 py-2">
-                                                            <div className="flex items-center gap-2">
-                                                              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                                                <img
-                                                                  src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
-                                                                  alt={asset.symbol}
-                                                                  loading="lazy"
-                                                                  className="w-6 h-6 object-contain"
-                                                                  onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
-                                                                />
-                                                              </div>
-                                                              <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                                                                {asset.symbol}
-                                                              </span>
-                                                            </div>
-                                                          </td>
-                                                          <td className="px-3 py-2">
-                                                            <span className="text-xs text-neutral-600 dark:text-neutral-400 truncate max-w-xs block">
-                                                              {asset.name}
-                                                            </span>
-                                                          </td>
-                                                          {hasPerformanceData && (
-                                                            <>
-                                                              <td className="px-3 py-2 text-right">
-                                                                <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                                                                  {assetPosition ? formatCurrency(assetPosition.total_value) : '-'}
-                                                                </span>
-                                                              </td>
-                                                              <td className="px-3 py-2 text-right">
-                                                                <div className={`text-xs font-medium ${
-                                                                  assetPosition && assetPosition.unrealized_pnl >= 0
-                                                                    ? 'text-green-600 dark:text-green-400'
-                                                                    : 'text-red-600 dark:text-red-400'
-                                                                }`}>
-                                                                  {assetPosition ? (
-                                                                    <>
-                                                                      {assetPosition.unrealized_pnl >= 0 ? '+' : ''}
-                                                                      {formatCurrency(assetPosition.unrealized_pnl)}
-                                                                    </>
-                                                                  ) : '-'}
-                                                                </div>
-                                                                {assetPosition?.unrealized_pnl_pct !== undefined && (
-                                                                  <div className={`text-[11px] font-medium ${
-                                                                    assetPosition.unrealized_pnl_pct >= 0
-                                                                      ? 'text-green-600 dark:text-green-400'
-                                                                      : 'text-red-600 dark:text-red-400'
-                                                                  }`}>
-                                                                    {formatPercentage(assetPosition.unrealized_pnl_pct)}
-                                                                  </div>
-                                                                )}
-                                                              </td>
-                                                            </>
-                                                          )}
-                                                          <td className="px-3 py-2 text-right">
-                                                            <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                                                              {assetPercentage.toFixed(1)}%
-                                                            </span>
-                                                          </td>
-                                                        </tr>
-                                                      );
-                                                    })}
-                                                  </tbody>
-                                                </table>
+                                                <AssetBreakdownTable
+                                                  assets={industryAssets}
+                                                  assetPositions={industry.asset_positions}
+                                                  percentageHeader={t('assetsDistribution.percentageOfIndustry')}
+                                                  hasPerformanceData={hasPerformanceData}
+                                                  showUnrealizedPnl={hasPerformanceData}
+                                                  assetSortField={assetSortField}
+                                                  assetSortDirection={assetSortDirection}
+                                                  onAssetSort={handleAssetSort}
+                                                  sortAssets={sortAssets}
+                                                  formatCurrency={formatCurrency}
+                                                  formatPercentage={formatPercentage}
+                                                  t={t}
+                                                />
                                               </td>
                                             </tr>
                                           )}
@@ -1354,105 +1408,20 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                                             {isExpanded && (
                                               <tr key={`${subtheme.name}-assets`}>
                                                 <td colSpan={hasPerformanceData ? 6 : 4} className="px-4 py-2 bg-white dark:bg-neutral-900">
-                                                  <table className="min-w-full">
-                                                    <thead>
-                                                      <tr className="border-b border-neutral-200 dark:border-neutral-700">
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors" onClick={() => handleAssetSort('symbol')}>
-                                                          {t('fields.symbol')}
-                                                          <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                        </th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors" onClick={() => handleAssetSort('name')}>
-                                                          {t('fields.name')}
-                                                          <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                        </th>
-                                                        {hasPerformanceData && (
-                                                          <>
-                                                            <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors" onClick={() => handleAssetSort('totalValue')}>
-                                                              {t('assetsDistribution.totalValue')}
-                                                              <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                            </th>
-                                                            <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors" onClick={() => handleAssetSort('unrealizedPnl')}>
-                                                              {t('assetsDistribution.unrealizedPnL')}
-                                                              <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                            </th>
-                                                          </>
-                                                        )}
-                                                        <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors" onClick={() => handleAssetSort('percentage')}>
-                                                          {t('assetsDistribution.percentageOf', { group: t('assetsDistribution.subtheme', 'Subtheme') })}
-                                                          <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
-                                                        </th>
-                                                      </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                      {sortAssets(subtheme.assets, subtheme.assetPositions).map((asset) => {
-                                                        const assetPosition = subtheme.assetPositions.find(p => p.asset_id === asset.id);
-                                                        const assetPercentage = assetPosition?.percentage ?? (1 / subtheme.assets.length) * 100;
-
-                                                        return (
-                                                          <tr key={asset.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                                                            <td className="px-3 py-2">
-                                                              <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                                                  <img
-                                                                    src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
-                                                                    alt={asset.symbol}
-                                                                    loading="lazy"
-                                                                    className="w-6 h-6 object-contain"
-                                                                    onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
-                                                                  />
-                                                                </div>
-                                                                <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                                                                  {asset.symbol}
-                                                                </span>
-                                                              </div>
-                                                            </td>
-                                                            <td className="px-3 py-2">
-                                                              <span className="text-xs text-neutral-600 dark:text-neutral-400 truncate max-w-xs block">
-                                                                {asset.name}
-                                                              </span>
-                                                            </td>
-                                                            {hasPerformanceData && (
-                                                              <>
-                                                                <td className="px-3 py-2 text-right">
-                                                                  <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                                                                    {assetPosition ? formatCurrency(assetPosition.total_value) : '-'}
-                                                                  </span>
-                                                                </td>
-                                                                <td className="px-3 py-2 text-right">
-                                                                  <div className={`text-xs font-medium ${
-                                                                    assetPosition && assetPosition.unrealized_pnl >= 0
-                                                                      ? 'text-green-600 dark:text-green-400'
-                                                                      : 'text-red-600 dark:text-red-400'
-                                                                  }`}>
-                                                                    {assetPosition ? (
-                                                                      <>
-                                                                        {assetPosition.unrealized_pnl >= 0 ? '+' : ''}
-                                                                        {formatCurrency(assetPosition.unrealized_pnl)}
-                                                                      </>
-                                                                    ) : '-'}
-                                                                  </div>
-                                                                  {assetPosition?.unrealized_pnl_pct !== undefined && (
-                                                                    <div className={`text-[11px] font-medium ${
-                                                                      assetPosition.unrealized_pnl_pct >= 0
-                                                                        ? 'text-green-600 dark:text-green-400'
-                                                                        : 'text-red-600 dark:text-red-400'
-                                                                    }`}>
-                                                                      {formatPercentage(assetPosition.unrealized_pnl_pct)}
-                                                                    </div>
-                                                                  )}
-                                                                </td>
-                                                              </>
-                                                            )}
-                                                            <td className="px-3 py-2 text-right">
-                                                              <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                                                                {assetPercentage.toFixed(1)}%
-                                                              </span>
-                                                            </td>
-                                                          </tr>
-                                                        );
-                                                      })}
-                                                    </tbody>
-                                                  </table>
+                                                  <AssetBreakdownTable
+                                                    assets={subtheme.assets}
+                                                    assetPositions={subtheme.assetPositions}
+                                                    percentageHeader={t('assetsDistribution.percentageOf', { group: t('assetsDistribution.subtheme', 'Subtheme') })}
+                                                    hasPerformanceData={hasPerformanceData}
+                                                    showUnrealizedPnl={hasPerformanceData}
+                                                    assetSortField={assetSortField}
+                                                    assetSortDirection={assetSortDirection}
+                                                    onAssetSort={handleAssetSort}
+                                                    sortAssets={sortAssets}
+                                                    formatCurrency={formatCurrency}
+                                                    formatPercentage={formatPercentage}
+                                                    t={t}
+                                                  />
                                                 </td>
                                               </tr>
                                             )}
@@ -1466,130 +1435,20 @@ export default function AssetDistribution({ assets, portfolioId, currency = 'USD
                           ) : (
                           // Show asset table for other tabs (type, country, theme)
                           <div className="overflow-x-auto">
-                            <table className="min-w-full">
-                              <thead>
-                                <tr className="border-b border-neutral-200 dark:border-neutral-700">
-                                  <th
-                                    className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                    onClick={() => handleAssetSort('symbol')}
-                                  >
-                                    {t('fields.symbol')}
-                                    <SortIcon column="symbol" activeColumn={assetSortField} direction={assetSortDirection} />
-                                  </th>
-                                  <th
-                                    className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                    onClick={() => handleAssetSort('name')}
-                                  >
-                                    {t('fields.name')}
-                                    <SortIcon column="name" activeColumn={assetSortField} direction={assetSortDirection} />
-                                  </th>
-                                  {hasPerformanceData && (
-                                    <>
-                                      <th
-                                        className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                        onClick={() => handleAssetSort('totalValue')}
-                                      >
-                                        {t('assetsDistribution.totalValue')}
-                                        <SortIcon column="totalValue" activeColumn={assetSortField} direction={assetSortDirection} />
-                                      </th>
-                                      {showUnrealizedPnl && (
-                                        <th
-                                          className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                          onClick={() => handleAssetSort('unrealizedPnl')}
-                                        >
-                                          {t('assetsDistribution.unrealizedPnL')}
-                                          <SortIcon column="unrealizedPnl" activeColumn={assetSortField} direction={assetSortDirection} />
-                                        </th>
-                                      )}
-                                    </>
-                                  )}
-                                  <th
-                                    className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
-                                    onClick={() => handleAssetSort('percentage')}
-                                  >
-                                      {t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assets.country') : activeTab === 'type' ? t('fields.type') : activeTab === 'theme' ? t('assetsDistribution.theme') : activeTab === 'marketCap' ? t('assetsDistribution.marketCap') : t('assetsDistribution.group') })}
-                                    <SortIcon column="percentage" activeColumn={assetSortField} direction={assetSortDirection} />
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(() => {
-                                  // Use asset positions from the item
-                                  const assetPositions = item.assetPositions;
-
-                                  return sortAssets(item.assets, assetPositions).map((asset) => {
-                                    // Get position data if available
-                                    const assetPosition = assetPositions?.find(p => p.asset_id === asset.id);
-                                    const assetPercentage = assetPosition?.percentage ?? (1 / item.assets.length) * 100;
-
-                                    return (
-                                      <tr key={asset.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                                        <td className="px-3 py-2">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                              <img
-                                                src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
-                                                alt={asset.symbol}
-                                                loading="lazy"
-                                                className="w-6 h-6 object-contain"
-                                                onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
-                                              />
-                                            </div>
-                                            <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                                              {asset.symbol}
-                                            </span>
-                                          </div>
-                                        </td>
-                                        <td className="px-3 py-2">
-                                          <span className="text-xs text-neutral-600 dark:text-neutral-400 truncate max-w-xs block">
-                                            {asset.name}
-                                          </span>
-                                        </td>
-                                        {hasPerformanceData && (
-                                          <>
-                                            <td className="px-3 py-2 text-right">
-                                              <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                                                {assetPosition ? formatCurrency(assetPosition.total_value) : '-'}
-                                              </span>
-                                            </td>
-                                            {showUnrealizedPnl && (
-                                              <td className="px-3 py-2 text-right">
-                                                <div className={`text-xs font-medium ${
-                                                  assetPosition && assetPosition.unrealized_pnl >= 0
-                                                    ? 'text-green-600 dark:text-green-400'
-                                                    : 'text-red-600 dark:text-red-400'
-                                                }`}>
-                                                  {assetPosition ? (
-                                                    <>
-                                                      {assetPosition.unrealized_pnl >= 0 ? '+' : ''}
-                                                      {formatCurrency(assetPosition.unrealized_pnl)}
-                                                    </>
-                                                  ) : '-'}
-                                                </div>
-                                                {assetPosition?.unrealized_pnl_pct !== undefined && (
-                                                  <div className={`text-[11px] font-medium ${
-                                                    assetPosition.unrealized_pnl_pct >= 0
-                                                      ? 'text-green-600 dark:text-green-400'
-                                                      : 'text-red-600 dark:text-red-400'
-                                                  }`}>
-                                                    {formatPercentage(assetPosition.unrealized_pnl_pct)}
-                                                  </div>
-                                                )}
-                                              </td>
-                                            )}
-                                          </>
-                                        )}
-                                        <td className="px-3 py-2 text-right">
-                                          <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                                            {assetPercentage.toFixed(1)}%
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  });
-                                })()}
-                              </tbody>
-                            </table>
+                            <AssetBreakdownTable
+                              assets={item.assets}
+                              assetPositions={item.assetPositions}
+                              percentageHeader={t('assetsDistribution.percentageOf', { group: activeTab === 'country' ? t('assets.country') : activeTab === 'type' ? t('fields.type') : activeTab === 'theme' ? t('assetsDistribution.theme') : activeTab === 'marketCap' ? t('assetsDistribution.marketCap') : t('assetsDistribution.group') })}
+                              hasPerformanceData={hasPerformanceData}
+                              showUnrealizedPnl={showUnrealizedPnl}
+                              assetSortField={assetSortField}
+                              assetSortDirection={assetSortDirection}
+                              onAssetSort={handleAssetSort}
+                              sortAssets={sortAssets}
+                              formatCurrency={formatCurrency}
+                              formatPercentage={formatPercentage}
+                              t={t}
+                            />
                           </div>
                         )}
                       </td>
