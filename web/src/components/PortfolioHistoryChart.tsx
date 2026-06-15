@@ -6,9 +6,13 @@ import {
   PortfolioChartSkeleton,
 } from './chartShared'
 import {
+  CHART_GRID_COLOR,
+  CHART_TICK_COLOR,
+  CHART_TOOLTIP_BASE,
+  createCategoryXAxis,
   createChartHoverHandler,
+  createTooltipTitleCallback,
   formatChartDateLabel,
-  formatChartTooltipDate,
   getCurrencySymbol,
 } from './chartUtils'
 import { usePortfolioHistoryChart } from './usePortfolioHistoryChart'
@@ -61,24 +65,9 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
     plugins: {
       legend: { display: false },
       tooltip: {
-        mode: 'index' as const,
-        intersect: false,
-        backgroundColor: 'rgba(30,41,59,0.95)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        borderColor: 'rgb(236,72,153)',
-        borderWidth: 1,
-        padding: 12,
-        caretSize: 8,
+        ...CHART_TOOLTIP_BASE,
         callbacks: {
-          title: (context: { dataIndex: number }[]) => {
-            // Show full date in tooltip title using current locale
-            if (context.length > 0) {
-              const date = new Date(history[context[0].dataIndex].date)
-              return formatChartTooltipDate(date, currentLocale)
-            }
-            return ''
-          },
+          title: createTooltipTitleCallback(history, currentLocale),
           label: (context: { parsed: { y: number | null } }) => {
             const value = context.parsed.y
             if (value === null) return ''
@@ -88,29 +77,17 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
       },
     },
     scales: {
-      x: {
-        type: 'category' as const,
-        title: { display: false },
-        grid: { display: false },
-        ticks: { 
-          color: '#64748b', 
-          font: { size: 11 },
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: period === 'ALL' ? 12 : period === '1Y' ? 10 : 8,
-          autoSkipPadding: 10,
-        },
-      },
+      x: createCategoryXAxis(period),
       y: {
         title: { 
           display: true, 
           text: `${t('charts.portfolioValue')} (${currency})`,
-          color: '#64748b',
+          color: CHART_TICK_COLOR,
           font: { size: 12 }
         },
-        grid: { color: 'rgba(100,116,139,0.08)' },
+        grid: { color: CHART_GRID_COLOR },
         ticks: { 
-          color: '#64748b', 
+          color: CHART_TICK_COLOR,
           font: { size: 11 },
           callback: (value: string | number) => {
             return `${currencySymbol}${Number(value).toLocaleString()}`

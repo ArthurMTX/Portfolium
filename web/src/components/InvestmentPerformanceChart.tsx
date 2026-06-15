@@ -6,9 +6,14 @@ import {
   PortfolioChartSkeleton,
 } from './chartShared'
 import {
+  CHART_GRID_COLOR,
+  CHART_TICK_COLOR,
+  CHART_TOOLTIP_BASE,
+  CHART_ZERO_GRID_COLOR,
+  createCategoryXAxis,
   createChartHoverHandler,
+  createTooltipTitleCallback,
   formatChartDateLabel,
-  formatChartTooltipDate,
   getCurrencySymbol,
   getSignedColorClass,
 } from './chartUtils'
@@ -137,24 +142,9 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     plugins: {
       legend: { display: false },
       tooltip: {
-        mode: 'index' as const,
-        intersect: false,
-        backgroundColor: 'rgba(30,41,59,0.95)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        borderColor: 'rgb(236,72,153)',
-        borderWidth: 1,
-        padding: 12,
-        caretSize: 8,
+        ...CHART_TOOLTIP_BASE,
         callbacks: {
-          title: (context: { dataIndex: number }[]) => {
-            // Show full date in tooltip title using current locale
-            if (context.length > 0) {
-              const date = new Date(history[context[0].dataIndex].date)
-              return formatChartTooltipDate(date, currentLocale)
-            }
-            return ''
-          },
+          title: createTooltipTitleCallback(history, currentLocale),
           label: (context: { parsed: { y: number | null }; dataIndex: number }) => {
             const value = context.parsed.y
             const point = history[context.dataIndex]
@@ -199,39 +189,27 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
       },
     },
     scales: {
-      x: {
-        type: 'category' as const,
-        title: { display: false },
-        grid: { display: false },
-        ticks: { 
-          color: '#64748b', 
-          font: { size: 11 },
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: period === 'ALL' ? 12 : period === '1Y' ? 10 : 8,
-          autoSkipPadding: 10,
-        },
-      },
+      x: createCategoryXAxis(period),
       y: {
         title: { 
           display: true, 
           text: `${t('charts.performanceLabel')} (%)`,
-          color: '#64748b',
+          color: CHART_TICK_COLOR,
           font: { size: 12 }
         },
         grid: { 
           color: (context: { tick: { value: number } }) => {
             // Highlight the zero line
             return context.tick.value === 0 
-              ? 'rgba(100,116,139,0.3)' 
-              : 'rgba(100,116,139,0.08)'
+              ? CHART_ZERO_GRID_COLOR
+              : CHART_GRID_COLOR
           },
           lineWidth: (context: { tick: { value: number } }) => {
             return context.tick.value === 0 ? 2 : 1
           }
         },
         ticks: { 
-          color: '#64748b', 
+          color: CHART_TICK_COLOR,
           font: { size: 11 },
           callback: (value: string | number) => {
             return `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(0)}%`

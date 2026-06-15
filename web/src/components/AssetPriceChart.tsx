@@ -5,10 +5,20 @@ import annotationPlugin from 'chartjs-plugin-annotation'
 import api from '../lib/api'
 import { useTranslation } from 'react-i18next'
 import { getAssetLogoUrl, handleLogoError } from '../lib/logoUtils'
+import { ChartPeriodButtons } from './chartShared'
+import {
+  CHART_ACCENT_COLOR,
+  CHART_GRID_COLOR,
+  CHART_TICK_COLOR,
+  CHART_TOOLTIP_BASE,
+  createCategoryXAxis,
+  createChartHoverHandler,
+  formatChartDateLabel,
+  getCurrencySymbol,
+} from './chartUtils'
+import type { ChartPeriodOption } from './chartUtils'
 
 Chart.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler, annotationPlugin)
-
-type PeriodOption = '1W' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'ALL'
 
 interface Props {
   assetId: number
@@ -17,7 +27,7 @@ interface Props {
   portfolioId?: number
   assetType?: string | null
   assetName?: string | null
-  initialPeriod?: PeriodOption
+  initialPeriod?: ChartPeriodOption
   ensureAllTimeHistory?: boolean
 }
 
@@ -69,7 +79,7 @@ export default function AssetPriceChart({
   initialPeriod = '1M',
   ensureAllTimeHistory = false
 }: Props) {
-  const [period, setPeriod] = useState<PeriodOption>(initialPeriod)
+  const [period, setPeriod] = useState<ChartPeriodOption>(initialPeriod)
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<PriceHistoryResponse | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -81,25 +91,6 @@ export default function AssetPriceChart({
 
   // Get the current locale for date formatting
   const currentLocale = i18n.language || 'en-US'
-
-  // Get currency symbol for display
-  const getCurrencySymbol = (curr: string): string => {
-    const symbols: Record<string, string> = {
-      'USD': '$',
-      'EUR': '€',
-      'GBP': '£',
-      'JPY': '¥',
-      'CNY': '¥',
-      'HKD': 'HK$',
-      'CAD': 'C$',
-      'AUD': 'A$',
-      'CHF': 'CHF',
-      'SGD': 'S$',
-      'INR': '₹',
-      'KRW': '₩',
-    }
-    return symbols[curr] || curr + ' '
-  }
 
   useEffect(() => {
     setAllTimeBackfillAttempted(false)
@@ -189,29 +180,13 @@ export default function AssetPriceChart({
   const chartData = {
     labels: history?.prices.map(p => {
       const date = new Date(p.date)
-      // Format date based on period
-      if (period === '1W') {
-        // For 1 week, show day of week + date
-        return date.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
-      } else if (period === '1M') {
-        // For 1 month, show month and day
-        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-      } else if (period === '3M') {
-        // For 3 months, show month and day
-        return date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-      } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-        // For 6M, YTD, 1Y - show month and year (abbreviated)
-        return date.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
-      } else {
-        // For ALL - show month and year (full) for better clarity
-        return date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
-      }
+      return formatChartDateLabel(date, period, currentLocale)
     }) || [],
     datasets: [
       {
         label: `${symbol} Price`,
         data: history?.prices.map(p => p.price) || [],
-        borderColor: 'rgb(236,72,153)',
+        borderColor: CHART_ACCENT_COLOR,
         backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
           const chart = ctx.chart
           const {ctx: c, chartArea} = chart || {}
@@ -226,7 +201,7 @@ export default function AssetPriceChart({
         pointRadius: 0, // Hide points for cleaner chart with lots of data
         borderWidth: 2,
         pointHoverRadius: 5,
-        pointHoverBackgroundColor: 'rgb(236,72,153)',
+        pointHoverBackgroundColor: CHART_ACCENT_COLOR,
         pointHoverBorderColor: '#fff',
         pointHoverBorderWidth: 2,
         // Reduce line segments for better performance with large datasets
@@ -395,25 +370,11 @@ export default function AssetPriceChart({
       intersect: false,
       mode: 'index' as const,
     },
-    onHover: (_event: unknown, activeElements: unknown[]) => {
-      if (activeElements && activeElements.length > 0) {
-        setHoveredIndex((activeElements[0] as { index: number }).index)
-      } else {
-        setHoveredIndex(null)
-      }
-    },
+    onHover: createChartHoverHandler(setHoveredIndex),
     plugins: {
       legend: { display: false },
       tooltip: {
-        mode: 'index' as const,
-        intersect: false,
-        backgroundColor: 'rgba(30,41,59,0.95)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        borderColor: 'rgb(236,72,153)',
-        borderWidth: 1,
-        padding: 12,
-        caretSize: 8,
+        ...CHART_TOOLTIP_BASE,
         callbacks: {
           label: (context: { parsed: { y: number | null } }) => {
             const value = context.parsed.y
@@ -429,17 +390,7 @@ export default function AssetPriceChart({
             // Show transaction info if there's one at this date
             const txsOnThisDate = transactions.filter(tx => {
               const txDate = new Date(tx.tx_date)
-              const formattedTxDate = (() => {
-                if (period === '1W') {
-                  return txDate.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
-                } else if (period === '1M' || period === '3M') {
-                  return txDate.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-                } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-                  return txDate.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
-                } else {
-                  return txDate.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
-                }
-              })()
+              const formattedTxDate = formatChartDateLabel(txDate, period, currentLocale)
               return formattedTxDate === dateLabel
             })
             
@@ -476,17 +427,7 @@ export default function AssetPriceChart({
             // Show split info if there's one at this date
             const splitsOnThisDate = splits.filter(split => {
               const splitDate = new Date(split.tx_date)
-              const formattedSplitDate = (() => {
-                if (period === '1W') {
-                  return splitDate.toLocaleDateString(currentLocale, { weekday: 'short', month: 'short', day: 'numeric' })
-                } else if (period === '1M' || period === '3M') {
-                  return splitDate.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-                } else if (period === '6M' || period === 'YTD' || period === '1Y') {
-                  return splitDate.toLocaleDateString(currentLocale, { month: 'short', year: '2-digit' })
-                } else {
-                  return splitDate.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
-                }
-              })()
+              const formattedSplitDate = formatChartDateLabel(splitDate, period, currentLocale)
               return formattedSplitDate === dateLabel
             })
             
@@ -508,31 +449,17 @@ export default function AssetPriceChart({
       }
     },
     scales: {
-      x: {
-        type: 'category' as const,
-        title: { display: false },
-        grid: { display: false },
-        ticks: { 
-          color: '#64748b', 
-          font: { size: 11 },
-          maxRotation: 0,
-          autoSkip: true,
-          // Adjust tick limits based on period for better spacing
-          maxTicksLimit: period === 'ALL' ? 12 : period === '1Y' ? 10 : 8,
-          // Ensure even distribution of labels
-          autoSkipPadding: 10,
-        },
-      },
+      x: createCategoryXAxis(period),
       y: {
         title: { 
           display: true, 
           text: `${t('fields.price')} (${currency})`,
-          color: '#64748b',
+          color: CHART_TICK_COLOR,
           font: { size: 12 }
         },
-        grid: { color: 'rgba(100,116,139,0.08)' },
+        grid: { color: CHART_GRID_COLOR },
         ticks: { 
-          color: '#64748b', 
+          color: CHART_TICK_COLOR,
           font: { size: 11 },
           callback: (value: string | number) => {
             const currSymbol = getCurrencySymbol(currency)
@@ -558,21 +485,7 @@ export default function AssetPriceChart({
 
   return (
     <div>
-      <div className="flex gap-2 mb-4 flex-wrap justify-center">
-        {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as PeriodOption[]).map(opt => (
-          <button
-            key={opt}
-            className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
-              period === opt 
-                ? 'bg-pink-600 text-white border-pink-600' 
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
-            }`}
-            onClick={() => setPeriod(opt)}
-          >
-            {t(`charts.periods.${opt}`)}
-          </button>
-        ))}
-      </div>
+      <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
       
       <div style={{ minHeight: 320 }} className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-4">
         {loading ? (
