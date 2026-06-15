@@ -431,160 +431,91 @@ export default function AssetDebug() {
 
                   {/* Recent History */}
                   {yfinanceData.recent_history && typeof yfinanceData.recent_history === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <TrendingUp size={16} />
-                        Recent Price History (90 days)
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View recent history
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.recent_history, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Recent Price History (90 days)"
+                      summary="View recent history"
+                      data={yfinanceData.recent_history}
+                      icon={TrendingUp}
+                    />
                   ) : null}
 
                   {/* Calendar */}
                   {yfinanceData.calendar && typeof yfinanceData.calendar === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <Calendar size={16} />
-                        Calendar (Earnings, Dividends)
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View calendar
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.calendar, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Calendar (Earnings, Dividends)"
+                      summary="View calendar"
+                      data={yfinanceData.calendar}
+                      icon={Calendar}
+                    />
                   ) : null}
 
                   {/* Recommendations */}
                   {yfinanceData.recommendations && typeof yfinanceData.recommendations === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <BarChart3 size={16} />
-                        Analyst Recommendations
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View recommendations
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.recommendations, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Analyst Recommendations"
+                      summary="View recommendations"
+                      data={yfinanceData.recommendations}
+                      icon={BarChart3}
+                    />
                   ) : null}
 
                   {/* Institutional Holders */}
                   {yfinanceData.institutional_holders && typeof yfinanceData.institutional_holders === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <Building2 size={16} />
-                        Institutional Holders
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View institutional holders
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.institutional_holders, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Institutional Holders"
+                      summary="View institutional holders"
+                      data={yfinanceData.institutional_holders}
+                      icon={Building2}
+                    />
                   ) : null}
 
                   {/* Major Holders */}
                   {yfinanceData.major_holders && typeof yfinanceData.major_holders === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <Building2 size={16} />
-                        Major Holders
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View major holders
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.major_holders, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Major Holders"
+                      summary="View major holders"
+                      data={yfinanceData.major_holders}
+                      icon={Building2}
+                    />
                   ) : null}
 
                   {/* Dividends */}
                   {yfinanceData.dividends && typeof yfinanceData.dividends === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <DollarSign size={16} />
-                        Dividend History
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View dividends
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.dividends, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Dividend History"
+                      summary="View dividends"
+                      data={yfinanceData.dividends}
+                      icon={DollarSign}
+                    />
                   ) : null}
 
                   {/* Splits */}
                   {yfinanceData.splits && typeof yfinanceData.splits === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <Zap size={16} />
-                        Stock Splits History
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View splits
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.splits, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="Stock Splits History"
+                      summary="View splits"
+                      data={yfinanceData.splits}
+                      icon={Zap}
+                    />
                   ) : null}
 
                   {/* Actions */}
                   {yfinanceData.actions && typeof yfinanceData.actions === 'object' ? (
-                    <div>
-                      <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                        <Activity size={16} />
-                        All Corporate Actions
-                      </h4>
-                      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                          View all actions (dividends + splits)
-                        </summary>
-                        <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                          {JSON.stringify(yfinanceData.actions, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
+                    <JsonDetailsSection
+                      title="All Corporate Actions"
+                      summary="View all actions (dividends + splits)"
+                      data={yfinanceData.actions}
+                      icon={Activity}
+                    />
                   ) : null}
 
                   {/* Complete Raw Dump */}
-                  <div>
-                    <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2">Complete Raw YFinance Response</h4>
-                    <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                      <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                        View everything (click to expand)
-                      </summary>
-                      <pre className="p-4 overflow-x-auto text-xs max-h-[600px] overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                        {JSON.stringify(yfinanceData, null, 2)}
-                      </pre>
-                    </details>
-                  </div>
+                  <JsonDetailsSection
+                    title="Complete Raw YFinance Response"
+                    summary="View everything (click to expand)"
+                    data={yfinanceData}
+                    maxHeightClass="max-h-[600px]"
+                  />
                 </div>
               )}
             </div>
@@ -1128,160 +1059,91 @@ export default function AssetDebug() {
 
                       {/* Recent History */}
                       {yfinanceData.recent_history && typeof yfinanceData.recent_history === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <BarChart3 size={16} />
-                            Recent History (Last 5 Days)
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View recent price data
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.recent_history, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Recent History (Last 5 Days)"
+                          summary="View recent price data"
+                          data={yfinanceData.recent_history}
+                          icon={BarChart3}
+                        />
                       ) : null}
 
                       {/* Calendar */}
                       {yfinanceData.calendar && typeof yfinanceData.calendar === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <Calendar size={16} />
-                            Calendar Events
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View calendar data
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.calendar, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Calendar Events"
+                          summary="View calendar data"
+                          data={yfinanceData.calendar}
+                          icon={Calendar}
+                        />
                       ) : null}
 
                       {/* Recommendations */}
                       {yfinanceData.recommendations && typeof yfinanceData.recommendations === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <TrendingUp size={16} />
-                            Analyst Recommendations
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View recommendations
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.recommendations, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Analyst Recommendations"
+                          summary="View recommendations"
+                          data={yfinanceData.recommendations}
+                          icon={TrendingUp}
+                        />
                       ) : null}
 
                       {/* Institutional Holders */}
                       {yfinanceData.institutional_holders && typeof yfinanceData.institutional_holders === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <Building2 size={16} />
-                            Institutional Holders
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View institutional holders
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.institutional_holders, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Institutional Holders"
+                          summary="View institutional holders"
+                          data={yfinanceData.institutional_holders}
+                          icon={Building2}
+                        />
                       ) : null}
 
                       {/* Major Holders */}
                       {yfinanceData.major_holders && typeof yfinanceData.major_holders === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <Building2 size={16} />
-                            Major Holders
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View major holders
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.major_holders, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Major Holders"
+                          summary="View major holders"
+                          data={yfinanceData.major_holders}
+                          icon={Building2}
+                        />
                       ) : null}
 
                       {/* Dividends */}
                       {yfinanceData.dividends && typeof yfinanceData.dividends === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <DollarSign size={16} />
-                            Dividend History
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View dividends
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.dividends, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Dividend History"
+                          summary="View dividends"
+                          data={yfinanceData.dividends}
+                          icon={DollarSign}
+                        />
                       ) : null}
 
                       {/* Splits */}
                       {yfinanceData.splits && typeof yfinanceData.splits === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <Zap size={16} />
-                            Stock Splits History
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View splits
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.splits, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="Stock Splits History"
+                          summary="View splits"
+                          data={yfinanceData.splits}
+                          icon={Zap}
+                        />
                       ) : null}
 
                       {/* Actions */}
                       {yfinanceData.actions && typeof yfinanceData.actions === 'object' ? (
-                        <div>
-                          <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-                            <Activity size={16} />
-                            All Corporate Actions
-                          </h4>
-                          <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                            <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                              View all actions (dividends + splits)
-                            </summary>
-                            <pre className="p-4 overflow-x-auto text-xs max-h-96 overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                              {JSON.stringify(yfinanceData.actions, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                        <JsonDetailsSection
+                          title="All Corporate Actions"
+                          summary="View all actions (dividends + splits)"
+                          data={yfinanceData.actions}
+                          icon={Activity}
+                        />
                       ) : null}
 
                       {/* Complete Raw Dump */}
-                      <div>
-                        <h4 className="font-bold text-neutral-900 dark:text-neutral-100 mb-2">Complete Raw YFinance Response</h4>
-                        <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                          <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
-                            View everything (click to expand)
-                          </summary>
-                          <pre className="p-4 overflow-x-auto text-xs max-h-[600px] overflow-y-auto border-t border-neutral-300 dark:border-neutral-600">
-                            {JSON.stringify(yfinanceData, null, 2)}
-                          </pre>
-                        </details>
-                      </div>
+                      <JsonDetailsSection
+                        title="Complete Raw YFinance Response"
+                        summary="View everything (click to expand)"
+                        data={yfinanceData}
+                        maxHeightClass="max-h-[600px]"
+                      />
                     </div>
                   )}
                 </div>
@@ -1312,6 +1174,39 @@ interface DataFieldProps {
   value: string | number
   icon?: React.ElementType
   highlight?: boolean
+}
+
+interface JsonDetailsSectionProps {
+  title: string
+  summary: string
+  data: unknown
+  icon?: React.ElementType
+  maxHeightClass?: string
+}
+
+function JsonDetailsSection({
+  title,
+  summary,
+  data,
+  icon: Icon,
+  maxHeightClass = 'max-h-96',
+}: JsonDetailsSectionProps) {
+  return (
+    <div>
+      <h4 className={`font-bold text-neutral-900 dark:text-neutral-100 mb-2${Icon ? ' flex items-center gap-2' : ''}`}>
+        {Icon && <Icon size={16} />}
+        {title}
+      </h4>
+      <details className="bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+        <summary className="cursor-pointer p-4 font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors">
+          {summary}
+        </summary>
+        <pre className={`p-4 overflow-x-auto text-xs ${maxHeightClass} overflow-y-auto border-t border-neutral-300 dark:border-neutral-600`}>
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </details>
+    </div>
+  )
 }
 
 function DataField({ label, value, icon: Icon, highlight }: DataFieldProps) {
