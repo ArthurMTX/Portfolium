@@ -3,9 +3,9 @@ import { X, TrendingUp, TrendingDown, Target, Activity, AlertTriangle, Zap, Doll
 import { AssetInvestmentNoteDTO, AssetThemeDTO, PositionDTO, api } from '../lib/api'
 import { formatCurrency, formatNumber, formatLargeNumber, formatWithSeparators } from '../lib/formatUtils'
 import { useTranslation } from 'react-i18next'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '@/lib/logoUtils'
 import AssetInvestmentNoteModal from './AssetInvestmentNoteModal'
 import AssetInvestmentNoteSummary from './AssetInvestmentNoteSummary'
+import AssetLogo from './common/AssetLogo'
 import {
   getPerformanceConclusion,
   getVolatilityConclusion,
@@ -175,19 +175,14 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
           {/* Header */}
           <div className="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-8 py-6 flex items-center justify-between z-10">
 						<div className="flex items-center gap-3">
-						<img 
-							src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
-							alt={`${position.symbol} logo`}
-							className="w-14 h-14 flex-shrink-0 object-cover rounded-lg"
-							style={{ borderRadius: 0 }}
-								onLoad={(e) => {
-									const img = e.currentTarget as HTMLImageElement
-									if (!validateLogoImage(img)) {
-										img.dispatchEvent(new Event('error'))
-									}
-								}}
-								onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
-							/>
+							<AssetLogo
+								symbol={position.symbol}
+								assetType={position.asset_type}
+								assetName={position.name}
+								alt={`${position.symbol} logo`}
+								className="w-14 h-14 flex-shrink-0 object-cover rounded-lg"
+								style={{ borderRadius: 0 }}
+								/>
 
 							<div className="flex flex-col">
 								<h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">

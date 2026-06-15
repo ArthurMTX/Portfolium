@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '../store/usePortfolioStore'
 import api, { type CsvImportPreviewResultDTO } from '../lib/api'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatCurrencyCompact } from '../lib/formatUtils'
 import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw, DollarSign, AlertTriangle, Info } from 'lucide-react'
 import SplitHistory from '../components/SplitHistory'
@@ -15,6 +14,7 @@ import PendingDividends from '../components/PendingDividends'
 import SortIcon from '../components/SortIcon'
 import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
+import AssetLogo from '../components/common/AssetLogo'
 
 interface TickerInfo {
   symbol: string
@@ -1525,17 +1525,12 @@ export default function Transactions() {
                         {/* Header: Date, Symbol, Type, Total */}
                         <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <img 
-                              src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
+                            <AssetLogo
+                              symbol={transaction.asset.symbol}
+                              assetType={transaction.asset.asset_type}
+                              assetName={transaction.asset.name}
                               alt={`${transaction.asset.symbol} logo`}
                               className="w-10 h-10 flex-shrink-0 object-cover"
-                              onLoad={(e) => {
-                                const img = e.currentTarget as HTMLImageElement
-                                if (!validateLogoImage(img)) {
-                                  img.dispatchEvent(new Event('error'))
-                                }
-                              }}
-                              onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
                             />
                             <div className="flex-1 min-w-0">
                               <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
@@ -1749,17 +1744,12 @@ export default function Transactions() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
+                          <AssetLogo
+                            symbol={transaction.asset.symbol}
+                            assetType={transaction.asset.asset_type}
+                            assetName={transaction.asset.name}
                             alt={`${transaction.asset.symbol} logo`}
                             className="w-6 h-6 object-cover"
-                            onLoad={(e) => {
-                              const img = e.currentTarget as HTMLImageElement
-                              if (!validateLogoImage(img)) {
-                                img.dispatchEvent(new Event('error'))
-                              }
-                            }}
-                            onError={(e) => handleLogoError(e, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
                           />
                           <div>
                             <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
@@ -1897,17 +1887,12 @@ export default function Transactions() {
                   )}
                   {selectedTicker && (
                     <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-3">
-                      <img
-                        src={getAssetLogoUrl(selectedTicker.symbol, selectedTickerAssetType, selectedTicker.name)}
+                      <AssetLogo
+                        symbol={selectedTicker.symbol}
+                        assetType={selectedTickerAssetType}
+                        assetName={selectedTicker.name}
                         alt={`${selectedTicker.symbol} logo`}
                         className="w-10 h-10 flex-shrink-0 object-cover"
-                        onLoad={(e) => {
-                          const img = e.currentTarget as HTMLImageElement
-                          if (!validateLogoImage(img)) {
-                            img.dispatchEvent(new Event('error'))
-                          }
-                        }}
-                        onError={(e) => handleLogoError(e, selectedTicker.symbol, selectedTicker.name, selectedTickerAssetType)}
                       />
                       <div>
                         <div className="font-semibold text-blue-700 dark:text-blue-300">

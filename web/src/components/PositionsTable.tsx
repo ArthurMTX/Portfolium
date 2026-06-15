@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency, formatNumber, formatQuantity } from '../lib/formatUtils'
 import SortIcon from './SortIcon'
 import { useTranslation } from 'react-i18next'
 import PositionDetailModal from './PositionDetailModal'
 import { PositionDTO } from '../lib/api'
 import DataFreshnessIndicator from './DataFreshnessIndicator'
+import AssetLogo from './common/AssetLogo'
 
 // Position interface that allows both number and string for backward compatibility
 interface Position extends Omit<PositionDTO, 'quantity' | 'avg_cost' | 'current_price' | 'market_value' | 'cost_basis' | 'unrealized_pnl' | 'unrealized_pnl_pct' | 'daily_change_pct' | 'breakeven_gain_pct' | 'breakeven_target_price' | 'distance_to_ath_pct' | 'avg_buy_zone_pct' | 'personal_drawdown_pct' | 'vol_contribution_pct' | 'cost_to_average_down'> {
@@ -238,18 +238,13 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
               {/* Header: Logo, Symbol, Name */}
               <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <img 
-                    src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
+                  <AssetLogo
+                    symbol={position.symbol}
+                    assetType={position.asset_type}
+                    assetName={position.name}
                     alt={`${position.symbol} logo`}
                     className="w-10 h-10 flex-shrink-0 object-cover"
                     style={{ borderRadius: 0 }}
-                    onLoad={(e) => {
-                      const img = e.currentTarget as HTMLImageElement
-                      if (!validateLogoImage(img)) {
-                        img.dispatchEvent(new Event('error'))
-                      }
-                    }}
-                    onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
@@ -558,18 +553,13 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                 >
                   <td className="px-3 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <img 
-                        src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
+                      <AssetLogo
+                        symbol={position.symbol}
+                        assetType={position.asset_type}
+                        assetName={position.name}
                         alt={`${position.symbol} logo`}
                         className="w-8 h-8 object-cover flex-shrink-0"
                         style={{ borderRadius: 0 }}
-                        onLoad={(e) => {
-                          const img = e.currentTarget as HTMLImageElement
-                          if (!validateLogoImage(img)) {
-                            img.dispatchEvent(new Event('error'))
-                          }
-                        }}
-                        onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
                       />
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                         {position.symbol}

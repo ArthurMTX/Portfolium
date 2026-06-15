@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, type KeyboardEvent } from 'react'
 import { api, type AssetThemeDTO } from '../lib/api'
 import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown, Tag, Filter } from 'lucide-react'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { formatCurrency } from '../lib/formatUtils'
 import EmptyPortfolioPrompt from '../components/EmptyPortfolioPrompt'
 import ImportProgressModal from '../components/ImportProgressModal'
@@ -9,6 +8,7 @@ import SortIcon from '../components/SortIcon'
 import WatchlistTagManager, { IconComponent } from '../components/WatchlistTagManager'
 import WatchlistEditModal from '../components/WatchlistEditModal'
 import Toast from '../components/Toast'
+import AssetLogo from '../components/common/AssetLogo'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
@@ -818,18 +818,13 @@ export default function Watchlist() {
                       {/* Header: Logo, Symbol, Price & Change */}
                       <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <img
-                            src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
+                          <AssetLogo
+                            symbol={item.symbol}
+                            assetType={item.asset_type}
+                            assetName={item.name}
                             alt={`${item.symbol} logo`}
                             className="w-10 h-10 flex-shrink-0 object-cover"
                             style={{ borderRadius: 0 }}
-                            onLoad={(e) => {
-                              const img = e.currentTarget as HTMLImageElement
-                              if (!validateLogoImage(img)) {
-                                img.dispatchEvent(new Event('error'))
-                              }
-                            }}
-                            onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                           />
                           <div className="flex-1 min-w-0">
                             <button
@@ -995,18 +990,13 @@ export default function Watchlist() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap font-semibold text-neutral-900 dark:text-neutral-100">
                       <span className="flex items-center gap-2">
-                        <img
-                          src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
+                        <AssetLogo
+                          symbol={item.symbol}
+                          assetType={item.asset_type}
+                          assetName={item.name}
                           alt={`${item.symbol} logo`}
                           className="w-8 h-8 object-cover"
                           style={{ borderRadius: 0 }}
-                          onLoad={(e) => {
-                            const img = e.currentTarget as HTMLImageElement
-                            if (!validateLogoImage(img)) {
-                              img.dispatchEvent(new Event('error'))
-                            }
-                          }}
-                          onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                         />
                         <button
                           type="button"
@@ -1202,18 +1192,13 @@ export default function Watchlist() {
 
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <img
-                  src={getAssetLogoUrl(convertItem.symbol, convertItem.asset_type, convertItem.name)}
+                <AssetLogo
+                  symbol={convertItem.symbol}
+                  assetType={convertItem.asset_type}
+                  assetName={convertItem.name}
                   alt={`${convertItem.symbol} logo`}
                   className="w-8 h-8 object-cover"
                   style={{ borderRadius: 0 }}
-                  onLoad={(e) => {
-                    const img = e.currentTarget as HTMLImageElement
-                    if (!validateLogoImage(img)) {
-                      img.dispatchEvent(new Event('error'))
-                    }
-                  }}
-                  onError={(e) => handleLogoError(e, convertItem.symbol, convertItem.name, convertItem.asset_type)}
                 />
                 <div>
                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{convertItem.symbol}</div>

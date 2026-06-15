@@ -42,7 +42,8 @@ import AssetPriceChart from '../components/AssetPriceChart'
 import AssetInvestmentNoteModal from '../components/AssetInvestmentNoteModal'
 import AssetInvestmentNoteSummary from '../components/AssetInvestmentNoteSummary'
 import DataFreshnessIndicator from '../components/DataFreshnessIndicator'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import AssetLogo from '../components/common/AssetLogo'
+import { getAssetLogoUrl, validateLogoImage } from '../lib/logoUtils'
 import { formatAssetType, formatCurrency, formatLargeNumber, formatNumber, formatWithSeparators } from '../lib/formatUtils'
 import { getCountryCode } from '../lib/countryUtils'
 import { getIndustryColor, getIndustryIcon, getSectorColor, getSectorIcon } from '../lib/sectorIndustryUtils'
@@ -833,16 +834,13 @@ export default function AssetResearch() {
       <div className="card p-5 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
           <div className="flex items-start gap-4 min-w-0">
-            <img
-              src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+            <AssetLogo
+              symbol={asset.symbol}
+              assetType={asset.asset_type}
+              assetName={asset.name}
               alt={`${asset.symbol} logo`}
               className="w-16 h-16 flex-shrink-0 object-cover"
               style={{ borderRadius: 0 }}
-              onLoad={(event) => {
-                const image = event.currentTarget as HTMLImageElement
-                if (!validateLogoImage(image)) image.dispatchEvent(new Event('error'))
-              }}
-              onError={(event) => handleLogoError(event, asset.symbol, asset.name, asset.asset_type)}
             />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

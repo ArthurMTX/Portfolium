@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 import { AlertTriangle, Database, Search, ExternalLink, TrendingUp, Tag, Loader, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api, { type AssetCleanupCandidateDTO, type AssetThemeDTO, type DeleteInvalidProviderAssetsResponseDTO } from '../lib/api'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { getThemeHexColor, getThemeIcon } from '../lib/themeUtils'
+import AssetLogo from '../components/common/AssetLogo'
 
 interface Asset {
   id: number
@@ -413,17 +413,12 @@ export default function AssetsList() {
               >
                 <div className="grid gap-4 lg:grid-cols-[minmax(240px,1.2fr)_minmax(220px,1fr)_minmax(260px,1.4fr)_minmax(160px,auto)] lg:items-start">
                   <div className="flex min-w-0 items-start gap-3">
-                    <img
-                      src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                    <AssetLogo
+                      symbol={asset.symbol}
+                      assetType={asset.asset_type}
+                      assetName={asset.name}
                       alt={`${asset.symbol} logo`}
                       className="h-12 w-12 shrink-0 rounded object-cover"
-                      onLoad={(e) => {
-                        const img = e.currentTarget as HTMLImageElement
-                        if (!validateLogoImage(img)) {
-                          img.dispatchEvent(new Event('error'))
-                        }
-                      }}
-                      onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
                     />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

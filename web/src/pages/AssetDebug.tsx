@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Search, X, Database, TrendingUp, Calendar, DollarSign, Tag, Globe, Building2, BarChart3, AlertCircle, RefreshCw, Zap, Code, Activity } from 'lucide-react'
 import api from '../lib/api'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
+import AssetLogo from '../components/common/AssetLogo'
 
 interface TickerInfo {
   symbol: string
@@ -344,17 +344,11 @@ export default function AssetDebug() {
           {/* Asset Header from YFinance */}
           <div className="card p-6">
             <div className="flex items-start gap-6">
-              <img 
-                src={getAssetLogoUrl(yfinanceData.symbol, undefined, yfinanceData.name)}
+              <AssetLogo
+                symbol={yfinanceData.symbol}
+                assetName={yfinanceData.name}
                 alt={`${yfinanceData.symbol} logo`}
                 className="w-20 h-20 object-cover rounded-lg shadow-md"
-                onLoad={(e) => {
-                  const img = e.currentTarget as HTMLImageElement
-                  if (!validateLogoImage(img)) {
-                    img.dispatchEvent(new Event('error'))
-                  }
-                }}
-                onError={(e) => handleLogoError(e, yfinanceData.symbol, yfinanceData.name)}
               />
               <div className="flex-1">
                 <h2 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
@@ -529,17 +523,12 @@ export default function AssetDebug() {
           {/* Asset Header */}
           <div className="card p-6">
             <div className="flex items-start gap-6">
-              <img 
-                src={getAssetLogoUrl(selectedAsset.symbol, selectedAsset.asset_type, selectedAsset.name)}
+              <AssetLogo
+                symbol={selectedAsset.symbol}
+                assetType={selectedAsset.asset_type}
+                assetName={selectedAsset.name}
                 alt={`${selectedAsset.symbol} logo`}
                 className="w-20 h-20 object-cover rounded-lg shadow-md"
-                onLoad={(e) => {
-                  const img = e.currentTarget as HTMLImageElement
-                  if (!validateLogoImage(img)) {
-                    img.dispatchEvent(new Event('error'))
-                  }
-                }}
-                onError={(e) => handleLogoError(e, selectedAsset.symbol, selectedAsset.name, selectedAsset.asset_type)}
               />
               <div className="flex-1">
                 <h2 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">

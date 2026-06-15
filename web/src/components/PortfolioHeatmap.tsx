@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import api from '../lib/api'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '../lib/logoUtils'
 import { useTranslation } from 'react-i18next'
+import AssetLogo from './common/AssetLogo'
 
 interface Position {
   symbol: string
@@ -361,17 +361,12 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
               title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% ${t('charts.ofPortfolio')}`}
             >
               <div className="flex items-center gap-2">
-                <img 
-                  src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
+                <AssetLogo
+                  symbol={position.symbol}
+                  assetType={position.asset_type}
+                  assetName={position.name}
                   alt={`${position.symbol} logo`}
                   className={`${isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-7 h-7'} object-contain flex-shrink-0`}
-                  onLoad={(e) => {
-                    const img = e.currentTarget as HTMLImageElement
-                    if (!validateLogoImage(img)) {
-                      img.dispatchEvent(new Event('error'))
-                    }
-                  }}
-                  onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
                 />
                 <div className={`font-bold ${isLarge ? 'text-base' : 'text-sm'} truncate`}>{position.symbol}</div>
               </div>
@@ -421,17 +416,12 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
               title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% ${t('charts.ofPortfolio')}, ${t('charts.daily')}: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
             >
               <div className="flex items-center gap-2">
-                <img 
-                  src={getAssetLogoUrl(tile.symbol, tile.asset_type, tile.name)}
+                <AssetLogo
+                  symbol={tile.symbol}
+                  assetType={tile.asset_type}
+                  assetName={tile.name}
                   alt={`${tile.symbol} logo`}
                   className={`${logoSize} object-contain flex-shrink-0`}
-                  onLoad={(e) => {
-                    const img = e.currentTarget as HTMLImageElement
-                    if (!validateLogoImage(img)) {
-                      img.dispatchEvent(new Event('error'))
-                    }
-                  }}
-                  onError={(e) => handleLogoError(e, tile.symbol, tile.name, tile.asset_type)}
                 />
                 <div className={`font-bold ${symbolSize} truncate`}>{tile.symbol}</div>
               </div>
