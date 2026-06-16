@@ -13,12 +13,19 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
+def get_api_root() -> Path:
+    """Return the API project root containing alembic.ini and alembic/."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "alembic.ini").exists() and (parent / "alembic").is_dir():
+            return parent
+
+    raise FileNotFoundError("Could not locate API root containing alembic.ini and alembic/")
+
+
 def get_alembic_config() -> Config:
     """Get Alembic configuration"""
-    # Path to alembic.ini (in Docker: /app/alembic.ini, locally: api/alembic.ini)
-    api_dir = Path(__file__).resolve().parent.parent  # app/ directory
-    project_root = api_dir.parent  # Parent of app/ (contains alembic.ini)
-    alembic_ini = project_root / "alembic.ini"
+    api_root = get_api_root()
+    alembic_ini = api_root / "alembic.ini"
     
     if not alembic_ini.exists():
         raise FileNotFoundError(f"Alembic configuration not found: {alembic_ini}")
@@ -57,13 +64,13 @@ def run_migrations():
         sys.stdout.flush()
         
         # Get path to alembic executable and config
-        api_dir = Path(__file__).resolve().parent.parent.parent  # Go up to api/ directory
-        alembic_ini = api_dir / "alembic.ini"
+        api_root = get_api_root()
+        alembic_ini = api_root / "alembic.ini"
         
         # Run alembic upgrade head
         result = subprocess.run(
             ["alembic", "-c", str(alembic_ini), "upgrade", "head"],
-            cwd=str(api_dir),
+            cwd=str(api_root),
             capture_output=True,
             text=True,
             timeout=30
