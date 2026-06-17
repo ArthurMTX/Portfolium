@@ -5,7 +5,7 @@ import asyncio
 import logging
 from decimal import Decimal
 from typing import Any, List, Dict, Optional, Tuple
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from fastapi import Depends
@@ -16,6 +16,7 @@ from app.crud import prices as crud_prices
 from app.db import get_db
 from app.services.platform.cache import CacheService, cache_positions, get_cached_positions, invalidate_positions
 from app.services.market_data.currency import CurrencyService
+from app.utils.exchange_calendars import get_trading_sessions
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class MetricsService:
                     _ongoing_calculations.pop(cache_key, None)
             
             return result
-        except Exception as e:
+        except Exception:
             # On error, remove from ongoing calculations
             async with _get_cache_lock():
                 if _ongoing_calculations.get(cache_key) == ongoing_task:
@@ -177,19 +178,17 @@ class MetricsService:
         # Batch fetch all assets at once to prevent N+1 queries
         asset_ids = list(asset_txs.keys())
         assets = self.db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
-        asset_map = {asset.id: asset for asset in assets}
         
         # Pre-fetch all prices in parallel before calculating positions
         # This dramatically reduces the time from sequential fetches
         asset_symbols = [asset.symbol for asset in assets]
-        asset_id_to_symbol = {asset.id: asset.symbol for asset in assets}
         
         # Batch fetch all prices in parallel
         from app.services.market_data.pricing import get_pricing_service
         pricing_service = get_pricing_service(self.db)
         logger.info(f"Pre-fetching prices for {len(asset_symbols)} assets in parallel")
         await pricing_service.get_multiple_prices(asset_symbols)
-        logger.info(f"Finished pre-fetching prices")
+        logger.info("Finished pre-fetching prices")
         
         # Now calculate positions - prices will be cached
         all_positions = []
@@ -249,8 +248,6 @@ class MetricsService:
         total_value = Decimal(0)
         total_cost = Decimal(0)
         total_unrealized = Decimal(0)
-        total_daily_change = Decimal(0)
-        has_daily_data = False
         
         for pos in positions:
             total_cost += pos.cost_basis
@@ -258,24 +255,13 @@ class MetricsService:
                 total_value += pos.market_value
                 if pos.unrealized_pnl:
                     total_unrealized += pos.unrealized_pnl
-                # Calculate daily change in value
-                if pos.daily_change_pct is not None and pos.market_value:
-                    has_daily_data = True
-                    # daily_change_value = market_value * (daily_change_pct / 100)
-                    daily_change = pos.market_value * (pos.daily_change_pct / Decimal(100))
-                    total_daily_change += daily_change
-        
-        # Calculate daily change percentage
-        if has_daily_data and total_value > 0:
-            # yesterday_value = total_value - total_daily_change
-            yesterday_value = total_value - total_daily_change
-            if yesterday_value > 0:
-                daily_change_pct = (total_daily_change / yesterday_value) * Decimal(100)
-            else:
-                daily_change_pct = Decimal(0)
-        else:
-            daily_change_pct = None
-            total_daily_change = None
+
+        daily_change_value, daily_change_pct = self._calculate_portfolio_daily_gain(
+            portfolio_id=portfolio_id,
+            portfolio=portfolio,
+            positions=positions,
+            current_value=total_value,
+        )
         
         # Calculate realized P&L and dividends
         # Calculate realized P&L by summing up all sold positions
@@ -304,9 +290,711 @@ class MetricsService:
             total_dividends=total_dividends,
             total_fees=total_fees,
             positions_count=len(positions),
-            daily_change_value=total_daily_change,
+            daily_change_value=daily_change_value,
             daily_change_pct=daily_change_pct,
             last_updated=datetime.utcnow()
+        )
+
+    def _calculate_portfolio_daily_gain(
+        self,
+        portfolio_id: int,
+        portfolio: Portfolio,
+        positions: List[Position],
+        current_value: Decimal,
+    ) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+        """
+        Calculate portfolio-level daily gain from the previous available close.
+
+        Formula:
+            current portfolio value
+            - previous close portfolio value
+            - net external cash flow since the previous close
+
+        This avoids treating deposits, withdrawals, buys, sells and transfers as
+        investment performance. It returns None when the prior close or current
+        valuation is incomplete, because silently reporting zero is misleading.
+        """
+        transactions = (
+            self.db.query(Transaction)
+            .options(joinedload(Transaction.asset))
+            .filter(Transaction.portfolio_id == portfolio_id)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
+        )
+        if not transactions:
+            return None, None
+
+        today = datetime.utcnow().date()
+        report = self._build_daily_gain_attribution_report(
+            portfolio_id=portfolio_id,
+            portfolio=portfolio,
+            positions=positions,
+            transactions=transactions,
+            report_date=today,
+            current_value=current_value,
+        )
+        totals = report["totals"]
+        if not report["reliable"]:
+            logger.info(
+                "Daily gain unavailable for portfolio %s: %s",
+                portfolio_id,
+                "; ".join(report["unavailable_reasons"]),
+            )
+            return None, None
+
+        return totals["computed_daily_gain_amount"], totals["computed_daily_gain_pct"]
+
+    async def get_daily_gain_attribution_report(
+        self,
+        portfolio_id: int,
+        force_refresh: bool = False,
+        report_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Build an admin/debug attribution report for portfolio Daily Gain."""
+        from app.crud.portfolios import get_portfolio
+
+        portfolio = get_portfolio(self.db, portfolio_id)
+        if not portfolio:
+            raise ValueError(f"Portfolio {portfolio_id} not found")
+
+        if force_refresh:
+            invalidate_positions(portfolio_id)
+
+        positions = await self.get_positions(portfolio_id)
+        current_value = sum(
+            position.market_value
+            for position in positions
+            if position.market_value is not None
+        ) or Decimal(0)
+
+        transactions = (
+            self.db.query(Transaction)
+            .options(joinedload(Transaction.asset))
+            .filter(Transaction.portfolio_id == portfolio_id)
+            .order_by(Transaction.tx_date, Transaction.created_at)
+            .all()
+        )
+        return self._build_daily_gain_attribution_report(
+            portfolio_id=portfolio_id,
+            portfolio=portfolio,
+            positions=positions,
+            transactions=transactions,
+            report_date=report_date or datetime.utcnow().date(),
+            current_value=current_value,
+        )
+
+    def _build_daily_gain_attribution_report(
+        self,
+        portfolio_id: int,
+        portfolio: Portfolio,
+        positions: List[Position],
+        transactions: List[Transaction],
+        report_date: date,
+        current_value: Decimal,
+    ) -> Dict[str, Any]:
+        portfolio_currency = portfolio.base_currency
+        unavailable_reasons: List[str] = []
+
+        if not transactions:
+            unavailable_reasons.append("no transactions")
+
+        baseline_date = self._latest_portfolio_price_date_before(portfolio_id, report_date)
+        if baseline_date is None:
+            unavailable_reasons.append(f"no official historical close before {report_date}")
+
+        positions_by_asset_id = {position.asset_id: position for position in positions}
+        assets_by_id: Dict[int, Asset] = {}
+        for tx in transactions:
+            if tx.asset:
+                assets_by_id[tx.asset_id] = tx.asset
+
+        expected_close_dates = {
+            asset_id: self._expected_previous_close_date(asset.symbol, report_date)
+            for asset_id, asset in assets_by_id.items()
+        }
+        top_level_expected_close_date = max(
+            (expected_date for expected_date in expected_close_dates.values() if expected_date),
+            default=None,
+        )
+
+        if baseline_date is None:
+            rows = [
+                self._empty_daily_gain_row(
+                    position=position,
+                    asset=assets_by_id.get(position.asset_id),
+                    reason="no official historical close date",
+                    expected_previous_close_date=expected_close_dates.get(position.asset_id),
+                )
+                for position in positions
+            ]
+            return {
+                "portfolio_id": portfolio_id,
+                "portfolio_currency": portfolio_currency,
+                "report_date": report_date.isoformat(),
+                "previous_close_date": None,
+                "expected_previous_close_date": (
+                    top_level_expected_close_date.isoformat()
+                    if top_level_expected_close_date
+                    else None
+                ),
+                "reliable": False,
+                "unavailable_reasons": unavailable_reasons,
+                "rows": rows,
+                "totals": self._empty_daily_gain_totals(current_value),
+            }
+
+        baseline_quantities, split_adjustments = self._baseline_quantities(
+            transactions,
+            baseline_date,
+        )
+        cash_flows_by_asset, cash_flow_errors = self._net_external_cash_flows_by_asset(
+            transactions=transactions,
+            portfolio_currency=portfolio_currency,
+            start_exclusive=baseline_date,
+            end_inclusive=report_date,
+        )
+        unavailable_reasons.extend(cash_flow_errors)
+
+        asset_ids = set(positions_by_asset_id)
+        asset_ids.update(asset_id for asset_id, qty in baseline_quantities.items() if qty > 0)
+        asset_ids.update(cash_flows_by_asset)
+
+        rows = []
+        previous_close_value = Decimal(0)
+        net_cash_flow = Decimal(0)
+        provider_contribution_sum = Decimal(0)
+        actual_contribution_sum = Decimal(0)
+
+        for asset_id in sorted(asset_ids):
+            asset = assets_by_id.get(asset_id) or self.db.query(Asset).filter(Asset.id == asset_id).first()
+            position = positions_by_asset_id.get(asset_id)
+            row = self._daily_gain_attribution_row(
+                asset=asset,
+                position=position,
+                baseline_quantity=baseline_quantities.get(asset_id, Decimal(0)),
+                split_adjustment=split_adjustments.get(asset_id, Decimal(1)),
+                cash_flow=cash_flows_by_asset.get(asset_id, Decimal(0)),
+                portfolio_currency=portfolio_currency,
+                baseline_date=baseline_date,
+                expected_previous_close_date=expected_close_dates.get(asset_id),
+            )
+            rows.append(row)
+
+            net_cash_flow += row["transaction_cashflow_adjustment"] or Decimal(0)
+            provider_contribution_sum += row["provider_estimated_contribution"] or Decimal(0)
+
+            if row["reason_if_excluded"]:
+                unavailable_reasons.append(f"{row['symbol']}: {row['reason_if_excluded']}")
+                continue
+
+            previous_close_value += row["previous_close_market_value"] or Decimal(0)
+            actual_contribution_sum += row["actual_daily_gain_contribution"] or Decimal(0)
+
+        reliable = not unavailable_reasons and previous_close_value > 0
+        if previous_close_value <= 0:
+            reliable = False
+            unavailable_reasons.append("previous close portfolio value is zero")
+
+        computed_daily_gain = None
+        computed_daily_gain_pct = None
+        if reliable:
+            computed_daily_gain = current_value - previous_close_value - net_cash_flow
+            computed_daily_gain_pct = (computed_daily_gain / previous_close_value) * Decimal(100)
+
+        return {
+            "portfolio_id": portfolio_id,
+            "portfolio_currency": portfolio_currency,
+            "report_date": report_date.isoformat(),
+            "previous_close_date": baseline_date.isoformat(),
+            "expected_previous_close_date": (
+                top_level_expected_close_date.isoformat()
+                if top_level_expected_close_date
+                else None
+            ),
+            "reliable": reliable,
+            "unavailable_reasons": unavailable_reasons,
+            "rows": rows,
+            "totals": {
+                "current_portfolio_value": current_value,
+                "previous_close_portfolio_value": previous_close_value,
+                "net_cash_flow_adjustment": net_cash_flow,
+                "computed_daily_gain_amount": computed_daily_gain,
+                "computed_daily_gain_pct": computed_daily_gain_pct,
+                "sum_provider_change_contributions": provider_contribution_sum,
+                "sum_actual_daily_gain_contributions": actual_contribution_sum,
+                "difference_computed_vs_provider_estimate": (
+                    computed_daily_gain - provider_contribution_sum
+                    if computed_daily_gain is not None
+                    else None
+                ),
+            },
+        }
+
+    def _empty_daily_gain_totals(self, current_value: Decimal) -> Dict[str, Optional[Decimal]]:
+        return {
+            "current_portfolio_value": current_value,
+            "previous_close_portfolio_value": None,
+            "net_cash_flow_adjustment": None,
+            "computed_daily_gain_amount": None,
+            "computed_daily_gain_pct": None,
+            "sum_provider_change_contributions": None,
+            "sum_actual_daily_gain_contributions": None,
+            "difference_computed_vs_provider_estimate": None,
+        }
+
+    def _empty_daily_gain_row(
+        self,
+        position: Position,
+        asset: Optional[Asset],
+        reason: str,
+        expected_previous_close_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        return {
+            "symbol": position.symbol,
+            "asset_id": position.asset_id,
+            "quantity": position.quantity,
+            "current_price": position.current_price,
+            "current_price_timestamp": position.last_updated,
+            "current_fx_rate_used": Decimal(1) if asset and asset.currency == position.currency else None,
+            "current_market_value": position.market_value,
+            "previous_close_price_used": None,
+            "previous_close_date_used": None,
+            "expected_previous_close_date": (
+                expected_previous_close_date.isoformat()
+                if expected_previous_close_date
+                else None
+            ),
+            "previous_close_source": None,
+            "previous_fx_rate_used": None,
+            "previous_close_market_value": None,
+            "provider_daily_change_pct": position.daily_change_pct,
+            "provider_estimated_contribution": None,
+            "actual_daily_gain_contribution": None,
+            "transaction_cashflow_adjustment": Decimal(0),
+            "reason_if_excluded": reason,
+        }
+
+    def _baseline_quantities(
+        self,
+        transactions: List[Transaction],
+        baseline_date: date,
+    ) -> Tuple[Dict[int, Decimal], Dict[int, Decimal]]:
+        quantities: Dict[int, Decimal] = {}
+        split_adjustments: Dict[int, Decimal] = {}
+
+        for tx in transactions:
+            if tx.type == TransactionType.SPLIT and tx.tx_date > baseline_date:
+                ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
+                split_adjustments[tx.asset_id] = split_adjustments.get(tx.asset_id, Decimal(1)) * ratio
+
+            if tx.tx_date > baseline_date:
+                continue
+
+            current_quantity = quantities.get(tx.asset_id, Decimal(0))
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                quantities[tx.asset_id] = current_quantity + tx.quantity
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
+                quantities[tx.asset_id] = current_quantity - tx.quantity
+            elif tx.type == TransactionType.SPLIT:
+                ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
+                quantities[tx.asset_id] = current_quantity * ratio
+
+        return quantities, split_adjustments
+
+    def _daily_gain_attribution_row(
+        self,
+        asset: Optional[Asset],
+        position: Optional[Position],
+        baseline_quantity: Decimal,
+        split_adjustment: Decimal,
+        cash_flow: Decimal,
+        portfolio_currency: str,
+        baseline_date: date,
+        expected_previous_close_date: Optional[date],
+    ) -> Dict[str, Any]:
+        symbol = position.symbol if position else asset.symbol if asset else "UNKNOWN"
+        current_market_value = position.market_value if position else Decimal(0)
+        current_price = position.current_price if position else None
+        current_timestamp = position.last_updated if position else None
+        daily_change_pct = position.daily_change_pct if position else None
+        reason = None
+
+        if position and position.quantity > 0 and current_market_value is None:
+            reason = "missing current valuation"
+
+        provider_contribution = None
+        if current_market_value is not None and daily_change_pct is not None:
+            provider_contribution = current_market_value * daily_change_pct / Decimal(100)
+
+        previous_close_price = None
+        previous_close_date = None
+        previous_close_source = None
+        previous_fx_rate = None
+        previous_close_market_value = Decimal(0)
+
+        if baseline_quantity > 0 and asset:
+            close_record = self._closing_price_record_on_or_before(
+                asset.id,
+                baseline_date,
+                require_historical=True,
+            )
+            if close_record is None:
+                reason = reason or "missing official historical previous close"
+            else:
+                previous_close_price = close_record.price
+                previous_close_date = close_record.asof.date()
+                previous_close_source = close_record.source
+                if (
+                    expected_previous_close_date
+                    and previous_close_date < expected_previous_close_date
+                ):
+                    reason = reason or (
+                        "stale official historical previous close: "
+                        f"expected {expected_previous_close_date.isoformat()} or later, "
+                        f"got {previous_close_date.isoformat()}"
+                    )
+                converted_previous_price, previous_fx_rate = self._convert_price_for_daily_gain(
+                    previous_close_price,
+                    from_currency=asset.currency,
+                    to_currency=portfolio_currency,
+                    conversion_date=previous_close_date,
+                )
+                if converted_previous_price is None:
+                    reason = reason or "missing previous close FX conversion"
+                else:
+                    previous_close_market_value = (
+                        baseline_quantity
+                        * split_adjustment
+                        * converted_previous_price
+                    )
+
+        current_fx_rate = None
+        if asset and current_price is not None:
+            current_fx_rate = self._current_fx_rate_from_position_price(
+                asset=asset,
+                position_price=current_price,
+                portfolio_currency=portfolio_currency,
+            )
+
+        actual_contribution = None
+        if reason is None and current_market_value is not None:
+            actual_contribution = current_market_value - previous_close_market_value - cash_flow
+
+        return {
+            "symbol": symbol,
+            "asset_id": asset.id if asset else position.asset_id if position else None,
+            "quantity": position.quantity if position else Decimal(0),
+            "current_price": current_price,
+            "current_price_timestamp": current_timestamp,
+            "current_fx_rate_used": current_fx_rate,
+            "current_market_value": current_market_value,
+            "previous_close_price_used": previous_close_price,
+            "previous_close_date_used": previous_close_date.isoformat() if previous_close_date else None,
+            "expected_previous_close_date": (
+                expected_previous_close_date.isoformat()
+                if expected_previous_close_date
+                else None
+            ),
+            "previous_close_source": previous_close_source,
+            "previous_fx_rate_used": previous_fx_rate,
+            "previous_close_market_value": previous_close_market_value if reason is None else None,
+            "provider_daily_change_pct": daily_change_pct,
+            "provider_estimated_contribution": provider_contribution,
+            "actual_daily_gain_contribution": actual_contribution,
+            "transaction_cashflow_adjustment": cash_flow,
+            "reason_if_excluded": reason,
+        }
+
+    def _convert_price_for_daily_gain(
+        self,
+        price: Decimal,
+        from_currency: str,
+        to_currency: str,
+        conversion_date: date,
+    ) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+        if from_currency == to_currency:
+            return price, Decimal(1)
+
+        converted = CurrencyService.convert_historical(
+            price,
+            from_currency=from_currency,
+            to_currency=to_currency,
+            date=datetime.combine(conversion_date, time.min),
+        )
+        if converted is not None and price != 0:
+            return converted, converted / price
+
+        converted = CurrencyService.convert(
+            price,
+            from_currency=from_currency,
+            to_currency=to_currency,
+        )
+        if converted is None or price == 0:
+            return None, None
+        return converted, converted / price
+
+    def _current_fx_rate_from_position_price(
+        self,
+        asset: Asset,
+        position_price: Decimal,
+        portfolio_currency: str,
+    ) -> Optional[Decimal]:
+        if asset.currency == portfolio_currency:
+            return Decimal(1)
+
+        latest_price = crud_prices.get_latest_price(self.db, asset.id)
+        if latest_price is not None and latest_price.price:
+            return position_price / latest_price.price
+
+        rate = CurrencyService.get_exchange_rate(asset.currency, portfolio_currency)
+        return rate
+
+    def _latest_portfolio_price_date_before(
+        self,
+        portfolio_id: int,
+        before_date: date,
+    ) -> Optional[date]:
+        """Return the latest official historical price date before the report date."""
+        latest_asof = (
+            self.db.query(func.max(Price.asof))
+            .join(Transaction, Transaction.asset_id == Price.asset_id)
+            .filter(
+                Transaction.portfolio_id == portfolio_id,
+                Price.asof < datetime.combine(before_date, time.min),
+                Price.source == "yfinance_history",
+            )
+            .scalar()
+        )
+        return latest_asof.date() if latest_asof else None
+
+    def _expected_previous_close_date(
+        self,
+        symbol: str,
+        report_date: date,
+    ) -> Optional[date]:
+        """Return the latest expected market session before the valuation date."""
+        start_date = report_date - timedelta(days=14)
+        end_date = report_date - timedelta(days=1)
+        if end_date < start_date:
+            return None
+
+        sessions = get_trading_sessions(symbol, start_date, end_date)
+        return max(sessions) if sessions else None
+
+    def _portfolio_value_at_close(
+        self,
+        transactions: List[Transaction],
+        portfolio_currency: str,
+        valuation_date: date,
+    ) -> Optional[Decimal]:
+        """Reconstruct portfolio value at a prior close using saved prices."""
+        holdings: Dict[int, Decimal] = {}
+        assets_by_id: Dict[int, Asset] = {}
+        split_adjustments_after_close: Dict[int, Decimal] = {}
+
+        for tx in transactions:
+            if tx.asset:
+                assets_by_id[tx.asset_id] = tx.asset
+
+            if tx.type == TransactionType.SPLIT and tx.tx_date > valuation_date:
+                ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
+                split_adjustments_after_close[tx.asset_id] = (
+                    split_adjustments_after_close.get(tx.asset_id, Decimal(1)) * ratio
+                )
+
+            if tx.tx_date > valuation_date:
+                continue
+
+            current_quantity = holdings.get(tx.asset_id, Decimal(0))
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
+                holdings[tx.asset_id] = current_quantity + tx.quantity
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
+                holdings[tx.asset_id] = current_quantity - tx.quantity
+            elif tx.type == TransactionType.SPLIT:
+                ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
+                holdings[tx.asset_id] = current_quantity * ratio
+
+        total_value = Decimal(0)
+        for asset_id, quantity in holdings.items():
+            if quantity <= 0:
+                continue
+
+            price = self._closing_price_on_or_before(
+                asset_id,
+                valuation_date,
+                require_historical=True,
+            )
+            asset = assets_by_id.get(asset_id)
+            if price is None or asset is None:
+                return None
+
+            if asset.currency != portfolio_currency:
+                converted_price = CurrencyService.convert_historical(
+                    price,
+                    from_currency=asset.currency,
+                    to_currency=portfolio_currency,
+                    date=datetime.combine(valuation_date, time.min),
+                )
+                if converted_price is None:
+                    converted_price = CurrencyService.convert(
+                        price,
+                        from_currency=asset.currency,
+                        to_currency=portfolio_currency,
+                    )
+                if converted_price is None:
+                    return None
+                price = converted_price
+
+            adjusted_quantity = quantity * split_adjustments_after_close.get(asset_id, Decimal(1))
+            total_value += adjusted_quantity * price
+
+        return total_value
+
+    def _closing_price_on_or_before(
+        self,
+        asset_id: int,
+        valuation_date: date,
+        require_historical: bool = False,
+    ) -> Optional[Decimal]:
+        """Prefer official historical close for the latest available date up to valuation_date."""
+        price = self._closing_price_record_on_or_before(
+            asset_id,
+            valuation_date,
+            require_historical=require_historical,
+        )
+        return price.price if price else None
+
+    def _closing_price_record_on_or_before(
+        self,
+        asset_id: int,
+        valuation_date: date,
+        require_historical: bool = False,
+    ) -> Optional[Price]:
+        """Return the closing price record used for a previous-close valuation."""
+        query = self.db.query(Price).filter(
+            Price.asset_id == asset_id,
+            Price.asof <= datetime.combine(valuation_date, time.max),
+        )
+        if require_historical:
+            query = query.filter(Price.source == "yfinance_history")
+
+        prices = (
+            query
+            .order_by(Price.asof.desc())
+            .limit(30)
+            .all()
+        )
+        if not prices:
+            return None
+
+        latest_price_date = prices[0].asof.date()
+        same_day_prices = [price for price in prices if price.asof.date() == latest_price_date]
+        historical_prices = [price for price in same_day_prices if price.source == "yfinance_history"]
+        best_price = max(historical_prices or same_day_prices, key=lambda price: price.asof)
+        return best_price
+
+    def _net_external_cash_flows_by_asset(
+        self,
+        transactions: List[Transaction],
+        portfolio_currency: str,
+        start_exclusive: date,
+        end_inclusive: date,
+    ) -> Tuple[Dict[int, Decimal], List[str]]:
+        cash_flows: Dict[int, Decimal] = {}
+        errors: List[str] = []
+
+        for tx in transactions:
+            if tx.tx_date <= start_exclusive or tx.tx_date > end_inclusive:
+                continue
+
+            amount = None
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                amount = (tx.quantity * tx.price) + tx.fees
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+                amount = -((tx.quantity * tx.price) - tx.fees)
+
+            if amount is None:
+                continue
+
+            converted = self._convert_transaction_amount(
+                amount=amount,
+                from_currency=tx.currency,
+                to_currency=portfolio_currency,
+                tx_date=tx.tx_date,
+            )
+            if converted is None:
+                symbol = tx.asset.symbol if tx.asset else f"asset_id:{tx.asset_id}"
+                errors.append(f"{symbol}: missing cash flow FX conversion")
+                continue
+
+            cash_flows[tx.asset_id] = cash_flows.get(tx.asset_id, Decimal(0)) + converted
+
+        return cash_flows, errors
+
+    def _net_external_cash_flow(
+        self,
+        transactions: List[Transaction],
+        portfolio_currency: str,
+        start_exclusive: date,
+        end_inclusive: date,
+    ) -> Optional[Decimal]:
+        """
+        Sum external flows after the previous close.
+
+        Positive values add capital to the marked portfolio; negative values
+        remove capital. Conversions, dividends, fees and splits are not external
+        flows in this portfolio model.
+        """
+        cash_flow = Decimal(0)
+        for tx in transactions:
+            if tx.tx_date <= start_exclusive or tx.tx_date > end_inclusive:
+                continue
+
+            amount = None
+            if tx.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                amount = (tx.quantity * tx.price) + tx.fees
+            elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT]:
+                amount = -((tx.quantity * tx.price) - tx.fees)
+
+            if amount is None:
+                continue
+
+            converted = self._convert_transaction_amount(
+                amount=amount,
+                from_currency=tx.currency,
+                to_currency=portfolio_currency,
+                tx_date=tx.tx_date,
+            )
+            if converted is None:
+                return None
+            cash_flow += converted
+
+        return cash_flow
+
+    def _convert_transaction_amount(
+        self,
+        amount: Decimal,
+        from_currency: Optional[str],
+        to_currency: str,
+        tx_date: date,
+    ) -> Optional[Decimal]:
+        source_currency = from_currency or to_currency
+        if source_currency == to_currency:
+            return amount
+
+        converted = CurrencyService.convert_historical(
+            amount,
+            from_currency=source_currency,
+            to_currency=to_currency,
+            date=datetime.combine(tx_date, time.min),
+        )
+        if converted is not None:
+            return converted
+
+        return CurrencyService.convert(
+            amount,
+            from_currency=source_currency,
+            to_currency=to_currency,
         )
     
     async def _calculate_position(
@@ -688,7 +1376,7 @@ class MetricsService:
                 numerator = Decimal(parts[0])
                 denominator = Decimal(parts[1])
                 return numerator / denominator
-        except:
+        except Exception:
             pass
         return Decimal(1)
 

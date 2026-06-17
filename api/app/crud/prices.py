@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 
-from app.models import Price, Asset
+from app.models import Price
 from app.schemas import PriceCreate
 
 
@@ -47,6 +47,10 @@ def create_price(db: Session, price: PriceCreate) -> Price:
             asset_id=price.asset_id,
             asof=price.asof,
             price=price.price,
+            open_price=price.open_price,
+            high_price=price.high_price,
+            low_price=price.low_price,
+            close_price=price.close_price,
             volume=price.volume,
             source=price.source,
         )
@@ -54,6 +58,10 @@ def create_price(db: Session, price: PriceCreate) -> Price:
             index_elements=["asset_id", "asof"],
             set_={
                 "price": statement.excluded.price,
+                "open_price": statement.excluded.open_price,
+                "high_price": statement.excluded.high_price,
+                "low_price": statement.excluded.low_price,
+                "close_price": statement.excluded.close_price,
                 "volume": statement.excluded.volume,
                 "source": statement.excluded.source,
             },
@@ -82,6 +90,10 @@ def create_price(db: Session, price: PriceCreate) -> Price:
     if existing:
         # Update existing price
         existing.price = price.price
+        existing.open_price = price.open_price
+        existing.high_price = price.high_price
+        existing.low_price = price.low_price
+        existing.close_price = price.close_price
         existing.volume = price.volume
         existing.source = price.source
         db.commit()
@@ -93,6 +105,10 @@ def create_price(db: Session, price: PriceCreate) -> Price:
         asset_id=price.asset_id,
         asof=price.asof,
         price=price.price,
+        open_price=price.open_price,
+        high_price=price.high_price,
+        low_price=price.low_price,
+        close_price=price.close_price,
         volume=price.volume,
         source=price.source
     )
@@ -128,6 +144,10 @@ def bulk_upsert_prices(db: Session, prices: List[PriceCreate]) -> int:
                 "asset_id": price.asset_id,
                 "asof": price.asof,
                 "price": price.price,
+                "open_price": price.open_price,
+                "high_price": price.high_price,
+                "low_price": price.low_price,
+                "close_price": price.close_price,
                 "volume": price.volume,
                 "source": price.source,
             }
@@ -138,6 +158,10 @@ def bulk_upsert_prices(db: Session, prices: List[PriceCreate]) -> int:
             index_elements=["asset_id", "asof"],
             set_={
                 "price": statement.excluded.price,
+                "open_price": statement.excluded.open_price,
+                "high_price": statement.excluded.high_price,
+                "low_price": statement.excluded.low_price,
+                "close_price": statement.excluded.close_price,
                 "volume": statement.excluded.volume,
                 "source": statement.excluded.source,
             },
@@ -174,6 +198,10 @@ def bulk_upsert_prices(db: Session, prices: List[PriceCreate]) -> int:
         if existing_rows:
             for existing in existing_rows:
                 existing.price = price.price
+                existing.open_price = price.open_price
+                existing.high_price = price.high_price
+                existing.low_price = price.low_price
+                existing.close_price = price.close_price
                 existing.volume = price.volume
                 existing.source = price.source
             continue
@@ -183,6 +211,10 @@ def bulk_upsert_prices(db: Session, prices: List[PriceCreate]) -> int:
                 asset_id=price.asset_id,
                 asof=price.asof,
                 price=price.price,
+                open_price=price.open_price,
+                high_price=price.high_price,
+                low_price=price.low_price,
+                close_price=price.close_price,
                 volume=price.volume,
                 source=price.source,
             )

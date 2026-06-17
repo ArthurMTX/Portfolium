@@ -11,7 +11,7 @@ import asyncio
 import logging
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
@@ -24,12 +24,13 @@ from app.crud import prices as crud_prices
 from app.schemas import PriceCreate, PriceQuote
 from app.db import get_db
 from app.services.platform.cache import CacheService, cache_price, get_cached_price
-from app.services.market_data.market_calendar import MarketAwareCacheTTL
+from app.services.market_data.market_calendar import MarketAwareCacheTTL, MarketCalendarService
 from app.services.market_data.yahoo_finance import (
     get_market_data_provider,
     yahoo_timeout_seconds,
 )
 from app.services.platform.core_observability import record_stale_fallback
+from app.utils.exchange_calendars import get_exchange_code
 
 logger = logging.getLogger(__name__)
 
@@ -406,6 +407,7 @@ class PricingService:
                             asset_id=asset.id,
                             asof=yesterday,
                             price=price["previous_close"],
+                            close_price=price["previous_close"],
                             volume=None,
                             source="yfinance_prev_close"
                         )
@@ -419,10 +421,12 @@ class PricingService:
                 asset_id=asset.id,
                 asof=price["asof"],
                 price=price["price"],
+                close_price=price["price"],
                 volume=price.get("volume"),
                 source="yfinance"
             )
             crud_prices.create_price(self.db, price_create)
+            self._refresh_recent_historical_ohlc(asset)
             
             # Trigger ATH update in background
             try:
@@ -584,10 +588,19 @@ class PricingService:
                             asset_id=asset.id,
                             asof=price_data["asof"],
                             price=price_data["price"],
+                            close_price=price_data["price"],
                             volume=price_data.get("volume"),
                             source="yfinance_batch"
                         )
                         crud_prices.create_price(self.db, price_create)
+                        symbol_frame = self._symbol_frame_from_download(
+                            batch_results.get("_download_frame"),
+                            symbol,
+                        )
+                        if symbol_frame is not None:
+                            self._upsert_recent_history_from_frame(asset, symbol_frame)
+                        else:
+                            self._refresh_recent_historical_ohlc(asset)
                     except Exception as e:
                         logger.warning(f"Failed to save price for {symbol}: {e}")
                     
@@ -660,13 +673,14 @@ class PricingService:
             # Batch download - ONE API call for all symbols!
             logger.info(f"Batch downloading {len(symbols)} symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''}")
             
-            # Use 2 days of data to get current price and previous close
+            # Fetch enough daily bars to derive current price, previous close,
+            # and self-heal the recent yfinance_history rows used by Daily Gain.
             provider = get_market_data_provider()
             df = provider.download(
                 symbols,
                 action="batch_download",
                 timeout_seconds=yahoo_timeout_seconds(default=15.0),
-                period="2d",
+                period="10d",
                 interval="1d",
                 group_by="ticker",
                 auto_adjust=True,
@@ -690,8 +704,12 @@ class PricingService:
                 price_data = self._extract_batch_price_data(df, symbol, now)
                 if price_data:
                     results[symbol] = price_data
+
+            if results:
+                results["_download_frame"] = df
             
-            logger.info(f"Batch download successful: got {len(results)}/{len(symbols)} prices")
+            price_result_count = len([key for key in results if key != "_download_frame"])
+            logger.info(f"Batch download successful: got {price_result_count}/{len(symbols)} prices")
             return results
             
         except Exception as e:
@@ -717,18 +735,9 @@ class PricingService:
         (SYMBOL, Close), including for a one-symbol batch when group_by="ticker".
         """
         try:
-            symbol_data = df
-
-            if isinstance(df.columns, pd.MultiIndex):
-                top_level_symbols = df.columns.get_level_values(0)
-                if symbol not in top_level_symbols:
-                    logger.warning(
-                        "Batch data missing symbol=%s available_symbols=%s",
-                        symbol,
-                        sorted(set(str(value) for value in top_level_symbols)),
-                    )
-                    return None
-                symbol_data = df[symbol]
+            symbol_data = self._symbol_frame_from_download(df, symbol)
+            if symbol_data is None:
+                return None
 
             if 'Close' not in symbol_data.columns:
                 logger.warning(
@@ -761,6 +770,146 @@ class PricingService:
         except Exception as e:
             logger.warning(f"Failed to parse batch data for {symbol}: {e}")
             return None
+
+    def _symbol_frame_from_download(
+        self,
+        df: Optional[pd.DataFrame],
+        symbol: str,
+    ) -> Optional[pd.DataFrame]:
+        """Extract a single-symbol OHLC frame from a yfinance download result."""
+        if df is None or df.empty:
+            return None
+
+        symbol_data = df
+        if isinstance(df.columns, pd.MultiIndex):
+            top_level_symbols = df.columns.get_level_values(0)
+            if symbol not in top_level_symbols:
+                logger.warning(
+                    "Batch data missing symbol=%s available_symbols=%s",
+                    symbol,
+                    sorted(set(str(value) for value in top_level_symbols)),
+                )
+                return None
+            symbol_data = df[symbol]
+
+        return symbol_data.dropna(how="all")
+
+    def _decimal_from_history_value(self, row: pd.Series, column: str) -> Optional[Decimal]:
+        if column not in row or pd.isna(row.get(column)):
+            return None
+        value = Decimal(str(float(row.get(column))))
+        return value if value > 0 else None
+
+    def _is_completed_daily_bar(
+        self,
+        symbol: str,
+        bar_date: date,
+        now: datetime,
+    ) -> bool:
+        """Avoid storing an in-progress daily candle as an official close."""
+        today = now.date()
+        if bar_date < today:
+            return True
+        if bar_date > today:
+            return False
+
+        exchange_code = get_exchange_code(symbol)
+        if exchange_code is None:
+            return False
+
+        close_time = MarketCalendarService.get_market_close_time(
+            exchange_code=exchange_code,
+            for_date=bar_date,
+        )
+        if close_time is None:
+            return False
+
+        return now >= close_time + timedelta(minutes=15)
+
+    def _history_price_rows_from_frame(
+        self,
+        asset: Asset,
+        history: pd.DataFrame,
+        *,
+        now: Optional[datetime] = None,
+        max_rows: Optional[int] = 5,
+    ) -> List[PriceCreate]:
+        """Convert completed OHLC daily bars into yfinance_history upserts."""
+        if history is None or history.empty or "Close" not in history.columns:
+            return []
+
+        now = now or datetime.utcnow()
+        rows_by_date: Dict[date, PriceCreate] = {}
+
+        for idx, row in history.iterrows():
+            try:
+                bar_date = idx.date() if hasattr(idx, "date") else pd.Timestamp(idx).date()
+                if not self._is_completed_daily_bar(asset.symbol, bar_date, now):
+                    continue
+
+                close_price = self._decimal_from_history_value(row, "Close")
+                if close_price is None:
+                    continue
+
+                volume = None
+                if "Volume" in row and not pd.isna(row.get("Volume")):
+                    volume = int(row.get("Volume"))
+
+                rows_by_date[bar_date] = PriceCreate(
+                    asset_id=asset.id,
+                    asof=datetime.combine(bar_date, datetime.min.time()),
+                    price=close_price,
+                    open_price=self._decimal_from_history_value(row, "Open"),
+                    high_price=self._decimal_from_history_value(row, "High"),
+                    low_price=self._decimal_from_history_value(row, "Low"),
+                    close_price=close_price,
+                    volume=volume,
+                    source="yfinance_history",
+                )
+            except Exception:
+                continue
+
+        price_rows = [rows_by_date[bar_date] for bar_date in sorted(rows_by_date)]
+        if max_rows is not None:
+            price_rows = price_rows[-max_rows:]
+        return price_rows
+
+    def _upsert_recent_history_from_frame(
+        self,
+        asset: Asset,
+        history: pd.DataFrame,
+        *,
+        now: Optional[datetime] = None,
+        max_rows: int = 5,
+    ) -> int:
+        price_rows = self._history_price_rows_from_frame(
+            asset,
+            history,
+            now=now,
+            max_rows=max_rows,
+        )
+        return crud_prices.bulk_upsert_prices(self.db, price_rows)
+
+    def _refresh_recent_historical_ohlc(self, asset: Asset, *, max_rows: int = 5) -> int:
+        """Fetch and upsert recent completed daily OHLC bars for one asset."""
+        try:
+            provider = get_market_data_provider()
+            history = provider.get_history(
+                asset.symbol,
+                action="history_recent_refresh",
+                timeout_seconds=yahoo_timeout_seconds(default=8.0),
+                period="10d",
+                interval="1d",
+                auto_adjust=True,
+            )
+            return self._upsert_recent_history_from_frame(
+                asset,
+                history,
+                max_rows=max_rows,
+            )
+        except Exception as exc:
+            logger.warning("Failed to refresh recent history for %s: %s", asset.symbol, exc)
+            return 0
 
     async def refresh_all_portfolio_prices(self, portfolio_id: int) -> int:
         """
@@ -811,26 +960,15 @@ class PricingService:
             if hist is None or hist.empty:
                 return 0
 
-            price_rows = []
-            for idx, row in hist.iterrows():
-                try:
-                    asof_dt = datetime(idx.year, idx.month, idx.day)
-                    if asof_dt > end_date:
-                        continue
-                    price_val = Decimal(str(float(row.get('Close'))))
-                    if price_val and price_val > 0:
-                        price_rows.append(
-                            PriceCreate(
-                                asset_id=asset.id,
-                                asof=asof_dt,
-                                price=price_val,
-                                volume=int(row.get('Volume', 0)) if 'Volume' in row else None,
-                                source='yfinance_history'
-                            )
-                        )
-                except Exception:
-                    # Skip bad row
-                    continue
+            price_rows = [
+                price
+                for price in self._history_price_rows_from_frame(
+                    asset,
+                    hist,
+                    max_rows=None,
+                )
+                if start_date <= price.asof <= end_date
+            ]
 
             return crud_prices.bulk_upsert_prices(self.db, price_rows)
         except Exception as e:
@@ -989,6 +1127,7 @@ class PricingService:
                             asset_id=asset_id,
                             asof=yesterday,
                             price=prev_close_decimal,
+                            close_price=prev_close_decimal,
                             volume=None,
                             source="yfinance_prev_close"
                         )
@@ -1025,6 +1164,7 @@ class PricingService:
                         asset_id=asset_id,
                         asof=yesterday,
                         price=prev_close_decimal,
+                        close_price=prev_close_decimal,
                         volume=None,
                         source="yfinance_prev_close"
                     )

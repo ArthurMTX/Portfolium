@@ -722,6 +722,10 @@ class PriceBase(BaseModel):
     asset_id: int
     asof: datetime
     price: Decimal
+    open_price: Optional[Decimal] = None
+    high_price: Optional[Decimal] = None
+    low_price: Optional[Decimal] = None
+    close_price: Optional[Decimal] = None
     volume: Optional[int] = None
     source: str = "yfinance"
 

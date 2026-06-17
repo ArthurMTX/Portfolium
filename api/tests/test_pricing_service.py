@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from app.services.market_data.pricing import PricingService
-from app.models import Asset, Price
+from app.models import Price
 from tests.factories import AssetFactory, PriceFactory
 
 
@@ -46,6 +46,10 @@ class FakeMarketDataProvider:
         return self.download_data
 
 
+async def run_inline(func, *args, **kwargs):
+    return func(*args, **kwargs)
+
+
 @pytest.mark.unit
 @pytest.mark.service
 class TestPricingCache:
@@ -73,7 +77,7 @@ class TestPricingCache:
         asset = AssetFactory.create(symbol="AAPL")
         
         # Create a fresh price in DB
-        fresh_price = PriceFactory.create(
+        PriceFactory.create(
             asset_id=asset.id,
             price=Decimal("150.25"),
             asof=datetime.utcnow() - timedelta(seconds=30)
@@ -218,16 +222,18 @@ class TestPriceService:
         
         service = PricingService(test_db)
         
-        provider = FakeMarketDataProvider(
-            info={
-                "MSFT": {
-                    'regularMarketPrice': 380.50,
-                    'previousClose': 378.00,
-                }
-            }
-        )
-        
-        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
+        fetched_price = {
+            "price": Decimal("380.50"),
+            "previous_close": Decimal("378.00"),
+            "asof": datetime.utcnow(),
+            "volume": None,
+        }
+
+        with (
+            patch.object(service, "_fetch_from_yfinance", return_value=fetched_price),
+            patch.object(service, "_refresh_recent_historical_ohlc", return_value=0),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
+        ):
             result = await service.get_price("MSFT")
             
             assert result is not None
@@ -241,6 +247,57 @@ class TestPriceService:
             )
             assert saved_price is not None
             assert saved_price.price == Decimal("380.50")
+
+    @pytest.mark.asyncio
+    async def test_get_price_refresh_upserts_recent_historical_ohlc(self, test_db):
+        """A live single-symbol refresh should self-heal recent yfinance_history rows."""
+        asset = AssetFactory.create(symbol="MSFT")
+        test_db.commit()
+
+        service = PricingService(test_db)
+        dates = pd.bdate_range(
+            end=datetime.utcnow().date() - timedelta(days=1),
+            periods=6,
+        )
+        hist_data = pd.DataFrame(
+            {
+                "Open": [370 + i for i in range(len(dates))],
+                "High": [375 + i for i in range(len(dates))],
+                "Low": [365 + i for i in range(len(dates))],
+                "Close": [372 + i for i in range(len(dates))],
+                "Volume": [1000 + i for i in range(len(dates))],
+            },
+            index=dates,
+        )
+        fetched_price = {
+            "price": Decimal("380.50"),
+            "previous_close": Decimal("378.00"),
+            "asof": datetime.utcnow(),
+            "volume": None,
+        }
+        provider = FakeMarketDataProvider(history={"MSFT": hist_data})
+
+        with (
+            patch.object(service, "_fetch_from_yfinance", return_value=fetched_price),
+            patch("app.services.market_data.pricing.get_market_data_provider", return_value=provider),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
+        ):
+            result = await service.get_price("MSFT", force_refresh=True)
+
+        assert result is not None
+        history_rows = (
+            test_db.query(Price)
+            .filter_by(asset_id=asset.id, source="yfinance_history")
+            .order_by(Price.asof.asc())
+            .all()
+        )
+        assert len(history_rows) == 5
+        assert history_rows[0].asof.date() == dates[-5].date()
+        assert history_rows[-1].asof.date() == dates[-1].date()
+        assert history_rows[-1].open_price == Decimal(str(float(hist_data.iloc[-1]["Open"])))
+        assert history_rows[-1].high_price == Decimal(str(float(hist_data.iloc[-1]["High"])))
+        assert history_rows[-1].low_price == Decimal(str(float(hist_data.iloc[-1]["Low"])))
+        assert history_rows[-1].close_price == history_rows[-1].price
     
     @pytest.mark.asyncio
     async def test_get_price_unknown_symbol_returns_none(self, test_db):
@@ -272,7 +329,10 @@ class TestPriceService:
         )
         provider = FakeMarketDataProvider(download=download_data)
         
-        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
+        with (
+            patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
+        ):
             results = await service.get_multiple_prices(["AAPL", "GOOGL", "MSFT"])
             
             assert len(results) == 3
@@ -281,6 +341,48 @@ class TestPriceService:
             assert "MSFT" in results
             assert results["AAPL"].price == Decimal("150.00")
             assert provider.download_calls
+
+    @pytest.mark.asyncio
+    async def test_get_multiple_prices_upserts_recent_historical_ohlc_from_batch(self, test_db):
+        """A live batch refresh should persist recent yfinance_history without maintenance jobs."""
+        asset = AssetFactory.create(symbol="AAPL")
+        test_db.commit()
+
+        service = PricingService(test_db)
+        dates = pd.bdate_range(
+            end=datetime.utcnow().date() - timedelta(days=1),
+            periods=6,
+        )
+        columns = pd.MultiIndex.from_product(
+            [["AAPL"], ["Open", "High", "Low", "Close", "Volume"]]
+        )
+        rows = [
+            [145 + i, 150 + i, 140 + i, 148 + i, 1000 + i]
+            for i in range(len(dates))
+        ]
+        download_data = pd.DataFrame(rows, columns=columns, index=dates)
+        provider = FakeMarketDataProvider(download=download_data)
+
+        with (
+            patch("app.services.market_data.pricing.get_market_data_provider", return_value=provider),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
+        ):
+            results = await service.get_multiple_prices(["AAPL"], force_refresh=True)
+
+        assert results["AAPL"].price == Decimal(str(float(rows[-1][3])))
+        history_rows = (
+            test_db.query(Price)
+            .filter_by(asset_id=asset.id, source="yfinance_history")
+            .order_by(Price.asof.asc())
+            .all()
+        )
+        assert len(history_rows) == 5
+        assert history_rows[0].asof.date() == dates[-5].date()
+        assert history_rows[-1].asof.date() == dates[-1].date()
+        assert history_rows[-1].open_price == Decimal(str(float(rows[-1][0])))
+        assert history_rows[-1].high_price == Decimal(str(float(rows[-1][1])))
+        assert history_rows[-1].low_price == Decimal(str(float(rows[-1][2])))
+        assert history_rows[-1].close_price == history_rows[-1].price
 
     @pytest.mark.asyncio
     async def test_get_multiple_prices_uses_individual_fallback_after_batch_miss(self, test_db):
@@ -300,6 +402,8 @@ class TestPriceService:
         with (
             patch.object(service, "_batch_fetch_from_yfinance", return_value={}) as mock_batch,
             patch.object(service, "_fetch_from_yfinance", return_value=fallback_price) as mock_fallback,
+            patch.object(service, "_refresh_recent_historical_ohlc", return_value=0),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
         ):
             results = await service.get_multiple_prices(["ALKAL.PA"], force_refresh=True)
 
@@ -427,7 +531,7 @@ class TestPriceCaching:
     
     async def test_memory_cache_prevents_duplicate_fetches(self, test_db):
         """Test that memory cache prevents fetching same price twice"""
-        asset = AssetFactory.create(symbol="AAPL")
+        AssetFactory.create(symbol="AAPL")
         test_db.commit()
         
         service = PricingService(test_db)
@@ -436,7 +540,10 @@ class TestPriceCaching:
             info={"AAPL": {'regularMarketPrice': 150.00, 'previousClose': 148.00}}
         )
         
-        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
+        with (
+            patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
+        ):
             # First fetch
             await service.get_price("AAPL")
             
@@ -464,7 +571,10 @@ class TestPriceCaching:
             info={"AAPL": {'regularMarketPrice': 155.00, 'previousClose': 150.00}}
         )
         
-        with patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider):
+        with (
+            patch('app.services.market_data.pricing.get_market_data_provider', return_value=provider),
+            patch("app.services.market_data.pricing.asyncio.to_thread", side_effect=run_inline),
+        ):
             result = await service.get_price("AAPL", force_refresh=True)
             
             # Should get fresh price, not cached

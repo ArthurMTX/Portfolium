@@ -1,8 +1,9 @@
 """
 Admin and maintenance endpoints
 """
+from datetime import date
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel, EmailStr
@@ -13,6 +14,7 @@ from app.auth import get_current_admin_user
 from app.models import User, NotificationType, Portfolio
 from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
+from app.services.portfolio_analytics.metrics import MetricsService
 from app.crud import notifications as crud_notifications
 from app.errors import ( 
     CannotDeactivateSuperAdminError, 
@@ -40,6 +42,32 @@ from app.errors import (
 )
 
 router = APIRouter(prefix="/admin")
+
+
+@router.get("/debug/portfolios/{portfolio_id}/daily-gain")
+async def debug_portfolio_daily_gain(
+    portfolio_id: int,
+    force_refresh: bool = Query(False, description="Invalidate position cache before building report"),
+    report_date: Optional[date] = Query(
+        None,
+        description="Valuation date for reproducing historical Daily Gain debug reports",
+    ),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Admin-only Daily Gain attribution report.
+
+    This endpoint is intentionally outside the normal dashboard path so the
+    production UI stays uncluttered while Daily Gain discrepancies remain
+    auditable.
+    """
+    service = MetricsService(db)
+    return await service.get_daily_gain_attribution_report(
+        portfolio_id=portfolio_id,
+        force_refresh=force_refresh,
+        report_date=report_date,
+    )
 
 
 @router.delete("/data")
@@ -137,7 +165,7 @@ def update_user_admin(
             pass
         first_admin = (
             db.query(User)
-            .filter((User.is_admin == True) | (User.is_superuser == True))
+            .filter(User.is_admin.is_(True) | User.is_superuser.is_(True))
             .order_by(User.id.asc())
             .first()
         )
@@ -189,7 +217,7 @@ def delete_user_admin(
             pass
         first_admin = (
             db.query(User)
-            .filter((User.is_admin == True) | (User.is_superuser == True))
+            .filter(User.is_admin.is_(True) | User.is_superuser.is_(True))
             .order_by(User.id.asc())
             .first()
         )
@@ -288,8 +316,7 @@ async def check_all_assets_health(
     from app.crud import prices as crud_prices
     from app.utils.exchange_calendars import calculate_coverage
     from datetime import datetime, timedelta
-    from sqlalchemy import distinct
-    
+
     # Get all unique assets that have transactions
     asset_ids = db.query(Transaction.asset_id.distinct()).all()
     asset_ids = [aid[0] for aid in asset_ids]
@@ -391,8 +418,7 @@ async def backfill_all_assets(
     from app.utils.exchange_calendars import calculate_coverage
     from app.services.market_data.pricing import PricingService
     from datetime import datetime, timedelta
-    from sqlalchemy import distinct
-    
+
     # Get all unique assets that have transactions
     asset_ids = db.query(Transaction.asset_id.distinct()).all()
     asset_ids = [aid[0] for aid in asset_ids]
@@ -901,7 +927,7 @@ async def test_email_connection(
                 user = current_user
             
             from app.services.communications.pdf_reports import PDFReportService
-            from datetime import datetime, timedelta
+            from datetime import datetime
             from zoneinfo import ZoneInfo
             
             # Generate test report

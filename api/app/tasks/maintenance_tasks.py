@@ -18,6 +18,7 @@ from app.models import (
     Notification,
     NotificationType,
     Portfolio,
+    Price,
     Transaction,
     TransactionType,
     User,
@@ -142,7 +143,7 @@ def check_price_alerts() -> dict:
             watchlist_rows = (
                 db.query(Watchlist, Asset)
                 .join(Asset, Asset.id == Watchlist.asset_id)
-                .filter(Watchlist.alert_enabled == True)
+                .filter(Watchlist.alert_enabled.is_(True))
                 .filter(Watchlist.alert_target_price.isnot(None))
                 .all()
             )
@@ -255,8 +256,8 @@ def check_daily_changes() -> dict:
             session_id = _get_market_session_id()
             users = (
                 db.query(User)
-                .filter(User.is_active == True)
-                .filter(User.daily_change_notifications_enabled == True)
+                .filter(User.is_active.is_(True))
+                .filter(User.daily_change_notifications_enabled.is_(True))
                 .all()
             )
 
@@ -355,7 +356,7 @@ def fetch_daily_closing_prices() -> dict:
     """Fetch previous-trading-day closes for assets with active holdings."""
     try:
         with get_db_context() as db:
-            from app.crud import prices as crud_prices
+            from app.utils.exchange_calendars import get_missing_trading_days
 
             held_assets = _get_currently_held_assets(db)
             if not held_assets:
@@ -363,9 +364,9 @@ def fetch_daily_closing_prices() -> dict:
                 return {"status": "success", "assets_total": 0}
 
             pricing_service = PricingService(db)
-            yesterday = datetime.utcnow() - timedelta(days=1)
-            window_start = datetime.combine(yesterday.date(), datetime.min.time())
-            window_end = datetime.combine(yesterday.date(), datetime.max.time())
+            today = datetime.utcnow().date()
+            window_start = datetime.combine(today - timedelta(days=7), datetime.min.time())
+            window_end = datetime.combine(today - timedelta(days=1), datetime.max.time())
 
             successful = 0
             failed = 0
@@ -373,21 +374,33 @@ def fetch_daily_closing_prices() -> dict:
 
             for asset in held_assets:
                 try:
-                    existing_prices = crud_prices.get_prices(
-                        db,
-                        asset.id,
-                        date_from=window_start,
-                        date_to=window_end,
-                        limit=10,
+                    existing_history_dates = {
+                        price.asof.date()
+                        for price in (
+                            db.query(Price)
+                            .filter(
+                                Price.asset_id == asset.id,
+                                Price.asof >= window_start,
+                                Price.asof <= window_end,
+                                Price.source == "yfinance_history",
+                            )
+                            .all()
+                        )
+                    }
+                    missing_dates = get_missing_trading_days(
+                        symbol=asset.symbol,
+                        start_date=window_start.date(),
+                        end_date=window_end.date(),
+                        existing_dates=existing_history_dates,
                     )
-                    if existing_prices:
+                    if not missing_dates:
                         skipped += 1
                         continue
 
                     count = pricing_service.ensure_historical_prices(
                         asset,
-                        window_start,
-                        window_end,
+                        datetime.combine(min(missing_dates), datetime.min.time()),
+                        datetime.combine(max(missing_dates), datetime.max.time()),
                         interval="1d",
                     )
                     if count > 0:
@@ -422,7 +435,6 @@ def fetch_daily_closing_prices() -> dict:
 def detect_and_fill_price_gaps() -> dict:
     """Detect missing historical prices and backfill them from yfinance."""
     try:
-        from app.crud import prices as crud_prices
         from app.utils.exchange_calendars import calculate_coverage
 
         with get_db_context() as db:
@@ -455,12 +467,15 @@ def detect_and_fill_price_gaps() -> dict:
                     else:
                         start_date = one_year_ago
 
-                    prices = crud_prices.get_prices(
-                        db,
-                        asset_id,
-                        date_from=start_date,
-                        date_to=end_date,
-                        limit=10000,
+                    prices = (
+                        db.query(Price)
+                        .filter(
+                            Price.asset_id == asset_id,
+                            Price.asof >= start_date,
+                            Price.asof <= end_date,
+                            Price.source == "yfinance_history",
+                        )
+                        .all()
                     )
                     price_dates = {price.asof.date() for price in prices}
 
