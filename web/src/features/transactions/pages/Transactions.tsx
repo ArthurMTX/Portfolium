@@ -15,8 +15,22 @@ import TransactionsLoadingTable from '@/features/transactions/components/Transac
 import TransactionsResponsiveList from '@/features/transactions/components/TransactionsResponsiveList'
 import Toast from '@/shared/components/Toast'
 import { useTranslation } from 'react-i18next'
-import { formatTransactionQuantity, isFutureDate, isVeryOldDate, parseAmount, parseDateOnly } from '@/features/transactions/lib/transactionFormUtils'
 import { getFilteredSortedTransactions } from '@/features/transactions/lib/transactionSortUtils'
+import {
+  getTransactionSummary,
+  getTransactionWarnings,
+  type PriceSource,
+  type TransactionSummary,
+  type WarningLevel,
+} from '@/features/transactions/lib/transactionDerivedState'
+import {
+  buildAutoPricePayload,
+  buildCreateTransactionPayload,
+  buildUpdatePayload,
+  shouldUseAutoPriceTransaction,
+  validateTransactionSubmit,
+  type TransactionValidationErrorCode,
+} from '@/features/transactions/lib/transactionPayloadBuilders'
 
 interface TickerInfo {
   symbol: string
@@ -50,30 +64,6 @@ type TabType = 'all' | 'buy' | 'sell' | 'dividend' | 'fee' | 'split' | 'conversi
 type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
-type PriceSource = 'empty' | 'auto' | 'manual'
-type WarningLevel = 'info' | 'warning' | 'danger'
-
-interface FormWarning {
-  key: string
-  level: WarningLevel
-  message: string
-}
-
-interface TransactionSummary {
-  action: string
-  asset: string
-  date: string
-  currency: string
-  quantity: number
-  price: number
-  fees: number
-  grossTotal: number
-  netTotal: number
-  impact: number
-  priceSource: PriceSource
-  splitRatio?: string
-  isSplit: boolean
-}
 
 export default function Transactions() {
   const navigate = useNavigate()
@@ -502,108 +492,68 @@ export default function Transactions() {
     setRiskAcknowledged(false)
   }
 
+  const getValidationErrorMessage = (code: TransactionValidationErrorCode) => {
+    const messages: Record<TransactionValidationErrorCode, string> = {
+      'portfolio-required': 'Please select a portfolio first',
+      'ticker-required': 'Please select a ticker',
+      'invalid-date': t('transactions.errors.invalidDate'),
+      'future-date': t('transactions.warnings.futureDate'),
+      'quantity-must-be-positive': t('transactions.errors.quantityMustBePositive'),
+      'fees-must-be-positive': t('transactions.errors.feesMustBePositive'),
+      'price-must-be-positive': t('transactions.errors.priceMustBePositive'),
+      'checking-position': t('transactions.warnings.checkingPosition'),
+      'no-shares-at-date': t('transactions.noSharesAtDate'),
+      'dividend-per-share-must-be-positive': t('transactions.dividendPerShareMustBePositive'),
+      'tax-cannot-exceed-gross': t('transactions.taxCannotExceedGross'),
+    }
+    return messages[code]
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormLoading(true)
     setFormError("")
 
-    if (!activePortfolioId) {
-      setFormError("Please select a portfolio first")
-      setFormLoading(false)
-      return
-    }
+    const validation = validateTransactionSubmit({
+      activePortfolioId,
+      hasSelectedTicker: Boolean(selectedTicker),
+      modalMode,
+      txDate,
+      txType,
+      quantity,
+      price,
+      fees,
+      sellQuantityLoading,
+      riskAcknowledged,
+      sellAvailableQuantity,
+    })
 
-    if (!selectedTicker && modalMode === 'add') {
-      setFormError("Please select a ticker")
-      setFormLoading(false)
-      return
-    }
-
-    if (!txDate || !parseDateOnly(txDate)) {
-      setFormError(t('transactions.errors.invalidDate'))
-      setFormLoading(false)
-      return
-    }
-
-    if (isFutureDate(txDate)) {
-      setFormError(t('transactions.warnings.futureDate'))
-      setFormLoading(false)
-      return
-    }
-
-    const parsedQuantity = parseFloat(quantity)
-    const parsedFees = fees && fees.trim() !== '' ? parseFloat(fees) : 0
-    const parsedPrice = price && price.trim() !== '' ? parseFloat(price) : 0
-
-    if (txType !== 'SPLIT' && txType !== 'FEE' && (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0)) {
-      setFormError(t('transactions.errors.quantityMustBePositive'))
-      setFormLoading(false)
-      return
-    }
-
-    if (fees && fees.trim() !== '' && (!Number.isFinite(parsedFees) || parsedFees < 0)) {
-      setFormError(t('transactions.errors.feesMustBePositive'))
-      setFormLoading(false)
-      return
-    }
-
-    if (
-      ['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT'].includes(txType) &&
-      (modalMode === 'edit' || price.trim() !== '') &&
-      (!Number.isFinite(parsedPrice) || parsedPrice <= 0)
-    ) {
-      setFormError(t('transactions.errors.priceMustBePositive'))
-      setFormLoading(false)
-      return
-    }
-
-    if (modalMode === 'add' && txType === 'SELL' && sellQuantityLoading) {
-      setFormError(t('transactions.warnings.checkingPosition'))
-      setFormLoading(false)
-      return
-    }
-
-    if (requiresRiskConfirmation) {
+    if (!validation.ok && validation.action === 'confirm-risk') {
       setRiskAcknowledged(true)
       setFormLoading(false)
       return
     }
 
-    if (txType === 'DIVIDEND') {
-      const shares = parseFloat(quantity)
-      if (!Number.isFinite(shares) || shares <= 0) {
-        setFormError(t('transactions.noSharesAtDate'))
-        setFormLoading(false)
-        return
-      }
-
-      const perShare = parseFloat(price)
-      if (!Number.isFinite(perShare) || perShare <= 0) {
-        setFormError(t('transactions.dividendPerShareMustBePositive'))
-        setFormLoading(false)
-        return
-      }
-
-      const gross = shares * perShare
-      const tax = fees && fees.trim() !== '' ? parseFloat(fees) : 0
-      if (Number.isFinite(tax) && tax - gross > 1e-9) {
-        setFormError(t('transactions.taxCannotExceedGross'))
-        setFormLoading(false)
-        return
-      }
+    if (!validation.ok) {
+      setFormError(getValidationErrorMessage(validation.code))
+      setFormLoading(false)
+      return
     }
+
+    const portfolioId = activePortfolioId!
 
     try {
       if (modalMode === 'add') {
         // Add new transaction
-        if (!price && txType !== 'SPLIT' && txType !== 'DIVIDEND' && txType !== 'FEE') {
+        if (shouldUseAutoPriceTransaction(txType, price)) {
           // Auto-fetch price using API client (for BUY/SELL)
+          const autoPricePayload = buildAutoPricePayload(selectedTicker!.symbol, txDate, txType, quantity)
           await api.addPositionTransaction(
-            activePortfolioId,
-            selectedTicker!.symbol,
-            txDate,
-            txType,
-            parseFloat(quantity)
+            portfolioId,
+            autoPricePayload.symbol,
+            autoPricePayload.txDate,
+            autoPricePayload.txType,
+            autoPricePayload.quantity
           )
         } else {
           // Manual price entry or SPLIT transaction - ensure we have a valid asset_id
@@ -638,51 +588,47 @@ export default function Transactions() {
           }
           const resolvedAssetId = assetId as number
 
-          // Prepare metadata for SPLIT transactions
-          const metadata = txType === 'SPLIT' ? { split: splitRatio } : {}
-
           let txCurrency = txType === 'DIVIDEND' ? (assetCurrency || portfolioCurrency) : portfolioCurrency
           if (txType === 'DIVIDEND') {
             try {
-              const atDate = await api.getPositionQuantityAtDate(activePortfolioId, resolvedAssetId, txDate)
+              const atDate = await api.getPositionQuantityAtDate(portfolioId, resolvedAssetId, txDate)
               if (atDate.asset_currency) txCurrency = atDate.asset_currency
             } catch {
               // Non-fatal
             }
           }
 
-          await api.createTransaction(activePortfolioId!, {
-            asset_id: resolvedAssetId,
-            tx_date: txDate,
-            type: txType,
-            quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
-            price: txType === 'SPLIT' ? 0 : parseFloat(price),
-            fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
+          await api.createTransaction(portfolioId, buildCreateTransactionPayload({
+            assetId: resolvedAssetId,
+            txDate,
+            txType,
+            quantity,
+            price,
+            fees,
             currency: txCurrency,
-            metadata: metadata,
-            notes: notes || null
-          })
+            notes,
+            splitRatio,
+          }))
         }
       } else if (modalMode === 'edit' && editingTransaction) {
         // Update existing transaction
-        const metadata = txType === 'SPLIT' ? { split: splitRatio } : editingTransaction.metadata || {}
-
         const txCurrency = txType === 'DIVIDEND' ? (assetCurrency || editingTransaction.currency || portfolioCurrency) : editingTransaction.currency
         
         await api.updateTransaction(
-          activePortfolioId,
+          portfolioId,
           editingTransaction.id,
-          {
-            asset_id: editingTransaction.asset_id,
-            tx_date: txDate,
-            type: txType,
-            quantity: txType === 'SPLIT' ? 0 : parseFloat(quantity),
-            price: txType === 'SPLIT' ? 0 : parseFloat(price),
-            fees: txType === 'SPLIT' ? 0 : parseFloat(fees),
+          buildUpdatePayload({
+            assetId: editingTransaction.asset_id,
+            txDate,
+            txType,
+            quantity,
+            price,
+            fees,
             currency: txCurrency,
-            metadata: metadata,
-            notes: notes || null
-          }
+            notes,
+            existingMetadata: editingTransaction.metadata || {},
+            splitRatio,
+          })
         )
       }
 
@@ -913,169 +859,6 @@ export default function Transactions() {
     return typeMap[type.toUpperCase()] || type
   }
 
-  const getTransactionSummary = (): TransactionSummary => {
-    const qty = parseAmount(quantity)
-    const unitPrice = parseAmount(price)
-    const feeAmount = parseAmount(fees)
-    const currency = txType === 'DIVIDEND' ? (assetCurrency || portfolioCurrency) : portfolioCurrency
-    const asset = selectedTicker?.symbol || ticker || editingTransaction?.asset.symbol || t('common.unknown')
-    const isSplit = txType === 'SPLIT'
-
-    if (isSplit) {
-      return {
-        action: getTranslatedType(txType),
-        asset,
-        date: txDate,
-        currency,
-        quantity: 0,
-        price: 0,
-        fees: 0,
-        grossTotal: 0,
-        netTotal: 0,
-        impact: 0,
-        priceSource,
-        splitRatio,
-        isSplit: true,
-      }
-    }
-
-    let grossTotal = qty * unitPrice
-    let netTotal = grossTotal
-    let impact = 0
-
-    switch (txType) {
-      case 'BUY':
-      case 'TRANSFER_IN':
-        netTotal = grossTotal + feeAmount
-        impact = qty
-        break
-      case 'SELL':
-      case 'TRANSFER_OUT':
-        netTotal = grossTotal - feeAmount
-        impact = -qty
-        break
-      case 'DIVIDEND':
-        netTotal = grossTotal - feeAmount
-        impact = 0
-        break
-      case 'FEE':
-        grossTotal = feeAmount || unitPrice
-        netTotal = -grossTotal
-        impact = 0
-        break
-      default:
-        netTotal = grossTotal
-    }
-
-    return {
-      action: getTranslatedType(txType),
-      asset,
-      date: txDate,
-      currency,
-      quantity: qty,
-      price: unitPrice,
-      fees: feeAmount,
-      grossTotal,
-      netTotal,
-      impact,
-      priceSource: priceSource === 'empty' && price ? 'manual' : priceSource,
-      isSplit: false,
-    }
-  }
-
-  const getTransactionWarnings = (summary: TransactionSummary): FormWarning[] => {
-    const warnings: FormWarning[] = []
-    const typeNeedsPrice = ['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT'].includes(txType)
-    const typeNeedsQuantity = txType !== 'SPLIT' && txType !== 'FEE'
-
-    if (isFutureDate(txDate)) {
-      warnings.push({
-        key: 'future-date',
-        level: 'danger',
-        message: t('transactions.warnings.futureDate'),
-      })
-    }
-
-    if (isVeryOldDate(txDate)) {
-      warnings.push({
-        key: 'old-date',
-        level: 'warning',
-        message: t('transactions.warnings.oldDate'),
-      })
-    }
-
-    if (typeNeedsQuantity && summary.quantity <= 0) {
-      warnings.push({
-        key: 'quantity',
-        level: 'warning',
-        message: t('transactions.warnings.quantityMissing'),
-      })
-    }
-
-    if (typeNeedsPrice && summary.price <= 0) {
-      warnings.push({
-        key: 'price',
-        level: 'warning',
-        message: t('transactions.warnings.priceMissing'),
-      })
-    }
-
-    if (priceFetchFailed && typeNeedsPrice) {
-      warnings.push({
-        key: 'price-fetch',
-        level: 'warning',
-        message: t('transactions.warnings.priceAutoUnavailable'),
-      })
-    }
-
-    if (summary.grossTotal > 0 && summary.fees / summary.grossTotal > 0.05) {
-      warnings.push({
-        key: 'high-fees',
-        level: 'warning',
-        message: t('transactions.warnings.highFees'),
-      })
-    }
-
-    if (
-      modalMode === 'add' &&
-      txType === 'SELL' &&
-      sellAvailableQuantity !== null &&
-      summary.quantity > sellAvailableQuantity
-    ) {
-      warnings.push({
-        key: 'sell-too-large',
-        level: 'danger',
-        message: t('transactions.warnings.sellExceedsPosition', {
-          available: formatTransactionQuantity(sellAvailableQuantity),
-        }),
-      })
-    }
-
-    if (txType !== 'DIVIDEND' && priceInfo?.converted) {
-      warnings.push({
-        key: 'converted-price',
-        level: 'info',
-        message: t('transactions.warnings.currencyConverted', {
-          from: priceInfo.asset_currency,
-          to: portfolioCurrency,
-        }),
-      })
-    }
-
-    if (txType === 'DIVIDEND' && summary.currency !== portfolioCurrency) {
-      warnings.push({
-        key: 'dividend-currency',
-        level: 'info',
-        message: t('transactions.warnings.dividendCurrency', {
-          currency: summary.currency,
-          portfolioCurrency,
-        }),
-      })
-    }
-
-    return warnings
-  }
-
   const getSubmitLabel = (requiresRiskConfirmation: boolean, hasHighRiskWarning: boolean) => {
     if (formLoading) return t('common.saving')
     if (requiresRiskConfirmation) return t('transactions.actions.reviewWarnings')
@@ -1151,8 +934,33 @@ export default function Transactions() {
     }
   }
 
-  const transactionSummary = getTransactionSummary()
-  const transactionWarnings = getTransactionWarnings(transactionSummary)
+  const transactionSummary = getTransactionSummary({
+    txType,
+    quantity,
+    price,
+    fees,
+    txDate,
+    assetCurrency,
+    portfolioCurrency,
+    selectedTickerSymbol: selectedTicker?.symbol,
+    ticker,
+    editingTransactionSymbol: editingTransaction?.asset.symbol,
+    unknownAssetLabel: t('common.unknown'),
+    priceSource,
+    splitRatio,
+    getTranslatedType,
+  })
+  const transactionWarnings = getTransactionWarnings({
+    summary: transactionSummary,
+    txType,
+    txDate,
+    priceFetchFailed,
+    modalMode,
+    sellAvailableQuantity,
+    priceInfo,
+    portfolioCurrency,
+    translate: (key, options) => t(key, options),
+  })
 
   const hasHighRiskSellWarning = transactionWarnings.some((warning) => warning.key === 'sell-too-large')
   const requiresRiskConfirmation = hasHighRiskSellWarning && !riskAcknowledged

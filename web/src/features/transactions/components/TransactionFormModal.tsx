@@ -4,38 +4,15 @@ import { useTranslation } from 'react-i18next'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { formatTransactionQuantity } from '@/features/transactions/lib/transactionFormUtils'
+import type { FormWarning, TransactionSummary, WarningLevel } from '@/features/transactions/lib/transactionDerivedState'
 
 type ModalMode = 'add' | 'edit'
-type PriceSource = 'empty' | 'auto' | 'manual'
-type WarningLevel = 'info' | 'warning' | 'danger'
 
 interface TickerInfo {
   symbol: string
   name: string
   type?: string | null
   asset_type?: string | null
-}
-
-interface FormWarning {
-  key: string
-  level: WarningLevel
-  message: string
-}
-
-interface TransactionSummary {
-  action: string
-  asset: string
-  date: string
-  currency: string
-  quantity: number
-  price: number
-  fees: number
-  grossTotal: number
-  netTotal: number
-  impact: number
-  priceSource: PriceSource
-  splitRatio?: string
-  isSplit: boolean
 }
 
 interface TransactionFormModalProps {
