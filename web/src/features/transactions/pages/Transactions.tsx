@@ -3,18 +3,20 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api, { type CsvImportPreviewResultDTO } from '@/api'
-import { formatCurrency, formatCurrencyCompact } from '@/shared/lib/formatUtils'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, Edit2, Trash2, X, ChevronUp, ChevronDown, Shuffle, Search, BarChart3, RefreshCw, DollarSign, AlertTriangle, Info } from 'lucide-react'
+import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, X, Shuffle, Search, BarChart3, RefreshCw, DollarSign } from 'lucide-react'
 import SplitHistory from '@/features/assets/components/SplitHistory'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import ImportReviewModal from '@/features/transactions/components/ImportReviewModal'
 import ImportProgressModal from '@/features/transactions/components/ImportProgressModal'
 import ConversionModal from '@/features/transactions/components/ConversionModal'
 import PendingDividends from '@/features/transactions/components/PendingDividends'
-import SortIcon from '@/shared/components/SortIcon'
+import TransactionFormModal from '@/features/transactions/components/TransactionFormModal'
+import TransactionsLoadingTable from '@/features/transactions/components/TransactionsLoadingTable'
+import TransactionsResponsiveList from '@/features/transactions/components/TransactionsResponsiveList'
 import Toast from '@/shared/components/Toast'
 import { useTranslation } from 'react-i18next'
-import AssetLogo from '@/shared/components/AssetLogo'
+import { formatTransactionQuantity, isFutureDate, isVeryOldDate, parseAmount, parseDateOnly } from '@/features/transactions/lib/transactionFormUtils'
+import { getFilteredSortedTransactions } from '@/features/transactions/lib/transactionSortUtils'
 
 interface TickerInfo {
   symbol: string
@@ -860,87 +862,17 @@ export default function Transactions() {
   }, [transactions])
 
   const sortedTransactions = useMemo(() => {
-    // Filter by search query
-    let filtered = transactions
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim()
-      filtered = transactions.filter(tx => {
-        const symbol = tx.asset.symbol.toLowerCase()
-        const name = (tx.asset.name || '').toLowerCase()
-        
-        return symbol.includes(query) || name.includes(query)
-      })
-    }
-    
-    const sorted = [...filtered].sort((a, b) => {
-      let aVal: string | number
-      let bVal: string | number
-
-      switch (sortKey) {
-        case 'tx_date':
-          aVal = new Date(a.tx_date).getTime()
-          bVal = new Date(b.tx_date).getTime()
-          break
-        case 'symbol':
-          aVal = a.asset.symbol
-          bVal = b.asset.symbol
-          break
-        case 'type':
-          aVal = a.type
-          bVal = b.type
-          break
-        case 'quantity':
-          aVal = typeof a.quantity === 'string' ? parseFloat(a.quantity) : a.quantity
-          bVal = typeof b.quantity === 'string' ? parseFloat(b.quantity) : b.quantity
-          break
-        case 'price':
-          aVal = typeof a.price === 'string' ? parseFloat(a.price) : a.price
-          bVal = typeof b.price === 'string' ? parseFloat(b.price) : b.price
-          break
-        case 'fees':
-          aVal = typeof a.fees === 'string' ? parseFloat(a.fees) : a.fees
-          bVal = typeof b.fees === 'string' ? parseFloat(b.fees) : b.fees
-          break
-        case 'total': {
-          const aQty = typeof a.quantity === 'string' ? parseFloat(a.quantity) : a.quantity
-          const aPrice = typeof a.price === 'string' ? parseFloat(a.price) : a.price
-          const aFees = typeof a.fees === 'string' ? parseFloat(a.fees) : a.fees
-          const aNativeTotal = a.type === 'DIVIDEND' || a.type === 'SELL' ? (aQty * aPrice - aFees) : (aQty * aPrice + aFees)
-          aVal = aNativeTotal
-          if (a.type === 'DIVIDEND' && a.currency && a.currency.toUpperCase() !== portfolioCurrency) {
-            const key = `${a.currency.toUpperCase()}|${portfolioCurrency}|${a.tx_date}`
-            const rate = fxRates[key]
-            if (typeof rate === 'number') aVal = aNativeTotal * rate
-          }
-          
-          const bQty = typeof b.quantity === 'string' ? parseFloat(b.quantity) : b.quantity
-          const bPrice = typeof b.price === 'string' ? parseFloat(b.price) : b.price
-          const bFees = typeof b.fees === 'string' ? parseFloat(b.fees) : b.fees
-          const bNativeTotal = b.type === 'DIVIDEND' || b.type === 'SELL' ? (bQty * bPrice - bFees) : (bQty * bPrice + bFees)
-          bVal = bNativeTotal
-          if (b.type === 'DIVIDEND' && b.currency && b.currency.toUpperCase() !== portfolioCurrency) {
-            const key = `${b.currency.toUpperCase()}|${portfolioCurrency}|${b.tx_date}`
-            const rate = fxRates[key]
-            if (typeof rate === 'number') bVal = bNativeTotal * rate
-          }
-          break
-        }
-        default:
-          return 0
-      }
-
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
-      }
-
-      return sortDir === 'asc' ? (Number(aVal) - Number(bVal)) : (Number(bVal) - Number(aVal))
+    return getFilteredSortedTransactions({
+      transactions,
+      sortKey,
+      sortDir,
+      showAllTransactions,
+      displayLimit,
+      searchQuery,
+      fxRates,
+      portfolioCurrency,
     })
-    
-    // Apply limit if showAllTransactions is false
-    return showAllTransactions ? sorted : sorted.slice(0, displayLimit)
   }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery, fxRates, portfolioCurrency])
-
-  const isActive = (key: SortKey) => sortKey === key
 
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
@@ -957,25 +889,6 @@ export default function Transactions() {
   }
 
   const availableSortOptions: SortKey[] = ['tx_date', 'symbol', 'type', 'quantity', 'price', 'fees', 'total']
-
-  const formatQuantity = (value: number | string | null) => {
-    if (value === null || value === undefined) return '-'
-    const numValue = typeof value === 'string' ? parseFloat(value) : value
-    // Format with up to 8 decimals, then remove trailing zeros
-    const formatted = numValue.toFixed(8)
-    return formatted.replace(/\.?0+$/, '')
-  }
-
-  const parseAmount = (value: string | number | null | undefined, fallback = 0) => {
-    if (value === null || value === undefined || value === '') return fallback
-    const parsed = typeof value === 'string' ? parseFloat(value) : value
-    return Number.isFinite(parsed) ? parsed : fallback
-  }
-
-  const parseDateOnly = (value: string) => {
-    const parsed = new Date(`${value}T00:00:00`)
-    return Number.isNaN(parsed.getTime()) ? null : parsed
-  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(currentLocale, {
@@ -998,19 +911,6 @@ export default function Transactions() {
       'CONVERSION_OUT': t('transaction.types.conversionOut'),
     }
     return typeMap[type.toUpperCase()] || type
-  }
-
-  const isFutureDate = (value: string) => {
-    const parsed = parseDateOnly(value)
-    if (!parsed) return false
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return parsed > today
-  }
-
-  const isVeryOldDate = (value: string) => {
-    const parsed = parseDateOnly(value)
-    return Boolean(parsed && parsed < new Date('1990-01-01T00:00:00'))
   }
 
   const getTransactionSummary = (): TransactionSummary => {
@@ -1146,7 +1046,7 @@ export default function Transactions() {
         key: 'sell-too-large',
         level: 'danger',
         message: t('transactions.warnings.sellExceedsPosition', {
-          available: formatQuantity(sellAvailableQuantity),
+          available: formatTransactionQuantity(sellAvailableQuantity),
         }),
       })
     }
@@ -1401,47 +1301,7 @@ export default function Transactions() {
         {/* Transactions Table */}
         <div>
           {loading ? (
-            // Loading skeleton
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-neutral-50 dark:bg-neutral-800/50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.date')}</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.asset')}</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.type')}</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.quantity')}</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.price')}</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.fees')}</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.total')}</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.notes')}</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                          <div className="space-y-2">
-                            <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                            <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <TransactionsLoadingTable />
           ) : transactions.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
               <p>{t('transactions.empty.noTransactions')}</p>
@@ -1461,741 +1321,87 @@ export default function Transactions() {
               </p>
             </div>
           ) : (
-            <>
-              {/* Mobile: Sort Controls & Card Layout */}
-              <div className="lg:hidden">
-                {/* Sort Controls */}
-                <div className="flex items-center gap-2 p-3">
-                  <label htmlFor="mobile-sort-tx" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                    {t('common.sortBy')}:
-                  </label>
-                  <select
-                    id="mobile-sort-tx"
-                    value={sortKey}
-                    onChange={(e) => handleSort(e.target.value as SortKey)}
-                    className="flex-1 input text-sm py-2 px-3"
-                  >
-                    {availableSortOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {getSortLabel(option)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                    className="btn-secondary p-2 flex items-center gap-1"
-                    title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
-                  >
-                    {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                  </button>
-                </div>
-
-                {/* Cards */}
-                <div className="space-y-3">
-                  {sortedTransactions.map((transaction) => {
-                    const quantity = typeof transaction.quantity === 'string' 
-                      ? parseFloat(transaction.quantity) 
-                      : transaction.quantity
-                    const price = typeof transaction.price === 'string' 
-                      ? parseFloat(transaction.price) 
-                      : transaction.price
-                    const fees = typeof transaction.fees === 'string' 
-                      ? parseFloat(transaction.fees) 
-                      : transaction.fees
-                    const nativeTotal = transaction.type === 'DIVIDEND' || transaction.type === 'SELL'
-                      ? (quantity * price - fees)
-                      : (quantity * price + fees)
-
-                    const needsDividendConversion =
-                      transaction.type === 'DIVIDEND' &&
-                      transaction.currency &&
-                      transaction.currency.toUpperCase() !== portfolioCurrency
-                    const fxKey = needsDividendConversion
-                      ? `${transaction.currency.toUpperCase()}|${portfolioCurrency}|${transaction.tx_date}`
-                      : null
-                    const fxRate = fxKey ? fxRates[fxKey] : undefined
-                    const displayTotal = needsDividendConversion && typeof fxRate === 'number'
-                      ? nativeTotal * fxRate
-                      : nativeTotal
-                    const txData = transaction as unknown as Record<string, unknown>
-                    const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
-
-                    return (
-                      <div key={transaction.id} className="card p-4">
-                        {/* Header: Date, Symbol, Type, Total */}
-                        <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <AssetLogo
-                              symbol={transaction.asset.symbol}
-                              assetType={transaction.asset.asset_type}
-                              assetName={transaction.asset.name}
-                              alt={`${transaction.asset.symbol} logo`}
-                              className="w-10 h-10 flex-shrink-0 object-cover"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                                {transaction.asset.symbol}
-                              </div>
-                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                                {formatDate(transaction.tx_date)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right ml-3">
-                            <div className={`flex items-center justify-end gap-1 text-sm font-medium mb-1 ${getTransactionColor(transaction.type)}`}>
-                              {getTransactionIcon(transaction.type)}
-                              {getTranslatedType(transaction.type)}
-                            </div>
-                            <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT'
-                                ? '-'
-                                : needsDividendConversion
-                                  ? (typeof fxRate === 'number'
-                                      ? formatCurrencyCompact(displayTotal, portfolioCurrency)
-                                      : fxRate === null
-                                        ? formatCurrencyCompact(nativeTotal, transaction.currency)
-                                        : t('common.loading'))
-                                  : formatCurrencyCompact(displayTotal, transaction.currency)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Data Grid */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-                          <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.quantity')}</span>
-                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatQuantity(transaction.quantity)}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.price')}</span>
-                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{transaction.type === 'DIVIDEND' ? t('fields.tax') : t('fields.fees')}</span>
-                            <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                              {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
-                            </div>
-                          </div>
-                          {transaction.asset.name && (
-                            <div className="text-right">
-                              <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('transactions.assetName')}</span>
-                              <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                                {transaction.asset.name}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Notes */}
-                        {(transaction.notes || (transaction.type === 'SPLIT' && metadata?.split)) && (
-                          <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}:</span>
-                            <div className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">
-                              {transaction.type === 'SPLIT' && metadata?.split ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} {t('transaction.types.split')}</span>
-                                  {transaction.notes && <span className="text-neutral-400">•</span>}
-                                  {transaction.notes}
-                                </span>
-                              ) : (
-                                transaction.notes
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                          {assetHasSplits(transaction.asset_id) && (
-                            <button
-                              onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
-                              className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
-                            >
-                              <Shuffle size={16} />
-                              {t('transactions.splits')}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => openEditModal(transaction)}
-                            className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
-                          >
-                            <Edit2 size={16} />
-                            {t('common.edit')}
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(transaction.id)}
-                            className="btn-secondary text-sm px-3 py-2 flex items-center gap-2 text-red-600 dark:text-red-400"
-                          >
-                            <Trash2 size={16} />
-                            {t('common.delete')}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Desktop: Table Layout */}
-              <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800/50">
-                <tr>
-                  <th 
-                    onClick={() => handleSort('tx_date')}
-                    aria-sort={isActive('tx_date') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('fields.date')} <SortIcon column="tx_date" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('symbol')}
-                    aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('fields.asset')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('type')}
-                    aria-sort={isActive('type') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('fields.type')} <SortIcon column="type" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('quantity')}
-                    aria-sort={isActive('quantity') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('fields.quantity')} <SortIcon column="quantity" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('price')}
-                    aria-sort={isActive('price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('fields.price')} <SortIcon column="price" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('fees')}
-                    aria-sort={isActive('fees') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {(activeTab === 'dividend'
-                      ? t('fields.tax')
-                      : activeTab === 'all'
-                        ? `${t('fields.fees')} / ${t('fields.tax')}`
-                        : t('fields.fees'))}{' '}
-                    <SortIcon column="fees" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th 
-                    onClick={() => handleSort('total')}
-                    aria-sort={isActive('total') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('fields.total')} <SortIcon column="total" activeColumn={sortKey} direction={sortDir} />
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                    {t('fields.notes')}
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                    {t('common.actions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {sortedTransactions.map((transaction) => {
-                  const quantity = typeof transaction.quantity === 'string' 
-                    ? parseFloat(transaction.quantity) 
-                    : transaction.quantity
-                  const price = typeof transaction.price === 'string' 
-                    ? parseFloat(transaction.price) 
-                    : transaction.price
-                  const fees = typeof transaction.fees === 'string' 
-                    ? parseFloat(transaction.fees) 
-                    : transaction.fees
-                  const nativeTotal = transaction.type === 'DIVIDEND' || transaction.type === 'SELL'
-                    ? (quantity * price - fees)
-                    : (quantity * price + fees)
-
-                  const needsDividendConversion =
-                    transaction.type === 'DIVIDEND' &&
-                    transaction.currency &&
-                    transaction.currency.toUpperCase() !== portfolioCurrency
-                  const fxKey = needsDividendConversion
-                    ? `${transaction.currency.toUpperCase()}|${portfolioCurrency}|${transaction.tx_date}`
-                    : null
-                  const fxRate = fxKey ? fxRates[fxKey] : undefined
-                  const displayTotal = needsDividendConversion && typeof fxRate === 'number'
-                    ? nativeTotal * fxRate
-                    : nativeTotal
-
-                  return (
-                    <tr
-                      key={transaction.id}
-                      className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-neutral-100">
-                        {formatDate(transaction.tx_date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <AssetLogo
-                            symbol={transaction.asset.symbol}
-                            assetType={transaction.asset.asset_type}
-                            assetName={transaction.asset.name}
-                            alt={`${transaction.asset.symbol} logo`}
-                            className="w-6 h-6 object-cover"
-                          />
-                          <div>
-                            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                              {transaction.asset.symbol}
-                            </div>
-                            {transaction.asset.name && (
-                              <div className="text-xs text-neutral-500 dark:text-neutral-400 max-w-[150px] truncate" title={transaction.asset.name}>
-                                {transaction.asset.name}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`flex items-center gap-2 text-sm font-medium ${getTransactionColor(transaction.type)}`}>
-                          {getTransactionIcon(transaction.type)}
-                          {getTranslatedType(transaction.type)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatQuantity(transaction.quantity)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrency(transaction.price, transaction.currency)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT' ? '-' : formatCurrencyCompact(transaction.fees, transaction.currency)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        {transaction.type === 'SPLIT'
-                          ? '-'
-                          : needsDividendConversion
-                            ? (typeof fxRate === 'number'
-                                ? formatCurrencyCompact(displayTotal, portfolioCurrency)
-                                : fxRate === null
-                                  ? formatCurrencyCompact(nativeTotal, transaction.currency)
-                                  : t('common.loading'))
-                            : formatCurrencyCompact(displayTotal, transaction.currency)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
-                        {(() => {
-                          const txData = transaction as unknown as Record<string, unknown>
-                          const metadata = transaction.metadata || txData.meta_data as { split?: string } | undefined
-                          return transaction.type === 'SPLIT' && metadata?.split ? (
-                            <span className="inline-flex items-center gap-1">
-                              <span className="font-medium text-purple-700 dark:text-purple-400">{metadata.split} {t('transaction.types.split')}</span>
-                              {transaction.notes && <span className="text-neutral-400">•</span>}
-                              {transaction.notes}
-                            </span>
-                          ) : (
-                            transaction.notes || '-'
-                          )
-                        })()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {assetHasSplits(transaction.asset_id) && (
-                            <button
-                              onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}
-                              className="p-2 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 rounded transition-colors"
-                              title={t('transactions.viewSplitHistory')}
-                            >
-                              <Shuffle size={16} />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => openEditModal(transaction)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
-                            title={t('transactions.editTransaction')}
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(transaction.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded transition-colors"
-                            title={t('transactions.deleteTransaction')}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-              </div>
-            </>
+            <TransactionsResponsiveList
+              transactions={sortedTransactions}
+              activeTab={activeTab}
+              availableSortOptions={availableSortOptions}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              portfolioCurrency={portfolioCurrency}
+              fxRates={fxRates}
+              formatDate={formatDate}
+              getSortLabel={getSortLabel}
+              getTransactionColor={getTransactionColor}
+              getTransactionIcon={getTransactionIcon}
+              getTranslatedType={getTranslatedType}
+              assetHasSplits={assetHasSplits}
+              onSort={handleSort}
+              onToggleSortDirection={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+              onEdit={openEditModal}
+              onDelete={setDeleteConfirm}
+              onViewSplitHistory={setSplitHistoryAsset}
+            />
           )}
         </div>
       </div>
 
       {/* Add/Edit Modal */}
       {modalMode && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                {modalMode === 'add' ? t('transactions.addTransaction') : t('transactions.editTransaction')}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {modalMode === 'add' && (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    {t('transactions.ticker')}
-                  </label>
-                  <input
-                    type="text"
-                    value={ticker}
-                    onChange={handleTickerChange}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    placeholder={t('transactions.tickerSearchPlaceholder')}
-                  />
-                  {searchResults.length > 0 && (
-                    <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {searchResults.map((item: TickerInfo) => (
-                        <li
-                          key={item.symbol}
-                          className="p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0"
-                          onClick={() => handleSelectTicker(item)}
-                        >
-                          <div className="font-semibold text-blue-600 dark:text-blue-400">{item.symbol}</div>
-                          <div className="text-sm text-neutral-600 dark:text-neutral-400">{item.name}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {selectedTicker && (
-                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-3">
-                      <AssetLogo
-                        symbol={selectedTicker.symbol}
-                        assetType={selectedTickerAssetType}
-                        assetName={selectedTicker.name}
-                        alt={`${selectedTicker.symbol} logo`}
-                        className="w-10 h-10 flex-shrink-0 object-cover"
-                      />
-                      <div>
-                        <div className="font-semibold text-blue-700 dark:text-blue-300">
-                          {selectedTicker.symbol}
-                        </div>
-
-                        <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                          {selectedTicker.name}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    {t('fields.date')}
-                  </label>
-                  <input
-                    type="date"
-                    value={txDate}
-                    onChange={handleDateChange}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    {t('fields.type')}
-                  </label>
-                  <select
-                    value={txType}
-                    onChange={(e) => {
-                      const nextType = e.target.value
-                      setTxType(nextType)
-                      setRiskAcknowledged(false)
-                      if (nextType === 'DIVIDEND') {
-                        setPriceLoading(false)
-                        setPriceInfo(null)
-                        setPriceFetchFailed(false)
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    <option value="BUY">{t('transaction.types.buy')}</option>
-                    <option value="SELL">{t('transaction.types.sell')}</option>
-                    <option value="DIVIDEND">{t('transaction.types.dividend')}</option>
-                    <option value="FEE">{t('transaction.types.fee')}</option>
-                    <option value="SPLIT">{t('transaction.types.split')}</option>
-                    <option value="TRANSFER_IN">{t('transaction.types.transferIn')}</option>
-                    <option value="TRANSFER_OUT">{t('transaction.types.transferOut')}</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Split Ratio Field - Only shown for SPLIT transactions */}
-              {txType === 'SPLIT' && (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    {t('transactions.splitRatio')}
-                  </label>
-                  <input
-                    type="text"
-                    value={splitRatio}
-                    onChange={(e) => setSplitRatio(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                    placeholder={t('transactions.splitRatioPlaceholder')}
-                    required
-                  />
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                    {t('transactions.splitRatioInfo')}  
-                  </p>
-                </div>
-              )}
-
-              {/* Quantity, Price, Fees - Hidden for SPLIT transactions */}
-              {txType !== 'SPLIT' && (
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {txType === 'DIVIDEND' ? t('fields.shares') : t('fields.quantity')}
-                    </label>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                      min="0"
-                      step="any"
-                      placeholder="0.00"
-                      required
-                      readOnly={txType === 'DIVIDEND'}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {txType === 'DIVIDEND'
-                        ? `${t('transactions.dividendPerShare')} (${assetCurrency || portfolioCurrency})`
-                        : `${t('fields.price')} (${portfolioCurrency})`}
-                      {priceLoading && txType !== 'DIVIDEND' && (
-                        <span className="ml-2 text-pink-500 animate-pulse">{t('common.loading')}...</span>
-                      )}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={price}
-                        onChange={(e) => {
-                          setPrice(e.target.value)
-                          setPriceSource(e.target.value.trim() ? 'manual' : 'empty')
-                          setPriceFetchFailed(false)
-                          setPriceInfo(null) // Clear conversion info when user manually edits
-                        }}
-                        className={`w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 ${priceLoading ? 'opacity-50' : ''}`}
-                        min={txType === 'DIVIDEND' ? '0.00000001' : '0'}
-                        step="any"
-                        placeholder="0.00"
-                        disabled={priceLoading && txType !== 'DIVIDEND'}
-                        required={txType === 'DIVIDEND'}
-                      />
-                      {priceLoading && txType !== 'DIVIDEND' && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <RefreshCw size={16} className="animate-spin text-pink-500" />
-                        </div>
-                      )}
-                    </div>
-                    {txType !== 'DIVIDEND' && priceInfo?.converted && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        ✓ {t('transactions.priceConverted', { from: priceInfo.asset_currency, to: portfolioCurrency })}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                      {txType === 'DIVIDEND'
-                        ? `${t('fields.tax')} (${assetCurrency || portfolioCurrency})`
-                        : `${t('fields.fees')} (${portfolioCurrency})`}
-                    </label>
-                    <input
-                      type="number"
-                      value={fees}
-                      onChange={(e) => setFees(e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                      min="0"
-                      max={
-                        txType === 'DIVIDEND' &&
-                        Number.isFinite(parseFloat(quantity)) &&
-                        Number.isFinite(parseFloat(price))
-                          ? String(parseFloat(quantity) * parseFloat(price))
-                          : undefined
-                      }
-                      step="any"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {t('fields.notes')}
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  rows={3}
-                  placeholder={t('placeholders.enterNotes')}
-                />
-              </div>
-
-              <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                    <Info size={16} className="text-pink-500" />
-                    {t('transactions.summary.title')}
-                  </div>
-                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                    {t('transactions.summary.amountsIn', { currency: transactionSummary.currency })}
-                  </span>
-                </div>
-
-                {transactionSummary.isSplit ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.type')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.action}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.asset')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.asset}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.splitRatio')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.splitRatio || '-'}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.action')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.action}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.asset')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.asset}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.impact')}</div>
-                      <div className={`font-medium ${transactionSummary.impact < 0 ? 'text-red-600 dark:text-red-400' : transactionSummary.impact > 0 ? 'text-green-600 dark:text-green-400' : 'text-neutral-900 dark:text-neutral-100'}`}>
-                        {transactionSummary.impact > 0 ? '+' : ''}{formatQuantity(transactionSummary.impact)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.priceSource')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{getPriceSourceLabel(transactionSummary)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.grossTotal')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.grossTotal, transactionSummary.currency, currentLocale, true)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{txType === 'DIVIDEND' ? t('fields.tax') : t('fields.fees')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.fees, transactionSummary.currency, currentLocale, true)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.netTotal')}</div>
-                      <div className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.netTotal, transactionSummary.currency, currentLocale, true)}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('fields.date')}</div>
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{txDate ? formatDate(txDate) : '-'}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {(transactionWarnings.length > 0 || sellQuantityLoading || riskAcknowledged) && (
-                <div className="space-y-2">
-                  {sellQuantityLoading && (
-                    <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-700 dark:text-blue-300">
-                      {t('transactions.warnings.checkingPosition')}
-                    </div>
-                  )}
-                  {transactionWarnings.map((warning) => (
-                    <div key={warning.key} className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${getWarningClasses(warning.level)}`}>
-                      <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
-                      <span>{warning.message}</span>
-                    </div>
-                  ))}
-                  {riskAcknowledged && hasHighRiskSellWarning && (
-                    <div className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
-                      {t('transactions.warnings.riskySellConfirmation')}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {formError && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    formLoading ||
-                    (modalMode === 'add' && txType === 'SELL' && sellQuantityLoading) ||
-                    (modalMode === 'add' && !selectedTicker) ||
-                    (txType === 'DIVIDEND' && (
-                      (!(Number.isFinite(parseFloat(quantity))) || parseFloat(quantity) <= 0) ||
-                      (!(Number.isFinite(parseFloat(price))) || parseFloat(price) <= 0) ||
-                      (
-                        Number.isFinite(parseFloat(fees)) &&
-                        Number.isFinite(parseFloat(quantity)) &&
-                        Number.isFinite(parseFloat(price)) &&
-                        parseFloat(fees) - (parseFloat(quantity) * parseFloat(price)) > 1e-9
-                      )
-                    ))
-                  }
-                  className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
-                >
-                  {getSubmitLabel(requiresRiskConfirmation, hasHighRiskSellWarning)}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TransactionFormModal
+          modalMode={modalMode}
+          ticker={ticker}
+          searchResults={searchResults}
+          selectedTicker={selectedTicker}
+          selectedTickerAssetType={selectedTickerAssetType}
+          txDate={txDate}
+          txType={txType}
+          splitRatio={splitRatio}
+          quantity={quantity}
+          price={price}
+          fees={fees}
+          notes={notes}
+          priceLoading={priceLoading}
+          priceInfo={priceInfo}
+          assetCurrency={assetCurrency}
+          portfolioCurrency={portfolioCurrency}
+          currentLocale={currentLocale}
+          transactionSummary={transactionSummary}
+          transactionWarnings={transactionWarnings}
+          sellQuantityLoading={sellQuantityLoading}
+          riskAcknowledged={riskAcknowledged}
+          hasHighRiskSellWarning={hasHighRiskSellWarning}
+          formError={formError}
+          formLoading={formLoading}
+          requiresRiskConfirmation={requiresRiskConfirmation}
+          onClose={closeModal}
+          onSubmit={handleSubmit}
+          onTickerChange={handleTickerChange}
+          onSelectTicker={handleSelectTicker}
+          onDateChange={handleDateChange}
+          onTxTypeChange={(nextType) => {
+            setTxType(nextType)
+            setRiskAcknowledged(false)
+            if (nextType === 'DIVIDEND') {
+              setPriceLoading(false)
+              setPriceInfo(null)
+              setPriceFetchFailed(false)
+            }
+          }}
+          onSplitRatioChange={setSplitRatio}
+          onQuantityChange={setQuantity}
+          onPriceChange={(nextPrice) => {
+            setPrice(nextPrice)
+            setPriceSource(nextPrice.trim() ? 'manual' : 'empty')
+            setPriceFetchFailed(false)
+            setPriceInfo(null)
+          }}
+          onFeesChange={setFees}
+          onNotesChange={setNotes}
+          formatDate={formatDate}
+          getPriceSourceLabel={getPriceSourceLabel}
+          getWarningClasses={getWarningClasses}
+          getSubmitLabel={getSubmitLabel}
+        />
       )}
 
       {/* Delete Confirmation Modal */}

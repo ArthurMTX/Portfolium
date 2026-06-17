@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import api from '@/api'
 import { getAssetLogoUrl, handleLogoError, cleanCryptoName } from '@/shared/lib/logoUtils'
 import { formatCurrency } from '@/shared/lib/formatUtils'
+import { isFutureDate, isVeryOldDate, parseAmount, parseDateOnly } from '@/features/transactions/lib/transactionFormUtils'
 
 interface Asset {
   id: number
@@ -279,30 +280,6 @@ export default function ConversionModal({
         setError('Failed to add asset. Please try again.')
       }
     }
-  }
-
-  const parseAmount = (value: string | number | null | undefined, fallback = 0) => {
-    if (value === null || value === undefined || value === '') return fallback
-    const parsed = typeof value === 'string' ? parseFloat(value) : value
-    return Number.isFinite(parsed) ? parsed : fallback
-  }
-
-  const parseDateOnly = (value: string) => {
-    const parsed = new Date(`${value}T00:00:00`)
-    return Number.isNaN(parsed.getTime()) ? null : parsed
-  }
-
-  const isFutureDate = (value: string) => {
-    const parsed = parseDateOnly(value)
-    if (!parsed) return false
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return parsed > today
-  }
-
-  const isVeryOldDate = (value: string) => {
-    const parsed = parseDateOnly(value)
-    return Boolean(parsed && parsed < new Date('1990-01-01T00:00:00'))
   }
 
   const getPriceSourceLabel = (source: 'empty' | 'auto' | 'manual', failed: boolean) => {
