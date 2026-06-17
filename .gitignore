@@ -20,6 +20,9 @@ htmlcov/
 *.egg-info/
 dist/
 build/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
 
 # Node
 node_modules/
@@ -27,12 +30,18 @@ dist/
 *.log*
 .DS_Store
 
+# Test artifacts
+coverage.xml
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS
+Thumbs.db
 
 # Database
 *.db
@@ -47,7 +56,6 @@ web/public/docs/
 # Celery
 *celerybeat-schedule
 *celerybeat.pid
-api/app/services/pricing.py
 
 # PowerShell
 dev.ps1
