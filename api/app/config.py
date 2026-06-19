@@ -28,6 +28,15 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     API_KEY: str = "dev-key-12345"
+
+    # Observability
+    ENVIRONMENT: str = "development"
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "auto"  # auto, json, or readable
+    LOG_FILE_ENABLED: bool = True
+    LOG_FILE_PATH: str = "logs/app.log"
+    LOG_FILE_MAX_BYTES: int = 5 * 1024 * 1024
+    LOG_FILE_BACKUP_COUNT: int = 5
     
     # JWT Authentication
     SECRET_KEY: str = "your-secret-key-change-this-in-production-min-32-chars"
@@ -257,6 +266,9 @@ class Settings(BaseSettings):
                 "PRICE_CACHE_TTL_SECONDS cannot be negative. "
                 f"Current: {self.PRICE_CACHE_TTL_SECONDS}"
             )
+
+        if self.LOG_FORMAT.lower() not in {"auto", "json", "readable"}:
+            errors.append("LOG_FORMAT must be one of: auto, json, readable")
 
         # 9. Validate CORS origins
         if not self.CORS_ORIGINS:

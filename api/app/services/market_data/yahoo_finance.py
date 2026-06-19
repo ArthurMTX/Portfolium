@@ -15,6 +15,11 @@ import tempfile
 from typing import Any, Callable, Protocol, Sequence, TypeVar
 
 from app.config import settings
+from app.observability.metrics import (
+    YFINANCE_CALLS,
+    YFINANCE_FAILURES,
+    classify_provider_failure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -227,13 +232,18 @@ def call_yahoo(
     The retry is intentionally conservative and disabled by default. Rate-limit
     failures immediately trip the shared circuit breaker and are not retried.
     """
+    YFINANCE_CALLS.labels(provider="yahoo").inc()
     if is_yahoo_circuit_open():
         remaining = yahoo_circuit_remaining()
+        YFINANCE_FAILURES.labels(provider="yahoo", reason_category="circuit_open").inc()
         logger.warning(
-            "provider=yahoo symbol=%s action=%s skipped=circuit_open remaining=%.1fs",
-            symbol,
-            action,
-            remaining,
+            "Yahoo provider call skipped because circuit is open",
+                extra={
+                    "provider": "yahoo",
+                    "operation": action,
+                    "event": "provider_call_skipped",
+                    "reason_category": "circuit_open",
+            },
         )
         raise YahooUnavailableError(f"Yahoo circuit breaker open ({remaining:.1f}s)")
 
@@ -247,10 +257,13 @@ def call_yahoo(
                 result = operation()
             duration_ms = (time.monotonic() - started_at) * 1000
             logger.info(
-                "provider=yahoo symbol=%s action=%s duration_ms=%.0f status=success",
-                symbol,
-                action,
-                duration_ms,
+                "Yahoo provider call completed",
+                extra={
+                    "provider": "yahoo",
+                    "operation": action,
+                    "event": "provider_call_completed",
+                    "duration_ms": round(duration_ms, 2),
+                },
             )
             return result
         except Exception as exc:
@@ -259,16 +272,20 @@ def call_yahoo(
             rate_limited = is_yahoo_rate_limit_error(exc)
             if rate_limited:
                 trip_yahoo_circuit()
+            reason_category = "rate_limited" if rate_limited else classify_provider_failure(exc)
+            YFINANCE_FAILURES.labels(
+                provider="yahoo",
+                reason_category=reason_category,
+            ).inc()
             logger.warning(
-                "provider=yahoo symbol=%s action=%s duration_ms=%.0f status=failed "
-                "attempt=%s/%s rate_limited=%s error=%s",
-                symbol,
-                action,
-                duration_ms,
-                attempt,
-                attempts,
-                rate_limited,
-                exc,
+                "Yahoo provider call failed",
+                extra={
+                    "provider": "yahoo",
+                    "operation": action,
+                    "event": "provider_call_failed",
+                    "duration_ms": round(duration_ms, 2),
+                    "reason_category": reason_category,
+                },
             )
 
             if rate_limited or attempt >= attempts:

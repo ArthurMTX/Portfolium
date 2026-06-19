@@ -30,6 +30,7 @@ from app.services.market_data.yahoo_finance import (
     yahoo_timeout_seconds,
 )
 from app.services.platform.core_observability import record_stale_fallback
+from app.observability.metrics import record_price_refresh
 from app.utils.exchange_calendars import get_exchange_code
 
 logger = logging.getLogger(__name__)
@@ -377,8 +378,12 @@ class PricingService:
             return quote
         
         # Fetch from yfinance (in thread pool to avoid blocking event loop)
-        logger.info(f"Fetching fresh price for {symbol} from yfinance")
+        logger.debug("Fetching fresh price from provider", extra={"provider": "yahoo"})
+        refresh_started = time.monotonic()
         price = await asyncio.to_thread(self._fetch_from_yfinance, symbol)
+        record_price_refresh(
+            time.monotonic() - refresh_started,
+        )
         
         if price:
             # Calculate daily change percentage
@@ -528,12 +533,19 @@ class PricingService:
         logger.info(f"Need to fetch {len(symbols_to_fetch)}/{len(symbols)} symbols via batch download")
         
         # Phase 2: Batch fetch all missing symbols
+        batch_refresh_started = time.monotonic()
         try:
             batch_results = await asyncio.wait_for(
                 asyncio.to_thread(self._batch_fetch_from_yfinance, symbols_to_fetch),
                 timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
             )
+            record_price_refresh(
+                time.monotonic() - batch_refresh_started,
+            )
         except asyncio.TimeoutError:
+            record_price_refresh(
+                time.monotonic() - batch_refresh_started,
+            )
             logger.warning(
                 "provider=yahoo action=batch_download timeout=true symbols=%s fallback=stale_db",
                 len(symbols_to_fetch),
@@ -553,15 +565,22 @@ class PricingService:
                 f" and skipping {skipped_count}" if skipped_count else "",
             )
             for symbol in fallback_symbols:
+                fallback_started = time.monotonic()
                 try:
                     fallback_price = await asyncio.wait_for(
                         asyncio.to_thread(self._fetch_from_yfinance, symbol),
                         timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
                     )
+                    record_price_refresh(
+                        time.monotonic() - fallback_started,
+                    )
                     if fallback_price:
                         batch_results[symbol] = fallback_price
                         logger.info("Individual fallback returned price for %s", symbol)
                 except asyncio.TimeoutError:
+                    record_price_refresh(
+                        time.monotonic() - fallback_started,
+                    )
                     logger.warning(
                         "provider=yahoo symbol=%s action=individual_fallback timeout=true",
                         symbol,

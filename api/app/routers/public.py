@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, Path
 from sqlalchemy.orm import Session
-from typing import List
-from datetime import datetime
 
 from app.db import get_db
 from app.errors import PublicPortfolioNotFoundError
@@ -10,14 +8,10 @@ from app.services.portfolio_analytics.metrics import MetricsService
 from app.crud import assets as crud_assets
 from app.schemas_public import (
     PublicPortfolioInsights,
-    PublicPerformanceMetrics,
-    PublicRiskMetrics,
     PublicSectorAllocation,
     PublicGeographicAllocation,
     PublicHolding,
-    PublicTimeSeriesPoint
 )
-from app.schemas import PortfolioInsights
 
 router = APIRouter()
 
@@ -46,7 +40,7 @@ async def get_public_portfolio(
     cached_data = cache.get(cache_key)
     
     if cached_data:
-        logger.info(f"Public portfolio cache hit for token {share_token[:8]}...")
+        logger.debug("Public portfolio cache hit", extra={"event": "public_portfolio_cache_hit"})
         return cached_data
     
     insights_service = InsightsService(db)
@@ -142,7 +136,7 @@ async def get_public_portfolio(
         
         # Cache for 30 minutes - perfect for public views since data is identical for all visitors
         cache.set(cache_key, response.model_dump(), ttl=1800)
-        logger.info(f"Cached public portfolio {portfolio_id} (token {share_token[:8]}...) for 30min")
+        logger.debug("Cached public portfolio", extra={"event": "public_portfolio_cache_set"})
         
         return response
         

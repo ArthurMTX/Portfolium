@@ -1,0 +1,98 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests / second",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(rate(portfolium_http_requests_total[5m]))", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "5xx error rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}},
+      "targets": [{
+        "expr": "sum(rate(portfolium_http_errors_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(portfolium_http_requests_total[5m])), 0.001)",
+        "refId": "A"
+      }],
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "HTTP p95 latency",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{
+        "expr": "histogram_quantile(0.95, sum by (le) (rate(portfolium_http_request_duration_seconds_bucket[5m])))",
+        "refId": "A"
+      }],
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Yahoo failures (15m)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(increase(portfolium_yfinance_failures_total[15m]))", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Request rate by route",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{
+        "expr": "sum by (route) (rate(portfolium_http_requests_total[5m]))",
+        "legendFormat": "{{route}}",
+        "refId": "A"
+      }],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6}
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p95 by route",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{
+        "expr": "histogram_quantile(0.95, sum by (le, route) (rate(portfolium_http_request_duration_seconds_bucket[5m])))",
+        "legendFormat": "{{route}}",
+        "refId": "A"
+      }],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6}
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "targets": [{
+        "expr": "sum by (cache_name) (rate(portfolium_cache_hits_total[5m])) / clamp_min(sum by (cache_name) (rate(portfolium_cache_hits_total[5m]) + rate(portfolium_cache_misses_total[5m])), 0.001)",
+        "legendFormat": "{{cache_name}}",
+        "refId": "A"
+      }],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 15}
+    },
+    {
+      "type": "timeseries",
+      "title": "Daily gain unavailable",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{
+        "expr": "sum by (reason_category) (increase(portfolium_daily_gain_unavailable_total[1h]))",
+        "legendFormat": "{{reason_category}}",
+        "refId": "A"
+      }],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 15}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["portfolium", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Portfolium Overview",
+  "uid": "portfolium-overview",
+  "version": 1
+}

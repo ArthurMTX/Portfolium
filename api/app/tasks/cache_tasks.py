@@ -3,8 +3,7 @@ Background tasks for cache management and optimization.
 """
 import asyncio
 import logging
-from typing import List, Optional
-from celery import group
+from typing import List
 from datetime import datetime
 
 from app.celery_app import celery_app
@@ -219,13 +218,12 @@ def warmup_public_portfolios(self) -> dict:
         logger.info(f"Task {self.request.id}: Starting public portfolio cache warmup")
         
         with get_db_context() as db:
-            from app.crud import portfolios as crud_portfolios
             from app.routers.public import get_public_portfolio
             import asyncio
             
             # Get all public portfolios
             public_portfolios = db.query(Portfolio).filter(
-                Portfolio.is_public == True,
+                Portfolio.is_public.is_(True),
                 Portfolio.share_token.isnot(None)
             ).all()
             
@@ -242,9 +240,12 @@ def warmup_public_portfolios(self) -> dict:
                 try:
                     # Call the endpoint function directly to warm cache
                     # This will compute and cache the expensive insights
-                    result = asyncio.run(get_public_portfolio(portfolio.share_token, db))
+                    asyncio.run(get_public_portfolio(portfolio.share_token, db))
                     warmed_count += 1
-                    logger.info(f"Warmed public portfolio {portfolio.id} (token {portfolio.share_token[:8]}...)")
+                    logger.debug(
+                        "Warmed public portfolio",
+                        extra={"event": "public_portfolio_cache_warmed"},
+                    )
                 except Exception as e:
                     failed_count += 1
                     logger.error(f"Failed to warm public portfolio {portfolio.id}: {e}")

@@ -38,6 +38,7 @@ dependencies = [
     "numpy>=1.26.0",
     "onnxruntime>=1.17.0",
     "tokenizers>=0.15.0",
+    "prometheus-client>=0.20.0",
 ]
 
 [project.optional-dependencies]

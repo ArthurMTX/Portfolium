@@ -1,10 +1,27 @@
 """
 Celery application configuration and initialization.
 """
+import logging
+import time
+
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import task_postrun
+from celery.signals import before_task_publish, task_failure, task_postrun, task_prerun
 from app.config import settings
+from app.observability.context import (
+    request_id_var,
+    reset_request_id,
+    reset_task_name,
+    set_request_id,
+    set_task_name,
+)
+from app.observability.logging import configure_logging
+from app.observability.metrics import CELERY_TASK_DURATION, CELERY_TASK_FAILURES
+
+
+configure_logging(settings)
+logger = logging.getLogger(__name__)
+_task_observation: dict[str, tuple[float, object, object]] = {}
 
 # Initialize Celery app
 celery_app = Celery(
@@ -44,6 +61,7 @@ celery_app.conf.update(
     worker_prefetch_multiplier=settings.CELERY_WORKER_PREFETCH_MULTIPLIER,
     worker_max_tasks_per_child=settings.CELERY_WORKER_MAX_TASKS_PER_CHILD,
     worker_disable_rate_limits=False,  # Enable rate limiting
+    worker_hijack_root_logger=False,
     
     # Task behavior
     task_acks_late=True,  # Acknowledge tasks after completion (safer for crashes)
@@ -70,21 +88,72 @@ celery_app.conf.update(
 )
 
 
+@before_task_publish.connect
+def propagate_request_id(headers=None, **kwargs):
+    """Propagate the current HTTP request ID into tasks queued by that request."""
+    request_id = request_id_var.get()
+    if request_id and headers is not None:
+        headers["request_id"] = request_id
+
+
+@task_prerun.connect
+def observe_task_start(sender=None, task_id=None, task=None, **kwargs):
+    """Attach task context and start centralized timing."""
+    task_name = getattr(sender or task, "name", None) or "unknown"
+    request = getattr(task, "request", None)
+    headers = getattr(request, "headers", None) or {}
+    request_token = set_request_id(headers.get("request_id"))
+    task_token = set_task_name(task_name)
+    if task_id:
+        _task_observation[task_id] = (time.monotonic(), request_token, task_token)
+    logger.info("Celery task started", extra={"event": "celery_task_started", "task_name": task_name})
+
+
 @task_postrun.connect
 def record_successful_task(sender=None, task_id=None, state=None, retval=None, **kwargs):
-    """Record lightweight last-success timestamps for task health checks."""
-    if state != "SUCCESS":
-        return
-    if isinstance(retval, dict):
-        if retval.get("status") in {"error", "skipped"} or retval.get("error"):
-            return
+    """Record task duration, outcome, context cleanup, and last-success health."""
+    task_name = getattr(sender, "name", None) or "unknown"
+    returned_failure = isinstance(retval, dict) and (
+        retval.get("status") == "error" or bool(retval.get("error"))
+    )
+    outcome = "failure" if state != "SUCCESS" or returned_failure else "success"
+    observation = _task_observation.pop(task_id, None) if task_id else None
+    duration_ms = None
+    if observation:
+        started, request_token, task_token = observation
+        duration_seconds = time.monotonic() - started
+        duration_ms = round(duration_seconds * 1000, 2)
+        CELERY_TASK_DURATION.labels(task_name=task_name).observe(duration_seconds)
+    if returned_failure:
+        CELERY_TASK_FAILURES.labels(task_name=task_name).inc()
+    logger_method = logger.error if outcome == "failure" else logger.info
+    logger_method(
+        "Celery task completed",
+        extra={
+            "event": "celery_task_completed",
+            "task_name": task_name,
+            "duration_ms": duration_ms,
+        },
+    )
 
-    try:
-        from app.services.platform.core_observability import record_task_success
+    if outcome == "success":
+        try:
+            from app.services.platform.core_observability import record_task_success
 
-        record_task_success(getattr(sender, "name", None), task_id)
-    except Exception:
-        pass
+            record_task_success(task_name, task_id)
+        except Exception:
+            pass
+
+    if observation:
+        reset_task_name(task_token)
+        reset_request_id(request_token)
+
+
+@task_failure.connect
+def observe_task_failure(sender=None, task_id=None, **kwargs):
+    """Count failures without using exception text as a label."""
+    task_name = getattr(sender, "name", None) or "unknown"
+    CELERY_TASK_FAILURES.labels(task_name=task_name).inc()
 
 # Celery Beat is the single scheduler for the application.
 # FastAPI workers do not schedule periodic jobs and do not run heavy warmups at boot.

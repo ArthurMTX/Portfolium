@@ -16,6 +16,11 @@ from app.crud import prices as crud_prices
 from app.db import get_db
 from app.services.platform.cache import CacheService, cache_positions, get_cached_positions, invalidate_positions
 from app.services.market_data.currency import CurrencyService
+from app.observability.metrics import (
+    DAILY_GAIN_RELIABLE,
+    DAILY_GAIN_UNAVAILABLE,
+    daily_gain_reason_category,
+)
 from app.utils.exchange_calendars import get_trading_sessions
 
 logger = logging.getLogger(__name__)
@@ -326,6 +331,7 @@ class MetricsService:
             .all()
         )
         if not transactions:
+            DAILY_GAIN_UNAVAILABLE.labels(reason_category="no_transactions").inc()
             return None, None
 
         today = datetime.utcnow().date()
@@ -339,13 +345,18 @@ class MetricsService:
         )
         totals = report["totals"]
         if not report["reliable"]:
+            reason_category = daily_gain_reason_category(report["unavailable_reasons"])
+            DAILY_GAIN_UNAVAILABLE.labels(reason_category=reason_category).inc()
             logger.info(
-                "Daily gain unavailable for portfolio %s: %s",
-                portfolio_id,
-                "; ".join(report["unavailable_reasons"]),
+                "Daily gain unavailable",
+                extra={
+                    "event": "daily_gain_unavailable",
+                    "reason_category": reason_category,
+                },
             )
             return None, None
 
+        DAILY_GAIN_RELIABLE.inc()
         return totals["computed_daily_gain_amount"], totals["computed_daily_gain_pct"]
 
     async def get_daily_gain_attribution_report(
@@ -1764,8 +1775,10 @@ class MetricsService:
             # DEBUG: Log cost_basis calculation for troubleshooting
             if total_cost_basis == 0 and total_value > 0:
                 logger.warning(f"ZERO cost_basis on {current_date} despite having value €{float(total_value):.2f}")
-                logger.warning(f"  Holdings: {dict(holdings)}")
-                logger.warning(f"  Cost basis per asset: {dict(cost_basis)}")
+                logger.warning(
+                    "Portfolio history cost basis unavailable",
+                    extra={"event": "portfolio_history_cost_basis_unavailable"},
+                )
             
             # Calculate gain percentage (value vs invested, excluding deposits/withdrawals)
             gain_pct = None

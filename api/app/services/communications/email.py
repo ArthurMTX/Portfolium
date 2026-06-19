@@ -90,7 +90,10 @@ class EmailService:
         """
         if not self.enable_email:
             logger.info(f"Email disabled. Would send to {to_email}: {subject}")
-            logger.debug(f"Email content: {html_content}")
+            logger.debug(
+                "Email rendering completed",
+                extra={"event": "email_rendered"},
+            )
             if attachment_filename:
                 logger.info(f"Would attach: {attachment_filename} ({len(attachment_data) if attachment_data else 0} bytes)")
             if attachments:
@@ -198,7 +201,7 @@ class EmailService:
             logger.info(f"Email sent successfully to {to_email}")
             return True
 
-        except Exception as e:
+        except Exception:
             logger.exception(f"Failed to send email to {to_email}")
             return False
         

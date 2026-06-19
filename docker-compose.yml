@@ -10,6 +10,10 @@ x-api-common: &api_common
   environment:
     POSTGRES_HOST: db
     REDIS_HOST: redis
+    ENVIRONMENT: production
+    LOG_FORMAT: json
+    LOG_FILE_ENABLED: "false"
+    PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus-multiproc
 
 services:
   db:

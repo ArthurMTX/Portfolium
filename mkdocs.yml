@@ -194,6 +194,7 @@ nav:
       - Currency Conversion: technical/currency-conversion.md
       - Data Models: technical/data-models.md
       - Pricing Service: technical/pricing-service.md
+      - Observability: technical/observability.md
 
   - Development:
       - Architecture: development/architecture.md

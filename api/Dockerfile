@@ -37,7 +37,7 @@ COPY api/ .
 COPY web/src/locales ./locales
 
 # Create static directory and copy logo for email templates
-RUN mkdir -p ./static
+RUN mkdir -p ./static /tmp/prometheus-multiproc
 COPY web/public/favicon-96x96.png ./static/logo.png
 
 # Copy email templates
@@ -48,4 +48,4 @@ EXPOSE 8000
 
 # Run application with uvicorn
 # --timeout-keep-alive handles slow clients, --backlog for connection queue
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--timeout-keep-alive", "30", "--backlog", "100"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--timeout-keep-alive", "30", "--backlog", "100", "--no-access-log"]

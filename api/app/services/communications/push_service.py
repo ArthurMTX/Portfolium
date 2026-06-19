@@ -6,7 +6,7 @@ Requires VAPID keys to be configured in environment variables.
 """
 import json
 import logging
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
 
 from pywebpush import webpush, WebPushException
@@ -106,7 +106,7 @@ def send_push_notification(
         return False, "Push notifications not configured"
     
     try:
-        response = webpush(
+        webpush(
             subscription_info=subscription_info,
             data=payload.to_json(),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
@@ -128,17 +128,17 @@ def send_push_notification(
             
             if status_code == 410:
                 # Subscription has been unsubscribed or expired
-                logger.info(f"Push subscription expired (410 Gone): {subscription_info.get('endpoint', '')[:50]}...")
+                logger.info("Push subscription expired", extra={"event": "push_subscription_expired"})
                 return False, "subscription_expired"
             
             elif status_code == 404:
                 # Subscription not found
-                logger.info(f"Push subscription not found (404): {subscription_info.get('endpoint', '')[:50]}...")
+                logger.info("Push subscription not found", extra={"event": "push_subscription_missing"})
                 return False, "subscription_not_found"
             
             elif status_code == 429:
                 # Rate limited
-                logger.warning(f"Push rate limited (429): {subscription_info.get('endpoint', '')[:50]}...")
+                logger.warning("Push delivery rate limited", extra={"event": "push_rate_limited"})
                 return False, "rate_limited"
             
             elif status_code >= 500:

@@ -16,6 +16,10 @@ x-api-common: &api_common
   environment:
     POSTGRES_HOST: db
     REDIS_HOST: redis
+    ENVIRONMENT: development
+    LOG_FORMAT: readable
+    LOG_FILE_ENABLED: "true"
+    PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus-multiproc
   volumes:
     - ./api:/app
     - ./web/src/locales:/app/locales:ro

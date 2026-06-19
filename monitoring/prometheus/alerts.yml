@@ -1,0 +1,43 @@
+groups:
+  - name: portfolium
+    rules:
+      - alert: PortfoliumApiDown
+        expr: up{job="portfolium-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Portfolium API metrics endpoint is unavailable
+
+      - alert: PortfoliumHighServerErrorRate
+        expr: |
+          (
+            sum(rate(portfolium_http_errors_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(portfolium_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Portfolium 5xx rate is above 5%
+
+      - alert: PortfoliumHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(portfolium_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Portfolium API p95 latency is above 2 seconds
+
+      - alert: PortfoliumYahooFailureSpike
+        expr: sum(increase(portfolium_yfinance_failures_total[15m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Yahoo Finance failures are elevated

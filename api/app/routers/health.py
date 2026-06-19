@@ -1,6 +1,7 @@
 """
 Health check router
 """
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends
@@ -13,6 +14,7 @@ from app.version import __version__
 from app.config import settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def get_market_status() -> str:
@@ -119,8 +121,12 @@ async def health_check(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
         db_status = "healthy"
-    except Exception as e:
-        db_status = f"unhealthy: {str(e)}"
+    except Exception:
+        db_status = "unhealthy"
+        logger.warning(
+            "Database health check failed",
+            extra={"event": "database_health_check_failed"},
+        )
     
     # Test Redis connection
     from app.redis_client import get_redis_manager

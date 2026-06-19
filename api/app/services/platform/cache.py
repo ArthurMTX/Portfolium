@@ -4,13 +4,14 @@ Provides type-safe caching for common operations.
 """
 import json
 import logging
-from typing import Optional, Any, Callable, TypeVar, Generic
-from datetime import datetime, timedelta
+from typing import Optional, Any, Callable, TypeVar
+from datetime import datetime
 from decimal import Decimal
 from redis.exceptions import RedisError
 from pydantic import BaseModel
 
 from app.redis_client import get_redis
+from app.observability.metrics import CACHE_HITS, CACHE_MISSES, cache_name_from_key
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +84,21 @@ class CacheService:
         try:
             value = redis_client.get(key)
             if value is None:
-                logger.debug(f"Cache MISS: {key}")
+                CACHE_MISSES.labels(cache_name=cache_name_from_key(key)).inc()
+                logger.debug("Cache miss", extra={"event": "cache_miss"})
                 return default
             
-            logger.debug(f"Cache HIT: {key}")
+            CACHE_HITS.labels(cache_name=cache_name_from_key(key)).inc()
+            logger.debug("Cache hit", extra={"event": "cache_hit"})
             return CacheService._deserialize(value)
-        except (RedisError, json.JSONDecodeError) as e:
-            logger.warning(f"Cache get error for key {key}: {e}")
+        except (RedisError, json.JSONDecodeError):
+            logger.warning(
+                "Cache get failed",
+                extra={
+                    "event": "cache_operation_failed",
+                    "reason_category": "redis_or_decode_error",
+                },
+            )
             return default
     
     @staticmethod
@@ -232,13 +241,18 @@ class CacheService:
         try:
             values = redis_client.mget(keys)
             result = []
-            for value in values:
+            for key, value in zip(keys, values):
+                cache_name = cache_name_from_key(key)
                 if value is None:
+                    CACHE_MISSES.labels(cache_name=cache_name).inc()
                     result.append(None)
                 else:
                     try:
-                        result.append(CacheService._deserialize(value))
+                        deserialized = CacheService._deserialize(value)
+                        CACHE_HITS.labels(cache_name=cache_name).inc()
+                        result.append(deserialized)
                     except json.JSONDecodeError:
+                        CACHE_MISSES.labels(cache_name=cache_name).inc()
                         result.append(None)
             return result
         except RedisError as e:
