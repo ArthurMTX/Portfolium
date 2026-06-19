@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import os
+import threading
+from functools import wraps
 from contextlib import contextmanager
 from time import monotonic
-from typing import Iterator
+from typing import Any, Callable, Iterator, TypeVar
 
 from prometheus_client import CollectorRegistry, Counter, Histogram, REGISTRY, generate_latest
+from prometheus_client.core import GaugeMetricFamily
 from prometheus_client.multiprocess import MultiProcessCollector
 
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 HTTP_REQUESTS = Counter(
     "portfolium_http_requests_total",
@@ -72,15 +77,159 @@ DAILY_GAIN_UNAVAILABLE = Counter(
     "Daily gain unavailable results by bounded reason category.",
     ("reason_category",),
 )
+PRICE_ASSETS_REFRESHED = Counter(
+    "portfolium_price_assets_refreshed_total",
+    "Assets successfully refreshed from the market-data provider.",
+    ("provider",),
+)
+MISSING_PRICES = Counter(
+    "portfolium_missing_prices_total",
+    "Requested asset prices unavailable after provider and fallback processing.",
+)
+FX_REFRESH_DURATION = Histogram(
+    "portfolium_fx_refresh_duration_seconds",
+    "FX rate lookup duration, including provider fallback processing.",
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20),
+)
+FX_FAILURES = Counter(
+    "portfolium_fx_failures_total",
+    "FX rate lookups that could not return a current or stale rate.",
+    ("reason_category",),
+)
+BUSINESS_OPERATION_DURATION = Histogram(
+    "portfolium_business_operation_duration_seconds",
+    "Duration of bounded portfolio business operations.",
+    ("operation",),
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120),
+)
+TRANSACTIONS_CREATED = Counter(
+    "portfolium_transactions_created_total",
+    "Transactions created through Portfolium.",
+)
+IMPORTED_TRANSACTIONS = Counter(
+    "portfolium_imported_transactions_total",
+    "Transactions created through CSV imports.",
+)
+NOTIFICATIONS_CREATED = Counter(
+    "portfolium_notifications_created_total",
+    "In-app notifications created.",
+)
+DB_QUERY_DURATION = Histogram(
+    "portfolium_db_query_duration_seconds",
+    "SQLAlchemy query duration without SQL text or identifier labels.",
+    ("operation",),
+    buckets=(0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
+)
+DB_SLOW_QUERIES = Counter(
+    "portfolium_db_slow_queries_total",
+    "SQLAlchemy queries exceeding one second.",
+    ("operation",),
+)
+
+
+class BusinessInventoryCollector:
+    """Collect low-cardinality inventory gauges directly from the primary database."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._cached_at = 0.0
+        self._cached_values: tuple[tuple[str, str, int], ...] = ()
+
+    def describe(self):
+        """Avoid database access during registry registration."""
+        return []
+
+    def _load_values(self) -> tuple[tuple[str, str, int], ...]:
+        now = monotonic()
+        with self._lock:
+            if self._cached_values and now - self._cached_at < 60:
+                return self._cached_values
+
+            from app.db import SessionLocal
+            from sqlalchemy import text
+
+            db = SessionLocal()
+            try:
+                values = (
+                    (
+                        "portfolium_portfolios",
+                        "Current portfolio count.",
+                        db.execute(text("SELECT COUNT(*) FROM portfolio.portfolios")).scalar() or 0,
+                    ),
+                    (
+                        "portfolium_assets",
+                        "Current asset count.",
+                        db.execute(text("SELECT COUNT(*) FROM portfolio.assets")).scalar() or 0,
+                    ),
+                    (
+                        "portfolium_active_users",
+                        "Current enabled user count.",
+                        db.execute(
+                            text("SELECT COUNT(*) FROM portfolio.users WHERE is_active IS TRUE")
+                        ).scalar()
+                        or 0,
+                    ),
+                    (
+                        "portfolium_transactions_last_24h",
+                        "Transactions created in the last 24 hours.",
+                        db.execute(
+                            text(
+                                "SELECT COUNT(*) FROM portfolio.transactions "
+                                "WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'"
+                            )
+                        ).scalar()
+                        or 0,
+                    ),
+                    (
+                        "portfolium_notifications_last_24h",
+                        "Notifications created in the last 24 hours.",
+                        db.execute(
+                            text(
+                                "SELECT COUNT(*) FROM portfolio.notifications "
+                                "WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'"
+                            )
+                        ).scalar()
+                        or 0,
+                    ),
+                )
+                self._cached_values = values
+                self._cached_at = now
+                return values
+            except Exception:
+                if self._cached_values:
+                    return self._cached_values
+                raise
+            finally:
+                db.close()
+
+    def collect(self):
+        try:
+            for name, documentation, value in self._load_values():
+                metric = GaugeMetricFamily(name, documentation)
+                metric.add_metric([], value)
+                yield metric
+        except Exception:
+            return
+
+
+BUSINESS_INVENTORY_COLLECTOR = BusinessInventoryCollector()
+REGISTRY.register(BUSINESS_INVENTORY_COLLECTOR)
+
+
+def build_metrics_registry(*, include_business_inventory: bool = True):
+    """Build a registry suitable for API or Celery multiprocess collection."""
+    if os.getenv("PROMETHEUS_MULTIPROC_DIR"):
+        registry = CollectorRegistry()
+        if include_business_inventory:
+            registry.register(BUSINESS_INVENTORY_COLLECTOR)
+        MultiProcessCollector(registry)
+        return registry
+    return REGISTRY
 
 
 def metrics_payload() -> bytes:
     """Render the current process or configured multiprocess registry."""
-    if os.getenv("PROMETHEUS_MULTIPROC_DIR"):
-        registry = CollectorRegistry()
-        MultiProcessCollector(registry)
-        return generate_latest(registry)
-    return generate_latest(REGISTRY)
+    return generate_latest(build_metrics_registry())
 
 
 def classify_provider_failure(exc: BaseException) -> str:
@@ -142,3 +291,61 @@ def observe_price_refresh(provider: str = "yahoo") -> Iterator[None]:
         yield
     finally:
         PRICE_REFRESH_DURATION.labels(provider=provider).observe(monotonic() - started)
+
+
+def observe_operation(operation: str) -> Callable[[F], F]:
+    """Time a synchronous function under a fixed, code-defined operation label."""
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any):
+            started = monotonic()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                BUSINESS_OPERATION_DURATION.labels(operation=operation).observe(
+                    monotonic() - started
+                )
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+def observe_async_operation(operation: str) -> Callable[[F], F]:
+    """Time an asynchronous function under a fixed, code-defined operation label."""
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any):
+            started = monotonic()
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                BUSINESS_OPERATION_DURATION.labels(operation=operation).observe(
+                    monotonic() - started
+                )
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+def observe_fx_lookup(func: F) -> F:
+    """Time an FX lookup and count unavailable results without currency labels."""
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any):
+        started = monotonic()
+        try:
+            result = func(*args, **kwargs)
+            if result is None:
+                FX_FAILURES.labels(reason_category="unavailable").inc()
+            return result
+        except BaseException:
+            FX_FAILURES.labels(reason_category="exception").inc()
+            raise
+        finally:
+            FX_REFRESH_DURATION.observe(monotonic() - started)
+
+    return wrapper  # type: ignore[return-value]

@@ -105,6 +105,7 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 300  # 5 minutes max per task
     CELERY_WORKER_PREFETCH_MULTIPLIER: int = 4
     CELERY_WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    CELERY_METRICS_PORT: int = 9809
     
     # Background Task Configuration
     ENABLE_BACKGROUND_TASKS: bool = True  # Set to False to disable background task scheduling

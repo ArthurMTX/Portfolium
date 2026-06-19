@@ -5,20 +5,20 @@ import asyncio
 import logging
 from typing import List, Optional
 from celery import group
-from sqlalchemy.orm import Session
 
 from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Portfolio, User
 from app.services.portfolio_analytics.insights import InsightsService
-from app.services.platform.cache import CacheService
 from app.tasks.decorators import singleton_task, deduplicate_task
+from app.observability.metrics import observe_operation
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, name="app.tasks.insights_tasks.calculate_portfolio_insights")
 @deduplicate_task(ttl=60)  # Prevent duplicate calls within 60 seconds
+@observe_operation("insights_generation")
 def calculate_portfolio_insights(self, portfolio_id: int, user_id: int, period: str = "1mo") -> dict:
     """
     Calculate and cache insights for a single portfolio.
@@ -100,7 +100,7 @@ def refresh_all_portfolio_insights(self, period: str = "1mo") -> dict:
         with get_db_context() as db:
             # Get all active portfolios
             portfolios = db.query(Portfolio).join(User).filter(
-                User.is_active == True
+                User.is_active.is_(True)
             ).all()
             
             if not portfolios:
@@ -205,7 +205,7 @@ def warmup_insights_cache(portfolio_ids: Optional[List[int]] = None, periods: Op
             else:
                 # Get all active portfolios
                 portfolios = db.query(Portfolio).join(User).filter(
-                    User.is_active == True
+                    User.is_active.is_(True)
                 ).all()
             
             # Create parallel tasks for each portfolio and period combination

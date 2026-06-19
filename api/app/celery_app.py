@@ -6,7 +6,8 @@ import time
 
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import before_task_publish, task_failure, task_postrun, task_prerun
+from celery.signals import before_task_publish, task_failure, task_postrun, task_prerun, worker_ready
+from prometheus_client import start_http_server
 from app.config import settings
 from app.observability.context import (
     request_id_var,
@@ -16,12 +17,17 @@ from app.observability.context import (
     set_task_name,
 )
 from app.observability.logging import configure_logging
-from app.observability.metrics import CELERY_TASK_DURATION, CELERY_TASK_FAILURES
+from app.observability.metrics import (
+    CELERY_TASK_DURATION,
+    CELERY_TASK_FAILURES,
+    build_metrics_registry,
+)
 
 
 configure_logging(settings)
 logger = logging.getLogger(__name__)
 _task_observation: dict[str, tuple[float, object, object]] = {}
+_metrics_server_started = False
 
 # Initialize Celery app
 celery_app = Celery(
@@ -62,6 +68,8 @@ celery_app.conf.update(
     worker_max_tasks_per_child=settings.CELERY_WORKER_MAX_TASKS_PER_CHILD,
     worker_disable_rate_limits=False,  # Enable rate limiting
     worker_hijack_root_logger=False,
+    worker_send_task_events=True,
+    task_send_sent_event=True,
     
     # Task behavior
     task_acks_late=True,  # Acknowledge tasks after completion (safer for crashes)
@@ -94,6 +102,24 @@ def propagate_request_id(headers=None, **kwargs):
     request_id = request_id_var.get()
     if request_id and headers is not None:
         headers["request_id"] = request_id
+
+
+@worker_ready.connect
+def start_worker_metrics_server(**kwargs):
+    """Expose metrics produced by Celery worker child processes."""
+    global _metrics_server_started
+    if _metrics_server_started or settings.CELERY_METRICS_PORT <= 0:
+        return
+    start_http_server(
+        settings.CELERY_METRICS_PORT,
+        addr="0.0.0.0",
+        registry=build_metrics_registry(include_business_inventory=False),
+    )
+    _metrics_server_started = True
+    logger.info(
+        "Celery metrics endpoint started",
+        extra={"event": "celery_metrics_ready"},
+    )
 
 
 @task_prerun.connect

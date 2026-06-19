@@ -15,12 +15,12 @@ groups:
             sum(rate(portfolium_http_errors_total{status_class="5xx"}[5m]))
             /
             clamp_min(sum(rate(portfolium_http_requests_total[5m])), 0.001)
-          ) > 0.05
+          ) > 0.02
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: Portfolium 5xx rate is above 5%
+          summary: Portfolium 5xx rate is above 2%
 
       - alert: PortfoliumHighP95Latency
         expr: |
@@ -41,3 +41,134 @@ groups:
           severity: warning
         annotations:
           summary: Yahoo Finance failures are elevated
+
+      - alert: PortfoliumRequestRateZero
+        expr: sum(rate(portfolium_http_requests_total[10m])) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Portfolium request rate has dropped to zero
+
+      - alert: PortfoliumYahooRefreshSlow
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(portfolium_price_refresh_duration_seconds_bucket[10m]))
+          ) > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Yahoo price refresh p95 is above 10 seconds
+
+      - alert: PortfoliumPostgresDown
+        expr: pg_up{job="portfolium-postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL exporter cannot reach PostgreSQL
+
+      - alert: PortfoliumPostgresConnectionsExhausted
+        expr: |
+          sum(pg_stat_activity_count{job="portfolium-postgres"})
+          /
+          max(pg_settings_max_connections{job="portfolium-postgres"})
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL is using more than 85% of available connections
+
+      - alert: PortfoliumRedisDown
+        expr: redis_up{job="portfolium-redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Redis exporter cannot reach Redis
+
+      - alert: PortfoliumRedisMemoryHigh
+        expr: |
+          redis_memory_used_bytes{job="portfolium-redis"}
+          /
+          clamp_min(redis_memory_max_bytes{job="portfolium-redis"}, 1)
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis memory usage is above 85%
+
+      - alert: PortfoliumRedisEvictions
+        expr: increase(redis_evicted_keys_total{job="portfolium-redis"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis is evicting keys
+
+      - alert: PortfoliumCeleryExporterDown
+        expr: up{job="portfolium-celery"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Celery exporter is unavailable
+
+      - alert: PortfoliumCeleryWorkerMetricsDown
+        expr: up{job="portfolium-celery-worker"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Celery worker metrics endpoint is unavailable
+
+      - alert: PortfoliumCeleryWorkerDown
+        expr: sum(celery_worker_up) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: No Celery workers are reporting events
+
+      - alert: PortfoliumCeleryQueueBacklog
+        expr: sum(celery_queue_length) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Celery queue backlog exceeds 100 tasks
+
+      - alert: PortfoliumCeleryRepeatedFailures
+        expr: sum(increase(celery_task_failed_total[15m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Celery task failures are elevated
+
+      - alert: PortfoliumDailyGainUnavailableSpike
+        expr: sum(increase(portfolium_daily_gain_unavailable_total[30m])) > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Daily Gain unavailable results are elevated
+
+      - alert: PortfoliumCacheHitRatioLow
+        expr: |
+          sum(rate(portfolium_cache_hits_total[15m]))
+          /
+          clamp_min(
+            sum(rate(portfolium_cache_hits_total[15m]))
+            + sum(rate(portfolium_cache_misses_total[15m])),
+            0.001
+          ) < 0.5
+        for: 20m
+        labels:
+          severity: warning
+        annotations:
+          summary: Portfolium application cache hit ratio is below 50%

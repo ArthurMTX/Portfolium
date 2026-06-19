@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.services.platform.core_observability import record_stale_fallback
+from app.observability.metrics import observe_fx_lookup
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class CurrencyService:
     """Service for currency conversion"""
     
     @staticmethod
+    @observe_fx_lookup
     def get_exchange_rate(from_currency: str, to_currency: str) -> Optional[Decimal]:
         """
         Get exchange rate from one currency to another
@@ -198,6 +200,7 @@ class CurrencyService:
         return amount * rate
     
     @staticmethod
+    @observe_fx_lookup
     def get_historical_exchange_rate(
         from_currency: str, 
         to_currency: str, 

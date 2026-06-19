@@ -22,6 +22,7 @@ from app.schemas import (
 from app.crud import assets as crud_assets, transactions as crud_transactions
 from app.db import get_db
 from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.observability.metrics import IMPORTED_TRANSACTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,7 @@ class CsvImportService:
                     )
                     
                     crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
+                    IMPORTED_TRANSACTIONS.inc()
                     imported_count += 1
                     
                     yield {
@@ -442,6 +444,7 @@ class CsvImportService:
                     )
                     
                     crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
+                    IMPORTED_TRANSACTIONS.inc()
                     imported_count += 1
                     
                     # Update first_transaction_date if this is earlier than the current value
@@ -643,13 +646,13 @@ class CsvImportService:
         # Parse date
         try:
             tx_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except:
+        except ValueError:
             raise ValueError(f"Invalid date format: {date_str} (expected YYYY-MM-DD)")
         
         # Parse transaction type
         try:
             tx_type = TransactionType[type_str]
-        except:
+        except KeyError:
             raise ValueError(f"Invalid transaction type: {type_str}")
         
         # Optional fields

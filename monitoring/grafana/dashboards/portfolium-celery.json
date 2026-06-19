@@ -1,0 +1,17 @@
+{
+  "annotations":{"list":[]},"editable":true,"graphTooltip":1,
+  "panels":[
+    {"type":"stat","title":"Exporter UP","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"max(up{job=\"portfolium-celery\"})","refId":"A"}],"gridPos":{"h":5,"w":4,"x":0,"y":0}},
+    {"type":"stat","title":"Workers","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(celery_worker_up)","refId":"A"}],"gridPos":{"h":5,"w":4,"x":4,"y":0}},
+    {"type":"stat","title":"Running tasks","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(celery_worker_tasks_active)","refId":"A"}],"gridPos":{"h":5,"w":4,"x":8,"y":0}},
+    {"type":"stat","title":"Queue length","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(celery_queue_length)","refId":"A"}],"gridPos":{"h":5,"w":4,"x":12,"y":0}},
+    {"type":"stat","title":"Succeeded (1h)","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(increase(celery_task_succeeded_total[1h]))","refId":"A"}],"gridPos":{"h":5,"w":4,"x":16,"y":0}},
+    {"type":"stat","title":"Failed (1h)","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(increase(celery_task_failed_total[1h]))","refId":"A"}],"gridPos":{"h":5,"w":4,"x":20,"y":0}},
+    {"type":"timeseries","title":"Task lifecycle rate","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(rate(celery_task_succeeded_total[5m]))","legendFormat":"succeeded/sec","refId":"A"},{"expr":"sum(rate(celery_task_failed_total[5m]))","legendFormat":"failed/sec","refId":"B"},{"expr":"sum(rate(celery_task_retried_total[5m]))","legendFormat":"retried/sec","refId":"C"}],"gridPos":{"h":8,"w":12,"x":0,"y":5}},
+    {"type":"timeseries","title":"Queue backlog","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (queue_name) (celery_queue_length)","legendFormat":"{{queue_name}}","refId":"A"}],"gridPos":{"h":8,"w":12,"x":12,"y":5}},
+    {"type":"timeseries","title":"Task duration percentiles","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"histogram_quantile(0.50, sum by (le) (rate(portfolium_celery_task_duration_seconds_bucket[5m])))","legendFormat":"p50","refId":"A"},{"expr":"histogram_quantile(0.95, sum by (le) (rate(portfolium_celery_task_duration_seconds_bucket[5m])))","legendFormat":"p95","refId":"B"},{"expr":"histogram_quantile(0.99, sum by (le) (rate(portfolium_celery_task_duration_seconds_bucket[5m])))","legendFormat":"p99","refId":"C"}],"gridPos":{"h":8,"w":12,"x":0,"y":13}},
+    {"type":"table","title":"Longest tasks (p95)","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"topk(10, histogram_quantile(0.95, sum by (le, task_name) (rate(portfolium_celery_task_duration_seconds_bucket[15m]))))","format":"table","instant":true,"refId":"A"}],"gridPos":{"h":8,"w":12,"x":12,"y":13}},
+    {"type":"timeseries","title":"Worker health","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"celery_worker_up","legendFormat":"{{hostname}}","refId":"A"},{"expr":"up{job=\"portfolium-celery\"}","legendFormat":"exporter","refId":"B"}],"gridPos":{"h":8,"w":24,"x":0,"y":21}}
+  ],
+  "refresh":"30s","schemaVersion":41,"tags":["portfolium","celery"],"templating":{"list":[]},"time":{"from":"now-6h","to":"now"},"timezone":"browser","title":"Portfolium Celery","uid":"portfolium-celery","version":1
+}

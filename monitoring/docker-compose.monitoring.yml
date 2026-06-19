@@ -16,6 +16,46 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
+    depends_on:
+      - postgres-exporter
+      - redis-exporter
+      - celery-exporter
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: portfolium-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: host.docker.internal:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-portfolium}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER:-portfolium}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:-portfolium}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9187:9187"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.74.0
+    container_name: portfolium-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://host.docker.internal:${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9121:9121"
+
+  celery-exporter:
+    image: danihodovic/celery-exporter:0.12.2
+    container_name: portfolium-celery-exporter
+    restart: unless-stopped
+    environment:
+      CE_BROKER_URL: ${CELERY_BROKER_URL:-redis://host.docker.internal:6379/0}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9808:9808"
 
   grafana:
     image: grafana/grafana:12.0.2

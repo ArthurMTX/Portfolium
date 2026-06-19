@@ -40,50 +40,32 @@
       "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
     },
     {
-      "type": "timeseries",
-      "title": "Request rate by route",
+      "type": "stat",
+      "title": "PostgreSQL",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{
-        "expr": "sum by (route) (rate(portfolium_http_requests_total[5m]))",
-        "legendFormat": "{{route}}",
-        "refId": "A"
-      }],
-      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6}
+      "targets": [{"expr": "max(pg_up{job=\"portfolium-postgres\"})", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 6}
     },
     {
-      "type": "timeseries",
-      "title": "Latency p95 by route",
+      "type": "stat",
+      "title": "Redis",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "fieldConfig": {"defaults": {"unit": "s"}},
-      "targets": [{
-        "expr": "histogram_quantile(0.95, sum by (le, route) (rate(portfolium_http_request_duration_seconds_bucket[5m])))",
-        "legendFormat": "{{route}}",
-        "refId": "A"
-      }],
-      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6}
+      "targets": [{"expr": "max(redis_up{job=\"portfolium-redis\"})", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 6}
     },
     {
-      "type": "timeseries",
-      "title": "Cache hit ratio",
+      "type": "stat",
+      "title": "Celery workers",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
-      "targets": [{
-        "expr": "sum by (cache_name) (rate(portfolium_cache_hits_total[5m])) / clamp_min(sum by (cache_name) (rate(portfolium_cache_hits_total[5m]) + rate(portfolium_cache_misses_total[5m])), 0.001)",
-        "legendFormat": "{{cache_name}}",
-        "refId": "A"
-      }],
-      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 15}
+      "targets": [{"expr": "sum(celery_worker_up)", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 6}
     },
     {
-      "type": "timeseries",
-      "title": "Daily gain unavailable",
+      "type": "stat",
+      "title": "Daily Gain unavailable (1h)",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{
-        "expr": "sum by (reason_category) (increase(portfolium_daily_gain_unavailable_total[1h]))",
-        "legendFormat": "{{reason_category}}",
-        "refId": "A"
-      }],
-      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 15}
+      "targets": [{"expr": "sum(increase(portfolium_daily_gain_unavailable_total[1h]))", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 6}
     }
   ],
   "refresh": "30s",
@@ -94,5 +76,5 @@
   "timezone": "browser",
   "title": "Portfolium Overview",
   "uid": "portfolium-overview",
-  "version": 1
+  "version": 2
 }

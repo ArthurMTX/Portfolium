@@ -20,6 +20,8 @@ from app.observability.metrics import (
     DAILY_GAIN_RELIABLE,
     DAILY_GAIN_UNAVAILABLE,
     daily_gain_reason_category,
+    observe_async_operation,
+    observe_operation,
 )
 from app.utils.exchange_calendars import get_trading_sessions
 
@@ -244,6 +246,7 @@ class MetricsService:
         positions = await self.get_positions(portfolio_id, include_sold=True)
         return next((position for position in positions if position.asset_id == asset_id), None)
     
+    @observe_async_operation("portfolio_metrics")
     async def get_metrics(self, portfolio_id: int) -> PortfolioMetrics:
         """Calculate portfolio-level metrics (async to avoid blocking)"""
         from app.crud.portfolios import get_portfolio
@@ -304,6 +307,7 @@ class MetricsService:
             last_updated=datetime.utcnow()
         )
 
+    @observe_operation("daily_gain")
     def _calculate_portfolio_daily_gain(
         self,
         portfolio_id: int,

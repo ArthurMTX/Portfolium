@@ -54,7 +54,7 @@ dev-restart: dev-down dev-up dev-logs
 dev-restart-build: dev-down dev-up-build dev-logs
 
 monitoring-up:
-	docker compose -f monitoring/docker-compose.monitoring.yml up -d
+	docker compose --env-file .env -f monitoring/docker-compose.monitoring.yml up -d
 
 monitoring-down:
-	docker compose -f monitoring/docker-compose.monitoring.yml down
+	docker compose --env-file .env -f monitoring/docker-compose.monitoring.yml down

@@ -5,7 +5,12 @@ import json
 import logging
 
 from app.observability.logging import JsonFormatter
-from app.observability.metrics import cache_name_from_key, daily_gain_reason_category
+from app.observability.metrics import (
+    BUSINESS_OPERATION_DURATION,
+    cache_name_from_key,
+    daily_gain_reason_category,
+    observe_operation,
+)
 
 
 def test_request_id_is_accepted_and_returned(client):
@@ -58,3 +63,14 @@ def test_metric_categories_do_not_expose_cache_keys_or_raw_reasons():
         daily_gain_reason_category(["AAPL: no official historical close before 2026-06-19"])
         == "previous_close_unavailable"
     )
+
+
+def test_business_operation_decorator_uses_fixed_operation_label():
+    before = BUSINESS_OPERATION_DURATION.labels(operation="test_operation")._sum.get()
+
+    @observe_operation("test_operation")
+    def measured():
+        return "ok"
+
+    assert measured() == "ok"
+    assert BUSINESS_OPERATION_DURATION.labels(operation="test_operation")._sum.get() >= before

@@ -81,6 +81,9 @@ def create_transaction(
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    from app.observability.metrics import TRANSACTIONS_CREATED
+
+    TRANSACTIONS_CREATED.inc()
     
     # Invalidate position cache since transactions changed
     from app.services.platform.cache import invalidate_positions

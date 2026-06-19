@@ -27,6 +27,9 @@ def create_notification(
     db.add(notification)
     db.commit()
     db.refresh(notification)
+    from app.observability.metrics import NOTIFICATIONS_CREATED
+
+    NOTIFICATIONS_CREATED.inc()
     return notification
 
 
@@ -41,7 +44,7 @@ def get_user_notifications(
     query = db.query(Notification).filter(Notification.user_id == user_id)
     
     if unread_only:
-        query = query.filter(Notification.is_read == False)
+        query = query.filter(Notification.is_read.is_(False))
     
     query = query.order_by(desc(Notification.created_at))
     query = query.offset(skip).limit(limit)
@@ -58,7 +61,7 @@ def get_unread_count(db: Session, user_id: int) -> int:
     """Get count of unread notifications for a user"""
     return db.query(Notification).filter(
         Notification.user_id == user_id,
-        Notification.is_read == False
+        Notification.is_read.is_(False)
     ).count()
 
 
@@ -76,7 +79,7 @@ def mark_all_as_read(db: Session, user_id: int) -> int:
     """Mark all notifications as read for a user"""
     count = db.query(Notification).filter(
         Notification.user_id == user_id,
-        Notification.is_read == False
+        Notification.is_read.is_(False)
     ).update({"is_read": True})
     db.commit()
     return count

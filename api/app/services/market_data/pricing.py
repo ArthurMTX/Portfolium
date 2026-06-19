@@ -30,7 +30,11 @@ from app.services.market_data.yahoo_finance import (
     yahoo_timeout_seconds,
 )
 from app.services.platform.core_observability import record_stale_fallback
-from app.observability.metrics import record_price_refresh
+from app.observability.metrics import (
+    MISSING_PRICES,
+    PRICE_ASSETS_REFRESHED,
+    record_price_refresh,
+)
 from app.utils.exchange_calendars import get_exchange_code
 
 logger = logging.getLogger(__name__)
@@ -386,6 +390,7 @@ class PricingService:
         )
         
         if price:
+            PRICE_ASSETS_REFRESHED.labels(provider="yahoo").inc()
             # Calculate daily change percentage
             daily_change_pct = None
             if "previous_close" in price and price["previous_close"] > 0:
@@ -465,6 +470,7 @@ class PricingService:
                 daily_change_pct=daily_change_pct
             )
         
+        MISSING_PRICES.inc()
         return None
     
     async def get_multiple_prices(self, symbols: List[str], force_refresh: bool = False) -> Dict[str, PriceQuote]:
@@ -586,6 +592,16 @@ class PricingService:
                         symbol,
                     )
 
+        refreshed_count = len(
+            [
+                symbol
+                for symbol in symbols_to_fetch
+                if symbol in batch_results and batch_results[symbol]
+            ]
+        )
+        if refreshed_count:
+            PRICE_ASSETS_REFRESHED.labels(provider="yahoo").inc(refreshed_count)
+
         # Phase 3: Process batch results and update caches
         for symbol in symbols_to_fetch:
             if symbol in batch_results and batch_results[symbol]:
@@ -655,6 +671,9 @@ class PricingService:
                         )
         
         logger.info(f"Batch fetch complete: {len(results)}/{len(symbols)} symbols have prices")
+        missing_count = len(set(symbols) - set(results))
+        if missing_count:
+            MISSING_PRICES.inc(missing_count)
         return results
     
     def _batch_fetch_from_yfinance(self, symbols: List[str]) -> Dict[str, Optional[Dict]]:

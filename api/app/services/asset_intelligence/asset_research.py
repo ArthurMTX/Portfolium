@@ -21,6 +21,7 @@ from app.services.portfolio_analytics.relative_performance import RelativePerfor
 from app.services.portfolio_analytics.risk_analysis import RiskAnalysisService
 from app.services.asset_intelligence.asset_themes import AssetThemeService
 from app.services.market_data.yahoo_finance import call_yahoo, yahoo_timeout_seconds
+from app.observability.metrics import observe_async_operation, observe_operation
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class AssetResearchService:
         self.relative_performance_service = RelativePerformanceService(db)
         self.cache_service = CacheService()
 
+    @observe_async_operation("asset_research")
     async def get_summary(self, symbol: str) -> Dict[str, Any]:
         """Return the fast data needed to paint the page shell."""
         asset = self._get_or_create_asset(symbol.strip().upper())
@@ -47,6 +49,7 @@ class AssetResearchService:
             "metadata": self._get_metadata(asset),
         }
 
+    @observe_operation("asset_research")
     def get_fundamentals(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         company_info = self._get_company_info(asset.symbol)
@@ -56,16 +59,19 @@ class AssetResearchService:
             self.db.refresh(asset)
         return fundamentals
 
+    @observe_operation("asset_research")
     def get_business(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         company_info = self._get_company_info(asset.symbol)
         return self._get_business(asset, company_info)
 
+    @observe_operation("asset_research")
     def get_ownership(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         company_info = self._get_company_info(asset.symbol)
         return self._get_ownership(company_info)
 
+    @observe_operation("asset_research")
     def get_themes(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         if not AssetThemeService.is_theme_supported_asset(asset):
@@ -103,6 +109,7 @@ class AssetResearchService:
             "updated_at": None,
         }
 
+    @observe_async_operation("asset_research")
     async def get_risk(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         quote = await self._get_quote(asset.symbol)
@@ -117,16 +124,19 @@ class AssetResearchService:
         )
         return risk
 
+    @observe_async_operation("asset_research")
     async def get_relative_performance(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         quote = await self._get_quote(asset.symbol)
         return self._get_relative_performance(asset, quote)
 
+    @observe_operation("asset_research")
     def get_metadata(self, symbol: str) -> Dict[str, Any]:
         asset = self._get_or_create_asset(symbol.strip().upper())
         self._ensure_market_metadata(asset)
         return self._get_metadata(asset)
 
+    @observe_operation("asset_research")
     def get_etf_composition(
         self,
         symbol: str,

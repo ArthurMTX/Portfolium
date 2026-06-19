@@ -79,6 +79,8 @@ services:
       bootstrap:
         condition: service_completed_successfully
     command: python -m celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
+    ports:
+      - "9809:9809"
 
   celery-beat:
     <<: *api_common
