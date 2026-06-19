@@ -194,6 +194,21 @@ import {
   Grid2X2Plus,
   WavesLadder,
 } from 'lucide-react'
+interface ThemeEvidence {
+  label: string
+  evidence?: string[] | null
+  children?: ThemeEvidence[] | null
+}
+
+export function getThemeEvidenceTitle(theme: ThemeEvidence): string | undefined {
+  const lines = [
+    ...(theme.evidence || []).map((item) => `Theme: ${item}`),
+    ...((theme.children || []).flatMap((child) =>
+      (child.evidence || []).map((item) => `${child.label}: ${item}`)
+    )),
+  ]
+  return lines.length ? lines.join('\n') : undefined
+}
 
 const THEME_ICONS: Record<string, LucideIcon> = {
   // AI, compute, software & security

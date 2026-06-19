@@ -20,12 +20,14 @@ import {
 } from 'lucide-react'
 import { AssetThemeDTO, PositionDTO } from '@/api'
 import AssetLogo from '@/shared/components/AssetLogo'
+import ThemeSubthemeBadges from '@/shared/components/ThemeSubthemeBadges'
 import {
   InfoRowModel,
   MetricCardModel,
   MetricGridItem,
   MetricIcon,
 } from '@/features/portfolios/lib/positionDetailMetricBuilders'
+import { getThemeEvidenceTitle } from '@/shared/lib/themeUtils'
 
 export type SectionIcon =
   | 'activity'
@@ -246,16 +248,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-const getThemeEvidenceTitle = (theme: AssetThemeDTO) => {
-  const lines = [
-    ...(theme.evidence || []).map((item) => `Theme: ${item}`),
-    ...((theme.children || []).flatMap((child) =>
-      (child.evidence || []).map((item) => `${child.label}: ${item}`)
-    )),
-  ]
-  return lines.length ? lines.join('\n') : undefined
-}
-
 export function ThemeExposureSection({ themes }: { themes: AssetThemeDTO[] }) {
   if (themes.length === 0) return null
 
@@ -282,19 +274,7 @@ export function ThemeExposureSection({ themes }: { themes: AssetThemeDTO[] }) {
                 {Math.round(theme.confidence * 100)}%
               </span>
             </div>
-            {(theme.children || []).length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {(theme.children || []).map((subtheme) => (
-                  <span
-                    key={`${theme.label}-${subtheme.label}`}
-                    className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300"
-                    title={subtheme.evidence?.length ? subtheme.evidence.join('\n') : undefined}
-                  >
-                    {subtheme.label} {Math.round(subtheme.confidence * 100)}%
-                  </span>
-                ))}
-              </div>
-            )}
+            <ThemeSubthemeBadges parentLabel={theme.label} subthemes={theme.children} />
           </div>
         ))}
       </div>
