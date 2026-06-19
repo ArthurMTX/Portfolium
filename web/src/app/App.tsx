@@ -1,17 +1,9 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthContext'
 import { LanguageProvider } from '@/app/providers/LanguageContext'
 import ProtectedRoute from '@/app/routing/ProtectedRoute'
-import Dashboard from '@/features/dashboard/pages/Dashboard'
-import Portfolios from '@/features/portfolios/pages/Portfolios'
-import Charts from '@/features/charts/pages/Charts'
-import Transactions from '@/features/transactions/pages/Transactions'
-import TransactionMetrics from '@/features/transactions/pages/TransactionMetrics'
-import Assets from '@/features/assets/pages/Assets'
-import AssetResearch from '@/features/assets/pages/AssetResearch'
-import Watchlist from '@/features/watchlist/pages/Watchlist'
-import Notifications from '@/features/notifications/pages/Notifications'
 import Settings from '@/features/settings/pages/Settings'
 import Profile from '@/features/settings/pages/Profile'
 import Login from '@/features/auth/pages/Login'
@@ -20,19 +12,40 @@ import ForgotPassword from '@/features/auth/pages/ForgotPassword'
 import ResetPassword from '@/features/auth/pages/ResetPassword'
 import VerifyEmail from '@/features/auth/pages/VerifyEmail'
 import Layout from '@/app/layout/Layout'
-import Admin from '@/features/admin/pages/Admin'
-import DevTools from '@/features/devtools/pages/DevTools'
-import IconPreview from '@/features/devtools/pages/IconPreview'
-import FlagPreview from '@/features/devtools/pages/FlagPreview'
-import Insights from '@/features/insights/pages/Insights'
 import NotFound from '@/app/routing/NotFound'
-import AssetDebug from '@/features/assets/pages/AssetDebug'
-import AssetsList from '@/features/assets/pages/AssetsList'
-import WidgetDebug from '@/features/devtools/pages/WidgetDebug'
-import PublicPortfolio from '@/features/portfolios/pages/PublicPortfolio'
-import Calendar from '@/features/calendar/pages/Calendar'
-import AdminThemeTaxonomy from '@/features/admin/pages/AdminThemeTaxonomy'
-import AdminClassificationBenchmark from '@/features/admin/pages/AdminClassificationBenchmark'
+import LoadingSpinner from '@/shared/components/LoadingSpinner'
+
+const Dashboard = lazy(() => import('@/features/dashboard/pages/Dashboard'))
+const Portfolios = lazy(() => import('@/features/portfolios/pages/Portfolios'))
+const Charts = lazy(() => import('@/features/charts/pages/Charts'))
+const Transactions = lazy(() => import('@/features/transactions/pages/Transactions'))
+const TransactionMetrics = lazy(() => import('@/features/transactions/pages/TransactionMetrics'))
+const Assets = lazy(() => import('@/features/assets/pages/Assets'))
+const AssetResearch = lazy(() => import('@/features/assets/pages/AssetResearch'))
+const Watchlist = lazy(() => import('@/features/watchlist/pages/Watchlist'))
+const Notifications = lazy(() => import('@/features/notifications/pages/Notifications'))
+const Admin = lazy(() => import('@/features/admin/pages/Admin'))
+const DevTools = lazy(() => import('@/features/devtools/pages/DevTools'))
+const IconPreview = lazy(() => import('@/features/devtools/pages/IconPreview'))
+const FlagPreview = lazy(() => import('@/features/devtools/pages/FlagPreview'))
+const Insights = lazy(() => import('@/features/insights/pages/Insights'))
+const AssetDebug = lazy(() => import('@/features/assets/pages/AssetDebug'))
+const AssetsList = lazy(() => import('@/features/assets/pages/AssetsList'))
+const WidgetDebug = lazy(() => import('@/features/devtools/pages/WidgetDebug'))
+const PublicPortfolio = lazy(() => import('@/features/portfolios/pages/PublicPortfolio'))
+const Calendar = lazy(() => import('@/features/calendar/pages/Calendar'))
+const AdminThemeTaxonomy = lazy(() => import('@/features/admin/pages/AdminThemeTaxonomy'))
+const AdminClassificationBenchmark = lazy(
+  () => import('@/features/admin/pages/AdminClassificationBenchmark'),
+)
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-64 items-center justify-center" role="status" aria-label="Loading page">
+      <LoadingSpinner size="lg" variant="icon" color="indigo" />
+    </div>
+  )
+}
 
 // Configure React Query for optimal performance
 const queryClient = new QueryClient({
@@ -68,7 +81,8 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <BrowserRouter>
-            <Routes>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
               {/* Public routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -176,7 +190,8 @@ function App() {
                 {/* 404 catch-all route */}
                 <Route path="*" element={<NotFound />} />
               </Route>
-            </Routes>
+              </Routes>
+            </Suspense>
           </BrowserRouter>
         </AuthProvider>
       </LanguageProvider>

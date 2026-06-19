@@ -167,7 +167,7 @@ class CacheService:
     @staticmethod
     def delete_pattern(pattern: str) -> int:
         """
-        Delete all keys matching pattern.
+        Delete all keys matching pattern using incremental Redis SCAN.
         Returns number of keys deleted, 0 if Redis unavailable.
         """
         redis_client = get_redis()
@@ -175,12 +175,17 @@ class CacheService:
             return 0
         
         try:
-            keys = redis_client.keys(pattern)
-            if keys:
-                deleted = redis_client.delete(*keys)
-                logger.info(f"Cache DELETE PATTERN: {pattern} ({deleted} keys)")
-                return deleted
-            return 0
+            deleted = 0
+            batch = []
+            for key in redis_client.scan_iter(match=pattern, count=500):
+                batch.append(key)
+                if len(batch) >= 500:
+                    deleted += redis_client.delete(*batch)
+                    batch.clear()
+            if batch:
+                deleted += redis_client.delete(*batch)
+            logger.info(f"Cache DELETE PATTERN: {pattern} ({deleted} keys)")
+            return deleted
         except RedisError as e:
             logger.warning(f"Cache delete pattern error for {pattern}: {e}")
             return 0
@@ -332,8 +337,9 @@ class CacheService:
                 CacheService.PREFIX_INSIGHTS,
             ]:
                 pattern = f"{prefix}*"
-                keys = redis_client.keys(pattern)
-                key_counts[prefix.rstrip(':')] = len(keys)
+                key_counts[prefix.rstrip(':')] = sum(
+                    1 for _ in redis_client.scan_iter(match=pattern, count=500)
+                )
             
             return {
                 "status": "available",

@@ -10,6 +10,7 @@ x-api-common: &api_common
   environment:
     POSTGRES_HOST: db
     REDIS_HOST: redis
+    REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
     ENVIRONMENT: production
     LOG_FORMAT: json
     LOG_FILE_ENABLED: "false"
@@ -17,12 +18,10 @@ x-api-common: &api_common
 
 services:
   db:
-    image: arthurmtx/portfolium-db:latest
+    image: arthurmtx/portfolium-db:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-db
     restart: unless-stopped
     env_file: [.env]
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -36,13 +35,17 @@ services:
     image: redis:7-alpine
     container_name: portfolium-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    env_file: [.env]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,7 +53,7 @@ services:
 
   api:
     <<: *api_common
-    image: arthurmtx/portfolium-api:latest
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-api
     depends_on:
       db:
@@ -59,8 +62,6 @@ services:
         condition: service_healthy
       bootstrap:
         condition: service_completed_successfully
-    ports:
-      - "8000:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -69,7 +70,7 @@ services:
 
   celery-worker:
     <<: *api_common
-    image: arthurmtx/portfolium-api:latest
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-celery-worker
     depends_on:
       db:
@@ -79,12 +80,10 @@ services:
       bootstrap:
         condition: service_completed_successfully
     command: python -m celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
-    ports:
-      - "9809:9809"
 
   celery-beat:
     <<: *api_common
-    image: arthurmtx/portfolium-api:latest
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-celery-beat
     depends_on:
       db:
@@ -97,7 +96,7 @@ services:
 
   bootstrap:
     <<: *api_common
-    image: arthurmtx/portfolium-api:latest
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-bootstrap
     restart: "no"
     depends_on:
@@ -106,7 +105,7 @@ services:
     command: python -m app.bootstrap
 
   web:
-    image: arthurmtx/portfolium-web:latest
+    image: arthurmtx/portfolium-web:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-web
     restart: unless-stopped
     env_file: [.env]
@@ -124,4 +123,5 @@ volumes:
 
 networks:
   portfolium:
+    name: portfolium
     driver: bridge

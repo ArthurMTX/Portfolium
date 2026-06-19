@@ -82,7 +82,10 @@ def _get_stale_fallback_stats() -> dict[str, Any]:
         return {"status": "unavailable"}
 
     try:
-        hour_keys = redis_client.keys(f"{_STALE_FALLBACK_HOUR_PREFIX}*")
+        hour_keys = redis_client.scan_iter(
+            match=f"{_STALE_FALLBACK_HOUR_PREFIX}*",
+            count=500,
+        )
         last_hour_count = 0
         by_kind_last_48h: dict[str, int] = {}
 

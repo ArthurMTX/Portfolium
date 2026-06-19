@@ -13,6 +13,7 @@ from app.config import settings
 from app.observability.logging import configure_logging
 from app.observability.metrics import metrics_payload
 from app.observability.middleware import ObservabilityMiddleware
+from app.security_headers import SecurityHeadersMiddleware
 from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public, pending_dividends, push, calendar
 from app.version import __version__, get_version_info
 
@@ -67,6 +68,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(ObservabilityMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # Include routers

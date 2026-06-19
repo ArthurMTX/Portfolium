@@ -21,6 +21,45 @@ function parseApiDate(value: string): Date {
   return new Date(ISO_WITHOUT_TIMEZONE_RE.test(value) ? `${value}Z` : value)
 }
 
+interface AutoRefreshCountdownProps {
+  enabled: boolean
+  intervalMs: number
+  lastUpdate: number
+  label: string
+}
+
+function AutoRefreshCountdown({
+  enabled,
+  intervalMs,
+  lastUpdate,
+  label,
+}: AutoRefreshCountdownProps) {
+  const calculateSeconds = useCallback(() => {
+    if (!enabled || !lastUpdate) return null
+    const remaining = intervalMs - (Date.now() - lastUpdate)
+    return remaining > 0 ? Math.ceil(remaining / 1000) : null
+  }, [enabled, intervalMs, lastUpdate])
+  const [seconds, setSeconds] = useState<number | null>(calculateSeconds)
+
+  useEffect(() => {
+    setSeconds(calculateSeconds())
+    if (!enabled || !lastUpdate) return
+
+    const interval = window.setInterval(() => {
+      setSeconds(calculateSeconds())
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [calculateSeconds, enabled, lastUpdate])
+
+  if (seconds === null || seconds <= 0) return null
+
+  return (
+    <div className="px-3 pb-2 text-xs text-neutral-500 dark:text-neutral-400">
+      {label}: {seconds}s
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const {
     portfolios,
@@ -93,29 +132,7 @@ export default function Dashboard() {
     return timestamp
   })
   
-  // Force re-render for live countdown
-  const [, forceUpdate] = useState(0)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
   const customizeMenuRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-    
-    let counter = 0
-    timerRef.current = setInterval(() => {
-      counter++
-      forceUpdate(counter)
-    }, 1000)
-    
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [])
 
   useEffect(() => {
     if (!isCustomizeMenuOpen) return
@@ -160,13 +177,6 @@ export default function Dashboard() {
     }
     window.addEventListener('storage', handleStorage)
     return () => window.removeEventListener('storage', handleStorage)
-  }, [getAutoRefreshSettings])
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setAutoRefreshSettings(getAutoRefreshSettings())
-    }, 2000)
-    return () => clearInterval(id)
   }, [getAutoRefreshSettings])
 
   // Load portfolios
@@ -307,17 +317,6 @@ export default function Dashboard() {
     // Close the layout manager
     setIsLayoutManagerOpen(false)
   }, [user?.id, currentBreakpoint])
-
-  const getNextRefreshIn = () => {
-    if (!lastUpdate || !autoRefreshSettings.enabled) return null
-    const now = Date.now()
-    const elapsed = now - lastUpdate
-    const remaining = autoRefreshSettings.interval - elapsed
-    if (remaining <= 0) return null
-    const seconds = Math.ceil(remaining / 1000)
-    return seconds
-  }
-
 
   const isAutoRefreshEnabled = autoRefreshSettings.enabled
   const isAnyRefreshing = isPriceRefetching || batchRefetching
@@ -473,11 +472,12 @@ export default function Dashboard() {
                   <span>{autoRefreshIntervalSeconds}s</span>
                 </div>
 
-                {autoRefreshSettings.enabled && getNextRefreshIn() !== null && getNextRefreshIn()! > 0 && (
-                  <div className="px-3 pb-2 text-xs text-neutral-500 dark:text-neutral-400">
-                    {t('common.next')}: {getNextRefreshIn()}s
-                  </div>
-                )}
+                <AutoRefreshCountdown
+                  enabled={autoRefreshSettings.enabled}
+                  intervalMs={autoRefreshSettings.interval}
+                  lastUpdate={lastUpdate}
+                  label={t('common.next')}
+                />
               </div>
             )}
           </div>

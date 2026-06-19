@@ -76,7 +76,7 @@ export function useDashboardBatch({
 }: UseDashboardBatchOptions) {
   // Create a stable key from visible widgets
   const widgetKey = useMemo(() => {
-    return visibleWidgets.sort().join(',')
+    return [...visibleWidgets].sort().join(',')
   }, [visibleWidgets])
 
   return useQuery<DashboardBatchData>({

@@ -115,6 +115,36 @@ def get_client_ip(request: Request, trusted_proxy_values: Iterable[str]) -> Opti
     return peer_ip
 
 
+def get_request_scheme(request: Request, trusted_proxy_values: Iterable[str]) -> str:
+    """Return http/https, trusting forwarded scheme only from configured proxies."""
+    scheme = request.url.scheme or request.scope.get("scheme", "http")
+    peer_ip = request.client.host if request.client else None
+    if not peer_ip:
+        return scheme
+
+    trusted_networks = _parse_networks(trusted_proxy_values)
+    if not trusted_networks or not _ip_in_networks(peer_ip, trusted_networks):
+        return scheme
+
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    if forwarded_proto:
+        candidate = forwarded_proto.split(",", 1)[0].strip().lower()
+        if candidate in {"http", "https"}:
+            return candidate
+
+    forwarded = request.headers.get("forwarded")
+    if forwarded:
+        for token in forwarded.split(","):
+            for part in token.split(";"):
+                name, separator, value = part.strip().partition("=")
+                if separator and name.lower() == "proto":
+                    candidate = value.strip().strip('"').lower()
+                    if candidate in {"http", "https"}:
+                        return candidate
+
+    return scheme
+
+
 def _is_valid_ip(value: str) -> bool:
     try:
         ip_address(value)

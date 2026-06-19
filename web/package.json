@@ -2,6 +2,9 @@
   "name": "portfolium-web",
   "version": "0.3.2",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "npm run build:docs && tsc && vite build",

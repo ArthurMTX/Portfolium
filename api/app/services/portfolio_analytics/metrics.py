@@ -255,7 +255,11 @@ class MetricsService:
         if not portfolio:
             raise ValueError(f"Portfolio {portfolio_id} not found")
         
-        positions = await self.get_positions(portfolio_id)
+        # Calculate the full position set once. Active positions and realized
+        # P&L are derived from the same snapshot to avoid duplicate price and
+        # transaction work without changing metric semantics.
+        all_positions = await self.get_positions(portfolio_id, include_sold=True)
+        positions = [position for position in all_positions if position.quantity > 0]
         
         # Aggregate metrics
         total_value = Decimal(0)
@@ -277,7 +281,6 @@ class MetricsService:
         )
         
         # Include realized P&L from both partially and fully sold positions.
-        all_positions = await self.get_positions(portfolio_id, include_sold=True)
         realized_pnl = sum(
             (pos.realized_pnl for pos in all_positions),
             Decimal(0),

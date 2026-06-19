@@ -4,7 +4,7 @@ Invalidates cache only when underlying data changes
 """
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Optional, Dict, Callable
 import logging
 
@@ -27,18 +27,23 @@ def _calculate_fingerprint(portfolio_id: int, positions: list, last_transaction_
             return float(val)
         return val
     
-    # Create a deterministic representation of the data
+    positions_snapshot = [
+        {
+            'asset_id': p.get('asset_id') if isinstance(p, dict) else p.asset_id,
+            'quantity': convert_value(p.get('quantity') if isinstance(p, dict) else p.quantity),
+            'current_price': convert_value(
+                p.get('current_price') if isinstance(p, dict) else p.current_price
+            ),
+        }
+        for p in positions
+    ]
+    positions_snapshot.sort(key=lambda position: str(position['asset_id']))
+
+    # Create a deterministic representation of all data that affects analytics.
     data_snapshot = {
         'portfolio_id': portfolio_id,
         'positions_count': len(positions),
-        'positions_snapshot': [
-            {
-                'asset_id': p.get('asset_id') if isinstance(p, dict) else p.asset_id,
-                'quantity': convert_value(p.get('quantity') if isinstance(p, dict) else p.quantity),
-                'current_price': convert_value(p.get('current_price') if isinstance(p, dict) else p.current_price),
-            }
-            for p in positions[:50]  # First 50 positions for fingerprint
-        ],
+        'positions_snapshot': positions_snapshot,
         'last_transaction': last_transaction_date,
         'date': datetime.now().strftime('%Y-%m-%d'),  # Changes daily to catch price updates
     }

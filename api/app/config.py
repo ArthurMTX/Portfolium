@@ -42,6 +42,35 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-change-this-in-production-min-32-chars"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    # Sensitive endpoint rate limiting
+    AUTH_RATE_LIMIT_ENABLED: bool = True
+    AUTH_LOGIN_RATE_LIMIT: int = 10
+    AUTH_LOGIN_RATE_WINDOW_SECONDS: int = 300
+    AUTH_REGISTER_RATE_LIMIT: int = 5
+    AUTH_REGISTER_RATE_WINDOW_SECONDS: int = 3600
+    AUTH_RECOVERY_RATE_LIMIT: int = 5
+    AUTH_RECOVERY_RATE_WINDOW_SECONDS: int = 3600
+    AUTH_TOKEN_RATE_LIMIT: int = 20
+    AUTH_TOKEN_RATE_WINDOW_SECONDS: int = 3600
+    AUTH_2FA_RATE_LIMIT: int = 10
+    AUTH_2FA_RATE_WINDOW_SECONDS: int = 600
+
+    # Browser security headers
+    SECURITY_HEADERS_ENABLED: bool = True
+    CONTENT_SECURITY_POLICY: str = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "img-src 'self' data: blob: https:; "
+        "font-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline' https:; "
+        "script-src 'self' 'unsafe-inline' https:; "
+        "connect-src 'self' https: wss:"
+    )
+    HSTS_MAX_AGE_SECONDS: int = 31536000
     
     # User Registration
     ALLOW_REGISTRATION: bool = True  # Set to False to disable new user registration
@@ -260,6 +289,25 @@ class Settings(BaseSettings):
                 f"({self.ACCESS_TOKEN_EXPIRE_MINUTES / 60 / 24:.0f} days). "
                 "This is very long and may pose a security risk."
             )
+
+        rate_limit_values = {
+            "AUTH_LOGIN_RATE_LIMIT": self.AUTH_LOGIN_RATE_LIMIT,
+            "AUTH_REGISTER_RATE_LIMIT": self.AUTH_REGISTER_RATE_LIMIT,
+            "AUTH_RECOVERY_RATE_LIMIT": self.AUTH_RECOVERY_RATE_LIMIT,
+            "AUTH_TOKEN_RATE_LIMIT": self.AUTH_TOKEN_RATE_LIMIT,
+            "AUTH_2FA_RATE_LIMIT": self.AUTH_2FA_RATE_LIMIT,
+            "AUTH_LOGIN_RATE_WINDOW_SECONDS": self.AUTH_LOGIN_RATE_WINDOW_SECONDS,
+            "AUTH_REGISTER_RATE_WINDOW_SECONDS": self.AUTH_REGISTER_RATE_WINDOW_SECONDS,
+            "AUTH_RECOVERY_RATE_WINDOW_SECONDS": self.AUTH_RECOVERY_RATE_WINDOW_SECONDS,
+            "AUTH_TOKEN_RATE_WINDOW_SECONDS": self.AUTH_TOKEN_RATE_WINDOW_SECONDS,
+            "AUTH_2FA_RATE_WINDOW_SECONDS": self.AUTH_2FA_RATE_WINDOW_SECONDS,
+        }
+        for name, value in rate_limit_values.items():
+            if value < 1:
+                errors.append(f"{name} must be at least 1")
+
+        if self.HSTS_MAX_AGE_SECONDS < 0:
+            errors.append("HSTS_MAX_AGE_SECONDS cannot be negative")
         
         # 8. Validate cache TTL
         if self.PRICE_CACHE_TTL_SECONDS < 0:

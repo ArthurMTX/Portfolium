@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.auth import (
     verify_password, 
     create_access_token, 
-    get_current_user,
     get_current_active_user
 )
 from app.config import settings
@@ -19,7 +18,6 @@ from app.db import get_db
 from app.models import User
 from app.schemas import (
     UserCreate, 
-    UserLogin, 
     User as UserSchema, 
     Token,
     UserPasswordReset,
@@ -37,6 +35,7 @@ from app.services.communications.email import email_service
 from app.services.communications.notifications import notification_service
 from app.utils.client_ip import get_client_ip
 from app.services.security.totp import totp_service
+from app.services.security.rate_limit import enforce_auth_rate_limit
 from app.errors import (
     EmailAlreadyRegisteredError,
     EmailAlreadyVerifiedError,
@@ -61,6 +60,7 @@ router = APIRouter()
 
 @router.post("/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
 async def register(
+    request: Request,
     user_create: UserCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -72,6 +72,13 @@ async def register(
     - Sends verification email
     - User must verify email before full access
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="register",
+        limit=settings.AUTH_REGISTER_RATE_LIMIT,
+        window_seconds=settings.AUTH_REGISTER_RATE_WINDOW_SECONDS,
+    )
+
     # Check if registration is allowed
     if not settings.ALLOW_REGISTRATION:
         raise RegistrationDisabledError()
@@ -116,6 +123,13 @@ async def login(
     - Updates last login timestamp
     - Creates login notification with IP tracking
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="login",
+        limit=settings.AUTH_LOGIN_RATE_LIMIT,
+        window_seconds=settings.AUTH_LOGIN_RATE_WINDOW_SECONDS,
+    )
+
     # Get user by email (username field contains email)
     user = crud_users.get_user_by_email(db, form_data.username)
     
@@ -260,6 +274,7 @@ async def update_current_user(
 
 @router.post("/verify-email")
 async def verify_email(
+    request: Request,
     token: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -271,6 +286,13 @@ async def verify_email(
     - Marks email as verified
     - Sends welcome email
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="verify_email",
+        limit=settings.AUTH_TOKEN_RATE_LIMIT,
+        window_seconds=settings.AUTH_TOKEN_RATE_WINDOW_SECONDS,
+    )
+
     user = crud_users.get_user_by_verification_token(db, token)
     
     if not user:
@@ -294,6 +316,7 @@ async def verify_email(
 
 @router.post("/resend-verification")
 async def resend_verification(
+    request: Request,
     email: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -304,6 +327,13 @@ async def resend_verification(
     - Generates new verification token
     - Sends new verification email
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="resend_verification",
+        limit=settings.AUTH_RECOVERY_RATE_LIMIT,
+        window_seconds=settings.AUTH_RECOVERY_RATE_WINDOW_SECONDS,
+    )
+
     user = crud_users.get_user_by_email(db, email)
     
     if not user:
@@ -337,6 +367,7 @@ async def resend_verification(
 
 @router.post("/forgot-password")
 async def forgot_password(
+    request: Request,
     password_reset: UserPasswordReset,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -347,6 +378,13 @@ async def forgot_password(
     - Generates reset token
     - Sends password reset email
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="forgot_password",
+        limit=settings.AUTH_RECOVERY_RATE_LIMIT,
+        window_seconds=settings.AUTH_RECOVERY_RATE_WINDOW_SECONDS,
+    )
+
     user = crud_users.get_user_by_email(db, password_reset.email)
     
     if not user:
@@ -372,6 +410,7 @@ async def forgot_password(
 
 @router.post("/reset-password")
 async def reset_password(
+    request: Request,
     password_reset_confirm: UserPasswordResetConfirm,
     db: Session = Depends(get_db)
 ):
@@ -381,6 +420,13 @@ async def reset_password(
     - Validates reset token
     - Updates password
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="reset_password",
+        limit=settings.AUTH_TOKEN_RATE_LIMIT,
+        window_seconds=settings.AUTH_TOKEN_RATE_WINDOW_SECONDS,
+    )
+
     user = crud_users.get_user_by_reset_token(db, password_reset_confirm.token)
     
     if not user:
@@ -453,6 +499,13 @@ async def login_with_2fa(
     - Validates TOTP token or backup code
     - Returns JWT access token
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="2fa_login",
+        limit=settings.AUTH_LOGIN_RATE_LIMIT,
+        window_seconds=settings.AUTH_LOGIN_RATE_WINDOW_SECONDS,
+    )
+
     # Get user by email
     user = crud_users.get_user_by_email(db, login_request.email)
     
@@ -524,6 +577,7 @@ async def get_2fa_status(
 
 @router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
 async def setup_2fa(
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -535,6 +589,14 @@ async def setup_2fa(
     - Generates backup codes
     - Does NOT enable 2FA (requires verification first)
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="2fa_setup",
+        identity=f"user:{current_user.id}",
+        limit=settings.AUTH_2FA_RATE_LIMIT,
+        window_seconds=settings.AUTH_2FA_RATE_WINDOW_SECONDS,
+    )
+
     # Check if 2FA is already enabled
     if current_user.totp_enabled:
         raise TwoFactorAlreadyEnabledError()
@@ -553,6 +615,7 @@ async def setup_2fa(
 
 @router.post("/2fa/verify", status_code=status.HTTP_200_OK)
 async def verify_and_enable_2fa(
+    request: Request,
     verify_request: TwoFactorVerifyRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -563,6 +626,14 @@ async def verify_and_enable_2fa(
     - Validates TOTP token from authenticator app
     - Enables 2FA if token is valid
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="2fa_verify",
+        identity=f"user:{current_user.id}",
+        limit=settings.AUTH_2FA_RATE_LIMIT,
+        window_seconds=settings.AUTH_2FA_RATE_WINDOW_SECONDS,
+    )
+
     # Check if 2FA is already enabled
     if current_user.totp_enabled:
         raise TwoFactorAlreadyEnabledError()
@@ -578,6 +649,7 @@ async def verify_and_enable_2fa(
 
 @router.post("/2fa/disable", status_code=status.HTTP_200_OK)
 async def disable_2fa(
+    request: Request,
     disable_request: TwoFactorDisableRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -589,6 +661,14 @@ async def disable_2fa(
     - Optionally requires TOTP token or backup code
     - Removes TOTP secret and backup codes
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="2fa_disable",
+        identity=f"user:{current_user.id}",
+        limit=settings.AUTH_2FA_RATE_LIMIT,
+        window_seconds=settings.AUTH_2FA_RATE_WINDOW_SECONDS,
+    )
+
     # Check if 2FA is enabled
     if not current_user.totp_enabled:
         raise TwoFactorNotEnabledError()
@@ -612,6 +692,7 @@ async def disable_2fa(
 
 @router.post("/2fa/regenerate-backup-codes", response_model=TwoFactorSetupResponse)
 async def regenerate_backup_codes(
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -622,6 +703,14 @@ async def regenerate_backup_codes(
     - Invalidates old backup codes
     - Returns new backup codes along with existing secret and QR code
     """
+    enforce_auth_rate_limit(
+        request,
+        scope="2fa_backup_codes",
+        identity=f"user:{current_user.id}",
+        limit=settings.AUTH_2FA_RATE_LIMIT,
+        window_seconds=settings.AUTH_2FA_RATE_WINDOW_SECONDS,
+    )
+
     # Check if 2FA is enabled
     if not current_user.totp_enabled:
         raise TwoFactorNotEnabledError()
