@@ -35,7 +35,9 @@ class EmailService:
         self.frontend_url = settings.FRONTEND_URL
         
         # Setup Jinja2 template environment
-        template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'emails')
+        template_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..', '..', 'templates', 'emails')
+        )
         self.jinja_env = Environment(
             loader=FileSystemLoader(template_dir),
             autoescape=select_autoescape(['html', 'xml'])

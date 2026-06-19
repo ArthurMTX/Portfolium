@@ -29,7 +29,9 @@ class PDFReportService:
         self.metrics_service = MetricsService(db)
         
         # Setup Jinja2 environment
-        templates_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
+        templates_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "templates")
+        )
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
             autoescape=True
