@@ -9,11 +9,10 @@ from datetime import datetime, timedelta, date
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 import math
-import hashlib
-import json
 
-from app.models import Transaction, Asset, TransactionType, Price
+from app.models import Transaction, Asset, TransactionType
 from app.services.platform.analytics_cache import get_cached_analytics
+from app.services.platform.cache import CacheService
 from app.schemas import (
     PortfolioInsights,
     PortfolioInsightsSummary,
@@ -45,8 +44,6 @@ from app.crud import portfolios as crud_portfolios
 from app.crud import prices as crud_prices
 
 logger = logging.getLogger(__name__)
-
-from app.services.platform.cache import CacheService
 
 
 @dataclass
@@ -160,6 +157,8 @@ class InsightsService:
             benchmark_comparison = await self.compare_to_benchmark(
                 portfolio_id, benchmark_symbol, period
             )
+            if benchmark_comparison is None:
+                raise ValueError("Benchmark comparison returned no result")
         except Exception as e:
             logger.warning(f"Failed to compare to benchmark: {e}")
             # Create minimal benchmark comparison

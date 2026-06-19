@@ -4,12 +4,26 @@ Tests for ATH/ATL (All-Time High/Low) notifications
 import pytest
 from decimal import Decimal
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import User, Portfolio, Asset, Transaction, TransactionType, AssetClass, NotificationType
 from app.services.communications.notifications import notification_service
 from app.crud import notifications as crud_notifications
-from app.tasks.ath_tasks import update_asset_ath, _notify_users_for_ath_atl
+from app.tasks.ath_tasks import update_asset_ath
+
+
+@pytest.fixture(autouse=True)
+def use_test_database_for_ath_tasks(test_db: Session, monkeypatch):
+    """Give directly invoked Celery tasks an isolated session on the test DB."""
+    test_session_factory = sessionmaker(
+        bind=test_db.get_bind(),
+        expire_on_commit=False,
+    )
+
+    def override_get_db():
+        yield test_session_factory()
+
+    monkeypatch.setattr("app.tasks.ath_tasks.get_db", override_get_db)
 
 
 def test_create_ath_notification(test_db: Session):
@@ -146,7 +160,8 @@ def test_update_asset_ath_triggers_notification(test_db: Session):
         name="Microsoft Corp",
         currency="USD",
         class_=AssetClass.STOCK,
-        ath_price=Decimal("300.00")
+        ath_price=Decimal("300.00"),
+        atl_price=Decimal("100.00"),
     )
     test_db.add(asset)
     test_db.commit()
@@ -156,10 +171,10 @@ def test_update_asset_ath_triggers_notification(test_db: Session):
     transaction = Transaction(
         portfolio_id=portfolio.id,
         asset_id=asset.id,
-        transaction_type=TransactionType.BUY,
+        type=TransactionType.BUY,
         quantity=Decimal("10.0"),
         price=Decimal("290.00"),
-        date=datetime.utcnow()
+        tx_date=datetime.utcnow().date()
     )
     test_db.add(transaction)
     test_db.commit()
@@ -208,7 +223,8 @@ def test_update_asset_atl_triggers_notification(test_db: Session):
         name="Netflix Inc",
         currency="USD",
         class_=AssetClass.STOCK,
-        atl_price=Decimal("100.00")
+        ath_price=Decimal("200.00"),
+        atl_price=Decimal("100.00"),
     )
     test_db.add(asset)
     test_db.commit()
@@ -218,10 +234,10 @@ def test_update_asset_atl_triggers_notification(test_db: Session):
     transaction = Transaction(
         portfolio_id=portfolio.id,
         asset_id=asset.id,
-        transaction_type=TransactionType.BUY,
+        type=TransactionType.BUY,
         quantity=Decimal("5.0"),
         price=Decimal("110.00"),
-        date=datetime.utcnow()
+        tx_date=datetime.utcnow().date()
     )
     test_db.add(transaction)
     test_db.commit()
@@ -270,7 +286,8 @@ def test_user_can_disable_ath_atl_notifications(test_db: Session):
         name="Alphabet Inc",
         currency="USD",
         class_=AssetClass.STOCK,
-        ath_price=Decimal("150.00")
+        ath_price=Decimal("150.00"),
+        atl_price=Decimal("50.00"),
     )
     test_db.add(asset)
     test_db.commit()
@@ -280,10 +297,10 @@ def test_user_can_disable_ath_atl_notifications(test_db: Session):
     transaction = Transaction(
         portfolio_id=portfolio.id,
         asset_id=asset.id,
-        transaction_type=TransactionType.BUY,
+        type=TransactionType.BUY,
         quantity=Decimal("10.0"),
         price=Decimal("140.00"),
-        date=datetime.utcnow()
+        tx_date=datetime.utcnow().date()
     )
     test_db.add(transaction)
     test_db.commit()
@@ -335,7 +352,8 @@ def test_notify_only_users_holding_asset(test_db: Session):
         name="Amazon",
         currency="USD",
         class_=AssetClass.STOCK,
-        ath_price=Decimal("150.00")
+        ath_price=Decimal("150.00"),
+        atl_price=Decimal("50.00"),
     )
     test_db.add(asset)
     test_db.commit()
@@ -345,10 +363,10 @@ def test_notify_only_users_holding_asset(test_db: Session):
     transaction = Transaction(
         portfolio_id=portfolio1.id,
         asset_id=asset.id,
-        transaction_type=TransactionType.BUY,
+        type=TransactionType.BUY,
         quantity=Decimal("5.0"),
         price=Decimal("140.00"),
-        date=datetime.utcnow()
+        tx_date=datetime.utcnow().date()
     )
     test_db.add(transaction)
     test_db.commit()
@@ -381,7 +399,7 @@ def test_user_notification_settings_defaults(test_db: Session):
     test_db.refresh(user)
     
     # Check that ATH/ATL notifications are enabled by default
-    assert user.ath_atl_notifications_enabled == True
+    assert user.ath_atl_notifications_enabled
 
 
 def test_both_ath_and_atl_can_update_simultaneously(test_db: Session):

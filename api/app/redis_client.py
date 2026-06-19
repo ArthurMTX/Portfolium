@@ -23,7 +23,8 @@ class RedisManager:
         self._pool: Optional[ConnectionPool] = None
         self._client: Optional[redis.Redis] = None
         self._healthy = False
-        self._initialize_connection()
+        if settings.REDIS_ENABLED:
+            self._initialize_connection()
     
     def _initialize_connection(self) -> None:
         """Initialize Redis connection pool"""
@@ -179,6 +180,8 @@ def get_redis() -> Optional[redis.Redis]:
     Dependency function to get Redis client.
     Returns None if Redis is unavailable (graceful degradation).
     """
+    if not settings.REDIS_ENABLED:
+        return None
     manager = get_redis_manager()
     return manager.get_client()
 

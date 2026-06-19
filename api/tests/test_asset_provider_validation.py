@@ -23,6 +23,10 @@ def patch_provider(monkeypatch, provider):
         "app.services.market_data.yahoo_finance.get_market_data_provider",
         lambda: provider,
     )
+    monkeypatch.setattr(
+        "app.routers.assets.get_market_data_provider",
+        lambda: provider,
+    )
 
 
 def test_create_asset_rejects_yahoo_lookup_failure(test_db, monkeypatch):

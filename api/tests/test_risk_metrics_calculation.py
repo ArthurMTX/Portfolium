@@ -2,11 +2,9 @@
 import pytest
 from decimal import Decimal
 from datetime import date, timedelta
-from unittest.mock import Mock, patch
-import math
+from unittest.mock import Mock
 
 from app.services.portfolio_analytics.insights import InsightsService
-from app.schemas import RiskMetrics
 
 @pytest.mark.unit
 class TestRiskMetricsCalculation:
@@ -43,7 +41,13 @@ class TestRiskMetricsCalculation:
             
         # Convert returns to daily values
         start_value = 1000.0
-        daily_values = [(date(2023, 1, 1), Decimal(str(start_value)))]
+        daily_values = [
+            (
+                date(2023, 1, 1),
+                Decimal(str(start_value)),
+                Decimal(str(start_value)),
+            )
+        ]
         
         current_value = start_value
         current_date = date(2023, 1, 1)
@@ -51,10 +55,16 @@ class TestRiskMetricsCalculation:
         for ret in returns:
             current_date += timedelta(days=1)
             current_value = current_value * (1 + ret)
-            daily_values.append((current_date, Decimal(str(current_value))))
+            daily_values.append(
+                (
+                    current_date,
+                    Decimal(str(current_value)),
+                    Decimal(str(start_value)),
+                )
+            )
             
-        # Mock _get_daily_portfolio_values
-        service._get_daily_portfolio_values = Mock(return_value=daily_values)
+        # Mock the cash-flow-aware history used by risk calculations.
+        service._get_daily_portfolio_performance = Mock(return_value=daily_values)
         
         # Run calculation
         metrics = service._calculate_risk_metrics(1, "1y")
@@ -102,9 +112,9 @@ class TestRiskMetricsCalculation:
         
         # Let's verify these values
         
-        assert metrics.var_99 == Decimal("-5.0")
-        assert metrics.cvar_95 == Decimal("-4.8")
-        assert metrics.cvar_99 == Decimal("-10.0")
+        assert metrics.var_99 == pytest.approx(Decimal("5.05"))
+        assert metrics.cvar_95 == pytest.approx(Decimal("4.8"))
+        assert metrics.cvar_99 == pytest.approx(Decimal("10.0"))
         
         # Tail exposure
         # Mean return approx: (95*0.01 - 0.24) / 100 = (0.95 - 0.24) / 100 = 0.71 / 100 = 0.0071

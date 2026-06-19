@@ -28,13 +28,17 @@ async def lifespan(app: FastAPI):
     """Minimal application lifespan for HTTP runtime resources only."""
     logger.info("Starting Portfolium API", extra={"event": "application_starting"})
     
-    # Initialize Redis connection
-    from app.redis_client import get_redis_manager
-    redis_manager = get_redis_manager()
-    if redis_manager.is_healthy:
-        logger.info("Redis connection established")
+    if settings.REDIS_ENABLED:
+        # Initialize Redis connection
+        from app.redis_client import get_redis_manager
+
+        redis_manager = get_redis_manager()
+        if redis_manager.is_healthy:
+            logger.info("Redis connection established")
+        else:
+            logger.warning("Redis unavailable - application will run without caching")
     else:
-        logger.warning("Redis unavailable - application will run without caching")
+        logger.info("Redis disabled by configuration")
 
     logger.info(
         "Portfolium API startup complete",

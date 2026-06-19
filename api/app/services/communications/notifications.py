@@ -94,10 +94,10 @@ class NotificationService:
                 title = f"New {transaction.type.value} Transaction"
             elif action == "updated":
                 notification_type = NotificationType.TRANSACTION_UPDATED
-                title = f"Transaction Updated"
+                title = "Transaction Updated"
             elif action == "deleted":
                 notification_type = NotificationType.TRANSACTION_DELETED
-                title = f"Transaction Deleted"
+                title = "Transaction Deleted"
             else:
                 notification_type = NotificationType.TRANSACTION_CREATED
                 title = f"Transaction {action.capitalize()}"
@@ -168,9 +168,6 @@ class NotificationService:
             user_agent: User agent string
         """
         try:
-            user = db.query(User).filter(User.id == user_id).first()
-            username = user.username if user else f"User #{user_id}"
-            
             title = "New Login Detected"
             message = f"Login to your account from {ip_address or 'unknown IP'}"
             
@@ -334,6 +331,21 @@ class NotificationService:
             session_id: Market session identifier to prevent duplicate notifications
         """
         try:
+            if session_id and crud_notifications.daily_change_notification_exists(
+                db,
+                user_id,
+                asset_id,
+                session_id,
+            ):
+                logger.info(
+                    "Skipped duplicate daily change notification for user %s, "
+                    "asset %s, session %s",
+                    user_id,
+                    asset_id,
+                    session_id,
+                )
+                return
+
             # Determine if upside or downside
             is_upside = daily_change_pct > 0
             notification_type = (

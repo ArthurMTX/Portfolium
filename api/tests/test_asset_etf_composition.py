@@ -113,7 +113,9 @@ def test_etf_composition_returns_unavailable_for_non_etf(test_db, monkeypatch):
 
     result = service.get_etf_composition("AAPL")
 
-    assert result == {"available": False}
+    assert result["available"] is False
+    assert result["theme_exposure_available"] is False
+    assert result["portfolio_overlap_available"] is False
 
 
 def test_etf_theme_exposure_reuses_existing_holding_classifications(test_db):

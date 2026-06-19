@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     # Observability
     ENVIRONMENT: str = "development"
+    TESTING: bool = False
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "auto"  # auto, json, or readable
     LOG_FILE_ENABLED: bool = True
@@ -118,6 +119,7 @@ class Settings(BaseSettings):
     THEME_MINILM_TOP_K: int = 15
     
     # Redis Configuration
+    REDIS_ENABLED: bool = True
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0

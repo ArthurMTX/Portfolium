@@ -19,7 +19,7 @@ def test_dividend_tax_cannot_exceed_gross(client, auth_headers, sample_portfolio
     }
 
     resp = client.post(
-        f"/{sample_portfolio.id}/transactions",
+        f"/portfolios/{sample_portfolio.id}/transactions",
         json=payload,
         headers=auth_headers,
     )

@@ -106,10 +106,16 @@ class CannotGetPortfolioPricesError(PortfoliumException):
 class AssetNotFoundError(PortfoliumException):
     """Raised when an asset is not found by symbol or ID"""
     
-    def __init__(self, identifier: str | int):
+    def __init__(
+        self,
+        identifier: str | int | None = None,
+        *,
+        id: int | None = None,
+    ):
+        resolved_identifier = id if id is not None else identifier
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset '{identifier}' not found"
+            detail=f"Asset '{resolved_identifier}' not found"
         )
 
 
@@ -638,7 +644,7 @@ class WrongImportFormatError(PortfoliumException):
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid watchlist import format. Must be a CSV."
+            detail="Invalid watchlist import format. Must be a CSV."
         )
 
 

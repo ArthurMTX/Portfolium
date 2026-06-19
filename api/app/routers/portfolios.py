@@ -2,7 +2,7 @@
 """
 Portfolios router
 """
-from typing import List, Annotated, Dict, Optional
+from typing import List, Optional
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Query, status
@@ -32,7 +32,7 @@ from app.crud import watchlist as crud_watchlist
 from app.crud import notifications as crud_notifications
 from app.crud import pending_dividends as crud_pending_dividends
 from app.dependencies import PricingServiceDep, MetricsServiceDep
-from app.services.portfolio_analytics.metrics import MetricsService, get_metrics_service
+from app.services.portfolio_analytics.metrics import get_metrics_service
 from app.services.market_data.pricing import get_pricing_service
 from app.services.platform.cache import CacheService
 from app.auth import get_current_user, verify_portfolio_access
@@ -40,12 +40,8 @@ from app.models import (
     User,
     Transaction,
     Asset,
-    TransactionType,
     Portfolio as PortfolioModel,
     EarningsCache,
-    Notification,
-    PendingDividend,
-    PendingDividendStatus,
 )
 from app.models.enums import NotificationType
 
@@ -165,7 +161,7 @@ async def get_today_brief(
     items: List[TodayBriefItem] = []
 
     # 1) Portfolio performance today.
-    if metrics.daily_change_pct is not None:
+    if metrics.daily_change_pct is not None and metrics.daily_change_pct != 0:
         daily_change_pct = Decimal(str(metrics.daily_change_pct))
         daily_change_value = Decimal(str(metrics.daily_change_value)) if metrics.daily_change_value is not None else None
         items.append(_brief_item(
@@ -719,7 +715,6 @@ async def get_batch_prices(
         
         # Get asset details (symbol, currency) - fast with new index
         assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
-        asset_map = {asset.id: asset for asset in assets}
         
         # Fetch all prices in parallel (existing optimization)
         pricing_service = get_pricing_service(db)
