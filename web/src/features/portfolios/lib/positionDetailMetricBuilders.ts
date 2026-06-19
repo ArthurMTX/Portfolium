@@ -21,7 +21,7 @@ import {
   getVolatilityConclusion,
   getVolumeConclusion,
 } from '@/features/assets/lib/conclusionUtils'
-import { formatCurrency, formatLargeNumber, formatNumber, formatWithSeparators } from '@/shared/lib/formatUtils'
+import { formatCurrency, formatLargeNumber, formatNumber, formatQuantity, formatWithSeparators } from '@/shared/lib/formatUtils'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -426,21 +426,100 @@ export const buildPerformanceMetrics = (
   metrics: DetailedMetrics | null,
   t: Translate
 ): MetricCardModel[] => {
-  const pnlValue = position.unrealized_pnl !== null ? Number(position.unrealized_pnl) : 0
-  const isPositive = pnlValue >= 0
-  const pnlColor = getPnlColor(pnlValue)
-  const items: MetricCardModel[] = [
-    metric({
+  const items: MetricCardModel[] = []
+
+  if (position.quantity > 0 && hasValue(position.unrealized_pnl)) {
+    const pnlValue = Number(position.unrealized_pnl)
+    items.push(metric({
       key: 'unrealized-pnl',
       label: t('dashboard.unrealizedPnL'),
       value: formatCurrency(position.unrealized_pnl, position.currency),
-      percentage: position.unrealized_pnl_pct ? `${formatNumber(position.unrealized_pnl_pct, 2)}%` : undefined,
-      color: pnlColor,
-      icon: isPositive ? 'trendingUp' : 'trendingDown',
-    }),
-  ]
+      percentage: hasValue(position.unrealized_pnl_pct) ? signedPercent(position.unrealized_pnl_pct) : undefined,
+      color: getPnlColor(pnlValue),
+      icon: pnlValue >= 0 ? 'trendingUp' : 'trendingDown',
+    }))
+  }
 
-  if (position.breakeven_gain_pct && !isPositive) {
+  if (position.realized_quantity > 0) {
+    items.push(metric({
+      key: 'realized-pnl',
+      label: t('dashboard.realizedPnL'),
+      value: formatCurrency(position.realized_pnl, position.currency),
+      percentage: hasValue(position.realized_pnl_percent) ? signedPercent(position.realized_pnl_percent) : undefined,
+      color: getPnlColor(position.realized_pnl),
+      icon: position.realized_pnl >= 0 ? 'trendingUp' : 'trendingDown',
+    }))
+
+    if (hasValue(position.lifetime_pnl)) {
+      items.push(metric({
+        key: 'lifetime-pnl',
+        label: t('dashboard.lifetimePnL'),
+        value: formatCurrency(position.lifetime_pnl, position.currency),
+        color: getPnlColor(position.lifetime_pnl),
+        icon: position.lifetime_pnl >= 0 ? 'trendingUp' : 'trendingDown',
+      }))
+    }
+
+    items.push(
+      metric({
+        key: 'sold-quantity',
+        label: t('dashboard.soldQuantity'),
+        value: formatQuantity(position.realized_quantity),
+        color: neutralText,
+      }),
+      metric({
+        key: 'remaining-quantity',
+        label: t('dashboard.remainingQuantity'),
+        value: formatQuantity(position.quantity),
+        color: neutralText,
+      }),
+    )
+
+    if (hasValue(position.average_sell_price)) {
+      items.push(metric({
+        key: 'average-sell-price',
+        label: t('dashboard.averageSellPrice'),
+        value: formatCurrency(position.average_sell_price, position.currency),
+        color: neutralText,
+      }))
+    }
+
+    if (position.realized_cost_basis > 0) {
+      items.push(metric({
+        key: 'realized-cost-basis',
+        label: t('dashboard.costBasisSold'),
+        value: formatCurrency(position.realized_cost_basis, position.currency),
+        color: neutralText,
+      }))
+    }
+
+    if (position.realized_sale_proceeds > 0) {
+      items.push(metric({
+        key: 'sale-proceeds',
+        label: t('dashboard.saleProceeds'),
+        value: formatCurrency(position.realized_sale_proceeds, position.currency),
+        color: neutralText,
+      }))
+    }
+
+    if (position.realized_fees > 0) {
+      items.push(metric({
+        key: 'realized-fees',
+        label: t('fields.fees'),
+        value: formatCurrency(position.realized_fees, position.currency),
+        color: negativeText,
+      }))
+    }
+
+    items.push(metric({
+      key: 'sell-count',
+      label: t('dashboard.sellTransactionCount'),
+      value: formatWithSeparators(position.realized_sell_count),
+      color: neutralText,
+    }))
+  }
+
+  if (position.breakeven_gain_pct && position.unrealized_pnl !== null && position.unrealized_pnl < 0) {
     items.push(metric({
       key: 'breakeven-gain',
       label: t('dashboard.breakeven.gainNeeded'),

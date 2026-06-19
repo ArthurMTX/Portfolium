@@ -802,6 +802,16 @@ class Position(BaseModel):
     last_updated: Optional[datetime]
     asset_type: Optional[str] = None
     themes: List[AssetTheme] = Field(default_factory=list)
+    realized_pnl: Decimal = Decimal(0)
+    realized_pnl_percent: Optional[Decimal] = None
+    realized_quantity: Decimal = Decimal(0)
+    realized_sell_count: int = 0
+    realized_cost_basis: Decimal = Decimal(0)
+    realized_sale_proceeds: Decimal = Decimal(0)
+    realized_fees: Decimal = Decimal(0)
+    lifetime_pnl: Optional[Decimal] = None
+    total_quantity_bought: Decimal = Decimal(0)
+    average_sell_price: Optional[Decimal] = None
 
 
 class PortfolioMetrics(BaseModel):

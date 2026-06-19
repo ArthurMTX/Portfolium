@@ -40,6 +40,10 @@ export async function getPortfolioPositions(portfolioId: number) {
   return request<PositionDTO[]>(`/portfolios/${portfolioId}/positions`)
 }
 
+export async function getPortfolioPosition(portfolioId: number, assetId: number) {
+  return request<PositionDTO | null>(`/portfolios/${portfolioId}/positions/${assetId}`)
+}
+
 export async function getSoldPositions(portfolioId: number) {
   return request<PositionDTO[]>(`/portfolios/${portfolioId}/sold-positions`)
 }

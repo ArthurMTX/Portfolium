@@ -233,6 +233,11 @@ class MetricsService:
         
         logger.info(f"Filtered {len(sold_positions)} sold positions from {len(all_positions)} total positions for portfolio {portfolio_id}")
         return sold_positions
+
+    async def get_position(self, portfolio_id: int, asset_id: int) -> Optional[Position]:
+        """Return an open or fully closed position for one portfolio asset."""
+        positions = await self.get_positions(portfolio_id, include_sold=True)
+        return next((position for position in positions if position.asset_id == asset_id), None)
     
     async def get_metrics(self, portfolio_id: int) -> PortfolioMetrics:
         """Calculate portfolio-level metrics (async to avoid blocking)"""
@@ -263,12 +268,11 @@ class MetricsService:
             current_value=total_value,
         )
         
-        # Calculate realized P&L and dividends
-        # Calculate realized P&L by summing up all sold positions
-        sold_positions = await self.get_positions(portfolio_id, include_sold=True)
+        # Include realized P&L from both partially and fully sold positions.
+        all_positions = await self.get_positions(portfolio_id, include_sold=True)
         realized_pnl = sum(
-            pos.unrealized_pnl for pos in sold_positions 
-            if pos.quantity == 0 and pos.unrealized_pnl
+            (pos.realized_pnl for pos in all_positions),
+            Decimal(0),
         ) or Decimal(0)
         
         total_dividends = self._calculate_total_dividends(portfolio_id)
@@ -1026,6 +1030,11 @@ class MetricsService:
         total_cost = Decimal(0)
         total_shares_for_cost = Decimal(0)
         realized_pnl = Decimal(0)  # Track realized P&L for sold positions
+        realized_cost_basis = Decimal(0)
+        realized_sale_proceeds = Decimal(0)
+        realized_fees = Decimal(0)
+        realized_quantity = Decimal(0)
+        realized_sell_count = 0
         # Track totals for sold position statistics
         total_buy_cost = Decimal(0)  # Total cost of all buys
         total_buy_shares = Decimal(0)  # Total shares bought
@@ -1049,13 +1058,20 @@ class MetricsService:
                 
             elif tx.type in [TransactionType.SELL, TransactionType.TRANSFER_OUT, TransactionType.CONVERSION_OUT]:
                 quantity -= tx.quantity
-                # Calculate realized P&L and reduce cost basis proportionally (FIFO simplification)
+                # Moving weighted-average cost (PRU): remove the current average
+                # cost for every disposed unit. This is the same methodology used
+                # for the remaining position's cost basis.
                 if total_shares_for_cost > 0:
                     avg_cost = total_cost / total_shares_for_cost
                     cost_reduction = tx.quantity * avg_cost
-                    # Realized P&L = proceeds - cost basis
-                    proceeds = (tx.quantity * tx.price) - tx.fees
-                    realized_pnl += proceeds - cost_reduction
+                    gross_proceeds = tx.quantity * tx.price
+                    net_proceeds = gross_proceeds - tx.fees
+                    realized_pnl += net_proceeds - cost_reduction
+                    realized_cost_basis += cost_reduction
+                    realized_sale_proceeds += gross_proceeds
+                    realized_fees += tx.fees
+                    realized_quantity += tx.quantity
+                    realized_sell_count += 1
                     total_cost -= cost_reduction
                     total_shares_for_cost -= tx.quantity
                 # Track for sold position stats
@@ -1078,10 +1094,17 @@ class MetricsService:
             avg_buy_price = total_buy_cost / total_buy_shares if total_buy_shares > 0 else Decimal(0)
             avg_sell_price = total_sell_proceeds / total_sell_shares if total_sell_shares > 0 else Decimal(0)
             
-            # Calculate realized P&L percentage
-            realized_pnl_pct = None
-            if total_buy_cost > 0:
-                realized_pnl_pct = (realized_pnl / total_buy_cost * 100)
+            # Calculate realized P&L percentage against the basis actually sold.
+            realized_pnl_pct = (
+                realized_pnl / realized_cost_basis * 100
+                if realized_cost_basis > 0
+                else None
+            )
+            average_sell_price = (
+                realized_sale_proceeds / realized_quantity
+                if realized_quantity > 0
+                else None
+            )
             
             # Convert values to target currency if needed
             target_currency = portfolio_base_currency or position_currency or asset.currency
@@ -1102,12 +1125,44 @@ class MetricsService:
                     from_currency=position_currency,
                     to_currency=target_currency
                 )
+                converted_realized_cost_basis = CurrencyService.convert(
+                    realized_cost_basis,
+                    from_currency=position_currency,
+                    to_currency=target_currency
+                )
+                converted_realized_sale_proceeds = CurrencyService.convert(
+                    realized_sale_proceeds,
+                    from_currency=position_currency,
+                    to_currency=target_currency
+                )
+                converted_realized_fees = CurrencyService.convert(
+                    realized_fees,
+                    from_currency=position_currency,
+                    to_currency=target_currency
+                )
+                converted_average_sell_price = (
+                    CurrencyService.convert(
+                        average_sell_price,
+                        from_currency=position_currency,
+                        to_currency=target_currency
+                    )
+                    if average_sell_price is not None
+                    else None
+                )
                 if converted_pnl:
                     realized_pnl = converted_pnl
                 if converted_buy_price:
                     avg_buy_price = converted_buy_price
                 if converted_sell_price:
                     avg_sell_price = converted_sell_price
+                if converted_realized_cost_basis is not None:
+                    realized_cost_basis = converted_realized_cost_basis
+                if converted_realized_sale_proceeds is not None:
+                    realized_sale_proceeds = converted_realized_sale_proceeds
+                if converted_realized_fees is not None:
+                    realized_fees = converted_realized_fees
+                if converted_average_sell_price is not None:
+                    average_sell_price = converted_average_sell_price
             
             return Position(
                 asset_id=asset_id,
@@ -1125,6 +1180,16 @@ class MetricsService:
                 last_updated=None,
                 asset_type=asset.asset_type,
                 themes=asset.themes,
+                realized_pnl=realized_pnl,
+                realized_pnl_percent=realized_pnl_pct,
+                realized_quantity=realized_quantity,
+                realized_sell_count=realized_sell_count,
+                realized_cost_basis=realized_cost_basis,
+                realized_sale_proceeds=realized_sale_proceeds,
+                realized_fees=realized_fees,
+                lifetime_pnl=realized_pnl,
+                total_quantity_bought=total_buy_shares,
+                average_sell_price=average_sell_price,
             )
         
         if quantity <= 0:
@@ -1153,6 +1218,27 @@ class MetricsService:
                 logger.info(
                     f"Converted cost basis for {asset.symbol} to {target_currency}"
                 )
+
+            for metric_name, metric_value in (
+                ("realized_pnl", realized_pnl),
+                ("realized_cost_basis", realized_cost_basis),
+                ("realized_sale_proceeds", realized_sale_proceeds),
+                ("realized_fees", realized_fees),
+            ):
+                converted_value = CurrencyService.convert(
+                    metric_value,
+                    from_currency=position_currency,
+                    to_currency=target_currency,
+                )
+                if converted_value is not None:
+                    if metric_name == "realized_pnl":
+                        realized_pnl = converted_value
+                    elif metric_name == "realized_cost_basis":
+                        realized_cost_basis = converted_value
+                    elif metric_name == "realized_sale_proceeds":
+                        realized_sale_proceeds = converted_value
+                    else:
+                        realized_fees = converted_value
         
         # Calculate average cost (PRU) in target currency
         avg_cost = total_cost / quantity if quantity > 0 else Decimal(0)
@@ -1210,6 +1296,22 @@ class MetricsService:
                 
                 # Target price to reach (it's simply the average cost)
                 breakeven_target_price = avg_cost
+
+        realized_pnl_pct = (
+            realized_pnl / realized_cost_basis * 100
+            if realized_cost_basis > 0
+            else None
+        )
+        average_sell_price = (
+            realized_sale_proceeds / realized_quantity
+            if realized_quantity > 0
+            else None
+        )
+        lifetime_pnl = (
+            realized_pnl + unrealized_pnl
+            if unrealized_pnl is not None
+            else None
+        )
         
         # Advanced metrics moved to lazy-loaded endpoint
         distance_to_ath_pct = None
@@ -1285,6 +1387,16 @@ class MetricsService:
             last_updated=last_updated,
             asset_type=asset.asset_type,
             themes=asset.themes,
+            realized_pnl=realized_pnl,
+            realized_pnl_percent=realized_pnl_pct,
+            realized_quantity=realized_quantity,
+            realized_sell_count=realized_sell_count,
+            realized_cost_basis=realized_cost_basis,
+            realized_sale_proceeds=realized_sale_proceeds,
+            realized_fees=realized_fees,
+            lifetime_pnl=lifetime_pnl,
+            total_quantity_bought=total_buy_shares,
+            average_sell_price=average_sell_price,
         )
     
     def _calculate_realized_pnl(self, portfolio_id: int) -> Decimal:

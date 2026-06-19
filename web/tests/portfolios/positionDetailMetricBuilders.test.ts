@@ -29,6 +29,16 @@ const basePosition: PositionDTO = {
   cost_basis: 1000,
   unrealized_pnl: -200,
   unrealized_pnl_pct: -20,
+  realized_pnl: 190,
+  realized_pnl_percent: 19,
+  realized_quantity: 5,
+  realized_sell_count: 1,
+  realized_cost_basis: 500,
+  realized_sale_proceeds: 700,
+  realized_fees: 10,
+  lifetime_pnl: -10,
+  total_quantity_bought: 15,
+  average_sell_price: 140,
   daily_change_pct: 1.5,
   breakeven_gain_pct: 25,
   breakeven_target_price: null,
@@ -106,11 +116,48 @@ const emptyMetrics = (): DetailedMetrics => ({
 const performanceMetrics = buildPerformanceMetrics(basePosition, null, translate)
 assert.deepEqual(performanceMetrics.map((item) => item.key), [
   'unrealized-pnl',
+  'realized-pnl',
+  'lifetime-pnl',
+  'sold-quantity',
+  'remaining-quantity',
+  'average-sell-price',
+  'realized-cost-basis',
+  'sale-proceeds',
+  'realized-fees',
+  'sell-count',
   'breakeven-gain',
   'daily-change',
 ])
 assert.equal(performanceMetrics[0].color, 'text-red-600 dark:text-red-400')
-assert.equal(performanceMetrics[1].value, '+25.00%')
+assert.equal(performanceMetrics[10].value, '+25.00%')
+
+const noSalePerformance = buildPerformanceMetrics({
+  ...basePosition,
+  realized_pnl: 0,
+  realized_pnl_percent: null,
+  realized_quantity: 0,
+  realized_sell_count: 0,
+  realized_cost_basis: 0,
+  realized_sale_proceeds: 0,
+  realized_fees: 0,
+  lifetime_pnl: basePosition.unrealized_pnl,
+  average_sell_price: null,
+}, null, translate)
+assert.deepEqual(noSalePerformance.map((item) => item.key), [
+  'unrealized-pnl',
+  'breakeven-gain',
+  'daily-change',
+])
+
+const closedPerformance = buildPerformanceMetrics({
+  ...basePosition,
+  quantity: 0,
+  unrealized_pnl: null,
+  unrealized_pnl_pct: null,
+  lifetime_pnl: 190,
+}, null, translate)
+assert.equal(closedPerformance.some((item) => item.key === 'unrealized-pnl'), false)
+assert.equal(closedPerformance.some((item) => item.key === 'realized-pnl'), true)
 
 const tradingZoneFallback = buildTradingZoneMetrics(basePosition, null, translate)
 assert.deepEqual(tradingZoneFallback, [

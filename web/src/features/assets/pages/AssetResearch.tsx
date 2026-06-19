@@ -67,6 +67,7 @@ import {
   getVolatilityConclusion,
   getVolumeConclusion,
 } from '@/features/assets/lib/conclusionUtils'
+import { buildTradingPerformanceMetrics } from '@/features/assets/lib/tradingPerformanceMetrics'
 import { useTranslation } from 'react-i18next'
 
 type TabId = 'overview' | 'fundamentals' | 'performance' | 'risk' | 'analyst'
@@ -259,6 +260,13 @@ export default function AssetResearch() {
     enabled: Boolean(routeSymbol) && isResearchEtf,
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
+  })
+
+  const tradingPerformanceQuery = useQuery({
+    queryKey: ['asset-trading-performance', activePortfolioId, assetResearch?.asset.id, portfolioDataVersion],
+    queryFn: () => api.getPortfolioPosition(activePortfolioId!, assetResearch!.asset.id),
+    enabled: Boolean(activePortfolioId && assetResearch?.asset.id),
+    staleTime: 60 * 1000,
   })
 
   useEffect(() => {
@@ -939,6 +947,15 @@ export default function AssetResearch() {
             loading={investmentNoteLoading}
             onEdit={() => setInvestmentNoteOpen(true)}
           />
+          {tradingPerformanceQuery.isLoading ? (
+            <Section title="Trading Performance" icon={<Activity size={20} className="text-blue-600 dark:text-blue-400" />}>
+              <MetricSkeletonGrid count={4} />
+            </Section>
+          ) : tradingPerformanceQuery.data ? (
+            <Section title="Trading Performance" icon={<Activity size={20} className="text-blue-600 dark:text-blue-400" />}>
+              <MetricGrid metrics={buildTradingPerformanceMetrics(tradingPerformanceQuery.data)} />
+            </Section>
+          ) : null}
           {showThemeSection && (
             <>
               {sectionLoading.themes ? (

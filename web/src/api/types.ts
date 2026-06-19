@@ -83,6 +83,16 @@ export interface PositionDTO {
   cost_basis: number
   unrealized_pnl: number | null
   unrealized_pnl_pct: number | null
+  realized_pnl: number
+  realized_pnl_percent: number | null
+  realized_quantity: number
+  realized_sell_count: number
+  realized_cost_basis: number
+  realized_sale_proceeds: number
+  realized_fees: number
+  lifetime_pnl: number | null
+  total_quantity_bought: number
+  average_sell_price: number | null
   daily_change_pct: number | null
   breakeven_gain_pct?: number | null
   breakeven_target_price?: number | null

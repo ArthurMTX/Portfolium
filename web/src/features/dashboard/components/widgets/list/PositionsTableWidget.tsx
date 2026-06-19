@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { LayoutList } from 'lucide-react'
 import PositionsTable from '@/features/portfolios/components/PositionsTable'
+import RealizedPositionsTable from '@/features/portfolios/components/RealizedPositionsTable'
 import { PositionDTO } from '@/api'
 import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '@/features/dashboard/components/types'
+import { getRealizedPositions } from '@/features/portfolios/lib/realizedPositions'
 
 interface PositionsTableWidgetProps extends BaseWidgetProps {
   portfolioId: number
@@ -18,8 +20,9 @@ export default function PositionsTableWidget({
   soldPositions,
   soldPositionsLoading
 }: PositionsTableWidgetProps) {
-  const [activeTab, setActiveTab] = useState<'current' | 'sold'>('current')
+  const [activeTab, setActiveTab] = useState<'current' | 'realized' | 'sold'>('current')
   const { t } = useTranslation()
+  const realizedPositions = getRealizedPositions(positions || [])
 
   return (
     <div className="card h-full flex flex-col overflow-hidden">
@@ -34,10 +37,10 @@ export default function PositionsTableWidget({
       </div>
       
       {/* Tab Navigation */}
-      <div className="flex items-center gap-4 px-4 pt-2 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="flex items-center gap-4 px-4 pt-2 border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
         <button
           onClick={() => setActiveTab('current')}
-          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
             activeTab === 'current'
               ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
               : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
@@ -51,8 +54,23 @@ export default function PositionsTableWidget({
           )}
         </button>
         <button
+          onClick={() => setActiveTab('realized')}
+          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+            activeTab === 'realized'
+              ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+          }`}
+        >
+          {t('dashboard.realizedPositions')}
+          {realizedPositions.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+              {realizedPositions.length}
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab('sold')}
-          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
             activeTab === 'sold'
               ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
               : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
@@ -71,6 +89,8 @@ export default function PositionsTableWidget({
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {activeTab === 'current' ? (
           <PositionsTable positions={positions || []} portfolioId={portfolioId} />
+        ) : activeTab === 'realized' ? (
+          <RealizedPositionsTable positions={realizedPositions} portfolioId={portfolioId} />
         ) : soldPositionsLoading ? (
           <div className="p-12 text-center">
             <p className="text-neutral-500 dark:text-neutral-400">

@@ -497,6 +497,17 @@ async def get_position_detailed_metrics(
     return result
 
 
+@router.get("/{portfolio_id}/positions/{asset_id}", response_model=Optional[Position])
+async def get_portfolio_position(
+    portfolio_id: int,
+    asset_id: int,
+    metrics_service = Depends(get_metrics_service),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """Get one open, partially sold, or fully closed portfolio position."""
+    return await metrics_service.get_position(portfolio_id, asset_id)
+
+
 @router.get("/{portfolio_id}/sold-positions", response_model=List[Position])
 async def get_sold_positions(
     portfolio_id: int,

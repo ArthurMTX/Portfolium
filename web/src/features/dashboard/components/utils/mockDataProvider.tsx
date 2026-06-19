@@ -3,6 +3,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactNode } from 'react'
 import { PositionDTO } from '@/api'
 
+const noRealizedSales = {
+  realized_pnl: 0,
+  realized_pnl_percent: null,
+  realized_quantity: 0,
+  realized_sell_count: 0,
+  realized_cost_basis: 0,
+  realized_sale_proceeds: 0,
+  realized_fees: 0,
+  lifetime_pnl: null,
+  average_sell_price: null,
+}
+
 /**
  * Centralized mock data for all widget previews
  */
@@ -10,11 +22,13 @@ import { PositionDTO } from '@/api'
 // Mock positions for widgets that need position data
 export const mockPositions: PositionDTO[] = [
   {
+    ...noRealizedSales,
     asset_id: 1,
     symbol: 'AAPL',
     name: 'Apple Inc.',
     asset_type: 'STOCK',
     quantity: 10,
+    total_quantity_bought: 10,
     avg_cost: 150.00,
     current_price: 175.50,
     market_value: 1755.00,
@@ -26,11 +40,13 @@ export const mockPositions: PositionDTO[] = [
     last_updated: '2025-11-10T12:00:00Z',
   },
   {
+    ...noRealizedSales,
     asset_id: 2,
     symbol: 'MSFT',
     name: 'Microsoft Corporation',
     asset_type: 'STOCK',
     quantity: 8,
+    total_quantity_bought: 8,
     avg_cost: 320.00,
     current_price: 380.25,
     market_value: 3042.00,
@@ -42,11 +58,13 @@ export const mockPositions: PositionDTO[] = [
     last_updated: '2025-11-10T12:00:00Z',
   },
   {
+    ...noRealizedSales,
     asset_id: 3,
     symbol: 'GOOGL',
     name: 'Alphabet Inc.',
     asset_type: 'STOCK',
     quantity: 15,
+    total_quantity_bought: 15,
     avg_cost: 135.00,
     current_price: 142.80,
     market_value: 2142.00,
@@ -58,11 +76,13 @@ export const mockPositions: PositionDTO[] = [
     last_updated: '2025-11-10T12:00:00Z',
   },
   {
+    ...noRealizedSales,
     asset_id: 4,
     symbol: 'TSLA',
     name: 'Tesla Inc.',
     asset_type: 'STOCK',
     quantity: 5,
+    total_quantity_bought: 5,
     avg_cost: 220.00,
     current_price: 195.30,
     market_value: 976.50,
@@ -74,11 +94,13 @@ export const mockPositions: PositionDTO[] = [
     last_updated: '2025-11-10T12:00:00Z',
   },
   {
+    ...noRealizedSales,
     asset_id: 5,
     symbol: 'NVDA',
     name: 'NVIDIA Corporation',
     asset_type: 'STOCK',
     quantity: 12,
+    total_quantity_bought: 12,
     avg_cost: 380.00,
     current_price: 485.60,
     market_value: 5827.20,
