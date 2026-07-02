@@ -221,6 +221,18 @@
   letter-spacing: -0.045em;
 }
 
+.calendar-month-change.is-positive,
+.calendar-day__return.is-positive,
+.calendar-summary dd.is-positive {
+  color: var(--pf-success);
+}
+
+.calendar-month-change.is-negative,
+.calendar-day__return.is-negative,
+.calendar-summary dd.is-negative {
+  color: var(--pf-danger);
+}
+
 .calendar-day__quiet {
   color: var(--pf-subtle);
 }

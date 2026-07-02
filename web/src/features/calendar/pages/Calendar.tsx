@@ -74,6 +74,11 @@ function getPortfolioExposureLabel(earning: EarningsEvent): string {
   return `${earning.portfolios.length} portfolios`
 }
 
+function getGainToneClass(value: number | null | undefined): 'is-positive' | 'is-negative' | '' {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return ''
+  return value > 0 ? 'is-positive' : 'is-negative'
+}
+
 export default function Calendar() {
   const { portfolios, activePortfolioId, setPortfolios, setActivePortfolio } = usePortfolioStore()
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -432,6 +437,7 @@ export default function Calendar() {
   const monthDays = calendarDaysFiltered.filter(d => d.isCurrentMonth && d.performance)
   const totalChangePct = monthDays.reduce((sum, d) => sum + d.performance!.total_change_pct, 0)
   const watchlistEarningsCount = filteredEarnings.filter(earning => earning.source === 'watchlist' && earning.is_future).length
+  const monthGainToneClass = getGainToneClass(monthStats.totalChange)
 
   return (
     <PageShell className="calendar">
@@ -518,7 +524,7 @@ export default function Calendar() {
             kicker="Month view"
             title={monthName}
             aside={
-              <span className="pf-section-description">
+              <span className={`pf-section-description calendar-month-change ${monthGainToneClass}`.trim()}>
                 {monthStats.totalChange >= 0 ? '+' : ''}{totalChangePct.toFixed(2)}% this month · {monthStats.totalChange >= 0 ? '+' : ''}{formatCurrency(monthStats.totalChange, currency)}
               </span>
             }
@@ -548,6 +554,7 @@ export default function Calendar() {
                 {calendarDaysFiltered.map((day) => {
                   const dateKey = formatDateKey(day.date)
                   const isSelected = selectedDay && formatDateKey(selectedDay.date) === dateKey
+                  const performanceToneClass = getGainToneClass(day.performance?.total_change)
                   return (
                     <button
                       key={dateKey}
@@ -565,7 +572,7 @@ export default function Calendar() {
                       <span className="calendar-day__number">{day.date.getDate()}</span>
 
                       {day.performance && day.isCurrentMonth ? (
-                        <span className={`calendar-day__return ${day.performance.is_positive ? 'is-positive' : 'is-negative'}`}>
+                        <span className={`calendar-day__return ${performanceToneClass}`.trim()}>
                           {day.performance.is_positive ? '+' : ''}{day.performance.total_change_pct.toFixed(2)}%
                         </span>
                       ) : (
@@ -573,7 +580,7 @@ export default function Calendar() {
                       )}
 
                       <span className="calendar-day__events">
-                        {day.performance && <i className={day.performance.is_positive ? 'is-positive' : 'is-negative'} />}
+                        {day.performance && <i className={performanceToneClass} />}
                         {day.earnings.length > 0 && <i className="is-earnings" />}
                         {day.isMarketClosed && <i className="is-closed" />}
                       </span>
@@ -599,7 +606,7 @@ export default function Calendar() {
                   <dl>
                     <div>
                       <dt>Portfolio</dt>
-                      <dd className={selectedDay.performance?.is_positive ? 'is-positive' : selectedDay.performance ? 'is-negative' : ''}>
+                      <dd className={getGainToneClass(selectedDay.performance?.total_change)}>
                         {selectedDay.performance
                           ? `${selectedDay.performance.is_positive ? '+' : ''}${selectedDay.performance.total_change_pct.toFixed(2)}%`
                           : 'No performance data'}
@@ -608,7 +615,7 @@ export default function Calendar() {
                     {selectedDay.performance && (
                       <div>
                         <dt>Gain / loss</dt>
-                        <dd className={selectedDay.performance.is_positive ? 'is-positive' : 'is-negative'}>
+                        <dd className={getGainToneClass(selectedDay.performance.total_change)}>
                           {selectedDay.performance.total_change >= 0 ? '+' : ''}{formatCurrency(selectedDay.performance.total_change, currency)}
                         </dd>
                       </div>
