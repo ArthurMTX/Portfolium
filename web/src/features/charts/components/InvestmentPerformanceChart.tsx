@@ -253,9 +253,55 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     }
   }
 
+  const performanceSummary = (() => {
+    if (history.length === 0 || performanceData.length === 0) return null
+    const latest = performanceData[performanceData.length - 1] || 0
+    const monthly = new Map<string, { label: string; first: number; last: number }>()
+    history.forEach((point, index) => {
+      const date = new Date(point.date)
+      const key = `${date.getFullYear()}-${date.getMonth()}`
+      const label = date.toLocaleDateString(currentLocale, { month: 'short', year: 'numeric' })
+      const value = performanceData[index] || 0
+      const existing = monthly.get(key)
+      if (existing) {
+        existing.last = value
+      } else {
+        monthly.set(key, { label, first: value, last: value })
+      }
+    })
+    const monthReturns = [...monthly.values()].map((month) => ({
+      label: month.label,
+      value: month.last - month.first,
+    }))
+    const bestMonth = monthReturns.reduce((best, month) => month.value > best.value ? month : best, monthReturns[0])
+    const worstMonth = monthReturns.reduce((worst, month) => month.value < worst.value ? month : worst, monthReturns[0])
+    const positiveMonths = monthReturns.filter((month) => month.value > 0).length
+    const startDate = new Date(history[0].date)
+    const endDate = new Date(history[history.length - 1].date)
+    const years = Math.max((endDate.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000), 1 / 12)
+    const annualized = period === 'ALL' ? ((Math.pow(1 + latest / 100, 1 / years) - 1) * 100) : latest
+    return {
+      portfolio: latest,
+      benchmark: null as number | null,
+      alpha: null as number | null,
+      bestMonth,
+      worstMonth,
+      positiveMonths,
+      totalMonths: monthReturns.length,
+      annualized,
+    }
+  })()
+
   return (
-    <div>
-      <div style={{ minHeight: 320 }} className="p-4">
+    <section className="pf-section pf-section--spacious charts-section">
+      <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header">
+        <div>
+          <p className="pf-section-kicker">PERFORMANCE</p>
+          <h2 className="pf-section-title">{t('charts.portfolioPerformanceLabel')}</h2>
+        </div>
+        <span className="pf-section-description">Cumulative performance separates portfolio return from the capital you added over time.</span>
+      </div>
+      <div className="charts-chart-panel">
         {loading ? (
           <PortfolioChartSkeleton metricWidthClass="w-24">
             <line
@@ -282,30 +328,25 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             />
           </PortfolioChartSkeleton>
         ) : history.length === 0 ? (
-          <div className="text-neutral-400 text-center py-12">
+          <div className="charts-empty">
             <p className="font-semibold mb-2">{t('charts.noPortfolioPerformance')}</p>
             <p className="text-sm">{t('charts.noPortfolioPerformanceInfo')}</p>
           </div>
         ) : (
           <div>
-            {/* Title and performance display */}
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <div>
-                  <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t('charts.portfolioPerformanceLabel')}</h3>
-                </div>
-              </div>
+            <div className="charts-chart-heading">
+              <h3>{t('charts.portfolioPerformanceLabel')}</h3>
               {displayPoint && (() => {
                 const isPositive = displayPerformance > 0
                 const symbol = getCurrencySymbol(currency)
                 const colorClass = getSignedColorClass(displayPerformance)
                 
                 return (
-                  <div className="flex items-center gap-3">
-                    <p className={`text-2xl font-bold ${colorClass}`}>
+                  <div className="charts-chart-metric">
+                    <p className={colorClass}>
                       {isPositive ? '+' : ''}{displayPerformance.toFixed(2)}%
                     </p>
-                    <div className="flex flex-col items-end gap-0.5">
+                    <div>
                       <p className={`text-sm font-medium ${colorClass}`}>
                         {displayGainAmount > 0 ? '+' : ''}{symbol}{Math.abs(displayGainAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
@@ -315,17 +356,51 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
               })()}
             </div>
             <div 
-              style={{ height: '320px' }}
+              className="charts-chart-canvas"
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <Line data={chartData} options={chartOptions} />
             </div>
+            {performanceSummary && (
+              <div className="charts-observations">
+                <p>Performance summary</p>
+                <dl>
+                  <div>
+                    <dt>Portfolio</dt>
+                    <dd className={performanceSummary.portfolio >= 0 ? 'is-positive' : 'is-negative'}>{performanceSummary.portfolio >= 0 ? '+' : ''}{performanceSummary.portfolio.toFixed(2)}%</dd>
+                  </div>
+                  <div>
+                    <dt>Benchmark</dt>
+                    <dd>Not selected</dd>
+                  </div>
+                  <div>
+                    <dt>Alpha</dt>
+                    <dd>—</dd>
+                  </div>
+                  <div>
+                    <dt>Best month</dt>
+                    <dd className="is-positive">{performanceSummary.bestMonth ? `${performanceSummary.bestMonth.value >= 0 ? '+' : ''}${performanceSummary.bestMonth.value.toFixed(2)}%` : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Worst month</dt>
+                    <dd className="is-negative">{performanceSummary.worstMonth ? `${performanceSummary.worstMonth.value >= 0 ? '+' : ''}${performanceSummary.worstMonth.value.toFixed(2)}%` : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Positive months</dt>
+                    <dd>{performanceSummary.positiveMonths}/{performanceSummary.totalMonths}</dd>
+                  </div>
+                  <div>
+                    <dt>Annualized return</dt>
+                    <dd className={performanceSummary.annualized >= 0 ? 'is-positive' : 'is-negative'}>{performanceSummary.annualized >= 0 ? '+' : ''}{performanceSummary.annualized.toFixed(2)}%</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
           </div>
         )}
       </div>
       
-      {/* Time period buttons */}
       <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
-    </div>
+    </section>
   )
 }

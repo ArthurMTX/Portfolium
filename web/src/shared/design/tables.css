@@ -1,0 +1,33 @@
+@layer components {
+  .pf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .pf-table th {
+    color: var(--pf-subtle);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .pf-table th,
+  .pf-table td {
+    border-bottom: 1px solid var(--pf-line);
+    padding: 0.8rem 0.9rem;
+  }
+
+  .pf-table tr:hover td {
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-list-row,
+  .pf-metric-row-item {
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-md);
+    background: var(--pf-surface-raised);
+  }
+}

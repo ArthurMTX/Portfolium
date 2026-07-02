@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Info, Code, Calendar, GitCommit } from 'lucide-react';
 import { getVersionInfo } from '@/app/version';
 import api from '@/api';
+import { InlineLoading } from '@/shared/components/StatePrimitives'
 import { useTranslation } from 'react-i18next'
 
 interface ApiVersionInfo {
@@ -73,7 +74,7 @@ export default function VersionInfo() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('versionInfo.loadingVersionInfo')}</p>
+            <InlineLoading label={t('versionInfo.loadingVersionInfo')} />
           )}
         </div>
       </div>

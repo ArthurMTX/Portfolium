@@ -1,10 +1,20 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { Activity, BarChart3, Layers, Shield, Sparkles, TrendingUp } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { periodLabel, type InsightsTabProps } from '@/features/insights/components/InsightsShared'
+import { ChartSkeleton, MetricSkeletonStrip } from '@/shared/components/StatePrimitives'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageShell,
+  PageSummaryPanel,
+  PageTabs,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import '@/shared/design/pages/insights.css'
 
 const PerformanceTab = lazy(() => import('@/features/insights/components/PerformanceTab'))
 const AttributionTab = lazy(() => import('@/features/insights/components/AttributionTab'))
@@ -14,12 +24,12 @@ const AIInsightsTab = lazy(() => import('@/features/insights/components/AIInsigh
 
 type InsightsTabId = 'performance' | 'attribution' | 'exposure' | 'risk' | 'ai'
 
-const tabs: Array<{ id: InsightsTabId; label: string; purpose: string; icon: ReactNode }> = [
-  { id: 'performance', label: 'Performance', purpose: 'What happened?', icon: <TrendingUp size={16} /> },
-  { id: 'attribution', label: 'Attribution', purpose: 'Why did it happen?', icon: <Activity size={16} /> },
-  { id: 'exposure', label: 'Exposure', purpose: 'What am I exposed to?', icon: <Layers size={16} /> },
-  { id: 'risk', label: 'Risk', purpose: 'What can go wrong?', icon: <Shield size={16} /> },
-  { id: 'ai', label: 'AI Insights', purpose: 'Future', icon: <Sparkles size={16} /> },
+const tabs: Array<{ id: InsightsTabId; label: string; purpose: string }> = [
+  { id: 'performance', label: 'Performance', purpose: 'What happened?' },
+  { id: 'attribution', label: 'Attribution', purpose: 'Why did it happen?' },
+  { id: 'exposure', label: 'Exposure', purpose: 'What am I exposed to?' },
+  { id: 'risk', label: 'Risk', purpose: 'What can go wrong?' },
+  { id: 'ai', label: 'AI Insights', purpose: 'Future' },
 ]
 
 export default function Insights() {
@@ -28,27 +38,6 @@ export default function Insights() {
   const [period, setPeriod] = useState('1y')
   const [benchmark, setBenchmark] = useState('SPY')
   const [activeTab, setActiveTab] = useState<InsightsTabId>('performance')
-  const stickySentinelRef = useRef<HTMLDivElement | null>(null)
-  const [isSticky, setIsSticky] = useState(false)
-
-  useEffect(() => {
-    const sentinel = stickySentinelRef.current
-    if (!sentinel) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsSticky(!entry.isIntersecting)
-      },
-      {
-        root: null,
-        threshold: 0,
-        rootMargin: '-57px 0px 0px 0px',
-      },
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [])
 
   if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="insights" />
@@ -68,26 +57,19 @@ export default function Insights() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div>
-          <h1 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-            <BarChart3 className="text-pink-600" size={28} />
-            {t('insights.title')}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400 sm:text-base">
-            {t('insights.description')}
-          </p>
-        </div>
-      </div>
-      <div ref={stickySentinelRef} className="h-px" />
-      <div
-        className={`sticky top-[57px] z-40 border border-neutral-200 bg-white/95 p-2 shadow-sm backdrop-blur transition-[border-radius] dark:border-neutral-800 dark:bg-neutral-950/95 ${
-          isSticky ? 'rounded-b-lg rounded-t-none border-t-0' : 'rounded-lg'
-        }`}
-      >
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex gap-1 overflow-x-auto">
+    <PageShell className="insights">
+      <PageHeader>
+        <PageTitleBlock kicker="Insights" title={t('insights.title')} />
+        <PageSummaryPanel
+          lead={tabs.find((tab) => tab.id === activeTab)?.purpose}
+          description={t('insights.description')}
+        />
+      </PageHeader>
+
+      <PageControls
+        label="Insights controls"
+        start={
+          <PageTabs label="Insights sections">
             {tabs.map((tab) => {
               const selected = activeTab === tab.id
               return (
@@ -95,29 +77,24 @@ export default function Insights() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex min-w-fit items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                    selected
-                      ? 'bg-pink-50 text-pink-700 dark:bg-pink-950 dark:text-pink-300'
-                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
-                  }`}
+                  className={selected ? 'is-active' : ''}
                   title={tab.purpose}
                   aria-pressed={selected}
                 >
-                  {tab.icon}
-                  <span className="font-medium">{tab.label}</span>
+                  {tab.label}
                 </button>
               )
             })}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+          </PageTabs>
+        }
+        end={
+          <div className="pf-control-group insights__filters">
+            <span>
               {periodLabel(period)}
             </span>
             <select
               value={period}
               onChange={(event) => setPeriod(event.target.value)}
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
               aria-label="Insights period"
             >
               <option value="1m">{t('insights.periods.1M')}</option>
@@ -131,7 +108,6 @@ export default function Insights() {
             <select
               value={benchmark}
               onChange={(event) => setBenchmark(event.target.value)}
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
               aria-label="Insights benchmark"
             >
               <option value="SPY">S&P 500</option>
@@ -141,33 +117,29 @@ export default function Insights() {
               <option value="VTI">{t('insights.totalMarket')}</option>
             </select>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      <Suspense fallback={<TabFallback />}>
-        {activeTab === 'performance' && <PerformanceTab {...tabProps} />}
-        {activeTab === 'attribution' && <AttributionTab {...tabProps} />}
-        {activeTab === 'exposure' && <ExposureTab {...tabProps} />}
-        {activeTab === 'risk' && <RiskTab {...tabProps} />}
-        {activeTab === 'ai' && <AIInsightsTab />}
-      </Suspense>
-    </div>
+      <PageMainGrid single>
+        <PageMainColumn className="insights__content">
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'performance' && <PerformanceTab {...tabProps} />}
+            {activeTab === 'attribution' && <AttributionTab {...tabProps} />}
+            {activeTab === 'exposure' && <ExposureTab {...tabProps} />}
+            {activeTab === 'risk' && <RiskTab {...tabProps} />}
+            {activeTab === 'ai' && <AIInsightsTab />}
+          </Suspense>
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   )
 }
 
 function TabFallback() {
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="card p-5 animate-pulse">
-            <div className="h-4 w-28 rounded bg-neutral-200 dark:bg-neutral-700" />
-            <div className="mt-3 h-8 w-24 rounded bg-neutral-200 dark:bg-neutral-700" />
-            <div className="mt-3 h-3 w-20 rounded bg-neutral-200 dark:bg-neutral-700" />
-          </div>
-        ))}
-      </div>
-      <div className="card h-80 animate-pulse bg-neutral-100 dark:bg-neutral-800" />
+    <div className="insights-tab-fallback">
+      <MetricSkeletonStrip label="Loading insights metrics" />
+      <ChartSkeleton className="insights-chart-loading" label="Loading insights chart" />
     </div>
   )
 }

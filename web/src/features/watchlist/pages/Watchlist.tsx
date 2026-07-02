@@ -1,16 +1,28 @@
 import { useState, useEffect, useCallback, useMemo, type KeyboardEvent } from 'react'
 import { api, type AssetThemeDTO } from '@/api'
-import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, Eye, X, ChevronUp, ChevronDown, Tag, Filter } from 'lucide-react'
+import { Plus, Trash2, Pencil, RefreshCw, Download, Upload, ShoppingCart, X, ChevronUp, ChevronDown, Tag, Filter, MoreHorizontal } from 'lucide-react'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import ImportProgressModal from '@/features/transactions/components/ImportProgressModal'
-import SortIcon from '@/shared/components/SortIcon'
 import WatchlistTagManager, { IconComponent } from '@/features/watchlist/components/WatchlistTagManager'
 import WatchlistEditModal from '@/features/watchlist/components/WatchlistEditModal'
 import Toast from '@/shared/components/Toast'
 import AssetLogo from '@/shared/components/AssetLogo'
+import { InlineLoading, PageStateSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import '@/shared/design/pages/watchlist.css'
 
 interface WatchlistTag {
   id: number
@@ -108,6 +120,7 @@ export default function Watchlist() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const { t } = useTranslation()
 
@@ -272,8 +285,6 @@ export default function Watchlist() {
     })
   }, [watchlist, sortKey, sortDir])
 
-  const isActive = (key: SortKey) => sortKey === key
-
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
     const labels: Record<SortKey, string> = {
@@ -287,7 +298,7 @@ export default function Watchlist() {
   }
 
   const openAssetResearch = (symbol: string) => {
-    navigate(`/assets/${encodeURIComponent(symbol)}`)
+    navigate(`/assets/${encodeURIComponent(symbol)}/research`)
   }
 
   const handleAssetResearchKeyDown = (event: KeyboardEvent<HTMLElement>, symbol: string) => {
@@ -393,6 +404,15 @@ export default function Watchlist() {
       setDeleteConfirm(null)
     } catch (err: unknown) {
       setToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete item') })
+    }
+  }
+
+  const handleCopySymbol = async (symbol: string) => {
+    try {
+      await navigator.clipboard.writeText(symbol)
+      setToast({ type: 'success', message: `${symbol} copied` })
+    } catch {
+      setToast({ type: 'error', message: 'Failed to copy symbol' })
     }
   }
 
@@ -528,96 +548,117 @@ export default function Watchlist() {
       .join('\n')
   }
 
-  const renderCompactThemes = (themes?: AssetThemeDTO[], className = 'mt-2 flex flex-wrap gap-1.5 max-w-xs') => {
-    if (!themes || themes.length === 0) return null
-    const [primaryTheme, ...extraThemes] = themes
-
-    return (
-      <div className={className} title={getThemesTitle(themes)}>
-        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
-          {primaryTheme.label}
-        </span>
-        {extraThemes.length > 0 && (
-          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-            +{extraThemes.length}
-          </span>
-        )}
-      </div>
-    )
+  const formatSignedPercent = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) return '—'
+    const sign = value > 0 ? '+' : value < 0 ? '' : '+'
+    return `${sign}${value.toFixed(2)}%`
   }
 
-  // percentage formatting in table rows is done inline to match Dashboard style
+  const formatShortDate = (date: string | null) => {
+    if (!date) return 'No recent update'
+    const parsed = new Date(date)
+    if (Number.isNaN(parsed.getTime())) return 'No recent update'
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(parsed)
+  }
+
+  const getDailyMove = (item: WatchlistItem) => {
+    const value = toNumber(item.daily_change_pct)
+    return value === null || Number.isNaN(value) ? null : value
+  }
+
+  const getTargetState = (item: WatchlistItem) => {
+    const current = toNumber(item.current_price)
+    const target = toNumber(item.alert_target_price)
+    if (current === null || target === null || target === 0) return null
+
+    const distancePct = ((current - target) / target) * 100
+    const reached = current <= target
+    const near = !reached && distancePct <= 5
+    const distanceLabel = reached
+      ? 'Target reached'
+      : `${distancePct.toFixed(1)}% above target`
+
+    return {
+      current,
+      target,
+      reached,
+      near,
+      distancePct,
+      distanceLabel,
+    }
+  }
+
+  const getAttentionStatus = (item: WatchlistItem) => {
+    const target = getTargetState(item)
+    const dailyMove = getDailyMove(item)
+
+    if (target?.reached) {
+      return {
+        label: 'Target reached',
+        detail: 'Current price is at or below your watch target.',
+        tone: 'urgent' as const,
+      }
+    }
+
+    if (target?.near) {
+      return {
+        label: 'Near target',
+        detail: target.distanceLabel,
+        tone: 'attention' as const,
+      }
+    }
+
+    if (dailyMove !== null && Math.abs(dailyMove) >= 5) {
+      return {
+        label: 'Large move today',
+        detail: `${formatSignedPercent(dailyMove)} today.`,
+        tone: 'attention' as const,
+      }
+    }
+
+    if (!item.notes?.trim()) {
+      return {
+        label: 'Needs thesis',
+        detail: 'No watch reason has been written yet.',
+        tone: 'quiet' as const,
+      }
+    }
+
+    return {
+      label: 'Watching',
+      detail: `Updated ${formatShortDate(item.last_updated)}`,
+      tone: 'neutral' as const,
+    }
+  }
+
+  const attentionCount = watchlist.filter((item) => {
+    const status = getAttentionStatus(item)
+    return status.label === 'Target reached' || status.label === 'Near target' || status.label === 'Large move today' || status.label === 'Needs thesis'
+  }).length
+
+  const targetReachedCount = watchlist.filter((item) => getAttentionStatus(item).label === 'Target reached').length
+  const needsThesisCount = watchlist.filter((item) => getAttentionStatus(item).label === 'Needs thesis').length
+
+  const newestWatchDate = (() => {
+    const dates = watchlist
+      .map((item) => new Date(item.created_at))
+      .filter((date) => !Number.isNaN(date.getTime()))
+      .sort((a, b) => b.getTime() - a.getTime())
+    return dates[0] ? formatShortDate(dates[0].toISOString()) : 'No assets yet'
+  })()
+
+  const primaryThemesLabel = (themes?: AssetThemeDTO[]) => {
+    if (!themes || themes.length === 0) return 'No theme classified'
+    const [primary, ...rest] = themes
+    return rest.length > 0 ? `${primary.label} +${rest.length}` : primary.label
+  }
 
   if (loading) {
-    return (
-      <div className="space-y-8">
-        {/* Header Skeleton */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-              <Eye className="text-pink-600" size={28} />
-              {t('watchlist.title')}
-            </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-              {t('watchlist.loadingMessage')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="h-10 w-24 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="h-10 w-28 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="h-10 w-32 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="h-10 w-24 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-          </div>
-        </div>
-
-        {/* Add Form Skeleton */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4">{t('watchlist.addToWatchlist')}</h2>
-          <div className="flex gap-4">
-            <div className="w-[40%] h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="w-[50%] h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-            <div className="w-[10%] h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-          </div>
-        </div>
-
-        {/* Table Skeleton */}
-        <div className="card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.symbol')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.name')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.price')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.dailyChange')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('fields.notes')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.alert')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {[1, 2, 3, 4].map((i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                        <div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4"><div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-16 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    )
+    return <PageStateSkeleton label="Loading watchlist" className="watchlist" />
   }
 
   if (portfolios.length === 0) {
@@ -625,493 +666,333 @@ export default function Watchlist() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <Eye className="text-pink-600" size={28} />
-            {t('watchlist.title')}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            {t('watchlist.description')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button 
-            onClick={handleImportClick}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <Upload size={16} />
-            <span className="hidden sm:inline">{t('common.import')}</span>
-          </button>
-          <button 
-            onClick={handleExportClick}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">{t('common.export')}</span>
-          </button>
-          <button
-            onClick={handleRefreshPrices}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <RefreshCw size={16} />
-            <span className="hidden sm:inline">{t('common.refresh')}</span>
-          </button>
-          <button 
-            onClick={() => setShowAddModal(true)} 
-            className="btn-primary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">{t('watchlist.addToWatchlist')}</span>
-            <span className="sm:hidden">{t('common.add')}</span>
-          </button>
-        </div>
-      </div>
+    <PageShell className="watchlist">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Watchlist"
+          title={`${watchlist.length} ${watchlist.length === 1 ? 'company' : 'companies'}.`}
+        />
+        <PageSummaryPanel
+          lead={`${attentionCount} ${attentionCount === 1 ? 'deserves' : 'deserve'} attention today.`}
+          description={
+            <>
+              Assets you are still evaluating. Nothing here is owned yet.
+              {watchlist.length > 0 ? ` Latest addition: ${newestWatchDate}.` : ''}
+            </>
+          }
+          actions={
+            <>
+              <button className="pf-button pf-button--secondary" type="button" onClick={handleImportClick}>
+                <Upload size={15} />
+                {t('common.import')}
+              </button>
+              <button className="pf-button pf-button--secondary" type="button" onClick={handleExportClick}>
+                <Download size={15} />
+                {t('common.export')}
+              </button>
+              <button className="pf-button pf-button--secondary" type="button" onClick={handleRefreshPrices}>
+                <RefreshCw size={15} />
+                {t('common.refresh')}
+              </button>
+              <button type="button" onClick={() => setShowAddModal(true)} className="pf-button pf-button--primary is-primary">
+                <Plus size={15} />
+                Add company
+              </button>
+            </>
+          }
+        />
+      </PageHeader>
+
+      <PageMetricStrip label="Watchlist context">
+        <PageMetric label="Watching" value={watchlist.length} />
+        <PageMetric label="Deserve attention" value={attentionCount} />
+        <PageMetric label="Target reached" value={targetReachedCount} />
+        <PageMetric label="Needs thesis" value={needsThesisCount} />
+      </PageMetricStrip>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-sm text-red-800 dark:text-red-200">
-            <strong>{t('common.error')}:</strong> {error}
-          </p>
-        </div>
+        <StateBlock
+          tone="error"
+          className="watchlist__error"
+          eyebrow="Watchlist"
+          title="Could not refresh watchlist data."
+          description="Prices and watchlist companies could not be loaded."
+          detail={error}
+          actionLabel={t('common.retry')}
+          onAction={() => loadWatchlist(selectedTagIds, tagFilterMode)}
+        />
       )}
 
-      {/* Tag Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 pb-2">
-        <div className="flex items-center gap-2">
-          <Filter size={16} className="text-neutral-500" />
-          <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-            {t('watchlist.tags.filterByTags')}:
+      <PageControls
+        label="Watchlist controls"
+        start={
+        <div className="pf-control-group watchlist__filters">
+          <span className="watchlist__toolbar-label">
+            <Filter size={15} />
+            Filters
           </span>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-2">
-          {tags.map(tag => (
-            <button
-              key={tag.id}
-              onClick={() => handleTagFilterChange(tag.id)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                selectedTagIds.includes(tag.id)
-                  ? 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900'
-                  : 'opacity-70 hover:opacity-100'
-              }`}
-              style={{ 
-                backgroundColor: tag.color + '20', 
-                color: tag.color,
-                ...(selectedTagIds.includes(tag.id) ? { ringColor: tag.color } : {})
-              }}
-            >
-              <IconComponent name={tag.icon} size={12} />
-              {tag.name}
-            </button>
-          ))}
-          
+          {tags.length === 0 ? (
+            <span className="watchlist__muted">No tags yet.</span>
+          ) : (
+            tags.map(tag => (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => handleTagFilterChange(tag.id)}
+                className={`watchlist__tag-filter ${selectedTagIds.includes(tag.id) ? 'is-active' : ''}`}
+                style={{
+                  backgroundColor: selectedTagIds.includes(tag.id) ? `${tag.color}2e` : `${tag.color}14`,
+                  borderColor: selectedTagIds.includes(tag.id) ? `${tag.color}a3` : `${tag.color}5c`,
+                  color: tag.color,
+                }}
+              >
+                <IconComponent name={tag.icon} size={12} />
+                {tag.name}
+              </button>
+            ))
+          )}
           {selectedTagIds.length > 0 && (
-            <button
-              onClick={clearTagFilter}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-            >
+            <button type="button" onClick={clearTagFilter} className="watchlist__clear-filter">
               <X size={12} />
               {t('common.clear')}
             </button>
           )}
-          
-          {/* AND/OR Toggle - only show when multiple tags selected */}
           {selectedTagIds.length > 1 && (
-            <div className="flex items-center ml-2 pl-2 border-l border-neutral-200 dark:border-neutral-700">
-              <div className="flex rounded-md overflow-hidden border border-neutral-300 dark:border-neutral-600">
-                <button
-                  onClick={() => setTagFilterMode('any')}
-                  className={`px-2.5 py-1 text-xs font-medium transition-all ${
-                    tagFilterMode === 'any'
-                      ? 'bg-primary-500 text-white shadow-inner'
-                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'
-                  }`}
-                >
-                  {t('watchlist.tags.any')}
-                </button>
-                <div className="w-px bg-neutral-300 dark:bg-neutral-600" />
-                <button
-                  onClick={() => setTagFilterMode('all')}
-                  className={`px-2.5 py-1 text-xs font-medium transition-all ${
-                    tagFilterMode === 'all'
-                      ? 'bg-primary-500 text-white shadow-inner'
-                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'
-                  }`}
-                >
-                  {t('watchlist.tags.all')}
-                </button>
-              </div>
+            <div className="watchlist__tag-mode" aria-label="Tag filter mode">
+              <button
+                type="button"
+                onClick={() => setTagFilterMode('any')}
+                className={tagFilterMode === 'any' ? 'is-active' : ''}
+              >
+                {t('watchlist.tags.any')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTagFilterMode('all')}
+                className={tagFilterMode === 'all' ? 'is-active' : ''}
+              >
+                {t('watchlist.tags.all')}
+              </button>
             </div>
           )}
         </div>
+        }
+        end={
+        <div className="watchlist__sort">
+          <label htmlFor="watchlist-sort">Sort by</label>
+          <select
+            id="watchlist-sort"
+            value={sortKey}
+            onChange={(e) => handleSort(e.target.value as SortKey)}
+          >
+            {sortableColumns.map((option) => (
+              <option key={option} value={option}>
+                {getSortLabel(option)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+            aria-label={sortDir === 'asc' ? 'Sort descending' : 'Sort ascending'}
+          >
+            {sortDir === 'asc' ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowTagManager(true)}
+            className="watchlist__manage-tags"
+          >
+            <Tag size={14} />
+            {t('watchlist.tags.manageTags')}
+          </button>
+        </div>
+        }
+      />
 
-        <button
-          onClick={() => setShowTagManager(true)}
-          className="ml-auto btn-secondary flex items-center gap-1.5 text-xs px-2.5 py-1.5"
-        >
-          <Tag size={14} />
-          {t('watchlist.tags.manageTags')}
-        </button>
-      </div>
-
-      {/* Watchlist Table with Logo, Price, Daily Change */}
-      <div>
-        <>
-          {/* Mobile: Sort Controls & Card Layout */}
-          <div className="lg:hidden">
-            {/* Sort Controls */}
-            <div className="flex items-center gap-2 mb-3">
-              <label htmlFor="mobile-sort-watchlist" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                {t('common.sortBy')}:
-              </label>
-              <select
-                id="mobile-sort-watchlist"
-                value={sortKey}
-                onChange={(e) => handleSort(e.target.value as SortKey)}
-                className="flex-1 input text-sm py-2 px-3"
-              >
-                {sortableColumns.map((option) => (
-                  <option key={option} value={option}>
-                    {getSortLabel(option)}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                className="btn-secondary p-2 flex items-center gap-1"
-                title={sortDir === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
-              >
-                {sortDir === 'asc' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </button>
+      <PageMainGrid single>
+      <PageMainColumn className="watchlist__ledger" aria-label="Watched companies">
+        {sortedWatchlist.length === 0 ? (
+          <StateBlock
+            className="watchlist__empty"
+            eyebrow={selectedTagIds.length > 0 ? 'No matching companies' : 'No watchlist'}
+            title={selectedTagIds.length > 0 ? 'No companies match the selected tags.' : 'Companies you are evaluating before buying will appear here.'}
+            description={selectedTagIds.length > 0 ? 'Clear the active tag filters to see the full watchlist.' : 'Add a company to start tracking it before investing.'}
+          >
+            <button type="button" onClick={() => setShowAddModal(true)}>
+              <Plus size={15} />
+              {selectedTagIds.length > 0 ? 'Add company' : 'Add first company'}
+            </button>
+          </StateBlock>
+        ) : (
+          <>
+            <div className="watchlist__table-header" aria-hidden="true">
+              <span>Company</span>
+              <span>Price</span>
+              <span>Today</span>
+              <span>Target</span>
+              <span>Status</span>
+              <span>Action</span>
             </div>
+            {sortedWatchlist.map((item) => {
+            const dailyMove = getDailyMove(item)
+            const targetState = getTargetState(item)
+            const status = getAttentionStatus(item)
+            const sortedTags = [...(item.tags || [])].sort((a, b) => a.name.localeCompare(b.name))
 
-            {/* Cards */}
-            <div className="space-y-3">
-              {sortedWatchlist.length === 0 ? (
-                <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
-                  {t('watchlist.empty.noWatchlistAssets')}
+            return (
+              <article
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openAssetResearch(item.symbol)}
+                onKeyDown={(event) => handleAssetResearchKeyDown(event, item.symbol)}
+                className={`watchlist__item is-${status.tone}`}
+              >
+                <div className="watchlist__identity">
+                  <AssetLogo
+                    symbol={item.symbol}
+                    assetType={item.asset_type}
+                    assetName={item.name}
+                    alt={`${item.symbol} logo`}
+                    className="watchlist__logo"
+                    style={{ borderRadius: 0 }}
+                  />
+                  <div>
+                    <span title={getThemesTitle(item.themes)}>{primaryThemesLabel(item.themes)}</span>
+                    <h2>{item.symbol}</h2>
+                    <p>{item.name || 'Unknown company'}</p>
+                    <div className="watchlist__row-tags" aria-label={`${item.symbol} tags`}>
+                      {sortedTags.length === 0 ? (
+                        <span>No tags</span>
+                      ) : (
+                        sortedTags.map(tag => (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleTagFilterChange(tag.id)
+                            }}
+                            style={{
+                              backgroundColor: selectedTagIds.includes(tag.id) ? `${tag.color}2e` : `${tag.color}14`,
+                              borderColor: selectedTagIds.includes(tag.id) ? `${tag.color}a3` : `${tag.color}5c`,
+                              color: tag.color,
+                            }}
+                            className={selectedTagIds.includes(tag.id) ? 'is-active' : ''}
+                          >
+                            <IconComponent name={tag.icon} size={11} />
+                            {tag.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                sortedWatchlist.map((item) => {
-                  const raw = item.daily_change_pct as unknown as number | string | null
-                  const changeNum = typeof raw === 'number' ? raw : (raw === null ? null : parseFloat(String(raw)))
-                  const changeColor = changeNum !== null && !isNaN(changeNum)
-                    ? (changeNum > 0 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : changeNum < 0 
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-neutral-600 dark:text-neutral-400')
-                    : 'text-neutral-500 dark:text-neutral-400'
 
-                  return (
-                    <div
-                      key={item.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => openAssetResearch(item.symbol)}
-                      onKeyDown={(event) => handleAssetResearchKeyDown(event, item.symbol)}
-                      className="card p-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-neutral-950"
+                <div className="watchlist__price">
+                  <strong>{formatPrice(item.current_price, item.currency)}</strong>
+                </div>
+
+                <div className="watchlist__move">
+                  <strong className={dailyMove !== null && dailyMove > 0 ? 'is-positive' : dailyMove !== null && dailyMove < 0 ? 'is-negative' : ''}>
+                    {formatSignedPercent(dailyMove)}
+                  </strong>
+                </div>
+
+                <div className="watchlist__target">
+                  {targetState ? (
+                    <>
+                      <strong>{formatPrice(targetState.target, item.currency)}</strong>
+                      <small className={targetState.reached ? 'is-positive' : targetState.near ? 'is-attention' : ''}>
+                        {targetState.distancePct > 0 ? '+' : ''}{targetState.distancePct.toFixed(1)}% distance
+                      </small>
+                      <em className={targetState.reached ? 'is-positive' : targetState.near ? 'is-attention' : ''}>
+                        {item.alert_enabled ? 'Alert on' : 'Alert off'}
+                      </em>
+                    </>
+                  ) : (
+                    <>
+                      <strong>—</strong>
+                    </>
+                  )}
+                </div>
+
+                <div className="watchlist__status">
+                  <strong>{status.label}</strong>
+                </div>
+
+                <div className="watchlist__row-actions" onClick={(event) => event.stopPropagation()}>
+                  <button type="button" onClick={() => openAssetResearch(item.symbol)} className="watchlist__research-link">
+                    Research
+                  </button>
+                  <div className="watchlist__overflow">
+                    <button
+                      type="button"
+                      aria-label={`Actions for ${item.symbol}`}
+                      aria-expanded={openActionMenuId === item.id}
+                      onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
+                      className="watchlist__overflow-trigger"
                     >
-                      {/* Header: Logo, Symbol, Price & Change */}
-                      <div className="flex items-start justify-between mb-3 pb-3 border-b border-neutral-200 dark:border-neutral-700">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <AssetLogo
-                            symbol={item.symbol}
-                            assetType={item.asset_type}
-                            assetName={item.name}
-                            alt={`${item.symbol} logo`}
-                            className="w-10 h-10 flex-shrink-0 object-cover"
-                            style={{ borderRadius: 0 }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => openAssetResearch(item.symbol)}
-                              className="font-bold text-base text-neutral-900 dark:text-neutral-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
-                            >
-                              {item.symbol}
-                            </button>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                              {item.name || 'N/A'}
-                            </div>
-                            {renderCompactThemes(item.themes, 'mt-2 flex flex-wrap gap-1')}
-                          </div>
-                        </div>
-                        <div className="text-right ml-3">
-                          <div className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                            {formatPrice(item.current_price, item.currency)}
-                          </div>
-                          <div className={`text-sm font-semibold ${changeColor}`}>
-                            {changeNum !== null && !isNaN(changeNum)
-                              ? `${changeNum > 0 ? '+' : changeNum < 0 ? '' : '+'}${changeNum.toFixed(2)}%`
-                              : '-'}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Data Grid */}
-                      <div className="grid grid-cols-1 gap-y-2.5 text-sm">
-                        {item.tags && item.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {[...item.tags].sort((a, b) => a.name.localeCompare(b.name)).map(tag => (
-                              <span
-                                key={tag.id}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                              >
-                                <IconComponent name={tag.icon} size={10} />
-                                {tag.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {item.notes && (
-                          <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('fields.notes')}</span>
-                            <div className="text-neutral-900 dark:text-neutral-100 mt-1">
-                              {item.notes}
-                            </div>
-                          </div>
-                        )}
-                        {item.alert_target_price && (
-                          <div>
-                            <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('watchlist.alertPrice')}</span>
-                            <div className="text-neutral-900 dark:text-neutral-100 mt-1 flex items-center gap-2">
-                              {formatPrice(item.alert_target_price, item.currency)}
-                              {item.alert_enabled && (
-                                <span className="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-                                  {t('common.enabled')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div
-                        className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700"
-                        onClick={(event) => event.stopPropagation()}
-                      >
+                      <MoreHorizontal size={18} />
+                    </button>
+                    {openActionMenuId === item.id && (
+                      <div className="watchlist__menu" role="menu">
                         <button
-                          onClick={() => startEdit(item)}
-                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            startEdit(item)
+                            setOpenActionMenuId(null)
+                          }}
                         >
                           <Pencil size={14} />
-                          {t('common.edit')}
+                          Edit watch reason
                         </button>
                         <button
-                          onClick={() => openConvertModal(item)}
-                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            openConvertModal(item)
+                            setOpenActionMenuId(null)
+                          }}
                         >
                           <ShoppingCart size={14} />
-                          {t('watchlist.buy')}
+                          Record purchase
                         </button>
                         <button
-                          onClick={() => setDeleteConfirm(item.id)}
-                          className="btn-secondary text-xs px-2 py-1.5 flex items-center gap-1.5 text-red-600 dark:text-red-400"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            handleCopySymbol(item.symbol)
+                            setOpenActionMenuId(null)
+                          }}
+                        >
+                          Copy symbol
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="is-danger"
+                          onClick={() => {
+                            setDeleteConfirm(item.id)
+                            setOpenActionMenuId(null)
+                          }}
                         >
                           <Trash2 size={14} />
                           {t('common.delete')}
                         </button>
                       </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Desktop: Table Layout */}
-          <div className="hidden lg:block card">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
-              <tr>
-                <th 
-                  onClick={() => handleSort('symbol')}
-                  aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  {t('fields.symbol')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
-                </th>
-                <th 
-                  onClick={() => handleSort('name')}
-                  aria-sort={isActive('name') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  {t('fields.name')} <SortIcon column="name" activeColumn={sortKey} direction={sortDir} />
-                </th>
-                <th 
-                  onClick={() => handleSort('current_price')}
-                  aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  {t('fields.price')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
-                </th>
-                <th 
-                  onClick={() => handleSort('daily_change_pct')}
-                  aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  {t('watchlist.dailyChange')} <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Notes</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('watchlist.tags.title')}</th>
-                <th 
-                  onClick={() => handleSort('alert_target_price')}
-                  aria-sort={isActive('alert_target_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  {t('watchlist.alert')} <SortIcon column="alert_target_price" activeColumn={sortKey} direction={sortDir} />
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {sortedWatchlist.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-neutral-500 dark:text-neutral-400">
-                    {t('watchlist.empty.noWatchlistAssets')}
-                  </td>
-                </tr>
-              ) : (
-                sortedWatchlist.map((item) => (
-                  <tr
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openAssetResearch(item.symbol)}
-                    onKeyDown={(event) => handleAssetResearchKeyDown(event, item.symbol)}
-                    className="cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-inset"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap font-semibold text-neutral-900 dark:text-neutral-100">
-                      <span className="flex items-center gap-2">
-                        <AssetLogo
-                          symbol={item.symbol}
-                          assetType={item.asset_type}
-                          assetName={item.name}
-                          alt={`${item.symbol} logo`}
-                          className="w-8 h-8 object-cover"
-                          style={{ borderRadius: 0 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => openAssetResearch(item.symbol)}
-                          className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
-                        >
-                          {item.symbol}
-                        </button>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400 max-w-xs">
-                      <div className="truncate">{item.name || 'N/A'}</div>
-                      {renderCompactThemes(item.themes)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-neutral-900 dark:text-neutral-100">{formatPrice(item.current_price, item.currency)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {(() => {
-                        const raw = item.daily_change_pct as unknown as number | string | null
-                        const num = typeof raw === 'number' ? raw : (raw === null ? null : parseFloat(String(raw)))
-                        if (num !== null && !isNaN(num)) {
-                          const colorClass = num > 0 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : num < 0 
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-neutral-600 dark:text-neutral-400'
-                          return (
-                            <div className={`text-sm font-medium ${colorClass}`}>
-                              {`${num > 0 ? '+' : num < 0 ? '' : '+'}${num.toFixed(2)}%`}
-                            </div>
-                          )
-                        }
-                        return <div className="text-sm text-neutral-500 dark:text-neutral-400">-</div>
-                      })()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-neutral-500 dark:text-neutral-400">{item.notes || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {item.tags && item.tags.length > 0 ? (
-                          [...item.tags].sort((a, b) => a.name.localeCompare(b.name)).map(tag => (
-                            <span
-                              key={tag.id}
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
-                              style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                            >
-                              <IconComponent name={tag.icon} size={10} />
-                              {tag.name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-neutral-400 text-sm">-</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {item.alert_enabled && item.alert_target_price !== null ? (
-                        <div className="text-sm font-medium">
-                          <div>{formatPrice(item.alert_target_price, item.currency)}</div>
-                          {(() => {
-                            const currentPrice = toNumber(item.current_price)
-                            const targetPrice = toNumber(item.alert_target_price)
-                            if (currentPrice !== null && targetPrice !== null && currentPrice !== 0) {
-                              const diffPct = ((targetPrice - currentPrice) / currentPrice) * 100
-                              const isPositive = diffPct > 0
-                              return (
-                                <div className={`text-xs ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                  {isPositive ? '+' : ''}{diffPct.toFixed(2)}%
-                                </div>
-                              )
-                            }
-                            return null
-                          })()}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-neutral-400">-</div>
-                      )}
-                    </td>
-                    <td
-                      className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => startEdit(item)}
-                          className="btn hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                          title={t('common.edit')}
-                        >
-                          <Pencil size={18} className="text-blue-600 dark:text-blue-400" />
-                        </button>
-                        <button
-                          onClick={() => openConvertModal(item)}
-                          className="btn hover:bg-green-50 dark:hover:bg-green-900/20"
-                          title={t('watchlist.convertToBuy')}
-                        >
-                          <ShoppingCart size={18} className="text-green-600 dark:text-green-400" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(item.id)}
-                          className="btn hover:bg-red-50 dark:hover:bg-red-900/20"
-                          title={t('common.delete')}
-                        >
-                          <Trash2 size={18} className="text-red-600 dark:text-red-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-          </div>
-        </>
-      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+          </>
+        )}
+      </PageMainColumn>
+      </PageMainGrid>
 
       {/* Edit Modal */}
       <WatchlistEditModal
@@ -1124,14 +1005,16 @@ export default function Watchlist() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="modal-overlay bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="card p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">{t('watchlist.importTitle')}</h2>
-            <div className="space-y-4">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--sm" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h2 className="pf-modal-title">{t('watchlist.importTitle')}</h2>
+            </div>
+            <div className="pf-modal-body pf-modal-section">
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
                 {t('watchlist.importDescription')}
               </p>
-              <div className="text-xs bg-neutral-100 dark:bg-neutral-800 p-3 rounded">
+              <div className="pf-modal-muted-box text-xs">
                 <strong>{t('watchlist.importFormatInfo')}:</strong>
                 <br />
                 <code className="text-xs">symbol,notes,alert_target_price,alert_enabled</code>
@@ -1139,10 +1022,12 @@ export default function Watchlist() {
                 <code className="text-xs">{t('watchlist.importFormat')}</code>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="pf-modal-footer">
+              <div />
+              <div className="pf-modal-footer-actions">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="btn"
+                className="pf-modal-button pf-modal-button--secondary"
               >
                 {t('common.cancel')}
               </button>
@@ -1151,10 +1036,11 @@ export default function Watchlist() {
                   handleImportClick()
                   setShowImportModal(false)
                 }}
-                className="btn-primary"
+                className="pf-modal-button pf-modal-button--primary"
               >
                 {t('watchlist.selectFile')}
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1171,10 +1057,10 @@ export default function Watchlist() {
 
       {/* Convert to BUY Modal */}
       {convertItem && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{t('watchlist.convertToBuy')}</h2>
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--sm" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h2 className="pf-modal-title">{t('watchlist.convertToBuy')}</h2>
               <button
                 onClick={() => {
                   setConvertItem(null)
@@ -1184,13 +1070,14 @@ export default function Watchlist() {
                   setConvertDate(new Date().toISOString().split('T')[0])
                   setConvertPriceInfo(null)
                 }}
-                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                className="pf-modal-close"
+                aria-label={t('common.close')}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="pf-modal-body pf-modal-section">
               <div className="flex items-center gap-3">
                 <AssetLogo
                   symbol={convertItem.symbol}
@@ -1209,11 +1096,11 @@ export default function Watchlist() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">{t('fields.portfolio')}</label>
+                <label className="pf-modal-label">{t('fields.portfolio')}</label>
                 <select
                   value={convertPortfolioId || ''}
                   onChange={(e) => handleConvertPortfolioChange(Number(e.target.value))}
-                  className="input w-full"
+                  className="pf-modal-select"
                   required
                 >
                   {portfolios.map((p) => (
@@ -1223,41 +1110,41 @@ export default function Watchlist() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">{t('fields.date')}</label>
+                <label className="pf-modal-label">{t('fields.date')}</label>
                 <input
                   type="date"
                   value={convertDate}
                   onChange={(e) => handleConvertDateChange(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
-                  className="input w-full"
+                  className="pf-modal-input"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="pf-modal-grid--3">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('fields.quantity')}</label>
+                  <label className="pf-modal-label">{t('fields.quantity')}</label>
                   <input
                     type="number"
                     step="0.00000001"
                     value={convertQuantity}
                     onChange={(e) => setConvertQuantity(e.target.value)}
-                    className="input w-full"
+                    className="pf-modal-input"
                     placeholder="0.0000"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="pf-modal-label">
                     {t('fields.price')} ({portfolios.find((p) => p.id === convertPortfolioId)?.base_currency || 'USD'})
-                    {convertPriceLoading && <span className="ml-2 text-xs text-neutral-500">...</span>}
+                    {convertPriceLoading && <InlineLoading label={t('common.loading')} className="ml-2" />}
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     value={convertPrice}
                     onChange={(e) => setConvertPrice(e.target.value)}
-                    className="input w-full"
+                    className="pf-modal-input"
                     placeholder="0.00"
                     required
                   />
@@ -1268,19 +1155,19 @@ export default function Watchlist() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('fields.fees')}</label>
+                  <label className="pf-modal-label">{t('fields.fees')}</label>
                   <input
                     type="number"
                     step="0.01"
                     value={convertFees}
                     onChange={(e) => setConvertFees(e.target.value)}
-                    className="input w-full"
+                    className="pf-modal-input"
                     placeholder="0.00"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
                 <button
                   onClick={() => {
                     setConvertItem(null)
@@ -1291,13 +1178,13 @@ export default function Watchlist() {
                     setConvertDate(new Date().toISOString().split('T')[0])
                     setConvertPriceInfo(null)
                   }}
-                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  className="pf-modal-button pf-modal-button--secondary"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleConvertToBuy}
-                  className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors"
+                  className="pf-modal-button pf-modal-button--primary"
                 >
                   {t('watchlist.convertToBuy')}
                 </button>
@@ -1309,27 +1196,34 @@ export default function Watchlist() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--sm" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <div>
+            <h3 className="pf-modal-title">
               {t('watchlist.deleteWatchlistAsset')}
             </h3>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+            <p className="pf-modal-description">
               {t('watchlist.deleteConfirm')}
             </p>
-            <div className="flex gap-3">
+            </div>
+            </div>
+            <div className="pf-modal-footer">
+              <div />
+              <div className="pf-modal-footer-actions">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="pf-modal-button pf-modal-button--secondary"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="pf-modal-button pf-modal-button--danger"
               >
                 {t('common.delete')}
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1337,10 +1231,10 @@ export default function Watchlist() {
 
       {/* Add to Watchlist Modal */}
       {showAddModal && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--lg" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h2 className="pf-modal-title">
                 {t('watchlist.addToWatchlist')}
               </h2>
               <button
@@ -1354,22 +1248,23 @@ export default function Watchlist() {
                   setAddFormError(null)
                   setAddFormSuccess(null)
                 }}
-                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                className="pf-modal-close"
+                aria-label={t('common.close')}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleAddSymbol} className="p-6 space-y-4">
+            <form onSubmit={handleAddSymbol} className="pf-modal-body pf-modal-section--tight">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                <label className="pf-modal-label">
                   {t('fields.symbol')}
                 </label>
                 <input
                   type="text"
                   value={addSymbol}
                   onChange={handleTickerChange}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  className="pf-modal-input"
                   placeholder="Search ticker (e.g., AAPL)..."
                   required
                 />
@@ -1396,14 +1291,14 @@ export default function Watchlist() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                <label className="pf-modal-label">
                   {t('fields.notes')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={addNotes}
                   onChange={(e) => setAddNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  className="pf-modal-input"
                   placeholder={t('placeholders.enterNotes')}
                 />
               </div>
@@ -1411,7 +1306,7 @@ export default function Watchlist() {
               {/* Tags Selector */}
               {tags.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  <label className="pf-modal-label">
                     {t('watchlist.tags.title')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -1446,7 +1341,7 @@ export default function Watchlist() {
               )}
 
               {addFormError && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
+                <div className="pf-modal-callout pf-modal-callout--warning flex items-center gap-3">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -1457,7 +1352,7 @@ export default function Watchlist() {
               )}
 
               {addFormSuccess && (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
+                <div className="pf-modal-callout pf-modal-callout--success flex items-center gap-3">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -1467,7 +1362,7 @@ export default function Watchlist() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4">
+              <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1480,13 +1375,13 @@ export default function Watchlist() {
                     setAddFormError(null)
                     setAddFormSuccess(null)
                   }}
-                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  className="pf-modal-button pf-modal-button--secondary"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors"
+                  className="pf-modal-button pf-modal-button--primary"
                 >
                   {t('watchlist.addToWatchlist')}
                 </button>
@@ -1514,6 +1409,6 @@ export default function Watchlist() {
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

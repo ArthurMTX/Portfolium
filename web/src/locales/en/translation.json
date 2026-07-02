@@ -6,8 +6,12 @@
     "calendar": "Calendar",
     "insights": "Insights",
     "transactions": "Transactions",
-    "assets": "Assets",
+    "allocation": "Allocation",
+    "assets": "Holdings",
     "watchlist": "Watchlist",
+    "workspace": "Workspace",
+    "managePortfolios": "Manage portfolios",
+    "main": "Main navigation",
     "settings": "Settings",
     "documentation": "Documentation",
     "profile": "Profile",
@@ -1314,23 +1318,23 @@
     }
   },
   "assets": {
-    "title": "Assets",
-    "description": "Manage and analyze your held assets",
-    "loadingMessage": "Loading your assets...",
+    "title": "Holdings",
+    "description": "Understand the positions you currently own",
+    "loadingMessage": "Loading your holdings...",
     "class": "Class",
     "country": "Country",
     "sector": "Sector",
     "type": "Type",
     "industry": "Industry",
-    "assetDistribution": "Asset Distribution",
-    "heldAndSoldAssetsIn": "Held and sold assets in {{portfolio}}",
-    "heldAssetsIn": "Currently held assets in {{portfolio}}",
-    "currentlyHeldCountIn_one": "{{count}} currently held asset in {{portfolio}}",
-    "currentlyHeldCountIn_other": "{{count}} currently held assets in {{portfolio}}",
-    "currentlyHeldCountAll_one": "{{count}} currently held asset across all portfolios",
-    "currentlyHeldCountAll_other": "{{count}} currently held assets across all portfolios",
-    "heldAndSoldAssetsAll": "Held and sold assets across all portfolios",
-    "heldAssetsAll": "Currently held assets across all portfolios",
+    "assetDistribution": "Holdings Distribution",
+    "heldAndSoldAssetsIn": "Open and closed holdings in {{portfolio}}",
+    "heldAssetsIn": "Current holdings in {{portfolio}}",
+    "currentlyHeldCountIn_one": "{{count}} current holding in {{portfolio}}",
+    "currentlyHeldCountIn_other": "{{count}} current holdings in {{portfolio}}",
+    "currentlyHeldCountAll_one": "{{count}} current holding across all portfolios",
+    "currentlyHeldCountAll_other": "{{count}} current holdings across all portfolios",
+    "heldAndSoldAssetsAll": "Open and closed holdings across all portfolios",
+    "heldAssetsAll": "Current holdings across all portfolios",
     "distribution": "Distribution",
     "jumpToDistribution": "Jump to Asset Distribution",
     "hideSold": "Hide Sold",
@@ -1355,7 +1359,7 @@
     "priceChart": "Price Chart",
     "historicalPriceData": "Historical Price Data",
     "empty": {
-      "noAssetsMatch": "No assets match your search.",
+      "noAssetsMatch": "No holdings match your search.",
       "noAssetsMatchInfo": "Try searching with a different symbol or name, or",
       "clearSearch": "clear your search."
     }
@@ -2242,8 +2246,8 @@
       "message": "Create a portfolio first to start tracking your buy, sell, and dividend transactions."
     },
     "assets": {
-      "title": "No Assets to Display",
-      "message": "Create a portfolio and add transactions to see your assets and their distribution."
+      "title": "No Holdings to Display",
+      "message": "Create a portfolio and add transactions to see your holdings and their distribution."
     },
     "watchlist": {
       "title": "Watchlist Ready",
@@ -2263,9 +2267,9 @@
   },
   "emptyTransactions": {
     "assets": {
-      "title": "No Assets to Display",
-      "message": "Add your first transaction to {{portfolio}} to start tracking your investments and see your asset allocation.",
-      "secondaryMessage": "Once you add transactions, you'll see your holdings, market values, profit/loss, and asset distribution."
+      "title": "No Holdings to Display",
+      "message": "Add your first transaction to {{portfolio}} to start tracking what you own.",
+      "secondaryMessage": "Once you add transactions, you'll see your holdings, market values, profit/loss, and ownership distribution."
     },
     "insights": {
       "title": "No Data for Insights Yet",

@@ -277,21 +277,21 @@ export default function LayoutManager({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 modal-overlay">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-2xl max-w-3xl w-full max-h-[80vh] flex flex-col">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel pf-modal-panel--xl flex flex-col" role="dialog" aria-modal="true">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="pf-modal-header">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+            <h2 className="pf-modal-title">
               {t('dashboard.layouts.title')}
             </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+            <p className="pf-modal-description">
               {t('dashboard.layouts.description')}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+            className="pf-modal-close"
           >
             <X size={20} />
           </button>
@@ -722,8 +722,8 @@ export default function LayoutManager({
 
         {/* Save Dialog */}
         {showSaveDialog && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+            <div className="pf-modal-panel pf-modal-panel--sm p-5">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-4">
                 {t('dashboard.layouts.saveAsNewLayout')}
               </h3>

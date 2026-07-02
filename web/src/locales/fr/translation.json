@@ -6,8 +6,12 @@
     "calendar": "Calendrier",
     "insights": "Analyses",
     "transactions": "Transactions",
-    "assets": "Actifs",
+    "allocation": "Allocation",
+    "assets": "Positions",
     "watchlist": "Liste de surveillance",
+    "workspace": "Espace de travail",
+    "managePortfolios": "Gérer les portefeuilles",
+    "main": "Navigation principale",
     "settings": "Paramètres",
     "documentation": "Documentation",
     "profile": "Profil",
@@ -1314,22 +1318,22 @@
     }
   },
   "assets": {
-    "title": "Actifs",
-    "description": "Gérer et analyser vos actifs détenus",
-    "loadingMessage": "Chargement de vos actifs...",
+    "title": "Positions",
+    "description": "Comprendre les positions que vous détenez",
+    "loadingMessage": "Chargement de vos positions...",
     "class": "Classe",
     "country": "Pays",
     "sector": "Secteur",
     "industry": "Industrie",
-    "assetDistribution": "Répartition des actifs",
-    "heldAndSoldAssetsIn": "Actifs détenus et vendus dans {{portfolio}}",
-    "heldAssetsIn": "Actifs actuellement détenus dans {{portfolio}}",
-    "currentlyHeldCountIn_one": "{{count}} actif actuellement détenu dans {{portfolio}}",
-    "currentlyHeldCountIn_other": "{{count}} actifs actuellement détenus dans {{portfolio}}",
-    "currentlyHeldCountAll_one": "{{count}} actif actuellement détenu dans tous les portefeuilles",
-    "currentlyHeldCountAll_other": "{{count}} actifs actuellement détenus dans tous les portefeuilles",
-    "heldAndSoldAssetsAll": "Actifs détenus et vendus dans tous les portefeuilles",
-    "heldAssetsAll": "Actifs actuellement détenus dans tous les portefeuilles",
+    "assetDistribution": "Répartition des positions",
+    "heldAndSoldAssetsIn": "Positions ouvertes et clôturées dans {{portfolio}}",
+    "heldAssetsIn": "Positions actuelles dans {{portfolio}}",
+    "currentlyHeldCountIn_one": "{{count}} position actuelle dans {{portfolio}}",
+    "currentlyHeldCountIn_other": "{{count}} positions actuelles dans {{portfolio}}",
+    "currentlyHeldCountAll_one": "{{count}} position actuelle dans tous les portefeuilles",
+    "currentlyHeldCountAll_other": "{{count}} positions actuelles dans tous les portefeuilles",
+    "heldAndSoldAssetsAll": "Positions ouvertes et clôturées dans tous les portefeuilles",
+    "heldAssetsAll": "Positions actuelles dans tous les portefeuilles",
     "distribution": "Répartition",
     "jumpToDistribution": "Accéder à la répartition des actifs",
     "hideSold": "Masquer les actifs vendus",
@@ -1354,7 +1358,7 @@
     "priceChart": "Graphique des prix",
     "historicalPriceData": "Données historiques des prix",
     "empty": {
-      "noAssetsMatch": "Aucun actif ne correspond à votre recherche.",
+      "noAssetsMatch": "Aucune position ne correspond à votre recherche.",
       "noAssetsMatchInfo": "Essayez de rechercher avec un symbole ou un nom différent, ou",
       "clearSearch": "effacer votre recherche."
     }
@@ -2241,8 +2245,8 @@
       "message": "Créez d'abord un portefeuille pour commencer à suivre vos transactions d'achat, de vente et de dividendes."
     },
     "assets": {
-      "title": "Aucun actif à afficher",
-      "message": "Créez un portefeuille et ajoutez des transactions pour voir vos actifs et leur répartition."
+      "title": "Aucune position à afficher",
+      "message": "Créez un portefeuille et ajoutez des transactions pour voir vos positions et leur répartition."
     },
     "watchlist": {
       "title": "Liste de surveillance prête",
@@ -2262,9 +2266,9 @@
   },
   "emptyTransactions": {
     "assets": {
-      "title": "Aucun actif à afficher",
-      "message": "Ajoutez votre première transaction à {{portfolio}} pour commencer à suivre vos investissements et voir votre allocation d'actifs.",
-      "secondaryMessage": "Une fois que vous aurez ajouté des transactions, vous verrez vos avoirs, les valeurs de marché, les profits/pertes et la répartition des actifs."
+      "title": "Aucune position à afficher",
+      "message": "Ajoutez votre première transaction à {{portfolio}} pour commencer à suivre ce que vous possédez.",
+      "secondaryMessage": "Une fois que vous aurez ajouté des transactions, vous verrez vos positions, les valeurs de marché, les profits/pertes et la répartition de votre capital."
     },
     "insights": {
       "title": "Aucune donnée pour les analyses",

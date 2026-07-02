@@ -154,9 +154,7 @@ export default function IconSelect({
           {/* Options List */}
           <div className="overflow-y-auto flex-1">
             {filteredOptions.length === 0 ? (
-              <div className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400 text-sm">
-                No results found
-              </div>
+              <div className="pf-dropdown-empty">No matching options.</div>
             ) : (
               filteredOptions.map((option) => (
                 <button

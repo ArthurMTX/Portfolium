@@ -767,44 +767,44 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* SMTP Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="pf-modal-grid">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpHost')}</label>
+                    <label className="pf-modal-label">{t('admin.smtpHost')}</label>
                     <input
                       type="text"
                       value={emailConfig.smtp_host}
                       onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="smtp.gmail.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpPort')}</label>
+                    <label className="pf-modal-label">{t('admin.smtpPort')}</label>
                     <input
                       type="number"
                       value={emailConfig.smtp_port}
                       onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: parseInt(e.target.value) || 587 })}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="587"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpUsername')}</label>
+                    <label className="pf-modal-label">{t('admin.smtpUsername')}</label>
                     <input
                       type="text"
                       value={emailConfig.smtp_user}
                       onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="your-email@gmail.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.smtpPassword')}</label>
+                    <label className="pf-modal-label">{t('admin.smtpPassword')}</label>
                     <input
                       type="password"
                       value={emailConfig.smtp_password || ''}
                       onChange={(e) => setEmailConfig({ ...emailConfig, smtp_password: e.target.value })}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="••••••••"
                     />
                   </div>
@@ -823,24 +823,24 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* From Email Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="pf-modal-grid">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fromEmail')}</label>
+                    <label className="pf-modal-label">{t('admin.fromEmail')}</label>
                     <input
                       type="email"
                       value={emailConfig.from_email}
                       onChange={(e) => setEmailConfig({ ...emailConfig, from_email: e.target.value })}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="noreply@example.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fromName')}</label>
+                    <label className="pf-modal-label">{t('admin.fromName')}</label>
                     <input
                       type="text"
                       value={emailConfig.from_name}
                       onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="Portfolium"
                     />
                   </div>
@@ -848,12 +848,12 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Frontend URL */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.frontendUrl')}</label>
+                  <label className="pf-modal-label">{t('admin.frontendUrl')}</label>
                   <input
                     type="url"
                     value={emailConfig.frontend_url}
                     onChange={(e) => setEmailConfig({ ...emailConfig, frontend_url: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                    className="pf-modal-input"
                     placeholder="https://example.com"
                   />
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('admin.frontendNote')}</p>
@@ -890,23 +890,23 @@ const AdminDashboard: React.FC = () => {
               </h2>
               
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="pf-modal-grid">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.recipientEmail')}</label>
+                    <label className="pf-modal-label">{t('admin.recipientEmail')}</label>
                     <input
                       type="email"
                       value={testEmailAddress}
                       onChange={(e) => setTestEmailAddress(e.target.value)}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                       placeholder="test@example.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailType')}</label>
+                    <label className="pf-modal-label">{t('admin.emailType')}</label>
                     <select
                       value={testEmailType}
                       onChange={(e) => setTestEmailType(e.target.value as 'simple' | 'verification' | 'password_reset' | 'welcome' | 'daily_report')}
-                      className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pf-modal-input"
                     >
                       <option value="simple">{t('admin.simpleTest')}</option>
                       <option value="verification">{t('admin.verificationTest')}</option>
@@ -963,7 +963,7 @@ const AdminDashboard: React.FC = () => {
           {emailStats && (
             <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
               <h2 className="text-xl font-semibold mb-4">{t('admin.emailStatistics')}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="pf-modal-grid">
                 <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">{t('admin.totalActiveUsers')}</p>
                   <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{emailStats.total_active_users}</p>
@@ -1009,42 +1009,42 @@ const AdminDashboard: React.FC = () => {
 
       {/* Create User Modal */}
       {isCreateOpen && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{t('admin.createUser')}</h2>
-              <button onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h2 className="pf-modal-title">{t('admin.createUser')}</h2>
+              <button onClick={() => setIsCreateOpen(false)} className="pf-modal-close">
                 <X size={20} />
               </button>
             </div>
 
-            <form className="p-6 space-y-4" onSubmit={createUser}>
+            <form className="pf-modal-body pf-modal-section" onSubmit={createUser}>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailField')}</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.emailPlaceholder')} type="email" value={newUser.email} onChange={(e)=>setNewUser({...newUser, email: e.target.value})} required />
+                <label className="pf-modal-label">{t('admin.emailField')}</label>
+                <input className="pf-modal-input" placeholder={t('admin.emailPlaceholder')} type="email" value={newUser.email} onChange={(e)=>setNewUser({...newUser, email: e.target.value})} required />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="pf-modal-grid">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.usernameField')}</label>
-                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.usernamePlaceholder')} value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} required />
+                  <label className="pf-modal-label">{t('admin.usernameField')}</label>
+                  <input className="pf-modal-input" placeholder={t('admin.usernamePlaceholder')} value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fullNameField')}</label>
-                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.fullNamePlaceholder')} value={newUser.full_name} onChange={(e)=>setNewUser({...newUser, full_name: e.target.value})} />
+                  <label className="pf-modal-label">{t('admin.fullNameField')}</label>
+                  <input className="pf-modal-input" placeholder={t('admin.fullNamePlaceholder')} value={newUser.full_name} onChange={(e)=>setNewUser({...newUser, full_name: e.target.value})} />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.passwordField')}</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" placeholder={t('admin.passwordPlaceholder')} type="password" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} required />
+                <label className="pf-modal-label">{t('admin.passwordField')}</label>
+                <input className="pf-modal-input" placeholder={t('admin.passwordPlaceholder')} type="password" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} required />
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_admin} onChange={(e)=>setNewUser({...newUser, is_admin: e.target.checked})} /> {t('admin.isAdminLabel')}</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_active} onChange={(e)=>setNewUser({...newUser, is_active: e.target.checked})} /> {t('admin.isActiveLabel')}</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!newUser.is_verified} onChange={(e)=>setNewUser({...newUser, is_verified: e.target.checked})} /> {t('admin.isVerifiedLabel')}</label>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">{t('common.cancel')}</button>
-                <button type="submit" disabled={creating} className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors">{creating ? t('common.creating') : t('common.create')}</button>
+              <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
+                <button type="button" onClick={() => setIsCreateOpen(false)} className="pf-modal-button pf-modal-button--secondary">{t('common.cancel')}</button>
+                <button type="submit" disabled={creating} className="pf-modal-button pf-modal-button--primary">{creating ? t('common.creating') : t('common.create')}</button>
               </div>
             </form>
           </div>
@@ -1053,41 +1053,41 @@ const AdminDashboard: React.FC = () => {
 
       {/* Edit User Modal */}
       {isEditOpen && editingUser && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{t('admin.editUser')}</h2>
-              <button onClick={closeEditModal} className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h2 className="pf-modal-title">{t('admin.editUser')}</h2>
+              <button onClick={closeEditModal} className="pf-modal-close">
                 <X size={20} />
               </button>
             </div>
-            <form className="p-6 space-y-4" onSubmit={saveEdit}>
+            <form className="pf-modal-body pf-modal-section" onSubmit={saveEdit}>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.emailField')}</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" value={editPayload.email || ''} onChange={(e)=>setEditPayload(p=>({...p, email: e.target.value}))} required />
+                <label className="pf-modal-label">{t('admin.emailField')}</label>
+                <input className="pf-modal-input" value={editPayload.email || ''} onChange={(e)=>setEditPayload(p=>({...p, email: e.target.value}))} required />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="pf-modal-grid">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.usernameField')}</label>
-                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" value={editPayload.username || ''} onChange={(e)=>setEditPayload(p=>({...p, username: e.target.value}))} required />
+                  <label className="pf-modal-label">{t('admin.usernameField')}</label>
+                  <input className="pf-modal-input" value={editPayload.username || ''} onChange={(e)=>setEditPayload(p=>({...p, username: e.target.value}))} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.fullNameField')}</label>
-                  <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" value={editPayload.full_name || ''} onChange={(e)=>setEditPayload(p=>({...p, full_name: e.target.value}))} />
+                  <label className="pf-modal-label">{t('admin.fullNameField')}</label>
+                  <input className="pf-modal-input" value={editPayload.full_name || ''} onChange={(e)=>setEditPayload(p=>({...p, full_name: e.target.value}))} />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('admin.newPasswordField')}</label>
-                <input className="w-full rounded-lg border px-3 py-2 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700" type="password" value={editPayload.password || ''} onChange={(e)=>setEditPayload(p=>({...p, password: e.target.value}))} placeholder={t('admin.newPasswordPlaceholder')} />
+                <label className="pf-modal-label">{t('admin.newPasswordField')}</label>
+                <input className="pf-modal-input" type="password" value={editPayload.password || ''} onChange={(e)=>setEditPayload(p=>({...p, password: e.target.value}))} placeholder={t('admin.newPasswordPlaceholder')} />
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_admin} onChange={(e)=>setEditPayload(p=>({...p, is_admin: e.target.checked}))} disabled={editingUser.is_superuser} /> <span>{t('admin.isAdminLabel')}</span></label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_active} onChange={(e)=>setEditPayload(p=>({...p, is_active: e.target.checked}))} disabled={editingUser.is_superuser} /> <span>{t('admin.isActiveLabel')}</span></label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!editPayload.is_verified} onChange={(e)=>setEditPayload(p=>({...p, is_verified: e.target.checked}))} /> <span>{t('admin.isVerifiedLabel')}</span></label>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={closeEditModal} className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">{t('common.cancel')}</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors">{t('common.save')}</button>
+              <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
+                <button type="button" onClick={closeEditModal} className="pf-modal-button pf-modal-button--secondary">{t('common.cancel')}</button>
+                <button type="submit" className="pf-modal-button pf-modal-button--primary">{t('common.save')}</button>
               </div>
             </form>
           </div>

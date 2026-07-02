@@ -1,6 +1,8 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
 import { useTranslation } from 'react-i18next'
+import api from '@/api'
 import {
   ChartPeriodButtons,
   PortfolioChartSkeleton,
@@ -23,11 +25,102 @@ interface Props {
   portfolioId: number
 }
 
+interface ChartTransactionEvent {
+  id: number
+  tx_date: string
+  type: string
+  quantity?: number | string | null
+  asset?: {
+    symbol?: string | null
+    name?: string | null
+  } | null
+}
+
 export default function PortfolioHistoryChart({ portfolioId }: Props) {
   const { t, i18n } = useTranslation()
   const { period, setPeriod, loading, history, hoveredIndex, setHoveredIndex, currentLocale, currency } =
     usePortfolioHistoryChart(portfolioId, i18n.language)
   const currencySymbol = getCurrencySymbol(currency)
+  const [transactions, setTransactions] = useState<ChartTransactionEvent[]>([])
+
+  useEffect(() => {
+    let canceled = false
+    const loadTransactions = async () => {
+      try {
+        const data = await api.getTransactions(portfolioId)
+        if (!canceled) setTransactions(data as ChartTransactionEvent[])
+      } catch (err) {
+        console.error('Failed to load chart transaction events:', err)
+        if (!canceled) setTransactions([])
+      }
+    }
+    loadTransactions()
+    return () => { canceled = true }
+  }, [portfolioId])
+
+  const transactionEventsByIndex = useMemo(() => {
+    const events = new Map<number, ChartTransactionEvent[]>()
+    if (history.length === 0 || transactions.length === 0) return events
+
+    const firstDate = toDateKey(history[0].date)
+    const lastDate = toDateKey(history[history.length - 1].date)
+    if (!firstDate || !lastDate) return events
+
+    for (const transaction of transactions) {
+      const transactionDate = toDateKey(transaction.tx_date)
+      if (!transactionDate || transactionDate < firstDate || transactionDate > lastDate) continue
+
+      const exactIndex = history.findIndex((point) => toDateKey(point.date) === transactionDate)
+      const fallbackIndex = exactIndex >= 0
+        ? exactIndex
+        : history.findIndex((point) => {
+            const pointDate = toDateKey(point.date)
+            return Boolean(pointDate && pointDate >= transactionDate)
+          })
+      if (fallbackIndex < 0) continue
+
+      const existing = events.get(fallbackIndex) ?? []
+      existing.push(transaction)
+      events.set(fallbackIndex, existing)
+    }
+
+    return events
+  }, [history, transactions])
+
+  const transactionMarkerData = useMemo(
+    () => history.map((point, index) => transactionEventsByIndex.has(index) ? point.value : null),
+    [history, transactionEventsByIndex],
+  )
+
+  const transactionMarkerColors = useMemo(
+    () => history.map((_, index) => {
+      const event = transactionEventsByIndex.get(index)?.[0]
+      return getTransactionMarkerColor(event?.type)
+    }),
+    [history, transactionEventsByIndex],
+  )
+
+  const summary = (() => {
+    if (history.length === 0) return null
+    const firstPoint = history[0]
+    const lastPoint = history[history.length - 1]
+    const highPoint = history.reduce((max, point) => point.value > max.value ? point : max, firstPoint)
+    const lowPoint = history.reduce((min, point) => point.value < min.value ? point : min, firstPoint)
+    let largestGain: { value: number; date: string } | null = null
+    let largestLoss: { value: number; date: string } | null = null
+    for (let index = 1; index < history.length; index += 1) {
+      const change = history[index].value - history[index - 1].value
+      if (!largestGain || change > largestGain.value) largestGain = { value: change, date: history[index].date }
+      if (!largestLoss || change < largestLoss.value) largestLoss = { value: change, date: history[index].date }
+    }
+    return {
+      gained: lastPoint.value - firstPoint.value,
+      highPoint,
+      lowPoint,
+      largestGain,
+      largestLoss,
+    }
+  })()
 
   const chartData = {
     labels: history.map(h => {
@@ -57,6 +150,19 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
         pointHoverBorderColor: '#fff',
         pointHoverBorderWidth: 2,
       },
+      {
+        label: 'Capital events',
+        data: transactionMarkerData,
+        borderColor: transactionMarkerColors,
+        backgroundColor: transactionMarkerColors,
+        pointBackgroundColor: transactionMarkerColors,
+        pointBorderColor: '#050505',
+        pointBorderWidth: 1,
+        pointRadius: (ctx: { dataIndex: number }) => transactionEventsByIndex.has(ctx.dataIndex) ? 3 : 0,
+        pointHoverRadius: (ctx: { dataIndex: number }) => transactionEventsByIndex.has(ctx.dataIndex) ? 5 : 0,
+        showLine: false,
+        fill: false,
+      },
     ],
   }
 
@@ -68,7 +174,11 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
         ...CHART_TOOLTIP_BASE,
         callbacks: {
           title: createTooltipTitleCallback(history, currentLocale),
-          label: (context: { parsed: { y: number | null } }) => {
+          label: (context: { parsed: { y: number | null }; dataIndex: number; dataset: { label?: string } }) => {
+            if (context.dataset.label === 'Capital events') {
+              const events = transactionEventsByIndex.get(context.dataIndex) ?? []
+              return events.map(formatTransactionEvent)
+            }
             const value = context.parsed.y
             if (value === null) return ''
             return `${t('fields.value')}: ${currencySymbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -105,8 +215,15 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
   }
 
   return (
-    <div>
-      <div style={{ minHeight: 320 }} className="p-4">
+    <section className="pf-section pf-section--spacious charts-section">
+      <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header">
+        <div>
+          <p className="pf-section-kicker">VISUAL HISTORY</p>
+          <h2 className="pf-section-title">{t('charts.portfolioValueLabel')}</h2>
+        </div>
+        <span className="pf-section-description">Every valuation point is a trace of capital added, sold, distributed, or re-priced.</span>
+      </div>
+      <div className="charts-chart-panel">
         {loading ? (
           <PortfolioChartSkeleton metricWidthClass="w-32">
             <path
@@ -123,14 +240,14 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
             />
           </PortfolioChartSkeleton>
         ) : history.length === 0 ? (
-          <div className="text-neutral-400 text-center py-12">
+          <div className="charts-empty">
             <p className="font-semibold mb-2">{t('charts.noPortfolioHistory')}</p>
             <p className="text-sm">{t('charts.noPortfolioHistoryInfo')}</p>
           </div>
         ) : (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t('charts.portfolioValueLabel')}</h3>
+            <div className="charts-chart-heading">
+              <h3>{t('charts.portfolioValueLabel')}</h3>
               {history.length > 0 && (() => {
                 // Determine which point to display (hovered or last)
                 const displayIndex = hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < history.length 
@@ -170,11 +287,11 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
                 }
                 
                 return (
-                  <div className="flex items-center gap-3">
-                    <p className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
+                  <div className="charts-chart-metric">
+                    <p>
                       {currencySymbol}{displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <div className="flex flex-col items-end gap-0.5">
+                    <div>
                       <p className={`text-sm font-medium ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {isPositive ? '+' : ''}{currencySymbol}{Math.abs(absoluteChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {t('charts.inPeriod')}
                       </p>
@@ -189,16 +306,77 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
               })()}
             </div>
             <div 
-              style={{ height: '320px' }}
+              className="charts-chart-canvas"
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <Line data={chartData} options={chartOptions} />
             </div>
+            {summary && (
+              <div className="charts-observations">
+                <p>During this period your portfolio:</p>
+                <dl>
+                  <div>
+                    <dt>Gained</dt>
+                    <dd className={summary.gained >= 0 ? 'is-positive' : 'is-negative'}>{summary.gained >= 0 ? '+' : '-'}{currencySymbol}{Math.abs(summary.gained).toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                  </div>
+                  <div>
+                    <dt>Reached a high</dt>
+                    <dd>{currencySymbol}{summary.highPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                  </div>
+                  <div>
+                    <dt>Reached a low</dt>
+                    <dd>{currencySymbol}{summary.lowPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                  </div>
+                  <div>
+                    <dt>Largest daily gain</dt>
+                    <dd className="is-positive">{summary.largestGain ? `+${currencySymbol}${Math.abs(summary.largestGain.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Largest daily loss</dt>
+                    <dd className="is-negative">{summary.largestLoss ? `-${currencySymbol}${Math.abs(summary.largestLoss.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+            {transactionEventsByIndex.size > 0 && (
+              <div className="charts-event-legend" aria-label="Capital event markers">
+                <span><i className="is-buy" />Buy</span>
+                <span><i className="is-sell" />Sell</span>
+                <span><i className="is-dividend" />Dividend</span>
+                <span><i className="is-split" />Split</span>
+              </div>
+            )}
           </div>
         )}
       </div>
       
       <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
-    </div>
+    </section>
   )
+}
+
+function toDateKey(value: string | null | undefined): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString().slice(0, 10)
+}
+
+function getTransactionMarkerColor(type: string | null | undefined): string {
+  const normalized = (type || '').toUpperCase()
+  if (normalized.includes('BUY') || normalized === 'TRANSFER_IN' || normalized === 'CONVERSION_IN') return '#20c997'
+  if (normalized.includes('SELL') || normalized === 'TRANSFER_OUT' || normalized === 'CONVERSION_OUT') return '#f87171'
+  if (normalized === 'DIVIDEND') return '#f0a0c5'
+  if (normalized === 'SPLIT') return '#a78bfa'
+  return '#aaa3ad'
+}
+
+function formatTransactionEvent(event: ChartTransactionEvent): string {
+  const type = event.type.replace(/_/g, ' ').toLowerCase()
+  const label = type.charAt(0).toUpperCase() + type.slice(1)
+  const symbol = event.asset?.symbol ? ` · ${event.asset.symbol}` : ''
+  const quantity = event.quantity !== null && event.quantity !== undefined && Number(event.quantity) > 0
+    ? ` · ${Number(event.quantity).toLocaleString(undefined, { maximumFractionDigits: 4 })} shares`
+    : ''
+  return `${label}${symbol}${quantity}`
 }

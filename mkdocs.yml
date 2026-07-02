@@ -68,6 +68,8 @@ plugins:
 
 nav:
   - Home: index.md
+  - Design:
+      - Visual Language: design/Portfolium Visual Language.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quick-start.md

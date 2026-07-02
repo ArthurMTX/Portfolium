@@ -12,14 +12,15 @@ export function ChartPeriodButtons({
   t: (key: string) => string
 }) {
   return (
-    <div className="flex gap-2 mb-4 flex-wrap justify-center">
+    <div className="charts__periods flex flex-wrap items-center gap-2">
       {CHART_PERIOD_OPTIONS.map(opt => (
         <button
           key={opt}
-          className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition shadow-sm ${
+          type="button"
+          className={`inline-flex h-9 min-w-10 items-center justify-center rounded-full border px-3 text-xs font-bold tracking-wide transition-colors ${
             period === opt
-              ? 'bg-pink-600 text-white border-pink-600'
-              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-pink-50 dark:hover:bg-pink-900/30'
+              ? 'is-active border-pink-500/50 bg-pink-500/10 text-pink-300'
+              : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-pink-500/40 hover:bg-pink-500/5 hover:text-pink-300'
           }`}
           onClick={() => onChange(opt)}
         >
@@ -38,13 +39,13 @@ export function PortfolioChartSkeleton({
   children: ReactNode
 }) {
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
-        <div className={`h-8 ${metricWidthClass} bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse`}></div>
+    <div className="charts__chart-skeleton">
+      <div className="charts__chart-skeleton-header">
+        <div />
+        <div className={metricWidthClass} />
       </div>
-      <div style={{ height: '320px' }} className="relative">
-        <div className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse overflow-hidden">
+      <div className="charts__chart-skeleton-plot">
+        <div>
           <svg className="w-full h-full opacity-30" viewBox="0 0 100 50" preserveAspectRatio="none">
             {children}
           </svg>

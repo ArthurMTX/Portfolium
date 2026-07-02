@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { AlertTriangle, BadgeDollarSign, Building2, Coins, Globe2, HelpCircle, Inbox, Info, RefreshCw } from 'lucide-react'
+import { BadgeDollarSign, Building2, Coins, Globe2, HelpCircle, Info, RefreshCw } from 'lucide-react'
 import type { ContributionItemDTO } from '@/api'
+import { StateBlock, TableSkeleton } from '@/shared/components/StatePrimitives'
 import { getFlagUrl } from '@/shared/lib/countryUtils'
 import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
 import { getSectorColor, getSectorHexColor, getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
@@ -102,17 +103,8 @@ function InfoTooltip({
   )
 }
 
-function ScopePill({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex max-w-full items-center rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-      {children}
-    </span>
-  )
-}
-
 export function InsightBlock({
   title,
-  icon,
   scope,
   description,
   formula,
@@ -126,7 +118,7 @@ export function InsightBlock({
   className = '',
 }: {
   title: string
-  icon: ReactNode
+  icon?: ReactNode
   scope?: string
   description?: ReactNode
   formula?: ReactNode
@@ -140,16 +132,13 @@ export function InsightBlock({
   className?: string
 }) {
   return (
-    <section className={`card p-6 ${className}`}>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
-            {icon}
-            <span className="truncate">{title}</span>
-          </h2>
-          {scope && <div className="mt-2"><ScopePill>{scope}</ScopePill></div>}
+    <section className={`pf-section pf-section--spacious insights-block ${className ?? ''}`}>
+      <div className="pf-section-header pf-section-header--spacious insights-block__header">
+        <div>
+          {scope && <p className="pf-section-kicker">{scope}</p>}
+          <h2 className="pf-section-title">{title}</h2>
         </div>
-        <div className="flex flex-shrink-0 items-center gap-1 self-start">
+        <div className="pf-section-header__aside insights-block__actions">
           {(description || formula) && (
             <InfoTooltip label={`${title} details`}>
               <div className="space-y-2">
@@ -167,7 +156,7 @@ export function InsightBlock({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="insights-icon-button"
               title="Refresh"
               aria-label={`Refresh ${title}`}
             >
@@ -180,18 +169,22 @@ export function InsightBlock({
       {isLoading ? (
         skeleton
       ) : error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
-          <div className="mb-1 flex items-center gap-2 font-medium">
-            <AlertTriangle size={16} />
-            Block failed
-          </div>
-          <p>{errorMessage(error)}</p>
-        </div>
+        <StateBlock
+          tone="error"
+          className="insights-error"
+          eyebrow="Insight unavailable"
+          title="This block could not load."
+          detail={errorMessage(error)}
+          actionLabel={onRetry ? 'Retry' : undefined}
+          onAction={onRetry}
+        />
       ) : isEmpty ? (
-        <div className="flex min-h-28 flex-col items-center justify-center rounded-lg border border-dashed border-neutral-200 p-6 text-center text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-          <Inbox className="mb-2 h-5 w-5" />
-          {emptyMessage}
-        </div>
+        <StateBlock
+          className="insights-empty"
+          eyebrow="No data"
+          title={emptyMessage}
+          description="This insight will appear when enough portfolio data is available."
+        />
       ) : (
         children
       )}
@@ -203,72 +196,58 @@ export function MetricCard({
   label,
   value,
   subtitle,
-  icon,
   tone = 'neutral',
   tooltip,
 }: {
   label: string
   value: string
   subtitle?: string
-  icon: ReactNode
+  icon?: ReactNode
   tone?: 'neutral' | 'positive' | 'negative' | 'accent'
   tooltip?: ReactNode
 }) {
   const toneClass = {
-    neutral: 'text-neutral-900 dark:text-neutral-100',
-    positive: 'text-green-600 dark:text-green-400',
-    negative: 'text-red-600 dark:text-red-400',
-    accent: 'text-pink-600 dark:text-pink-400',
+    neutral: undefined,
+    positive: 'is-positive',
+    negative: 'is-negative',
+    accent: 'insights-metric-accent',
   }[tone]
 
   return (
-    <div className="card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1">
-            <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">{label}</p>
-            {tooltip && (
-              <InfoTooltip label={`${label} details`} align="left">
-                {tooltip}
-              </InfoTooltip>
-            )}
-          </div>
-          <p className={`mt-2 text-2xl font-bold ${toneClass}`}>{value}</p>
-          {subtitle && <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
-        </div>
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-          {icon}
-        </div>
-      </div>
+    <div className="insights-metric">
+      <span>
+        {label}
+        {tooltip && (
+          <InfoTooltip label={`${label} details`} align="left">
+            {tooltip}
+          </InfoTooltip>
+        )}
+      </span>
+      <strong className={toneClass}>{value}</strong>
+      {subtitle && <em>{subtitle}</em>}
     </div>
   )
 }
 
 export function MetricCardSkeleton() {
   return (
-    <div className="card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 animate-pulse">
-          <div className="h-4 w-28 rounded bg-neutral-200 dark:bg-neutral-700" />
-          <div className="mt-3 h-8 w-24 rounded bg-neutral-200 dark:bg-neutral-700" />
-          <div className="mt-3 h-3 w-20 rounded bg-neutral-200 dark:bg-neutral-700" />
-        </div>
-        <div className="h-11 w-11 rounded-full bg-neutral-200 dark:bg-neutral-700" />
-      </div>
+    <div className="insights-metric is-loading">
+      <span className="pf-skeleton" />
+      <strong className="pf-skeleton" />
     </div>
   )
 }
 
 export function BarsSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-4 animate-pulse">
+    <div className="space-y-4">
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="space-y-2">
           <div className="flex justify-between">
-            <div className="h-4 w-32 rounded bg-neutral-200 dark:bg-neutral-700" />
-            <div className="h-4 w-14 rounded bg-neutral-200 dark:bg-neutral-700" />
+            <div className="pf-skeleton h-4 w-32" />
+            <div className="pf-skeleton h-4 w-14" />
           </div>
-          <div className="h-2 rounded-full bg-neutral-100 dark:bg-neutral-800" />
+          <div className="pf-skeleton h-2 rounded-full" />
         </div>
       ))}
     </div>
@@ -276,22 +255,7 @@ export function BarsSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 export function MiniTableSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="space-y-3 animate-pulse">
-      {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="flex items-center justify-between rounded-lg bg-neutral-50 p-3 dark:bg-neutral-800">
-          <div className="space-y-2">
-            <div className="h-4 w-24 rounded bg-neutral-200 dark:bg-neutral-700" />
-            <div className="h-3 w-32 rounded bg-neutral-200 dark:bg-neutral-700" />
-          </div>
-          <div className="space-y-2">
-            <div className="h-4 w-16 rounded bg-neutral-200 dark:bg-neutral-700" />
-            <div className="h-3 w-12 rounded bg-neutral-200 dark:bg-neutral-700" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+  return <TableSkeleton rows={rows} columns={3} label="Loading insight table" />
 }
 
 export function ContributionBars({

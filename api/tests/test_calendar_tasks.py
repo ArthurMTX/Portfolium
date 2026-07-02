@@ -50,7 +50,10 @@ def test_refresh_earnings_cache_handles_active_stock_rows(
         lambda symbol: {
             "earnings_date": date(2026, 7, 21),
             "eps_estimate": Decimal("3.10"),
+            "eps_actual": Decimal("3.20"),
             "revenue_estimate": Decimal("65000000000"),
+            "revenue_actual": Decimal("66000000000"),
+            "surprise_pct": Decimal("3.23"),
             "raw_data": {"symbol": symbol},
         },
     )
@@ -63,4 +66,7 @@ def test_refresh_earnings_cache_handles_active_stock_rows(
 
     cached = test_db.query(EarningsCache).filter(EarningsCache.symbol == "MSFT").one()
     assert cached.earnings_date == date(2026, 7, 21)
+    assert cached.eps_actual == Decimal("3.20")
+    assert cached.revenue_actual == Decimal("66000000000")
+    assert cached.surprise_pct == Decimal("3.23")
     assert cached.raw_data == {"symbol": "MSFT"}

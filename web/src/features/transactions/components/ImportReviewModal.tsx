@@ -42,30 +42,30 @@ export default function ImportReviewModal({
   const summaryEntries = preview ? Object.entries(preview.summary_by_type) : []
 
   return (
-    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="card p-6 max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-4 mb-4 flex-shrink-0">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel pf-modal-panel--xl flex flex-col" role="dialog" aria-modal="true">
+        <div className="pf-modal-header flex-shrink-0">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FileText className="text-pink-600" size={22} />
+            <h2 className="pf-modal-title flex items-center gap-2">
+              <FileText className="text-neutral-400" size={18} />
               {t('importReviewModal.title')}
             </h2>
             {file && (
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate mt-1">
+              <p className="pf-modal-description truncate">
                 {file.name}
               </p>
             )}
           </div>
           <button
             onClick={onCancel}
-            className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            className="pf-modal-close"
             aria-label={t('common.close')}
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+        <div className="pf-modal-body flex-1 min-h-0 space-y-4">
           {loading && (
             <div className="flex items-center justify-center gap-3 py-12 text-neutral-600 dark:text-neutral-300">
               <LoadingSpinner variant="icon" size="sm" />
@@ -142,13 +142,16 @@ export default function ImportReviewModal({
           )}
         </div>
 
-        <div className="mt-5 flex justify-end gap-2 flex-shrink-0">
-          <button onClick={onCancel} className="btn-secondary">
+        <div className="pf-modal-footer flex-shrink-0">
+          <div />
+          <div className="pf-modal-footer-actions">
+          <button onClick={onCancel} className="pf-modal-button pf-modal-button--secondary">
             {t('common.cancel')}
           </button>
-          <button onClick={onConfirm} disabled={!canConfirm} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={onConfirm} disabled={!canConfirm} className="pf-modal-button pf-modal-button--primary">
             {t('importReviewModal.confirmImport')}
           </button>
+          </div>
         </div>
       </div>
     </div>
@@ -172,7 +175,7 @@ function Metric({
   }[tone]
 
   return (
-    <div className="rounded-lg bg-neutral-100 dark:bg-neutral-800 p-3 min-h-[82px]">
+    <div className="pf-modal-muted-box min-h-[82px]">
       <div className={`text-2xl font-bold ${toneClass}`}>{value}</div>
       <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-snug">{label}</div>
     </div>

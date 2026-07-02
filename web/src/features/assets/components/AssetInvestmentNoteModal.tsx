@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type React from 'react'
-import { BookOpen, Trash2, X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, {
   AssetInvestmentConviction,
@@ -141,37 +141,37 @@ export default function AssetInvestmentNoteModal({
   }
 
   return (
-    <>
-      <div className="modal-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" onClick={onClose} />
+    <div className="pf-modal-overlay">
+      <div className="absolute inset-0" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="card max-w-3xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
+          className="pf-modal-panel pf-modal-panel--xl pointer-events-auto"
+          role="dialog"
+          aria-modal="true"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-6 py-5 flex items-center justify-between z-10">
+          <div className="pf-modal-header sticky top-0 bg-neutral-950 z-10">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center flex-shrink-0">
-                <BookOpen size={20} className="text-indigo-600 dark:text-indigo-400" />
-              </div>
               <div className="min-w-0">
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                <h2 className="pf-modal-title">
                   {t('assetInvestmentNotes.title')}
                 </h2>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">{symbol}</p>
+                <p className="pf-modal-description truncate">{symbol}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+              className="pf-modal-close"
+              aria-label={t('common.close')}
             >
               <X size={20} className="text-neutral-500 dark:text-neutral-400" />
             </button>
           </div>
 
-          <div className="p-6 space-y-5">
+          <div className="pf-modal-body pf-modal-section">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+              <div className="pf-modal-callout pf-modal-callout--danger">
                 {error}
               </div>
             )}
@@ -186,7 +186,7 @@ export default function AssetInvestmentNoteModal({
               />
             </Field>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="pf-modal-grid">
               <Field label={t('assetInvestmentNotes.conviction')}>
                 <select
                   value={form.conviction}
@@ -214,7 +214,7 @@ export default function AssetInvestmentNoteModal({
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="pf-modal-grid">
               <Field label={t('assetInvestmentNotes.targetPrice')}>
                 <input
                   type="number"
@@ -268,39 +268,39 @@ export default function AssetInvestmentNoteModal({
             </Field>
           </div>
 
-          <div className="border-t border-neutral-200 dark:border-neutral-700 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="pf-modal-footer flex-col sm:flex-row">
             <div>
               {note && (
                 <button
                   type="button"
                   onClick={handleDelete}
                   disabled={deleting || saving}
-                  className="btn-secondary inline-flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  className="pf-modal-button pf-modal-button--secondary text-red-400 hover:bg-red-950/30"
                 >
                   <Trash2 size={16} />
                   {deleting ? t('common.deleting') : t('common.delete')}
                 </button>
               )}
             </div>
-            <div className="flex items-center justify-end gap-3">
-              <button type="button" onClick={onClose} className="btn-secondary" disabled={saving || deleting}>
+            <div className="pf-modal-footer-actions">
+              <button type="button" onClick={onClose} className="pf-modal-button pf-modal-button--secondary" disabled={saving || deleting}>
                 {t('common.cancel')}
               </button>
-              <button type="button" onClick={handleSave} className="btn-primary" disabled={saving || deleting}>
+              <button type="button" onClick={handleSave} className="pf-modal-button pf-modal-button--primary" disabled={saving || deleting}>
                 {saving ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+    <label className="pf-modal-field block">
+      <span className="pf-modal-label">
         {label}
       </span>
       {children}

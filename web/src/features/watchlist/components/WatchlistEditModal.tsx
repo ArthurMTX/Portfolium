@@ -110,17 +110,14 @@ export default function WatchlistEditModal({
   if (!isOpen || !item) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
-      {/* Backdrop */}
+    <div className="pf-modal-overlay">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0"
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative z-10 w-full max-w-lg bg-white dark:bg-neutral-900 rounded-xl shadow-2xl">
-        {/* Header */}
-        <div className="flex items-start justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="pf-modal-panel" role="dialog" aria-modal="true">
+        <div className="pf-modal-header">
           <div className="flex items-start gap-3">
             {/* Logo */}
             <img
@@ -159,7 +156,8 @@ export default function WatchlistEditModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="pf-modal-close"
+            aria-label={t('common.close')}
           >
             <X size={20} className="text-neutral-500" />
           </button>
@@ -167,10 +165,10 @@ export default function WatchlistEditModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-5">
+          <div className="pf-modal-body pf-modal-section">
             {/* Error */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
+              <div className="pf-modal-callout pf-modal-callout--danger flex items-center gap-2">
                 <AlertTriangle size={16} />
                 {error}
               </div>
@@ -178,7 +176,7 @@ export default function WatchlistEditModal({
 
             {/* Notes */}
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+              <label className="pf-modal-label">
                 {t('fields.notes')}
               </label>
               <textarea
@@ -186,13 +184,13 @@ export default function WatchlistEditModal({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('placeholders.enterNotes')}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+                className="pf-modal-textarea resize-none"
               />
             </div>
 
             {/* Tags */}
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              <label className="pf-modal-label">
                 {t('watchlist.tags.title')}
               </label>
               {availableTags.length === 0 ? (
@@ -229,9 +227,9 @@ export default function WatchlistEditModal({
             </div>
 
             {/* Alert Price */}
-            <div className="grid grid-cols-2 gap-4 items-start">
+            <div className="pf-modal-grid items-start">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                <label className="pf-modal-label">
                   {t('watchlist.alertTargetPrice')}
                 </label>
                 <div className="relative">
@@ -241,7 +239,7 @@ export default function WatchlistEditModal({
                     value={alertPrice}
                     onChange={(e) => setAlertPrice(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-3 py-2 pr-14 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="pf-modal-input pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">
                     {item.currency}
@@ -298,19 +296,21 @@ export default function WatchlistEditModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 rounded-b-xl">
+          <div className="pf-modal-footer">
+            <div />
+            <div className="pf-modal-footer-actions">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+              className="pf-modal-button pf-modal-button--secondary"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
+              className="pf-modal-button pf-modal-button--primary"
             >
               {saving ? (
                 <>
@@ -321,6 +321,7 @@ export default function WatchlistEditModal({
                 t('common.save')
               )}
             </button>
+            </div>
           </div>
         </form>
       </div>

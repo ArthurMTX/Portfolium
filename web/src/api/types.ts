@@ -114,6 +114,11 @@ export interface PositionDTO {
   relative_perf_ytd?: number | null
   relative_perf_1y?: number | null
   sector?: string | null
+  industry?: string | null
+  country?: string | null
+  effective_sector?: string | null
+  effective_industry?: string | null
+  effective_country?: string | null
   sector_etf?: string | null
   currency: string
   last_updated: string | null

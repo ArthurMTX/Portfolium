@@ -454,45 +454,43 @@ export default function ConversionModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
-      {/* Backdrop */}
+    <div className="pf-modal-overlay">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0"
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative z-10 w-full max-w-2xl bg-white dark:bg-neutral-900 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="pf-modal-panel pf-modal-panel--lg" role="dialog" aria-modal="true">
+        <div className="pf-modal-header">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+            <h2 className="pf-modal-title">
               {t('conversion.title')}
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="pf-modal-description">
               {t('conversion.description')}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+            className="pf-modal-close"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="pf-modal-body pf-modal-section">
           {/* Error message */}
           {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="pf-modal-callout pf-modal-callout--danger">
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="pf-modal-label">
               {t('fields.date')}
             </label>
             <input
@@ -500,7 +498,7 @@ export default function ConversionModal({
               value={txDate}
               onChange={(e) => setTxDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="pf-modal-input"
               required
             />
           </div>
@@ -573,8 +571,8 @@ export default function ConversionModal({
 
             {/* Arrow */}
             <div className="hidden md:flex items-center justify-center pt-8">
-              <div className="p-2 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full">
-                <ArrowRight className="w-5 h-5 text-white" />
+                <div className="p-2 rounded-full border border-neutral-800 bg-neutral-900 text-neutral-400">
+                <ArrowRight className="w-5 h-5" />
               </div>
             </div>
 
@@ -618,7 +616,7 @@ export default function ConversionModal({
                       value={toSearch}
                       onChange={(e) => setToSearch(e.target.value)}
                       placeholder={t('conversion.searchAsset')}
-                      className="w-full pl-10 pr-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="pf-modal-input pl-10"
                     />
                   </div>
                   {toSearchResults.length > 0 && (
@@ -769,7 +767,7 @@ export default function ConversionModal({
 
           {/* Fees */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="pf-modal-label">
               {t('fields.fees')} ({portfolioCurrency})
             </label>
             <input
@@ -778,13 +776,13 @@ export default function ConversionModal({
               value={fees}
               onChange={(e) => setFees(e.target.value)}
               placeholder="0.00"
-              className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="pf-modal-input"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="pf-modal-label">
               {t('fields.notes')}
             </label>
             <textarea
@@ -792,11 +790,11 @@ export default function ConversionModal({
               onChange={(e) => setNotes(e.target.value)}
               placeholder={t('conversion.notesPlaceholder')}
               rows={2}
-              className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+              className="pf-modal-textarea resize-none"
             />
           </div>
 
-          <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 p-4 space-y-3">
+          <div className="pf-modal-muted-box space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                 <Info size={16} className="text-pink-500" />
@@ -858,18 +856,18 @@ export default function ConversionModal({
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+          <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+              className="pf-modal-button pf-modal-button--secondary"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading || !fromAsset || !toAsset}
-              className="px-6 py-2.5 text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 rounded-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              className="pf-modal-button pf-modal-button--primary"
             >
               {loading ? (
                 <>

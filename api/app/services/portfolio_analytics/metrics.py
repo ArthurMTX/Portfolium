@@ -12,6 +12,7 @@ from fastapi import Depends
 
 from app.models import Transaction, Asset, TransactionType, Price, Portfolio
 from app.schemas import Position, PortfolioMetrics
+from app.crud import assets as crud_assets
 from app.crud import prices as crud_prices
 from app.db import get_db
 from app.services.platform.cache import CacheService, cache_positions, get_cached_positions, invalidate_positions
@@ -26,6 +27,8 @@ from app.observability.metrics import (
 from app.utils.exchange_calendars import get_trading_sessions
 
 logger = logging.getLogger(__name__)
+
+INCOMPLETE_POSITION_CACHE_TTL_SECONDS = 60
 
 # Lock to prevent concurrent database access in async position calculations
 # NOTE: Locks are lazily initialized to avoid "bound to a different event loop" errors
@@ -50,6 +53,14 @@ def _get_cache_lock() -> asyncio.Lock:
     if _cache_lock is None:
         _cache_lock = asyncio.Lock()
     return _cache_lock
+
+
+def _has_incomplete_active_valuation(positions: List[Position]) -> bool:
+    """Return True when an open position could not be valued from price/FX data."""
+    return any(
+        position.quantity > 0 and position.market_value is None
+        for position in positions
+    )
 
 
 class MetricsService:
@@ -104,7 +115,18 @@ class MetricsService:
             # Store result in Redis cache (only for active positions)
             if not include_sold and result:
                 positions_data = [pos.model_dump() for pos in result]
-                cache_positions(portfolio_id, positions_data, CacheService.TTL_POSITION)
+                cache_ttl = (
+                    INCOMPLETE_POSITION_CACHE_TTL_SECONDS
+                    if _has_incomplete_active_valuation(result)
+                    else CacheService.TTL_POSITION
+                )
+                if cache_ttl != CacheService.TTL_POSITION:
+                    logger.info(
+                        "Caching positions with short TTL because active valuations are incomplete "
+                        "for portfolio %s",
+                        portfolio_id,
+                    )
+                cache_positions(portfolio_id, positions_data, cache_ttl)
             
             # Remove from ongoing calculations
             async with _get_cache_lock():
@@ -127,6 +149,7 @@ class MetricsService:
         from app.models import Portfolio as PortfolioModel
         portfolio = self.db.query(PortfolioModel).filter_by(id=portfolio_id).first()
         portfolio_base_currency = portfolio.base_currency if portfolio else None
+        portfolio_user_id = portfolio.user_id if portfolio else None
         
         # Get all transactions for portfolio, ordered by date
         # Use joinedload to eagerly fetch assets and prevent N+1 queries
@@ -201,7 +224,7 @@ class MetricsService:
         all_positions = []
         for asset_id, txs in asset_txs.items():
             try:
-                position = await self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold)
+                position = await self._calculate_position(asset_id, txs, portfolio_base_currency, include_sold, portfolio_user_id)
                 if position:
                     logger.info(f"Calculated position for asset {asset_id}: {position.symbol}, qty={position.quantity}")
                 all_positions.append(position)
@@ -1024,7 +1047,8 @@ class MetricsService:
         asset_id: int, 
         transactions: List[Transaction],
         portfolio_base_currency: Optional[str] = None,
-        include_sold: bool = False
+        include_sold: bool = False,
+        portfolio_user_id: Optional[int] = None,
     ) -> Optional[Position]:
         """
         Calculate position for a single asset (async to fetch prices without blocking)
@@ -1043,6 +1067,16 @@ class MetricsService:
         )
         if not asset:
             return None
+
+        effective_metadata = (
+            crud_assets.get_effective_asset_metadata(self.db, asset, portfolio_user_id)
+            if portfolio_user_id is not None
+            else {
+                "effective_sector": asset.sector,
+                "effective_industry": asset.industry,
+                "effective_country": asset.country,
+            }
+        )
         
         quantity = Decimal(0)
         total_cost = Decimal(0)
@@ -1198,6 +1232,12 @@ class MetricsService:
                 last_updated=None,
                 asset_type=asset.asset_type,
                 themes=asset.themes,
+                sector=asset.sector,
+                industry=asset.industry,
+                country=asset.country,
+                effective_sector=effective_metadata.get("effective_sector"),
+                effective_industry=effective_metadata.get("effective_industry"),
+                effective_country=effective_metadata.get("effective_country"),
                 realized_pnl=realized_pnl,
                 realized_pnl_percent=realized_pnl_pct,
                 realized_quantity=realized_quantity,
@@ -1400,6 +1440,10 @@ class MetricsService:
             relative_perf_1y=None,
             sector=asset.sector,
             industry=asset.industry,
+            country=asset.country,
+            effective_sector=effective_metadata.get("effective_sector"),
+            effective_industry=effective_metadata.get("effective_industry"),
+            effective_country=effective_metadata.get("effective_country"),
             sector_etf=None,  # Will be populated on-demand
             currency=target_currency,  # Use portfolio base currency if available
             last_updated=last_updated,

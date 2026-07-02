@@ -29,6 +29,7 @@ interface Props {
   assetName?: string | null
   initialPeriod?: ChartPeriodOption
   ensureAllTimeHistory?: boolean
+  chartHeight?: number | string
 }
 
 interface PricePoint {
@@ -77,7 +78,8 @@ export default function AssetPriceChart({
   assetType,
   assetName,
   initialPeriod = '1M',
-  ensureAllTimeHistory = false
+  ensureAllTimeHistory = false,
+  chartHeight = 320,
 }: Props) {
   const [period, setPeriod] = useState<ChartPeriodOption>(initialPeriod)
   const [loading, setLoading] = useState(false)
@@ -484,10 +486,10 @@ export default function AssetPriceChart({
   }
 
   return (
-    <div>
+    <div className="space-y-5">
       <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
       
-      <div style={{ minHeight: 320 }} className="bg-white dark:bg-neutral-900 rounded-xl shadow border border-neutral-200 dark:border-neutral-800 p-4">
+      <div style={{ minHeight: 320 }}>
         {loading ? (
           <div className="space-y-4 animate-pulse">
             <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
@@ -550,7 +552,7 @@ export default function AssetPriceChart({
               </div>
             </div>
             <div 
-              style={{ height: '320px' }}
+              style={{ height: chartHeight }}
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <Line data={chartData} options={chartOptions} />

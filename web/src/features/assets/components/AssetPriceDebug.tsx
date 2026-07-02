@@ -105,28 +105,29 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
   };
 
   return (
-    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel max-w-5xl flex flex-col" role="dialog" aria-modal="true">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="pf-modal-header">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+            <h2 className="pf-modal-title">
               {symbol} - {t('assetPriceDebug.title')}
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="pf-modal-description">
               {t('assetPriceDebug.assetId')}: {assetId}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+            className="pf-modal-close"
+            aria-label={t('common.close')}
           >
             <X size={24} className="text-neutral-500" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex border-b border-neutral-800">
           <button
             onClick={() => setView('health')}
             className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
@@ -150,7 +151,7 @@ export default function AssetPriceDebug({ assetId, symbol, onClose }: AssetPrice
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="pf-modal-body flex-1">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <LoadingSpinner size="lg" color="blue" />

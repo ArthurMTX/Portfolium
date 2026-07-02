@@ -8,7 +8,7 @@ import { PositionDTO } from '@/api'
 import DataFreshnessIndicator from '@/shared/components/DataFreshnessIndicator'
 import AssetLogo from '@/shared/components/AssetLogo'
 
-// Position interface that allows both number and string for backward compatibility
+// Position interface accepts API numeric fields that may arrive as strings.
 interface Position extends Omit<PositionDTO, 'quantity' | 'avg_cost' | 'current_price' | 'market_value' | 'cost_basis' | 'unrealized_pnl' | 'unrealized_pnl_pct' | 'daily_change_pct' | 'breakeven_gain_pct' | 'breakeven_target_price' | 'distance_to_ath_pct' | 'avg_buy_zone_pct' | 'personal_drawdown_pct' | 'vol_contribution_pct' | 'cost_to_average_down'> {
   quantity: number | string
   avg_cost: number | string

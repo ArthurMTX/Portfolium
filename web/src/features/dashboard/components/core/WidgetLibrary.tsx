@@ -161,21 +161,21 @@ export default function WidgetLibraryNew({
   const filteredCount = Object.values(filteredWidgets).flat().length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 modal-overlay">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl w-full max-w-[95vw] h-[95vh] flex flex-col">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel w-full max-w-[95vw] h-[95vh] flex flex-col" role="dialog" aria-modal="true">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+        <div className="pf-modal-header flex-shrink-0">
           <div>
-            <h2 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+            <h2 className="pf-modal-title">
               {t('dashboard.widgets.library.title')}
             </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+            <p className="pf-modal-description">
               {filteredCount} of {totalWidgets} widgets • {currentLayout.length} active
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="pf-modal-close"
           >
             <X size={24} />
           </button>

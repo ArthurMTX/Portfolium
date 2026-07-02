@@ -1,0 +1,77 @@
+@layer components {
+  .input,
+  .pf-input,
+  .pf-select,
+  .pf-textarea {
+    @apply w-full border px-3 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    border-color: var(--pf-line);
+    border-radius: var(--pf-radius-md);
+    background: var(--pf-surface-raised);
+    color: var(--pf-ink);
+  }
+
+  .input,
+  .pf-input,
+  .pf-select {
+    min-height: var(--pf-control-height);
+  }
+
+  .pf-textarea {
+    @apply min-h-24 py-2.5;
+  }
+
+  .input:focus,
+  .pf-input:focus,
+  .pf-select:focus,
+  .pf-textarea:focus {
+    border-color: var(--pf-accent-border);
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .pf-field {
+    @apply space-y-1.5;
+  }
+
+  .pf-field-label {
+    @apply block text-xs font-semibold uppercase;
+    color: var(--pf-subtle);
+    letter-spacing: 0.12em;
+  }
+
+  .pf-field-help {
+    @apply text-xs leading-4;
+    color: var(--pf-muted);
+  }
+
+  .pf-switch {
+    @apply inline-flex items-center gap-3;
+  }
+
+  .pf-switch input {
+    @apply sr-only;
+  }
+
+  .pf-switch-track {
+    @apply relative inline-flex h-6 w-11 rounded-full transition-colors;
+    background: var(--pf-inset);
+    border: 1px solid var(--pf-line);
+  }
+
+  .pf-switch-track::after {
+    @apply absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform dark:bg-neutral-200;
+    content: '';
+  }
+
+  .pf-switch input:checked + .pf-switch-track {
+    background: var(--pf-accent);
+    border-color: var(--pf-accent);
+  }
+
+  .pf-switch input:checked + .pf-switch-track::after {
+    transform: translateX(1.25rem);
+  }
+
+  .pf-switch input:focus-visible + .pf-switch-track {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+}

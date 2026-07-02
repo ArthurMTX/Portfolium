@@ -41,6 +41,7 @@ import EtfCompositionSection from '@/features/assets/components/EtfCompositionSe
 import DataFreshnessIndicator from '@/shared/components/DataFreshnessIndicator'
 import AssetLogo from '@/shared/components/AssetLogo'
 import ThemeSubthemeBadges from '@/shared/components/ThemeSubthemeBadges'
+import { InlineLoading, PageStateSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
 import { formatAssetType, formatCurrency, formatWithSeparators } from '@/shared/lib/formatUtils'
 import { getCountryCode } from '@/shared/lib/countryUtils'
 import { getIndustryColor, getIndustryIcon, getSectorColor, getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
@@ -426,54 +427,7 @@ export default function AssetResearch() {
   }
 
   if (summaryLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-10 w-24 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-
-        <div className="card p-5 sm:p-6">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="w-16 h-16 flex-shrink-0 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-              <div className="min-w-0 flex-1">
-                <div className="h-8 w-32 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-                <div className="mt-3 h-4 w-64 max-w-full rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <div key={item} className="h-7 w-28 rounded-md bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3 lg:text-right">
-              <div className="h-9 w-36 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse lg:ml-auto" />
-              <div className="h-4 w-20 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse lg:ml-auto" />
-              <div className="flex gap-2">
-                <div className="h-10 w-36 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-                <div className="h-10 w-36 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((item) => (
-              <div key={item} className="h-11 w-28 rounded-t bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="card p-5">
-              <div className="h-4 w-24 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-              <div className="mt-4 h-8 w-32 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-              <div className="mt-4 h-4 w-full rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+    return <PageStateSkeleton label="Loading asset research" />
   }
 
   if (!routeSymbol) {
@@ -512,7 +466,7 @@ export default function AssetResearch() {
             </form>
 
             {searchLoading && (
-              <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</p>
+              <p className="mt-3"><InlineLoading label={t('common.loading')} /></p>
             )}
 
             {searchError && (
@@ -1123,9 +1077,11 @@ function OwnershipSection({ ownership }: { ownership: AssetResearchDTO['ownershi
 function MetricGrid({ metrics, emptyMessage = 'No data available.' }: { metrics: AssetResearchMetric[]; emptyMessage?: string }) {
   if (metrics.length === 0) {
     return (
-      <div className="card p-6 text-center text-neutral-500 dark:text-neutral-400">
-        {emptyMessage}
-      </div>
+      <StateBlock
+        eyebrow="No data"
+        title={emptyMessage}
+        description="This research section will populate when market data is available."
+      />
     )
   }
 

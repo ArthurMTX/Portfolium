@@ -7,7 +7,11 @@ from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, patch, AsyncMock
 
-from app.services.portfolio_analytics.insights import InsightsService, PortfolioInsightsSnapshot
+from app.services.portfolio_analytics.insights import (
+    EmptyPortfolioInsightsError,
+    InsightsService,
+    PortfolioInsightsSnapshot,
+)
 from app.models import TransactionType
 from tests.factories import (
     UserFactory, PortfolioFactory, AssetFactory, 
@@ -644,7 +648,6 @@ class TestInsightsWithRealData:
         
         with patch.object(service, 'compare_to_benchmark', return_value=None):
             with patch.object(service, 'get_performance_metrics') as mock_perf:
-                from app.schemas import PerformanceMetrics
                 mock_perf.return_value = service._empty_performance_metrics("1y")
                 
                 with patch.object(service, 'get_risk_metrics') as mock_risk:
@@ -672,7 +675,7 @@ class TestInsightsWithRealData:
         
         service = InsightsService(test_db)
         
-        with pytest.raises(ValueError, match="No positions found"):
+        with pytest.raises(EmptyPortfolioInsightsError, match="No positions found"):
             await service.get_portfolio_insights(
                 portfolio.id, user.id, period="1y"
             )

@@ -1,15 +1,35 @@
 import { useEffect, useState } from 'react'
-import { LineChart, TrendingUp, Grid3x3, TrendingDown } from 'lucide-react'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
-import api from '@/api'
+import api, { type PortfolioHistoryPointDTO } from '@/api'
 import PortfolioHistoryChart from '@/features/charts/components/PortfolioHistoryChart'
 import InvestmentPerformanceChart from '@/features/charts/components/InvestmentPerformanceChart'
 import PortfolioHeatmap from '@/features/charts/components/PortfolioHeatmap'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '@/features/transactions/components/EmptyTransactionsPrompt'
+import { PageStateSkeleton } from '@/shared/components/StatePrimitives'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageShell,
+  PageSummaryPanel,
+  PageTabs,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import { getCurrencySymbol } from '@/features/charts/components/chartUtils'
 import { useTranslation } from 'react-i18next'
+import '@/shared/design/pages/charts.css'
 
 type ChartTab = 'heatmap' | 'history' | 'performance'
+
+const TAB_PURPOSES: Record<ChartTab, string> = {
+  heatmap: 'Position map of the portfolio, colored by daily movement.',
+  history: 'Portfolio value over the selected period.',
+  performance: 'Investment performance measured against invested capital.',
+}
 
 export default function Charts() {
   const {
@@ -23,6 +43,7 @@ export default function Charts() {
   const [activeTab, setActiveTab] = useState<ChartTab>('heatmap')
   const [hasTransactions, setHasTransactions] = useState<boolean | null>(null)
   const [checkingTransactions, setCheckingTransactions] = useState(false)
+  const [heroHistory, setHeroHistory] = useState<PortfolioHistoryPointDTO[]>([])
 
   useEffect(() => {
     let canceled = false
@@ -65,37 +86,28 @@ export default function Charts() {
     return () => { canceled = true }
   }, [activePortfolioId])
 
+  useEffect(() => {
+    let canceled = false
+    const loadHeroHistory = async () => {
+      if (!activePortfolioId) return
+      try {
+        const history = await api.getPortfolioHistory(activePortfolioId, 'ALL')
+        if (!canceled) setHeroHistory(history)
+      } catch (err) {
+        console.error('Failed to load chart hero history:', err)
+        if (!canceled) setHeroHistory([])
+      }
+    }
+    loadHeroHistory()
+    return () => { canceled = true }
+  }, [activePortfolioId])
+
   if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="charts" />
   }
 
   if (checkingTransactions) {
-    return (
-      <div className="space-y-6">
-        {/* Header Skeleton */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <LineChart className="text-pink-600" size={32} />
-              {t('charts.title')}
-            </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              {t('charts.loadingMessage')}
-            </p>
-          </div>
-          <div className="h-10 w-36 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse"></div>
-        </div>
-
-        {/* Tab Skeleton */}
-        <div className="card">
-          <div className="h-12 bg-neutral-200 dark:bg-neutral-700 rounded-t-lg mb-4 animate-pulse"></div>
-          <div className="p-6">
-            <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 animate-pulse"></div>
-            <div className="h-64 bg-neutral-100 dark:bg-neutral-800 rounded animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    )
+    return <PageStateSkeleton label={t('charts.loadingMessage')} className="charts" />
   }
 
   if (hasTransactions === false) {
@@ -103,63 +115,76 @@ export default function Charts() {
     return <EmptyTransactionsPrompt pageType="charts" portfolioName={activePortfolio?.name} />
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <LineChart className="text-pink-600" size={32} />
-            {t('charts.title')}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            {t('charts.description')}
-          </p>
-        </div>
-      </div>
+  const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
+  const currency = activePortfolio?.base_currency || 'EUR'
+  const currencySymbol = getCurrencySymbol(currency)
+  const latestPoint = heroHistory[heroHistory.length - 1]
+  const firstInvestmentPoint = heroHistory.find((point) => (point.value || 0) > 0 || (point.invested || 0) > 0)
+  const totalReturn = latestPoint && latestPoint.invested !== undefined ? latestPoint.value - latestPoint.invested : null
+  const totalReturnPct = latestPoint?.gain_pct
 
-      {/* Tabs */}
-      <div className="card">
-        <div className="border-b border-neutral-200 dark:border-neutral-700">
-          <div className="flex gap-1 px-2 pt-2">
+  return (
+    <PageShell className="charts">
+      <PageHeader>
+        <PageTitleBlock kicker="Charts" title="Portfolio history" />
+        <PageSummaryPanel
+          lead={activePortfolio?.name || 'Active portfolio'}
+          description={TAB_PURPOSES[activeTab]}
+        />
+      </PageHeader>
+
+      <PageMetricStrip label="Portfolio chart context">
+        <PageMetric
+          label="Current value"
+          value={latestPoint ? `${currencySymbol}${latestPoint.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+        />
+        <PageMetric
+          label="Total return"
+          tone={totalReturn !== null && totalReturn < 0 ? 'negative' : 'positive'}
+          value={totalReturn !== null ? `${totalReturn >= 0 ? '+' : '-'}${currencySymbol}${Math.abs(totalReturn).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+          detail={totalReturnPct !== undefined && totalReturnPct !== null
+            ? `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`
+            : undefined}
+          detailTone={totalReturnPct !== undefined && totalReturnPct !== null && totalReturnPct < 0 ? 'negative' : 'positive'}
+        />
+        <PageMetric label="Selected period" value="All time" />
+        <PageMetric
+          label="First investment"
+          value={firstInvestmentPoint ? new Date(firstInvestmentPoint.date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—'}
+        />
+      </PageMetricStrip>
+
+      <PageControls
+        label="Chart views"
+        start={
+          <PageTabs label="Chart views">
             <button
+              type="button"
               onClick={() => setActiveTab('heatmap')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg transition-colors font-medium ${
-                activeTab === 'heatmap'
-                  ? 'bg-white dark:bg-neutral-800 text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
-              }`}
+              className={activeTab === 'heatmap' ? 'is-active' : ''}
             >
-              <Grid3x3 size={18} />
               {t('charts.heatmap')}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg transition-colors font-medium ${
-                activeTab === 'history'
-                  ? 'bg-white dark:bg-neutral-800 text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
-              }`}
+              className={activeTab === 'history' ? 'is-active' : ''}
             >
-              <TrendingUp size={18} />
               {t('charts.history')}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('performance')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg transition-colors font-medium ${
-                activeTab === 'performance'
-                  ? 'bg-white dark:bg-neutral-800 text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
-              }`}
+              className={activeTab === 'performance' ? 'is-active' : ''}
             >
-              <TrendingDown size={18} />
               {t('charts.performance')}
             </button>
-          </div>
-        </div>
+          </PageTabs>
+        }
+      />
 
-        {/* Tab Content */}
-        <div className="p-6">
+      <PageMainGrid single>
+        <PageMainColumn className="charts__content">
           {activeTab === 'heatmap' && (
             <PortfolioHeatmap portfolioId={activePortfolioId} />
           )}
@@ -169,8 +194,8 @@ export default function Charts() {
           {activeTab === 'performance' && (
             <InvestmentPerformanceChart portfolioId={activePortfolioId} />
           )}
-        </div>
-      </div>
-    </div>
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   )
 }

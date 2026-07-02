@@ -343,19 +343,19 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="pf-page pf-page-flow dashboard-widgets">
+      <header className="pf-page-header dashboard-widgets__header">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+          <p className="pf-page-kicker">DASHBOARD</p>
+          <h1 className="pf-page-title pf-page-title--compact flex items-center gap-3">
             <LayoutDashboard className="text-pink-600" size={28} />
             {t('dashboard.title')}
           </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
+          <p className="pf-page-description mt-2">
             {t('dashboard.description')}
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="pf-page-actions pf-summary-panel dashboard-widgets__actions">
           {/* Freshness */}
           {(freshnessTimestamp || visiblePriceTimestamp) && (
             <div className="flex items-center">
@@ -482,7 +482,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Batch Error Alert */}
       {batchError && (

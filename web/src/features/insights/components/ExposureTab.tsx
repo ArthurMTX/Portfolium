@@ -28,6 +28,7 @@ import {
   periodLabel,
   toNumber,
 } from '@/features/insights/components/InsightsShared'
+import { ChartSkeleton } from '@/shared/components/StatePrimitives'
 import { useExposureInsights } from '@/features/insights/components/useInsightQueries'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
@@ -264,7 +265,7 @@ function ThemeEvolutionBlock({ query, locale, period }: { query: ExposureQuery; 
       isEmpty={data.length === 0}
       emptyMessage="Theme history is not available yet."
       onRetry={() => void query.refetch()}
-      skeleton={<div className="h-80 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}
+      skeleton={<ChartSkeleton label="Loading theme evolution chart" />}
     >
       <div className="h-80">
         <Line data={chartData} options={chartOptions} />

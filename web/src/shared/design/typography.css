@@ -1,0 +1,77 @@
+@layer components {
+  .pf-eyebrow {
+    color: var(--pf-subtle);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.14em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pf-page-kicker,
+  .pf-section-kicker {
+    margin: 0;
+    color: var(--pf-subtle);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.14em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pf-page-title {
+    margin: 0;
+    color: var(--pf-ink);
+    font-size: clamp(1.65rem, 2.5vw, 2.15rem);
+    font-weight: 760;
+    letter-spacing: -0.055em;
+    line-height: 1;
+  }
+
+  .pf-page-title--hero {
+    font-size: clamp(1.9rem, 3vw, 2.8rem);
+    letter-spacing: -0.06em;
+    line-height: 1;
+  }
+
+  .pf-page-title--compact {
+    font-size: clamp(1.65rem, 2.5vw, 2.15rem);
+    letter-spacing: -0.055em;
+    line-height: 1;
+  }
+
+  .pf-section-title {
+    margin: 0;
+    color: var(--pf-ink);
+    font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+    font-weight: 760;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+  }
+
+  .pf-page-description,
+  .pf-section-description,
+  .pf-description {
+    margin: 0;
+    color: var(--pf-muted);
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  .pf-metric-value {
+    color: var(--pf-ink);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-weight: 850;
+    letter-spacing: -0.055em;
+    line-height: 1;
+  }
+
+  .pf-label {
+    color: var(--pf-subtle);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+}

@@ -18,10 +18,12 @@ export default function LanguageSwitcher() {
     <div>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+        className="pf-menu-item justify-between"
+        type="button"
+        aria-expanded={isOpen}
       >
         <div className="flex items-center gap-2">
-          <Languages size={16} />
+          <Languages aria-hidden="true" />
           <span>Language</span>
         </div>
         <div className="flex items-center gap-2">
@@ -31,14 +33,14 @@ export default function LanguageSwitcher() {
             className="w-5 h-4 object-cover rounded-sm"
           />
           <ChevronRight 
-            size={16} 
+            aria-hidden="true"
             className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
           />
         </div>
       </button>
       
       {isOpen && (
-        <div className="bg-neutral-50 dark:bg-neutral-900 border-l-2 border-pink-400 dark:border-pink-600">
+        <div className="border-l-2 border-pink-400 bg-neutral-50 dark:border-pink-600 dark:bg-neutral-900">
           {languages.map((lang) => (
             <button
               key={lang.code}
@@ -46,7 +48,8 @@ export default function LanguageSwitcher() {
                 changeLanguage(lang.code)
                 setIsOpen(false)
               }}
-              className={`w-full flex items-center gap-3 px-4 py-2 pl-8 text-sm transition-colors ${
+              type="button"
+              className={`flex w-full items-center gap-3 px-4 py-2 pl-8 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-pink-500/30 ${
                 language === lang.code
                   ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
                   : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'

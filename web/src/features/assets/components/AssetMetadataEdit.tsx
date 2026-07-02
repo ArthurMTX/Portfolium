@@ -156,38 +156,36 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
   };
 
   return (
-    <div className="modal-overlay bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel pf-modal-panel--lg" role="dialog" aria-modal="true">
         {/* Header */}
-        <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between sticky top-0 bg-white dark:bg-neutral-900 z-10">
+        <div className="pf-modal-header sticky top-0 bg-neutral-950 z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
-              <Info className="text-pink-600 dark:text-pink-400" size={24} />
-            </div>
             <div>
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+              <h2 className="pf-modal-title">
                 {t('assetMetadataEdit.title')}
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="pf-modal-description">
                 {asset.symbol} - {asset.name}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+            className="pf-modal-close"
+            aria-label={t('common.close')}
           >
             <X size={24} />
           </button>
         </div>
 
         {/* Info Box */}
-        <div className="p-6 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800">
+        <div className="px-5 py-4 border-b border-neutral-800">
           <div className="flex gap-3">
-            <Info className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={20} />
-            <div className="text-sm text-blue-900 dark:text-blue-100">
+            <Info className="text-neutral-500 flex-shrink-0 mt-0.5" size={18} />
+            <div className="text-sm text-neutral-300">
               <p className="font-semibold mb-1">{t('assetMetadataEdit.about')}</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
+              <ul className="list-disc list-inside space-y-1 text-neutral-500">
                 <li>{t('assetMetadataEdit.about1')}</li>
                 <li>{t('assetMetadataEdit.about2')} <strong>{t('assetMetadataEdit.about3')}</strong> {t('assetMetadataEdit.about4')}</li>
                 <li>{t('assetMetadataEdit.about5')}</li>
@@ -198,9 +196,9 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="pf-modal-body pf-modal-section">
           {error && (
-            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="pf-modal-callout pf-modal-callout--danger">
               <div className="flex gap-3">
                 <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={20} />
                 <div className="text-sm text-red-900 dark:text-red-100">
@@ -213,7 +211,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
 
           {/* Sector */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="pf-modal-label">
               {t('assets.sector')}
             </label>
             {hasYahooData('sector') ? (
@@ -248,7 +246,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
 
           {/* Industry */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="pf-modal-label">
               {t('assets.industry')}
             </label>
             {hasYahooData('industry') ? (
@@ -288,7 +286,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
 
           {/* Country */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="pf-modal-label">
               {t('assets.country')}
             </label>
             {hasYahooData('country') ? (
@@ -322,11 +320,11 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+          <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              className="pf-modal-button pf-modal-button--secondary"
               disabled={loading}
             >
               {t('common.cancel')}
@@ -334,7 +332,7 @@ export default function AssetMetadataEdit({ asset, onClose, onSuccess }: AssetMe
             <button
               type="submit"
               disabled={loading || (hasYahooData('sector') && hasYahooData('industry') && hasYahooData('country'))}
-              className="flex-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="pf-modal-button pf-modal-button--primary"
             >
               {loading ? (
                 <>

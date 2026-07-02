@@ -1,0 +1,238 @@
+@layer components {
+  .is-positive {
+    color: var(--pf-success);
+  }
+
+  .is-negative {
+    color: var(--pf-danger);
+  }
+
+  .btn,
+  .pf-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-55;
+    min-height: var(--pf-control-height);
+  }
+
+  .btn:focus-visible,
+  .pf-button:focus-visible {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-error,
+  .btn-danger,
+  .btn-success,
+  .btn-disabled {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold outline-none transition-colors;
+    min-height: var(--pf-control-height);
+  }
+
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible,
+  .btn-error:focus-visible,
+  .btn-danger:focus-visible,
+  .btn-success:focus-visible {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .btn-primary,
+  .pf-button--primary {
+    @apply text-white;
+    background: var(--pf-accent);
+  }
+
+  .btn-primary:hover,
+  .pf-button--primary:hover {
+    filter: brightness(0.94);
+  }
+
+  .btn-secondary,
+  .pf-button--secondary {
+    border: 1px solid var(--pf-line);
+    background: var(--pf-surface);
+    color: var(--pf-ink);
+  }
+
+  .btn-secondary:hover,
+  .pf-button--secondary:hover {
+    border-color: var(--pf-accent-border);
+    color: var(--pf-accent);
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-button--ghost {
+    color: var(--pf-muted);
+    background: transparent;
+  }
+
+  .pf-button--ghost:hover {
+    color: var(--pf-ink);
+    background: var(--pf-inset);
+  }
+
+  .btn-error,
+  .btn-danger,
+  .pf-button--danger {
+    @apply text-white;
+    background: var(--pf-danger);
+  }
+
+  .btn-error:hover,
+  .btn-danger:hover,
+  .pf-button--danger:hover {
+    filter: brightness(0.94);
+  }
+
+  .btn-success,
+  .pf-button--success {
+    @apply text-white;
+    background: var(--pf-success);
+  }
+
+  .btn-success:hover,
+  .pf-button--success:hover {
+    filter: brightness(0.94);
+  }
+
+  .pf-dark-control-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--pf-subtle);
+    font-size: 0.82rem;
+  }
+
+  .pf-dark-control-group select,
+  .pf-dark-control-group button,
+  .pf-dark-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.25rem;
+    border: 1px solid var(--pf-line);
+    border-radius: 999px;
+    background: transparent;
+    padding: 0.45rem 0.8rem;
+    color: var(--pf-ink);
+    font-size: 0.84rem;
+    font-weight: 680;
+    transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+  }
+
+  .pf-dark-control-group select {
+    border-radius: 0.7rem;
+    background: var(--pf-canvas);
+    color: var(--pf-ink);
+  }
+
+  .pf-dark-control-group button:hover,
+  .pf-dark-button:hover {
+    border-color: var(--pf-accent-border);
+    background: var(--pf-accent-soft);
+    color: var(--pf-ink);
+  }
+
+  .pf-dark-control-group button:disabled,
+  .pf-dark-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .pf-dark-control-group .is-primary,
+  .pf-dark-button--primary {
+    border-color: var(--pf-accent-border);
+    color: var(--pf-ink);
+  }
+
+  .btn-disabled {
+    @apply cursor-not-allowed bg-neutral-300 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300;
+  }
+
+  .pf-icon-action {
+    @apply inline-flex items-center justify-center rounded-lg outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    width: var(--pf-control-height);
+    height: var(--pf-control-height);
+    color: var(--pf-muted);
+  }
+
+  .pf-icon-action:hover {
+    color: var(--pf-ink);
+    background: var(--pf-inset);
+  }
+
+  .pf-icon-action:focus-visible {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .card,
+  .pf-card {
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-md);
+    background: var(--pf-surface-raised);
+    box-shadow: var(--pf-shadow-card);
+  }
+
+  .pf-card--content {
+    @apply p-4;
+  }
+
+  .pf-card--metric {
+    @apply p-4;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .pf-badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
+    border: 1px solid var(--pf-line);
+    color: var(--pf-muted);
+    background: var(--pf-surface);
+  }
+
+  .pf-badge--accent {
+    border-color: var(--pf-accent-border);
+    color: var(--pf-accent);
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-badge--success {
+    color: var(--pf-success);
+    background: var(--pf-success-soft);
+    border-color: var(--pf-success-border);
+  }
+
+  .pf-badge--danger {
+    color: var(--pf-danger);
+    background: var(--pf-danger-soft);
+    border-color: var(--pf-danger-border);
+  }
+
+  .pf-empty-state,
+  .pf-alert {
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-lg);
+    background: var(--pf-surface);
+    color: var(--pf-muted);
+  }
+
+  .pf-empty-state {
+    @apply p-8 text-center;
+  }
+
+  .pf-alert {
+    @apply px-4 py-3 text-sm;
+  }
+
+  .pf-alert--danger {
+    border-color: var(--pf-danger-border);
+    color: var(--pf-danger);
+    background: var(--pf-danger-soft);
+  }
+
+  .pf-alert--warning {
+    border-color: var(--pf-warning-border);
+    color: var(--pf-warning);
+    background: var(--pf-warning-soft);
+  }
+}

@@ -1,0 +1,127 @@
+.insights button,
+.insights select {
+  font: inherit;
+}
+
+.insights__filters select,
+.insights__filters > span,
+.insights-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pf-ink);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.insights__filters > span {
+  color: var(--pf-muted);
+}
+
+.insights__filters select:hover,
+.insights-icon-button:hover {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.insights__filters select {
+  appearance: none;
+  color-scheme: light;
+}
+
+.insights__filters select option {
+  background: var(--pf-canvas);
+  color: var(--pf-ink);
+}
+
+.dark .insights__filters select {
+  background: var(--pf-canvas);
+  color-scheme: dark;
+}
+
+.dark .insights__filters select option {
+  background: var(--pf-surface);
+  color: var(--pf-ink);
+}
+
+/* Metric internals: tooltip trigger sits inline with the metric label. */
+.insights-metric > span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.insights-metric-accent {
+  color: var(--pf-accent);
+}
+
+.insights-metric.is-loading > .pf-skeleton:first-child {
+  height: 0.85rem;
+  width: 70%;
+  border-radius: 999px;
+}
+
+.insights-metric.is-loading > .pf-skeleton:nth-child(2) {
+  height: 2.1rem;
+  width: 55%;
+}
+
+.insights-block__actions {
+  justify-items: end;
+}
+
+.insights-empty,
+.insights-error {
+  border-top: 1px solid var(--pf-line);
+  border-bottom: 1px solid var(--pf-line);
+  padding-block: 1.4rem;
+  color: var(--pf-muted);
+  font-size: 0.95rem;
+}
+
+.insights-error {
+  color: var(--pf-danger);
+}
+
+.insights-error > div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  font-weight: 800;
+}
+
+.insights-chart-loading {
+  height: 20rem;
+  border-top: 1px solid var(--pf-line);
+  background: var(--pf-inset);
+  animation: pfPulse 1.4s ease-in-out infinite;
+}
+
+.insights-tab-fallback {
+  display: grid;
+  gap: clamp(1.15rem, 2.8vw, 2rem);
+}
+
+.insights .card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.insights .rounded-lg.bg-neutral-50,
+.insights .rounded-lg.dark\:bg-neutral-800\/70,
+.insights .dark\:bg-neutral-800\/70 {
+  background: transparent;
+}
+
+.insights canvas {
+  max-width: 100%;
+}

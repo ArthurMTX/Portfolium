@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api, { type CsvImportPreviewResultDTO } from '@/api'
-import { PlusCircle, Upload, Download, TrendingUp, TrendingDown, ArrowLeftRight, X, Shuffle, Search, BarChart3, RefreshCw, DollarSign } from 'lucide-react'
+import { PlusCircle, Upload, Download, X, Search, BarChart3, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import SplitHistory from '@/features/assets/components/SplitHistory'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import ImportReviewModal from '@/features/transactions/components/ImportReviewModal'
@@ -11,17 +11,27 @@ import ImportProgressModal from '@/features/transactions/components/ImportProgre
 import ConversionModal from '@/features/transactions/components/ConversionModal'
 import PendingDividends from '@/features/transactions/components/PendingDividends'
 import TransactionFormModal from '@/features/transactions/components/TransactionFormModal'
-import TransactionsLoadingTable from '@/features/transactions/components/TransactionsLoadingTable'
-import TransactionsResponsiveList from '@/features/transactions/components/TransactionsResponsiveList'
 import Toast from '@/shared/components/Toast'
+import { ListSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import { formatCurrency, formatQuantity } from '@/shared/lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { getFilteredSortedTransactions } from '@/features/transactions/lib/transactionSortUtils'
 import {
   getTransactionSummary,
   getTransactionWarnings,
   type PriceSource,
-  type TransactionSummary,
-  type WarningLevel,
 } from '@/features/transactions/lib/transactionDerivedState'
 import {
   buildAutoPricePayload,
@@ -31,6 +41,7 @@ import {
   validateTransactionSubmit,
   type TransactionValidationErrorCode,
 } from '@/features/transactions/lib/transactionPayloadBuilders'
+import '@/shared/design/pages/transactions.css'
 
 interface TickerInfo {
   symbol: string
@@ -65,6 +76,46 @@ type ModalMode = 'add' | 'edit' | null
 type SortKey = 'tx_date' | 'symbol' | 'type' | 'quantity' | 'price' | 'fees' | 'total'
 type SortDir = 'asc' | 'desc'
 
+function toNumber(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function getTransactionAmount(transaction: Transaction): number | null {
+  if (transaction.type === 'SPLIT') return null
+  const quantity = toNumber(transaction.quantity)
+  const price = toNumber(transaction.price)
+  const fees = toNumber(transaction.fees)
+  const gross = quantity * price
+
+  if (transaction.type === 'SELL' || transaction.type === 'DIVIDEND' || transaction.type === 'CONVERSION_OUT') {
+    return gross - fees
+  }
+
+  return gross + fees
+}
+
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate()
+}
+
+function formatSignedCurrency(value: number, currency: string, locale: string): string {
+  if (value === 0) return formatCurrency(0, currency, locale)
+  const prefix = value > 0 ? '+' : '−'
+  return `${prefix}${formatCurrency(Math.abs(value), currency, locale)}`
+}
+
+function parseSplitMultiplier(split: string | undefined): number | null {
+  if (!split) return null
+  const normalized = split.replace('/', ':')
+  const [from, to] = normalized.split(':').map((part) => Number(part.trim()))
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from <= 0 || to <= 0) return null
+  return from / to
+}
+
 export default function Transactions() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -86,9 +137,12 @@ export default function Transactions() {
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [modalMode, setModalMode] = useState<ModalMode>(null)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [expandedTransactionId, setExpandedTransactionId] = useState<number | null>(null)
+  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('tx_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [showAllTransactions, setShowAllTransactions] = useState(false)
@@ -107,7 +161,7 @@ export default function Transactions() {
   const [quantity, setQuantity] = useState("")
   const [selectedTicker, setSelectedTicker] = useState<TickerInfo | null>(null)
   const [price, setPrice] = useState("")
-  const [fees, setFees] = useState("0")
+  const [fees, setFees] = useState("")
   const [notes, setNotes] = useState("")
   const [splitRatio, setSplitRatio] = useState("")
   const [formLoading, setFormLoading] = useState(false)
@@ -160,28 +214,17 @@ export default function Transactions() {
     if (!activePortfolioId) return
     
     setLoading(true)
+    setLoadError(null)
     try {
-      // For conversion tab, we need to fetch all and filter client-side
-      // because conversions include both CONVERSION_IN and CONVERSION_OUT
-      const filters = activeTab !== 'all' && activeTab !== 'conversion' 
-        ? { tx_type: activeTab.toUpperCase() } 
-        : undefined
-      let data = await api.getTransactions(activePortfolioId, filters)
-      
-      // Filter for conversion types on client-side
-      if (activeTab === 'conversion') {
-        data = data.filter((tx: Transaction) => 
-          tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT'
-        )
-      }
-      
+      const data = await api.getTransactions(activePortfolioId)
       setTransactions(data)
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to fetch transactions:', error)
+      setLoadError(error instanceof Error ? error.message : 'Failed to load transactions')
     } finally {
       setLoading(false)
     }
-  }, [activePortfolioId, activeTab])
+  }, [activePortfolioId])
 
   useEffect(() => {
     // Clear transactions immediately when portfolio changes
@@ -453,7 +496,7 @@ export default function Transactions() {
     setAssetCurrency(transaction.currency || null)
     setNotes(transaction.notes || '')
     // Extract split ratio from metadata if it's a SPLIT transaction
-    // Handle both 'metadata' and 'meta_data' for backwards compatibility
+    // Handle both API metadata field spellings observed in saved transactions.
     const transactionData = transaction as unknown as Record<string, unknown>
     const metadata = transaction.metadata || transactionData.meta_data as { split?: string } | undefined
     if (transaction.type === 'SPLIT' && metadata?.split) {
@@ -477,7 +520,7 @@ export default function Transactions() {
     setTxType("BUY")
     setQuantity("")
     setPrice("")
-    setFees("0")
+    setFees("")
     setNotes("")
     setSplitRatio("")
     setFormError("")
@@ -807,9 +850,17 @@ export default function Transactions() {
     return transactions.some(tx => tx.asset_id === assetId && tx.type === 'SPLIT')
   }, [transactions])
 
+  const visibleTransactions = useMemo(() => {
+    if (activeTab === 'all') return transactions
+    if (activeTab === 'conversion') {
+      return transactions.filter((tx) => tx.type === 'CONVERSION_IN' || tx.type === 'CONVERSION_OUT')
+    }
+    return transactions.filter((tx) => tx.type === activeTab.toUpperCase())
+  }, [activeTab, transactions])
+
   const sortedTransactions = useMemo(() => {
     return getFilteredSortedTransactions({
-      transactions,
+      transactions: visibleTransactions,
       sortKey,
       sortDir,
       showAllTransactions,
@@ -818,7 +869,169 @@ export default function Transactions() {
       fxRates,
       portfolioCurrency,
     })
-  }, [transactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery, fxRates, portfolioCurrency])
+  }, [visibleTransactions, sortKey, sortDir, showAllTransactions, displayLimit, searchQuery, fxRates, portfolioCurrency])
+
+  const investedCapital = useMemo(() => {
+    return transactions.reduce((sum, transaction) => {
+      if (transaction.type !== 'BUY') return sum
+      return sum + (getTransactionAmount(transaction) ?? 0)
+    }, 0)
+  }, [transactions])
+
+  const firstTransactionDate = useMemo(() => {
+    if (!transactions.length) return null
+    return transactions.reduce((earliest, transaction) => (
+      new Date(transaction.tx_date).getTime() < new Date(earliest).getTime() ? transaction.tx_date : earliest
+    ), transactions[0].tx_date)
+  }, [transactions])
+
+  const latestTransactionDate = useMemo(() => {
+    if (!transactions.length) return null
+    return transactions.reduce((latest, transaction) => (
+      new Date(transaction.tx_date).getTime() > new Date(latest).getTime() ? transaction.tx_date : latest
+    ), transactions[0].tx_date)
+  }, [transactions])
+
+  const largestPurchaseId = useMemo(() => {
+    let largest: { id: number; amount: number } | null = null
+    for (const transaction of transactions) {
+      if (transaction.type !== 'BUY') continue
+      const amount = getTransactionAmount(transaction) ?? 0
+      if (!largest || amount > largest.amount) largest = { id: transaction.id, amount }
+    }
+    return largest?.id ?? null
+  }, [transactions])
+
+  const firstPurchaseByAssetId = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const transaction of [...transactions].sort((a, b) => new Date(a.tx_date).getTime() - new Date(b.tx_date).getTime())) {
+      if (transaction.type !== 'BUY') continue
+      if (!map.has(transaction.asset_id)) map.set(transaction.asset_id, transaction.id)
+    }
+    return map
+  }, [transactions])
+
+  const getTimelineGroupLabel = useCallback((dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString(currentLocale, { month: 'long', year: 'numeric' }).toUpperCase()
+  }, [currentLocale])
+
+  const getTransactionAmountInPortfolioCurrency = useCallback((transaction: Transaction) => {
+    const nativeAmount = getTransactionAmount(transaction)
+    if (nativeAmount === null) return 0
+    const from = (transaction.currency || '').toUpperCase()
+    const to = portfolioCurrency.toUpperCase()
+    if (!from || from === to) return nativeAmount
+    const rate = fxRates[`${from}|${to}|${transaction.tx_date}`]
+    return typeof rate === 'number' ? nativeAmount * rate : nativeAmount
+  }, [fxRates, portfolioCurrency])
+
+  const getMonthlySummary = useCallback((items: Transaction[]) => {
+    return items.reduce((summary, transaction) => {
+      const amount = Math.abs(getTransactionAmountInPortfolioCurrency(transaction))
+      switch (transaction.type) {
+        case 'BUY':
+        case 'CONVERSION_IN':
+        case 'TRANSFER_IN':
+          summary.invested += amount
+          break
+        case 'SELL':
+        case 'CONVERSION_OUT':
+        case 'TRANSFER_OUT':
+          summary.sold += amount
+          break
+        case 'DIVIDEND':
+          summary.dividends += amount
+          break
+        case 'FEE':
+          summary.fees += amount
+          break
+      }
+      return summary
+    }, {
+      invested: 0,
+      sold: 0,
+      dividends: 0,
+      fees: 0,
+    })
+  }, [getTransactionAmountInPortfolioCurrency])
+
+  const groupedTransactions = useMemo(() => {
+    const groups: Array<{ label: string; transactions: Transaction[] }> = []
+    const byLabel = new Map<string, Transaction[]>()
+
+    for (const transaction of sortedTransactions) {
+      const label = getTimelineGroupLabel(transaction.tx_date)
+      const group = byLabel.get(label)
+      if (group) {
+        group.push(transaction)
+      } else {
+        const next = [transaction]
+        byLabel.set(label, next)
+        groups.push({ label, transactions: next })
+      }
+    }
+
+    return groups
+  }, [getTimelineGroupLabel, sortedTransactions])
+
+  const ownershipByTransactionId = useMemo(() => {
+    const balances = new Map<number, number>()
+    const ownership = new Map<number, { before: number; after: number | null; sentence: string | null }>()
+    const chronological = [...transactions].sort((a, b) => {
+      const dateDiff = new Date(a.tx_date).getTime() - new Date(b.tx_date).getTime()
+      return dateDiff || a.id - b.id
+    })
+
+    for (const transaction of chronological) {
+      const before = balances.get(transaction.asset_id) ?? 0
+      const quantity = toNumber(transaction.quantity)
+      let after: number | null = before
+      let sentence: string | null = null
+
+      switch (transaction.type) {
+        case 'BUY':
+        case 'TRANSFER_IN':
+        case 'CONVERSION_IN':
+          after = before + quantity
+          sentence = before <= 0
+            ? `Opened position with ${formatQuantity(after)} shares.`
+            : `Position increased from ${formatQuantity(before)} to ${formatQuantity(after)} shares.`
+          break
+        case 'SELL':
+        case 'TRANSFER_OUT':
+        case 'CONVERSION_OUT':
+          after = Math.max(0, before - quantity)
+          sentence = after <= 0 && before > 0
+            ? 'Position fully closed.'
+            : `Position reduced from ${formatQuantity(before)} to ${formatQuantity(after)} shares.`
+          break
+        case 'SPLIT': {
+          const multiplier = parseSplitMultiplier(transaction.metadata?.split)
+          after = multiplier ? before * multiplier : null
+          sentence = after !== null
+            ? `Share count changed from ${formatQuantity(before)} to ${formatQuantity(after)}.`
+            : 'Share count changed.'
+          break
+        }
+        case 'DIVIDEND':
+          after = before
+          sentence = `${formatCurrency(Math.abs(getTransactionAmountInPortfolioCurrency(transaction)), portfolioCurrency, currentLocale)} added to cash.`
+          break
+        case 'FEE':
+          after = before
+          sentence = `${formatCurrency(Math.abs(getTransactionAmountInPortfolioCurrency(transaction)), portfolioCurrency, currentLocale)} paid from cash.`
+          break
+        default:
+          after = before
+      }
+
+      ownership.set(transaction.id, { before, after, sentence })
+      if (after !== null) balances.set(transaction.asset_id, after)
+    }
+
+    return ownership
+  }, [currentLocale, getTransactionAmountInPortfolioCurrency, portfolioCurrency, transactions])
 
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => {
@@ -844,6 +1057,17 @@ export default function Transactions() {
     })
   }
 
+  const formatHeroDate = (dateString: string | null) => {
+    if (!dateString) return '—'
+    const date = new Date(dateString)
+    if (isSameCalendarDay(date, new Date())) return 'Today'
+    return date.toLocaleDateString(currentLocale, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
   const getTranslatedType = (type: string): string => {
     const typeMap: Record<string, string> = {
       'BUY': t('transaction.types.buy'),
@@ -859,6 +1083,75 @@ export default function Transactions() {
     return typeMap[type.toUpperCase()] || type
   }
 
+  const getEventVerb = (type: string) => {
+    const labels: Record<string, string> = {
+      BUY: 'Bought',
+      SELL: 'Sold',
+      DIVIDEND: 'Dividend received',
+      FEE: 'Fee paid',
+      SPLIT: 'Stock split',
+      TRANSFER_IN: 'Transferred in',
+      TRANSFER_OUT: 'Transferred out',
+      CONVERSION_IN: 'Converted into',
+      CONVERSION_OUT: 'Converted out',
+    }
+    return labels[type.toUpperCase()] || getTranslatedType(type)
+  }
+
+  const getTransactionContext = (transaction: Transaction) => {
+    const tags: string[] = []
+    if (firstPurchaseByAssetId.get(transaction.asset_id) === transaction.id) tags.push('First purchase')
+    if (largestPurchaseId === transaction.id) tags.push('Largest purchase')
+    if (transaction.type === 'SELL') tags.push('Ownership reduced')
+    if (transaction.type === 'DIVIDEND') tags.push('Income event')
+    if (transaction.type === 'SPLIT') tags.push('Share count changed')
+    if (transaction.type === 'CONVERSION_IN' || transaction.type === 'CONVERSION_OUT') tags.push('Currency conversion')
+    return tags
+  }
+
+  const getTransactionSentence = (transaction: Transaction) => {
+    const amount = getTransactionAmount(transaction)
+    if (transaction.type === 'SPLIT') {
+      const ratio = transaction.metadata?.split ? ` ${transaction.metadata.split}` : ''
+      return `Stock split${ratio}`
+    }
+
+    const formattedAmount = amount === null
+      ? '—'
+      : formatCurrency(Math.abs(amount), transaction.currency || portfolioCurrency, currentLocale)
+    return `${getEventVerb(transaction.type)} ${formattedAmount}`
+  }
+
+  const openAssetResearch = (symbol: string) => {
+    navigate(`/assets/${encodeURIComponent(symbol)}/research`)
+  }
+
+  const getClipboardText = (transaction: Transaction) => {
+    const amount = getTransactionAmount(transaction)
+    const value = amount === null
+      ? 'No capital amount'
+      : formatCurrency(Math.abs(amount), transaction.currency || portfolioCurrency, currentLocale)
+    return [
+      `${getEventVerb(transaction.type)} ${transaction.asset.symbol}`,
+      value,
+      `${formatQuantity(toNumber(transaction.quantity))} shares`,
+      formatDate(transaction.tx_date),
+      transaction.notes ? `Notes: ${transaction.notes}` : null,
+    ].filter(Boolean).join('\n')
+  }
+
+  const handleCopyTransaction = async (transaction: Transaction) => {
+    const text = getClipboardText(transaction)
+    try {
+      await navigator.clipboard.writeText(text)
+      setToast({ type: 'success', message: 'Transaction copied' })
+    } catch {
+      setToast({ type: 'error', message: 'Could not copy transaction' })
+    } finally {
+      setOpenActionMenuId(null)
+    }
+  }
+
   const getSubmitLabel = (requiresRiskConfirmation: boolean, hasHighRiskWarning: boolean) => {
     if (formLoading) return t('common.saving')
     if (requiresRiskConfirmation) return t('transactions.actions.reviewWarnings')
@@ -867,25 +1160,6 @@ export default function Transactions() {
     return t('transactions.actions.addType', {
       type: getTranslatedType(txType).toLocaleLowerCase(currentLocale),
     })
-  }
-
-  const getWarningClasses = (level: WarningLevel) => {
-    switch (level) {
-      case 'danger':
-        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-      case 'warning':
-        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
-      default:
-        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-    }
-  }
-
-  const getPriceSourceLabel = (summary: TransactionSummary) => {
-    if (summary.isSplit) return t('transactions.summary.notApplicable')
-    if (priceFetchFailed && summary.price <= 0) return t('transactions.summary.priceUnavailable')
-    if (summary.priceSource === 'auto') return t('transactions.summary.autoPrice')
-    if (summary.priceSource === 'manual') return t('transactions.summary.manualPrice')
-    return t('transactions.summary.pendingAutoPrice')
   }
 
   const tabs: { id: TabType; label: string }[] = [
@@ -897,42 +1171,6 @@ export default function Transactions() {
     { id: 'split', label: t('transaction.types.split') },
     { id: 'conversion', label: t('transaction.types.conversion') },
   ]
-
-  const getTransactionIcon = (type: string) => {
-    switch (type.toUpperCase()) {
-      case 'BUY':
-        return <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
-      case 'CONVERSION_IN':
-        return <ArrowLeftRight size={16} className="text-green-600 dark:text-green-400" />
-      case 'SELL':
-        return <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
-      case 'CONVERSION_OUT':
-        return <ArrowLeftRight size={16} className="text-red-600 dark:text-red-400" />
-      case 'DIVIDEND':
-        return <DollarSign size={16} className="text-amber-600 dark:text-amber-400" />
-      case 'SPLIT':
-        return <Shuffle size={16} className="text-purple-600 dark:text-purple-400" />
-      default:
-        return null
-    }
-  }
-
-  const getTransactionColor = (type: string) => {
-    switch (type.toUpperCase()) {
-      case 'BUY':
-      case 'CONVERSION_IN':
-        return 'text-green-600 dark:text-green-400'
-      case 'SELL':
-      case 'CONVERSION_OUT':
-        return 'text-red-600 dark:text-red-400'
-      case 'DIVIDEND':
-        return 'text-amber-600 dark:text-amber-400'
-      case 'SPLIT':
-        return 'text-purple-600 dark:text-purple-400'
-      default:
-        return 'text-neutral-600 dark:text-neutral-400'
-    }
-  }
 
   const transactionSummary = getTransactionSummary({
     txType,
@@ -970,73 +1208,29 @@ export default function Transactions() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <TrendingUp className="text-pink-600" size={28} />
-            {t('transactions.title')}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            {t('transactions.description')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button 
-            onClick={() => navigate('/transactions/metrics')}
-            className="relative group px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 text-sm overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
-            <BarChart3 size={18} className="relative z-10" />
-            <span className="relative z-10 hidden sm:inline">{t('transactions.viewMetrics')}</span>
-            <span className="relative z-10 sm:hidden">{t('transactions.metrics')}</span>
-          </button>
-          <button 
-            onClick={handleImportClick}
-            disabled={importLoading}
-            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm px-3 py-2"
-          >
-            <Upload size={16} />
-            <span className="hidden sm:inline">{importLoading ? t('common.importing') : t('common.import')}</span>
-            <span className="sm:hidden">{t('common.import')}</span>
-          </button>
-          <button 
-            onClick={handleExportClick}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">{t('common.export')}</span>
-          </button>
-          <button 
-            onClick={() => setShowConversionModal(true)}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <RefreshCw size={16} />
-            <span className="hidden sm:inline">{t('conversion.convert')}</span>
-          </button>
-          <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm px-3 py-2">
-            <PlusCircle size={16} />
-            <span className="hidden sm:inline">{t('transactions.addTransaction')}</span>
-            <span className="sm:hidden">{t('common.add')}</span>
-          </button>
-        </div>
-      </div>
+    <PageShell className="transactions-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Transactions"
+          title={`${transactions.length} capital ${transactions.length === 1 ? 'event' : 'events'}`}
+        />
+        <PageSummaryPanel
+          lead={`${formatCurrency(investedCapital, portfolioCurrency, currentLocale)} invested.`}
+          description="Every event that changed ownership, cash, or return in this portfolio."
+        />
+      </PageHeader>
 
-      {/* Import Success/Error Messages */}
-      {importSuccess && (
-        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400">
-          {importSuccess}
-        </div>
-      )}
-      {importError && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-          {importError}
-        </div>
-      )}
+      <PageMetricStrip label="Transactions context">
+        <PageMetric label="Transactions" value={transactions.length} />
+        <PageMetric label="Invested" value={formatCurrency(investedCapital, portfolioCurrency, currentLocale)} />
+        <PageMetric label="First investment" value={formatHeroDate(firstTransactionDate)} />
+        <PageMetric label="Latest activity" value={formatHeroDate(latestTransactionDate)} />
+      </PageMetricStrip>
 
-      {/* Pending Dividends Section */}
-      <PendingDividends 
+      {importSuccess && <div className="transactions-notice is-success">{importSuccess}</div>}
+      {importError && <div className="transactions-notice is-error">{importError}</div>}
+
+      <PendingDividends
         portfolioId={activePortfolioId}
         portfolioCurrency={portfolioCurrency}
         onDividendAccepted={() => {
@@ -1045,113 +1239,313 @@ export default function Transactions() {
         }}
       />
 
-      <div className="card overflow-hidden">
-        {/* Tabs with Search Bar */}
-        <div className="border-b border-neutral-200 dark:border-neutral-700 flex items-center gap-4 px-4 sm:px-6">
-          <nav className="-mb-px flex space-x-4 sm:space-x-8 flex-1 overflow-x-auto scrollbar-hide" aria-label="Tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`
-                  py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap
-                  ${
-                    activeTab === tab.id
-                      ? 'border-pink-500 text-pink-600 dark:text-pink-400'
-                      : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
-                  }
-                `}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-          
-          {/* Search Bar */}
-          <div className="relative min-w-[200px] sm:min-w-[300px] py-2">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={16} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('placeholders.searchSymbol')}
-              className="w-full pl-9 pr-8 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Transaction Count and Limit Toggle */}
-        {transactions.length > 0 && (
-          <div className="px-4 sm:px-6 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-wrap gap-2">
-            <div className="text-sm text-neutral-600 dark:text-neutral-400">
-              {t('common.showing')} <span className="font-semibold text-neutral-900 dark:text-neutral-100">{sortedTransactions.length}</span> {t('common.of')}{' '}
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{transactions.length}</span> {t('transactions.transactions')}
-            </div>
-            {transactions.length > displayLimit && (
-              <button
-                onClick={() => setShowAllTransactions(!showAllTransactions)}
-                className="text-sm px-3 py-1 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors text-neutral-700 dark:text-neutral-300 font-medium"
-              >
-                {showAllTransactions ? t('transactions.showLast', { count: displayLimit }) : t('transactions.showAll')}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Transactions Table */}
-        <div>
-          {loading ? (
-            <TransactionsLoadingTable />
-          ) : transactions.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>{t('transactions.empty.noTransactions')}</p>
-              <p className="text-sm mt-2">{t('transactions.empty.noTransactionsInfo')}</p>
-            </div>
-          ) : sortedTransactions.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>{t('transactions.empty.noTransactionMatches')}</p>
-              <p className="text-sm mt-2">
-                {t('transactions.empty.noTransactionMatchesInfo')}{' '}
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-pink-600 dark:text-pink-400 hover:underline font-medium"
-                >
-                  {t('transactions.empty.noTransactionMatchesClear')}
-                </button>
-              </p>
-            </div>
-          ) : (
-            <TransactionsResponsiveList
-              transactions={sortedTransactions}
-              activeTab={activeTab}
-              availableSortOptions={availableSortOptions}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              portfolioCurrency={portfolioCurrency}
-              fxRates={fxRates}
-              formatDate={formatDate}
-              getSortLabel={getSortLabel}
-              getTransactionColor={getTransactionColor}
-              getTransactionIcon={getTransactionIcon}
-              getTranslatedType={getTranslatedType}
-              assetHasSplits={assetHasSplits}
-              onSort={handleSort}
-              onToggleSortDirection={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-              onEdit={openEditModal}
-              onDelete={setDeleteConfirm}
-              onViewSplitHistory={setSplitHistoryAsset}
-            />
+      <PageControls
+        label="Transaction controls"
+        start={
+        <div className="pf-search">
+          <Search size={16} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by company or symbol"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} aria-label="Clear search">
+              <X size={14} />
+            </button>
           )}
         </div>
-      </div>
+        }
+        end={
+        <div className="pf-control-group pf-dark-control-group transactions-controls">
+          <label>
+            Type
+            <select value={activeTab} onChange={(event) => setActiveTab(event.target.value as TabType)}>
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>{tab.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Sort
+            <select value={sortKey} onChange={(event) => handleSort(event.target.value as SortKey)}>
+              {availableSortOptions.map((option) => (
+                <option key={option} value={option}>{getSortLabel(option)}</option>
+              ))}
+            </select>
+          </label>
+          <button onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}>
+            {sortDir === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+          </button>
+          <button onClick={() => navigate('/transactions/metrics')}>
+            <BarChart3 size={16} />
+            Metrics
+          </button>
+          <button onClick={handleImportClick} disabled={importLoading}>
+            <Upload size={16} />
+            {importLoading ? t('common.importing') : t('common.import')}
+          </button>
+          <button onClick={handleExportClick}>
+            <Download size={16} />
+            {t('common.export')}
+          </button>
+          <button onClick={() => setShowConversionModal(true)}>
+            <RefreshCw size={16} />
+            {t('conversion.convert')}
+          </button>
+          <button className="is-primary" onClick={openAddModal}>
+            <PlusCircle size={16} />
+            Record transaction
+          </button>
+        </div>
+        }
+      />
+
+      {transactions.length > 0 && (
+        <div className="pf-dark-control-group transactions-count">
+          <span>
+            Showing <strong>{sortedTransactions.length}</strong> of <strong>{transactions.length}</strong> capital events.
+          </span>
+          {transactions.length > displayLimit && (
+            <button onClick={() => setShowAllTransactions(!showAllTransactions)}>
+              {showAllTransactions ? t('transactions.showLast', { count: displayLimit }) : t('transactions.showAll')}
+            </button>
+          )}
+        </div>
+      )}
+
+      <PageMainGrid single>
+      <PageMainColumn className="transactions-timeline" aria-label="Capital history">
+        {loading ? (
+          <ListSkeleton className="transactions-loading" rows={5} label="Loading transactions" />
+        ) : loadError ? (
+          <StateBlock
+            tone="error"
+            eyebrow="Transactions"
+            title="Could not load transactions."
+            description="Portfolium could not refresh the ownership ledger for this portfolio."
+            detail={loadError}
+            actionLabel={t('common.retry')}
+            onAction={fetchTransactions}
+          />
+        ) : transactions.length === 0 ? (
+          <StateBlock
+            className="transactions-empty"
+            eyebrow="No transactions"
+            title="Your investment history will appear here once capital starts moving."
+            description="Record your first transaction to begin the ownership ledger."
+          >
+            <button className="pf-button pf-button--primary is-primary" onClick={openAddModal}>Record your first transaction</button>
+          </StateBlock>
+        ) : sortedTransactions.length === 0 ? (
+          <StateBlock
+            className="transactions-empty"
+            eyebrow="No results"
+            title="No capital event matches this view."
+            description="Clear the search or change the transaction type filter."
+          >
+            <button className="pf-button pf-button--secondary is-primary" onClick={() => setSearchQuery('')}>Clear search</button>
+          </StateBlock>
+        ) : (
+          groupedTransactions.map((group) => (
+            <div className="transactions-group" key={group.label}>
+              <div className="transactions-period">
+                <h2>{group.label}</h2>
+                {(() => {
+                  const summary = getMonthlySummary(group.transactions)
+                  const netCapitalFlow = summary.invested - summary.sold - summary.dividends + summary.fees
+                  return (
+                    <div className="transactions-month-summary">
+                      <p>{group.transactions.length} investment {group.transactions.length === 1 ? 'event' : 'events'}</p>
+                      {summary.invested > 0 && (
+                        <div>
+                          <span>{formatCurrency(summary.invested, portfolioCurrency, currentLocale)}</span>
+                          <em>invested</em>
+                        </div>
+                      )}
+                      {summary.sold > 0 && (
+                        <div>
+                          <span>{formatCurrency(summary.sold, portfolioCurrency, currentLocale)}</span>
+                          <em>sold</em>
+                        </div>
+                      )}
+                      {summary.dividends > 0 && (
+                        <div>
+                          <span>{formatCurrency(summary.dividends, portfolioCurrency, currentLocale)}</span>
+                          <em>dividends</em>
+                        </div>
+                      )}
+                      {summary.fees > 0 && (
+                        <div>
+                          <span>{formatCurrency(summary.fees, portfolioCurrency, currentLocale)}</span>
+                          <em>fees</em>
+                        </div>
+                      )}
+                      <div className="transactions-net-flow">
+                        <em>Net capital flow</em>
+                        <strong>{formatSignedCurrency(netCapitalFlow, portfolioCurrency, currentLocale)}</strong>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+              <div className="transactions-events">
+                {group.transactions.map((transaction) => {
+                  const expanded = expandedTransactionId === transaction.id
+                  const actionMenuOpen = openActionMenuId === transaction.id
+                  const amount = getTransactionAmount(transaction)
+                  const quantity = toNumber(transaction.quantity)
+                  const priceValue = toNumber(transaction.price)
+                  const feesValue = toNumber(transaction.fees)
+                  const context = getTransactionContext(transaction)
+                  const ownership = ownershipByTransactionId.get(transaction.id)
+
+                  return (
+                    <article
+                      className="transactions-event"
+                      key={transaction.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setExpandedTransactionId(expanded ? null : transaction.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setExpandedTransactionId(expanded ? null : transaction.id)
+                        }
+                      }}
+                    >
+                        <div className="transactions-event-main">
+                          <button
+                            className="transactions-asset"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            openAssetResearch(transaction.asset.symbol)
+                          }}
+                        >
+                          <img
+                            src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
+                            alt=""
+                            loading="lazy"
+                            onError={(event) => handleLogoError(event, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
+                          />
+                          <span>
+                            <strong>{transaction.asset.name || transaction.asset.symbol}</strong>
+                            <em>{transaction.asset.symbol}</em>
+                          </span>
+                        </button>
+
+                        <div className="transactions-story">
+                          <p className={`transactions-type is-${transaction.type.toLowerCase().replace(/_/g, '-')}`}>
+                            {getEventVerb(transaction.type)}
+                          </p>
+                          <h3>{getTransactionSentence(transaction)}</h3>
+                          <p>
+                            {transaction.type === 'SPLIT'
+                              ? 'Share count changed without moving capital.'
+                              : `${formatQuantity(quantity)} shares · ${formatCurrency(priceValue, transaction.currency || portfolioCurrency, currentLocale)} per share`}
+                          </p>
+                          {feesValue > 0 && (
+                            <p className="transactions-fee-sentence">
+                              {formatCurrency(feesValue, transaction.currency || portfolioCurrency, currentLocale)} in fees
+                            </p>
+                          )}
+                          {transaction.notes && (
+                            <p className="transactions-note-sentence">{transaction.notes}</p>
+                          )}
+                          {ownership?.sentence && (
+                            <p className="transactions-ownership-sentence">{ownership.sentence}</p>
+                          )}
+                          <div className="transactions-context">
+                            {context.map((tag) => <span key={tag}>{tag}</span>)}
+                          </div>
+                        </div>
+
+                        <div className="transactions-meta">
+                          <strong>{amount === null ? '—' : formatCurrency(Math.abs(amount), transaction.currency || portfolioCurrency, currentLocale)}</strong>
+                          <span>{formatDate(transaction.tx_date)}</span>
+                          <span>{activePortfolio?.name || portfolioCurrency}</span>
+                        </div>
+                      </div>
+
+                      <div
+                        className="transactions-overflow"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          <button
+                          className="transactions-overflow-button"
+                          aria-label="Transaction actions"
+                          aria-expanded={actionMenuOpen}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setOpenActionMenuId(actionMenuOpen ? null : transaction.id)
+                          }}
+                        >
+                          ⋯
+                        </button>
+                        {actionMenuOpen && (
+                          <div className="transactions-overflow-menu">
+                            <button onClick={() => openEditModal(transaction)}>{t('common.edit')}</button>
+                            <button onClick={() => setDeleteConfirm(transaction.id)}>{t('common.delete')}</button>
+                            <button onClick={() => handleCopyTransaction(transaction)}>Copy</button>
+                            {assetHasSplits(transaction.asset_id) && (
+                              <button onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}>
+                                Split history
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {expanded && (
+                        <div className="transactions-details">
+                          <dl>
+                            <div>
+                              <dt>Fees</dt>
+                              <dd>{formatCurrency(feesValue, transaction.currency || portfolioCurrency, currentLocale)}</dd>
+                            </div>
+                            <div>
+                              <dt>Currency</dt>
+                              <dd>{transaction.currency || portfolioCurrency}</dd>
+                            </div>
+                            <div>
+                              <dt>Transaction type</dt>
+                              <dd>{getTranslatedType(transaction.type)}</dd>
+                            </div>
+                            <div>
+                              <dt>Order reference</dt>
+                              <dd>#{transaction.id}</dd>
+                            </div>
+                            {transaction.metadata?.split && (
+                              <div>
+                                <dt>Split ratio</dt>
+                                <dd>{transaction.metadata.split}</dd>
+                              </div>
+                            )}
+                            {Boolean(transaction.metadata?.conversion_id) && (
+                              <div>
+                                <dt>Conversion group</dt>
+                                <dd>{String(transaction.metadata?.conversion_id)}</dd>
+                              </div>
+                            )}
+                            <div>
+                              <dt>Notes</dt>
+                              <dd>{transaction.notes || '—'}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </PageMainColumn>
+      </PageMainGrid>
 
       {/* Add/Edit Modal */}
       {modalMode && (
@@ -1205,36 +1599,40 @@ export default function Transactions() {
           }}
           onFeesChange={setFees}
           onNotesChange={setNotes}
-          formatDate={formatDate}
-          getPriceSourceLabel={getPriceSourceLabel}
-          getWarningClasses={getWarningClasses}
           getSubmitLabel={getSubmitLabel}
         />
       )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
-              {t('transactions.deleteTransaction')}
-            </h3>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              {t('transactions.deleteConfirm')}
-            </p>
-            <div className="flex gap-3">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--sm" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <div>
+                <h3 className="pf-modal-title">
+                  {t('transactions.deleteTransaction')}
+                </h3>
+                <p className="pf-modal-description">
+                  {t('transactions.deleteConfirm')}
+                </p>
+              </div>
+            </div>
+            <div className="pf-modal-footer">
+              <div />
+              <div className="pf-modal-footer-actions">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="pf-modal-button pf-modal-button--secondary"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="pf-modal-button pf-modal-button--danger"
               >
                 {t('common.delete')}
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1289,6 +1687,6 @@ export default function Transactions() {
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

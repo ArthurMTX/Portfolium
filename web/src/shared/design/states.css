@@ -1,0 +1,341 @@
+@layer components {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pf-skeleton {
+    display: block;
+    border-radius: 0.65rem;
+    background: var(--pf-inset);
+    animation: pfPulse 1.4s ease-in-out infinite;
+  }
+
+  .pf-state {
+    display: grid;
+    justify-items: start;
+    gap: 0.55rem;
+    border: 1px solid var(--pf-line);
+    border-radius: 0;
+    background: var(--pf-surface);
+    padding: clamp(1rem, 2vw, 1.35rem);
+    color: var(--pf-ink);
+  }
+
+  .pf-state--empty,
+  .pf-state--info {
+    background: var(--pf-inset);
+  }
+
+  .pf-state--error {
+    border-color: color-mix(in srgb, var(--pf-danger) 32%, var(--pf-line));
+    background: color-mix(in srgb, var(--pf-danger) 8%, var(--pf-surface));
+  }
+
+  .pf-state--warning {
+    border-color: color-mix(in srgb, #f59e0b 34%, var(--pf-line));
+    background: color-mix(in srgb, #f59e0b 8%, var(--pf-surface));
+  }
+
+  .pf-state__eyebrow {
+    margin: 0;
+    color: var(--pf-subtle);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .pf-state__title {
+    margin: 0;
+    color: inherit;
+    font-size: clamp(1.05rem, 1.7vw, 1.35rem);
+    font-weight: 850;
+    line-height: 1.15;
+    letter-spacing: -0.035em;
+  }
+
+  .pf-state__description,
+  .pf-state__detail {
+    max-width: 48rem;
+    color: var(--pf-muted);
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  .pf-state__description p,
+  .pf-state__detail p {
+    margin: 0;
+  }
+
+  .pf-state__detail {
+    font-size: 0.82rem;
+  }
+
+  .pf-state__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.25rem;
+  }
+
+  .pf-page-skeleton__hero {
+    align-items: stretch;
+  }
+
+  .pf-page-skeleton__kicker {
+    width: 5.5rem;
+    height: 0.72rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .pf-page-skeleton__title {
+    width: min(24rem, 70vw);
+    height: clamp(2rem, 4.8vw, 3.2rem);
+  }
+
+  .pf-page-skeleton__context {
+    display: grid;
+    align-content: center;
+    gap: 0.7rem;
+  }
+
+  .pf-page-skeleton__context .pf-skeleton:nth-child(1) {
+    width: 100%;
+    height: 1rem;
+  }
+
+  .pf-page-skeleton__context .pf-skeleton:nth-child(2) {
+    width: 78%;
+    height: 0.8rem;
+  }
+
+  .pf-page-skeleton__context .pf-skeleton:nth-child(3) {
+    width: 8rem;
+    height: 2rem;
+    border-radius: 999px;
+  }
+
+  .pf-metric-skeleton div {
+    gap: 0.65rem;
+  }
+
+  .pf-metric-skeleton span {
+    width: 45%;
+    height: 0.7rem;
+  }
+
+  .pf-metric-skeleton strong {
+    width: 72%;
+    height: 1.25rem;
+  }
+
+  .pf-list-skeleton,
+  .pf-table-skeleton,
+  .pf-chart-skeleton {
+    border: 1px solid var(--pf-line);
+    background: var(--pf-surface);
+  }
+
+  .pf-list-skeleton {
+    display: grid;
+  }
+
+  .pf-list-skeleton__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.32fr);
+    gap: 0.65rem 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-list-skeleton__row:last-child {
+    border-bottom: 0;
+  }
+
+  .pf-list-skeleton__row .pf-skeleton:nth-child(1) {
+    width: min(22rem, 74%);
+    height: 1.1rem;
+  }
+
+  .pf-list-skeleton__row .pf-skeleton:nth-child(2) {
+    grid-column: 1;
+    width: min(34rem, 92%);
+    height: 0.8rem;
+  }
+
+  .pf-list-skeleton__row .pf-skeleton:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: end;
+    width: 8rem;
+    height: 1.25rem;
+  }
+
+  .pf-table-skeleton {
+    display: grid;
+  }
+
+  .pf-table-skeleton__row {
+    display: grid;
+    grid-template-columns: repeat(var(--pf-skeleton-columns, 5), minmax(0, 1fr));
+    gap: 0.85rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-table-skeleton__row:last-child {
+    border-bottom: 0;
+  }
+
+  .pf-table-skeleton__row .pf-skeleton {
+    height: 0.9rem;
+  }
+
+  .pf-table-skeleton__row.is-header .pf-skeleton {
+    width: 55%;
+    height: 0.7rem;
+  }
+
+  .pf-chart-skeleton {
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1rem, 2vw, 1.25rem);
+    min-height: 22rem;
+  }
+
+  .pf-chart-skeleton__title {
+    width: min(14rem, 60%);
+    height: 1rem;
+  }
+
+  .pf-chart-skeleton__plot {
+    position: relative;
+    min-height: 16rem;
+    border-left: 1px solid var(--pf-line);
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-chart-skeleton__plot .pf-skeleton {
+    position: absolute;
+    bottom: 0;
+    width: 12%;
+    border-radius: 0.35rem 0.35rem 0 0;
+  }
+
+  .pf-chart-skeleton__plot .pf-skeleton:nth-child(1) {
+    left: 8%;
+    height: 42%;
+  }
+
+  .pf-chart-skeleton__plot .pf-skeleton:nth-child(2) {
+    left: 30%;
+    height: 66%;
+  }
+
+  .pf-chart-skeleton__plot .pf-skeleton:nth-child(3) {
+    left: 52%;
+    height: 50%;
+  }
+
+  .pf-chart-skeleton__plot .pf-skeleton:nth-child(4) {
+    left: 74%;
+    height: 78%;
+  }
+
+  .pf-chart-skeleton__legend {
+    width: min(18rem, 72%);
+    height: 0.8rem;
+  }
+
+  .pf-inline-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--pf-muted);
+    font-size: 0.78rem;
+    font-weight: 750;
+  }
+
+  .pf-button .pf-inline-loading,
+  .pf-modal-button .pf-inline-loading {
+    color: currentColor;
+  }
+
+  .pf-inline-loading span {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: currentColor;
+    animation: pfPulse 1.4s ease-in-out infinite;
+  }
+
+  .pf-dropdown-empty {
+    padding: 1rem;
+    color: var(--pf-muted);
+    font-size: 0.86rem;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out forwards;
+  }
+}
+
+@media (max-width: 720px) {
+  .pf-list-skeleton__row {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-list-skeleton__row .pf-skeleton:nth-child(3) {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .pf-table-skeleton__row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pfPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

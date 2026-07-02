@@ -1,37 +1,126 @@
-import { useState, useEffect } from 'react'
-import { Zap, AlertTriangle, Shield, Settings as SettingsIcon, Bell, Info, Smartphone } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import api from '@/api'
 import { useAuth } from '@/app/providers/AuthContext'
 import VersionInfo from '@/features/settings/components/VersionInfo'
+import { InlineLoading, ListSkeleton } from '@/shared/components/StatePrimitives'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageShell,
+  PageSummaryPanel,
+  PageTabs,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
 import { useTranslation } from 'react-i18next'
 import { usePushNotifications } from '@/features/notifications/hooks/usePushNotifications'
+import '@/shared/design/pages/settings.css'
 
-type SettingsTab = 'general' | 'notifications' | 'validation' | 'danger' | 'about';
+type SettingsTab = 'account' | 'preferences' | 'notifications' | 'security' | 'danger' | 'about'
+type NotificationField =
+  | 'daily_change_notifications_enabled'
+  | 'transaction_notifications_enabled'
+  | 'ath_atl_notifications_enabled'
+  | 'daily_report_enabled'
+
+interface SettingsSectionProps {
+  eyebrow: string
+  title: string
+  description?: string
+  children: ReactNode
+  tone?: 'default' | 'danger'
+}
+
+interface SettingRowProps {
+  title: string
+  description?: string
+  children: ReactNode
+}
+
+function SettingsSection({ eyebrow, title, description, children, tone = 'default' }: SettingsSectionProps) {
+  return (
+    <section className={`pf-section settings-section ${tone === 'danger' ? 'is-danger' : ''}`}>
+      <div className="pf-section-header pf-section-header--grid settings-section__header">
+        <div>
+          <p className="pf-section-kicker">{eyebrow}</p>
+          <h2 className="pf-section-title">{title}</h2>
+        </div>
+        {description && <span className="pf-section-description">{description}</span>}
+      </div>
+      <div className="settings-section__body">{children}</div>
+    </section>
+  )
+}
+
+function SettingRow({ title, description, children }: SettingRowProps) {
+  return (
+    <div className="settings-row">
+      <div>
+        <h3>{title}</h3>
+        {description && <p>{description}</p>}
+      </div>
+      <div className="settings-row__control">{children}</div>
+    </div>
+  )
+}
+
+function StaticValue({ children }: { children: ReactNode }) {
+  return <span className="settings-static-value">{children}</span>
+}
+
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled?: boolean
+  label: string
+}) {
+  return (
+    <label className="settings-toggle">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        disabled={disabled}
+      />
+      <span aria-hidden="true" />
+      <em>{label}</em>
+    </label>
+  )
+}
+
+function Message({ message }: { message: { type: 'success' | 'error'; text: string } | null }) {
+  if (!message) return null
+  return <div className={`settings-message is-${message.type}`}>{message.text}</div>
+}
 
 export default function Settings() {
   const { user, refreshUser } = useAuth()
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account')
   const [confirmText, setConfirmText] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { t } = useTranslation()
 
-  // Auto-refresh settings
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(
-    localStorage.getItem('autoRefreshInterval') || '60'
+    localStorage.getItem('autoRefreshInterval') || '60',
   )
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
-    localStorage.getItem('autoRefreshEnabled') === 'true'
+    localStorage.getItem('autoRefreshEnabled') === 'true',
   )
 
-  // Transaction validation settings
   const [validateSellQuantity, setValidateSellQuantity] = useState(true)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Notification settings
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [transactionNotificationsEnabled, setTransactionNotificationsEnabled] = useState(true)
   const [athAtlNotificationsEnabled, setAthAtlNotificationsEnabled] = useState(true)
@@ -39,10 +128,18 @@ export default function Settings() {
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Push notification state
   const pushNotifications = usePushNotifications()
   const [pushTestSending, setPushTestSending] = useState(false)
   const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const tabs: Array<{ id: SettingsTab; label: string }> = [
+    { id: 'account', label: 'Account' },
+    { id: 'preferences', label: 'Preferences' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'security', label: 'Security' },
+    { id: 'danger', label: 'Danger Zone' },
+    { id: 'about', label: 'About' },
+  ]
 
   const handleAutoRefreshSettingsChange = (interval: string, enabled: boolean) => {
     setAutoRefreshInterval(interval)
@@ -51,7 +148,6 @@ export default function Settings() {
     localStorage.setItem('autoRefreshEnabled', String(enabled))
   }
 
-  // Load settings from API on mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -65,7 +161,6 @@ export default function Settings() {
     }
     loadSettings()
 
-    // Load notification settings from user
     if (user) {
       setNotificationsEnabled(user.daily_change_notifications_enabled ?? true)
       setTransactionNotificationsEnabled(user.transaction_notifications_enabled ?? true)
@@ -80,41 +175,53 @@ export default function Settings() {
     try {
       const updated = await api.updateSettings({ validate_sell_quantity: enabled })
       setValidateSellQuantity(updated.validate_sell_quantity)
-      setSettingsMessage({ 
-        type: 'success', 
-        text: `Sell quantity validation ${enabled ? 'enabled' : 'disabled'} successfully` 
+      setSettingsMessage({
+        type: 'success',
+        text: `Sell quantity validation ${enabled ? 'enabled' : 'disabled'} successfully`,
       })
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to update settings'
       setSettingsMessage({ type: 'error', text: message })
-      // Revert on error
       setValidateSellQuantity(!enabled)
     } finally {
       setSettingsSaving(false)
-      // Clear message after 3 seconds
       setTimeout(() => setSettingsMessage(null), 3000)
     }
   }
 
-  const handleUpdateNotificationSettings = async () => {
+  const handleNotificationPreferenceChange = async (field: NotificationField, enabled: boolean) => {
     if (!user) return
+    const previous = {
+      daily_change_notifications_enabled: notificationsEnabled,
+      transaction_notifications_enabled: transactionNotificationsEnabled,
+      ath_atl_notifications_enabled: athAtlNotificationsEnabled,
+      daily_report_enabled: dailyReportsEnabled,
+    }
+    const next = {
+      ...previous,
+      [field]: enabled,
+    }
+
+    setNotificationsEnabled(next.daily_change_notifications_enabled)
+    setTransactionNotificationsEnabled(next.transaction_notifications_enabled)
+    setAthAtlNotificationsEnabled(next.ath_atl_notifications_enabled)
+    setDailyReportsEnabled(next.daily_report_enabled)
     setSavingNotifications(true)
-    setNotificationMessage(null)
+    setNotificationMessage({ type: 'success', text: 'Saving…' })
     try {
-      await api.updateCurrentUser({
-        daily_change_notifications_enabled: notificationsEnabled,
-        transaction_notifications_enabled: transactionNotificationsEnabled,
-        ath_atl_notifications_enabled: athAtlNotificationsEnabled,
-        daily_report_enabled: dailyReportsEnabled
-      })
+      await api.updateCurrentUser(next)
       await refreshUser()
-      setNotificationMessage({ type: 'success', text: 'Notification settings updated successfully' })
+      setNotificationMessage({ type: 'success', text: 'Saved' })
     } catch (err: unknown) {
+      setNotificationsEnabled(previous.daily_change_notifications_enabled)
+      setTransactionNotificationsEnabled(previous.transaction_notifications_enabled)
+      setAthAtlNotificationsEnabled(previous.ath_atl_notifications_enabled)
+      setDailyReportsEnabled(previous.daily_report_enabled)
       const text = err instanceof Error ? err.message : 'Failed to update notification settings'
       setNotificationMessage({ type: 'error', text })
     } finally {
       setSavingNotifications(false)
-      setTimeout(() => setNotificationMessage(null), 4000)
+      setTimeout(() => setNotificationMessage(null), 2500)
     }
   }
 
@@ -125,7 +232,7 @@ export default function Settings() {
     try {
       const res = await api.deleteAllData()
       setResult(
-        `Deleted data successfully. Transactions: ${res.deleted?.transactions ?? 0}, Prices: ${res.deleted?.prices ?? 0}, Portfolios: ${res.deleted?.portfolios ?? 0}, Assets: ${res.deleted?.assets ?? 0}`
+        `Deleted data successfully. Transactions: ${res.deleted?.transactions ?? 0}, Prices: ${res.deleted?.prices ?? 0}, Portfolios: ${res.deleted?.portfolios ?? 0}, Assets: ${res.deleted?.assets ?? 0}`,
       )
       setConfirmText('')
     } catch (e: unknown) {
@@ -139,361 +246,207 @@ export default function Settings() {
   const canDelete = confirmText.toLowerCase().trim() === 'delete'
 
   return (
-    <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <SettingsIcon className="text-pink-600" size={28} />
-            {t('settings.title')}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            {t('settings.description')}
-          </p>
-        </div>
+    <PageShell className="settings">
+      <PageHeader>
+        <PageTitleBlock kicker="Settings" title={t('settings.title')} />
+        <PageSummaryPanel
+          lead={tabs.find((tab) => tab.id === activeTab)?.label}
+          description={t('settings.description')}
+        />
+      </PageHeader>
 
-      {/* Tabs */}
-      <div className="border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto scrollbar-hide">
-        <nav className="flex gap-2 sm:gap-4 min-w-max">
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'general'
-                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
-          >
-            <Zap size={14} className="inline mr-1" />
-            {t('settings.generalTab')}
-          </button>
-          <button
-            onClick={() => setActiveTab('notifications')}
-            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'notifications'
-                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
-          >
-            <Bell size={14} className="inline mr-1" />
-            {t('settings.notificationsTab')}
-          </button>
-          <button
-            onClick={() => setActiveTab('validation')}
-            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'validation'
-                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
-          >
-            <Shield size={14} className="inline mr-1" />
-            {t('settings.validationTab')}
-          </button>
-          <button
-            onClick={() => setActiveTab('danger')}
-            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'danger'
-                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
-          >
-            <AlertTriangle size={14} className="inline mr-1" />
-            {t('settings.dangerTab')}
-          </button>
-          <button
-            onClick={() => setActiveTab('about')}
-            className={`pb-3 px-2 sm:px-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'about'
-                ? 'border-pink-600 dark:border-pink-400 text-pink-600 dark:text-pink-400'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
-          >
-            <Info size={14} className="inline mr-1" />
-            {t('settings.aboutTab')}
-          </button>
-        </nav>
-      </div>
+      <PageControls
+        label="Settings sections"
+        start={
+          <PageTabs label="Settings sections">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={activeTab === tab.id ? 'is-active' : ''}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </PageTabs>
+        }
+      />
 
-      {/* General Tab */}
-      {activeTab === 'general' && (
-        <>
-          <div className="card p-6">
-        <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-          <Zap size={20} className="text-pink-600 dark:text-pink-400" />
-          {t('settings.autoRefreshSettings')}
-        </h2>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-          {t('settings.autoRefreshSettingsDescription')}
-        </p>
-
-        <div className="space-y-4">
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoRefreshEnabled}
-                onChange={(e) =>
-                  handleAutoRefreshSettingsChange(autoRefreshInterval, e.target.checked)
-                }
-                className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
-              />
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                {t('settings.enableAutoRefresh')}
+      <PageMainGrid single>
+        <PageMainColumn className="settings__content">
+        {activeTab === 'account' && (
+          <SettingsSection
+            eyebrow="Account"
+            title="Current user"
+            description="Identity and login details are managed from Profile."
+          >
+            <SettingRow title="Email">
+              <StaticValue>{user?.email || '—'}</StaticValue>
+            </SettingRow>
+            <SettingRow title="Username">
+              <StaticValue>{user?.username || '—'}</StaticValue>
+            </SettingRow>
+            <SettingRow title="Name">
+              <StaticValue>{user?.full_name || '—'}</StaticValue>
+            </SettingRow>
+            <SettingRow title="Verification">
+              <span className={`settings-badge ${user?.is_verified ? 'is-success' : 'is-warning'}`}>
+                {user?.is_verified ? 'Verified' : 'Not verified'}
               </span>
-            </label>
-          </div>
+            </SettingRow>
+            <div className="settings-action-row">
+              <span>Account settings</span>
+              <div>
+                <a className="pf-button pf-button--secondary" href="/profile">Manage profile</a>
+              </div>
+            </div>
+          </SettingsSection>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('settings.refreshInterval')}
-            </label>
-            <select
-              value={autoRefreshInterval}
-              onChange={(e) =>
-                handleAutoRefreshSettingsChange(e.target.value, autoRefreshEnabled)
-              }
-              className="input w-full max-w-xs"
-              disabled={!autoRefreshEnabled}
+        {activeTab === 'preferences' && (
+          <SettingsSection
+            eyebrow="Preferences"
+            title={t('settings.autoRefreshSettings')}
+            description="Control how often prices refresh while you use Portfolium."
+          >
+            <SettingRow
+              title={t('settings.enableAutoRefresh')}
+              description="Refresh portfolio prices automatically."
             >
-              <option value="15">{t('settings.refreshInterval15s')}</option>
-              <option value="30">{t('settings.refreshInterval30s')}</option>
-              <option value="60">{t('settings.refreshInterval1m')}</option>
-              <option value="120">{t('settings.refreshInterval2m')}</option>
-              <option value="300">{t('settings.refreshInterval5m')}</option>
-              <option value="600">{t('settings.refreshInterval10m')}</option>
-            </select>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('settings.refreshIntervalWarning')}
-            </p>
-          </div>
+              <Toggle
+                checked={autoRefreshEnabled}
+                onChange={(checked) => handleAutoRefreshSettingsChange(autoRefreshInterval, checked)}
+                label={autoRefreshEnabled ? 'Enabled' : 'Disabled'}
+              />
+            </SettingRow>
 
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <p className="text-xs text-blue-800 dark:text-blue-200">
-              <strong>{t('settings.note')}:</strong> {t('settings.refreshIntervalNote')}
-            </p>
-          </div>
-        </div>
-      </div>
-        </>
-      )}
+            <SettingRow
+              title={t('settings.refreshInterval')}
+              description="Shorter intervals increase API usage."
+            >
+              <select
+                value={autoRefreshInterval}
+                onChange={(event) => handleAutoRefreshSettingsChange(event.target.value, autoRefreshEnabled)}
+                className="settings-select"
+                disabled={!autoRefreshEnabled}
+              >
+                <option value="15">{t('settings.refreshInterval15s')}</option>
+                <option value="30">{t('settings.refreshInterval30s')}</option>
+                <option value="60">{t('settings.refreshInterval1m')}</option>
+                <option value="120">{t('settings.refreshInterval2m')}</option>
+                <option value="300">{t('settings.refreshInterval5m')}</option>
+                <option value="600">{t('settings.refreshInterval10m')}</option>
+              </select>
+            </SettingRow>
+          </SettingsSection>
+        )}
 
-      {/* Notifications Tab */}
-      {activeTab === 'notifications' && (
-        <>
-          {/* Daily Change Notifications */}
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              {t('settings.dailyChangeNotifications')}
-            </h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              {t('settings.dailyChangeNotificationsDescription')}
-            </p>
+        {activeTab === 'notifications' && (
+          <>
+            <SettingsSection
+              eyebrow="Notifications"
+              title="Notification rules"
+              description="Notification preferences save automatically."
+            >
+              <Message message={notificationMessage} />
 
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationsEnabled}
-                    onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                    disabled={savingNotifications}
-                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
-                  />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    {t('settings.enableDailyChangeNotifications')}
-                  </span>
-                </label>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  {t('settings.enableDailyChangeNotificationsInfo')}
-                </p>
-              </div>
+              <SettingRow
+                title={t('settings.dailyChangeNotifications')}
+                description={t('settings.enableDailyChangeNotificationsInfo')}
+              >
+                <Toggle
+                  checked={notificationsEnabled}
+                  onChange={(checked) => handleNotificationPreferenceChange('daily_change_notifications_enabled', checked)}
+                  disabled={savingNotifications}
+                  label={notificationsEnabled ? 'Enabled' : 'Disabled'}
+                />
+              </SettingRow>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>{t('settings.howItWorks')}:</strong> {t('settings.notificationThresholdNote')}
-                </p>
-              </div>
-            </div>
-          </div>
+              <SettingRow
+                title={t('settings.athAtlNotifications')}
+                description={t('settings.enableAthAtlNotificationsInfo')}
+              >
+                <Toggle
+                  checked={athAtlNotificationsEnabled}
+                  onChange={(checked) => handleNotificationPreferenceChange('ath_atl_notifications_enabled', checked)}
+                  disabled={savingNotifications}
+                  label={athAtlNotificationsEnabled ? 'Enabled' : 'Disabled'}
+                />
+              </SettingRow>
 
-          {/* ATH/ATL Notifications */}
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              {t('settings.athAtlNotifications')}
-            </h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              {t('settings.athAtlNotificationsDescription')}
-            </p>
+              <SettingRow
+                title={t('settings.transactionNotifications')}
+                description={t('settings.enableTransactionNotificationsInfo')}
+              >
+                <Toggle
+                  checked={transactionNotificationsEnabled}
+                  onChange={(checked) => handleNotificationPreferenceChange('transaction_notifications_enabled', checked)}
+                  disabled={savingNotifications}
+                  label={transactionNotificationsEnabled ? 'Enabled' : 'Disabled'}
+                />
+              </SettingRow>
 
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={athAtlNotificationsEnabled}
-                    onChange={(e) => setAthAtlNotificationsEnabled(e.target.checked)}
-                    disabled={savingNotifications}
-                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
-                  />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    {t('settings.enableAthAtlNotifications')}
-                  </span>
-                </label>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  {t('settings.enableAthAtlNotificationsInfo')}
-                </p>
-              </div>
+              <SettingRow
+                title={t('settings.dailyPortfolioReports')}
+                description={t('settings.enableDailyPortfolioReportsInfo')}
+              >
+                <Toggle
+                  checked={dailyReportsEnabled}
+                  onChange={(checked) => handleNotificationPreferenceChange('daily_report_enabled', checked)}
+                  disabled={savingNotifications}
+                  label={dailyReportsEnabled ? 'Enabled' : 'Disabled'}
+                />
+              </SettingRow>
+            </SettingsSection>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>{t('settings.note')}:</strong> {t('settings.athAtlNotificationsNote')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Transaction Notifications */}
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              {t('settings.transactionNotifications')}
-            </h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              {t('settings.transactionNotificationsDescription')}
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={transactionNotificationsEnabled}
-                    onChange={(e) => setTransactionNotificationsEnabled(e.target.checked)}
-                    disabled={savingNotifications}
-                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
-                  />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    {t('settings.enableTransactionNotifications')}
-                  </span>
-                </label>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  {t('settings.enableTransactionNotificationsInfo')}
-                </p>
-              </div>
-
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>{t('settings.note')}:</strong> {t('settings.enableTransactionNotificationsNote')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Daily Reports */}
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-              <Bell size={20} className="text-pink-600 dark:text-pink-400" />
-              {t('settings.dailyPortfolioReports')}
-            </h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              {t('settings.dailyPortfolioReportsDescription')}
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={dailyReportsEnabled}
-                    onChange={(e) => setDailyReportsEnabled(e.target.checked)}
-                    disabled={savingNotifications}
-                    className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
-                  />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    {t('settings.enableDailyPortfolioReports')}
-                  </span>
-                </label>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                  {t('settings.enableDailyPortfolioReportsInfo')}
-                </p>
-              </div>
-
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>{t('settings.whatsIncluded')}:</strong> {t('settings.enableDailyPortfolioReportsNote')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Push Notifications */}
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-              <Smartphone size={20} className="text-pink-600 dark:text-pink-400" />
-              {t('settings.pushNotifications')}
-            </h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-              {t('settings.pushNotificationsDescription')}
-            </p>
-
-            <div className="space-y-4">
+            <SettingsSection
+              eyebrow="Push"
+              title={t('settings.pushNotifications')}
+              description="Browser push delivery for supported notifications."
+            >
               {!pushNotifications.isSupported ? (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                  <p className="text-sm text-amber-800 dark:text-amber-200">
-                    {t('settings.pushNotificationsNotSupported')}
-                  </p>
+                <div className="settings-message is-warning">
+                  {t('settings.pushNotificationsNotSupported')}
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                        {t('settings.pushNotificationStatus')}
-                      </p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        {pushNotifications.isSubscribed 
-                          ? t('settings.pushNotificationsActive')
-                          : pushNotifications.permission === 'denied'
-                            ? t('settings.pushNotificationsDenied')
-                            : t('settings.pushNotificationsInactive')
-                        }
-                      </p>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  <SettingRow
+                    title={t('settings.pushNotificationStatus')}
+                    description={
                       pushNotifications.isSubscribed
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                        ? t('settings.pushNotificationsActive')
                         : pushNotifications.permission === 'denied'
-                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
-                          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                          ? t('settings.pushNotificationsDenied')
+                          : t('settings.pushNotificationsInactive')
+                    }
+                  >
+                    <span className={`settings-badge ${
+                      pushNotifications.isSubscribed
+                        ? 'is-success'
+                        : pushNotifications.permission === 'denied'
+                          ? 'is-danger'
+                          : ''
                     }`}>
-                      {pushNotifications.isSubscribed 
+                      {pushNotifications.isSubscribed
                         ? t('settings.enabled')
                         : pushNotifications.permission === 'denied'
                           ? t('settings.blocked')
-                          : t('settings.disabled')
-                      }
-                    </div>
-                  </div>
+                          : t('settings.disabled')}
+                    </span>
+                  </SettingRow>
 
                   {pushNotifications.error && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                      <p className="text-sm text-red-800 dark:text-red-200">{pushNotifications.error}</p>
-                    </div>
+                    <div className="settings-message is-error">{pushNotifications.error}</div>
                   )}
+                  <Message message={pushMessage} />
 
-                  {pushMessage && (
-                    <div className={`p-3 rounded-lg ${
-                      pushMessage.type === 'error'
-                        ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-                        : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-                    }`}>
-                      <p className="text-sm">{pushMessage.text}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
+                  <div className="settings-action-row">
+                    <span>Push actions</span>
+                    <div>
                     {!pushNotifications.isSubscribed ? (
                       <button
+                        type="button"
                         onClick={async () => {
                           setPushMessage(null)
                           const success = await pushNotifications.subscribe()
@@ -505,13 +458,14 @@ export default function Settings() {
                           setTimeout(() => setPushMessage(null), 4000)
                         }}
                         disabled={pushNotifications.isLoading || pushNotifications.permission === 'denied'}
-                        className="btn-primary"
+                        className="pf-button pf-button--primary"
                       >
-                        {pushNotifications.isLoading ? t('common.loading') : t('settings.enablePushNotifications')}
+                        {pushNotifications.isLoading ? <InlineLoading label={t('common.loading')} /> : t('settings.enablePushNotifications')}
                       </button>
                     ) : (
                       <>
                         <button
+                          type="button"
                           onClick={async () => {
                             setPushMessage(null)
                             await pushNotifications.unsubscribe()
@@ -519,11 +473,12 @@ export default function Settings() {
                             setTimeout(() => setPushMessage(null), 4000)
                           }}
                           disabled={pushNotifications.isLoading}
-                          className="btn-secondary"
+                          className="pf-button pf-button--secondary"
                         >
-                          {pushNotifications.isLoading ? t('common.loading') : t('settings.disablePushNotifications')}
+                          {pushNotifications.isLoading ? <InlineLoading label={t('common.loading')} /> : t('settings.disablePushNotifications')}
                         </button>
                         <button
+                          type="button"
                           onClick={async () => {
                             setPushTestSending(true)
                             setPushMessage(null)
@@ -537,183 +492,112 @@ export default function Settings() {
                             setTimeout(() => setPushMessage(null), 4000)
                           }}
                           disabled={pushTestSending || pushNotifications.isLoading}
-                          className="btn-secondary"
+                          className="pf-button pf-button--secondary"
                         >
                           {pushTestSending ? t('common.sending') : t('settings.sendTestNotification')}
                         </button>
                       </>
                     )}
+                    </div>
                   </div>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                    <p className="text-xs text-blue-800 dark:text-blue-200">
-                      <strong>{t('settings.note')}:</strong> {t('settings.pushNotificationsNote')}
-                    </p>
-                  </div>
+                  <p className="settings-note">{t('settings.pushNotificationsNote')}</p>
                 </>
               )}
-            </div>
-          </div>
-
-          {/* Save Button and Messages */}
-          {notificationMessage && (
-            <div className={`p-3 rounded-lg ${
-              notificationMessage.type === 'error'
-                ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-                : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-            }`}>
-              <p className="text-sm">{notificationMessage.text}</p>
-            </div>
-          )}
-
-          <div className="flex justify-start">
-            <button
-              onClick={handleUpdateNotificationSettings}
-              disabled={savingNotifications}
-              className="btn-primary"
-            >
-              {savingNotifications ? t('common.saving') : t('common.save')}
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Validation Tab */}
-      {activeTab === 'validation' && (
-        <div className="card p-6">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
-            <Shield size={20} className="text-pink-600 dark:text-pink-400" />
-            {t('settings.transactionValidationSettings')}
-          </h2>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-          {t('settings.transactionValidationSettingsDescription')}
-        </p>
-
-        {settingsLoading ? (
-          <div className="text-neutral-500 dark:text-neutral-400">Loading settings...</div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={validateSellQuantity}
-                  onChange={(e) => handleValidateSellQuantityChange(e.target.checked)}
-                  disabled={settingsSaving}
-                  className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
-                />
-                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  {t('settings.validateSellQuantities')}
-                </span>
-              </label>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">
-                {t('settings.validateSellQuantitiesDescription')}
-              </p>
-            </div>
-
-            {settingsMessage && (
-              <div
-                className={`p-3 rounded-lg text-sm ${
-                  settingsMessage.type === 'success'
-                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
-                }`}
-              >
-                {settingsMessage.text}
-              </div>
-            )}
-
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-              <p className="text-xs text-amber-800 dark:text-amber-200">
-                <strong>{t('settings.note')}:</strong> {t('settings.validateSellQuantitiesDescription1')} <code className="bg-amber-100 dark:bg-amber-800/50 px-1 rounded">VALIDATE_SELL_QUANTITY</code>{t('settings.validateSellQuantitiesDescription2')}
-              </p>
-            </div>
-          </div>
+            </SettingsSection>
+          </>
         )}
-        </div>
-      )}
 
-      {/* Danger Zone Tab */}
-      {activeTab === 'danger' && (
-        <div className="card p-6 border border-red-300/40 bg-red-50 dark:bg-red-950/30">
-        <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
-          <AlertTriangle size={20} />
-          {t('settings.dangerZone')}
-        </h2>
-        <p className="text-red-800 dark:text-red-200 mb-4">
-          {t('settings.dangerZoneDescription')}
-        </p>
-
-        <label className="block text-sm text-red-800 dark:text-red-200 mb-2">
-          {t('settings.typeDeleteToConfirm')}
-        </label>
-        <div className="flex gap-3 items-center">
-          <input
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="delete"
-            className="input w-40 bg-white/70 dark:bg-neutral-900/50"
-          />
-          <button
-            onClick={handleDeleteAll}
-            disabled={!canDelete || loading}
-            className={`btn ${canDelete ? 'btn-error' : 'btn-disabled'}`}
+        {activeTab === 'security' && (
+          <SettingsSection
+            eyebrow="Security"
+            title={t('settings.transactionValidationSettings')}
+            description="Protect transaction entry from impossible sells."
           >
-            {loading ? t('settings.deletingData') : t('settings.deleteAllDataButton')}
-          </button>
-        </div>
-
-        {result && (
-          <div className="mt-4 text-sm text-green-700 dark:text-green-300">
-            {result}
-          </div>
-          )}
-        {error && (
-          <div className="mt-4 text-sm text-red-700 dark:text-red-300">
-            {error}
-          </div>
+            {settingsLoading ? (
+              <ListSkeleton className="settings-loading" rows={2} label="Loading security settings" />
+            ) : (
+              <>
+                <Message message={settingsMessage} />
+                <SettingRow
+                  title={t('settings.validateSellQuantities')}
+                  description={t('settings.validateSellQuantitiesDescription')}
+                >
+                  <Toggle
+                    checked={validateSellQuantity}
+                    onChange={handleValidateSellQuantityChange}
+                    disabled={settingsSaving}
+                    label={validateSellQuantity ? 'Enabled' : 'Disabled'}
+                  />
+                </SettingRow>
+                <p className="settings-note">
+                  {t('settings.validateSellQuantitiesDescription1')}{' '}
+                  <code>VALIDATE_SELL_QUANTITY</code>
+                  {t('settings.validateSellQuantitiesDescription2')}
+                </p>
+              </>
+            )}
+          </SettingsSection>
         )}
-        </div>
-      )}
 
-      {/* About Tab */}
-      {activeTab === 'about' && (
-        <div className="space-y-4">
-          <VersionInfo />
-          
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('settings.about')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {t('settings.projectDescription')}
-            </p>
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <p><strong>{t('settings.features')}:</strong></p>
-              <ul className="list-disc list-inside ml-2 space-y-1">
-                <li>{t('settings.features1')}</li>
-                <li>{t('settings.features2')}</li>
-                <li>{t('settings.features3')}</li>
-                <li>{t('settings.features4')}</li>
-                <li>{t('settings.features5')}</li>
-                <li>{t('settings.features6')}</li>
-                <li>{t('settings.features7')}</li>
-                <li>{t('settings.features8')}</li>
-                <li>{t('settings.features9')}</li>
-              </ul>
+        {activeTab === 'danger' && (
+          <SettingsSection
+            eyebrow="Danger Zone"
+            title={t('settings.dangerZone')}
+            description="Permanent data deletion controls."
+            tone="danger"
+          >
+            <div className="settings-action-row is-danger">
+              <span>{t('settings.typeDeleteToConfirm')}</span>
+              <div>
+                <input
+                  id="delete-confirm"
+                  type="text"
+                  value={confirmText}
+                  onChange={(event) => setConfirmText(event.target.value)}
+                  placeholder="delete"
+                  className="settings-input"
+                />
+                <button
+                  type="button"
+                  onClick={handleDeleteAll}
+                  disabled={!canDelete || loading}
+                  className="pf-button pf-button--danger"
+                >
+                  {loading ? t('settings.deletingData') : t('settings.deleteAllDataButton')}
+                </button>
+              </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <a 
-                href="https://github.com/ArthurMTX/Portfolium" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {t('settings.viewOnGitHub')} →
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            {result && <div className="settings-message is-success">{result}</div>}
+            {error && <div className="settings-message is-error">{error}</div>}
+          </SettingsSection>
+        )}
+
+        {activeTab === 'about' && (
+          <>
+            <SettingsSection
+              eyebrow="About"
+              title={t('settings.about')}
+              description="Application version and project information."
+            >
+              <div className="settings-action-row">
+                <span>Project</span>
+                <div>
+                <a
+                  href="https://github.com/ArthurMTX/Portfolium"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pf-button pf-button--secondary"
+                >
+                  {t('settings.viewOnGitHub')} →
+                </a>
+                </div>
+              </div>
+            </SettingsSection>
+            <VersionInfo />
+          </>
+        )}
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   )
 }

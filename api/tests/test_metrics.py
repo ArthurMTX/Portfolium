@@ -4,9 +4,10 @@ Tests for metrics calculation service
 import pytest
 from decimal import Decimal
 from datetime import date, datetime, timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from app.services.portfolio_analytics.metrics import MetricsService
+from app.services.platform.cache import CacheService
+from app.services.portfolio_analytics.metrics import INCOMPLETE_POSITION_CACHE_TTL_SECONDS, MetricsService
 from app.models import Asset, Transaction, TransactionType, Portfolio, Price
 from app.schemas import Position, PriceQuote
 
@@ -159,6 +160,41 @@ async def test_calculate_position_keeps_asset_visible_when_price_fx_conversion_f
     assert position.market_value is None
     assert position.unrealized_pnl is None
     assert position.daily_change_pct is None
+
+
+@pytest.mark.asyncio
+async def test_get_positions_uses_short_cache_ttl_when_active_valuation_is_incomplete(metrics_service):
+    """Transient price/FX failures should not leave null market values cached for 30 minutes."""
+    position = Position(
+        asset_id=1,
+        symbol="NVDA",
+        name="NVIDIA Corporation",
+        quantity=Decimal("2"),
+        avg_cost=Decimal("500"),
+        current_price=None,
+        market_value=None,
+        cost_basis=Decimal("1000"),
+        unrealized_pnl=None,
+        unrealized_pnl_pct=None,
+        daily_change_pct=None,
+        currency="EUR",
+        last_updated=datetime.utcnow(),
+    )
+
+    with patch('app.services.portfolio_analytics.metrics.get_cached_positions', return_value=None), \
+         patch('app.services.portfolio_analytics.metrics.cache_positions') as cache_positions_mock, \
+         patch.object(
+             metrics_service,
+             '_calculate_positions_internal',
+             new=AsyncMock(return_value=[position]),
+         ):
+        result = await metrics_service.get_positions(1)
+
+    assert result == [position]
+    cache_positions_mock.assert_called_once()
+    assert cache_positions_mock.call_args.args[0] == 1
+    assert cache_positions_mock.call_args.args[2] == INCOMPLETE_POSITION_CACHE_TTL_SECONDS
+    assert cache_positions_mock.call_args.args[2] < CacheService.TTL_POSITION
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,7 @@ import {
   periodLabel,
   toNumber,
 } from '@/features/insights/components/InsightsShared'
+import { ChartSkeleton } from '@/shared/components/StatePrimitives'
 import { useBenchmarkInsights, usePerformanceInsights } from '@/features/insights/components/useInsightQueries'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
@@ -105,7 +106,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="pf-metric-strip">
         {performanceDomainQuery.isLoading && <MetricCardSkeleton />}
         {!performanceDomainQuery.isLoading && summaryData && (
           <MetricCard
@@ -178,7 +179,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
         isEmpty={!benchmarkData || benchmarkData.portfolio_series.length === 0}
         emptyMessage="Benchmark history is not available for this period."
         onRetry={() => void benchmarkQuery.refetch()}
-        skeleton={<div className="h-80 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}
+        skeleton={<ChartSkeleton label="Loading benchmark chart" />}
       >
         <div className="h-80">
           <Line key={`${period}-${benchmark}`} data={chartData} options={chartOptions} />

@@ -1,15 +1,15 @@
-import { LucideIcon, Inbox } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { StateBlock } from '@/shared/components/StatePrimitives'
 
 interface WidgetEmptyStateProps {
   message?: string
-  icon?: LucideIcon
+  icon?: unknown
 }
 
 /**
  * Standardized widget empty state
  */
-export function WidgetEmptyState({ message, icon: Icon = Inbox }: WidgetEmptyStateProps) {
+export function WidgetEmptyState({ message }: WidgetEmptyStateProps) {
   const { t } = useTranslation()
   
   // Try to translate, fall back to original string
@@ -18,11 +18,10 @@ export function WidgetEmptyState({ message, icon: Icon = Inbox }: WidgetEmptySta
     : t('common.noData')
 
   return (
-    <div className="flex items-center justify-center p-8">
-      <div className="text-center text-neutral-500 dark:text-neutral-400">
-        <Icon size={32} className="mx-auto mb-2 opacity-50" />
-        <p className="text-sm">{displayMessage}</p>
-      </div>
-    </div>
+    <StateBlock
+      eyebrow="No data"
+      title={displayMessage}
+      description="Data will appear here when enough portfolio activity is available."
+    />
   )
 }

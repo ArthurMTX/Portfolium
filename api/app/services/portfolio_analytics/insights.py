@@ -46,6 +46,10 @@ from app.crud import prices as crud_prices
 logger = logging.getLogger(__name__)
 
 
+class EmptyPortfolioInsightsError(ValueError):
+    """Raised when insights are requested before a portfolio has positions."""
+
+
 @dataclass
 class PortfolioInsightsSnapshot:
     """Shared base data for domain-level Insights calculations."""
@@ -131,7 +135,9 @@ class InsightsService:
         positions = await self.metrics_service.get_positions(portfolio_id)
         
         if not positions:
-            raise ValueError("No positions found in portfolio. Please add transactions to see insights.")
+            raise EmptyPortfolioInsightsError(
+                "No positions found in portfolio. Please add transactions to see insights."
+            )
         
         # Calculate allocations (now async, with user-specific overrides)
         asset_allocation = await self.get_asset_allocation(portfolio_id)

@@ -1,5 +1,29 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Briefcase, ArrowLeftRight, Package, Settings, Moon, Sun, LineChart, User, LogOut, ChevronDown, ShieldCheck, Eye, TrendingUp, Menu, X, Wrench, BookText, Folder, Calendar, Tags, GitCompare } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  BookText,
+  Briefcase,
+  Calendar,
+  ChevronDown,
+  Eye,
+  Folder,
+  GitCompare,
+  Home,
+  LineChart,
+  LogOut,
+  Menu,
+  Moon,
+  Package,
+  Settings,
+  ShieldCheck,
+  Sun,
+  Tags,
+  TrendingUp,
+  User,
+  Wrench,
+  X,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/app/providers/AuthContext'
 import { useTranslation } from 'react-i18next'
@@ -9,20 +33,29 @@ import { VERSION } from '@/app/version'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api from '@/api'
 
+interface NavItem {
+  to: string
+  label: string
+  icon: LucideIcon
+  isActive: (pathname: string) => boolean
+}
+
 export default function Layout() {
   const location = useLocation()
   const [darkMode, setDarkMode] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false)
   const [pendingThemeSuggestions, setPendingThemeSuggestions] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const portfolioMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
   const { t } = useTranslation()
   const { portfolios, activePortfolioId, setActivePortfolio } = usePortfolioStore()
+  const activePortfolio = portfolios.find((portfolio) => portfolio.id === activePortfolioId) ?? portfolios[0]
 
   useEffect(() => {
-    // Check system preference
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setDarkMode(true)
       document.documentElement.classList.add('dark')
@@ -30,19 +63,24 @@ export default function Layout() {
   }, [])
 
   useEffect(() => {
-    // Close menus on click outside
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement
+
+      if (menuRef.current && !menuRef.current.contains(target)) {
         setUserMenuOpen(false)
       }
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
-        const target = event.target as HTMLElement
-        // Don't close if clicking the hamburger button
+
+      if (portfolioMenuRef.current && !portfolioMenuRef.current.contains(target)) {
+        setPortfolioMenuOpen(false)
+      }
+
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
         if (!target.closest('[data-mobile-menu-button]')) {
           setMobileMenuOpen(false)
         }
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
@@ -56,9 +94,10 @@ export default function Layout() {
       .catch(() => setPendingThemeSuggestions(0))
   }, [user?.is_admin, user?.is_superuser])
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false)
+    setPortfolioMenuOpen(false)
+    setUserMenuOpen(false)
   }, [location.pathname])
 
   const toggleDarkMode = () => {
@@ -71,261 +110,281 @@ export default function Layout() {
     setUserMenuOpen(false)
   }
 
-  const isActive = (path: string) => location.pathname === path
+  const navigationItems: NavItem[] = [
+    {
+      to: '/dashboard',
+      label: t('navigation.dashboard'),
+      icon: Home,
+      isActive: (pathname) => pathname === '/dashboard' || pathname === '/dashboard/widgets',
+    },
+    {
+      to: '/portfolios',
+      label: t('navigation.portfolios'),
+      icon: Briefcase,
+      isActive: (pathname) => pathname === '/portfolios',
+    },
+    {
+      to: '/charts',
+      label: t('navigation.charts'),
+      icon: LineChart,
+      isActive: (pathname) => pathname === '/charts',
+    },
+    {
+      to: '/calendar',
+      label: t('navigation.calendar'),
+      icon: Calendar,
+      isActive: (pathname) => pathname === '/calendar',
+    },
+    {
+      to: '/insights',
+      label: t('navigation.insights'),
+      icon: TrendingUp,
+      isActive: (pathname) => pathname === '/insights',
+    },
+    {
+      to: '/transactions',
+      label: t('navigation.transactions'),
+      icon: ArrowLeftRight,
+      isActive: (pathname) => pathname.startsWith('/transactions'),
+    },
+    {
+      to: '/allocation',
+      label: t('navigation.allocation'),
+      icon: Tags,
+      isActive: (pathname) => pathname === '/allocation',
+    },
+    {
+      to: '/assets',
+      label: t('navigation.assets'),
+      icon: Package,
+      isActive: (pathname) => pathname === '/assets' || pathname.startsWith('/assets/'),
+    },
+    {
+      to: '/watchlist',
+      label: t('navigation.watchlist'),
+      icon: Eye,
+      isActive: (pathname) => pathname === '/watchlist',
+    },
+  ]
+
+  const renderNavLink = ({ to, label, icon: Icon, isActive: itemIsActive }: NavItem, mobile = false) => {
+    const active = itemIsActive(location.pathname)
+    const className = mobile
+      ? `pf-mobile-nav-link ${active ? 'is-active' : ''}`
+      : `pf-nav-link ${active ? 'is-active' : ''}`
+
+    return (
+      <Link key={to} to={to} className={className} title={label} aria-current={active ? 'page' : undefined}>
+        <Icon aria-hidden="true" />
+        <span className={mobile ? '' : 'pf-nav-label'}>{label}</span>
+      </Link>
+    )
+  }
+
+  const selectPortfolio = (portfolioId: number) => {
+    setActivePortfolio(portfolioId)
+    setPortfolioMenuOpen(false)
+    setMobileMenuOpen(false)
+  }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <img src="/favicon.svg" alt="Portfolium" className="w-7 h-7" />
-            <h1 className="text-lg font-bold hidden sm:block">Portfolium</h1>
-          </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="pf-topbar">
+        <div className="pf-topbar__inner">
+          <Link to="/dashboard" className="pf-brand" aria-label="Portfolium">
+            <img src="/favicon.svg" alt="" className="pf-brand__logo" />
+            <span className="pf-brand__name">Portfolium</span>
+          </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 2xl:gap-3">
-            <Link
-              to="/dashboard"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/dashboard')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.dashboard')}
-            >
-              <Home size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.dashboard')}</span>
-            </Link>
-            <Link
-              to="/portfolios"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/portfolios')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.portfolios')}
-            >
-              <Briefcase size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.portfolios')}</span>
-            </Link>
-            <Link
-              to="/charts"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/charts')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.charts')}
-            >
-              <LineChart size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.charts')}</span>
-            </Link>
-            <Link
-              to="/calendar"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/calendar')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.calendar')}
-            >
-              <Calendar size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.calendar')}</span>
-            </Link>
-            <Link
-              to="/insights"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/insights')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.insights')}
-            >
-              <TrendingUp size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.insights')}</span>
-            </Link>
-            <Link
-              to="/transactions"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/transactions')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.transactions')}
-            >
-              <ArrowLeftRight size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.transactions')}</span>
-            </Link>
-            <Link
-              to="/assets"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/assets')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.assets')}
-            >
-              <Package size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.assets')}</span>
-            </Link>
-            <Link
-              to="/watchlist"
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                isActive('/watchlist')
-                  ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={t('navigation.watchlist')}
-            >
-              <Eye size={16} />
-              <span className="hidden xl:inline text-xs 2xl:text-sm">{t('navigation.watchlist')}</span>
-            </Link>
+          <nav className="pf-nav" aria-label={t('navigation.main', 'Main navigation')}>
+            {navigationItems.map((item) => renderNavLink(item))}
           </nav>
 
-          <div className="flex items-center gap-1.5 xl:gap-2">
-            {/* Portfolio Selector - Desktop */}
+          <div className="pf-topbar-actions">
             {portfolios.length > 0 && (
-              <div className="hidden lg:block max-w-[140px] xl:max-w-[180px] 2xl:max-w-[220px]">
-                <div className="relative">
-                  <Folder size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 pointer-events-none" />
-                  <select
-                    value={activePortfolioId ?? ''}
-                    onChange={(e) => setActivePortfolio(Number(e.target.value))}
-                    className="w-full pl-7 pr-1.5 py-1 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs 2xl:text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 dark:focus:ring-pink-400 truncate"
-                    aria-label="Select Portfolio"
-                    title={portfolios.find(p => p.id === activePortfolioId)?.name}
-                  >
-                    {portfolios.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="pf-workspace" ref={portfolioMenuRef}>
+                <button
+                  type="button"
+                  className="pf-workspace-trigger"
+                  onClick={() => {
+                    setPortfolioMenuOpen((open) => !open)
+                    setUserMenuOpen(false)
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={portfolioMenuOpen}
+                  title={activePortfolio?.name}
+                >
+                  <Folder aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="pf-workspace-trigger__label">{t('navigation.workspace', 'Workspace')}</span>
+                    <span className="pf-workspace-trigger__name">
+                      {activePortfolio?.name ?? t('portfolios.title', 'Portfolios')}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`transition-transform ${portfolioMenuOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {portfolioMenuOpen && (
+                  <div className="pf-workspace-menu" role="menu" aria-label={t('navigation.workspace', 'Workspace')}>
+                    <div className="pf-menu-header">
+                      <p className="pf-menu-title">{t('navigation.workspace', 'Workspace')}</p>
+                      <p className="pf-menu-subtitle">{activePortfolio?.name}</p>
+                    </div>
+                    <div className="pf-menu-section">
+                      {portfolios.map((portfolio) => {
+                        const active = portfolio.id === activePortfolio?.id
+                        return (
+                          <button
+                            key={portfolio.id}
+                            type="button"
+                            className={`pf-menu-item ${active ? 'is-active' : ''}`}
+                            onClick={() => selectPortfolio(portfolio.id)}
+                            role="menuitemradio"
+                            aria-checked={active}
+                          >
+                            <Folder aria-hidden="true" />
+                            <span className="min-w-0 flex-1 truncate">{portfolio.name}</span>
+                            {active && <span className="pf-menu-item__check" aria-hidden="true" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="pf-menu-divider" />
+                    <Link
+                      to="/portfolios"
+                      className="pf-menu-item"
+                      onClick={() => setPortfolioMenuOpen(false)}
+                      role="menuitem"
+                    >
+                      <Briefcase aria-hidden="true" />
+                      <span>{t('navigation.managePortfolios', 'Manage portfolios')}</span>
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Mobile menu button */}
             <button
               data-mobile-menu-button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="pf-icon-button lg:hidden"
               aria-label={t('navigation.toggleMenu')}
+              aria-expanded={mobileMenuOpen}
             >
-              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              {mobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
             </button>
 
             <button
+              type="button"
               onClick={toggleDarkMode}
-              className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="pf-icon-button"
               aria-label={t('navigation.toggleDarkMode')}
             >
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+              {darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
             </button>
 
-            {/* Notification Bell */}
             {user && <NotificationBell />}
 
-            {/* User Menu */}
             {user && (
               <div className="relative" ref={menuRef}>
                 <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen((open) => !open)
+                    setPortfolioMenuOpen(false)
+                  }}
+                  className="pf-nav-button gap-1.5 px-2"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  aria-label={t('navigation.profile')}
                 >
-                  <User size={16} />
-                  <span className="hidden sm:inline text-xs 2xl:text-sm font-medium">{user.username}</span>
-                  <ChevronDown size={16} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  <User aria-hidden="true" />
+                  <span className="hidden max-w-[8rem] truncate text-xs sm:inline">{user.username}</span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
+                  />
                 </button>
-                
+
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 z-50">
-                    <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-                      <p className="text-sm font-medium text-neutral-900 dark:text-white">{user.username}</p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{user.email}</p>
+                  <div className="pf-menu" role="menu" aria-label={t('navigation.profile')}>
+                    <div className="pf-menu-header">
+                      <p className="pf-menu-title">{user.username}</p>
+                      <p className="pf-menu-subtitle">{user.email}</p>
                       {!user.is_verified && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{t('auth.emailNotVerified')}</p>
+                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{t('auth.emailNotVerified')}</p>
                       )}
                     </div>
-                    <div className="py-1">
-                      <Link
-                        to="/profile"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                      >
-                        <User size={16} />
+
+                    <div className="pf-menu-section">
+                      <Link to="/profile" onClick={() => setUserMenuOpen(false)} className="pf-menu-item" role="menuitem">
+                        <User aria-hidden="true" />
                         {t('navigation.profile')}
                       </Link>
-                      <Link
-                        to="/settings"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                      >
-                        <Settings size={16} />
+                      <Link to="/settings" onClick={() => setUserMenuOpen(false)} className="pf-menu-item" role="menuitem">
+                        <Settings aria-hidden="true" />
                         {t('navigation.settings')}
                       </Link>
+                    </div>
+
                     {(user?.is_admin || user?.is_superuser) && (
                       <>
-                        <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-                        <Link
-                          to="/admin"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                        >
-                          <ShieldCheck size={16} />
-                          {t('navigation.adminDashboard')}
-                        </Link>
-                        <Link
-                          to="/admin/theme-taxonomy"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                        >
-                          <Tags size={16} />
-                          <span className="flex-1">Theme Suggestions</span>
-                          {pendingThemeSuggestions > 0 && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                              {pendingThemeSuggestions}
-                            </span>
-                          )}
-                        </Link>
-                        <Link
-                          to="/admin/classification-benchmark"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                        >
-                          <GitCompare size={16} />
-                          <span className="flex-1">Classification Benchmark</span>
-                        </Link>
-                        <Link
-                          to="/dev"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                        >
-                          <Wrench size={16} />
-                          {t('navigation.devTools')}
-                        </Link>
+                        <div className="pf-menu-divider" />
+                        <div className="pf-menu-section">
+                          <Link to="/admin" onClick={() => setUserMenuOpen(false)} className="pf-menu-item" role="menuitem">
+                            <ShieldCheck aria-hidden="true" />
+                            {t('navigation.adminDashboard')}
+                          </Link>
+                          <Link
+                            to="/admin/theme-taxonomy"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="pf-menu-item"
+                            role="menuitem"
+                          >
+                            <Tags aria-hidden="true" />
+                            <span className="flex-1">Theme Suggestions</span>
+                            {pendingThemeSuggestions > 0 && (
+                              <span className="pf-badge pf-badge--accent">{pendingThemeSuggestions}</span>
+                            )}
+                          </Link>
+                          <Link
+                            to="/admin/classification-benchmark"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="pf-menu-item"
+                            role="menuitem"
+                          >
+                            <GitCompare aria-hidden="true" />
+                            <span className="flex-1">Classification Benchmark</span>
+                          </Link>
+                          <Link to="/dev" onClick={() => setUserMenuOpen(false)} className="pf-menu-item" role="menuitem">
+                            <Wrench aria-hidden="true" />
+                            {t('navigation.devTools')}
+                          </Link>
+                        </div>
                       </>
                     )}
-                      <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-                      <LanguageSwitcher />
-                      <a
-                        href="/docs/"
-                        target='blank'
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                      >
-                        <BookText size={16} />
-                        {t('navigation.documentation')}
-                      </a>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                      >
-                        <LogOut size={16} />
-                        {t('navigation.logout')}
-                      </button>
-                    </div>
+
+                    <div className="pf-menu-divider" />
+                    <LanguageSwitcher />
+                    <a
+                      href="/docs/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="pf-menu-item"
+                      role="menuitem"
+                    >
+                      <BookText aria-hidden="true" />
+                      {t('navigation.documentation')}
+                    </a>
+                    <button type="button" onClick={handleLogout} className="pf-menu-item" role="menuitem">
+                      <LogOut aria-hidden="true" />
+                      {t('navigation.logout')}
+                    </button>
                   </div>
                 )}
               </div>
@@ -333,152 +392,65 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
-          <div ref={mobileMenuRef} className="lg:hidden border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-            <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
-              {/* Portfolio Selector - Mobile */}
+          <div ref={mobileMenuRef} className="pf-mobile-panel lg:hidden">
+            <nav className="pf-mobile-nav" aria-label={t('navigation.main', 'Main navigation')}>
               {portfolios.length > 0 && (
-                <div className="mb-2 pb-4 border-b border-neutral-200 dark:border-neutral-700">
-                  <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2 px-4">
-                    {t('dashboard.activePortfolios')}
-                  </label>
-                  <div className="relative px-4">
-                    <Folder size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 pointer-events-none" />
-                    <select
-                      value={activePortfolioId ?? ''}
-                      onChange={(e) => setActivePortfolio(Number(e.target.value))}
-                      className="w-full pl-9 pr-3 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm font-medium text-neutral-900 dark:text-neutral-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-500 dark:focus:ring-pink-400"
-                    >
-                      {portfolios.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
+                <div className="pf-mobile-workspace">
+                  <p className="pf-workspace-trigger__label mb-2">{t('navigation.workspace', 'Workspace')}</p>
+                  <div className="grid gap-1">
+                    {portfolios.map((portfolio) => {
+                      const active = portfolio.id === activePortfolio?.id
+                      return (
+                        <button
+                          key={portfolio.id}
+                          type="button"
+                          className={`pf-menu-item rounded-lg px-3 ${active ? 'is-active' : ''}`}
+                          onClick={() => selectPortfolio(portfolio.id)}
+                          aria-pressed={active}
+                        >
+                          <Folder aria-hidden="true" />
+                          <span className="min-w-0 flex-1 truncate">{portfolio.name}</span>
+                          {active && <span className="pf-menu-item__check" aria-hidden="true" />}
+                        </button>
+                      )
+                    })}
+                    <Link to="/portfolios" className="pf-menu-item rounded-lg px-3">
+                      <Briefcase aria-hidden="true" />
+                      <span>{t('navigation.managePortfolios', 'Manage portfolios')}</span>
+                    </Link>
                   </div>
                 </div>
               )}
 
-              <Link
-                to="/dashboard"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/dashboard')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <Home size={20} />
-                <span className="font-medium">{t('navigation.dashboard')}</span>
-              </Link>
-              <Link
-                to="/portfolios"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/portfolios')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <Briefcase size={20} />
-                <span className="font-medium">{t('navigation.portfolios')}</span>
-              </Link>
-              <Link
-                to="/charts"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/charts')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <LineChart size={20} />
-                <span className="font-medium">{t('navigation.charts')}</span>
-              </Link>
-              <Link
-                to="/calendar"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/calendar')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <Calendar size={20} />
-                <span className="font-medium">{t('navigation.calendar')}</span>
-              </Link>
-              <Link
-                to="/insights"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/insights')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <TrendingUp size={20} />
-                <span className="font-medium">{t('navigation.insights')}</span>
-              </Link>
-              <Link
-                to="/transactions"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/transactions')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <ArrowLeftRight size={20} />
-                <span className="font-medium">{t('navigation.transactions')}</span>
-              </Link>
-              <Link
-                to="/assets"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/assets')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <Package size={20} />
-                <span className="font-medium">{t('navigation.assets')}</span>
-              </Link>
-              <Link
-                to="/watchlist"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/watchlist')
-                    ? 'bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
-                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                <Eye size={20} />
-                <span className="font-medium">{t('navigation.watchlist')}</span>
-              </Link>
+              {navigationItems.map((item) => renderNavLink(item, true))}
             </nav>
           </div>
         )}
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="pf-app-main">
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <footer className="relative bg-gradient-to-br from-pink-50 via-white to-blue-50 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900 border-t border-neutral-200 dark:border-neutral-800 py-3 mt-8 shadow-inner">
-        <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex flex-col sm:flex-row items-center gap-2">
-            <div className="flex items-center gap-1 text-base font-semibold text-pink-600 dark:text-pink-400">
-              Portfolium
-            </div>
-            <span className="hidden sm:inline text-neutral-300 dark:text-neutral-700">•</span>
+      <footer className="mt-8 border-t border-neutral-200 bg-white py-3 dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-2 px-4 sm:flex-row">
+          <div className="flex flex-col items-center gap-2 sm:flex-row">
+            <div className="text-sm font-semibold tracking-tight text-pink-600 dark:text-pink-400">Portfolium</div>
+            <span className="hidden text-neutral-300 dark:text-neutral-700 sm:inline">•</span>
             <a
               href="https://github.com/ArthurMTX/Portfolium"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-pink-600 dark:hover:text-pink-400 transition-colors underline underline-offset-2"
+              className="inline-flex items-center gap-1 text-[11px] text-neutral-500 underline underline-offset-2 transition-colors hover:text-pink-600 dark:text-neutral-400 dark:hover:text-pink-400"
             >
-              <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" className="inline-block"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.34-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.987 1.029-2.687-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.594 1.028 2.687 0 3.847-2.337 4.695-4.566 4.944.36.31.68.921.68 1.857 0 1.34-.012 2.422-.012 2.753 0 .268.18.579.688.481C19.138 20.203 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"/></svg>
+              <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" className="inline-block" aria-hidden="true">
+                <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.34-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.987 1.029-2.687-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.594 1.028 2.687 0 3.847-2.337 4.695-4.566 4.944.36.31.68.921.68 1.857 0 1.34-.012 2.422-.012 2.753 0 .268.18.579.688.481C19.138 20.203 22 16.447 22 12.021 22 6.484 17.523 2 12 2z" />
+              </svg>
               <span>GitHub</span>
             </a>
           </div>
-          <div className="text-[10px] text-neutral-400 dark:text-neutral-600 font-mono">
-            v{VERSION}
-          </div>
+          <div className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">v{VERSION}</div>
         </div>
       </footer>
     </div>

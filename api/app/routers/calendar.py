@@ -40,6 +40,20 @@ def serialize_value(val: Any) -> Any:
     return val
 
 
+def extract_calendar_value(calendar_data: Dict[str, Any], *keys: str) -> Any:
+    """Return the first provider field value found, unwrapping common table/dict shapes."""
+    for key in keys:
+        value = calendar_data.get(key)
+        if value is None:
+            continue
+        if isinstance(value, dict):
+            return next((v for v in value.values() if v is not None), None)
+        if isinstance(value, (list, tuple)):
+            return next((v for v in value if v is not None), None)
+        return value
+    return None
+
+
 def get_held_stock_symbols(db: Session, portfolios: List[Portfolio]) -> Dict[str, Dict[str, Any]]:
     """
     Get all currently held stock symbols across portfolios.
@@ -548,14 +562,13 @@ def refresh_earnings_for_user(
             if not earnings_date:
                 continue
             
-            # Extract estimates
-            eps_estimate = calendar_data.get('Earnings Average') or calendar_data.get('EPS Estimate')
-            if isinstance(eps_estimate, dict):
-                eps_estimate = list(eps_estimate.values())[0] if eps_estimate else None
-                
-            revenue_estimate = calendar_data.get('Revenue Average') or calendar_data.get('Revenue Estimate')
-            if isinstance(revenue_estimate, dict):
-                revenue_estimate = list(revenue_estimate.values())[0] if revenue_estimate else None
+            # Extract available figures. Some providers only return estimates for
+            # future earnings; actuals/surprise are stored when present.
+            eps_estimate = extract_calendar_value(calendar_data, 'Earnings Average', 'EPS Estimate')
+            eps_actual = extract_calendar_value(calendar_data, 'Earnings Actual', 'EPS Actual', 'Reported EPS')
+            revenue_estimate = extract_calendar_value(calendar_data, 'Revenue Average', 'Revenue Estimate')
+            revenue_actual = extract_calendar_value(calendar_data, 'Revenue Actual', 'Reported Revenue')
+            surprise_pct = extract_calendar_value(calendar_data, 'Surprise(%)', 'Surprise %', 'EPS Surprise %', 'surprise_pct')
             
             # Serialize raw_data
             raw_data = {k: serialize_value(v) for k, v in calendar_data.items()}
@@ -568,7 +581,10 @@ def refresh_earnings_for_user(
             
             if existing:
                 existing.eps_estimate = serialize_value(eps_estimate)
+                existing.eps_actual = serialize_value(eps_actual)
                 existing.revenue_estimate = serialize_value(revenue_estimate)
+                existing.revenue_actual = serialize_value(revenue_actual)
+                existing.surprise_pct = serialize_value(surprise_pct)
                 existing.raw_data = raw_data
                 existing.fetched_at = datetime.utcnow()
                 existing.updated_at = datetime.utcnow()
@@ -577,7 +593,10 @@ def refresh_earnings_for_user(
                     symbol=symbol,
                     earnings_date=earnings_date,
                     eps_estimate=serialize_value(eps_estimate),
+                    eps_actual=serialize_value(eps_actual),
                     revenue_estimate=serialize_value(revenue_estimate),
+                    revenue_actual=serialize_value(revenue_actual),
+                    surprise_pct=serialize_value(surprise_pct),
                     raw_data=raw_data,
                     fetched_at=datetime.utcnow(),
                 )

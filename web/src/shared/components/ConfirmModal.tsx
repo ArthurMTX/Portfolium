@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-import LoadingSpinner from '@/shared/components/LoadingSpinner'
+import { InlineLoading } from '@/shared/components/StatePrimitives'
 
 interface ConfirmModalProps {
   isOpen: boolean
@@ -28,50 +29,99 @@ export default function ConfirmModal({
   loading = false,
   children,
 }: ConfirmModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+
+      if (event.key !== 'Tab' || !panelRef.current) return
+
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      )
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    requestAnimationFrame(() => {
+      const first = panelRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      first?.focus()
+    })
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
-  const variantStyles = {
-    danger: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
-    warning: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
-    info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
-  }
+  const confirmVariantClass = variant === 'danger' ? 'pf-modal-button--danger' : 'pf-modal-button--primary'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="pf-modal-overlay" role="presentation">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0"
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative z-10 w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-lg shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700">
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
-            {title}
-          </h3>
+      <div
+        ref={panelRef}
+        className="pf-modal-panel pf-modal-panel--sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+      >
+        <div className="pf-modal-header">
+          <div>
+            <h3 id="confirm-modal-title" className="pf-modal-title">
+              {title}
+            </h3>
+            <p className="pf-modal-description">{message}</p>
+          </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+            className="pf-modal-close"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4">
-          <p className="text-neutral-600 dark:text-neutral-300">{message}</p>
+        <div className="pf-modal-body pf-modal-body--compact">
           {children}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-4 border-t border-neutral-200 dark:border-neutral-700">
+        <div className="pf-modal-footer">
+          <div />
+          <div className="pf-modal-footer-actions">
           {cancelText && (
             <button
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="pf-modal-button pf-modal-button--secondary"
             >
               {cancelText}
             </button>
@@ -81,13 +131,11 @@ export default function ConfirmModal({
               onConfirm()
             }}
             disabled={loading}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
-              confirmButtonClass || variantStyles[variant]
-            }`}
+            className={`pf-modal-button ${confirmButtonClass || confirmVariantClass}`}
           >
-            {loading && <LoadingSpinner size="sm" />}
-            {confirmText}
+            {loading ? <InlineLoading label={confirmText} /> : confirmText}
           </button>
+          </div>
         </div>
       </div>
     </div>

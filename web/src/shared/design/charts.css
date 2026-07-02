@@ -1,0 +1,30 @@
+@layer components {
+  .pf-chart-card,
+  .pf-chart-container {
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-lg);
+    background: var(--pf-surface-raised);
+  }
+
+  .pf-chart-card {
+    @apply p-4;
+  }
+
+  .pf-chart-header {
+    @apply mb-4 flex items-start justify-between gap-3;
+  }
+
+  .pf-chart-actions,
+  .pf-chart-legend {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .pf-chart-legend-item {
+    @apply inline-flex items-center gap-1.5 text-xs font-semibold;
+    color: var(--pf-muted);
+  }
+
+  .pf-chart-legend-swatch {
+    @apply h-2 w-2 rounded-full;
+  }
+}

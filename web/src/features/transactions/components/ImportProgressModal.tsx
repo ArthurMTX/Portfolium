@@ -181,11 +181,10 @@ export default function ImportProgressModal({
   const progressPercent = total > 0 ? (progress / total) * 100 : 0
 
   return (
-    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="card p-6 max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
-          <h2 className="text-xl font-bold flex items-center gap-2">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel pf-modal-panel--lg flex flex-col" role="dialog" aria-modal="true">
+        <div className="pf-modal-header flex-shrink-0">
+          <h2 className="pf-modal-title flex items-center gap-2">
             {status === 'importing' && (
               <>
                 <LoadingSpinner variant="icon" size="sm" />
@@ -208,7 +207,8 @@ export default function ImportProgressModal({
           {status !== 'importing' && (
             <button
               onClick={onClose}
-              className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+              className="pf-modal-close"
+              aria-label={t('common.close')}
             >
               <X size={20} />
             </button>
@@ -216,14 +216,14 @@ export default function ImportProgressModal({
         </div>
 
         {/* Progress Bar */}
-        <div className="mb-4 flex-shrink-0">
+        <div className="px-5 py-4 flex-shrink-0">
           <div className="flex justify-between text-sm mb-1">
             <span>{t('importProgressModal.progress')}: {progress} / {total}</span>
             <span>{progressPercent.toFixed(0)}%</span>
           </div>
-          <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
+          <div className="w-full bg-neutral-900 rounded-full h-2">
             <div
-              className="bg-pink-600 h-2.5 rounded-full transition-all duration-300"
+              className="bg-pink-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             ></div>
           </div>
@@ -231,7 +231,7 @@ export default function ImportProgressModal({
 
         {/* Summary */}
         {result && (
-          <div className="mb-4 p-3 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex-shrink-0">
+          <div className="mx-5 mb-4 pf-modal-muted-box flex-shrink-0">
             <div className="text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="font-medium">{t('importProgressModal.imported')}:</span>
@@ -260,12 +260,12 @@ export default function ImportProgressModal({
         )}
 
         {/* Logs */}
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="px-5 pb-5 flex-1 min-h-0 flex flex-col">
           <h3 className="text-sm font-semibold mb-2 text-neutral-700 dark:text-neutral-300 flex items-center justify-between flex-shrink-0">
             <span>{t('importProgressModal.importLog')}</span>
             <span className="text-xs text-neutral-500 font-normal">({t('importProgressModal.latestFirst')})</span>
           </h3>
-          <div className="flex-1 overflow-y-auto space-y-1 text-sm font-mono bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg">
+          <div className="flex-1 overflow-y-auto space-y-1 text-sm font-mono bg-neutral-900 p-3 rounded-xl border border-neutral-800">
             {logs.map((log, idx) => (
               <div
                 key={idx}
@@ -291,7 +291,7 @@ export default function ImportProgressModal({
 
         {/* Errors and Warnings Details */}
         {result && ((result.errors && result.errors.length > 0) || (result.warnings && result.warnings.length > 0)) && (
-          <div className="mt-4 space-y-2 flex-shrink-0 max-h-48 overflow-y-auto">
+          <div className="mx-5 mb-5 space-y-2 flex-shrink-0 max-h-48 overflow-y-auto">
             {result.errors && result.errors.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">
@@ -326,10 +326,13 @@ export default function ImportProgressModal({
 
         {/* Action Buttons */}
         {status !== 'importing' && (
-          <div className="mt-4 flex justify-end gap-2 flex-shrink-0">
-            <button onClick={onClose} className="btn-primary">
+          <div className="pf-modal-footer flex-shrink-0">
+            <div />
+            <div className="pf-modal-footer-actions">
+            <button onClick={onClose} className="pf-modal-button pf-modal-button--primary">
               {t('common.close')}
             </button>
+            </div>
           </div>
         )}
       </div>

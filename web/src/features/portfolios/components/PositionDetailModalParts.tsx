@@ -89,7 +89,7 @@ interface PositionDetailHeaderProps {
 
 export function PositionDetailHeader({ position, onClose }: PositionDetailHeaderProps) {
   return (
-    <div className="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-8 py-6 flex items-center justify-between z-10">
+    <div className="pf-modal-header sticky top-0 bg-neutral-950 z-10">
       <div className="flex items-center gap-3">
         <AssetLogo
           symbol={position.symbol}
@@ -101,17 +101,18 @@ export function PositionDetailHeader({ position, onClose }: PositionDetailHeader
         />
 
         <div className="flex flex-col">
-          <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+          <h2 className="pf-modal-title">
             {position.symbol}
           </h2>
-          <p className="text-base text-neutral-500 dark:text-neutral-400">
+          <p className="pf-modal-description">
             {position.name}
           </p>
         </div>
       </div>
       <button
         onClick={onClose}
-        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+        className="pf-modal-close"
+        aria-label="Close"
       >
         <X size={20} className="text-neutral-500 dark:text-neutral-400" />
       </button>

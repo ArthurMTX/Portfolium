@@ -1,0 +1,486 @@
+.transactions-group > h2 {
+  margin: 0 0 0.75rem;
+  color: var(--pf-muted);
+  font-size: 0.72rem;
+  font-weight: 820;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.transactions-notice {
+  margin-bottom: 1rem;
+  border: 1px solid var(--pf-line);
+  border-radius: 1rem;
+  padding: 1rem;
+  font-weight: 650;
+}
+
+.transactions-notice.is-success {
+  color: var(--pf-success);
+}
+
+.transactions-notice.is-error {
+  color: var(--pf-danger);
+}
+
+.transactions-controls {
+  justify-content: flex-end;
+}
+
+.transactions-count {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  color: var(--pf-subtle);
+  font-size: 0.9rem;
+}
+
+.transactions-count strong {
+  color: var(--pf-ink);
+}
+
+.transactions-timeline {
+  margin-top: 0.85rem;
+}
+
+.transactions-group {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: clamp(1.25rem, 3vw, 3rem);
+  padding: 1.6rem 0;
+  border-top: 1px solid var(--pf-line);
+}
+
+.transactions-period {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+}
+
+.transactions-group:first-child {
+  border-top: 0;
+}
+
+.transactions-month-summary {
+  display: grid;
+  gap: 0.55rem;
+  color: var(--pf-subtle);
+}
+
+.transactions-month-summary p {
+  margin: 0 0 0.25rem;
+  color: var(--pf-muted);
+  font-size: 0.9rem;
+  font-weight: 720;
+}
+
+.transactions-month-summary div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.transactions-month-summary span {
+  color: var(--pf-ink);
+  font-size: 0.98rem;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+}
+
+.transactions-month-summary em {
+  color: var(--pf-subtle);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 790;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.transactions-net-flow {
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--pf-line);
+  padding-top: 0.75rem;
+}
+
+.transactions-net-flow strong {
+  color: var(--pf-accent);
+  font-size: 1.22rem;
+  font-weight: 820;
+  letter-spacing: -0.05em;
+}
+
+.transactions-events {
+  display: grid;
+  gap: 0;
+}
+
+.transactions-event {
+  position: relative;
+  padding: 1.05rem 2.75rem 1.05rem 0;
+  border-bottom: 1px solid var(--pf-line);
+  cursor: pointer;
+}
+
+.transactions-event:first-child {
+  padding-top: 0;
+}
+
+.transactions-event:focus {
+  outline: 2px solid var(--pf-focus-ring);
+  outline-offset: 0.35rem;
+}
+
+.transactions-event-main {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(300px, 1.25fr) minmax(160px, 0.45fr);
+  gap: clamp(1rem, 2.5vw, 2rem);
+  align-items: center;
+}
+
+.transactions-asset {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.transactions-asset img {
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.transactions-asset span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.transactions-asset strong {
+  overflow: hidden;
+  color: var(--pf-ink);
+  font-size: 1.02rem;
+  font-weight: 790;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transactions-asset em {
+  color: var(--pf-subtle);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.transactions-asset:hover strong {
+  color: var(--pf-accent);
+}
+
+.transactions-story {
+  min-width: 0;
+}
+
+.transactions-type {
+  margin: 0 0 0.3rem;
+  color: var(--pf-subtle);
+  font-size: 0.72rem;
+  font-weight: 820;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.transactions-type.is-buy,
+.transactions-type.is-conversion-in {
+  color: var(--pf-success);
+}
+
+.transactions-type.is-sell,
+.transactions-type.is-conversion-out,
+.transactions-type.is-fee {
+  color: var(--pf-danger);
+}
+
+.transactions-type.is-dividend {
+  color: var(--pf-warning);
+}
+
+.transactions-type.is-split {
+  color: var(--pf-accent);
+}
+
+.transactions-story h3 {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+}
+
+.transactions-story > p:last-of-type {
+  margin: 0.35rem 0 0;
+  color: var(--pf-muted);
+  font-size: 0.92rem;
+}
+
+.transactions-ownership-sentence {
+  margin: 0.35rem 0 0;
+  color: var(--pf-muted);
+  font-size: 0.94rem;
+  font-weight: 650;
+}
+
+.transactions-fee-sentence {
+  margin: 0.3rem 0 0;
+  color: var(--pf-danger);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.transactions-note-sentence {
+  margin: 0.35rem 0 0;
+  color: var(--pf-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.transactions-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.transactions-context span {
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  padding: 0.18rem 0.48rem;
+  color: var(--pf-muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.transactions-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.transactions-meta strong {
+  color: var(--pf-ink);
+  font-size: 1.05rem;
+  font-weight: 790;
+  letter-spacing: -0.035em;
+}
+
+.transactions-meta span {
+  color: var(--pf-subtle);
+  font-size: 0.78rem;
+}
+
+.transactions-overflow {
+  position: absolute;
+  top: 1rem;
+  right: 0;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.transactions-event:hover .transactions-overflow,
+.transactions-overflow:focus-within {
+  opacity: 1;
+}
+
+.transactions-overflow-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: var(--pf-canvas);
+  color: var(--pf-muted);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.transactions-overflow-button:hover {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-ink);
+}
+
+.transactions-overflow-menu {
+  position: absolute;
+  top: 2.35rem;
+  right: 0;
+  display: grid;
+  min-width: 190px;
+  border: 1px solid var(--pf-line);
+  border-radius: 0.9rem;
+  background: var(--pf-canvas);
+  padding: 0.4rem;
+  box-shadow: var(--pf-shadow-menu);
+}
+
+.transactions-overflow-menu button {
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  color: var(--pf-muted);
+  text-align: left;
+  font-size: 0.84rem;
+  font-weight: 690;
+}
+
+.transactions-overflow-menu button:hover {
+  background: var(--pf-inset);
+  color: var(--pf-ink);
+}
+
+.transactions-overflow-menu button:disabled {
+  cursor: not-allowed;
+  color: var(--pf-subtle);
+}
+
+.transactions-details {
+  margin: 1rem 0 0;
+  padding: 1rem 0 0 3.4rem;
+  border-top: 1px solid var(--pf-line);
+}
+
+.transactions-details dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem 1.5rem;
+  margin: 0;
+}
+
+.transactions-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.24rem;
+}
+
+.transactions-details dt {
+  color: var(--pf-subtle);
+  font-size: 0.72rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.transactions-details dd {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: 0.9rem;
+  font-weight: 690;
+}
+
+.transactions-empty {
+  display: grid;
+  place-items: center;
+  min-height: 20rem;
+  text-align: center;
+}
+
+.transactions-empty h2 {
+  max-width: 620px;
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+}
+
+.transactions-empty p {
+  margin: 0.85rem 0 1.2rem;
+  color: var(--pf-subtle);
+}
+
+.transactions-loading {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.transactions-loading span {
+  display: block;
+  height: 5.5rem;
+  border-radius: 1rem;
+  background: var(--pf-line);
+  animation: transactions-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes transactions-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1180px) {
+    .transactions-controls {
+    justify-content: flex-start;
+  }
+
+  .transactions-event-main {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .transactions-meta {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+@media (max-width: 780px) {
+  .transactions-group {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .transactions-month-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transactions-event {
+    border: 1px solid var(--pf-line);
+    border-radius: 1.1rem;
+    margin-bottom: 0.9rem;
+    padding: 1rem 3.25rem 1rem 1rem;
+  }
+
+  .transactions-overflow {
+    opacity: 1;
+    right: 0.75rem;
+  }
+
+  .transactions-details {
+    padding-left: 0;
+  }
+
+  .transactions-details dl {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .transactions-overflow {
+    opacity: 1;
+  }
+}

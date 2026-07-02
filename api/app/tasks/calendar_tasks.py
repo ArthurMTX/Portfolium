@@ -29,6 +29,20 @@ def serialize_value(val: Any) -> Any:
     return val
 
 
+def extract_calendar_value(calendar_data: Dict[str, Any], *keys: str) -> Any:
+    """Return the first provider field value found, unwrapping common table/dict shapes."""
+    for key in keys:
+        value = calendar_data.get(key)
+        if value is None:
+            continue
+        if isinstance(value, dict):
+            return next((v for v in value.values() if v is not None), None)
+        if isinstance(value, (list, tuple)):
+            return next((v for v in value if v is not None), None)
+        return value
+    return None
+
+
 def fetch_earnings_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     """
     Fetch earnings data from the market data provider for a single symbol.
@@ -78,19 +92,21 @@ def fetch_earnings_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         if not earnings_date:
             return None
             
-        # Extract estimates
-        eps_estimate = calendar_data.get('Earnings Average') or calendar_data.get('EPS Estimate')
-        if isinstance(eps_estimate, dict):
-            eps_estimate = list(eps_estimate.values())[0] if eps_estimate else None
-            
-        revenue_estimate = calendar_data.get('Revenue Average') or calendar_data.get('Revenue Estimate')
-        if isinstance(revenue_estimate, dict):
-            revenue_estimate = list(revenue_estimate.values())[0] if revenue_estimate else None
+        # Extract available figures. Some providers only return estimates for future
+        # earnings; actuals/surprise are stored when present in the payload.
+        eps_estimate = extract_calendar_value(calendar_data, 'Earnings Average', 'EPS Estimate')
+        eps_actual = extract_calendar_value(calendar_data, 'Earnings Actual', 'EPS Actual', 'Reported EPS')
+        revenue_estimate = extract_calendar_value(calendar_data, 'Revenue Average', 'Revenue Estimate')
+        revenue_actual = extract_calendar_value(calendar_data, 'Revenue Actual', 'Reported Revenue')
+        surprise_pct = extract_calendar_value(calendar_data, 'Surprise(%)', 'Surprise %', 'EPS Surprise %', 'surprise_pct')
         
         return {
             "earnings_date": earnings_date,
             "eps_estimate": serialize_value(eps_estimate),
+            "eps_actual": serialize_value(eps_actual),
             "revenue_estimate": serialize_value(revenue_estimate),
+            "revenue_actual": serialize_value(revenue_actual),
+            "surprise_pct": serialize_value(surprise_pct),
             "raw_data": {k: serialize_value(v) for k, v in calendar_data.items()},
         }
         
@@ -150,7 +166,10 @@ def refresh_earnings_cache(self) -> dict:
                         if existing:
                             # Update existing entry
                             existing.eps_estimate = earnings_data.get("eps_estimate")
+                            existing.eps_actual = earnings_data.get("eps_actual")
                             existing.revenue_estimate = earnings_data.get("revenue_estimate")
+                            existing.revenue_actual = earnings_data.get("revenue_actual")
+                            existing.surprise_pct = earnings_data.get("surprise_pct")
                             existing.raw_data = earnings_data.get("raw_data")
                             existing.fetched_at = datetime.utcnow()
                             existing.updated_at = datetime.utcnow()
@@ -160,7 +179,10 @@ def refresh_earnings_cache(self) -> dict:
                                 symbol=symbol,
                                 earnings_date=earnings_date,
                                 eps_estimate=earnings_data.get("eps_estimate"),
+                                eps_actual=earnings_data.get("eps_actual"),
                                 revenue_estimate=earnings_data.get("revenue_estimate"),
+                                revenue_actual=earnings_data.get("revenue_actual"),
+                                surprise_pct=earnings_data.get("surprise_pct"),
                                 raw_data=earnings_data.get("raw_data"),
                                 fetched_at=datetime.utcnow(),
                             )
@@ -218,7 +240,10 @@ def refresh_symbol_earnings(self, symbol: str) -> dict:
             
             if existing:
                 existing.eps_estimate = earnings_data.get("eps_estimate")
+                existing.eps_actual = earnings_data.get("eps_actual")
                 existing.revenue_estimate = earnings_data.get("revenue_estimate")
+                existing.revenue_actual = earnings_data.get("revenue_actual")
+                existing.surprise_pct = earnings_data.get("surprise_pct")
                 existing.raw_data = earnings_data.get("raw_data")
                 existing.fetched_at = datetime.utcnow()
                 existing.updated_at = datetime.utcnow()
@@ -227,7 +252,10 @@ def refresh_symbol_earnings(self, symbol: str) -> dict:
                     symbol=symbol,
                     earnings_date=earnings_date,
                     eps_estimate=earnings_data.get("eps_estimate"),
+                    eps_actual=earnings_data.get("eps_actual"),
                     revenue_estimate=earnings_data.get("revenue_estimate"),
+                    revenue_actual=earnings_data.get("revenue_actual"),
+                    surprise_pct=earnings_data.get("surprise_pct"),
                     raw_data=earnings_data.get("raw_data"),
                     fetched_at=datetime.utcnow(),
                 )

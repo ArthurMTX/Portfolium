@@ -797,6 +797,10 @@ class Position(BaseModel):
     relative_perf_1y: Optional[Decimal] = None  # 1-year relative performance vs sector ETF
     sector: Optional[str] = None  # Asset sector for reference
     industry: Optional[str] = None  # Asset industry for reference
+    country: Optional[str] = None  # Asset country for reference
+    effective_sector: Optional[str] = None  # Sector with user override fallback
+    effective_industry: Optional[str] = None  # Industry with user override fallback
+    effective_country: Optional[str] = None  # Country with user override fallback
     sector_etf: Optional[str] = None  # Benchmark ETF symbol
     currency: str
     last_updated: Optional[datetime]

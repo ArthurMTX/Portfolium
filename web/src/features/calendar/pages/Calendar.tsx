@@ -1,11 +1,28 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, BarChart3, RefreshCw, Eye } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RefreshCw, Eye } from 'lucide-react'
 import { api, DailyPerformanceDay, EarningsEvent, MarketHolidaysResponse } from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
+import { ChartSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
+import {
+  PageAsideColumn,
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageSection,
+  PageSectionHeader,
+  PageShell,
+  PageSummaryPanel,
+  PageTabs,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
 import { useTranslation } from 'react-i18next'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import '@/shared/design/pages/calendar.css'
 
 type CalendarTab = 'overview' | 'earnings'
 
@@ -23,6 +40,40 @@ interface CalendarDay {
   earnings: EarningsEvent[]
 }
 
+function formatDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function formatCompactDate(dateValue: string, locale: string): string {
+  return new Date(dateValue).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+}
+
+function getDaysRemaining(dateValue: string): string {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(dateValue)
+  target.setHours(0, 0, 0, 0)
+  const days = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  return `${days} days`
+}
+
+function formatRevenueEstimate(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return '—'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return String(value)
+  if (Math.abs(numeric) >= 1e9) return `$${(numeric / 1e9).toFixed(2)}B`
+  if (Math.abs(numeric) >= 1e6) return `$${(numeric / 1e6).toFixed(1)}M`
+  return `$${numeric.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+}
+
+function getPortfolioExposureLabel(earning: EarningsEvent): string {
+  if (earning.portfolios.length === 0) return 'Portfolio'
+  if (earning.portfolios.length === 1) return earning.portfolios[0].name
+  return `${earning.portfolios.length} portfolios`
+}
+
 export default function Calendar() {
   const { portfolios, activePortfolioId, setPortfolios, setActivePortfolio } = usePortfolioStore()
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -34,6 +85,7 @@ export default function Calendar() {
   const [earnings, setEarnings] = useState<EarningsEvent[]>([])
   const [marketHolidays, setMarketHolidays] = useState<MarketHolidaysResponse | null>(null)
   const [showWatchlistEarnings, setShowWatchlistEarnings] = useState(true)
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
   const { t, i18n } = useTranslation()
 
   const currentLocale = i18n.language || 'en-US'
@@ -260,16 +312,6 @@ export default function Calendar() {
     setCurrentDate(new Date())
   }
 
-  // Get color class based on performance
-  const getPerformanceColor = (changePct: number): string => {
-    if (changePct > 2) return 'bg-green-500 dark:bg-green-600'
-    if (changePct > 0.5) return 'bg-green-400 dark:bg-green-500'
-    if (changePct > 0) return 'bg-green-300 dark:bg-green-400'
-    if (changePct > -0.5) return 'bg-red-300 dark:bg-red-400'
-    if (changePct > -2) return 'bg-red-400 dark:bg-red-500'
-    return 'bg-red-500 dark:bg-red-600'
-  }
-
   // Calculate month stats
   const monthStats = useMemo(() => {
     const monthDays = calendarDaysFiltered.filter(d => d.isCurrentMonth && d.performance)
@@ -324,586 +366,465 @@ export default function Calendar() {
     setShowWatchlistEarnings(prev => !prev)
   }, [])
 
+  const todayKey = useMemo(() => formatDateKey(new Date()), [])
+  const effectiveSelectedDateKey = selectedDateKey || todayKey
+  const selectedDay = useMemo(() => {
+    return calendarDaysFiltered.find(day => formatDateKey(day.date) === effectiveSelectedDateKey)
+      || calendarDaysFiltered.find(day => day.isToday)
+      || calendarDaysFiltered.find(day => day.isCurrentMonth)
+      || calendarDaysFiltered[0]
+  }, [calendarDaysFiltered, effectiveSelectedDateKey])
+
+  const earningsThisWeek = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const endOfWeek = new Date(today)
+    endOfWeek.setDate(today.getDate() + 7)
+    return filteredEarnings.filter((earning) => {
+      if (!earning.is_future) return false
+      const earningDate = new Date(earning.date)
+      return earningDate >= today && earningDate <= endOfWeek
+    }).length
+  }, [filteredEarnings])
+
+  const nextPortfolioCatalyst = useMemo(() => {
+    return upcomingEarningsList.find(earning => earning.source !== 'watchlist') || upcomingEarningsList[0] || null
+  }, [upcomingEarningsList])
+
+  const largestReportingHolding = useMemo(() => {
+    return upcomingEarningsList.find(earning => earning.source !== 'watchlist') || null
+  }, [upcomingEarningsList])
+
+  const groupedUpcomingEarnings = useMemo(() => {
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const thisWeekEnd = new Date(now)
+    thisWeekEnd.setDate(now.getDate() + 7)
+    const nextWeekEnd = new Date(now)
+    nextWeekEnd.setDate(now.getDate() + 14)
+    const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+
+    const groups: Array<{ key: string; title: string; items: EarningsEvent[] }> = [
+      { key: 'this-week', title: 'This week', items: [] },
+      { key: 'next-week', title: 'Next week', items: [] },
+      { key: 'later-this-month', title: 'Later this month', items: [] },
+      { key: 'later', title: 'Later', items: [] },
+    ]
+
+    upcomingEarningsList.forEach((earning) => {
+      const earningDate = new Date(earning.date)
+      if (earningDate <= thisWeekEnd) groups[0].items.push(earning)
+      else if (earningDate <= nextWeekEnd) groups[1].items.push(earning)
+      else if (earningDate <= currentMonthEnd) groups[2].items.push(earning)
+      else groups[3].items.push(earning)
+    })
+
+    return groups.filter(group => group.items.length > 0)
+  }, [currentDate, upcomingEarningsList])
+
+  const recentReportedEarnings = useMemo(() => pastEarningsList.slice(0, 10), [pastEarningsList])
+
   if (portfolios.length === 0 || !activePortfolioId) {
     return <EmptyPortfolioPrompt pageType="calendar" />
   }
 
   const monthName = currentDate.toLocaleDateString(currentLocale, { month: 'long', year: 'numeric' })
+  const monthDays = calendarDaysFiltered.filter(d => d.isCurrentMonth && d.performance)
+  const totalChangePct = monthDays.reduce((sum, d) => sum + d.performance!.total_change_pct, 0)
+  const watchlistEarningsCount = filteredEarnings.filter(earning => earning.source === 'watchlist' && earning.is_future).length
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <CalendarIcon className="text-pink-600" size={32} />
-            {t('calendar.title', 'Calendar')}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            {t('calendar.subtitle', 'Track your daily performance and upcoming earnings')}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={refreshEarningsCache}
-            disabled={refreshing}
-            className="btn btn-secondary flex items-center gap-2 text-sm"
-            title={t('calendar.refreshEarnings', 'Fetch latest earnings data from market')}
-          >
-            <BarChart3 size={16} className={refreshing ? 'animate-pulse' : ''} />
-            {t('calendar.refreshEarnings', 'Refresh Earnings')}
-          </button>
-          <button
-            onClick={() => loadMonthData(currentDate, true)}
-            disabled={refreshing}
-            className="btn btn-secondary flex items-center gap-2"
-          >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            {t('common.refresh')}
-          </button>
-        </div>
-      </div>
+    <PageShell className="calendar">
+      <PageHeader>
+        <PageTitleBlock kicker="Calendar" title="Portfolio timeline" />
+        <PageSummaryPanel
+          lead={monthName}
+          description="Performance days, earnings events and market closures for the active portfolio."
+          actions={
+            <>
+              <button className="pf-button pf-button--secondary" type="button" onClick={refreshEarningsCache} disabled={refreshing}>
+                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+                {t('calendar.refreshEarnings', 'Refresh Earnings')}
+              </button>
+              <button className="pf-button pf-button--secondary" type="button" onClick={() => loadMonthData(currentDate, true)} disabled={refreshing}>
+                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+                {t('common.refresh')}
+              </button>
+            </>
+          }
+        />
+      </PageHeader>
 
-      {/* Tabs */}
-      <div className="card">
-        <div className="flex border-b border-neutral-200 dark:border-neutral-800">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${
-              activeTab === 'overview'
-                ? 'text-pink-600 border-b-2 border-pink-600'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
-          >
-            <CalendarIcon size={18} />
-            {t('calendar.tabs.overview', 'Calendar Overview')}
-          </button>
-          <button
-            onClick={() => setActiveTab('earnings')}
-            className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${
-              activeTab === 'earnings'
-                ? 'text-pink-600 border-b-2 border-pink-600'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
-          >
-            <BarChart3 size={18} />
-            {t('calendar.tabs.earnings', 'Earnings Calendar')}
-            {upcomingEarningsList.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-400 rounded-full">
-                {upcomingEarningsList.length}
-              </span>
-            )}
-          </button>
-        </div>
+      <PageMetricStrip label="Calendar context">
+        <PageMetric label="Current month" value={monthName} />
+        <PageMetric label="Upcoming earnings" value={monthStats.upcomingEarnings} />
+        <PageMetric label="Earnings this week" value={earningsThisWeek} />
+        <PageMetric label="Positive trading days" value={monthStats.positiveDays} tone="positive" />
+        <PageMetric label="Negative trading days" value={monthStats.negativeDays} tone="negative" />
+      </PageMetricStrip>
 
-        {loading ? (
-          <div className="p-4 animate-pulse">
-            {/* Skeleton Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-neutral-100 dark:bg-neutral-800 rounded-lg p-4">
-                  <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-24 mb-2"></div>
-                  <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-16"></div>
-                </div>
-              ))}
-            </div>
-            {/* Skeleton Calendar Navigation */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg w-10"></div>
-                <div className="h-6 bg-neutral-200 dark:bg-neutral-700 rounded w-32"></div>
-                <div className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded-lg w-10"></div>
-              </div>
-              <div className="h-9 bg-neutral-200 dark:bg-neutral-700 rounded-lg w-20"></div>
-            </div>
-            {/* Skeleton Calendar Grid */}
-            <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
-              <div className="grid grid-cols-5 bg-neutral-50 dark:bg-neutral-800">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => (
-                  <div key={day} className="px-2 py-2 text-center border-b border-neutral-200 dark:border-neutral-700">
-                    <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-8 mx-auto"></div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-5">
-                {[...Array(25)].map((_, i) => (
-                  <div key={i} className="min-h-[110px] p-2 border-b border-r border-neutral-200 dark:border-neutral-700">
-                    <div className="h-5 bg-neutral-200 dark:bg-neutral-700 rounded w-6 mb-2"></div>
-                    <div className="space-y-1">
-                      <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-12"></div>
-                      <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-10"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-500">
-            <p>{error}</p>
+      <PageControls
+        label="Calendar views"
+        start={
+          <PageTabs label="Calendar views">
             <button
-              onClick={() => loadMonthData(currentDate, true)}
-              className="mt-4 btn btn-secondary"
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={activeTab === 'overview' ? 'is-active' : ''}
             >
-              {t('common.tryAgain')}
+              {t('calendar.tabs.overview', 'Calendar Overview')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('earnings')}
+              className={activeTab === 'earnings' ? 'is-active' : ''}
+            >
+              {t('calendar.tabs.earnings', 'Earnings Calendar')}
+              {upcomingEarningsList.length > 0 && <span>{upcomingEarningsList.length}</span>}
+            </button>
+          </PageTabs>
+        }
+        end={
+          <div className="calendar__earnings-controls">
+            <button
+              type="button"
+              onClick={toggleWatchlistEarnings}
+              className={showWatchlistEarnings ? 'is-active' : ''}
+              title={t('calendar.toggleWatchlist', 'Toggle watchlist earnings')}
+            >
+              <Eye size={15} />
+              {t('calendar.watchlist', 'Watchlist')}
             </button>
           </div>
-        ) : activeTab === 'overview' ? (
-          <div className="p-4">
-            {/* Month Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <TrendingUp size={18} />
-                  <span className="text-sm font-medium">{t('calendar.stats.positiveDays', 'Positive Days')}</span>
-                </div>
-                <p className="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">
-                  {monthStats.positiveDays}
-                </p>
-              </div>
-              <div className="bg-red-50 dark:bg-red-950 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                  <TrendingDown size={18} />
-                  <span className="text-sm font-medium">{t('calendar.stats.negativeDays', 'Negative Days')}</span>
-                </div>
-                <p className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
-                  {monthStats.negativeDays}
-                </p>
-              </div>
-              <div className={`rounded-lg p-4 ${monthStats.totalChange >= 0 ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'}`}>
-                <div className={`flex items-center gap-2 ${monthStats.totalChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  <DollarSign size={18} />
-                  <span className="text-sm font-medium">{t('calendar.stats.monthChange', 'Month Change')}</span>
-                </div>
-                <div className="mt-1">
-                  <p className={`text-2xl font-bold ${monthStats.totalChange >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                    {monthStats.totalChange >= 0 ? '+' : ''}{(() => {
-                      const monthDays = calendarDaysFiltered.filter(d => d.isCurrentMonth && d.performance)
-                      const totalChangePct = monthDays.reduce((sum, d) => sum + d.performance!.total_change_pct, 0)
-                      return totalChangePct.toFixed(2)
-                    })()}%
-                  </p>
-                  <p className={`text-sm font-medium mt-0.5 ${monthStats.totalChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {monthStats.totalChange >= 0 ? '+' : ''}{formatCurrency(monthStats.totalChange, currency)}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                  <BarChart3 size={18} />
-                  <span className="text-sm font-medium">{t('calendar.stats.upcomingEarnings', 'Upcoming Earnings')}</span>
-                </div>
-                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300 mt-1">
-                  {monthStats.upcomingEarnings}
-                </p>
-              </div>
-            </div>
+        }
+      />
 
-            {/* Calendar Navigation */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goToPreviousMonth}
-                  className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <h2 className="text-lg font-semibold min-w-[180px] text-center capitalize">
-                  {monthName}
-                </h2>
-                <button
-                  onClick={goToNextMonth}
-                  className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goToToday}
-                  className="btn btn-primary text-sm"
-                >
-                  {t('calendar.today', 'Today')}
-                </button>
-                <button
-                  onClick={toggleWatchlistEarnings}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                    showWatchlistEarnings
-                      ? 'bg-cyan-50 dark:bg-cyan-900/30 border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300'
-                      : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400'
-                  }`}
-                  title={t('calendar.toggleWatchlist', 'Toggle watchlist earnings')}
-                >
-                  <Eye size={16} />
-                  <span className="hidden sm:inline">{t('calendar.watchlist', 'Watchlist')}</span>
-                </button>
-              </div>
-            </div>
+      {loading ? (
+        <ChartSkeleton className="calendar__loading" label={t('calendar.loading', 'Loading calendar')} />
+      ) : error ? (
+        <StateBlock
+          tone="error"
+          className="calendar-empty"
+          eyebrow="Calendar"
+          title="Could not load calendar data."
+          description="Performance and earnings events could not be refreshed for this period."
+          detail={error}
+          actionLabel={t('common.tryAgain')}
+          onAction={() => loadMonthData(currentDate, true)}
+        />
+      ) : activeTab === 'overview' ? (
+        <PageSection className="calendar-section">
+          <PageSectionHeader
+            kicker="Month view"
+            title={monthName}
+            aside={
+              <span className="pf-section-description">
+                {monthStats.totalChange >= 0 ? '+' : ''}{totalChangePct.toFixed(2)}% this month · {monthStats.totalChange >= 0 ? '+' : ''}{formatCurrency(monthStats.totalChange, currency)}
+              </span>
+            }
+          />
 
-            {/* Calendar Grid */}
-            <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
-              {/* Day headers - weekdays only */}
-              <div className="grid grid-cols-5 bg-neutral-50 dark:bg-neutral-800">
+          <div className="calendar__calendar-toolbar">
+            <div>
+              <button type="button" onClick={goToPreviousMonth} aria-label="Previous month">
+                <ChevronLeft size={18} />
+              </button>
+              <button type="button" onClick={goToNextMonth} aria-label="Next month">
+                <ChevronRight size={18} />
+              </button>
+              <button type="button" onClick={goToToday}>{t('calendar.today', 'Today')}</button>
+            </div>
+          </div>
+
+          <PageMainGrid className="calendar__overview">
+            <PageMainColumn className="calendar__calendar">
+              <div className="calendar__weekdays">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => (
-                  <div
-                    key={day}
-                    className="px-2 py-2 text-center text-xs font-medium text-neutral-600 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700"
-                  >
-                    {t(`calendar.days.${day.toLowerCase()}`, day)}
-                  </div>
+                  <div key={day}>{t(`calendar.days.${day.toLowerCase()}`, day)}</div>
                 ))}
               </div>
 
-              {/* Calendar days - weekdays only */}
-              <div className="grid grid-cols-5">
-                <style>{`
-                  .market-closed-stripe {
-                    background-image: repeating-linear-gradient(
-                      45deg,
-                      transparent,
-                      transparent 10px,
-                      rgba(0, 0, 0, 0.03) 10px,
-                      rgba(0, 0, 0, 0.03) 20px
-                    );
-                  }
-                  .dark .market-closed-stripe {
-                    background-image: repeating-linear-gradient(
-                      45deg,
-                      transparent,
-                      transparent 10px,
-                      rgba(255, 255, 255, 0.02) 10px,
-                      rgba(255, 255, 255, 0.02) 20px
-                    );
-                  }
-                `}</style>
-                {calendarDaysFiltered.map((day, index) => (
-                  <div
-                    key={index}
-                    className={`min-h-[110px] p-2 border-b border-r border-neutral-200 dark:border-neutral-700 last:border-r-0 transition-colors relative ${
-                      !day.isCurrentMonth 
-                        ? 'bg-neutral-50 dark:bg-neutral-900/50' 
-                        : day.isMarketClosed
-                          ? day.isPartialClosure
-                            ? 'bg-amber-50/50 dark:bg-amber-950/20'  // Partial closure - lighter amber
-                            : 'bg-neutral-100 dark:bg-neutral-900 market-closed-stripe'  // Full closure - stripes
-                          : 'bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750'
-                    } ${day.isToday ? 'ring-2 ring-inset ring-pink-500 dark:ring-pink-500' : ''}`}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className={`text-sm font-medium ${
-                          !day.isCurrentMonth
-                            ? 'text-neutral-400 dark:text-neutral-600'
-                            : day.isToday
-                              ? 'text-pink-600 dark:text-pink-400 font-bold'
-                              : 'text-neutral-700 dark:text-neutral-300'
-                        }`}>
-                          {day.date.getDate()}
-                        </span>
-                        {day.isMarketClosed && day.isCurrentMonth && (
-                          <span 
-                            className={`text-[9px] px-1 py-0.5 rounded font-semibold border cursor-help ${
-                              day.isPartialClosure
-                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700'
-                                : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600'
-                            }`}
-                            title={`${day.holidayName || 'Market Holiday'}${day.closedExchangeNames && day.closedExchangeNames.length > 0 ? ` (${day.closedExchangeNames.join(', ')})` : ''}`}
-                          >
-                            {day.isPartialClosure && day.closedExchangeNames && day.closedExchangeNames.length > 0
-                              ? day.closedExchangeNames.length <= 2
-                                ? day.closedExchangeNames.join(', ')
-                                : `${day.closedExchangeNames.slice(0, 1).join(', ')} +${day.closedExchangeNames.length - 1}`
-                              : t('calendar.closed', 'Closed')
-                            }
-                          </span>
-                        )}
-                      </div>
-                      {day.performance && (
-                        <div className={`w-2 h-2 rounded-full ${getPerformanceColor(day.performance.total_change_pct)}`} />
-                      )}
-                    </div>
+              <div className="calendar__days">
+                {calendarDaysFiltered.map((day) => {
+                  const dateKey = formatDateKey(day.date)
+                  const isSelected = selectedDay && formatDateKey(selectedDay.date) === dateKey
+                  return (
+                    <button
+                      key={dateKey}
+                      type="button"
+                      onClick={() => setSelectedDateKey(dateKey)}
+                      className={[
+                        'calendar-day',
+                        !day.isCurrentMonth ? 'is-outside' : '',
+                        day.isToday ? 'is-today' : '',
+                        isSelected ? 'is-selected' : '',
+                        day.isMarketClosed ? 'is-market-closed' : '',
+                        day.isPartialClosure ? 'is-partial-closure' : '',
+                      ].filter(Boolean).join(' ')}
+                    >
+                      <span className="calendar-day__number">{day.date.getDate()}</span>
 
-                    {/* Performance indicator */}
-                    {day.performance && day.isCurrentMonth && (
-                      <div className="flex flex-col gap-0.5 mt-1">
-                        <div className={`text-xs font-bold ${
-                          day.performance.is_positive
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
+                      {day.performance && day.isCurrentMonth ? (
+                        <span className={`calendar-day__return ${day.performance.is_positive ? 'is-positive' : 'is-negative'}`}>
                           {day.performance.is_positive ? '+' : ''}{day.performance.total_change_pct.toFixed(2)}%
-                        </div>
-                        <div className={`text-[10px] font-medium opacity-80 ${
-                          day.performance.is_positive
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {day.performance.total_change >= 0 ? '+' : ''}{formatCurrency(day.performance.total_change, currency)}
-                        </div>
+                        </span>
+                      ) : (
+                        <span className="calendar-day__quiet">—</span>
+                      )}
+
+                      <span className="calendar-day__events">
+                        {day.performance && <i className={day.performance.is_positive ? 'is-positive' : 'is-negative'} />}
+                        {day.earnings.length > 0 && <i className="is-earnings" />}
+                        {day.isMarketClosed && <i className="is-closed" />}
+                      </span>
+
+                      {day.earnings.length > 0 && (
+                        <span className="calendar-day__symbols">
+                          {day.earnings.slice(0, 2).map(earning => earning.symbol).join(', ')}
+                          {day.earnings.length > 2 ? ` +${day.earnings.length - 2}` : ''}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </PageMainColumn>
+
+            <PageAsideColumn className="calendar-summary">
+              {selectedDay ? (
+                <>
+                  <p>Selected day</p>
+                  <h3>{selectedDay.date.toLocaleDateString(currentLocale, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
+
+                  <dl>
+                    <div>
+                      <dt>Portfolio</dt>
+                      <dd className={selectedDay.performance?.is_positive ? 'is-positive' : selectedDay.performance ? 'is-negative' : ''}>
+                        {selectedDay.performance
+                          ? `${selectedDay.performance.is_positive ? '+' : ''}${selectedDay.performance.total_change_pct.toFixed(2)}%`
+                          : 'No performance data'}
+                      </dd>
+                    </div>
+                    {selectedDay.performance && (
+                      <div>
+                        <dt>Gain / loss</dt>
+                        <dd className={selectedDay.performance.is_positive ? 'is-positive' : 'is-negative'}>
+                          {selectedDay.performance.total_change >= 0 ? '+' : ''}{formatCurrency(selectedDay.performance.total_change, currency)}
+                        </dd>
                       </div>
                     )}
+                    {selectedDay.isMarketClosed && (
+                      <div>
+                        <dt>Market state</dt>
+                        <dd>{selectedDay.isPartialClosure ? 'Partial closure' : 'Closed'}</dd>
+                      </div>
+                    )}
+                  </dl>
 
-                    {/* Earnings badges */}
-                    {day.earnings.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {day.earnings.slice(0, 3).map((earning, i) => (
-                          <div
-                            key={i}
-                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border w-fit ${
-                              earning.source === 'watchlist'
-                                ? earning.is_future
-                                  ? 'bg-cyan-50 dark:bg-cyan-900/30 border-cyan-100 dark:border-cyan-800/50 text-cyan-700 dark:text-cyan-300'
-                                  : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                                : earning.is_future
-                                  ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800/50 text-purple-700 dark:text-purple-300'
-                                  : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                            }`}
-                            title={`${earning.symbol}: ${earning.name || 'Earnings'}${earning.source === 'watchlist' ? ' (Watchlist)' : ''}`}
+                  <div className="calendar-summary__events">
+                    <span>Events</span>
+                    {selectedDay.earnings.length === 0 && !selectedDay.isMarketClosed ? (
+                      <p>No recorded calendar events.</p>
+                    ) : (
+                      <ul>
+                        {selectedDay.isMarketClosed && (
+                          <li>
+                            <strong>{selectedDay.holidayName || 'Market holiday'}</strong>
+                            <small>{selectedDay.closedExchangeNames?.join(', ') || 'Tracked exchanges'}</small>
+                          </li>
+                        )}
+                        {selectedDay.earnings.map((earning, index) => (
+                          <li
+                            key={`${earning.symbol}-${earning.date}-${index}`}
+                            className={earning.source === 'watchlist' ? 'is-watchlist' : ''}
                           >
-                            {earning.source === 'watchlist' && (
-                              <Eye size={10} className="shrink-0" />
-                            )}
                             <img
                               src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
                               alt={earning.symbol}
-                              className="w-3 h-3 rounded-full object-cover bg-white shrink-0"
                               onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
                             />
-                            <span className="font-semibold">{earning.symbol}</span>
-                          </div>
+                            <div>
+                              <strong>{earning.symbol} earnings</strong>
+                              <small>{earning.name || 'Company'}</small>
+                            </div>
+                          </li>
                         ))}
-                        {day.earnings.length > 3 && (
-                          <div className="text-[9px] px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 rounded font-medium">
-                            +{day.earnings.length - 3}
-                          </div>
-                        )}
-                      </div>
+                      </ul>
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500" />
-                <span>{t('calendar.legend.positive', 'Positive day')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span>{t('calendar.legend.negative', 'Negative day')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-3 bg-neutral-200 dark:bg-neutral-700 market-closed-stripe border border-neutral-300 dark:border-neutral-600 rounded" />
-                <span>{t('calendar.legend.allMarketsClosed', 'All markets closed')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-3 bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 rounded" />
-                <span>{t('calendar.legend.someMarketsClosed', 'Some markets closed')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="px-1.5 py-0.5 text-[10px] bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
-                  AAPL
-                </div>
-                <span>{t('calendar.legend.earnings', 'Upcoming earnings')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300 rounded">
-                  <Eye size={10} />
-                  TSLA
-                </div>
-                <span>{t('calendar.legend.watchlistEarnings', 'Watchlist earnings')}</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Earnings Tab */
-          <div className="p-4">
-            {/* Upcoming Earnings */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <TrendingUp size={20} className="text-green-600" />
-                {t('calendar.earnings.upcoming', 'Upcoming Earnings')}
-                <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                  ({upcomingEarningsList.length})
-                </span>
-              </h3>
-              {upcomingEarningsList.length === 0 ? (
-                <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
-                  {t('calendar.earnings.noUpcoming', 'No upcoming earnings for your stocks or watchlist')}
-                </p>
+                </>
               ) : (
-                <div className="grid gap-3">
-                  {upcomingEarningsList.map((earning, index) => (
-                    <div
-                      key={`${earning.symbol}-${earning.date}-${index}`}
-                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white dark:bg-neutral-800 rounded-lg border shadow-sm hover:shadow-md transition-shadow overflow-hidden ${
-                        earning.source === 'watchlist'
-                          ? 'border-cyan-200 dark:border-cyan-700'
-                          : 'border-neutral-200 dark:border-neutral-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
-                        <div className={`text-center w-[48px] sm:min-w-[60px] p-1.5 sm:p-2 rounded-lg border shrink-0 ${
-                          earning.source === 'watchlist'
-                            ? 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-100 dark:border-cyan-800/30'
-                            : 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/30'
-                        }`}>
-                          <div className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${
-                            earning.source === 'watchlist'
-                              ? 'text-cyan-600 dark:text-cyan-400'
-                              : 'text-purple-600 dark:text-purple-400'
-                          }`}>
-                            {new Date(earning.date).toLocaleDateString(currentLocale, { month: 'short' })}
-                          </div>
-                          <div className={`text-xl sm:text-2xl font-bold leading-none mt-0.5 sm:mt-1 ${
-                            earning.source === 'watchlist'
-                              ? 'text-cyan-700 dark:text-cyan-300'
-                              : 'text-purple-700 dark:text-purple-300'
-                          }`}>
-                            {new Date(earning.date).getDate()}
-                          </div>
-                        </div>
-                        
-                        <img
-                          src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
-                          alt={earning.symbol}
-                          className="w-8 h-8 sm:w-10 sm:h-10 shadow-sm shrink-0"
-                          onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
-                        />
-                        
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 shrink-0">{earning.symbol}</span>
-                            {earning.source === 'watchlist' ? (
-                              <span className="flex items-center gap-1 text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-400 font-medium shrink-0">
-                                <Eye size={10} />
-                                {t('calendar.earnings.watchlist', 'Watchlist')}
-                              </span>
-                            ) : (
-                              <span className="text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium shrink-0">
-                                Upcoming
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] sm:text-sm text-neutral-600 dark:text-neutral-400 font-medium truncate">
-                            {earning.name || 'Company'}
-                          </div>
-                          {earning.source !== 'watchlist' && earning.portfolios.length > 0 && (
-                            <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
-                              <span className="opacity-70">{t('calendar.earnings.inPortfolios', 'In')}:</span> {earning.portfolios.map(p => p.name).join(', ')}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="text-left sm:text-right flex flex-wrap sm:flex-col gap-2 sm:gap-0 shrink-0">
-                        {earning.eps_estimate && (
-                          <div className="text-xs sm:text-sm mb-0 sm:mb-1">
-                            <span className="text-neutral-500 dark:text-neutral-400 mr-1 sm:mr-2 text-[10px] sm:text-xs uppercase tracking-wide">
-                              EPS
-                            </span>
-                            <span className="font-semibold text-neutral-900 dark:text-neutral-100 bg-neutral-100 dark:bg-neutral-800 px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm whitespace-nowrap">
-                              ${typeof earning.eps_estimate === 'number' ? earning.eps_estimate.toFixed(2) : earning.eps_estimate}
-                            </span>
-                          </div>
-                        )}
-                        {earning.revenue_estimate && (
-                          <div className="text-xs sm:text-sm">
-                            <span className="text-neutral-500 dark:text-neutral-400 mr-1 sm:mr-2 text-[10px] sm:text-xs uppercase tracking-wide">
-                              REV
-                            </span>
-                            <span className="font-semibold text-neutral-900 dark:text-neutral-100 bg-neutral-100 dark:bg-neutral-800 px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm whitespace-nowrap">
-                              {typeof earning.revenue_estimate === 'number'
-                                ? (earning.revenue_estimate / 1e9).toFixed(2) + 'B'
-                                : earning.revenue_estimate}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p>Select a day to inspect its financial footprint.</p>
               )}
-            </div>
+            </PageAsideColumn>
+          </PageMainGrid>
 
-            {/* Past Earnings */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <BarChart3 size={20} className="text-neutral-500" />
-                {t('calendar.earnings.past', 'Past Earnings')}
-                <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                  ({pastEarningsList.length})
-                </span>
-              </h3>
-              {pastEarningsList.length === 0 ? (
-                <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
-                  {t('calendar.earnings.noPast', 'No past earnings data available')}
-                </p>
-              ) : (
-                <div className="grid gap-2">
-                  {pastEarningsList.slice(0, 10).map((earning, index) => (
-                    <div
-                      key={`${earning.symbol}-${earning.date}-${index}`}
-                      className="flex items-center justify-between p-3 bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400 min-w-[50px] text-right">
-                          {new Date(earning.date).toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })}
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
+          <div className="calendar-observations">
+            <p>Calendar observations</p>
+            <dl>
+              <div>
+                <dt>Next portfolio catalyst</dt>
+                <dd>{nextPortfolioCatalyst ? `${nextPortfolioCatalyst.symbol} on ${formatCompactDate(nextPortfolioCatalyst.date, currentLocale)}` : '—'}</dd>
+              </div>
+              <div>
+                <dt>Largest holding reporting soon</dt>
+                <dd>{largestReportingHolding ? `${largestReportingHolding.symbol} · ${formatCompactDate(largestReportingHolding.date, currentLocale)}` : '—'}</dd>
+              </div>
+              <div>
+                <dt>Watchlist earnings</dt>
+                <dd>{watchlistEarningsCount}</dd>
+              </div>
+              <div>
+                <dt>Recently reported</dt>
+                <dd>{recentReportedEarnings[0] ? `${recentReportedEarnings[0].symbol} · ${formatCompactDate(recentReportedEarnings[0].date, currentLocale)}` : '—'}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="calendar-legend">
+            <span><i className="is-positive" />Positive day</span>
+            <span><i className="is-negative" />Negative day</span>
+            <span><i className="is-earnings" />Earnings</span>
+            <span><i className="is-closed" />Market closure</span>
+          </div>
+        </PageSection>
+      ) : (
+        <PageSection className="calendar-section">
+          <PageSectionHeader
+            kicker="Earnings timeline"
+            title={t('calendar.earnings.upcoming', 'Upcoming Earnings')}
+            aside={
+              <span className="pf-section-description">{upcomingEarningsList.length} upcoming events · {watchlistEarningsCount} from watchlist.</span>
+            }
+          />
+
+          {groupedUpcomingEarnings.length === 0 ? (
+            <StateBlock
+              className="calendar-empty"
+              eyebrow="No earnings"
+              title={t('calendar.earnings.noUpcoming', 'No earnings found for this period.')}
+              description="Owned and watched companies with upcoming earnings will appear here."
+            />
+          ) : (
+            <div className="calendar-timeline">
+              {groupedUpcomingEarnings.map((group) => (
+                <section key={group.key}>
+                  <h3>{group.title}</h3>
+                  <div>
+                    {group.items.map((earning, index) => (
+                      <article
+                        key={`${earning.symbol}-${earning.date}-${index}`}
+                        className={`calendar-earning ${earning.source === 'watchlist' ? 'is-watchlist' : ''}`}
+                      >
+                        <time>
+                          <span>{new Date(earning.date).toLocaleDateString(currentLocale, { month: 'short' })}</span>
+                          <strong>{new Date(earning.date).getDate()}</strong>
+                        </time>
+
+                        <div className="calendar-earning__identity">
                           <img
                             src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
                             alt={earning.symbol}
-                            className="w-8 h-8 rounded-full object-cover bg-white border border-neutral-100 dark:border-neutral-700"
                             onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
                           />
                           <div>
-                            <div className="font-semibold text-neutral-900 dark:text-neutral-100 leading-tight">
-                              {earning.symbol}
-                            </div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-[150px]">
-                              {earning.name}
-                            </div>
+                            <strong>{earning.symbol}</strong>
+                            <span>{earning.name || 'Company'}</span>
                           </div>
                         </div>
+
+                        <dl>
+                          <div>
+                            <dt>Days remaining</dt>
+                            <dd>{getDaysRemaining(earning.date)}</dd>
+                          </div>
+                          <div>
+                            <dt>Expected EPS</dt>
+                            <dd>{earning.eps_estimate !== undefined && earning.eps_estimate !== null ? `$${Number(earning.eps_estimate).toFixed(2)}` : '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>Expected revenue</dt>
+                            <dd>{formatRevenueEstimate(earning.revenue_estimate)}</dd>
+                          </div>
+                          <div>
+                            <dt>Exposure</dt>
+                            <dd>{earning.source === 'watchlist' ? 'Not owned' : getPortfolioExposureLabel(earning)}</dd>
+                          </div>
+                        </dl>
+
+                        <div className="calendar-earning__actions">
+                          <a href={`/assets/${encodeURIComponent(earning.symbol)}/research`}>Open Asset Research</a>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          <PageSection className="calendar-recent">
+            <PageSectionHeader
+              kicker="Recently reported"
+              title={t('calendar.earnings.past', 'Past Earnings')}
+              aside={
+                <span className="pf-section-description">{pastEarningsList.length > 10 ? t('calendar.earnings.showingRecent', 'Showing 10 most recent earnings') : `${pastEarningsList.length} reported events.`}</span>
+              }
+            />
+
+            {recentReportedEarnings.length === 0 ? (
+              <StateBlock
+                className="calendar-empty"
+                eyebrow="No reported earnings"
+                title={t('calendar.earnings.noPast', 'No past earnings data available.')}
+                description="Recently reported earnings for owned and watched companies will appear here."
+              />
+            ) : (
+              <div className="calendar-recent__list">
+                {recentReportedEarnings.map((earning, index) => (
+                  <article
+                    key={`${earning.symbol}-${earning.date}-${index}`}
+                    className={earning.source === 'watchlist' ? 'is-watchlist' : ''}
+                  >
+                    <time>{formatCompactDate(earning.date, currentLocale)}</time>
+                    <div className="calendar-recent__identity">
+                      <img
+                        src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
+                        alt={earning.symbol}
+                        onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
+                      />
+                      <div>
+                        <strong>{earning.symbol}</strong>
+                        <span>{earning.name || 'Company'}</span>
                       </div>
-                      
-                      <div className="flex items-center gap-6 text-sm">
+                    </div>
+                    {(earning.eps_actual !== undefined && earning.eps_actual !== null) || (earning.surprise_pct !== undefined && earning.surprise_pct !== null) ? (
+                      <dl>
                         {earning.eps_actual !== undefined && earning.eps_actual !== null && (
-                          <div className="flex flex-col items-end">
-                            <span className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">EPS</span>
-                            <span className="font-medium">${typeof earning.eps_actual === 'number' ? earning.eps_actual.toFixed(2) : earning.eps_actual}</span>
+                          <div>
+                            <dt>EPS</dt>
+                            <dd>${Number(earning.eps_actual).toFixed(2)}</dd>
                           </div>
                         )}
                         {earning.surprise_pct !== undefined && earning.surprise_pct !== null && (
-                          <div className="flex flex-col items-end min-w-[60px]">
-                            <span className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Surprise</span>
-                            <span className={`font-bold ${
-                              Number(earning.surprise_pct) >= 0
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
+                          <div>
+                            <dt>Surprise</dt>
+                            <dd className={Number(earning.surprise_pct) >= 0 ? 'is-positive' : 'is-negative'}>
                               {Number(earning.surprise_pct) >= 0 ? '+' : ''}{Number(earning.surprise_pct).toFixed(1)}%
-                            </span>
+                            </dd>
                           </div>
                         )}
-                      </div>
-                    </div>
-                  ))}
-                  {pastEarningsList.length > 10 && (
-                    <p className="text-center text-sm text-neutral-500 dark:text-neutral-400 py-2">
-                      {t('calendar.earnings.showingRecent', 'Showing 10 most recent earnings')}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+                      </dl>
+                    ) : (
+                      <p className="calendar-recent__quiet">Reported. Actual figures unavailable.</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </PageSection>
+        </PageSection>
+      )}
+    </PageShell>
   )
 }

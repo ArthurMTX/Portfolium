@@ -19,7 +19,7 @@ cleanupOutdatedCaches();
 const precacheManifest = self.__WB_MANIFEST || [];
 precacheAndRoute(precacheManifest);
 
-console.log('[Service Worker] Portfolium service worker loaded v2 with push support');
+console.log('[Service Worker] Portfolium service worker loaded with push support');
 
 interface PushData {
   title?: string;

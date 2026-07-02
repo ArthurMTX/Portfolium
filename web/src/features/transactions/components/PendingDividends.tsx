@@ -239,7 +239,7 @@ export default function PendingDividends({
       <div className="card overflow-hidden">
         {/* Header */}
         <div 
-          className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-amber-200 dark:border-amber-800 cursor-pointer"
+          className="cursor-pointer border-b border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20"
           onClick={toggleExpanded}
         >
           <div className="flex items-center justify-between">
@@ -409,28 +409,31 @@ export default function PendingDividends({
 
       {/* Accept Modal */}
       {acceptingDividend && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closeAcceptModal}>
+        <div className="pf-modal-overlay" onClick={closeAcceptModal}>
           <div 
-            className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl max-w-md w-full"
+            className="pf-modal-panel pf-modal-panel--sm"
+            role="dialog"
+            aria-modal="true"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
+            <div className="pf-modal-header">
+              <h3 className="pf-modal-title">
                 {t('pendingDividends.acceptDividend')}
               </h3>
               <button
                 onClick={closeAcceptModal}
-                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+                className="pf-modal-close"
+                aria-label={t('common.close')}
               >
                 <X size={20} className="text-neutral-500 dark:text-neutral-400" />
               </button>
             </div>
             
             {/* Content */}
-            <div className="p-6 space-y-4">
+            <div className="pf-modal-body pf-modal-section">
               {/* Dividend Summary */}
-              <div className="p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg">
+              <div className="pf-modal-muted-box">
                 <div className="flex items-center gap-3 mb-3">
                   <img
                     src={getAssetLogoUrl(acceptingDividend.asset_symbol || '')}
@@ -478,7 +481,7 @@ export default function PendingDividends({
               
               {/* Tax Input */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                <label className="pf-modal-label">
                   {t('pendingDividends.withholdingTax')}
                 </label>
                 <div className="relative">
@@ -492,7 +495,7 @@ export default function PendingDividends({
                     value={taxAmount}
                     onChange={(e) => setTaxAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full pl-12 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
+                    className="pf-modal-input pl-12"
                   />
                 </div>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
@@ -502,7 +505,7 @@ export default function PendingDividends({
               
               {/* Notes Input */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                <label className="pf-modal-label">
                   {t('fields.notes')} ({t('common.optional')})
                 </label>
                 <textarea
@@ -510,7 +513,7 @@ export default function PendingDividends({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder={t('pendingDividends.notesPlaceholder')}
                   rows={2}
-                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white resize-none"
+                  className="pf-modal-textarea resize-none"
                 />
               </div>
               
@@ -531,21 +534,24 @@ export default function PendingDividends({
             </div>
             
             {/* Actions */}
-            <div className="flex gap-3 px-6 py-4 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
+            <div className="pf-modal-footer">
+              <div />
+              <div className="pf-modal-footer-actions">
               <button
                 onClick={closeAcceptModal}
-                className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                className="pf-modal-button pf-modal-button--secondary"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleAccept}
                 disabled={processingIds.has(acceptingDividend.id)}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="pf-modal-button pf-modal-button--primary"
               >
                 <Check size={18} />
                 {t('pendingDividends.confirmAccept')}
               </button>
+              </div>
             </div>
           </div>
         </div>

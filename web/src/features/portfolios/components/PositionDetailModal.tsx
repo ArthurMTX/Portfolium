@@ -103,21 +103,20 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="pf-modal-overlay" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="card max-w-5xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
+          className="pf-modal-panel max-w-5xl pointer-events-auto"
+          role="dialog"
+          aria-modal="true"
           onClick={(e) => e.stopPropagation()}
         >
           <PositionDetailHeader position={position} onClose={onClose} />
 
           {/* Content */}
-          <div className="p-8 space-y-8">
+          <div className="pf-modal-body space-y-8">
             <AssetInvestmentNoteSummary
               note={investmentNote}
               currency={position.currency}

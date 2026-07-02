@@ -5,6 +5,7 @@ import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import iconTags from 'lucide-static/tags.json'
+import { ListSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
 
 interface WatchlistTag {
   id: number
@@ -226,43 +227,41 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
-      {/* Backdrop */}
+    <div className="pf-modal-overlay">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0"
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative z-10 w-full max-w-lg bg-white dark:bg-neutral-900 rounded-xl shadow-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="pf-modal-panel flex flex-col" role="dialog" aria-modal="true">
+        <div className="pf-modal-header">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+            <h2 className="pf-modal-title">
               {t('watchlist.tags.manage')}
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="pf-modal-description">
               {tags.length} {tags.length === 1 ? 'tag' : 'tags'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+            className="pf-modal-close"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Create New Tag - Fixed section (not scrollable) */}
-        <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
+        <div className="px-5 py-5 border-b border-neutral-800">
           {/* Error message */}
           {error && (
-            <div className="p-4 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="pf-modal-callout pf-modal-callout--danger mb-4">
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
+          <label className="pf-modal-label mb-3">
             {t('watchlist.tags.createNew')}
           </label>
           
@@ -275,7 +274,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                   setShowIconPicker(!showIconPicker)
                   setShowColorPicker(false)
                 }}
-                className="w-11 h-11 flex items-center justify-center rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                className="h-10 w-10 flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 hover:bg-neutral-900 transition-colors"
                 style={{ color: newTagColor }}
                 title={t('watchlist.tags.chooseIcon')}
               >
@@ -283,7 +282,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
               </button>
               
               {showIconPicker && (
-                <div className="absolute top-full left-0 mt-1 z-[60] bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 p-3 w-72">
+                <div className="absolute top-full left-0 mt-2 z-[60] rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl w-72">
                   {/* Search */}
                   <div className="relative mb-2">
                     <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -292,7 +291,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                       value={iconSearch}
                       onChange={(e) => setIconSearch(e.target.value)}
                       placeholder={t('watchlist.tags.searchIcons', { count: ALL_ICONS.length })}
-                      className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-700 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="pf-modal-input h-9 pl-8"
                     />
                   </div>
                   
@@ -317,7 +316,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                     ))}
                   </div>
                   {iconSearch && filteredIcons.length === 0 && (
-                    <p className="text-xs text-neutral-500 text-center py-2">No icons found</p>
+                    <p className="pf-dropdown-empty">No matching icons.</p>
                   )}
                   {iconSearch && filteredIcons.length === 100 && (
                     <p className="text-xs text-neutral-400 text-center pt-2">Showing first 100 results</p>
@@ -334,14 +333,14 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                   setShowColorPicker(!showColorPicker)
                   setShowIconPicker(false)
                 }}
-                className="w-11 h-11 rounded-lg border border-neutral-300 dark:border-neutral-600 overflow-hidden hover:ring-2 hover:ring-pink-500 transition-all"
+                className="h-10 w-10 rounded-xl border border-neutral-800 overflow-hidden hover:ring-2 hover:ring-pink-500/50 transition-all"
                 title={t('watchlist.tags.chooseColor')}
               >
                 <div className="w-full h-full" style={{ backgroundColor: newTagColor }} />
               </button>
               
               {showColorPicker && (
-                <div className="absolute top-full left-0 mt-1 z-[60] bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 p-3 w-56">
+                <div className="absolute top-full left-0 mt-2 z-[60] rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl w-56">
                   <div className="grid grid-cols-10 gap-1">
                     {AVAILABLE_COLORS.map((color) => (
                       <button
@@ -369,7 +368,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
               onChange={(e) => setNewTagName(e.target.value)}
               placeholder={t('watchlist.tags.namePlaceholder')}
               maxLength={30}
-              className="flex-1 px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="pf-modal-input flex-1"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   handleCreateTag()
@@ -381,7 +380,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
             <button
               onClick={handleCreateTag}
               disabled={isCreating || !newTagName.trim()}
-              className="px-4 py-2.5 rounded-lg bg-pink-600 text-white font-medium hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="pf-modal-button pf-modal-button--primary px-3"
             >
               <Plus size={18} />
             </button>
@@ -403,31 +402,26 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
         </div>
 
         {/* Existing Tags - Scrollable section */}
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="pf-modal-body flex-1">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
+            <label className="pf-modal-label mb-3">
               {t('watchlist.tags.existing')}
             </label>
             
             {loading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse" />
-                ))}
-              </div>
+              <ListSkeleton rows={3} label="Loading watchlist tags" />
             ) : tags.length === 0 ? (
-              <div className="text-center py-8 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600">
-                <Tag size={24} className="mx-auto text-neutral-400 dark:text-neutral-500 mb-2" />
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {t('watchlist.tags.noTags')}
-                </p>
-              </div>
+              <StateBlock
+                eyebrow="No tags"
+                title={t('watchlist.tags.noTags')}
+                description="Create a tag to group companies by thesis, priority, or theme."
+              />
             ) : (
               <div className="space-y-2">
                 {tags.map((tag) => (
                   <div
                     key={tag.id}
-                    className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 group"
+                  className="flex items-center gap-3 p-3 bg-neutral-900/50 rounded-xl border border-neutral-800 group"
                   >
                     {editingTag?.id === tag.id ? (
                       <>
@@ -524,13 +518,16 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-neutral-200 dark:border-neutral-700">
+        <div className="pf-modal-footer">
+          <div />
+          <div className="pf-modal-footer-actions">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-lg border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="pf-modal-button pf-modal-button--secondary"
           >
             {t('common.close')}
           </button>
+          </div>
         </div>
       </div>
     </div>

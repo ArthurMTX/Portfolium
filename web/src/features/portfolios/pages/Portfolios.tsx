@@ -1,8 +1,22 @@
-import { useState, useEffect } from 'react'
-import { PlusCircle, Edit2, Trash2, Folder, TrendingUp, X, Globe, Link2, Copy, Check, GlobeLock } from 'lucide-react'
-import api from '@/api'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Check, Copy, Edit2, Globe, GlobeLock, Link2, PlusCircle, Trash2, X } from 'lucide-react'
+import api, { type PortfolioMetricsDTO } from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
+import { formatCurrency } from '@/shared/lib/formatUtils'
+import { getTranslatedSector } from '@/shared/lib/translationUtils'
+import { ListSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
+import {
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
 import { useTranslation } from 'react-i18next'
+import '@/shared/design/pages/portfolios.css'
 
 interface Portfolio {
   id: number
@@ -14,20 +28,83 @@ interface Portfolio {
   created_at: string
 }
 
+type PortfolioMetricMap = Record<number, PortfolioMetricsDTO | null>
+type PortfolioAllocationMap = Record<number, { label: string; percentage: number } | null>
+
+function toNumber(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function signedPercent(value: number | null | undefined, decimals = 1): string {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—'
+  const number = Number(value)
+  const sign = number > 0 ? '+' : number < 0 ? '−' : ''
+  return `${sign}${Math.abs(number).toFixed(decimals)}%`
+}
+
+function valueTone(value: number | null | undefined): string {
+  const number = toNumber(value)
+  if (number > 0) return 'is-positive'
+  if (number < 0) return 'is-negative'
+  return 'is-neutral'
+}
+
+function formatDate(dateString: string | null | undefined, locale?: string): string {
+  if (!dateString) return '—'
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  return date.toLocaleDateString(locale || undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function calculateTotalReturn(metrics: PortfolioMetricsDTO | null | undefined): number | null {
+  if (!metrics) return null
+  return toNumber(metrics.total_unrealized_pnl)
+    + toNumber(metrics.total_realized_pnl)
+    + toNumber(metrics.total_dividends)
+    - toNumber(metrics.total_fees)
+}
+
+function calculateTotalReturnPct(metrics: PortfolioMetricsDTO | null | undefined): number | null {
+  if (!metrics || !metrics.total_cost) return null
+  const totalReturn = calculateTotalReturn(metrics)
+  if (totalReturn === null) return null
+  return (totalReturn / toNumber(metrics.total_cost)) * 100
+}
+
+function formatCapitalGroups(
+  groups: Array<{ currency: string; value: number }>,
+  locale?: string,
+): string {
+  if (groups.length === 0) return formatCurrency(0, 'EUR', locale)
+  return groups
+    .map((group) => formatCurrency(group.value, group.currency, locale))
+    .join(' + ')
+}
+
 export default function Portfolios() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language || navigator.language
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const setPortfolios = usePortfolioStore((state) => state.setPortfolios)
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const setActivePortfolio = usePortfolioStore((state) => state.setActivePortfolio)
+  const [metricsByPortfolio, setMetricsByPortfolio] = useState<PortfolioMetricMap>({})
+  const [largestAllocationByPortfolio, setLargestAllocationByPortfolio] = useState<PortfolioAllocationMap>({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [shareModal, setShareModal] = useState<Portfolio | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
 
-  // Form state
   const [name, setName] = useState('')
   const [baseCurrency, setBaseCurrency] = useState('EUR')
   const [description, setDescription] = useState('')
@@ -35,12 +112,68 @@ export default function Portfolios() {
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
+  const fetchPortfolios = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await api.getPortfolios()
+      setPortfolios(data)
+
+      const portfolioIds = data.map((portfolio) => portfolio.id)
+      const activeIsValid = activePortfolioId && portfolioIds.includes(activePortfolioId)
+
+      if (!activeIsValid && data.length > 0) {
+        setActivePortfolio(data[0].id)
+      } else if (!activeIsValid && data.length === 0) {
+        setActivePortfolio(null)
+      }
+
+      const metricEntries = await Promise.all(
+        data.map(async (portfolio) => {
+          try {
+            const metrics = await api.getPortfolioMetrics(portfolio.id)
+            return [portfolio.id, metrics] as const
+          } catch (error) {
+            console.error(`Failed to fetch metrics for portfolio ${portfolio.id}:`, error)
+            return [portfolio.id, null] as const
+          }
+        }),
+      )
+      const allocationEntries = await Promise.all(
+        data.map(async (portfolio) => {
+          try {
+            const sectors = await api.getSectorsDistribution(portfolio.id)
+            const largest = [...sectors].sort((a, b) => toNumber(b.total_value) - toNumber(a.total_value))[0]
+            return [
+              portfolio.id,
+              largest
+                ? {
+                    label: getTranslatedSector(largest.name, t),
+                    percentage: toNumber(largest.percentage),
+                  }
+                : null,
+            ] as const
+          } catch (error) {
+            console.error(`Failed to fetch allocation for portfolio ${portfolio.id}:`, error)
+            return [portfolio.id, null] as const
+          }
+        }),
+      )
+
+      setMetricsByPortfolio(Object.fromEntries(metricEntries))
+      setLargestAllocationByPortfolio(Object.fromEntries(allocationEntries))
+    } catch (error) {
+      console.error('Failed to fetch portfolios:', error)
+      setLoadError(error instanceof Error ? error.message : 'Failed to load portfolios')
+    } finally {
+      setLoading(false)
+    }
+  }, [activePortfolioId, setActivePortfolio, setPortfolios, t])
+
   useEffect(() => {
     fetchPortfolios()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fetchPortfolios])
 
-  // Prevent body scroll when modals are open
   useEffect(() => {
     if (showModal || deleteConfirm || shareModal) {
       document.body.style.overflow = 'hidden'
@@ -52,29 +185,20 @@ export default function Portfolios() {
     }
   }, [showModal, deleteConfirm, shareModal])
 
-  const fetchPortfolios = async () => {
-    setLoading(true)
-    try {
-      const data = await api.getPortfolios()
-      setPortfolios(data) // Update global store
-
-      // Validate that activePortfolioId belongs to the current user's portfolios
-      const portfolioIds = data.map(p => p.id)
-      const activeIsValid = activePortfolioId && portfolioIds.includes(activePortfolioId)
-
-      // If current active portfolio doesn't exist in user's portfolios, reset it
-      if (!activeIsValid && data.length > 0) {
-        setActivePortfolio(data[0].id)
-      } else if (!activeIsValid && data.length === 0) {
-        // No portfolios at all, clear active
-        setActivePortfolio(null)
-      }
-    } catch (error) {
-      console.error('Failed to fetch portfolios:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const activePortfolio = portfolios.find((portfolio) => portfolio.id === activePortfolioId) || null
+  const capitalByCurrency = useMemo(
+    () => Object.entries(
+      portfolios.reduce<Record<string, number>>((groups, portfolio) => {
+        const currency = portfolio.base_currency || 'EUR'
+        groups[currency] = (groups[currency] || 0) + toNumber(metricsByPortfolio[portfolio.id]?.total_value)
+        return groups
+      }, {}),
+    )
+      .map(([currency, value]) => ({ currency, value }))
+      .filter((group) => group.value > 0)
+      .sort((a, b) => b.value - a.value),
+    [metricsByPortfolio, portfolios],
+  )
 
   const openAddModal = () => {
     resetForm()
@@ -104,8 +228,8 @@ export default function Portfolios() {
     setFormError('')
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setFormLoading(true)
     setFormError('')
 
@@ -114,14 +238,12 @@ export default function Portfolios() {
         name,
         base_currency: baseCurrency,
         description: description || undefined,
-        is_public: isPublic
+        is_public: isPublic,
       }
 
       if (editingPortfolio) {
-        // Update existing portfolio
         await api.updatePortfolio(editingPortfolio.id, portfolioData)
       } else {
-        // Create new portfolio
         await api.createPortfolio(portfolioData)
       }
 
@@ -140,9 +262,8 @@ export default function Portfolios() {
       await fetchPortfolios()
       setDeleteConfirm(null)
 
-      // If deleted active portfolio, select another one
       if (activePortfolioId === portfolioId) {
-        const remaining = portfolios.filter(p => p.id !== portfolioId)
+        const remaining = portfolios.filter((portfolio) => portfolio.id !== portfolioId)
         if (remaining.length > 0) {
           setActivePortfolio(remaining[0].id)
         }
@@ -153,15 +274,8 @@ export default function Portfolios() {
   }
 
   const handleSelectPortfolio = (portfolioId: number) => {
+    if (portfolioId === activePortfolioId) return
     setActivePortfolio(portfolioId)
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
   }
 
   const getPublicShareUrl = (shareToken: string) => {
@@ -184,10 +298,9 @@ export default function Portfolios() {
         name: portfolio.name,
         base_currency: portfolio.base_currency,
         description: portfolio.description || undefined,
-        is_public: !portfolio.is_public
+        is_public: !portfolio.is_public,
       })
       await fetchPortfolios()
-      // Update the share modal with the updated portfolio data
       if (shareModal && shareModal.id === portfolio.id) {
         setShareModal(updated)
       }
@@ -196,176 +309,202 @@ export default function Portfolios() {
     }
   }
 
+  const activeMetrics = activePortfolioId ? metricsByPortfolio[activePortfolioId] : null
+  const lastActivity = formatDate(activeMetrics?.last_updated || activePortfolio?.created_at, locale)
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <Folder className="text-pink-600" size={28} />
-            {t('portfolios.title')}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            {t('portfolios.description')}
-          </p>
-        </div>
-        <button onClick={openAddModal} className="btn-primary flex items-center gap-2 text-sm sm:text-base px-3 py-2 self-start sm:self-auto">
-          <PlusCircle size={16} />
-          <span className="hidden sm:inline">{t('portfolios.create')}</span>
-          <span className="sm:hidden">{t('common.create')}</span>
-        </button>
-      </div>
+    <PageShell className="portfolios">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Portfolios"
+          title={`${portfolios.length} ${portfolios.length === 1 ? 'portfolio' : 'portfolios'}`}
+        />
+        <PageSummaryPanel
+          lead={
+            <>
+              {formatCapitalGroups(capitalByCurrency, locale)} deployed across {portfolios.length}{' '}
+              {portfolios.length === 1 ? 'portfolio' : 'portfolios'}.
+            </>
+          }
+          description={
+            <>
+              {activePortfolio ? `${activePortfolio.name} is currently active. ` : ''}
+              The selected portfolio powers every page in Portfolium.
+            </>
+          }
+          actions={
+            <button className="pf-button pf-button--secondary" onClick={openAddModal}>
+              <PlusCircle size={16} />
+              {t('portfolios.create')}
+            </button>
+          }
+        />
+      </PageHeader>
+
+      <PageMetricStrip label="Portfolios context">
+        <PageMetric label="Portfolios" value={portfolios.length} />
+        <PageMetric label="Total value" value={formatCapitalGroups(capitalByCurrency, locale)} />
+        <PageMetric label="Active portfolio" value={activePortfolio?.name || '—'} />
+        <PageMetric label="Last activity" value={lastActivity} />
+      </PageMetricStrip>
 
       {loading ? (
-        <div className="card p-12 text-center">
-          <p className="text-neutral-500 dark:text-neutral-400">{t('portfolios.loading')}</p>
-        </div>
+        <ListSkeleton className="portfolios__loading" rows={3} label={t('portfolios.loading')} />
+      ) : loadError ? (
+        <StateBlock
+          tone="error"
+          eyebrow="Portfolios"
+          title="Could not load portfolios."
+          description="Portfolium could not refresh your portfolio list."
+          detail={loadError}
+          actionLabel={t('common.retry')}
+          onAction={fetchPortfolios}
+        />
       ) : portfolios.length === 0 ? (
-        <div className="card p-12 text-center">
-          <Folder size={48} className="mx-auto text-neutral-400 dark:text-neutral-600 mb-4" />
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-            {t('emptyStates.noPortfolios')}
-          </h3>
-          <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-            {t('emptyStates.noPortfoliosInfo')}
-          </p>
-          <button onClick={openAddModal} className="btn-primary inline-flex items-center gap-2">
-            <PlusCircle size={18} />
+        <StateBlock
+          className="portfolios__empty"
+          eyebrow="No portfolios"
+          title="Your portfolios define the investment context Portfolium works in."
+          description="Create one portfolio to start tracking a strategy, broker account, or investment universe."
+        >
+          <button className="pf-button pf-button--primary" onClick={openAddModal}>
+            <PlusCircle size={16} />
             {t('emptyStates.noPortfoliosCreate')}
           </button>
-        </div>
+        </StateBlock>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {portfolios.map((portfolio) => (
-            <div
-              key={portfolio.id}
-              className={`card p-6 cursor-pointer transition-all hover:shadow-lg ${activePortfolioId === portfolio.id
-                ? 'ring-2 ring-pink-500 bg-pink-50 dark:bg-pink-900/10'
-                : ''
-                }`}
-              onClick={() => handleSelectPortfolio(portfolio.id)}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Folder
-                      size={20}
-                      className={
-                        activePortfolioId === portfolio.id
-                          ? 'text-pink-500'
-                          : 'text-neutral-500 dark:text-neutral-400'
-                      }
-                    />
-                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                      {portfolio.name}
-                    </h3>
+        <PageMainGrid single>
+        <PageMainColumn className="portfolios__list" aria-label="Portfolio selector">
+          {portfolios.map((portfolio) => {
+            const metrics = metricsByPortfolio[portfolio.id]
+            const isActive = activePortfolioId === portfolio.id
+            const totalReturn = calculateTotalReturn(metrics)
+            const totalReturnPct = calculateTotalReturnPct(metrics)
+            const largestAllocation = largestAllocationByPortfolio[portfolio.id]
+
+            return (
+              <article
+                key={portfolio.id}
+                className={`portfolios__portfolio ${isActive ? 'is-active' : ''}`}
+                aria-current={isActive ? 'true' : undefined}
+              >
+                <div className="portfolios__portfolio-main">
+                  <div className="portfolios__identity">
+                    <span>
+                      <i />
+                      {isActive ? 'CURRENTLY ACTIVE' : 'INACTIVE'}
+                    </span>
+                    <h2>{portfolio.name}</h2>
+                    <p>{portfolio.description || 'No strategy note yet.'}</p>
                   </div>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {portfolio.base_currency}
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShareModal(portfolio)
-                    }}
-                    className={`p-2 rounded transition-colors ${
-                      portfolio.is_public
-                        ? 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20'
-                        : 'text-neutral-400 hover:bg-neutral-50 dark:text-neutral-500 dark:hover:bg-neutral-800'
-                    }`}
-                    title={portfolio.is_public ? t('portfolios.publicEnabled') : t('portfolios.publicDisabled')}
-                  >
-                    {portfolio.is_public ? <Globe size={16} /> : <GlobeLock size={16} />}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openEditModal(portfolio)
-                    }}
-                    className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"
-                    title={t('common.edit')}
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setDeleteConfirm(portfolio.id)
-                    }}
-                    className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded transition-colors"
-                    title={t('common.delete')}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
 
-              {portfolio.description && (
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4 line-clamp-2">
-                  {portfolio.description}
-                </p>
-              )}
-
-              <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
-                <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {t('portfolios.createdAt')} {formatDate(portfolio.created_at)}
-                </div>
-              </div>
-
-              {activePortfolioId === portfolio.id && (
-                <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
-                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-xs font-medium rounded">
-                    <TrendingUp size={12} />
-                    {t('common.active')}
+                  <div className="portfolios__value">
+                    <strong>{metrics ? formatCurrency(metrics.total_value, portfolio.base_currency, locale) : '—'}</strong>
+                    <span>{metrics ? `${metrics.positions_count} ${metrics.positions_count === 1 ? 'position' : 'positions'}` : 'No position data'}</span>
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+
+                <dl className="portfolios__facts">
+                  <div>
+                    <dt>Performance</dt>
+                    <dd className={valueTone(totalReturn)}>
+                      {totalReturn === null ? '—' : `${signedPercent(totalReturnPct)} since inception`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Largest allocation</dt>
+                    <dd>
+                      {largestAllocation
+                        ? `${largestAllocation.label} · ${largestAllocation.percentage.toFixed(1)}%`
+                        : 'Not classified yet'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Last activity</dt>
+                    <dd>{formatDate(metrics?.last_updated || portfolio.created_at, locale)}</dd>
+                  </div>
+                </dl>
+
+                <div className="portfolios__metadata">
+                  <span>{portfolio.base_currency} base currency</span>
+                  <span>{portfolio.is_public ? 'Public sharing enabled' : 'Private portfolio'}</span>
+                  <div>
+                    Created {formatDate(portfolio.created_at, locale)}
+                  </div>
+                </div>
+
+                <div className="portfolios__actions">
+                  <button
+                    className="portfolios__switch"
+                    disabled={isActive}
+                    onClick={() => handleSelectPortfolio(portfolio.id)}
+                  >
+                    {isActive ? 'Currently active' : 'Switch portfolio →'}
+                  </button>
+                  <div className="portfolios__tertiary-actions">
+                    <button
+                      onClick={() => setShareModal(portfolio)}
+                      title={portfolio.is_public ? t('portfolios.publicEnabled') : t('portfolios.publicDisabled')}
+                    >
+                      {portfolio.is_public ? <Globe size={15} /> : <GlobeLock size={15} />}
+                      Share
+                    </button>
+                    <button onClick={() => openEditModal(portfolio)} title={t('common.edit')}>
+                      <Edit2 size={15} />
+                      Rename
+                    </button>
+                    <button onClick={() => setDeleteConfirm(portfolio.id)} title={t('common.delete')}>
+                      <Trash2 size={15} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </PageMainColumn>
+        </PageMainGrid>
       )}
 
-      {/* Add/Edit Modal */}
       {showModal && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--sm" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h2 className="pf-modal-title">
                 {editingPortfolio ? t('portfolios.edit') : t('portfolios.create')}
               </h2>
               <button
                 onClick={closeModal}
-                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                className="pf-modal-close"
+                aria-label={t('common.close')}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="pf-modal-body pf-modal-section">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                <label className="pf-modal-label">
                   {t('portfolios.nameField')} *
                 </label>
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  onChange={(event) => setName(event.target.value)}
+                  className="pf-modal-input"
                   placeholder={t('portfolios.namePlaceholder')}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                <label className="pf-modal-label">
                   {t('portfolios.currencyField')} *
                 </label>
                 <select
                   value={baseCurrency}
-                  onChange={(e) => setBaseCurrency(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  onChange={(event) => setBaseCurrency(event.target.value)}
+                  className="pf-modal-select"
                 >
                   <option value="EUR">EUR (€)</option>
                   <option value="USD">USD ($)</option>
@@ -376,35 +515,32 @@ export default function Portfolios() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                <label className="pf-modal-label">
                   {t('portfolios.descriptionField')}
                 </label>
                 <textarea
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  onChange={(event) => setDescription(event.target.value)}
+                  className="pf-modal-textarea"
                   rows={3}
                   placeholder={t('portfolios.descriptionPlaceholder')}
                 />
               </div>
 
-              <div className="flex items-center justify-between py-3 px-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Globe size={20} className={isPublic ? 'text-green-600 dark:text-green-400' : 'text-neutral-400'} />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {t('portfolios.publicSharing')}
-                    </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {t('portfolios.publicSharingHint')}
-                    </p>
-                  </div>
+              <div className="pf-modal-setting-row">
+                <div>
+                  <p className="text-sm font-medium text-neutral-100">
+                    {t('portfolios.publicSharing')}
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    {t('portfolios.publicSharingHint')}
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsPublic(!isPublic)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isPublic ? 'bg-green-600' : 'bg-neutral-300 dark:bg-neutral-600'
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    isPublic ? 'bg-pink-600' : 'bg-neutral-700'
                   }`}
                 >
                   <span
@@ -414,25 +550,24 @@ export default function Portfolios() {
                   />
                 </button>
               </div>
-
               {formError && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
+                <div className="pf-modal-callout pf-modal-callout--danger">
                   {formError}
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4">
+              <div className="pf-modal-footer -mx-5 -mb-5 mt-2">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  className="pf-modal-button pf-modal-button--secondary"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="flex-1 px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:bg-neutral-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+                  className="pf-modal-button pf-modal-button--primary"
                 >
                   {formLoading ? t('common.saving') : editingPortfolio ? t('common.save') : t('portfolios.create')}
                 </button>
@@ -442,40 +577,45 @@ export default function Portfolios() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel pf-modal-panel--sm" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+            <div>
+            <h3 className="pf-modal-title">
               {t('portfolios.delete')}
             </h3>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+            <p className="pf-modal-description">
               {t('portfolios.deleteConfirm')}
             </p>
-            <div className="flex gap-3">
+            </div>
+            </div>
+            <div className="pf-modal-footer">
+              <div />
+              <div className="pf-modal-footer-actions">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="pf-modal-button pf-modal-button--secondary"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="pf-modal-button pf-modal-button--danger"
               >
                 {t('common.delete')}
               </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Share Modal */}
       {shareModal && (
-        <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-xl w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+        <div className="pf-modal-overlay">
+          <div className="pf-modal-panel" role="dialog" aria-modal="true">
+            <div className="pf-modal-header">
+              <h3 className="pf-modal-title">
                 {t('portfolios.sharePortfolio')}
               </h3>
               <button
@@ -483,15 +623,15 @@ export default function Portfolios() {
                   setShareModal(null)
                   setCopiedLink(false)
                 }}
-                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                className="pf-modal-close"
+                aria-label={t('common.close')}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Public toggle */}
-              <div className="flex items-center justify-between py-3 px-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+            <div className="pf-modal-body pf-modal-section">
+              <div className="flex items-center justify-between py-3 px-4 pf-modal-muted-box">
                 <div className="flex items-center gap-3">
                   {shareModal.is_public ? (
                     <Globe size={20} className="text-green-600 dark:text-green-400" />
@@ -521,10 +661,9 @@ export default function Portfolios() {
                 </button>
               </div>
 
-              {/* Share link (only if public) */}
               {shareModal.is_public && (
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <label className="pf-modal-label">
                     {t('portfolios.shareLink')}
                   </label>
                   <div className="flex gap-2">
@@ -561,7 +700,6 @@ export default function Portfolios() {
                 </div>
               )}
 
-              {/* Preview button */}
               {shareModal.is_public && (
                 <a
                   href={getPublicShareUrl(shareModal.share_token)}
@@ -577,6 +715,6 @@ export default function Portfolios() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   )
 }

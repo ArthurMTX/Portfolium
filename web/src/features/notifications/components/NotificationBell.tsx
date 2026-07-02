@@ -64,10 +64,10 @@ export default function NotificationBell() {
     >
       <button
         onClick={handleClick}
-        className="relative p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        className="pf-icon-button"
         aria-label="Notifications"
       >
-        <Bell size={20} />
+        <Bell aria-hidden="true" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
             {unreadCount > 99 ? '99+' : unreadCount}

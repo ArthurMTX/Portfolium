@@ -2,24 +2,55 @@ import { useEffect, useState, useMemo } from 'react'
 import api from '@/api'
 import { useTranslation } from 'react-i18next'
 import AssetLogo from '@/shared/components/AssetLogo'
+import { ChartSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
+import { useNavigate } from 'react-router-dom'
 
 interface Position {
+  asset_id?: number
   symbol: string
   name: string | null
   asset_type?: string | null
   market_value: number | null
   unrealized_pnl_pct: number | null
   daily_change_pct: number | null
+  portfolio_weight?: number | null
+  unrealized_pnl?: number | null
+  sector?: string | null
+  country?: string | null
+  effective_sector?: string | null
+  effective_country?: string | null
+  themes?: Array<{ label?: string; name?: string }> | null
 }
 
 interface Props {
   portfolioId: number
 }
 
+function normaliseNumber(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  const number = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function performanceClass(value: number | string | null | undefined): string | undefined {
+  const number = normaliseNumber(value)
+  if (number === null || number === 0) return undefined
+  return number > 0 ? 'is-positive' : 'is-negative'
+}
+
+function formatSignedPercent(value: number | string | null | undefined, decimals = 2): string {
+  const number = normaliseNumber(value)
+  if (number === null) return '—'
+  const prefix = number > 0 ? '+' : number < 0 ? '−' : ''
+  return `${prefix}${Math.abs(number).toFixed(decimals)}%`
+}
+
 export default function PortfolioHeatmap({ portfolioId }: Props) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [positions, setPositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(false)
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
 
   useEffect(() => {
     let canceled = false
@@ -206,6 +237,12 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     return layoutedTiles
   }, [sortedPositions, totalValue, positions.length])
 
+  const selectedPosition = useMemo(() => {
+    if (positions.length === 0) return null
+    if (selectedSymbol) return positions.find((position) => position.symbol === selectedSymbol) || null
+    return sortedPositions[0] || null
+  }, [positions, selectedSymbol, sortedPositions])
+
   const getColorByPerformance = (pnlPct: number | null): string => {
     if (pnlPct === null || pnlPct === undefined) return 'bg-neutral-200 dark:bg-neutral-700'
     
@@ -229,219 +266,198 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
   }
 
   if (loading) {
-    return (
-      <div>
-        <div className="mb-4 space-y-2 animate-pulse">
-          <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-          <div className="h-4 w-72 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-        </div>
-        
-        {/* Legend Skeleton */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="flex items-center gap-2 animate-pulse">
-            <div className="w-4 h-4 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-            <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-          </div>
-          <div className="flex items-center gap-2 animate-pulse">
-            <div className="w-4 h-4 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-            <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-          </div>
-          <div className="flex items-center gap-2 animate-pulse">
-            <div className="w-4 h-4 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-            <div className="h-3 w-16 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
-          </div>
-        </div>
-
-        {/* Heatmap Grid Skeleton */}
-        <div className="grid grid-cols-12 gap-2 auto-rows-auto">
-          {[
-            { colSpan: 6, height: '180px' },
-            { colSpan: 4, height: '160px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 3, height: '110px' },
-            { colSpan: 3, height: '110px' },
-            { colSpan: 3, height: '110px' },
-            { colSpan: 3, height: '110px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 2, height: '90px' },
-            { colSpan: 1, height: '70px' },
-            { colSpan: 1, height: '70px' },
-          ].map((skeleton, i) => (
-            <div
-              key={i}
-              style={{ 
-                gridColumn: `span ${skeleton.colSpan}`,
-                minHeight: skeleton.height 
-              }}
-              className="bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse overflow-hidden"
-            >
-              <div className={`${skeleton.colSpan >= 6 ? 'p-4' : skeleton.colSpan >= 4 ? 'p-3.5' : skeleton.colSpan >= 3 ? 'p-3' : skeleton.colSpan >= 2 ? 'p-2' : 'p-1.5'} h-full flex flex-col justify-between`}>
-                <div className="flex items-center gap-2">
-                  <div className={`${skeleton.colSpan >= 6 ? 'w-12 h-12' : skeleton.colSpan >= 4 ? 'w-10 h-10' : skeleton.colSpan >= 3 ? 'w-7 h-7' : skeleton.colSpan >= 2 ? 'w-5 h-5' : 'w-4 h-4'} bg-neutral-200 dark:bg-neutral-700 rounded flex-shrink-0`}></div>
-                  <div className={`${skeleton.colSpan >= 6 ? 'h-6 w-20' : skeleton.colSpan >= 4 ? 'h-5 w-16' : skeleton.colSpan >= 3 ? 'h-4 w-14' : skeleton.colSpan >= 2 ? 'h-3 w-12' : 'h-3 w-10'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
-                </div>
-                {skeleton.colSpan >= 3 && (
-                  <div className={`${skeleton.colSpan >= 6 ? 'h-4 w-32' : skeleton.colSpan >= 4 ? 'h-3 w-24' : 'h-3 w-20'} bg-neutral-200 dark:bg-neutral-700 rounded mt-1`}></div>
-                )}
-                <div className="mt-auto space-y-1">
-                  <div className={`${skeleton.colSpan >= 4 ? 'h-3 w-20' : skeleton.colSpan >= 2 ? 'h-2 w-16' : 'h-2 w-12'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
-                  <div className={`${skeleton.colSpan >= 4 ? 'h-3 w-24' : skeleton.colSpan >= 2 ? 'h-2 w-18' : 'h-2 w-14'} bg-neutral-200 dark:bg-neutral-700 rounded`}></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+    return <ChartSkeleton label="Loading position heatmap" />
   }
 
   if (positions.length === 0) {
     return (
-      <div className="p-8">
-        <p className="text-center text-neutral-500 dark:text-neutral-400">{t('dashboard.noPositions')}</p>
-      </div>
+      <StateBlock
+        eyebrow="No chart data"
+        title={t('dashboard.noPositions')}
+        description="Add holdings before using the portfolio heatmap."
+      />
     )
   }
 
   return (
-    <div>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-          {t('charts.heatmap')}
-        </h3>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-          {t('charts.heatmapDescription')}
-        </p>
+    <section className="pf-section pf-section--spacious charts-section">
+      <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header">
+        <div>
+          <p className="pf-section-kicker">POSITION MAP</p>
+          <h2 className="pf-section-title">{t('charts.heatmap')}</h2>
+        </div>
+        <span className="pf-section-description">{t('charts.heatmapDescription')}</span>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-700 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.dailyLoss')}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-neutral-300 dark:bg-neutral-600 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.unchanged')}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-700 rounded"></div>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('charts.dailyGain')}</span>
-        </div>
-      </div>
+      <div className="pf-main-grid">
+        <div>
+          <div className="charts-legend">
+            <span><i className="is-negative" />{t('charts.dailyLoss')}</span>
+            <span><i />{t('charts.unchanged')}</span>
+            <span><i className="is-positive" />{t('charts.dailyGain')}</span>
+          </div>
+          {/* Heatmap Grid Layout */}
 
-      {/* Heatmap Grid Layout */}
-      
-      {/* Mobile: Simplified 2-Column Grid */}
-      <div className="lg:hidden grid grid-cols-2 gap-2 auto-rows-auto">
-        {sortedPositions.map((position) => {
-          const dailyPct = position.daily_change_pct !== null ? Number(position.daily_change_pct) : null
-          const percentage = totalValue > 0 ? ((Number(position.market_value) || 0) / totalValue) * 100 : 0
-          
-          // Determine size based on portfolio weight
-          const isLarge = percentage >= 15
-          const isMedium = percentage >= 8
+          {/* Mobile: Simplified 2-Column Grid */}
+          <div className="lg:hidden grid grid-cols-2 gap-2 auto-rows-auto">
+            {sortedPositions.map((position) => {
+              const dailyPct = normaliseNumber(position.daily_change_pct)
+              const percentage = totalValue > 0 ? ((Number(position.market_value) || 0) / totalValue) * 100 : 0
 
-          return (
-            <div
-              key={position.symbol}
-              style={{
-                gridColumn: isLarge ? 'span 2' : 'span 1',
-                minHeight: isLarge ? '140px' : isMedium ? '120px' : '100px',
-              }}
-              className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg p-3 transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
-              title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% ${t('charts.ofPortfolio')}`}
-            >
-              <div className="flex items-center gap-2">
-                <AssetLogo
-                  symbol={position.symbol}
-                  assetType={position.asset_type}
-                  assetName={position.name}
-                  alt={`${position.symbol} logo`}
-                  className={`${isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-7 h-7'} object-contain flex-shrink-0`}
-                />
-                <div className={`font-bold ${isLarge ? 'text-base' : 'text-sm'} truncate`}>{position.symbol}</div>
-              </div>
-              {position.name && isLarge && (
-                <div className="text-xs opacity-75 truncate mt-1">{position.name}</div>
-              )}
-              <div className="mt-auto">
-                <div className={`${isLarge ? 'text-sm' : 'text-xs'} opacity-90`}>
-                  <span className="opacity-60">{t('charts.weight')}: </span>{percentage.toFixed(1)}%
-                </div>
-                {dailyPct !== null && (
-                  <div className={`${isLarge ? 'text-sm' : 'text-xs'} font-semibold`}>
-                    <span className="opacity-60">{t('charts.daily')}: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
+              // Determine size based on portfolio weight
+              const isLarge = percentage >= 15
+              const isMedium = percentage >= 8
+
+              return (
+                <button
+                  key={position.symbol}
+                  type="button"
+                  onClick={() => setSelectedSymbol(position.symbol)}
+                  style={{
+                    gridColumn: isLarge ? 'span 2' : 'span 1',
+                    minHeight: isLarge ? '140px' : isMedium ? '120px' : '100px',
+                  }}
+                  className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} charts-heatmap-tile ${selectedSymbol === position.symbol ? 'is-selected' : ''}`}
+                  title={`${position.name || position.symbol}: ${percentage.toFixed(2)}% ${t('charts.ofPortfolio')}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <AssetLogo
+                      symbol={position.symbol}
+                      assetType={position.asset_type}
+                      assetName={position.name}
+                      alt={`${position.symbol} logo`}
+                      className={`${isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-7 h-7'} object-contain flex-shrink-0`}
+                    />
+                    <div className={`font-bold ${isLarge ? 'text-base' : 'text-sm'} truncate`}>{position.symbol}</div>
                   </div>
-                )}
+                  {position.name && isLarge && (
+                    <div className="text-xs opacity-75 truncate mt-1">{position.name}</div>
+                  )}
+                  <div className="mt-auto">
+                    <div className={`${isLarge ? 'text-sm' : 'text-xs'} opacity-90`}>
+                      <span className="opacity-60">{t('charts.weight')}: </span>{percentage.toFixed(1)}%
+                    </div>
+                    {dailyPct !== null && (
+                      <div className={`${isLarge ? 'text-sm' : 'text-xs'} font-semibold`}>
+                        <span className="opacity-60">{t('charts.daily')}: </span>{formatSignedPercent(dailyPct, 1)}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Desktop: Treemap Grid */}
+          <div className="hidden lg:grid grid-cols-12 gap-2 auto-rows-auto">
+            {layoutTiles.map((tile) => {
+              const dailyPct = normaliseNumber(tile.daily_change_pct)
+
+              // Scale text and logo based on span size
+              const isXL = tile.colSpan >= 6 || tile.rowSpan >= 2
+              const isLarge = tile.colSpan >= 4 || (tile.colSpan >= 3 && tile.rowSpan >= 2)
+              const isMedium = tile.colSpan >= 3
+
+              const logoSize = isXL ? 'w-12 h-12' : isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-6 h-6'
+              const symbolSize = isXL ? 'text-xl' : isLarge ? 'text-lg' : isMedium ? 'text-base' : 'text-sm'
+              const nameSize = isXL ? 'text-sm' : isLarge ? 'text-xs' : isMedium ? 'text-[11px]' : 'text-[10px]'
+              const valueSize = isXL ? 'text-base' : isLarge ? 'text-sm' : 'text-xs'
+              const padding = isXL ? 'p-4' : isLarge ? 'p-3.5' : isMedium ? 'p-3' : 'p-2.5'
+
+              return (
+                <button
+                  key={tile.symbol}
+                  type="button"
+                  onClick={() => setSelectedSymbol(tile.symbol)}
+                  style={{
+                    gridColumn: `span ${tile.colSpan}`,
+                    gridRow: `span ${tile.rowSpan}`,
+                    minHeight: tile.minHeight,
+                  }}
+                  className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg ${padding} charts-heatmap-tile ${selectedSymbol === tile.symbol ? 'is-selected' : ''}`}
+                  title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% ${t('charts.ofPortfolio')}, ${t('charts.daily')}: ${formatSignedPercent(dailyPct)}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <AssetLogo
+                      symbol={tile.symbol}
+                      assetType={tile.asset_type}
+                      assetName={tile.name}
+                      alt={`${tile.symbol} logo`}
+                      className={`${logoSize} object-contain flex-shrink-0`}
+                    />
+                    <div className={`font-bold ${symbolSize} truncate`}>{tile.symbol}</div>
+                  </div>
+                  {tile.name && (
+                    <div className={`${nameSize} opacity-75 truncate mt-1`}>{tile.name}</div>
+                  )}
+                  <div className="mt-auto">
+                    <div className={`${valueSize} opacity-90`}>
+                      <span className="opacity-60">{t('charts.weight')}: </span>{tile.percentage.toFixed(1)}%
+                    </div>
+                    {dailyPct !== null && (
+                      <div className={`${valueSize} font-semibold`}>
+                        <span className="opacity-60">{t('charts.daily')}: </span>{formatSignedPercent(dailyPct, 1)}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {selectedPosition && (
+          <aside className="charts-analysis-panel">
+            <p>Selected position</p>
+            <div className="charts-analysis-panel__identity">
+                <AssetLogo
+                symbol={selectedPosition.symbol}
+                assetType={selectedPosition.asset_type}
+                assetName={selectedPosition.name}
+                alt={`${selectedPosition.symbol} logo`}
+                className="w-10 h-10 object-contain"
+                />
+              <div>
+                <strong>{selectedPosition.symbol}</strong>
+                <span>{selectedPosition.name || selectedPosition.symbol}</span>
               </div>
             </div>
-          )
-        })}
-      </div>
-
-      {/* Desktop: Treemap Grid */}
-      <div className="hidden lg:grid grid-cols-12 gap-2 auto-rows-auto">
-        {layoutTiles.map((tile) => {
-          const dailyPct = tile.daily_change_pct !== null ? Number(tile.daily_change_pct) : null
-          
-          // Scale text and logo based on span size
-          const isXL = tile.colSpan >= 6 || tile.rowSpan >= 2
-          const isLarge = tile.colSpan >= 4 || (tile.colSpan >= 3 && tile.rowSpan >= 2)
-          const isMedium = tile.colSpan >= 3
-          
-          const logoSize = isXL ? 'w-12 h-12' : isLarge ? 'w-10 h-10' : isMedium ? 'w-8 h-8' : 'w-6 h-6'
-          const symbolSize = isXL ? 'text-xl' : isLarge ? 'text-lg' : isMedium ? 'text-base' : 'text-sm'
-          const nameSize = isXL ? 'text-sm' : isLarge ? 'text-xs' : isMedium ? 'text-[11px]' : 'text-[10px]'
-          const valueSize = isXL ? 'text-base' : isLarge ? 'text-sm' : 'text-xs'
-          const padding = isXL ? 'p-4' : isLarge ? 'p-3.5' : isMedium ? 'p-3' : 'p-2.5'
-
-          return (
-            <div
-              key={tile.symbol}
-              style={{
-                gridColumn: `span ${tile.colSpan}`,
-                gridRow: `span ${tile.rowSpan}`,
-                minHeight: tile.minHeight,
-              }}
-              className={`${getColorByPerformance(dailyPct)} ${getTextColorByPerformance(dailyPct)} rounded-lg ${padding} transition-all duration-200 hover:shadow-lg hover:brightness-110 cursor-pointer flex flex-col justify-between`}
-              title={`${tile.name || tile.symbol}: ${tile.percentage.toFixed(2)}% ${t('charts.ofPortfolio')}, ${t('charts.daily')}: ${dailyPct !== null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : 'N/A'}`}
-            >
-              <div className="flex items-center gap-2">
-                <AssetLogo
-                  symbol={tile.symbol}
-                  assetType={tile.asset_type}
-                  assetName={tile.name}
-                  alt={`${tile.symbol} logo`}
-                  className={`${logoSize} object-contain flex-shrink-0`}
-                />
-                <div className={`font-bold ${symbolSize} truncate`}>{tile.symbol}</div>
+            <dl>
+              <div>
+                <dt>Current weight</dt>
+                <dd>{totalValue > 0 ? `${(((Number(selectedPosition.market_value) || 0) / totalValue) * 100).toFixed(2)}%` : '—'}</dd>
               </div>
-              {tile.name && (
-                <div className={`${nameSize} opacity-75 truncate mt-1`}>{tile.name}</div>
-              )}
-              <div className="mt-auto">
-                <div className={`${valueSize} opacity-90`}>
-                  <span className="opacity-60">{t('charts.weight')}: </span>{tile.percentage.toFixed(1)}%
-                </div>
-                {dailyPct !== null && (
-                  <div className={`${valueSize} font-semibold`}>
-                    <span className="opacity-60">{t('charts.daily')}: </span>{dailyPct >= 0 ? '+' : ''}{dailyPct.toFixed(1)}%
-                  </div>
-                )}
+              <div>
+                <dt>Daily move</dt>
+                <dd className={performanceClass(selectedPosition.daily_change_pct)}>{formatSignedPercent(selectedPosition.daily_change_pct)}</dd>
               </div>
-            </div>
-          )
-        })}
+              <div>
+                <dt>Total return</dt>
+                <dd className={performanceClass(selectedPosition.unrealized_pnl_pct)}>{formatSignedPercent(selectedPosition.unrealized_pnl_pct)}</dd>
+              </div>
+              <div>
+                <dt>Portfolio contribution</dt>
+                <dd>{selectedPosition.unrealized_pnl !== null && selectedPosition.unrealized_pnl !== undefined ? Number(selectedPosition.unrealized_pnl).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</dd>
+              </div>
+              <div>
+                <dt>Sector</dt>
+                <dd>{selectedPosition.effective_sector || selectedPosition.sector || 'Unavailable'}</dd>
+              </div>
+              <div>
+                <dt>Country</dt>
+                <dd>{selectedPosition.effective_country || selectedPosition.country || 'Unavailable'}</dd>
+              </div>
+              <div>
+                <dt>Theme</dt>
+                <dd>{selectedPosition.themes?.[0]?.label || selectedPosition.themes?.[0]?.name || 'Unavailable'}</dd>
+              </div>
+            </dl>
+            <button type="button" onClick={() => navigate(`/assets/${encodeURIComponent(selectedPosition.symbol)}/research`)}>
+              Open Asset Research →
+            </button>
+          </aside>
+        )}
       </div>
-    </div>
+    </section>
   )
 }

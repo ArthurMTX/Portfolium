@@ -101,29 +101,30 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
   }
 
   return (
-    <div className="modal-overlay bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="pf-modal-overlay">
+      <div className="pf-modal-panel pf-modal-panel--lg" role="dialog" aria-modal="true">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
+        <div className="pf-modal-header">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-              <Shuffle className="text-purple-600" size={28} />
+            <h2 className="pf-modal-title flex items-center gap-2">
+              <Shuffle className="text-neutral-400" size={18} />
               {t('splitHistory.title')}
             </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+            <p className="pf-modal-description">
               {assetSymbol}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+            className="pf-modal-close"
+            aria-label={t('common.close')}
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="pf-modal-body">
           {loading ? (
             <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
               {t('common.loading')}
@@ -212,13 +213,16 @@ export default function SplitHistory({ assetId, assetSymbol, portfolioId, onClos
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-neutral-200 dark:border-neutral-700">
+        <div className="pf-modal-footer">
+          <div />
+          <div className="pf-modal-footer-actions">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
+            className="pf-modal-button pf-modal-button--secondary"
           >
             {t('common.close')}
           </button>
+          </div>
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ from celery import group
 from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Portfolio, User
-from app.services.portfolio_analytics.insights import InsightsService
+from app.services.portfolio_analytics.insights import EmptyPortfolioInsightsError, InsightsService
 from app.tasks.decorators import singleton_task, deduplicate_task
 from app.observability.metrics import observe_operation
 
@@ -51,7 +51,21 @@ def calculate_portfolio_insights(self, portfolio_id: int, user_id: int, period: 
             # Calculate insights using InsightsService (with default benchmark SPY)
             insights_service = InsightsService(db)
             benchmark = "SPY"  # Default benchmark
-            insights = asyncio.run(insights_service.get_portfolio_insights(portfolio_id, user_id, period, benchmark))
+            try:
+                insights = asyncio.run(
+                    insights_service.get_portfolio_insights(portfolio_id, user_id, period, benchmark)
+                )
+            except EmptyPortfolioInsightsError as e:
+                logger.info(
+                    f"Task {self.request.id}: Skipping insights for empty portfolio {portfolio_id}: {e}"
+                )
+                return {
+                    "status": "empty",
+                    "portfolio_id": portfolio_id,
+                    "period": period,
+                    "message": str(e),
+                    "task_id": self.request.id
+                }
             
             # Note: Caching is handled by InsightsService._cache_insights internally
             # The cache key format is: insights:{portfolio_id}:{period}:{benchmark}
