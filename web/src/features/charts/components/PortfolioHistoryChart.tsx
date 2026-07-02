@@ -321,11 +321,11 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
                   </div>
                   <div>
                     <dt>Reached a high</dt>
-                    <dd>{currencySymbol}{summary.highPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                    <dd className="is-positive">{currencySymbol}{summary.highPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div>
                     <dt>Reached a low</dt>
-                    <dd>{currencySymbol}{summary.lowPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
+                    <dd className="is-negative">{currencySymbol}{summary.lowPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div>
                     <dt>Largest daily gain</dt>

@@ -3,6 +3,7 @@ import api from '@/api'
 import { useTranslation } from 'react-i18next'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { ChartSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
+import { formatCurrency } from '@/shared/lib/formatUtils'
 import { useNavigate } from 'react-router-dom'
 
 interface Position {
@@ -15,6 +16,7 @@ interface Position {
   daily_change_pct: number | null
   portfolio_weight?: number | null
   unrealized_pnl?: number | null
+  currency?: string | null
   sector?: string | null
   country?: string | null
   effective_sector?: string | null
@@ -34,7 +36,7 @@ function normaliseNumber(value: number | string | null | undefined): number | nu
 
 function performanceClass(value: number | string | null | undefined): string | undefined {
   const number = normaliseNumber(value)
-  if (number === null || number === 0) return undefined
+  if (number === null || number === 0) return 'is-neutral'
   return number > 0 ? 'is-positive' : 'is-negative'
 }
 
@@ -43,6 +45,16 @@ function formatSignedPercent(value: number | string | null | undefined, decimals
   if (number === null) return '—'
   const prefix = number > 0 ? '+' : number < 0 ? '−' : ''
   return `${prefix}${Math.abs(number).toFixed(decimals)}%`
+}
+
+function formatSignedCurrency(
+  value: number | string | null | undefined,
+  currency: string | null | undefined,
+): string {
+  const number = normaliseNumber(value)
+  if (number === null) return '—'
+  const prefix = number > 0 ? '+' : number < 0 ? '−' : ''
+  return `${prefix}${formatCurrency(Math.abs(number), currency || 'EUR')}`
 }
 
 export default function PortfolioHeatmap({ portfolioId }: Props) {
@@ -281,7 +293,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
 
   return (
     <section className="pf-section pf-section--spacious charts-section">
-      <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header">
+      <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header charts-section__header--heatmap">
         <div>
           <p className="pf-section-kicker">POSITION MAP</p>
           <h2 className="pf-section-title">{t('charts.heatmap')}</h2>
@@ -437,7 +449,9 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
               </div>
               <div>
                 <dt>Portfolio contribution</dt>
-                <dd>{selectedPosition.unrealized_pnl !== null && selectedPosition.unrealized_pnl !== undefined ? Number(selectedPosition.unrealized_pnl).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</dd>
+                <dd className={performanceClass(selectedPosition.unrealized_pnl)}>
+                  {formatSignedCurrency(selectedPosition.unrealized_pnl, selectedPosition.currency)}
+                </dd>
               </div>
               <div>
                 <dt>Sector</dt>

@@ -31,6 +31,11 @@ const TAB_PURPOSES: Record<ChartTab, string> = {
   performance: 'Investment performance measured against invested capital.',
 }
 
+function metricTone(value: number | null | undefined): 'positive' | 'negative' | 'neutral' {
+  if (value === null || value === undefined || value === 0) return 'neutral'
+  return value > 0 ? 'positive' : 'negative'
+}
+
 export default function Charts() {
   const {
     portfolios,
@@ -140,12 +145,12 @@ export default function Charts() {
         />
         <PageMetric
           label="Total return"
-          tone={totalReturn !== null && totalReturn < 0 ? 'negative' : 'positive'}
+          tone={metricTone(totalReturn)}
           value={totalReturn !== null ? `${totalReturn >= 0 ? '+' : '-'}${currencySymbol}${Math.abs(totalReturn).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           detail={totalReturnPct !== undefined && totalReturnPct !== null
             ? `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`
             : undefined}
-          detailTone={totalReturnPct !== undefined && totalReturnPct !== null && totalReturnPct < 0 ? 'negative' : 'positive'}
+          detailTone={metricTone(totalReturnPct)}
         />
         <PageMetric label="Selected period" value="All time" />
         <PageMetric

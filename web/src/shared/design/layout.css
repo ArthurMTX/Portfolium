@@ -299,6 +299,22 @@
     line-height: 1.05;
   }
 
+  .pf-metric-strip strong.is-positive,
+  .pf-metric-row dd.is-positive,
+  .pf-metric-figure.is-positive,
+  .pf-metric-strip em.is-positive,
+  .pf-metric-detail.is-positive {
+    color: var(--pf-success);
+  }
+
+  .pf-metric-strip strong.is-negative,
+  .pf-metric-row dd.is-negative,
+  .pf-metric-figure.is-negative,
+  .pf-metric-strip em.is-negative,
+  .pf-metric-detail.is-negative {
+    color: var(--pf-danger);
+  }
+
   .pf-metric-strip em,
   .pf-metric-detail {
     color: var(--pf-muted);

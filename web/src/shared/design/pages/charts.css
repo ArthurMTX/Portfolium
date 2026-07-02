@@ -2,6 +2,21 @@
   font: inherit;
 }
 
+.charts-section__header {
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.42fr);
+  gap: clamp(1rem, 2.8vw, 2.25rem);
+}
+
+.charts-section__header > .pf-section-description {
+  justify-self: end;
+  text-align: right;
+}
+
+.charts-section__header--heatmap > .pf-section-description {
+  justify-self: start;
+  text-align: left;
+}
+
 .charts-analysis-panel > p {
   margin: 0 0 0.75rem;
   color: var(--pf-subtle);
@@ -171,6 +186,14 @@
   letter-spacing: -0.035em;
 }
 
+.charts-observations dd.is-positive {
+  color: var(--pf-success);
+}
+
+.charts-observations dd.is-negative {
+  color: var(--pf-danger);
+}
+
 .charts-legend {
   display: flex;
   flex-wrap: wrap;
@@ -315,6 +338,18 @@
   grid-template-columns: 1fr;
   border-top: 1px solid var(--pf-line);
   padding-top: 0.8rem;
+}
+
+.charts-analysis-panel dd.is-positive {
+  color: var(--pf-success);
+}
+
+.charts-analysis-panel dd.is-negative {
+  color: var(--pf-danger);
+}
+
+.charts-analysis-panel dd.is-neutral {
+  color: var(--pf-muted);
 }
 
 .dark .charts-analysis-panel dl {
