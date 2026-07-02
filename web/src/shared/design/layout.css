@@ -86,8 +86,10 @@
   .pf-section-header__aside {
     display: grid;
     gap: 0.45rem;
-    justify-items: start;
+    justify-self: end;
+    justify-items: end;
     min-width: 0;
+    text-align: right;
   }
 
   .pf-content-stack {
@@ -331,6 +333,12 @@
 
     .pf-section-header {
       display: grid;
+    }
+
+    .pf-section-header__aside {
+      justify-self: start;
+      justify-items: start;
+      text-align: left;
     }
 
     .pf-page-context,

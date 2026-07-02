@@ -153,7 +153,8 @@
 
 .dashboard-overview__attribution > a,
 .dashboard-overview__section-heading > a,
-.dashboard-overview__goal-detail > a {
+.dashboard-overview__goal-detail > a,
+.dashboard-overview .pf-section-header__aside > a {
   color: var(--dashboard-rose);
   font-size: 0.78rem;
   font-weight: 700;
@@ -162,7 +163,8 @@
 
 .dashboard-overview__attribution > a:hover,
 .dashboard-overview__section-heading > a:hover,
-.dashboard-overview__goal-detail > a:hover {
+.dashboard-overview__goal-detail > a:hover,
+.dashboard-overview .pf-section-header__aside > a:hover {
   text-decoration: underline;
   text-underline-offset: 0.25rem;
 }
