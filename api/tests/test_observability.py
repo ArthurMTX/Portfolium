@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 
-from app.observability.logging import JsonFormatter
+from app.observability.logging import JsonFormatter, YFinanceNoiseFilter
 from app.observability.metrics import (
     BUSINESS_OPERATION_DURATION,
     cache_name_from_key,
@@ -54,6 +54,40 @@ def test_json_formatter_redacts_sensitive_values():
     assert "abc123" not in payload["message"]
     assert "hunter2" not in payload["message"]
     assert "[REDACTED" in payload["message"]
+
+
+def test_yfinance_noise_filter_throttles_repeated_fx_delisted_fallback_noise():
+    record = logging.LogRecord(
+        name="yfinance",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg=(
+            "$JPYEUR=X: possibly delisted; no price data found  "
+            '(1d 2005-01-07 -> 2005-01-14) (Yahoo error = "Data does not exist")'
+        ),
+        args=(),
+        exc_info=None,
+    )
+
+    log_filter = YFinanceNoiseFilter()
+
+    assert log_filter.filter(record) is True
+    assert log_filter.filter(record) is False
+
+
+def test_yfinance_noise_filter_keeps_non_fx_provider_errors():
+    record = logging.LogRecord(
+        name="yfinance",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="$AAPL: possibly delisted; no price data found",
+        args=(),
+        exc_info=None,
+    )
+
+    assert YFinanceNoiseFilter().filter(record) is True
 
 
 def test_metric_categories_do_not_expose_cache_keys_or_raw_reasons():

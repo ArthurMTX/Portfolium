@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -57,6 +57,10 @@ _REDACTION_PATTERNS = (
         r"\1://[REDACTED]@",
     ),
 )
+_YFINANCE_FX_NO_DATA_PATTERN = re.compile(
+    r"\$(?P<symbol>[A-Z]{6}=X): possibly delisted; no price data found"
+)
+_YFINANCE_FX_NO_DATA_LOG_INTERVAL = timedelta(minutes=10)
 
 
 def redact_text(value: Any) -> str:
@@ -75,6 +79,31 @@ class ContextFilter(logging.Filter):
             record.request_id = request_id_var.get()
         if not getattr(record, "task_name", None):
             record.task_name = task_name_var.get()
+        return True
+
+
+class YFinanceNoiseFilter(logging.Filter):
+    """Throttle expected yfinance FX fallback noise while keeping visibility."""
+
+    def __init__(self, interval: timedelta = _YFINANCE_FX_NO_DATA_LOG_INTERVAL) -> None:
+        super().__init__()
+        self.interval = interval
+        self._last_seen: dict[str, datetime] = {}
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name != "yfinance":
+            return True
+        match = _YFINANCE_FX_NO_DATA_PATTERN.search(record.getMessage())
+        if not match:
+            return True
+
+        now = datetime.now(timezone.utc)
+        symbol = match.group("symbol")
+        last_seen = self._last_seen.get(symbol)
+        if last_seen and now - last_seen < self.interval:
+            return False
+
+        self._last_seen[symbol] = now
         return True
 
 
@@ -129,12 +158,14 @@ def configure_logging(settings: Any) -> None:
 
     formatter: logging.Formatter = JsonFormatter() if log_format == "json" else ReadableFormatter()
     context_filter = ContextFilter()
+    yfinance_noise_filter = YFinanceNoiseFilter()
     log_level = getattr(logging, str(getattr(settings, "LOG_LEVEL", "INFO")).upper(), logging.INFO)
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
     console_handler.addFilter(context_filter)
+    console_handler.addFilter(yfinance_noise_filter)
 
     handlers: list[logging.Handler] = [console_handler]
     if bool(getattr(settings, "LOG_FILE_ENABLED", environment == "development")):
@@ -157,6 +188,7 @@ def configure_logging(settings: Any) -> None:
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
             file_handler.addFilter(context_filter)
+            file_handler.addFilter(yfinance_noise_filter)
             handlers.append(file_handler)
         except OSError as exc:
             print(f"Logging file handler unavailable: {redact_text(exc)}", file=sys.stderr)
