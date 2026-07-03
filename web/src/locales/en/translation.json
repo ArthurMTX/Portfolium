@@ -985,6 +985,8 @@
       "revEstimate": "Rev Est",
       "watchlist": "Watchlist"
     },
+    "refresh": "Refresh Calendar",
+    "refreshing": "Refreshing Calendar",
     "refreshEarnings": "Refresh Earnings",
     "refreshEarningsTooltip": "Fetch latest earnings data from market"
   },

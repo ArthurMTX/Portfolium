@@ -1,5 +1,12 @@
 import { request } from '@/api/client'
-import type { CalendarEventsResponse, DailyPerformanceResponse, EarningsCalendarResponse, MarketHolidaysResponse } from '@/api/types'
+import type {
+  CalendarEventsResponse,
+  DailyPerformanceResponse,
+  EarningsCalendarResponse,
+  EarningsRefreshResponse,
+  EarningsRefreshStatusResponse,
+  MarketHolidaysResponse,
+} from '@/api/types'
 
 // Calendar
 export async function getCalendarEvents(params?: {
@@ -49,16 +56,13 @@ export async function refreshEarningsCache(params?: { include_watchlist?: boolea
   if (params?.include_watchlist !== undefined) queryParams.append('include_watchlist', params.include_watchlist.toString())
   const queryString = queryParams.toString()
   
-  return request<{
-    status: string
-    symbols_checked: number
-    symbols_updated: number
-    symbols_failed: number
-    portfolio_symbols: number
-    watchlist_symbols: number
-  }>(`/calendar/refresh-earnings${queryString ? `?${queryString}` : ''}`, {
+  return request<EarningsRefreshResponse>(`/calendar/refresh-earnings${queryString ? `?${queryString}` : ''}`, {
     method: 'POST'
   })
+}
+
+export async function getEarningsRefreshStatus(taskId: string) {
+  return request<EarningsRefreshStatusResponse>(`/calendar/refresh-earnings/${encodeURIComponent(taskId)}`)
 }
 
 export async function getMarketHolidays(params?: {

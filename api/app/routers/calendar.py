@@ -3,19 +3,22 @@ Calendar router - Portfolio calendar events including daily P&L and earnings
 """
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, Query
+from celery.result import AsyncResult
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, case, and_
+from sqlalchemy import func, case
 import logging
 from decimal import Decimal
 
 from app.db import get_db
 from app.auth import get_current_user
-from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.celery_app import celery_app
+from app.config import settings
 from app.models import User, Portfolio, Transaction, TransactionType, Asset, EarningsCache, Watchlist
 from app.crud import portfolios as crud
 from app.services.portfolio_analytics.metrics import get_metrics_service
 from app.services.market_data.market_calendar import MarketCalendarService
+from app.tasks.calendar_tasks import refresh_user_earnings_cache
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,20 +41,6 @@ def serialize_value(val: Any) -> Any:
     if isinstance(val, (list, tuple)):
         return [serialize_value(item) for item in val]
     return val
-
-
-def extract_calendar_value(calendar_data: Dict[str, Any], *keys: str) -> Any:
-    """Return the first provider field value found, unwrapping common table/dict shapes."""
-    for key in keys:
-        value = calendar_data.get(key)
-        if value is None:
-            continue
-        if isinstance(value, dict):
-            return next((v for v in value.values() if v is not None), None)
-        if isinstance(value, (list, tuple)):
-            return next((v for v in value if v is not None), None)
-        return value
-    return None
 
 
 def get_held_stock_symbols(db: Session, portfolios: List[Portfolio]) -> Dict[str, Dict[str, Any]]:
@@ -391,7 +380,6 @@ def get_daily_performance(
             history = metrics_service.get_portfolio_history(portfolio.id, period)
             
             prev_value = None
-            prev_invested = None
             for record in history:
                 record_date = datetime.fromisoformat(record.date).date() if isinstance(record.date, str) else record.date
                 date_str = record_date.isoformat() if hasattr(record_date, 'isoformat') else str(record_date)
@@ -436,7 +424,6 @@ def get_daily_performance(
                 # CRITICAL: Always update prev_value for the next iteration
                 # This ensures we compare consecutive days, not skip ahead
                 prev_value = record.value
-                prev_invested = record.invested
         except Exception as e:
             logger.warning(f"Failed to get history for portfolio {portfolio.id}: {e}")
             continue
@@ -468,157 +455,54 @@ def get_daily_performance(
 @router.post("/refresh-earnings")
 def refresh_earnings_for_user(
     include_watchlist: bool = Query(True, description="Include watchlist stocks in refresh"),
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Manually trigger earnings cache refresh for user's held stocks and watchlist items.
     This is useful when a user wants fresh data without waiting for the scheduled job.
     """
-    # Get user's portfolios
-    portfolios = crud.get_portfolios_by_user(db, current_user.id)
-    
-    # Get held stock symbols
-    held_symbols = get_held_stock_symbols(db, portfolios)
-    
-    # Get watchlist stock symbols (stocks only)
-    watchlist_symbols: Dict[str, Dict[str, Any]] = {}
-    if include_watchlist:
-        watchlist_items = db.query(Watchlist).options(
-            joinedload(Watchlist.asset)
-        ).filter(
-            Watchlist.user_id == current_user.id
-        ).all()
-        
-        for item in watchlist_items:
-            if item.asset:
-                # Only include stocks (EQUITY), skip ETFs, crypto, and others
-                if item.asset.asset_type not in ['EQUITY', 'stock', 'Stock', 'STOCK']:
-                    continue
-                symbol = item.asset.symbol
-                # Skip if already in held symbols
-                if symbol in held_symbols:
-                    continue
-                if symbol not in watchlist_symbols:
-                    watchlist_symbols[symbol] = {
-                        "name": item.asset.name,
-                        "asset_type": item.asset.asset_type,
-                    }
-    
-    # Combine all symbols
-    all_symbols = {**held_symbols, **watchlist_symbols}
-    
-    if not all_symbols:
-        return {"status": "success", "message": "No stocks to refresh", "symbols_updated": 0}
-    
-    updated_count = 0
-    failed_count = 0
-    
-    for symbol in all_symbols.keys():
-        try:
-            provider = get_market_data_provider()
-            calendar = provider.get_calendar(
-                symbol,
-                action="earnings_calendar",
-                timeout_seconds=yahoo_timeout_seconds(),
-            )
-            
-            if calendar is None:
-                continue
-            
-            # Handle different calendar formats
-            if hasattr(calendar, 'to_dict'):
-                calendar_data = calendar.to_dict()
-            elif isinstance(calendar, dict):
-                calendar_data = calendar
-            else:
-                continue
-            
-            # Parse earnings date
-            earnings_date = None
-            earnings_dates_raw = calendar_data.get('Earnings Date', [])
-            
-            if earnings_dates_raw:
-                if isinstance(earnings_dates_raw, dict):
-                    raw_date = list(earnings_dates_raw.values())[0] if earnings_dates_raw else None
-                elif isinstance(earnings_dates_raw, list) and len(earnings_dates_raw) > 0:
-                    raw_date = earnings_dates_raw[0]
-                else:
-                    raw_date = earnings_dates_raw
-                    
-                if raw_date:
-                    # Check if it's already a date object
-                    from datetime import date
-                    if isinstance(raw_date, date):
-                        earnings_date = raw_date
-                    elif hasattr(raw_date, 'date'):
-                        earnings_date = raw_date.date()
-                    elif isinstance(raw_date, str):
-                        try:
-                            earnings_date = datetime.fromisoformat(raw_date.replace('Z', '+00:00')).date()
-                        except:
-                            pass
-            
-            if not earnings_date:
-                continue
-            
-            # Extract available figures. Some providers only return estimates for
-            # future earnings; actuals/surprise are stored when present.
-            eps_estimate = extract_calendar_value(calendar_data, 'Earnings Average', 'EPS Estimate')
-            eps_actual = extract_calendar_value(calendar_data, 'Earnings Actual', 'EPS Actual', 'Reported EPS')
-            revenue_estimate = extract_calendar_value(calendar_data, 'Revenue Average', 'Revenue Estimate')
-            revenue_actual = extract_calendar_value(calendar_data, 'Revenue Actual', 'Reported Revenue')
-            surprise_pct = extract_calendar_value(calendar_data, 'Surprise(%)', 'Surprise %', 'EPS Surprise %', 'surprise_pct')
-            
-            # Serialize raw_data
-            raw_data = {k: serialize_value(v) for k, v in calendar_data.items()}
-            
-            # Check if we already have this entry
-            existing = db.query(EarningsCache).filter(
-                EarningsCache.symbol == symbol,
-                EarningsCache.earnings_date == earnings_date
-            ).first()
-            
-            if existing:
-                existing.eps_estimate = serialize_value(eps_estimate)
-                existing.eps_actual = serialize_value(eps_actual)
-                existing.revenue_estimate = serialize_value(revenue_estimate)
-                existing.revenue_actual = serialize_value(revenue_actual)
-                existing.surprise_pct = serialize_value(surprise_pct)
-                existing.raw_data = raw_data
-                existing.fetched_at = datetime.utcnow()
-                existing.updated_at = datetime.utcnow()
-            else:
-                new_cache = EarningsCache(
-                    symbol=symbol,
-                    earnings_date=earnings_date,
-                    eps_estimate=serialize_value(eps_estimate),
-                    eps_actual=serialize_value(eps_actual),
-                    revenue_estimate=serialize_value(revenue_estimate),
-                    revenue_actual=serialize_value(revenue_actual),
-                    surprise_pct=serialize_value(surprise_pct),
-                    raw_data=raw_data,
-                    fetched_at=datetime.utcnow(),
-                )
-                db.add(new_cache)
-            
-            db.commit()
-            updated_count += 1
-            
-        except Exception as e:
-            logger.warning(f"Error refreshing earnings for {symbol}: {e}")
-            failed_count += 1
-            db.rollback()
-            continue
-    
+    if not settings.ENABLE_BACKGROUND_TASKS and not settings.CELERY_TASK_ALWAYS_EAGER:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Background tasks are disabled",
+        )
+
+    result = refresh_user_earnings_cache.delay(current_user.id, include_watchlist)
     return {
-        "status": "success",
-        "symbols_checked": len(all_symbols),
-        "symbols_updated": updated_count,
-        "symbols_failed": failed_count,
-        "portfolio_symbols": len(held_symbols),
-        "watchlist_symbols": len(watchlist_symbols)
+        "status": "queued",
+        "task_id": result.id,
+        "message": "Earnings refresh queued",
     }
+
+
+@router.get("/refresh-earnings/{task_id}")
+def get_earnings_refresh_status(
+    task_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get status for an asynchronous earnings refresh task.
+    """
+    del current_user
+
+    result = AsyncResult(task_id, app=celery_app)
+    info = result.info if isinstance(result.info, dict) else None
+    response: Dict[str, Any] = {
+        "task_id": task_id,
+        "state": result.state,
+        "done": result.ready(),
+        "successful": result.successful() if result.ready() else False,
+        "failed": result.failed(),
+    }
+
+    if result.state == "PROGRESS" and info:
+        response["progress"] = info
+    elif result.successful():
+        response["result"] = result.result
+    elif result.failed():
+        response["error"] = str(result.result)
+
+    return response
 
 
 @router.get("/market-holidays")

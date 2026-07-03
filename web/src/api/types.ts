@@ -1063,6 +1063,39 @@ export interface EarningsCalendarResponse {
   today: string
 }
 
+export interface EarningsRefreshResponse {
+  status: 'queued'
+  task_id: string
+  message: string
+}
+
+export interface EarningsRefreshStatusResponse {
+  task_id: string
+  state: 'PENDING' | 'RECEIVED' | 'STARTED' | 'PROGRESS' | 'SUCCESS' | 'FAILURE' | 'RETRY' | string
+  done: boolean
+  successful: boolean
+  failed: boolean
+  progress?: {
+    current: number
+    total: number
+    symbol?: string
+    symbols_updated?: number
+    symbols_failed?: number
+  }
+  result?: {
+    status: string
+    symbols_checked?: number
+    symbols_updated?: number
+    symbols_failed?: number
+    failed_symbols?: string[]
+    portfolio_symbols?: number
+    watchlist_symbols?: number
+    task_id?: string
+    message?: string
+  }
+  error?: string
+}
+
 export interface DailyPerformanceDay {
   date: string
   total_change: number

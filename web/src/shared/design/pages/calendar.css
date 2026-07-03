@@ -108,6 +108,23 @@
   opacity: 0.7;
 }
 
+.calendar__refresh-status {
+  margin: 0 0 0.85rem;
+  border: 1px solid var(--pf-accent-border);
+  border-radius: 8px;
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.calendar__refresh-status.is-error {
+  border-color: var(--pf-danger-border);
+  background: var(--pf-danger-soft);
+  color: var(--pf-danger);
+}
+
 .calendar__calendar-toolbar {
   justify-content: space-between;
   border-top: 1px solid var(--pf-line);

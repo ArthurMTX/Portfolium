@@ -103,6 +103,16 @@ class MarketDataProvider(Protocol):
     ) -> Any:
         ...
 
+    def get_earnings_dates(
+        self,
+        symbol: str,
+        *,
+        action: str = "earnings_dates",
+        timeout_seconds: float | None = None,
+        limit: int = 12,
+    ) -> Any:
+        ...
+
     def get_recommendations(
         self,
         symbol: str,
@@ -369,6 +379,24 @@ class YahooMarketDataProvider:
         timeout_seconds: float | None = None,
     ) -> Any:
         return self._get_ticker_property(symbol, "calendar", action, timeout_seconds)
+
+    def get_earnings_dates(
+        self,
+        symbol: str,
+        *,
+        action: str = "earnings_dates",
+        timeout_seconds: float | None = None,
+        limit: int = 12,
+    ) -> Any:
+        import yfinance as yf
+
+        ticker = yf.Ticker(symbol)
+        return call_yahoo(
+            lambda: ticker.get_earnings_dates(limit=limit),
+            symbol=symbol,
+            action=action,
+            timeout_seconds=timeout_seconds,
+        )
 
     def get_recommendations(
         self,

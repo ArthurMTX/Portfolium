@@ -79,6 +79,26 @@ function getGainToneClass(value: number | null | undefined): 'is-positive' | 'is
   return value > 0 ? 'is-positive' : 'is-negative'
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function mergeEarningsEvent(existing: EarningsEvent | undefined, incoming: EarningsEvent): EarningsEvent {
+  if (!existing) return incoming
+
+  return {
+    ...existing,
+    ...incoming,
+    eps_estimate: incoming.eps_estimate ?? existing.eps_estimate,
+    eps_actual: incoming.eps_actual ?? existing.eps_actual,
+    revenue_estimate: incoming.revenue_estimate ?? existing.revenue_estimate,
+    surprise_pct: incoming.surprise_pct ?? existing.surprise_pct,
+    portfolios: incoming.portfolios.length > 0 ? incoming.portfolios : existing.portfolios,
+    name: incoming.name ?? existing.name,
+    source: incoming.source ?? existing.source,
+  }
+}
+
 export default function Calendar() {
   const { portfolios, activePortfolioId, setPortfolios, setActivePortfolio } = usePortfolioStore()
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -86,6 +106,8 @@ export default function Calendar() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null)
   const [dailyPerformance, setDailyPerformance] = useState<DailyPerformanceDay[]>([])
   const [earnings, setEarnings] = useState<EarningsEvent[]>([])
   const [marketHolidays, setMarketHolidays] = useState<MarketHolidaysResponse | null>(null)
@@ -133,6 +155,7 @@ export default function Calendar() {
       setLoading(true)
     }
     setError(null)
+    setRefreshError(null)
 
     try {
       // Calculate days needed for this month plus buffer
@@ -163,9 +186,14 @@ export default function Calendar() {
       })
       
       setEarnings(prev => {
-        const existingKeys = new Set(prev.map(e => `${e.symbol}-${e.date}`))
-        const newData = earningsData.earnings.filter(e => !existingKeys.has(`${e.symbol}-${e.date}`))
-        return [...prev, ...newData].sort((a, b) => a.date.localeCompare(b.date))
+        const eventsByKey = new Map(prev.map(event => [`${event.symbol}-${event.date}`, event]))
+
+        earningsData.earnings.forEach(event => {
+          const key = `${event.symbol}-${event.date}`
+          eventsByKey.set(key, mergeEarningsEvent(eventsByKey.get(key), event))
+        })
+
+        return Array.from(eventsByKey.values()).sort((a, b) => a.date.localeCompare(b.date))
       })
 
       // Update market holidays
@@ -348,19 +376,47 @@ export default function Calendar() {
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [filteredEarnings])
 
-  // Refresh earnings cache from yfinance
-  const refreshEarningsCache = useCallback(async () => {
+  // Refresh market-backed earnings data, then reload the full calendar month.
+  const refreshCalendar = useCallback(async () => {
     setRefreshing(true)
+    setRefreshError(null)
+    setRefreshNotice('Calendar refresh queued.')
     try {
-      await api.refreshEarningsCache({ include_watchlist: showWatchlistEarnings })
-      // Clear cache and reload data
-      setLoadedMonths(new Set())
-      setDailyPerformance([])
-      setEarnings([])
-      await loadMonthData(currentDate, false)
+      const refresh = await api.refreshEarningsCache({ include_watchlist: showWatchlistEarnings })
+      setRefreshNotice('Refreshing earnings data.')
+
+      for (;;) {
+        const status = await api.getEarningsRefreshStatus(refresh.task_id)
+
+        if (status.progress) {
+          const { current, total, symbol } = status.progress
+          setRefreshNotice(
+            `Refreshing earnings ${current}/${total}${symbol ? ` · ${symbol}` : ''}`
+          )
+        } else if (!status.done) {
+          setRefreshNotice('Earnings refresh waiting for a worker.')
+        }
+
+        if (status.done) {
+          if (status.failed) {
+            throw new Error(status.error || 'Calendar refresh failed')
+          }
+          if (status.result?.status === 'error') {
+            throw new Error(status.result.message || 'Calendar refresh failed')
+          }
+          setRefreshNotice('Earnings refreshed. Updating calendar.')
+          break
+        }
+
+        await wait(2500)
+      }
+
+      await loadMonthData(currentDate, true)
+      setRefreshNotice('Calendar refresh complete.')
     } catch (err) {
-      console.error('Failed to refresh earnings cache:', err)
-      setError(err instanceof Error ? err.message : 'Failed to refresh earnings')
+      console.error('Failed to refresh calendar:', err)
+      setRefreshError(err instanceof Error ? err.message : 'Failed to refresh calendar')
+      setRefreshNotice(null)
     } finally {
       setRefreshing(false)
     }
@@ -447,16 +503,10 @@ export default function Calendar() {
           lead={monthName}
           description="Performance days, earnings events and market closures for the active portfolio."
           actions={
-            <>
-              <button className="pf-button pf-button--secondary" type="button" onClick={refreshEarningsCache} disabled={refreshing}>
-                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-                {t('calendar.refreshEarnings', 'Refresh Earnings')}
-              </button>
-              <button className="pf-button pf-button--secondary" type="button" onClick={() => loadMonthData(currentDate, true)} disabled={refreshing}>
-                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-                {t('common.refresh')}
-              </button>
-            </>
+            <button className="pf-button pf-button--secondary" type="button" onClick={refreshCalendar} disabled={refreshing}>
+              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? t('calendar.refreshing', 'Refreshing Calendar') : t('calendar.refresh', 'Refresh Calendar')}
+            </button>
           }
         />
       </PageHeader>
@@ -504,6 +554,12 @@ export default function Calendar() {
           </div>
         }
       />
+
+      {(refreshNotice || refreshError) && (
+        <p className={refreshError ? 'calendar__refresh-status is-error' : 'calendar__refresh-status'}>
+          {refreshError ? `Calendar refresh did not complete: ${refreshError}` : refreshNotice}
+        </p>
+      )}
 
       {loading ? (
         <ChartSkeleton className="calendar__loading" label={t('calendar.loading', 'Loading calendar')} />
