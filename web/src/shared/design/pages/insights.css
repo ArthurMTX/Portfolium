@@ -4,7 +4,6 @@
 }
 
 .insights__filters select,
-.insights__filters > span,
 .insights-icon-button {
   display: inline-flex;
   align-items: center;
@@ -18,10 +17,6 @@
   font-weight: 850;
   cursor: pointer;
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
-}
-
-.insights__filters > span {
-  color: var(--pf-muted);
 }
 
 .insights__filters select:hover,

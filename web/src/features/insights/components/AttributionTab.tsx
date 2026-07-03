@@ -62,7 +62,11 @@ function PortfolioMoveBlock({ query, currency }: { query: AttributionQuery; curr
       skeleton={<MiniTableSkeleton rows={4} />}
     >
       <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <SummaryStat label="Daily Change" value={data?.daily_change_pct === null ? 'N/A' : formatPercent(data?.daily_change_pct, 2, true)} />
+        <SummaryStat
+          label="Daily Change"
+          value={data?.daily_change_pct === null ? 'N/A' : formatPercent(data?.daily_change_pct, 2, true)}
+          tone={valueColor(data?.daily_change_pct)}
+        />
         <SummaryStat label="Estimated Move" value={data?.daily_change_value === null ? 'N/A' : formatCurrencyValue(data?.daily_change_value, currency)} />
         <SummaryStat label="Explained By Holdings" value={formatCurrencyValue(data?.explained_value, currency)} />
       </div>
@@ -216,7 +220,7 @@ function ContributionRows({ items, currency }: { items: ContributionItemDTO[]; c
           <ContributionIdentity item={item} kind="asset" />
           <div className="flex-shrink-0 text-right">
             <p className={`font-semibold ${valueColor(item.unrealized_pnl)}`}>{formatCurrencyValue(item.unrealized_pnl, currency)}</p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{formatPercent(item.contribution_to_return, 2, true)}</p>
+            <p className={`text-sm ${valueColor(item.contribution_to_return)}`}>{formatPercent(item.contribution_to_return, 2, true)}</p>
           </div>
         </div>
       ))}
@@ -257,11 +261,11 @@ function DailyMoverList({
   )
 }
 
-function SummaryStat({ label, value }: { label: string; value: string }) {
+function SummaryStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">{label}</p>
-      <p className="mt-1 text-xl font-semibold">{value}</p>
+      <p className={`mt-1 text-xl font-semibold ${tone ?? ''}`}>{value}</p>
     </div>
   )
 }

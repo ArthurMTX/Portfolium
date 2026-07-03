@@ -21,6 +21,8 @@ import {
   formatPercent,
   periodLabel,
   toNumber,
+  valueColor,
+  valueTone,
 } from '@/features/insights/components/InsightsShared'
 import { ChartSkeleton } from '@/shared/components/StatePrimitives'
 import { useBenchmarkInsights, usePerformanceInsights } from '@/features/insights/components/useInsightQueries'
@@ -114,7 +116,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
             value={formatPercent(summaryData.total_return_pct, 2, true)}
             subtitle={formatCurrencyValue(summaryData.total_return, currency)}
             icon={<Activity size={22} />}
-            tone={toNumber(summaryData.total_return) >= 0 ? 'positive' : 'negative'}
+            tone={valueTone(summaryData.total_return_pct)}
             tooltip="Total return is current portfolio value minus cost basis over the selected period."
           />
         )}
@@ -129,7 +131,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
             value={formatPercent(performanceData.annualized_return, 2, true)}
             subtitle={`Period: ${period.toUpperCase()}`}
             icon={<TrendingUp size={22} />}
-            tone={toNumber(performanceData.annualized_return) >= 0 ? 'positive' : 'negative'}
+            tone={valueTone(performanceData.annualized_return)}
             tooltip="Annualized return converts the selected-period return into a yearly rate."
           />
         )}
@@ -159,7 +161,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
             value={formatPercent(benchmarkQuery.data.alpha, 2, true)}
             subtitle="Alpha"
             icon={<Target size={22} />}
-            tone={toNumber(benchmarkQuery.data.alpha) >= 0 ? 'positive' : 'negative'}
+            tone={valueTone(benchmarkQuery.data.alpha)}
             tooltip="Alpha is portfolio return minus benchmark return for the selected period."
           />
         )}
@@ -185,9 +187,9 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
           <Line key={`${period}-${benchmark}`} data={chartData} options={chartOptions} />
         </div>
         <div className="mt-5 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-          <Stat label="Portfolio Return" value={formatPercent(benchmarkData?.portfolio_return, 2, true)} />
-          <Stat label="Benchmark Return" value={formatPercent(benchmarkData?.benchmark_return, 2, true)} />
-          <Stat label="Alpha" value={formatPercent(benchmarkData?.alpha, 2, true)} />
+          <Stat label="Portfolio Return" value={formatPercent(benchmarkData?.portfolio_return, 2, true)} tone={valueColor(benchmarkData?.portfolio_return)} />
+          <Stat label="Benchmark Return" value={formatPercent(benchmarkData?.benchmark_return, 2, true)} tone={valueColor(benchmarkData?.benchmark_return)} />
+          <Stat label="Alpha" value={formatPercent(benchmarkData?.alpha, 2, true)} tone={valueColor(benchmarkData?.alpha)} />
           <Stat label="Correlation" value={benchmarkData?.correlation === null ? 'N/A' : toNumber(benchmarkData?.correlation).toFixed(2)} />
         </div>
       </InsightBlock>
@@ -210,14 +212,16 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
               label="Best Day"
               value={performanceData?.best_day === null ? 'N/A' : formatPercent(performanceData?.best_day, 2, true)}
               subtitle={formatDate(performanceData?.best_day_date, locale)}
+              tone={valueColor(performanceData?.best_day)}
             />
             <Stat
               label="Worst Day"
               value={performanceData?.worst_day === null ? 'N/A' : formatPercent(performanceData?.worst_day, 2, true)}
               subtitle={formatDate(performanceData?.worst_day_date, locale)}
+              tone={valueColor(performanceData?.worst_day)}
             />
             <Stat label="Positive Days" value={String(performanceData?.positive_days ?? 0)} subtitle={`${performanceData?.negative_days ?? 0} negative days`} />
-            <Stat label="Win Rate" value={formatPercent(performanceData?.win_rate, 1)} subtitle="Positive days / observed days" />
+            <Stat label="Win Rate" value={formatPercent(performanceData?.win_rate, 1)} subtitle="Positive days / observed days" tone={valueColor(performanceData?.win_rate)} />
           </div>
         </InsightBlock>
 
@@ -234,10 +238,10 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
           skeleton={<BarsSkeleton rows={4} />}
         >
           <div className="grid grid-cols-2 gap-5">
-            <Stat label="Volatility" value={formatPercent(riskData?.volatility)} />
+            <Stat label="Volatility" value={formatPercent(riskData?.volatility)} tone={valueColor(riskData?.volatility)} />
             <Stat label="Beta" value={riskData?.beta === null ? 'N/A' : toNumber(riskData?.beta).toFixed(2)} />
-            <Stat label="Max Drawdown" value={`-${formatPercent(riskData?.max_drawdown).replace('-', '')}`} />
-            <Stat label="Value at Risk 95%" value={riskData?.var_95 === null ? 'N/A' : formatPercent(riskData?.var_95)} />
+            <Stat label="Max Drawdown" value={`-${formatPercent(riskData?.max_drawdown).replace('-', '')}`} tone={valueColor(-Math.abs(toNumber(riskData?.max_drawdown)))} />
+            <Stat label="Value at Risk 95%" value={riskData?.var_95 === null ? 'N/A' : formatPercent(riskData?.var_95)} tone={valueColor(riskData?.var_95)} />
           </div>
         </InsightBlock>
       </div>
@@ -245,11 +249,11 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
   )
 }
 
-function Stat({ label, value, subtitle }: { label: string; value: string; subtitle?: string }) {
+function Stat({ label, value, subtitle, tone }: { label: string; value: string; subtitle?: string; tone?: string }) {
   return (
     <div>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
+      <p className={`mt-1 text-lg font-semibold ${tone ?? ''}`}>{value}</p>
       {subtitle && <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
     </div>
   )

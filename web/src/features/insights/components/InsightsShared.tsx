@@ -57,6 +57,13 @@ export function valueColor(value: unknown): string {
   return 'text-neutral-700 dark:text-neutral-300'
 }
 
+export function valueTone(value: unknown): 'neutral' | 'positive' | 'negative' {
+  const numeric = toNumber(value)
+  if (numeric > 0) return 'positive'
+  if (numeric < 0) return 'negative'
+  return 'neutral'
+}
+
 export function periodLabel(period: string): string {
   const labels: Record<string, string> = {
     '1m': '1M',
@@ -335,12 +342,12 @@ export function ContributionVisual({ item, kind }: { item: ContributionItemDTO; 
   if (kind === 'asset') {
     const initials = initialsFor(item.symbol || item.name)
     return (
-      <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white text-[10px] font-semibold text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
+      <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg">
         <span className="absolute inset-0 flex items-center justify-center">{initials}</span>
         {item.symbol && (
           <img
             src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
-            alt=""
+            alt={item.name || item.symbol || 'Unknown asset'}
             className="relative h-8 w-8 object-contain"
             onError={(event) => handleLogoError(event, item.symbol || '', item.name, item.asset_type)}
           />
@@ -354,7 +361,7 @@ export function ContributionVisual({ item, kind }: { item: ContributionItemDTO; 
     if (flagUrl) {
       return (
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
-          <img src={flagUrl} alt="" className="h-5 w-7 rounded-sm object-cover" />
+          <img src={flagUrl} alt={item.name || item.symbol || 'Unknown country'} className="h-5 w-7 rounded-sm object-cover" />
         </div>
       )
     }
@@ -399,8 +406,7 @@ function secondaryLabel(item: ContributionItemDTO, kind: ContributionVisualKind)
     const name = item.name || ''
     return symbol && symbol !== name ? symbol : undefined
   }
-  if (item.count > 1) return `${item.count} holdings`
-  return undefined
+  return `${item.count} holding${item.count === 1 ? '' : 's'}`
 }
 
 function initialsFor(value?: string | null): string {

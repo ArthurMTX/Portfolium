@@ -53,8 +53,8 @@ function VolatilityBlock({ query, period }: { query: RiskQuery; period: string }
       skeleton={<BarsSkeleton rows={3} />}
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <RiskStat label="Annualized Volatility" value={formatPercent(data?.volatility)} tone="text-orange-600 dark:text-orange-400" />
-        <RiskStat label="Downside Deviation" value={formatPercent(data?.downside_deviation)} tone="text-amber-600 dark:text-amber-400" />
+        <RiskStat label="Annualized Volatility" value={formatPercent(data?.volatility)} tone={valueColor(data?.volatility)} />
+        <RiskStat label="Downside Deviation" value={formatPercent(data?.downside_deviation)} tone={valueColor(data?.downside_deviation)} />
         <RiskStat label="Sharpe Ratio" value={data?.sharpe_ratio === null ? 'N/A' : toNumber(data?.sharpe_ratio).toFixed(2)} />
       </div>
     </InsightBlock>
@@ -104,10 +104,10 @@ function VarBlock({ query, period }: { query: RiskQuery; period: string }) {
       skeleton={<BarsSkeleton rows={4} />}
     >
       <div className="grid grid-cols-2 gap-5">
-        <RiskStat label="VaR 95% 1D" value={data?.var_95 === null ? 'N/A' : formatPercent(data?.var_95)} tone="text-red-600 dark:text-red-400" />
-        <RiskStat label="VaR 99% 1D" value={data?.var_99 === null ? 'N/A' : formatPercent(data?.var_99)} tone="text-red-600 dark:text-red-400" />
-        <RiskStat label="CVaR 95%" value={data?.cvar_95 === null ? 'N/A' : formatPercent(data?.cvar_95)} />
-        <RiskStat label="VaR 95% 1M" value={data?.var_95_1m === null ? 'N/A' : formatPercent(data?.var_95_1m)} />
+        <RiskStat label="VaR 95% 1D" value={data?.var_95 === null ? 'N/A' : formatPercent(data?.var_95)} tone={valueColor(data?.var_95)} />
+        <RiskStat label="VaR 99% 1D" value={data?.var_99 === null ? 'N/A' : formatPercent(data?.var_99)} tone={valueColor(data?.var_99)} />
+        <RiskStat label="CVaR 95%" value={data?.cvar_95 === null ? 'N/A' : formatPercent(data?.cvar_95)} tone={valueColor(data?.cvar_95)} />
+        <RiskStat label="VaR 95% 1M" value={data?.var_95_1m === null ? 'N/A' : formatPercent(data?.var_95_1m)} tone={valueColor(data?.var_95_1m)} />
       </div>
     </InsightBlock>
   )
@@ -130,9 +130,9 @@ function DrawdownBlock({ query, period }: { query: RiskQuery; period: string }) 
       skeleton={<BarsSkeleton rows={3} />}
     >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <RiskStat label="Maximum Drawdown" value={`-${formatPercent(data?.max_drawdown).replace('-', '')}`} tone="text-red-600 dark:text-red-400" />
+        <RiskStat label="Maximum Drawdown" value={`-${formatPercent(data?.max_drawdown).replace('-', '')}`} tone={valueColor(-Math.abs(toNumber(data?.max_drawdown)))} />
         <RiskStat label="Drawdown Date" value={data?.max_drawdown_date ? new Date(data.max_drawdown_date).toLocaleDateString() : 'N/A'} />
-        <RiskStat label="Tail Exposure" value={data?.tail_exposure === null ? 'N/A' : formatPercent(data?.tail_exposure)} />
+        <RiskStat label="Tail Exposure" value={data?.tail_exposure === null ? 'N/A' : formatPercent(data?.tail_exposure)} tone={valueColor(data?.tail_exposure)} />
       </div>
     </InsightBlock>
   )

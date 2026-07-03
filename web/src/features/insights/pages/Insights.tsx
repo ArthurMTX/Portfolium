@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
-import { periodLabel, type InsightsTabProps } from '@/features/insights/components/InsightsShared'
+import { type InsightsTabProps } from '@/features/insights/components/InsightsShared'
 import { ChartSkeleton, MetricSkeletonStrip } from '@/shared/components/StatePrimitives'
 import {
   PageControls,
@@ -89,9 +89,6 @@ export default function Insights() {
         }
         end={
           <div className="pf-control-group insights__filters">
-            <span>
-              {periodLabel(period)}
-            </span>
             <select
               value={period}
               onChange={(event) => setPeriod(event.target.value)}
