@@ -48,14 +48,19 @@
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
   gap: clamp(1.25rem, 3vw, 3rem);
+  align-items: start;
   padding: 1.6rem 0;
   border-top: 1px solid var(--pf-line);
 }
 
 .transactions-period {
+  position: sticky;
+  top: calc(var(--pf-nav-height) + 1.85rem);
+  z-index: 3;
   display: grid;
   align-content: start;
   gap: 0.9rem;
+  background: var(--pf-canvas);
 }
 
 .transactions-group:first-child {
@@ -452,6 +457,10 @@
   .transactions-group {
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .transactions-period {
+    position: static;
   }
 
   .transactions-month-summary {
