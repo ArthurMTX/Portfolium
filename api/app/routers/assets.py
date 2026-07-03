@@ -44,7 +44,12 @@ from app.auth import get_current_admin_user, get_current_user
 from app.models import Asset as AssetModel, AssetThemeTaxonomySuggestion as AssetThemeTaxonomySuggestionModel, User
 from app.dependencies import MetricsServiceDep
 from app.services.platform.cache import CacheService
-from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.market_data.yahoo_finance import (
+    YahooUnavailableError,
+    call_yahoo,
+    get_market_data_provider,
+    yahoo_timeout_seconds,
+)
 from app.services.asset_intelligence.asset_research import AssetResearchService
 from app.services.asset_intelligence.asset_themes import ALLOWED_THEME_HIERARCHY, AssetThemeService
 from app.services.asset_intelligence.asset_theme_benchmark import (
@@ -717,6 +722,73 @@ def search_assets(query: str, crypto_only: bool = False):
         pass  # If search fails, we still have direct lookup results
     
     return results[:10]
+
+
+def _fetch_screener_tickers(screener: str, count: int = 10) -> list[dict]:
+    import yfinance as yf
+
+    try:
+        result = call_yahoo(
+            lambda: yf.screen(screener, count=count),
+            symbol=f"__{screener}__",
+            action=f"{screener}_tickers",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
+    except YahooUnavailableError:
+        return []
+
+    quotes = result.get("quotes", []) if isinstance(result, dict) else []
+    return [
+        {
+            "symbol": quote["symbol"],
+            "name": quote.get("shortName") or quote.get("longName") or quote["symbol"],
+            "type": quote.get("quoteType", ""),
+            "exchange": quote.get("exchange"),
+            "currency": quote.get("currency"),
+            "daily_change_pct": quote.get("regularMarketChangePercent"),
+        }
+        for quote in quotes[:count]
+        if quote.get("symbol")
+    ]
+
+
+def _fetch_trending_tickers() -> list[dict]:
+    """
+    US-market "trending" proxy: the most actively traded equities today.
+
+    Yahoo's dedicated trending endpoint (/v1/finance/trending/{region}) ignores the
+    region in the URL and geo-detects from the caller's egress IP instead, which made
+    results wander (e.g. Toronto-listed tickers from a Canadian-routed host) regardless
+    of the region we asked for. yfinance's screener takes an explicit US-exchange query
+    instead, so results are stable no matter where this server runs.
+    """
+    return _fetch_screener_tickers("most_actives", count=10)
+
+
+def _fetch_market_movers() -> dict[str, list[dict]]:
+    return {
+        "trending": _fetch_screener_tickers("most_actives", count=10),
+        "gainers": _fetch_screener_tickers("day_gainers", count=10),
+        "losers": _fetch_screener_tickers("day_losers", count=10),
+    }
+
+
+@router.get("/trending")
+def get_trending_assets():
+    """
+    Trending (most active) US tickers.
+    Cached for 15 minutes since composition doesn't need per-request freshness.
+    """
+    return CacheService.get_or_set("trending:US", _fetch_trending_tickers, ttl=900)
+
+
+@router.get("/market-movers")
+def get_market_movers():
+    """
+    Lightweight discovery lists from Yahoo screeners.
+    Cached for 15 minutes since composition doesn't need per-request freshness.
+    """
+    return CacheService.get_or_set("market_movers:US", _fetch_market_movers, ttl=900)
 
 
 @router.get("/by-symbol/{symbol}", response_model=Asset)
@@ -1835,8 +1907,12 @@ async def resolve_logo(
 
     # Lazily resolve Trade Republic/Brandfetch/generated once per asset. This
     # never triggers the synchronous ISIN scrape (allow_isin_lookup=False) --
-    # that only happens via the async backfill task/CLI.
-    if db_asset and db_asset.isin and db_asset.logo_provider not in ("trade_republic", "brandfetch"):
+    # that only happens via the async backfill task/CLI. It does still run
+    # the local Adanos ISIN lookup even when the asset has no ISIN yet
+    # (resolve_asset_logo runs that unconditionally now), so a persisted
+    # asset that simply hasn't been backfilled yet still gets a shot at
+    # Trade Republic instead of being stuck requiring a pre-existing ISIN.
+    if db_asset and db_asset.logo_provider not in ("trade_republic", "brandfetch"):
         resolution = resolve_asset_logo(
             db,
             db_asset,
@@ -1857,6 +1933,37 @@ async def resolve_logo(
             status_code=302,
             headers={"Cache-Control": "public, max-age=86400"},
         )
+
+    # No persisted asset yet (e.g. a ticker search result the user hasn't
+    # added anywhere) -- there's nothing to cache an ISIN/logo onto, but we
+    # can still try Trade Republic for this one response via the same fast,
+    # local Adanos lookup, instead of skipping straight to Brandfetch/generated.
+    if not db_asset and not is_crypto:
+        try:
+            from app.services.reference_data.adanos_listings import lookup_adanos_isin
+            from app.services.market_data.trade_republic_logos import (
+                build_trade_republic_logo_url,
+                fetch_trade_republic_logos,
+            )
+
+            lookup_isin = lookup_adanos_isin(db, symbol.upper(), asset_type=effective_asset_type, name=effective_name)
+            if lookup_isin:
+                tr_results = fetch_trade_republic_logos(lookup_isin)
+                if tr_results:
+                    tr_url = build_trade_republic_logo_url(
+                        lookup_isin,
+                        "dark" if normalized_variant == "dark" and "dark" in tr_results else "light",
+                    )
+                    return RedirectResponse(
+                        url=tr_url,
+                        status_code=302,
+                        headers={"Cache-Control": "public, max-age=86400"},
+                    )
+        except Exception as exc:
+            logger.info(
+                "Trade Republic lookup for unpersisted ticker failed",
+                extra={"event": "trade_republic_lookup_failed", "symbol": symbol, "error": str(exc)},
+            )
 
     if resolution is not None and resolution.logo_bytes is not None:
         logo_data = resolution.logo_bytes

@@ -97,9 +97,13 @@ def resolve_asset_logo(
     Resolve (and persist) the best available logo for an asset.
 
     allow_isin_lookup=False skips the synchronous, experimental yfinance ISIN
-    scrape entirely -- used by the request-path logo endpoint so a slow/
-    fragile external lookup never blocks an HTTP response. Async backfill
-    contexts (Celery task / CLI) pass allow_isin_lookup=True.
+    scrape -- used by the request-path logo endpoint so a slow/fragile
+    external lookup never blocks an HTTP response. Async backfill contexts
+    (Celery task / CLI) pass allow_isin_lookup=True. The local Adanos lookup
+    is unaffected by this flag: it's an indexed Postgres query, not a network
+    scrape, so it's safe (and needed) on the request path too -- otherwise a
+    ticker seen for the first time on the request path would never get a
+    chance at a Trade Republic logo.
     """
     if not force and asset.logo_provider == "trade_republic" and (asset.logo_light_url or asset.logo_dark_url):
         LOGO_RESOLUTION.labels(provider="unchanged").inc()
@@ -118,11 +122,13 @@ def resolve_asset_logo(
     # scrape, however, is only ever used to fill a true gap -- it never
     # overwrites an already-stored ISIN, even under force, since it's the
     # least-trusted of the two sources.
-    if allow_isin_lookup and not is_crypto and (not had_isin or force):
+    if not is_crypto and (not had_isin or force):
         # Adanos is checked first: it has proven more reliable than yfinance's
         # experimental ISIN scrape for some symbols (e.g. yfinance returns a
-        # Canadian ISIN for GOOGL; Adanos has the correct US one). yfinance's
-        # scrape is kept only as a fallback when Adanos has nothing.
+        # Canadian ISIN for GOOGL; Adanos has the correct US one), and it's a
+        # local DB lookup so it always runs, even on the request path.
+        # yfinance's scrape is kept only as a fallback when Adanos has
+        # nothing, and only outside the request path (allow_isin_lookup).
         try:
             from app.services.reference_data.adanos_listings import lookup_adanos_isin
 
@@ -146,7 +152,7 @@ def resolve_asset_logo(
                 "Adanos found nothing on forced re-check; keeping existing ISIN",
                 extra={"event": "isin_unchanged", "symbol": asset.symbol},
             )
-        else:
+        elif allow_isin_lookup:
             try:
                 from app.services.market_data.yahoo_finance import get_market_data_provider
 
@@ -170,6 +176,11 @@ def resolve_asset_logo(
                     "Yahoo ISIN lookup failed",
                     extra={"event": "isin_lookup_failed", "symbol": asset.symbol, "source": "yahoo", "error": str(exc)},
                 )
+        else:
+            logger.info(
+                "No ISIN found via Adanos; yfinance scrape skipped on request path",
+                extra={"event": "isin_missing", "symbol": asset.symbol},
+            )
 
     if asset.isin and not is_crypto:
         tr_results = fetch_trade_republic_logos(asset.isin)

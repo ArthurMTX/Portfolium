@@ -133,14 +133,43 @@ export async function setAssetMetadataOverrides(assetId: number, overrides: {
   })
 }
 
+export interface AssetLookupResult {
+  symbol: string
+  name: string
+  type?: string
+  asset_type?: string | null
+  exchange?: string
+  exchange_name?: string
+  country?: string
+  country_code?: string
+  currency?: string
+  isin?: string
+  logo_url?: string
+  logo_light_url?: string
+  logo_dark_url?: string
+  daily_change_pct?: number | string | null
+}
+
 export async function searchTicker(query: string) {
-  return request<Array<{ symbol: string; name: string; type?: string; exchange?: string }>>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
+  return request<AssetLookupResult[]>(`/assets/search_ticker?query=${encodeURIComponent(query)}`)
 }
 
 export async function searchAssets(query: string, cryptoOnly: boolean = false) {
   const params = new URLSearchParams({ query })
   if (cryptoOnly) params.append('crypto_only', 'true')
   return request<Array<{ symbol: string; name: string; type?: string }>>(`/assets/search?${params.toString()}`)
+}
+
+export async function getTrendingAssets() {
+  return request<AssetLookupResult[]>('/assets/trending')
+}
+
+export async function getMarketMovers() {
+  return request<{
+    trending: AssetLookupResult[]
+    gainers: AssetLookupResult[]
+    losers: AssetLookupResult[]
+  }>('/assets/market-movers')
 }
 
 export async function getAssetBySymbol(symbol: string) {

@@ -14,6 +14,7 @@ import {
   Menu,
   Moon,
   Package,
+  Search,
   Settings,
   ShieldCheck,
   Sun,
@@ -38,6 +39,10 @@ interface NavItem {
   label: string
   icon: LucideIcon
   isActive: (pathname: string) => boolean
+}
+
+function isAssetResearchPath(pathname: string) {
+  return pathname === '/assets/research' || /^\/assets\/[^/]+\/research$/.test(pathname)
 }
 
 export default function Layout() {
@@ -157,13 +162,19 @@ export default function Layout() {
       to: '/assets',
       label: t('navigation.assets'),
       icon: Package,
-      isActive: (pathname) => pathname === '/assets' || pathname.startsWith('/assets/'),
+      isActive: (pathname) => (pathname === '/assets' || pathname.startsWith('/assets/')) && !isAssetResearchPath(pathname),
     },
     {
       to: '/watchlist',
       label: t('navigation.watchlist'),
       icon: Eye,
       isActive: (pathname) => pathname === '/watchlist',
+    },
+    {
+      to: '/assets/research',
+      label: t('navigation.research'),
+      icon: Search,
+      isActive: isAssetResearchPath,
     },
   ]
 
