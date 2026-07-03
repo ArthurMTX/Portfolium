@@ -9,7 +9,7 @@ import api, {
 } from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { getFlagUrl } from '@/shared/lib/countryUtils'
 import { getSectorHexColor, getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
 import { getThemeHexColor, getThemeIcon } from '@/shared/lib/themeUtils'
@@ -479,11 +479,13 @@ export default function Allocation() {
                           key={asset.id}
                           onClick={() => navigate(`/assets/${encodeURIComponent(asset.symbol)}/research`)}
                         >
-                          <img
-                            src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                          <AssetLogo
+                            symbol={asset.symbol}
+                            assetType={asset.asset_type}
+                            assetName={asset.name}
                             alt=""
                             loading="lazy"
-                            onError={(event) => handleLogoError(event, asset.symbol, asset.name, asset.asset_type)}
+                            className="h-9 w-9 rounded-full object-cover"
                           />
                           <span>
                             <strong>{asset.symbol}</strong>

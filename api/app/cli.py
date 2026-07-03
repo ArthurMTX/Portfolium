@@ -125,6 +125,77 @@ def refresh_themes(symbol: Optional[str], force: bool) -> None:
         db.close()
 
 
+def backfill_logos(symbol: Optional[str], force: bool, sleep_seconds: float) -> None:
+    """
+    Backfill ISIN + logo (Trade Republic -> Brandfetch -> generated) for
+    existing assets. Safe to run repeatedly: already-resolved Trade
+    Republic/Brandfetch logos are left untouched unless --force is passed.
+    """
+    from app.services.market_data.logo_resolver import resolve_asset_logo
+
+    db = SessionLocal()
+
+    try:
+        query = db.query(Asset).order_by(Asset.symbol)
+
+        if symbol:
+            query = query.filter(Asset.symbol == symbol.upper())
+
+        assets = query.all()
+
+        if not assets:
+            raise SystemExit(f"No assets found for symbol={symbol}")
+
+        result = {
+            "total": len(assets),
+            "isin_resolved": 0,
+            "trade_republic": 0,
+            "brandfetch": 0,
+            "generated": 0,
+            "unchanged": 0,
+            "failed": 0,
+            "failures": [],
+        }
+
+        print(f"Backfilling logos for {len(assets)} asset(s)", flush=True)
+
+        for index, asset in enumerate(assets, start=1):
+            try:
+                outcome = resolve_asset_logo(db, asset, force=force, allow_isin_lookup=True)
+                if outcome.isin_resolved:
+                    result["isin_resolved"] += 1
+                result[outcome.provider] = result.get(outcome.provider, 0) + 1
+                print(f"[{index}/{len(assets)}] OK {asset.symbol}: provider={outcome.provider}", flush=True)
+            except Exception as exc:
+                db.rollback()
+                result["failed"] += 1
+                result["failures"].append({
+                    "symbol": asset.symbol,
+                    "error": str(exc)[:240],
+                })
+                print(f"[{index}/{len(assets)}] FAIL {asset.symbol}: {exc}", flush=True)
+
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
+
+        print(json.dumps(result, indent=2), flush=True)
+
+    finally:
+        db.close()
+
+
+def sync_adanos_listings_cli() -> None:
+    """Manually trigger an Adanos listings sync (normally runs weekly via Celery beat)."""
+    from app.services.reference_data.adanos_listings import sync_adanos_listings
+
+    db = SessionLocal()
+    try:
+        result = sync_adanos_listings(db)
+        print(json.dumps(result, indent=2), flush=True)
+    finally:
+        db.close()
+
+
 def sanity_theme_minilm(
     classifier: Optional[AssetThemeMiniLMClassifier] = None,
 ) -> dict:
@@ -901,6 +972,18 @@ def main() -> None:
     refresh_parser.add_argument("--symbol", type=str, default=None)
     refresh_parser.add_argument("--force", action="store_true")
 
+    logos_parser = subparsers.add_parser("backfill-logos")
+    logos_parser.add_argument("--symbol", type=str, default=None)
+    logos_parser.add_argument("--force", action="store_true")
+    logos_parser.add_argument(
+        "--sleep",
+        type=float,
+        default=0.0,
+        help="Seconds to sleep between assets (rate-limit outbound calls to yfinance/Trade Republic/Brandfetch).",
+    )
+
+    subparsers.add_parser("sync-adanos-listings")
+
     benchmark_parser = subparsers.add_parser("benchmark-theme-minilm")
     benchmark_parser.add_argument("--sample", type=int, default=100)
     benchmark_parser.add_argument("--symbols", type=str, default=None)
@@ -932,6 +1015,10 @@ def main() -> None:
 
     if args.command == "refresh-themes":
         refresh_themes(symbol=args.symbol, force=args.force)
+    elif args.command == "backfill-logos":
+        backfill_logos(symbol=args.symbol, force=args.force, sleep_seconds=args.sleep)
+    elif args.command == "sync-adanos-listings":
+        sync_adanos_listings_cli()
     elif args.command == "benchmark-theme-minilm":
         symbols = [
             symbol.strip().upper()

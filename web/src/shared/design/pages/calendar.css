@@ -374,12 +374,14 @@
   background: rgba(93, 162, 195, 0.09);
 }
 
-.calendar-summary__events img {
+.calendar-summary__events img,
+.calendar-summary__events-logo {
   width: 1.65rem;
   height: 1.65rem;
   border-radius: 999px;
   object-fit: cover;
   background: var(--pf-canvas);
+  flex-shrink: 0;
 }
 
 .calendar-summary__events strong,
@@ -507,12 +509,14 @@
   min-width: 0;
 }
 
-.calendar-earning__identity img {
+.calendar-earning__identity img,
+.calendar-earning__identity-logo {
   width: 2.35rem;
   height: 2.35rem;
   object-fit: contain;
   background: var(--pf-canvas);
   border-radius: 999px;
+  flex-shrink: 0;
 }
 
 .calendar-earning__identity strong,
@@ -569,12 +573,14 @@
   min-width: 0;
 }
 
-.calendar-recent__identity img {
+.calendar-recent__identity img,
+.calendar-recent__identity-logo {
   width: 2.15rem;
   height: 2.15rem;
   border-radius: 999px;
   object-fit: contain;
   background: var(--pf-canvas);
+  flex-shrink: 0;
 }
 
 .calendar-recent__identity > div {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { IconComponent } from '@/features/watchlist/components/WatchlistTagManager'
-import { getAssetLogoUrl, handleLogoError, validateLogoImage } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { useTranslation } from 'react-i18next'
 
 interface WatchlistTag {
@@ -120,12 +120,12 @@ export default function WatchlistEditModal({
         <div className="pf-modal-header">
           <div className="flex items-start gap-3">
             {/* Logo */}
-            <img
-              src={getAssetLogoUrl(item.symbol, item.asset_type)}
+            <AssetLogo
+              symbol={item.symbol}
+              assetType={item.asset_type}
+              assetName={item.name}
               alt={item.symbol}
               className="w-10 h-10 object-contain p-1 flex-shrink-0"
-              onLoad={(e) => validateLogoImage(e.currentTarget)}
-              onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
             />
             <div>
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">

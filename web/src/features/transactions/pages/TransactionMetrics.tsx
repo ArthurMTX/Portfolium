@@ -6,7 +6,7 @@ import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api from '@/api'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '@/features/transactions/components/EmptyTransactionsPrompt'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import SharedSortIcon from '@/shared/components/SortIcon'
 import { useTranslation } from 'react-i18next'
 
@@ -1021,11 +1021,12 @@ export default function TransactionMetrics() {
                                             </td>
                                             <td className="px-3 py-2">
                                               <div className="flex items-center gap-2">
-                                                <img 
-                                                  src={getAssetLogoUrl(tx.asset.symbol, tx.asset.asset_type, tx.asset.name)}
+                                                <AssetLogo
+                                                  symbol={tx.asset.symbol}
+                                                  assetType={tx.asset.asset_type}
+                                                  assetName={tx.asset.name}
                                                   alt={`${tx.asset.symbol} logo`}
                                                   className="w-5 h-5 object-cover"
-                                                  onError={(e) => handleLogoError(e, tx.asset.symbol, tx.asset.name, tx.asset.asset_type)}
                                                 />
                                                 <div>
                                                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

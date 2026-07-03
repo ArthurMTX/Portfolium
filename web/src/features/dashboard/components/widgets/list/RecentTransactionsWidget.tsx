@@ -5,7 +5,7 @@ import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { enUS, fr } from 'date-fns/locale'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { useWidgetVisibility } from '@/features/dashboard/context/DashboardContext'
 import { useTranslation } from 'react-i18next'
 
@@ -277,20 +277,12 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
               className="flex items-start gap-3 p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
               {/* Asset Logo */}
-              <img
-                src={getAssetLogoUrl(
-                  transaction.asset?.symbol || 'UNKNOWN',
-                  transaction.asset?.asset_type || 'STOCK',
-                  transaction.asset?.name
-                )}
+              <AssetLogo
+                symbol={transaction.asset?.symbol || 'UNKNOWN'}
+                assetType={transaction.asset?.asset_type || 'STOCK'}
+                assetName={transaction.asset?.name}
                 alt={transaction.asset?.symbol || 'Unknown'}
                 className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
-                onError={(e) => handleLogoError(
-                  e,
-                  transaction.asset?.symbol || 'UNKNOWN',
-                  transaction.asset?.name,
-                  transaction.asset?.asset_type
-                )}
               />
 
               <div className="flex-1 min-w-0">

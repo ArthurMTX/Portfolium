@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import { formatCurrency } from '@/shared/lib/formatUtils'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 
 interface PerformerListItem {
   symbol: string
@@ -65,20 +65,12 @@ export default function PerformerListWidget({
                     #{idx + 1}
                   </span>
 
-                  <img
-                    src={getAssetLogoUrl(
-                      performer.symbol || 'UNKNOWN',
-                      performer.asset_type || 'STOCK',
-                      name
-                    )}
+                  <AssetLogo
+                    symbol={performer.symbol || 'UNKNOWN'}
+                    assetType={performer.asset_type || 'STOCK'}
+                    assetName={name}
                     alt={performer.symbol || 'Unknown'}
                     className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
-                    onError={(e) => handleLogoError(
-                      e,
-                      performer.symbol || 'UNKNOWN',
-                      name,
-                      performer.asset_type
-                    )}
                   />
 
                   <div className="flex-1 min-w-0">

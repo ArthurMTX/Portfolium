@@ -47,6 +47,16 @@ YFINANCE_FAILURES = Counter(
     "Yahoo Finance provider failures.",
     ("provider", "reason_category"),
 )
+LOGO_RESOLUTION = Counter(
+    "portfolium_logo_resolution_total",
+    "Asset logo resolution outcomes by provider.",
+    ("provider",),  # trade_republic | brandfetch | generated | unchanged
+)
+TRADE_REPUBLIC_LOGO_VALIDATION = Counter(
+    "portfolium_trade_republic_logo_validation_total",
+    "Trade Republic logo fetch validation results.",
+    ("variant", "result"),  # variant: light|dark; result: valid|invalid|request_failed
+)
 CACHE_HITS = Counter(
     "portfolium_cache_hits_total",
     "Central cache hits.",

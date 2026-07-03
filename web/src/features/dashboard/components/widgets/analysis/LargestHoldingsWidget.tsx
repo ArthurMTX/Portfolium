@@ -1,7 +1,7 @@
 import { PieChart } from 'lucide-react'
 import { PositionDTO } from '@/api'
 import { formatCurrency } from '@/shared/lib/formatUtils'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { BaseWidgetProps } from '@/features/dashboard/components/types'
 import { useTranslation } from 'react-i18next'
@@ -56,20 +56,12 @@ export default function LargestHoldingsWidget({ positions }: LargestHoldingsWidg
                       #{idx + 1}
                     </span>
                     {/* Asset Logo */}
-                    <img
-                      src={getAssetLogoUrl(
-                        position.symbol || 'UNKNOWN',
-                        position.asset_type || 'STOCK',
-                        position.name
-                      )}
+                    <AssetLogo
+                      symbol={position.symbol || 'UNKNOWN'}
+                      assetType={position.asset_type || 'STOCK'}
+                      assetName={position.name}
                       alt={position.symbol || 'Unknown'}
                       className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
-                      onError={(e) => handleLogoError(
-                        e,
-                        position.symbol || 'UNKNOWN',
-                        position.name,
-                        position.asset_type
-                      )}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">

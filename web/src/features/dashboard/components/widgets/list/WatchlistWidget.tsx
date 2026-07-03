@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Eye, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react'
 import { api } from '@/api'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { useWidgetVisibility } from '@/features/dashboard/context/DashboardContext'
@@ -159,11 +159,12 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
                 onClick={() => navigate('/watchlist')}
               >
                 <div className="flex items-center gap-3">
-                  <img
-                    src={getAssetLogoUrl(item.symbol, item.asset_type || 'STOCK')}
+                  <AssetLogo
+                    symbol={item.symbol}
+                    assetType={item.asset_type || 'STOCK'}
+                    assetName={item.name}
                     alt={item.symbol}
                     className="w-8 h-8  object-contain bg-white dark:bg-neutral-900"
-                    onError={(e) => handleLogoError(e, item.symbol, item.name, item.asset_type)}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">

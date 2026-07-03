@@ -4,7 +4,7 @@ import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, 
 import annotationPlugin from 'chartjs-plugin-annotation'
 import api from '@/api'
 import { useTranslation } from 'react-i18next'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { ChartPeriodButtons } from '@/features/charts/components/chartShared'
 import {
   CHART_ACCENT_COLOR,
@@ -510,11 +510,12 @@ export default function AssetPriceChart({
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-                  <img
-                    src={getAssetLogoUrl(symbol, assetType, assetName || history.name)}
+                  <AssetLogo
+                    symbol={symbol}
+                    assetType={assetType}
+                    assetName={assetName || history.name}
                     alt={symbol}
                     className="w-10 h-10 object-contain"
-                    onError={(e) => handleLogoError(e, symbol, assetName || history.name, assetType)}
                   />
                 </div>
                 <div>

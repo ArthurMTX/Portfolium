@@ -44,6 +44,8 @@ celery_app = Celery(
         "app.tasks.dividend_tasks",
         "app.tasks.calendar_tasks",
         "app.tasks.ath_tasks",
+        "app.tasks.logo_tasks",
+        "app.tasks.reference_data_tasks",
     ]
 )
 
@@ -362,6 +364,14 @@ if settings.ENABLE_BACKGROUND_TASKS:
                 "expires": 7200,
             },
         },
+        "sync-adanos-listings": {
+            "task": "app.tasks.reference_data_tasks.sync_adanos_listings_task",
+            "schedule": crontab(hour=4, minute=0, day_of_week="sun"),
+            "options": {
+                "queue": "low",
+                "expires": 7200,
+            },
+        },
         # Send daily portfolio reports at 4:00 PM EST (after market close)
         # Only on weekdays when markets are open
         "send-daily-reports": {
@@ -477,6 +487,10 @@ celery_app.conf.task_routes = {
     "tasks.backfill_ath_from_yfinance": {
         "queue": "low",
         "priority": 2,
+    },
+    "app.tasks.reference_data_tasks.sync_adanos_listings_task": {
+        "queue": "low",
+        "priority": 1,
     },
 }
 

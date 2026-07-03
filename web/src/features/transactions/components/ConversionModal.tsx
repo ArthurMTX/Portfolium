@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, ArrowRight, Search, Loader2, RefreshCw, AlertTriangle, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '@/api'
-import { getAssetLogoUrl, handleLogoError, cleanCryptoName } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { isFutureDate, isVeryOldDate, parseAmount, parseDateOnly } from '@/features/transactions/lib/transactionFormUtils'
 
@@ -513,11 +513,12 @@ export default function ConversionModal({
               
               {fromAsset ? (
                 <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                  <img
-                    src={getAssetLogoUrl(fromAsset.symbol, 'CRYPTOCURRENCY', fromAsset.name)}
+                  <AssetLogo
+                    symbol={fromAsset.symbol}
+                    assetType="CRYPTOCURRENCY"
+                    assetName={fromAsset.name}
                     alt={fromAsset.symbol}
                     className="w-8 h-8 rounded-full"
-                    onError={(e) => handleLogoError(e, fromAsset.symbol, cleanCryptoName(fromAsset.name), 'CRYPTOCURRENCY')}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-neutral-900 dark:text-white">{fromAsset.symbol}</div>
@@ -551,11 +552,12 @@ export default function ConversionModal({
                           onClick={() => handleSelectFromAsset(asset)}
                           className="w-full flex items-center gap-3 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0"
                         >
-                          <img
-                            src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                          <AssetLogo
+                            symbol={asset.symbol}
+                            assetType={asset.asset_type || 'CRYPTOCURRENCY'}
+                            assetName={asset.name}
                             alt={asset.symbol}
                             className="w-6 h-6 rounded-full"
-                            onError={(e) => handleLogoError(e, asset.symbol, cleanCryptoName(asset.name), asset.asset_type || 'CRYPTOCURRENCY')}
                           />
                           <div className="text-left">
                             <div className="font-medium text-neutral-900 dark:text-white text-sm">{asset.symbol}</div>
@@ -584,11 +586,12 @@ export default function ConversionModal({
               
               {toAsset ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                  <img
-                    src={getAssetLogoUrl(toAsset.symbol, 'CRYPTOCURRENCY', toAsset.name)}
+                  <AssetLogo
+                    symbol={toAsset.symbol}
+                    assetType="CRYPTOCURRENCY"
+                    assetName={toAsset.name}
                     alt={toAsset.symbol}
                     className="w-8 h-8 rounded-full"
-                    onError={(e) => handleLogoError(e, toAsset.symbol, cleanCryptoName(toAsset.name), toAsset.asset_type || 'CRYPTOCURRENCY')}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-neutral-900 dark:text-white">{toAsset.symbol}</div>
@@ -628,11 +631,12 @@ export default function ConversionModal({
                           onClick={() => handleSelectToAsset(ticker)}
                           className="w-full flex items-center gap-3 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-700 border-b border-neutral-100 dark:border-neutral-700 last:border-b-0"
                         >
-                          <img
-                            src={getAssetLogoUrl(ticker.symbol, ticker.type, ticker.name)}
+                          <AssetLogo
+                            symbol={ticker.symbol}
+                            assetType={ticker.type || 'CRYPTOCURRENCY'}
+                            assetName={ticker.name}
                             alt={ticker.symbol}
                             className="w-6 h-6 rounded-full"
-                            onError={(e) => handleLogoError(e, ticker.symbol, cleanCryptoName(ticker.name), ticker.type || 'CRYPTOCURRENCY')}
                           />
                           <div className="text-left">
                             <div className="font-medium text-blue-600 dark:text-blue-400 text-sm">{ticker.symbol}</div>

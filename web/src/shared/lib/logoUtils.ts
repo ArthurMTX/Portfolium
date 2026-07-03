@@ -101,27 +101,40 @@ export const getAssetLogoUrl = (
 /**
  * Common onError handler for asset logo images
  * Attempts to fetch logo from API endpoint with proper parameters
+ *
+ * @param onFinalFailure Optional callback invoked when the logo cannot be
+ * resolved at all (instead of/in addition to hiding the <img>). Used by
+ * AssetLogo to render an initials fallback badge.
  */
 export const handleLogoError = (
   e: React.SyntheticEvent<HTMLImageElement, Event>,
   symbol: string,
   assetName?: string | null,
-  assetType?: string | null
+  assetType?: string | null,
+  onFinalFailure?: () => void
 ) => {
   const img = e.currentTarget as HTMLImageElement
-  
+
+  const fail = () => {
+    if (onFinalFailure) {
+      onFinalFailure()
+    } else {
+      img.style.display = 'none'
+    }
+  }
+
   if (!img.dataset.resolverTried) {
     img.dataset.resolverTried = 'true'
     const params = new URLSearchParams()
-    
+
     // Clean crypto names to remove currency suffixes like " USD"
     const assetTypeUpper = assetType?.toUpperCase()
     const isCrypto = assetTypeUpper === 'CRYPTOCURRENCY' || assetTypeUpper === 'CRYPTO'
     const cleanedName = isCrypto ? cleanCryptoName(assetName || null) : assetName
-    
+
     if (cleanedName) params.set('name', cleanedName)
     if (assetType) params.set('asset_type', assetType)
-    
+
     fetch(`/api/assets/logo/${symbol}?${params.toString()}`, { redirect: 'follow' })
       .then((res) => {
         if (res.redirected) {
@@ -131,13 +144,44 @@ export const handleLogoError = (
             img.src = URL.createObjectURL(blob)
           })
         } else {
-          img.style.display = 'none'
+          fail()
         }
       })
       .catch(() => {
-        img.style.display = 'none'
+        fail()
       })
   } else {
-    img.style.display = 'none'
+    fail()
   }
+}
+
+interface ResolveLogoVariantUrlOptions {
+  logoLightUrl?: string | null
+  logoDarkUrl?: string | null
+  logoUrl?: string | null
+  isDark: boolean
+}
+
+/**
+ * Pick the theme-correct explicit logo URL out of backend-provided
+ * light/dark/default fields, falling back light<->dark<->logoUrl as needed.
+ * Returns null when no explicit URL was provided (caller should build the
+ * proxy URL itself via getAssetLogoUrl).
+ */
+export const resolveLogoVariantUrl = ({
+  logoLightUrl,
+  logoDarkUrl,
+  logoUrl,
+  isDark,
+}: ResolveLogoVariantUrlOptions): string | null => {
+  if (logoLightUrl || logoDarkUrl) {
+    return (isDark ? logoDarkUrl : logoLightUrl) || logoLightUrl || logoDarkUrl || null
+  }
+  return logoUrl || null
+}
+
+/** Append a `variant=light|dark` query param to a logo proxy URL. */
+export const appendVariantParam = (url: string, variant: 'light' | 'dark'): string => {
+  if (!url) return url
+  return url.includes('?') ? `${url}&variant=${variant}` : `${url}?variant=${variant}`
 }

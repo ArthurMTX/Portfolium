@@ -167,6 +167,15 @@ class MarketDataProvider(Protocol):
     ) -> Any:
         ...
 
+    def get_isin(
+        self,
+        symbol: str,
+        *,
+        action: str = "isin_lookup",
+        timeout_seconds: float | None = None,
+    ) -> "str | None":
+        ...
+
 
 def yahoo_timeout_seconds(default: float = DEFAULT_YAHOO_TIMEOUT_SECONDS) -> float:
     """Return the configured per-call Yahoo socket timeout."""
@@ -235,12 +244,17 @@ def call_yahoo(
     timeout_seconds: float | None = None,
     retries: int = 0,
     retry_backoff_seconds: float = 0.5,
+    affects_circuit_breaker: bool = True,
 ) -> T:
     """
     Execute a blocking Yahoo/yfinance operation with bounded sockets and logging.
 
     The retry is intentionally conservative and disabled by default. Rate-limit
     failures immediately trip the shared circuit breaker and are not retried.
+
+    Set affects_circuit_breaker=False for operations that don't actually hit
+    Yahoo (e.g. ISIN lookup scrapes a third-party site) so their failures can't
+    incorrectly trip the shared circuit breaker used by real Yahoo calls.
     """
     YFINANCE_CALLS.labels(provider="yahoo").inc()
     if is_yahoo_circuit_open():
@@ -279,7 +293,7 @@ def call_yahoo(
         except Exception as exc:
             duration_ms = (time.monotonic() - started_at) * 1000
             last_error = exc
-            rate_limited = is_yahoo_rate_limit_error(exc)
+            rate_limited = affects_circuit_breaker and is_yahoo_rate_limit_error(exc)
             if rate_limited:
                 trip_yahoo_circuit()
             reason_category = "rate_limited" if rate_limited else classify_provider_failure(exc)
@@ -451,6 +465,35 @@ class YahooMarketDataProvider:
         timeout_seconds: float | None = None,
     ) -> Any:
         return self._get_ticker_property(symbol, "actions", action, timeout_seconds)
+
+    def get_isin(
+        self,
+        symbol: str,
+        *,
+        action: str = "isin_lookup",
+        timeout_seconds: float | None = None,
+    ) -> "str | None":
+        """Best-effort ISIN lookup.
+
+        yfinance's Ticker.isin is explicitly experimental: it scrapes a
+        third-party site (not Yahoo) and can raise or return '-' for "not
+        found". affects_circuit_breaker=False keeps failures here from
+        tripping the shared Yahoo circuit breaker used by real price/info
+        calls. Any exception is swallowed and treated as "not found".
+        """
+        import yfinance as yf
+
+        try:
+            ticker = yf.Ticker(symbol)
+            return call_yahoo(
+                lambda: ticker.isin,
+                symbol=symbol,
+                action=action,
+                timeout_seconds=timeout_seconds,
+                affects_circuit_breaker=False,
+            )
+        except Exception:
+            return None
 
     def _get_ticker_property(
         self,

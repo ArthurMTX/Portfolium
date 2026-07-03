@@ -169,6 +169,8 @@ def get_assets(
 def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
     from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+    from app.services.reference_data.adanos_listings import lookup_adanos_isin
+    from app.utils.isin import normalize_isin
 
     symbol = asset.symbol.strip().upper()
     
@@ -202,7 +204,15 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
     # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
     if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
         name = _strip_crypto_currency_suffix(name)
-    
+
+    # ISIN: Adanos is checked first -- it has proven more reliable than
+    # yfinance's ISIN scrape for some symbols (e.g. yfinance returns a
+    # Canadian ISIN for GOOGL where Adanos has the correct US one). Yahoo's
+    # 'isin' field (rarely populated, defensive check only) is a fallback.
+    isin = lookup_adanos_isin(db, symbol, asset_type=asset_type, name=name)
+    if not isin:
+        isin = normalize_isin(info.get('isin'))
+
     db_asset = Asset(
         symbol=symbol,
         name=name,
@@ -211,7 +221,8 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
         sector=sector,
         industry=industry,
         asset_type=asset_type,
-        country=country
+        country=country,
+        isin=isin,
     )
     update_asset_market_cap_from_info(db_asset, info)
     db.add(db_asset)
@@ -260,7 +271,9 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     """Enrich asset with metadata from yfinance"""
     import re
     from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
-    
+    from app.services.reference_data.adanos_listings import lookup_adanos_isin
+    from app.utils.isin import normalize_isin
+
     db_asset = get_asset(db, asset_id)
     if not db_asset:
         return None
@@ -281,6 +294,15 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
             db_asset.asset_type = info.get('quoteType')
         if not db_asset.country:
             db_asset.country = info.get('country')
+        # ISIN: never overwrite an already-valid one. Adanos is checked first
+        # (more reliable than yfinance's ISIN scrape for some symbols), then
+        # Yahoo's info dict defensively as a fallback.
+        if not normalize_isin(db_asset.isin):
+            candidate_isin = lookup_adanos_isin(
+                db, db_asset.symbol, asset_type=db_asset.asset_type, name=db_asset.name
+            ) or normalize_isin(info.get('isin'))
+            if candidate_isin:
+                db_asset.isin = candidate_isin
         update_asset_market_cap_from_info(db_asset, info)
         # Update currency from yfinance if available (always update to correct currency from source)
         yf_currency = info.get('currency')
@@ -397,32 +419,37 @@ def enrich_all_assets(db: Session) -> dict:
 
 
 def cache_logo(
-    db: Session, 
-    asset_id: int, 
-    logo_data: bytes, 
-    content_type: str
+    db: Session,
+    asset_id: int,
+    logo_data: bytes,
+    content_type: str,
+    provider: Optional[str] = None,
 ) -> Optional[Asset]:
     """
     Cache logo data in the database for an asset
-    
+
     Args:
         db: Database session
         asset_id: Asset ID
         logo_data: Logo image bytes
         content_type: MIME type (e.g., 'image/webp', 'image/svg+xml')
-        
+        provider: Optional logo provider label (e.g. 'brandfetch'). When
+            given, also sets Asset.logo_provider; omit to leave it untouched.
+
     Returns:
         Updated asset or None if not found
     """
     db_asset = get_asset(db, asset_id)
     if not db_asset:
         return None
-    
+
     # Store binary data directly
     db_asset.logo_data = logo_data
     db_asset.logo_content_type = content_type
     db_asset.logo_fetched_at = datetime.utcnow()
-    
+    if provider is not None:
+        db_asset.logo_provider = provider
+
     db.commit()
     db.refresh(db_asset)
     return db_asset

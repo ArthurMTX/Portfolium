@@ -396,6 +396,11 @@ export interface AssetResearchDTO {
     market_cap_currency: string | null
     market_cap_usd: number | null
     market_cap_fetched_at: string | null
+    isin: string | null
+    logo_provider: string | null
+    logo_url: string | null
+    logo_light_url: string | null
+    logo_dark_url: string | null
     themes: AssetThemeDTO[]
     created_at: string
     updated_at: string

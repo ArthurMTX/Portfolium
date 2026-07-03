@@ -10,7 +10,7 @@ import {
   getExampleNameForIndustry,
 } from '@/shared/lib/sectorIndustryUtils';
 import { getTranslatedSector, getTranslatedIndustry } from '@/shared/lib/translationUtils';
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils';
+import AssetLogo from '@/shared/components/AssetLogo';
 import { useTranslation } from 'react-i18next';
 import { getThemeColor, getThemeHexColor, getThemeIcon } from '@/shared/lib/themeUtils';
 
@@ -330,11 +330,11 @@ export default function IconPreview() {
                                 {/* Example Company */}
                                 {exampleTicker && (
                                   <div className="mt-3 flex items-center gap-2 p-2 bg-neutral-50 dark:bg-neutral-800 rounded-md">
-                                    <img
-                                      src={getAssetLogoUrl(exampleTicker, 'STOCK', null)}
+                                    <AssetLogo
+                                      symbol={exampleTicker}
+                                      assetType="STOCK"
                                       alt={exampleTicker}
                                       className="w-6 h-6 rounded object-cover flex-shrink-0"
-                                      onError={(e) => handleLogoError(e, exampleTicker, null, 'STOCK')}
                                       loading="lazy"
                                     />
                                     <div className="flex-1 min-w-0">

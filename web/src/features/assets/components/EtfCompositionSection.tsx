@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -14,7 +13,7 @@ import {
   formatAllocationPercent,
 } from '@/features/assets/lib/assetResearchMetricBuilders'
 import { formatNumber } from '@/shared/lib/formatUtils'
-import { getAssetLogoUrl, validateLogoImage } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { getSectorColor, getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
 import { getThemeColor, getThemeHexColor, getThemeIcon } from '@/shared/lib/themeUtils'
 
@@ -326,37 +325,14 @@ function EtfThemeExposureCard({
 }
 
 function AssetHoldingAvatar({ symbol, name }: { symbol: string; name: string }) {
-  const [logoFailed, setLogoFailed] = useState(false)
-  const initials = getAssetInitials(symbol, name)
-
-  if (logoFailed) {
-    return (
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-indigo-100 text-sm font-semibold text-indigo-700 dark:border-neutral-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-        {initials}
-      </div>
-    )
-  }
-
   return (
-    <img
-      src={getAssetLogoUrl(symbol, null, name)}
+    <AssetLogo
+      symbol={symbol}
+      assetName={name}
       alt={`${symbol} logo`}
-      className="h-10 w-10 flex-shrink-0 border border-neutral-200 object-cover dark:border-neutral-700"
-      onLoad={(event) => {
-        const image = event.currentTarget as HTMLImageElement
-        if (!validateLogoImage(image)) setLogoFailed(true)
-      }}
-      onError={() => setLogoFailed(true)}
+      className="h-10 w-10 flex-shrink-0 rounded-lg border border-neutral-200 object-cover dark:border-neutral-700"
     />
   )
-}
-
-function getAssetInitials(symbol: string, name: string): string {
-  const text = (name || symbol || '').trim()
-  if (!text) return symbol.slice(0, 2).toUpperCase()
-  const parts = text.split(/\s+/).filter(Boolean)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
 }
 
 function getAssetAllocationIcon(name: string) {

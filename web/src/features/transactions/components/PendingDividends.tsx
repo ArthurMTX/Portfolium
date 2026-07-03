@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import api, { PendingDividendDTO, PortfolioPendingDividendStatsDTO } from '@/api'
 import { formatCurrency } from '@/shared/lib/formatUtils'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import Toast from '@/shared/components/Toast'
 
 interface PendingDividendsProps {
@@ -310,11 +310,11 @@ export default function PendingDividends({
                   <div className="flex items-center gap-4">
                     {/* Asset Logo */}
                     <div className="flex-shrink-0">
-                      <img
-                        src={getAssetLogoUrl(dividend.asset_symbol || '')}
+                      <AssetLogo
+                        symbol={dividend.asset_symbol || ''}
+                        assetName={dividend.asset_name}
                         alt={dividend.asset_symbol || ''}
                         className="w-10 h-10 p-1"
-                        onError={(e) => handleLogoError(e, dividend.asset_symbol || '', dividend.asset_name, null)}
                       />
                     </div>
                     
@@ -435,11 +435,11 @@ export default function PendingDividends({
               {/* Dividend Summary */}
               <div className="pf-modal-muted-box">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src={getAssetLogoUrl(acceptingDividend.asset_symbol || '')}
+                  <AssetLogo
+                    symbol={acceptingDividend.asset_symbol || ''}
+                    assetName={acceptingDividend.asset_name}
                     alt={acceptingDividend.asset_symbol || ''}
                     className="w-8 h-8 rounded object-contain bg-white dark:bg-neutral-600"
-                    onError={(e) => handleLogoError(e, acceptingDividend.asset_symbol || '', acceptingDividend.asset_name, null)}
                   />
                   <div>
                     <p className="font-semibold text-neutral-900 dark:text-white">

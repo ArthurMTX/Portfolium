@@ -24,7 +24,7 @@ import {
   PageSummaryPanel,
   PageTitleBlock,
 } from '@/shared/components/PageLayout'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency, formatQuantity } from '@/shared/lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { getFilteredSortedTransactions } from '@/features/transactions/lib/transactionSortUtils'
@@ -1424,11 +1424,13 @@ export default function Transactions() {
                             openAssetResearch(transaction.asset.symbol)
                           }}
                         >
-                          <img
-                            src={getAssetLogoUrl(transaction.asset.symbol, transaction.asset.asset_type, transaction.asset.name)}
+                          <AssetLogo
+                            symbol={transaction.asset.symbol}
+                            assetType={transaction.asset.asset_type}
+                            assetName={transaction.asset.name}
                             alt=""
                             loading="lazy"
-                            onError={(event) => handleLogoError(event, transaction.asset.symbol, transaction.asset.name, transaction.asset.asset_type)}
+                            className="transactions-asset-logo"
                           />
                           <span>
                             <strong>{transaction.asset.name || transaction.asset.symbol}</strong>

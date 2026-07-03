@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api, { AssetInvestmentNoteDTO, AssetThemeDTO, type PositionDTO } from '@/api'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { getCountryCode } from '@/shared/lib/countryUtils'
 import SplitHistory from '@/features/assets/components/SplitHistory'
 import TransactionHistory from '@/features/assets/components/TransactionHistory'
@@ -500,12 +500,13 @@ export default function Assets() {
 
     return (
       <div className="holdings-position">
-        <img
-          src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+        <AssetLogo
+          symbol={asset.symbol}
+          assetType={asset.asset_type}
+          assetName={asset.name}
           alt=""
           loading="lazy"
           className="holdings-logo"
-          onError={(event) => handleLogoError(event, asset.symbol, asset.name, asset.asset_type)}
         />
         <div className="holdings-position-copy">
           <div className="holdings-symbol-line">

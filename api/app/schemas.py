@@ -253,6 +253,11 @@ class AssetBase(BaseModel):
     market_cap_currency: Optional[str] = None
     market_cap_usd: Optional[Decimal] = None
     market_cap_fetched_at: Optional[datetime] = None
+    isin: Optional[str] = None
+    logo_provider: Optional[str] = None
+    logo_url: Optional[str] = None
+    logo_light_url: Optional[str] = None
+    logo_dark_url: Optional[str] = None
 
 
 class AssetCreate(AssetBase):

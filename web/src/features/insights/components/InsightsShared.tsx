@@ -4,8 +4,8 @@ import type { LucideIcon } from 'lucide-react'
 import { BadgeDollarSign, Building2, Coins, Globe2, HelpCircle, Info, RefreshCw } from 'lucide-react'
 import type { ContributionItemDTO } from '@/api'
 import { StateBlock, TableSkeleton } from '@/shared/components/StatePrimitives'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { getFlagUrl } from '@/shared/lib/countryUtils'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
 import { getSectorColor, getSectorHexColor, getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
 import { getThemeColor, getThemeHexColor, getThemeIcon } from '@/shared/lib/themeUtils'
 
@@ -340,19 +340,14 @@ export function ContributionVisual({ item, kind }: { item: ContributionItemDTO; 
   const label = item.name || item.symbol || 'Unknown'
 
   if (kind === 'asset') {
-    const initials = initialsFor(item.symbol || item.name)
     return (
-      <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg">
-        <span className="absolute inset-0 flex items-center justify-center">{initials}</span>
-        {item.symbol && (
-          <img
-            src={getAssetLogoUrl(item.symbol, item.asset_type, item.name)}
-            alt={item.name || item.symbol || 'Unknown asset'}
-            className="relative h-8 w-8 object-contain"
-            onError={(event) => handleLogoError(event, item.symbol || '', item.name, item.asset_type)}
-          />
-        )}
-      </div>
+      <AssetLogo
+        symbol={item.symbol || ''}
+        assetType={item.asset_type}
+        assetName={item.name}
+        alt={item.name || item.symbol || 'Unknown asset'}
+        className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
+      />
     )
   }
 
@@ -407,11 +402,6 @@ function secondaryLabel(item: ContributionItemDTO, kind: ContributionVisualKind)
     return symbol && symbol !== name ? symbol : undefined
   }
   return `${item.count} holding${item.count === 1 ? '' : 's'}`
-}
-
-function initialsFor(value?: string | null): string {
-  const cleaned = (value || '?').replace(/[^A-Za-z0-9]/g, '')
-  return (cleaned || '?').slice(0, 3).toUpperCase()
 }
 
 function valueBarColor(value: unknown): string {

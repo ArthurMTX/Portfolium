@@ -4,7 +4,7 @@ import { BaseWidgetProps } from '@/features/dashboard/components/types'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api, { PositionDTO } from '@/api'
 import { mockPositions } from '@/features/dashboard/components/utils/mockDataProvider'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import { useTranslation } from 'react-i18next'
 
 interface PortfolioHeatmapWidgetProps extends BaseWidgetProps {}
@@ -113,11 +113,12 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {/* Logo - size varies by cell size */}
-                      <img
-                        src={getAssetLogoUrl(position.symbol, position.asset_type, position.name)}
+                      <AssetLogo
+                        symbol={position.symbol}
+                        assetType={position.asset_type}
+                        assetName={position.name}
                         alt={`${position.symbol} logo`}
                         className={`${isLarge ? 'w-8 h-8' : percentage >= 5 ? 'w-6 h-6' : 'w-5 h-5'} object-contain flex-shrink-0`}
-                        onError={(e) => handleLogoError(e, position.symbol, position.name, position.asset_type)}
                       />
                       <div className="flex-1 min-w-0">
                         <div className={`font-bold ${isLarge ? 'text-base' : 'text-xs'} truncate`}>

@@ -21,7 +21,7 @@ import {
 } from '@/shared/components/PageLayout'
 import { useTranslation } from 'react-i18next'
 import { formatCurrency } from '@/shared/lib/formatUtils'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 import '@/shared/design/pages/calendar.css'
 
 type CalendarTab = 'overview' | 'earnings'
@@ -701,10 +701,12 @@ export default function Calendar() {
                             key={`${earning.symbol}-${earning.date}-${index}`}
                             className={earning.source === 'watchlist' ? 'is-watchlist' : ''}
                           >
-                            <img
-                              src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
+                            <AssetLogo
+                              symbol={earning.symbol}
+                              assetType="stock"
+                              assetName={earning.name}
                               alt={earning.symbol}
-                              onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
+                              className="calendar-summary__events-logo"
                             />
                             <div>
                               <strong>{earning.symbol} earnings</strong>
@@ -785,10 +787,12 @@ export default function Calendar() {
                         </time>
 
                         <div className="calendar-earning__identity">
-                          <img
-                            src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
+                          <AssetLogo
+                            symbol={earning.symbol}
+                            assetType="stock"
+                            assetName={earning.name}
                             alt={earning.symbol}
-                            onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
+                            className="calendar-earning__identity-logo"
                           />
                           <div>
                             <strong>{earning.symbol}</strong>
@@ -851,10 +855,12 @@ export default function Calendar() {
                   >
                     <time>{formatCompactDate(earning.date, currentLocale)}</time>
                     <div className="calendar-recent__identity">
-                      <img
-                        src={getAssetLogoUrl(earning.symbol, 'stock', earning.name)}
+                      <AssetLogo
+                        symbol={earning.symbol}
+                        assetType="stock"
+                        assetName={earning.name}
                         alt={earning.symbol}
-                        onError={(e) => handleLogoError(e, earning.symbol, earning.name, 'stock')}
+                        className="calendar-recent__identity-logo"
                       />
                       <div>
                         <strong>{earning.symbol}</strong>

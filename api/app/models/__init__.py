@@ -19,6 +19,7 @@ from app.models.goal import PortfolioGoal
 from app.models.pending_dividend import PendingDividend, PendingDividendStatus
 from app.models.push_subscription import PushSubscription
 from app.models.calendar import EarningsCache
+from app.models.reference_data import AdanosListing
 
 __all__ = [
     # Enums
@@ -45,4 +46,5 @@ __all__ = [
     "PendingDividend",
     "PushSubscription",
     "EarningsCache",
+    "AdanosListing",
 ]

@@ -1361,7 +1361,15 @@ def create_asset(
         logger.info(f"Triggered ATH backfill for new asset: {new_asset.symbol}")
     except Exception as e:
         logger.warning(f"Failed to trigger ATH backfill for {new_asset.symbol}: {e}")
-    
+
+    # Trigger ISIN + logo enrichment for the new asset in the background
+    try:
+        from app.tasks.logo_tasks import backfill_asset_logos
+        backfill_asset_logos.delay(asset_id=new_asset.id)
+        logger.info(f"Triggered logo/ISIN backfill for new asset: {new_asset.symbol}")
+    except Exception as e:
+        logger.warning(f"Failed to trigger logo backfill for {new_asset.symbol}: {e}")
+
     return new_asset
 
 
@@ -1770,81 +1778,121 @@ def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/logo/{symbol}")
-async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Optional[str] = None, db: Session = Depends(get_db)):
+async def resolve_logo(
+    symbol: str,
+    name: Optional[str] = None,
+    asset_type: Optional[str] = None,
+    variant: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     """
     Fetch and return the best available logo for a symbol.
 
     Strategy:
-    1. For ETFs and Cryptocurrencies, skip cache and generate/fetch logo to avoid incorrect brand logos
-    2. For other assets, check database cache first for previously fetched logos
-    3. Try direct ticker fetch and cache result
-    4. Try API search with company name and cache result
-    5. If all else fails, generate SVG fallback
-    
-    Returns the image data directly with aggressive caching headers.
+    1. If the asset has a persisted ISIN, try Trade Republic first (redirect
+       to their CDN) -- covers stocks, ETFs, funds, ETCs, ETNs alike.
+    2. For ETFs and Cryptocurrencies, skip cache and generate/fetch logo to avoid incorrect brand logos
+    3. For other assets, check database cache first for previously fetched logos
+    4. Try direct ticker fetch and cache result
+    5. Try API search with company name and cache result
+    6. If all else fails, generate SVG fallback
+
+    Returns the image data directly (or a redirect to Trade Republic's CDN)
+    with aggressive caching headers.
 
     Query params:
     - name: Optional company name to improve search quality.
     - asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') to determine if generic logo should be used.
+    - variant: Optional theme variant ('light' or 'dark') for Trade Republic logos.
     """
     # Lazy imports to avoid import-time issues
     from app.services.market_data.logos import fetch_logo_with_validation
+    from app.services.market_data.logo_resolver import resolve_asset_logo
     from app.crud import assets as crud_assets
-    from fastapi.responses import Response
+    from fastapi.responses import Response, RedirectResponse
     import hashlib
 
     # Get or create asset in database
     db_asset = crud_assets.get_asset_by_symbol(db, symbol.upper())
-    
+
     # Use database asset_type if query param not provided
     effective_asset_type = asset_type
     if not effective_asset_type and db_asset:
         effective_asset_type = db_asset.asset_type
-    
+
     # Use database name if query param not provided
     effective_name = name
     if not effective_name and db_asset:
         effective_name = db_asset.name
-    
+
     # For ETFs and Cryptocurrencies, skip cache to avoid incorrect brand logos
     is_etf = effective_asset_type and effective_asset_type.upper() == 'ETF'
     is_crypto = effective_asset_type and effective_asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
     skip_cache = is_etf or is_crypto
-    
-    # Check database cache first (but skip for ETFs and cryptocurrencies)
-    if db_asset and not skip_cache:
-        cached = crud_assets.get_cached_logo(db, db_asset.id)
+
+    normalized_variant = "dark" if variant == "dark" else "light"
+    resolution = None
+
+    # Lazily resolve Trade Republic/Brandfetch/generated once per asset. This
+    # never triggers the synchronous ISIN scrape (allow_isin_lookup=False) --
+    # that only happens via the async backfill task/CLI.
+    if db_asset and db_asset.isin and db_asset.logo_provider not in ("trade_republic", "brandfetch"):
+        resolution = resolve_asset_logo(
+            db,
+            db_asset,
+            allow_isin_lookup=False,
+            name_hint=name,
+            asset_type_hint=asset_type,
+        )
+        db.refresh(db_asset)
+
+    if db_asset and db_asset.logo_provider == "trade_republic" and (db_asset.logo_light_url or db_asset.logo_dark_url):
+        tr_url = (
+            (db_asset.logo_dark_url if normalized_variant == "dark" else db_asset.logo_light_url)
+            or db_asset.logo_light_url
+            or db_asset.logo_dark_url
+        )
+        return RedirectResponse(
+            url=tr_url,
+            status_code=302,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    if resolution is not None and resolution.logo_bytes is not None:
+        logo_data = resolution.logo_bytes
+        content_type = resolution.logo_content_type or "image/webp"
+        is_svg_fallback = content_type == "image/svg+xml"
+    else:
+        # Check database cache first (but skip for ETFs and cryptocurrencies)
+        cached = None
+        if db_asset and not skip_cache:
+            cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
-            logo_data, content_type = cached
+            cached_logo_data, cached_content_type = cached
             # Don't use cached SVG fallbacks - try to fetch real logo instead
-            is_cached_svg = content_type == 'image/svg+xml'
+            is_cached_svg = cached_content_type == 'image/svg+xml'
             if not is_cached_svg:
-                response = Response(content=logo_data, media_type=content_type)
+                response = Response(content=cached_logo_data, media_type=cached_content_type)
                 # Cache for 30 days
                 response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
                 # Add ETag for cache validation
-                etag = hashlib.md5(logo_data).hexdigest()
+                etag = hashlib.md5(cached_logo_data).hexdigest()
                 response.headers["ETag"] = f'"{etag}"'
                 return response
 
-    # Fetch logo using the consolidated validation function
-    # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
-    logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
-    
-    # Determine content type based on data
-    is_svg_fallback = logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml')
-    if is_svg_fallback:
-        content_type = 'image/svg+xml'
-        cache_time = 3600  # 1 hour for SVG fallbacks (so real logos can replace them)
-    else:
-        content_type = 'image/webp'
-        cache_time = 2592000  # 30 days for real logos
-    
-    # Only cache real logos in database, not SVG fallbacks
-    # SVG fallbacks should be regenerated so they can be replaced with real logos later
-    if db_asset and not skip_cache and not is_svg_fallback:
-        crud_assets.cache_logo(db, db_asset.id, logo_data, content_type)
-    
+        # Fetch logo using the consolidated validation function
+        # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
+        logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
+
+        # Determine content type based on data
+        is_svg_fallback = logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml')
+        content_type = 'image/svg+xml' if is_svg_fallback else 'image/webp'
+
+        # Only cache real logos in database, not SVG fallbacks
+        # SVG fallbacks should be regenerated so they can be replaced with real logos later
+        if db_asset and not skip_cache and not is_svg_fallback:
+            crud_assets.cache_logo(db, db_asset.id, logo_data, content_type, provider="brandfetch")
+
     # Return the logo
     response = Response(content=logo_data, media_type=content_type)
     if is_svg_fallback:
@@ -1852,7 +1900,7 @@ async def resolve_logo(symbol: str, name: Optional[str] = None, asset_type: Opti
         response.headers["Cache-Control"] = "public, max-age=300, must-revalidate"
     else:
         # For real logos, use long cache with immutable
-        response.headers["Cache-Control"] = f"public, max-age={cache_time}, immutable"
+        response.headers["Cache-Control"] = "public, max-age=2592000, immutable"
     # Add ETag for cache validation
     etag = hashlib.md5(logo_data).hexdigest()
     response.headers["ETag"] = f'"{etag}"'

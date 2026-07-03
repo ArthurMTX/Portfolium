@@ -570,17 +570,18 @@ def clear_logo_cache(
             # Clear specific symbol
             result = db.execute(
                 text("""
-                    UPDATE portfolio.assets 
-                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
+                    UPDATE portfolio.assets
+                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL,
+                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL
                     WHERE symbol = :symbol
                 """),
                 {"symbol": symbol.upper()}
             )
             db.commit()
-            
+
             if result.rowcount == 0:
                 raise AssetNotFoundError(symbol)
-            
+
             return {
                 "success": True,
                 "message": f"Logo cache cleared for {symbol}",
@@ -590,9 +591,10 @@ def clear_logo_cache(
             # Clear all logos
             result = db.execute(
                 text("""
-                    UPDATE portfolio.assets 
-                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
-                    WHERE logo_data IS NOT NULL
+                    UPDATE portfolio.assets
+                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL,
+                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL
+                    WHERE logo_data IS NOT NULL OR logo_provider IS NOT NULL
                 """)
             )
             db.commit()

@@ -28,7 +28,7 @@ import {
     getIndustryIcon,
     getIndustryColor
 } from '@/shared/lib/sectorIndustryUtils'
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils'
+import AssetLogo from '@/shared/components/AssetLogo'
 
 const LANGUAGES = [
     { code: 'en', name: 'English', country: 'GB' },
@@ -554,7 +554,6 @@ const PublicPortfolio: React.FC = () => {
                                     {data.holdings.map((holding, index) => {
                                         const SectorIcon = getSectorIcon(holding.sector)
                                         const IndustryIcon = getIndustryIcon(holding.industry)
-                                        const logoUrl = getAssetLogoUrl(holding.symbol, holding.asset_type, holding.name)
                                         return (
                                             <tr
                                                 key={holding.symbol}
@@ -564,11 +563,12 @@ const PublicPortfolio: React.FC = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-4">
                                                         <div className="relative">
-                                                            <img
-                                                                src={logoUrl}
+                                                            <AssetLogo
+                                                                symbol={holding.symbol}
+                                                                assetType={holding.asset_type}
+                                                                assetName={holding.name}
                                                                 alt={holding.symbol}
                                                                 className="w-10 h-10 object-cover"
-                                                                onError={e => handleLogoError(e, holding.symbol, holding.name, holding.asset_type)}
                                                             />
                                                         </div>
                                                         <div>
@@ -647,7 +647,6 @@ const PublicPortfolio: React.FC = () => {
                             {/* Left side floating cards */}
                             <div className="absolute -left-20 top-1/2 -translate-y-1/2 flex flex-col gap-4 -rotate-12">
                                 {data.holdings.slice(0, 5).map((h, i) => {
-                                    const logoUrl = getAssetLogoUrl(h.symbol, h.asset_type, h.name)
                                     return (
                                         <div
                                             key={`left-${i}`}
@@ -656,11 +655,12 @@ const PublicPortfolio: React.FC = () => {
                                                 transform: `translateX(${i % 2 === 0 ? '20px' : '0px'})`,
                                             }}
                                         >
-                                            <img
-                                                src={logoUrl}
+                                            <AssetLogo
+                                                symbol={h.symbol}
+                                                assetType={h.asset_type}
+                                                assetName={h.name}
                                                 alt={h.symbol}
                                                 className="w-10 h-10 rounded-lg object-cover bg-neutral-100 dark:bg-neutral-700"
-                                                onError={e => handleLogoError(e, h.symbol, h.name, h.asset_type)}
                                             />
                                             <div className="text-left">
                                                 <p className="font-bold text-neutral-900 dark:text-white text-sm">{h.symbol}</p>
@@ -674,7 +674,6 @@ const PublicPortfolio: React.FC = () => {
                             {/* Right side floating cards */}
                             <div className="absolute -right-20 top-1/2 -translate-y-1/2 flex flex-col gap-4 rotate-12">
                                 {data.holdings.slice(5, 10).map((h, i) => {
-                                    const logoUrl = getAssetLogoUrl(h.symbol, h.asset_type, h.name)
                                     return (
                                         <div
                                             key={`right-${i}`}
@@ -683,11 +682,12 @@ const PublicPortfolio: React.FC = () => {
                                                 transform: `translateX(${i % 2 === 0 ? '-20px' : '0px'})`,
                                             }}
                                         >
-                                            <img
-                                                src={logoUrl}
+                                            <AssetLogo
+                                                symbol={h.symbol}
+                                                assetType={h.asset_type}
+                                                assetName={h.name}
                                                 alt={h.symbol}
                                                 className="w-10 h-10 rounded-lg object-cover bg-neutral-100 dark:bg-neutral-700"
-                                                onError={e => handleLogoError(e, h.symbol, h.name, h.asset_type)}
                                             />
                                             <div className="text-left">
                                                 <p className="font-bold text-neutral-900 dark:text-white text-sm">{h.symbol}</p>
@@ -701,7 +701,6 @@ const PublicPortfolio: React.FC = () => {
                             {/* Top floating logos row */}
                             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex gap-6">
                                 {data.holdings.slice(0, 8).map((h, i) => {
-                                    const logoUrl = getAssetLogoUrl(h.symbol, h.asset_type, h.name)
                                     return (
                                         <div
                                             key={`top-${i}`}
@@ -710,11 +709,12 @@ const PublicPortfolio: React.FC = () => {
                                                 transform: `rotate(${(i - 4) * 5}deg) translateY(${Math.abs(i - 3.5) * 8}px)`,
                                             }}
                                         >
-                                            <img
-                                                src={logoUrl}
+                                            <AssetLogo
+                                                symbol={h.symbol}
+                                                assetType={h.asset_type}
+                                                assetName={h.name}
                                                 alt={h.symbol}
                                                 className="w-8 h-8 rounded-lg object-cover"
-                                                onError={e => handleLogoError(e, h.symbol, h.name, h.asset_type)}
                                             />
                                         </div>
                                     )
@@ -724,7 +724,6 @@ const PublicPortfolio: React.FC = () => {
                             {/* Bottom floating logos row */}
                             <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-6">
                                 {data.holdings.slice(3, 11).map((h, i) => {
-                                    const logoUrl = getAssetLogoUrl(h.symbol, h.asset_type, h.name)
                                     return (
                                         <div
                                             key={`bottom-${i}`}
@@ -733,11 +732,12 @@ const PublicPortfolio: React.FC = () => {
                                                 transform: `rotate(${(i - 4) * -5}deg) translateY(${-Math.abs(i - 3.5) * 8}px)`,
                                             }}
                                         >
-                                            <img
-                                                src={logoUrl}
+                                            <AssetLogo
+                                                symbol={h.symbol}
+                                                assetType={h.asset_type}
+                                                assetName={h.name}
                                                 alt={h.symbol}
                                                 className="w-8 h-8 rounded-lg object-cover"
-                                                onError={e => handleLogoError(e, h.symbol, h.name, h.asset_type)}
                                             />
                                         </div>
                                     )

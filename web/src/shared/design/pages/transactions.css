@@ -150,7 +150,8 @@
   text-align: left;
 }
 
-.transactions-asset img {
+.transactions-asset img,
+.transactions-asset-logo {
   width: 2.45rem;
   height: 2.45rem;
   flex: 0 0 auto;

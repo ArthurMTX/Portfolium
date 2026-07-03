@@ -346,6 +346,9 @@ export default function AssetResearchView() {
               symbol={asset.symbol}
               assetType={asset.asset_type}
               assetName={asset.name}
+              logoLightUrl={asset.logo_light_url}
+              logoDarkUrl={asset.logo_dark_url}
+              logoUrl={asset.logo_url}
               className="asset-research__logo"
               alt=""
             />
@@ -353,6 +356,12 @@ export default function AssetResearchView() {
               <h1 className="pf-page-title pf-page-title--hero">{asset.name || asset.symbol}</h1>
               <p>
                 <strong>{asset.symbol}</strong>
+                {asset.isin && (
+                  <>
+                    <span>·</span>
+                    <span>{asset.isin}</span>
+                  </>
+                )}
                 <span>·</span>
                 <span>{formatAssetType(asset.asset_type || asset.class)}</span>
                 {asset.country && (
@@ -696,6 +705,10 @@ function OverviewSection({
                 <div>
                   <dt>Headquarters</dt>
                   <dd>{business?.headquarters || 'Unknown'}</dd>
+                </div>
+                <div>
+                  <dt>ISIN</dt>
+                  <dd>{asset.isin || 'Unknown'}</dd>
                 </div>
               </dl>
             </>

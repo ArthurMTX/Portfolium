@@ -24,9 +24,9 @@ import {
 import { getSectorIcon, getSectorColor, getSectorHexColor, getIndustryIcon, getIndustryColor } from '@/shared/lib/sectorIndustryUtils';
 import { getThemeIcon, getThemeColor, getThemeHexColor } from '@/shared/lib/themeUtils';
 import { getCountryCode } from '@/shared/lib/countryUtils';
-import { getAssetLogoUrl, handleLogoError } from '@/shared/lib/logoUtils';
 import api, { AssetPositionDTO, DistributionItemDTO, ThemeDistributionSubthemeDTO } from '@/api';
 import SortIcon from '@/shared/components/SortIcon';
+import AssetLogo from '@/shared/components/AssetLogo';
 import { useTranslation } from 'react-i18next';
 import { getTranslatedSector, getTranslatedIndustry, getTranslatedAssetType } from '@/shared/lib/translationUtils';
 
@@ -190,12 +190,13 @@ function AssetBreakdownTable({
               <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                    <img
-                      src={getAssetLogoUrl(asset.symbol, asset.asset_type, asset.name)}
+                    <AssetLogo
+                      symbol={asset.symbol}
+                      assetType={asset.asset_type}
+                      assetName={asset.name}
                       alt={asset.symbol}
                       loading="lazy"
                       className="w-6 h-6 object-contain"
-                      onError={(e) => handleLogoError(e, asset.symbol, asset.name, asset.asset_type)}
                     />
                   </div>
                   <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

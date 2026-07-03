@@ -51,11 +51,18 @@ class Asset(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # ISIN (ISO 6166), normalized uppercase, retrieved opportunistically via yfinance
+    isin = Column(String(12), index=True)
+
     # Logo caching
     logo_data = Column(LargeBinary)  # Binary logo data (WebP or SVG)
     logo_content_type = Column(String)  # MIME type (image/webp, image/svg+xml)
-    logo_fetched_at = Column(DateTime)  # When logo was last fetched
-    
+    logo_fetched_at = Column(DateTime)  # When logo was last fetched/resolved
+    logo_provider = Column(String(32))  # 'trade_republic' | 'brandfetch' | 'generated'
+    logo_url = Column(String)  # canonical default logo URL (theme-agnostic)
+    logo_light_url = Column(String)  # light-theme logo URL (Trade Republic)
+    logo_dark_url = Column(String)  # dark-theme logo URL (Trade Republic)
+
     # Price history tracking
     first_transaction_date = Column(Date)  # Date of first transaction, used for historical price backfill
     
