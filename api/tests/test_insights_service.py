@@ -386,6 +386,35 @@ class TestInsightsDomainSnapshots:
 
         assert labels == {"Mega Cap", "Funds / ETFs", "Crypto assets", "Market cap unavailable"}
 
+    def test_crypto_winter_shocks_crypto_infrastructure_theme(self):
+        service = InsightsService(Mock())
+        snapshot = self._empty_snapshot()
+        snapshot.positions = [
+            SimpleNamespace(
+                asset_id=1,
+                symbol="COIN",
+                asset_type="EQUITY",
+                market_value=Decimal("1000"),
+                currency="USD",
+                themes=[{"label": "Crypto Infrastructure", "weight": 1}],
+            ),
+            SimpleNamespace(
+                asset_id=2,
+                symbol="DEF",
+                asset_type="EQUITY",
+                market_value=Decimal("1000"),
+                currency="USD",
+                themes=[{"label": "Defensive Yield", "weight": 1}],
+            ),
+        ]
+        snapshot.total_value = Decimal("2000")
+
+        results = service._simulate_scenarios_from_snapshot(snapshot, service._scenario_definitions())
+        crypto_winter = next(result for result in results if result.name == "Crypto winter")
+
+        assert crypto_winter.estimated_impact_value == Decimal("-350")
+        assert crypto_winter.estimated_impact_pct == Decimal("-17.500")
+
     def test_provider_market_cap_metadata_is_persisted_on_asset(self):
         from app.crud.assets import update_asset_market_cap_from_info
 

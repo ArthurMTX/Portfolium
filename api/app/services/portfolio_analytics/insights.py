@@ -1891,6 +1891,7 @@ class InsightsService:
                 "description": "Digital assets reprice materially lower while other holdings are unchanged.",
                 "default": Decimal("0"),
                 "asset_type": {"CRYPTO": Decimal("-35"), "CRYPTOCURRENCY": Decimal("-35")},
+                "theme": {"Crypto Infrastructure": Decimal("-35")},
             },
         ]
 
@@ -1985,6 +1986,20 @@ class InsightsService:
                 asset_type_shocks = scenario.get("asset_type", {})
                 if asset_type in asset_type_shocks:
                     shock = asset_type_shocks[asset_type]
+
+                theme_shocks = scenario.get("theme", {})
+                if theme_shocks:
+                    normalized_theme_shocks = {
+                        str(theme).casefold(): theme_shock
+                        for theme, theme_shock in theme_shocks.items()
+                    }
+                    for theme_label, _weight, _subthemes in self._extract_theme_weights(
+                        self._themes_for_position(snapshot, position)
+                    ):
+                        theme_shock = normalized_theme_shocks.get(theme_label.casefold())
+                        if theme_shock is not None:
+                            shock = theme_shock
+                            break
 
                 if "sector" in scenario:
                     sector = self._effective_metadata_for_position(snapshot, position).get("effective_sector")
