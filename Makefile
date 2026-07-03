@@ -49,6 +49,9 @@ dev-down:
 dev-logs:
 	docker compose -f ./docker-compose.dev.yml logs -f --tail=100
 
+dev-errors:
+	docker compose -f ./docker-compose.dev.yml logs -f --tail=100 | grep --line-buffered "ERROR"
+
 dev-restart: dev-down dev-up dev-logs
 
 dev-restart-build: dev-down dev-up-build dev-logs
