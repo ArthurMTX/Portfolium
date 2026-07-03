@@ -245,7 +245,6 @@
   .pf-tabs > button.is-active,
   .pf-tab:hover,
   .pf-tab.is-active {
-    border-color: var(--pf-accent-border);
     color: var(--pf-accent);
     background: var(--pf-accent-soft);
   }

@@ -277,7 +277,7 @@
 }
 
 .asset-research__periods button.is-active {
-  border-bottom-color: var(--asset-research-rose);
+  color: var(--asset-research-rose);
 }
 
 .asset-research__tabs button.is-position {
