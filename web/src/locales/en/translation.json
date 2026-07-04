@@ -1576,6 +1576,8 @@
     "usernameField": "Username",
     "usernamePlaceholder": "Enter your username",
     "emailNotVerified": "Email not verified.",
+    "emailVerified": "Email verified",
+    "verificationStatus": "Verification",
     "resendVerification": "Resend Verification Email",
     "resendingVerification": "Resending verification email...",
     "currentPasswordField": "Current Password",

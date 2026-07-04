@@ -1573,6 +1573,8 @@
     "usernameField": "Nom d'utilisateur",
     "usernamePlaceholder": "Entrez votre nom d'utilisateur",
     "emailNotVerified": "Email non vérifié.",
+    "emailVerified": "Email vérifié",
+    "verificationStatus": "Vérification",
     "resendVerification": "Renvoyer l'email de vérification",
     "resendingVerification": "Renvoyer l'email de vérification...",
     "currentPasswordField": "Mot de passe actuel",

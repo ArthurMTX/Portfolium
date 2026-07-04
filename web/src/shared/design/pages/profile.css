@@ -1,0 +1,206 @@
+.profile-page .pf-metric-strip strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-page__section {
+  padding-top: clamp(1rem, 2vw, 1.45rem);
+}
+
+.profile-page__section.is-danger {
+  border-color: var(--pf-danger-border);
+}
+
+.profile-page__section.is-danger .pf-section-kicker,
+.profile-page__section.is-danger .pf-section-title {
+  color: var(--pf-danger);
+}
+
+.profile-form {
+  display: grid;
+  gap: 0;
+  max-width: 58rem;
+}
+
+.profile-field,
+.profile-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.38fr);
+  gap: 1rem;
+  align-items: center;
+  min-height: 3.85rem;
+  border-top: 1px solid var(--pf-line);
+  padding-block: 0.7rem;
+}
+
+.profile-field:first-child,
+.profile-action-row:first-child,
+.profile-message + .profile-form .profile-field:first-child {
+  border-top: 0;
+}
+
+.profile-field > span:first-child,
+.profile-action-row > span {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.profile-field strong,
+.profile-action-row strong {
+  color: var(--pf-ink);
+  font-size: 0.95rem;
+  font-weight: 820;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.profile-field em,
+.profile-action-row em {
+  color: var(--pf-muted);
+  font-size: 0.8rem;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.profile-field__control,
+.profile-action-row > div {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.profile-field__control .pf-input {
+  width: min(100%, 18rem);
+}
+
+.profile-action-row.is-danger strong {
+  color: var(--pf-danger);
+}
+
+.profile-message {
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-md);
+  color: var(--pf-muted);
+  padding: 0.68rem 0.8rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.profile-message.is-success {
+  border-color: var(--pf-success-border);
+  color: var(--pf-success);
+  background: var(--pf-success-soft);
+}
+
+.profile-message.is-error {
+  border-color: var(--pf-danger-border);
+  color: var(--pf-danger);
+  background: var(--pf-danger-soft);
+}
+
+.profile-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-pill);
+  padding: 0.38rem 0.65rem;
+  color: var(--pf-muted);
+  font-size: 0.76rem;
+  font-weight: 820;
+}
+
+.profile-status svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.profile-status.is-success {
+  border-color: var(--pf-success-border);
+  color: var(--pf-success);
+  background: var(--pf-success-soft);
+}
+
+.profile-status.is-warning {
+  border-color: var(--pf-warning-border);
+  color: var(--pf-warning);
+  background: var(--pf-warning-soft);
+}
+
+.profile-page__two-factor {
+  margin-top: clamp(1.1rem, 2.4vw, 1.7rem);
+  border-top: 1px solid var(--pf-line);
+  padding-top: clamp(1rem, 2vw, 1.35rem);
+}
+
+.profile-page__two-factor > div {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.profile-page__two-factor .card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.profile-page__two-factor .card > div:first-child {
+  margin-bottom: 0.55rem;
+}
+
+.profile-page__two-factor .card h3 {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: 1rem;
+  font-weight: 820;
+  letter-spacing: -0.02em;
+}
+
+.profile-page__two-factor .card p {
+  color: var(--pf-muted);
+}
+
+.profile-page__two-factor .card .bg-neutral-50,
+.profile-page__two-factor .card .dark\:bg-neutral-800\/50 {
+  border-color: var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface);
+}
+
+@media (max-width: 820px) {
+  .profile-field,
+  .profile-action-row {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .profile-field__control,
+  .profile-action-row > div {
+    justify-content: flex-start;
+  }
+
+  .profile-field__control .pf-input {
+    width: min(100%, 24rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-page .pf-tabs > button {
+    flex: 1 1 auto;
+  }
+
+  .profile-field__control .pf-input {
+    width: 100%;
+  }
+
+  .profile-action-row .pf-button {
+    width: 100%;
+  }
+}
