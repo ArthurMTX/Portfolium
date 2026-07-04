@@ -186,6 +186,297 @@
     background: var(--pf-accent);
   }
 
+  .pf-notification-menu {
+    z-index: 60;
+    display: flex;
+    max-height: min(calc(100vh - 5rem), 34rem);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-md);
+    background: var(--pf-canvas);
+    box-shadow: var(--pf-shadow-menu);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .pf-notification-menu__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 0.28fr);
+    gap: 0.9rem;
+    align-items: end;
+    padding: 1rem 1rem 0.85rem;
+  }
+
+  .pf-notification-menu__title-block {
+    gap: 0.28rem;
+    min-width: 0;
+  }
+
+  .pf-notification-menu .pf-page-kicker {
+    margin: 0;
+  }
+
+  .pf-notification-menu__title {
+    margin: 0;
+    overflow: hidden;
+    font-size: 1.05rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__summary-panel {
+    gap: 0.2rem;
+    padding-left: 0.8rem;
+  }
+
+  .pf-notification-menu__summary-panel .pf-metric-figure {
+    font-size: 1.2rem;
+  }
+
+  .pf-notification-menu__controls {
+    margin: 0 1rem;
+    padding-block: 0.5rem;
+  }
+
+  .pf-notification-menu__description {
+    max-width: none;
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .pf-notification-menu__mark-read {
+    min-height: 1.9rem;
+    padding-inline: 0.65rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__mark-read svg,
+  .pf-notification-menu__delete svg,
+  .pf-notification-menu__footer-action svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .pf-notification-menu__list {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  .pf-notification-menu__items {
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0.75rem 1rem 1rem;
+    list-style: none;
+  }
+
+  .pf-notification-menu__item {
+    position: relative;
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-sm);
+    background: var(--pf-surface);
+    color: var(--pf-ink);
+    transition: border-color var(--pf-transition-fast), background-color var(--pf-transition-fast);
+  }
+
+  .pf-notification-menu__item:hover,
+  .pf-notification-menu__item:focus-within {
+    border-color: var(--pf-accent-border);
+    background: var(--pf-inset);
+  }
+
+  .pf-notification-menu__item:focus-within {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .pf-notification-menu__item.is-unread {
+    border-color: var(--pf-accent-border);
+    background: color-mix(in srgb, var(--pf-accent) 7%, var(--pf-surface));
+  }
+
+  .pf-notification-menu__item.is-unread:hover,
+  .pf-notification-menu__item.is-unread:focus-within {
+    background: color-mix(in srgb, var(--pf-accent) 10%, var(--pf-surface));
+  }
+
+  .pf-notification-menu__item-main {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.8rem;
+    padding: 0.72rem 2.7rem 0.72rem 0.8rem;
+    color: inherit;
+    text-align: left;
+    outline: none;
+  }
+
+  .pf-notification-menu__item-icon,
+  .pf-notification-menu__state-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border: 1px solid var(--pf-line);
+    background: var(--pf-canvas);
+    color: var(--pf-muted);
+  }
+
+  .pf-notification-menu__item-icon {
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: var(--pf-radius-sm);
+  }
+
+  .pf-notification-menu__item-body {
+    min-width: 0;
+  }
+
+  .pf-notification-menu__meta,
+  .pf-notification-menu__item-title-row,
+  .pf-notification-menu__footer-action {
+    display: flex;
+    align-items: center;
+  }
+
+  .pf-notification-menu__meta {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.28rem;
+  }
+
+  .pf-notification-menu__type {
+    max-width: 62%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__time {
+    overflow: hidden;
+    color: var(--pf-subtle);
+    font-size: 0.68rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__item-title-row {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .pf-notification-menu__item-title {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: var(--pf-ink);
+    font-size: 0.86rem;
+    font-weight: 720;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__delete {
+    position: absolute;
+    right: 0.42rem;
+    top: 1.9rem;
+    flex: 0 0 auto;
+    width: 1.8rem;
+    height: 1.8rem;
+    min-height: 1.8rem;
+    color: var(--pf-subtle);
+    opacity: 0;
+  }
+
+  .pf-notification-menu__item:hover .pf-notification-menu__delete,
+  .pf-notification-menu__item:focus-within .pf-notification-menu__delete {
+    opacity: 1;
+  }
+
+  .pf-notification-menu__delete:hover {
+    color: var(--pf-danger);
+    background: var(--pf-danger-soft);
+  }
+
+  .pf-notification-menu__delete:focus-visible {
+    opacity: 1;
+  }
+
+  .pf-notification-menu__message {
+    display: -webkit-box;
+    margin: 0.18rem 0 0;
+    overflow: hidden;
+    color: var(--pf-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .pf-notification-menu__unread-dot {
+    position: absolute;
+    right: 0.62rem;
+    top: 0.62rem;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: var(--pf-radius-pill);
+    background: var(--pf-accent);
+  }
+
+  @media (hover: none) {
+    .pf-notification-menu__delete {
+      opacity: 1;
+    }
+  }
+
+  .pf-notification-menu__state {
+    display: grid;
+    justify-items: center;
+    gap: 0.55rem;
+    margin: 0.75rem 1rem 1rem;
+    padding: 1.6rem 1rem;
+    text-align: center;
+    color: var(--pf-muted);
+    font-size: 0.84rem;
+  }
+
+  .pf-notification-menu__state p {
+    margin: 0;
+  }
+
+  .pf-notification-menu__state-icon {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: var(--pf-radius-sm);
+  }
+
+  .pf-notification-menu__footer {
+    border-top: 1px solid var(--pf-line);
+    padding: 0.55rem 1rem;
+  }
+
+  .pf-notification-menu__footer-action {
+    width: 100%;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: var(--pf-radius-sm);
+    padding: 0.58rem 0.8rem;
+    color: var(--pf-accent);
+    font-size: 0.82rem;
+    font-weight: 700;
+    outline: none;
+    transition: background-color var(--pf-transition-fast), color var(--pf-transition-fast);
+  }
+
+  .pf-notification-menu__footer-action:hover,
+  .pf-notification-menu__footer-action:focus-visible {
+    background: var(--pf-accent-soft);
+  }
+
   .pf-mobile-panel {
     @apply border-t bg-white dark:bg-neutral-950;
     border-color: var(--pf-line);

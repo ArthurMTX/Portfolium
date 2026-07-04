@@ -1702,6 +1702,8 @@
     "viewAll": "View all notifications",
     "all": "All",
     "unread": "Unread",
+    "read": "Read",
+    "shown": "shown",
     "noUnreadNotifications": "No unread notifications.",
     "noUnreadNotificationsDescription": "You're all caught up! Check back later for new notifications about your portfolio activity.",
     "noNotificationsDescription": "You have no notifications at the moment. Any important updates about your portfolio activity will appear here.",

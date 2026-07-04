@@ -1699,6 +1699,8 @@
     "viewAll": "Voir toutes les notifications",
     "all": "Toutes",
     "unread": "Non lues",
+    "read": "Lues",
+    "shown": "affichées",
     "noUnreadNotifications": "Aucune notification non lue.",
     "noUnreadNotificationsDescription": "Vous êtes à jour ! Revenez plus tard pour de nouvelles notifications concernant l'activité de votre portefeuille.",
     "noNotificationsDescription": "Vous n'avez pas de notifications pour le moment. Les mises à jour importantes concernant l'activité de votre portefeuille apparaîtront ici.",

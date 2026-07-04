@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCheck, Trash2, ExternalLink, Clock } from 'lucide-react'
+import { CheckCheck, ExternalLink, Inbox, Trash2 } from 'lucide-react'
 import { useNotificationStore } from '@/features/notifications/store/useNotificationStore'
 import { formatDistanceToNow } from 'date-fns'
 import { getNotificationIcon } from '@/features/notifications/lib/notificationUtils'
 import { useTranslation } from 'react-i18next'
-import { translateNotification } from '@/features/notifications/lib/notificationTranslation'
+import { translateNotification, translateNotificationType } from '@/features/notifications/lib/notificationTranslation'
+import { InlineLoading } from '@/shared/components/StatePrimitives'
 
 interface NotificationDropdownProps {
   onClose: () => void
@@ -15,7 +16,7 @@ interface NotificationDropdownProps {
 
 export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLeave }: NotificationDropdownProps) {
   const navigate = useNavigate()
-  const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
+  const { notifications, unreadCount, loading, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
   const { t } = useTranslation()
 
   useEffect(() => {
@@ -47,94 +48,126 @@ export default function NotificationDropdown({ onClose, onMouseEnter, onMouseLea
 
   return (
     <div 
-      className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-2 sm:w-96 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 max-h-[600px] flex flex-col"
+      className="pf-notification-menu fixed left-3 right-3 mt-2 sm:absolute sm:left-auto sm:right-0 sm:w-[26rem]"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      role="dialog"
+      aria-label={t('notifications.title')}
     >
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{t('notifications.title')}</h3>
-        <div className="flex items-center gap-2">
-          {notifications.some(n => !n.is_read) && (
+      <div className="pf-notification-menu__header">
+        <div className="pf-page-title-block pf-notification-menu__title-block">
+          <p className="pf-page-kicker">{t('notifications.unread')}</p>
+          <h3 className="pf-section-title pf-notification-menu__title">{t('notifications.title')}</h3>
+        </div>
+
+        <div className="pf-page-context pf-summary-panel pf-notification-menu__summary-panel">
+          <span className="pf-metric-label">{t('notifications.unread')}</span>
+          <strong className="pf-metric-figure">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </strong>
+        </div>
+      </div>
+
+      <div className="pf-page-controls pf-notification-menu__controls">
+        <div className="pf-page-controls__start">
+          <span className="pf-page-description pf-notification-menu__description">
+            {unreadCount > 0 ? `${unreadCount} ${t('notifications.unread').toLowerCase()}` : t('notifications.noUnreadNotifications')}
+          </span>
+        </div>
+        <div className="pf-page-controls__end">
+          {unreadCount > 0 && (
             <button
+              type="button"
               onClick={handleMarkAllRead}
-              className="text-xs text-pink-600 dark:text-pink-400 hover:underline flex items-center gap-1"
-              title="Mark all as read"
+              className="pf-button pf-button--secondary pf-notification-menu__mark-read"
+              title={t('notifications.markAllAsRead')}
+              aria-label={t('notifications.markAllAsRead')}
             >
-              <CheckCheck size={14} />
-              {t('notifications.markAllAsRead')}
+              <CheckCheck aria-hidden="true" />
+              <span>{t('notifications.markAllAsRead')}</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Notifications list */}
-      <div className="overflow-y-auto flex-1">
+      <div className="pf-notification-menu__list">
         {showLoading ? (
-          <div className="p-8 text-center text-neutral-500 dark:text-neutral-400">
-            {t('notifications.loadingNotifications')}
+          <div className="pf-notification-menu__state">
+            <InlineLoading label={t('notifications.loadingNotifications')} />
           </div>
         ) : recentNotifications.length === 0 ? (
-          <div className="p-8 text-center text-neutral-500 dark:text-neutral-400">
-            <Clock size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">{t('notifications.noNotifications')}</p>
+          <div className="pf-state pf-state--empty pf-notification-menu__state">
+            <span className="pf-notification-menu__state-icon" aria-hidden="true">
+              <Inbox size={20} />
+            </span>
+            <h2 className="pf-state__title">{t('notifications.noNotifications')}</h2>
           </div>
         ) : (
-          <div>
+          <ul className="pf-content-stack pf-notification-menu__items">
             {recentNotifications.map((notification) => {
               const { title, message } = translateNotification(notification, t)
+              const typeLabel = translateNotificationType(notification.type, t)
               
               return (
-              <div
+              <li
                 key={notification.id}
-                onClick={() => handleNotificationClick(notification.id, notification.is_read)}
-                className={`px-4 py-3 border-b border-neutral-100 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer transition-colors ${
-                  !notification.is_read ? 'bg-pink-50/50 dark:bg-pink-950/20' : ''
-                }`}
+                className={`pf-notification-menu__item ${!notification.is_read ? 'is-unread' : ''}`}
               >
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleNotificationClick(notification.id, notification.is_read)}
+                  className="pf-notification-menu__item-main"
+                >
+                  <div className="pf-notification-menu__item-icon">
                     {getNotificationIcon(notification.type, 16)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-sm font-medium text-neutral-900 dark:text-white truncate">
-                        {title}
-                      </h4>
-                      <button
-                        onClick={(e) => handleDelete(e, notification.id)}
-                        className="flex-shrink-0 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+
+                  <div className="pf-notification-menu__item-body">
+                    <div className="pf-notification-menu__meta">
+                      <span className="pf-metric-label pf-notification-menu__type">
+                        {typeLabel}
+                      </span>
+                      <span className="pf-notification-menu__time">
+                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                      </span>
                     </div>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
-                      {message}
-                    </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                    </p>
+
+                    <div className="pf-notification-menu__item-title-row">
+                      <h4 className="pf-notification-menu__item-title">{title}</h4>
+                    </div>
+
+                    <p className="pf-notification-menu__message">{message}</p>
                   </div>
+
                   {!notification.is_read && (
-                    <div className="w-2 h-2 bg-pink-600 rounded-full flex-shrink-0 mt-2" />
+                    <span className="pf-notification-menu__unread-dot" aria-hidden="true" />
                   )}
-                </div>
-              </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => handleDelete(e, notification.id)}
+                  className="pf-icon-action pf-notification-menu__delete"
+                  title={t('notifications.delete')}
+                  aria-label={t('notifications.delete')}
+                >
+                  <Trash2 aria-hidden="true" />
+                </button>
+              </li>
             )})}
-          </div>
+          </ul>
         )}
       </div>
 
-      {/* Footer */}
       {recentNotifications.length > 0 && (
-        <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-700">
+        <div className="pf-notification-menu__footer">
           <button
+            type="button"
             onClick={handleViewAll}
-            className="w-full text-center text-sm text-pink-600 dark:text-pink-400 hover:underline flex items-center justify-center gap-1"
+            className="pf-notification-menu__footer-action"
           >
-            {t('notifications.viewAll')}
-            <ExternalLink size={14} />
+            <span>{t('notifications.viewAll')}</span>
+            <ExternalLink aria-hidden="true" />
           </button>
         </div>
       )}
