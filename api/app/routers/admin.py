@@ -859,7 +859,7 @@ async def test_email_connection(
                         <!-- Footer -->
                         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
                             <p style="margin: 0;">Portfolium - Portfolio Management Platform</p>
-                            <p style="margin: 5px 0 0 0;">© 2025 All rights reserved</p>
+                            <p style="margin: 5px 0 0 0;">© 2026 All rights reserved</p>
                         </div>
                     </div>
                 </div>
@@ -883,7 +883,7 @@ async def test_email_connection(
             
             ---
             Portfolium - Portfolio Management Platform
-            © 2025 All rights reserved
+            © 2026 All rights reserved
             """
             
             success = email_service._send_email(
