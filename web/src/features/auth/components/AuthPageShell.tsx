@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import AuthLanguageSwitcher from '@/features/auth/components/AuthLanguageSwitcher'
+import '@/shared/design/pages/auth.css'
 
 interface AuthPageShellProps {
   darkMode: boolean
@@ -17,24 +18,17 @@ export default function AuthPageShell({
   const { t } = useTranslation()
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${
-      darkMode
-        ? 'bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900'
-        : 'bg-gradient-to-br from-indigo-100 via-white to-pink-100'
-    }`}>
-      <div className="max-w-md w-full">
-        <div className="flex justify-end gap-2 mb-4">
+    <div className="auth-shell">
+      <div className="auth-shell__inner">
+        <div className="auth-shell__toolbar">
           <AuthLanguageSwitcher darkMode={darkMode} />
           <button
+            type="button"
             onClick={toggleDarkMode}
-            className={`p-2 rounded-lg transition-colors ${
-              darkMode
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-100'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
-            }`}
+            className="pf-icon-action auth-shell__theme"
             aria-label={t('navigation.toggleDarkMode')}
           >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            {darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
           </button>
         </div>
 

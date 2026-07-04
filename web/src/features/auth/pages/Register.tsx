@@ -2,7 +2,7 @@ import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/app/providers/AuthContext'
 import { api } from '@/api'
-import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle, Lock, Mail, User, UserPlus } from 'lucide-react'
 import LoadingSpinner from '@/shared/components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
 import { translateApiError } from '@/shared/lib/errorUtils'
@@ -83,290 +83,162 @@ export default function Register() {
 
   if (success) {
     return (
-      <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${
-        darkMode 
-          ? 'bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900'
-          : 'bg-gradient-to-br from-green-100 via-white to-blue-100'
-      }`}>
-        <div className="max-w-md w-full">
-          <div className={`rounded-2xl shadow-xl p-8 text-center ${
-            darkMode ? 'bg-neutral-800 border border-neutral-700' : 'bg-white'
-          }`}>
-            <div className={`inline-block p-4 rounded-full mb-4 ${
-              darkMode ? 'bg-green-900/30' : 'bg-green-100'
-            }`}>
-              <CheckCircle className={`w-12 h-12 ${
-                darkMode ? 'text-green-400' : 'text-green-600'
-              }`} />
-            </div>
-            <h2 className={`text-2xl font-bold mb-4 ${
-              darkMode ? 'text-white' : 'text-gray-900'
-            }`}>
+      <AuthPageShell darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+        <div className="auth-card auth-card--center">
+          <div className="auth-success-copy">
+            <h1 className="pf-section-title auth-card__title">
               {t('register.successTitle')}
-            </h2>
+            </h1>
             {emailEnabled ? (
-              <p className={`mb-6 ${
-                darkMode ? 'text-neutral-300' : 'text-gray-600'
-              }`}>
+              <p className="pf-section-description auth-card__description">
                 {t('register.successMessageWithEmail', { email })}
               </p>
             ) : (
-              <p className={`mb-6 ${
-                darkMode ? 'text-neutral-300' : 'text-gray-600'
-              }`}>
+              <p className="pf-section-description auth-card__description">
                 {t('register.successMessageNoEmail')}
               </p>
             )}
-            <p className={`text-sm mb-6 ${
-              darkMode ? 'text-neutral-500' : 'text-gray-500'
-            }`}>
-              {t('register.redirecting')}
-            </p>
-            <Link
-              to="/login"
-              className={`font-medium transition-colors ${
-                darkMode
-                  ? 'text-pink-400 hover:text-pink-300'
-                  : 'text-indigo-600 hover:text-indigo-500'
-              }`}
-            >
-              {t('register.goToLogin')}
-            </Link>
           </div>
+
+          <div className="auth-message auth-message--center">
+            <p>{t('register.redirecting')}</p>
+          </div>
+
+          <Link to="/login" className="pf-button pf-button--primary auth-submit">
+            {t('register.goToLogin')}
+          </Link>
         </div>
-      </div>
+      </AuthPageShell>
     )
   }
 
   return (
     <AuthPageShell darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <div className={`inline-block p-3 rounded-2xl mb-4 ${
-            darkMode ? 'bg-pink-600' : 'bg-indigo-600'
-          }`}>
-            <UserPlus className="w-8 h-8 text-white" />
-          </div>
-          <h1 className={`text-3xl font-bold ${
-            darkMode ? 'text-white' : 'text-gray-900'
-          }`}>{t('register.title')}</h1>
-          <p className={`mt-2 ${
-            darkMode ? 'text-neutral-400' : 'text-gray-600'
-          }`}>{t('register.subtitle')}</p>
+      <div className="auth-card">
+        <div className="auth-card__header">
+          <p className="pf-page-kicker">{t('register.createAccount')}</p>
+          <h1 className="pf-section-title auth-card__title">{t('register.title')}</h1>
+          <p className="pf-section-description auth-card__description">{t('register.subtitle')}</p>
         </div>
 
-        {/* Registration Form */}
-        <div className={`rounded-2xl shadow-xl p-8 ${
-          darkMode ? 'bg-neutral-800 border border-neutral-700' : 'bg-white'
-        }`}>
-          {error && (
-            <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
-              darkMode 
-                ? 'bg-red-900/20 border border-red-800' 
-                : 'bg-red-50 border border-red-200'
-            }`}>
-              <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                darkMode ? 'text-red-400' : 'text-red-600'
-              }`} />
-              <p className={`text-sm ${
-                darkMode ? 'text-red-300' : 'text-red-800'
-              }`}>{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className={`block text-sm font-medium mb-2 ${
-                darkMode ? 'text-neutral-200' : 'text-gray-700'
-              }`}>
-                {t('register.emailLabel')}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className={`h-5 w-5 ${
-                    darkMode ? 'text-neutral-500' : 'text-gray-400'
-                  }`} />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
-                    darkMode
-                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
-                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
-                  }`}
-                  placeholder={t('register.emailPlaceholder')}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="username" className={`block text-sm font-medium mb-2 ${
-                darkMode ? 'text-neutral-200' : 'text-gray-700'
-              }`}>
-                {t('register.usernameLabel')}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className={`h-5 w-5 ${
-                    darkMode ? 'text-neutral-500' : 'text-gray-400'
-                  }`} />
-                </div>
-                <input
-                  id="username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
-                    darkMode
-                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
-                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
-                  }`}
-                  placeholder={t('register.usernamePlaceholder')}
-                  disabled={loading}
-                  minLength={3}
-                  maxLength={50}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="fullName" className={`block text-sm font-medium mb-2 ${
-                darkMode ? 'text-neutral-200' : 'text-gray-700'
-              }`}>
-                {t('register.fullNameLabel')}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className={`h-5 w-5 ${
-                    darkMode ? 'text-neutral-500' : 'text-gray-400'
-                  }`} />
-                </div>
-                <input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
-                    darkMode
-                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
-                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
-                  }`}
-                  placeholder={t('register.fullNamePlaceholder')}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className={`block text-sm font-medium mb-2 ${
-                darkMode ? 'text-neutral-200' : 'text-gray-700'
-              }`}>
-                {t('register.passwordLabel')}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className={`h-5 w-5 ${
-                    darkMode ? 'text-neutral-500' : 'text-gray-400'
-                  }`} />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
-                    darkMode
-                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
-                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
-                  }`}
-                  placeholder="••••••••"
-                  disabled={loading}
-                  minLength={8}
-                />
-              </div>
-              <p className={`mt-1 text-xs ${
-                darkMode ? 'text-neutral-500' : 'text-gray-500'
-              }`}>{t('register.passwordHint')}</p>
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className={`block text-sm font-medium mb-2 ${
-                darkMode ? 'text-neutral-200' : 'text-gray-700'
-              }`}>
-                {t('register.confirmPasswordLabel')}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className={`h-5 w-5 ${
-                    darkMode ? 'text-neutral-500' : 'text-gray-400'
-                  }`} />
-                </div>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
-                    darkMode
-                      ? 'bg-neutral-900 border border-neutral-600 text-white placeholder-neutral-500'
-                      : 'border border-gray-300 text-gray-900 placeholder-gray-400'
-                  }`}
-                  placeholder="••••••••"
-                  disabled={loading}
-                  minLength={8}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
-                darkMode
-                  ? 'bg-pink-600 hover:bg-pink-700 focus:ring-pink-500'
-                  : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <LoadingSpinner size="sm" color="white" />
-                  {t('register.creatingAccount')}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-5 h-5" />
-                  {t('register.createAccount')}
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className={`text-sm ${
-              darkMode ? 'text-neutral-400' : 'text-gray-600'
-            }`}>
-              {t('register.alreadyHaveAccount')}{' '}
-              <Link
-                to="/login"
-                className={`font-medium transition-colors ${
-                  darkMode
-                    ? 'text-pink-400 hover:text-pink-300'
-                    : 'text-indigo-600 hover:text-indigo-500'
-                }`}
-              >
-                {t('register.signIn')}
-              </Link>
-            </p>
+        {error && (
+          <div className="auth-message is-error" role="alert">
+            <AlertCircle aria-hidden="true" />
+            <p>{error}</p>
           </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label className="auth-field" htmlFor="email">
+            <span>{t('register.emailLabel')}</span>
+            <span className="auth-field__control">
+              <Mail aria-hidden="true" />
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('register.emailPlaceholder')}
+                disabled={loading}
+              />
+            </span>
+          </label>
+
+          <label className="auth-field" htmlFor="username">
+            <span>{t('register.usernameLabel')}</span>
+            <span className="auth-field__control">
+              <User aria-hidden="true" />
+              <input
+                id="username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={t('register.usernamePlaceholder')}
+                disabled={loading}
+                minLength={3}
+                maxLength={50}
+              />
+            </span>
+          </label>
+
+          <label className="auth-field" htmlFor="fullName">
+            <span>{t('register.fullNameLabel')}</span>
+            <span className="auth-field__control">
+              <User aria-hidden="true" />
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder={t('register.fullNamePlaceholder')}
+                disabled={loading}
+              />
+            </span>
+          </label>
+
+          <label className="auth-field" htmlFor="password">
+            <span>{t('register.passwordLabel')}</span>
+            <span className="auth-field__control">
+              <Lock aria-hidden="true" />
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={loading}
+                minLength={8}
+              />
+            </span>
+            <span className="auth-field__hint">{t('register.passwordHint')}</span>
+          </label>
+
+          <label className="auth-field" htmlFor="confirmPassword">
+            <span>{t('register.confirmPasswordLabel')}</span>
+            <span className="auth-field__control">
+              <Lock aria-hidden="true" />
+              <input
+                id="confirmPassword"
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={loading}
+                minLength={8}
+              />
+            </span>
+          </label>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="pf-button pf-button--primary auth-submit"
+          >
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" color="white" />
+                {t('register.creatingAccount')}
+              </>
+            ) : (
+              <>
+                <UserPlus aria-hidden="true" />
+                {t('register.createAccount')}
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="auth-card__footer">
+          <span>{t('register.alreadyHaveAccount')}</span>
+          <Link to="/login">
+            {t('register.signIn')}
+          </Link>
         </div>
+      </div>
     </AuthPageShell>
   )
 }
