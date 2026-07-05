@@ -192,6 +192,8 @@ def resolve_asset_logo(
             asset.logo_dark_url = (
                 build_trade_republic_logo_url(asset.isin, "dark") if "dark" in tr_results else None
             )
+            asset.logo_light_data = tr_results.get("light")
+            asset.logo_dark_data = tr_results.get("dark")
             asset.logo_url = asset.logo_light_url or asset.logo_dark_url
             asset.logo_fetched_at = datetime.utcnow()
             db.commit()
@@ -214,6 +216,8 @@ def resolve_asset_logo(
             asset.logo_provider = "trade_republic"
             asset.logo_light_url = sibling.logo_light_url
             asset.logo_dark_url = sibling.logo_dark_url
+            asset.logo_light_data = sibling.logo_light_data
+            asset.logo_dark_data = sibling.logo_dark_data
             asset.logo_url = sibling.logo_url
             asset.logo_fetched_at = datetime.utcnow()
             db.commit()

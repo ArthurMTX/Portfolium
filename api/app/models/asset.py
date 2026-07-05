@@ -62,6 +62,8 @@ class Asset(Base):
     logo_url = Column(String)  # canonical default logo URL (theme-agnostic)
     logo_light_url = Column(String)  # light-theme logo URL (Trade Republic)
     logo_dark_url = Column(String)  # dark-theme logo URL (Trade Republic)
+    logo_light_data = Column(LargeBinary)  # cached light-theme logo bytes (Trade Republic)
+    logo_dark_data = Column(LargeBinary)  # cached dark-theme logo bytes (Trade Republic)
 
     # Price history tracking
     first_transaction_date = Column(Date)  # Date of first transaction, used for historical price backfill

@@ -55,6 +55,8 @@ def test_resolves_isin_then_trade_republic(monkeypatch, test_db):
     assert asset.logo_provider == "trade_republic"
     assert asset.logo_light_url.endswith("/light.min.svg")
     assert asset.logo_dark_url.endswith("/dark.min.svg")
+    assert asset.logo_light_data == b"<svg>light</svg>"
+    assert asset.logo_dark_data == b"<svg>dark</svg>"
     assert asset.logo_url == asset.logo_light_url
     assert asset.logo_fetched_at is not None
 
@@ -228,6 +230,8 @@ def test_sibling_trade_republic_logo_is_reused_across_exchanges(monkeypatch, tes
         logo_provider="trade_republic",
         logo_light_url="https://assets.traderepublic.com/img/logos/USN070592100/v2/light.min.svg",
         logo_dark_url="https://assets.traderepublic.com/img/logos/USN070592100/v2/dark.min.svg",
+        logo_light_data=b"<svg>sibling light</svg>",
+        logo_dark_data=b"<svg>sibling dark</svg>",
         logo_url="https://assets.traderepublic.com/img/logos/USN070592100/v2/light.min.svg",
     )
     asset = _make_asset(test_db, symbol="ASML.AS", name="ASML Holding N.V.", asset_type="EQUITY", isin=None)
@@ -245,6 +249,8 @@ def test_sibling_trade_republic_logo_is_reused_across_exchanges(monkeypatch, tes
     assert asset.logo_provider == "trade_republic"
     assert asset.logo_light_url == sibling.logo_light_url
     assert asset.logo_dark_url == sibling.logo_dark_url
+    assert asset.logo_light_data == sibling.logo_light_data
+    assert asset.logo_dark_data == sibling.logo_dark_data
     # The asset's own (missing) ISIN is not touched/borrowed -- only the logo is shared.
     assert asset.isin is None
 

@@ -13,7 +13,10 @@ DARK_SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><text>dark</text></svg>'
 
 @pytest.fixture
 def fake_trade_republic_logo_fetch(monkeypatch):
+    calls = []
+
     def fake_fetch(url):
+        calls.append(url)
         if url == LIGHT_URL:
             return LIGHT_SVG
         if url == DARK_URL:
@@ -21,6 +24,7 @@ def fake_trade_republic_logo_fetch(monkeypatch):
         return None
 
     monkeypatch.setattr(tr_logos, "fetch_trade_republic_logo_url", fake_fetch)
+    return calls
 
 
 def _make_asset(db, **overrides):
@@ -34,7 +38,7 @@ def _make_asset(db, **overrides):
 
 
 def test_logo_proxies_trade_republic_light_by_default(client, test_db, fake_trade_republic_logo_fetch):
-    _make_asset(
+    asset = _make_asset(
         test_db,
         isin=ISIN,
         asset_type="EQUITY",
@@ -49,6 +53,10 @@ def test_logo_proxies_trade_republic_light_by_default(client, test_db, fake_trad
     assert response.headers["content-type"] == "image/svg+xml"
     assert response.content == LIGHT_SVG
     assert "location" not in response.headers
+    assert fake_trade_republic_logo_fetch == [LIGHT_URL]
+
+    test_db.refresh(asset)
+    assert asset.logo_light_data == LIGHT_SVG
 
 
 def test_logo_proxies_dark_variant_when_requested(client, test_db, fake_trade_republic_logo_fetch):
@@ -85,6 +93,26 @@ def test_logo_dark_variant_falls_back_to_light_when_only_light_available(client,
     assert response.headers["content-type"] == "image/svg+xml"
     assert response.content == LIGHT_SVG
     assert "location" not in response.headers
+
+
+def test_logo_uses_cached_trade_republic_variant_without_refetch(client, test_db, fake_trade_republic_logo_fetch):
+    _make_asset(
+        test_db,
+        isin=ISIN,
+        asset_type="EQUITY",
+        logo_provider="trade_republic",
+        logo_light_url=LIGHT_URL,
+        logo_dark_url=DARK_URL,
+        logo_light_data=LIGHT_SVG,
+        logo_dark_data=DARK_SVG,
+    )
+
+    response = client.get("/assets/logo/AAPL?variant=dark", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/svg+xml"
+    assert response.content == DARK_SVG
+    assert fake_trade_republic_logo_fetch == []
 
 
 def test_logo_without_isin_uses_legacy_generated_fallback(client, test_db, monkeypatch):

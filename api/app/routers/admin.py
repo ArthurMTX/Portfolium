@@ -513,12 +513,31 @@ def get_logo_cache_stats(
         
         # Count cached logos
         cached_logos = db.execute(
-            text("SELECT COUNT(*) FROM portfolio.assets WHERE logo_data IS NOT NULL")
+            text("""
+                SELECT COUNT(*)
+                FROM portfolio.assets
+                WHERE logo_data IS NOT NULL
+                   OR logo_light_data IS NOT NULL
+                   OR logo_dark_data IS NOT NULL
+            """)
         ).scalar()
         
         # Calculate total cache size
         total_size = db.execute(
-            text("SELECT COALESCE(SUM(LENGTH(logo_data)), 0) FROM portfolio.assets WHERE logo_data IS NOT NULL")
+            text("""
+                SELECT COALESCE(
+                    SUM(
+                        COALESCE(LENGTH(logo_data), 0)
+                        + COALESCE(LENGTH(logo_light_data), 0)
+                        + COALESCE(LENGTH(logo_dark_data), 0)
+                    ),
+                    0
+                )
+                FROM portfolio.assets
+                WHERE logo_data IS NOT NULL
+                   OR logo_light_data IS NOT NULL
+                   OR logo_dark_data IS NOT NULL
+            """)
         ).scalar()
         
         # Get breakdown by content type
@@ -531,6 +550,16 @@ def get_logo_cache_stats(
                 FROM portfolio.assets 
                 WHERE logo_data IS NOT NULL
                 GROUP BY logo_content_type
+                UNION ALL
+                SELECT
+                    'image/svg+xml; variant=trade_republic' as logo_content_type,
+                    COUNT(*) as count,
+                    SUM(
+                        COALESCE(LENGTH(logo_light_data), 0)
+                        + COALESCE(LENGTH(logo_dark_data), 0)
+                    ) as total_size
+                FROM portfolio.assets
+                WHERE logo_light_data IS NOT NULL OR logo_dark_data IS NOT NULL
             """)
         ).fetchall()
         
@@ -572,7 +601,8 @@ def clear_logo_cache(
                 text("""
                     UPDATE portfolio.assets
                     SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL,
-                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL
+                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL,
+                        logo_light_data = NULL, logo_dark_data = NULL
                     WHERE symbol = :symbol
                 """),
                 {"symbol": symbol.upper()}
@@ -593,8 +623,12 @@ def clear_logo_cache(
                 text("""
                     UPDATE portfolio.assets
                     SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL,
-                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL
-                    WHERE logo_data IS NOT NULL OR logo_provider IS NOT NULL
+                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL,
+                        logo_light_data = NULL, logo_dark_data = NULL
+                    WHERE logo_data IS NOT NULL
+                       OR logo_light_data IS NOT NULL
+                       OR logo_dark_data IS NOT NULL
+                       OR logo_provider IS NOT NULL
                 """)
             )
             db.commit()

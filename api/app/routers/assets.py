@@ -1934,6 +1934,10 @@ async def resolve_logo(
         db.refresh(db_asset)
 
     if db_asset and db_asset.logo_provider == "trade_republic" and (db_asset.logo_light_url or db_asset.logo_dark_url):
+        cached_tr_logo_data = crud_assets.get_cached_trade_republic_logo_variant(db_asset, normalized_variant)
+        if cached_tr_logo_data:
+            return image_response(cached_tr_logo_data, "image/svg+xml")
+
         tr_url = (
             (db_asset.logo_dark_url if normalized_variant == "dark" else db_asset.logo_light_url)
             or db_asset.logo_light_url
@@ -1943,6 +1947,12 @@ async def resolve_logo(
 
         tr_logo_data = fetch_trade_republic_logo_url(tr_url)
         if tr_logo_data:
+            crud_assets.cache_trade_republic_logo_variant(
+                db,
+                db_asset.id,
+                "dark" if tr_url == db_asset.logo_dark_url else "light",
+                tr_logo_data,
+            )
             return image_response(tr_logo_data, "image/svg+xml")
 
     # No persisted asset yet (e.g. a ticker search result the user hasn't

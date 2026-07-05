@@ -473,6 +473,38 @@ def get_cached_logo(db: Session, asset_id: int) -> Optional[tuple[bytes, str]]:
     return (db_asset.logo_data, db_asset.logo_content_type or 'image/webp')
 
 
+def cache_trade_republic_logo_variant(
+    db: Session,
+    asset_id: int,
+    variant: str,
+    logo_data: bytes,
+) -> Optional[Asset]:
+    """Cache one Trade Republic SVG variant for an asset."""
+    db_asset = get_asset(db, asset_id)
+    if not db_asset:
+        return None
+
+    if variant == "dark":
+        db_asset.logo_dark_data = logo_data
+    else:
+        db_asset.logo_light_data = logo_data
+
+    db_asset.logo_fetched_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_asset)
+    return db_asset
+
+
+def get_cached_trade_republic_logo_variant(
+    db_asset: Asset,
+    variant: str,
+) -> Optional[bytes]:
+    """Return the requested cached Trade Republic SVG variant, with cross-theme fallback."""
+    if variant == "dark":
+        return db_asset.logo_dark_data or db_asset.logo_light_data
+    return db_asset.logo_light_data or db_asset.logo_dark_data
+
+
 def get_user_asset_override(db: Session, user_id: int, asset_id: int):
     """
     Get user-specific metadata override for an asset
