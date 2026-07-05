@@ -11,6 +11,7 @@ response as a valid logo.
 """
 import logging
 from typing import Dict
+from urllib.parse import urlparse
 
 import requests
 
@@ -19,6 +20,7 @@ from app.observability.metrics import TRADE_REPUBLIC_LOGO_VALIDATION
 logger = logging.getLogger(__name__)
 
 TRADE_REPUBLIC_LOGO_URL_TEMPLATE = "https://assets.traderepublic.com/img/logos/{isin}/v2/{variant}.min.svg"
+TRADE_REPUBLIC_LOGO_HOST = "assets.traderepublic.com"
 TRADE_REPUBLIC_TIMEOUT_SECONDS = 5
 TRADE_REPUBLIC_VARIANTS = ("light", "dark")
 
@@ -33,6 +35,16 @@ _MAX_SVG_BYTES = 2 * 1024 * 1024
 def build_trade_republic_logo_url(isin: str, variant: str) -> str:
     """Build the Trade Republic CDN URL for a given ISIN and theme variant."""
     return TRADE_REPUBLIC_LOGO_URL_TEMPLATE.format(isin=isin, variant=variant)
+
+
+def _is_trade_republic_logo_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return (
+        parsed.scheme == "https"
+        and parsed.netloc == TRADE_REPUBLIC_LOGO_HOST
+        and parsed.path.startswith("/img/logos/")
+        and parsed.path.endswith(".min.svg")
+    )
 
 
 def _first_tag_name(text: str) -> "str | None":
@@ -134,3 +146,45 @@ def fetch_trade_republic_logos(isin: str) -> Dict[str, bytes]:
             )
 
     return results
+
+
+def fetch_trade_republic_logo_url(url: str) -> bytes | None:
+    """
+    Fetch and validate one previously resolved Trade Republic logo URL.
+
+    This lets the application serve the SVG through its own logo endpoint
+    instead of redirecting the browser to Trade Republic's CDN.
+    """
+    if not _is_trade_republic_logo_url(url):
+        logger.info(
+            "Rejected unexpected Trade Republic logo URL",
+            extra={"provider": "trade_republic", "event": "invalid_logo_url"},
+        )
+        return None
+
+    try:
+        response = requests.get(
+            url,
+            headers=TRADE_REPUBLIC_HEADERS,
+            timeout=TRADE_REPUBLIC_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        logger.info(
+            "Trade Republic logo proxy request failed",
+            extra={"provider": "trade_republic", "event": "proxy_request_failed", "error": str(exc)},
+        )
+        return None
+
+    if validate_trade_republic_logo_response(response):
+        return response.content
+
+    logger.info(
+        "Trade Republic logo proxy validation rejected",
+        extra={
+            "provider": "trade_republic",
+            "event": "proxy_validation_rejected",
+            "status": response.status_code,
+            "content_type": response.headers.get("Content-Type"),
+        },
+    )
+    return None

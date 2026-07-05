@@ -3,6 +3,7 @@ Logo fetching service using Brandfetch API
 """
 import io
 import logging
+import re
 from typing import Optional, List, Dict, Any, Iterator
 from urllib.parse import quote
 import requests
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 # Brandfetch API configuration
 BRANDFETCH_SEARCH_URL = "https://api.brandfetch.io/v2/search/{identifier}"
 BRANDFETCH_CDN_URL = "https://cdn.brandfetch.io/{brand_id}"
+BRANDFETCH_CRYPTO_CDN_URL = "https://cdn.brandfetch.io/crypto/{ticker}"
 
 # Request headers for CDN requests (Brandfetch requires browser-like User-Agent)
 CDN_HEADERS = {
@@ -106,6 +108,19 @@ def _normalize_ticker_for_search(ticker: str) -> str:
     # Strip exchange suffix after a dot (e.g., .OL, .L, .TO, .SA, .HK, .F, etc.)
     core = ticker.split('.')[0]
     return core
+
+
+def _normalize_crypto_ticker_for_cdn(ticker: str) -> str:
+    """Normalize crypto pairs for Brandfetch's crypto CDN path.
+
+    Examples:
+        "BTC-USD" -> "BTC"
+        "eth-usdt" -> "ETH"
+    """
+    if not ticker:
+        return ticker
+    core = re.sub(r"[-/](USD|EUR|GBP|USDT|BUSD|JPY|CAD|AUD|CHF|CNY)$", "", ticker, flags=re.IGNORECASE)
+    return core.upper()
 
 
 def is_valid_image(image_data: bytes) -> bool:
@@ -273,6 +288,52 @@ def fetch_logo_direct(ticker: str) -> Optional[bytes]:
             
     except requests.RequestException as e:
         logger.warning(f"Failed to fetch logo for {ticker}: {e}")
+        return None
+
+
+def fetch_crypto_logo_direct(ticker: str) -> Optional[bytes]:
+    """
+    Fetch a cryptocurrency logo from Brandfetch's crypto namespace.
+
+    This uses the direct CDN URL:
+    https://cdn.brandfetch.io/crypto/{ticker}?c={api_key}
+    """
+    if not settings.BRANDFETCH_API_KEY:
+        logger.warning("BRANDFETCH_API_KEY not configured, skipping crypto direct fetch")
+        return None
+
+    normalized_ticker = _normalize_crypto_ticker_for_cdn(ticker)
+    if not normalized_ticker:
+        return None
+
+    try:
+        url = BRANDFETCH_CRYPTO_CDN_URL.format(ticker=normalized_ticker)
+        params = {"c": settings.BRANDFETCH_API_KEY}
+        response = requests.get(url, params=params, headers=CDN_HEADERS, timeout=5)
+
+        if response.status_code == 200:
+            content_type = response.headers.get('Content-Type', '').lower()
+            if not content_type.startswith('image/'):
+                logger.debug(f"Brandfetch returned non-image content type for crypto {ticker}: {content_type}")
+                return None
+
+            if is_valid_image(response.content):
+                optimized = resize_and_optimize_image(response.content)
+                if optimized:
+                    logger.info(f"Successfully fetched and optimized crypto logo for {ticker} via direct CDN")
+                    return optimized
+
+                logger.info(f"Successfully fetched crypto logo for {ticker} via direct CDN (optimization failed)")
+                return response.content
+
+            logger.warning(f"Brandfetch returned empty/invalid crypto image for ticker {ticker}")
+            return None
+
+        logger.debug(f"Direct crypto CDN fetch failed for {ticker}: HTTP {response.status_code}")
+        return None
+
+    except requests.RequestException as e:
+        logger.warning(f"Failed to fetch crypto logo for {ticker}: {e}")
         return None
 
 
@@ -468,7 +529,7 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
     
     Strategy:
     1. If asset_type is 'ETF', generate SVG logo immediately (skip brand search)
-    2. For cryptocurrencies, skip direct CDN and ticker search to avoid wrong matches
+    2. For cryptocurrencies, try Brandfetch's crypto CDN namespace
     3. For other assets, try direct CDN fetch using ticker as brand ID
     4. If direct ticker returns empty/invalid, try searching by ticker (API search)
     5. If that fails, try searching by company name
@@ -489,8 +550,13 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
         svg_logo = generate_etf_logo(ticker)
         return svg_logo.encode('utf-8')
     
-    # Check if cryptocurrency to skip ticker-based searches
+    # Check if cryptocurrency to skip company/ticker searches
     is_crypto = asset_type and asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
+
+    if is_crypto:
+        logo_data = fetch_crypto_logo_direct(ticker)
+        if logo_data:
+            return logo_data
     
     # Strategy 1: Direct fetch by ticker (skip for cryptocurrencies)
     if not is_crypto:
@@ -498,11 +564,11 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
         if logo_data:
             return logo_data
     else:
-        logger.info(f"Skipping direct CDN fetch for cryptocurrency {ticker}")
+        logger.info(f"Skipping generic direct CDN fetch for cryptocurrency {ticker}")
     
     # Strategy 2: Search by company name FIRST if provided (more reliable than ticker search)
     # Ticker search can return wrong companies
-    if company_name:
+    if company_name and not is_crypto:
         logger.info(f"Direct ticker fetch failed for {ticker}, trying company name search: {company_name}")
         brand_id = find_logo_path(company_name)
         if brand_id:
@@ -510,6 +576,8 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
             if logo_data:
                 logger.info(f"Successfully fetched logo via company name search for {ticker}")
                 return logo_data
+    elif company_name:
+        logger.info(f"Skipping company name search for cryptocurrency {ticker}")
     
     # Strategy 3: Search API using normalized ticker as search term (fallback if no company name)
     # Skip ticker search for cryptocurrencies to avoid matching company tickers (e.g., BTC matching companies named BTC)

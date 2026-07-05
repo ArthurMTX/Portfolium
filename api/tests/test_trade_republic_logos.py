@@ -115,6 +115,27 @@ def test_fetch_swallows_request_exception(monkeypatch):
     assert result == {}
 
 
+def test_fetch_trade_republic_logo_url_returns_valid_svg(monkeypatch):
+    url = tr_logos.build_trade_republic_logo_url(ISIN, "light")
+
+    def fake_get(request_url, headers=None, timeout=None):
+        assert request_url == url
+        return FakeResponse(200, VALID_SVG, "image/svg+xml")
+
+    monkeypatch.setattr(tr_logos.requests, "get", fake_get)
+
+    assert tr_logos.fetch_trade_republic_logo_url(url) == VALID_SVG
+
+
+def test_fetch_trade_republic_logo_url_rejects_unexpected_host(monkeypatch):
+    def fail_get(*_args, **_kwargs):
+        raise AssertionError("Unexpected URLs should not be fetched")
+
+    monkeypatch.setattr(tr_logos.requests, "get", fail_get)
+
+    assert tr_logos.fetch_trade_republic_logo_url("https://example.com/logo.svg") is None
+
+
 def test_build_trade_republic_logo_url():
     assert tr_logos.build_trade_republic_logo_url(ISIN, "light") == (
         f"https://assets.traderepublic.com/img/logos/{ISIN}/v2/light.min.svg"
