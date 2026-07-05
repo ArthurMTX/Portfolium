@@ -1,0 +1,11 @@
+{
+  "$schema": "https://fallow.tools/schema.json",
+  "duplicates": {
+    "threshold": 5
+  },
+  "health": {
+    "maxCyclomatic": 200,
+    "maxCognitive": 120,
+    "maxCrap": 20000
+  }
+}

@@ -67,7 +67,7 @@ export function PageTitleBlock({ kicker, title, description, className, children
   )
 }
 
-export function PageKicker({ className, children, ...rest }: DivProps) {
+function PageKicker({ className, children, ...rest }: DivProps) {
   return (
     <p className={cx('pf-page-kicker', className)} {...rest}>
       {children}
@@ -75,7 +75,7 @@ export function PageKicker({ className, children, ...rest }: DivProps) {
   )
 }
 
-export function PageTitle({ className, children, ...rest }: DivProps) {
+function PageTitle({ className, children, ...rest }: DivProps) {
   return (
     <h1 className={cx('pf-page-title', 'pf-page-title--hero', className)} {...rest}>
       {children}
@@ -83,7 +83,7 @@ export function PageTitle({ className, children, ...rest }: DivProps) {
   )
 }
 
-export function PageDescription({ className, children, ...rest }: DivProps) {
+function PageDescription({ className, children, ...rest }: DivProps) {
   return (
     <div className={cx('pf-page-description', className)} {...rest}>
       {children}
@@ -108,7 +108,7 @@ export function PageSummaryPanel({ lead, description, actions, className, childr
   )
 }
 
-export function PageActions({ className, children, ...rest }: DivProps) {
+function PageActions({ className, children, ...rest }: DivProps) {
   return (
     <div className={cx('pf-page-actions', className)} {...rest}>
       {children}
@@ -260,14 +260,6 @@ export function PageSectionHeader({
         {children}
       </div>
       {aside !== undefined && aside !== null && <div className="pf-section-header__aside">{aside}</div>}
-    </div>
-  )
-}
-
-export function PageContentPanel({ className, children, ...rest }: DivProps) {
-  return (
-    <div className={cx('pf-panel', className)} {...rest}>
-      {children}
     </div>
   )
 }

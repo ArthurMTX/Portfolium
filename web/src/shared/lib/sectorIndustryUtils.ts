@@ -228,7 +228,7 @@ const INDUSTRY_CONFIG: Record<string, IndustryConfig> = {
   'Insurance - Specialty': { sector: 'Financial Services', icon: ShieldQuestionMark, exampleTicker: 'FNF', exampleName: 'Fidelity National Financial, Inc.' },
   'Insurance - Reinsurance': { sector: 'Financial Services', icon: ShieldEllipsis, exampleTicker: 'EG', exampleName: 'Everest Group, Ltd.' },
   'Mortgage Finance': { sector: 'Financial Services', icon: HomeIcon, exampleTicker: 'FNMA', exampleName: 'Federal National Mortgage Association' },
-  'Insurance Brokers': { sector: 'Financial Services', icon: BadgeDollarSign, exampleTicker: 'MMC', exampleName: 'Marsh & McLennan Companies, Inc.' },
+  'Insurance Brokers': { sector: 'Financial Services', icon: BadgeDollarSign, exampleTicker: 'MRSH', exampleName: 'Marsh & McLennan Companies, Inc.' },
   'Financial Conglomerates': { sector: 'Financial Services', icon: DollarSign, exampleTicker: 'FRHC', exampleName: 'Freedom Holding Corp.' },
   'Shell Companies': { sector: 'Financial Services', icon: TrendingUpDown, exampleTicker: 'CCCX', exampleName: 'Churchill Capital Corp X' },
 
@@ -284,7 +284,7 @@ const INDUSTRY_CONFIG: Record<string, IndustryConfig> = {
   'Farm Products': { sector: 'Consumer Defensive', icon: Wheat, exampleTicker: 'ADM', exampleName: 'Archer-Daniels-Midland Company' },
   'Food Distribution': { sector: 'Consumer Defensive', icon: Truck, exampleTicker: 'SYY', exampleName: 'Sysco Corporation' },
   'Grocery Stores': { sector: 'Consumer Defensive', icon: Apple, exampleTicker: 'KR', exampleName: 'The Kroger Co.' },
-  'Packaged Foods': { sector: 'Consumer Defensive', icon: Package, exampleTicker: 'K', exampleName: 'Kellanova' },
+  'Packaged Foods': { sector: 'Consumer Defensive', icon: Package, exampleTicker: 'JBS', exampleName: 'JBS N.V.' },
   'Education & Training Services': { sector: 'Consumer Defensive', icon: GraduationCap, exampleTicker: 'LOPE', exampleName: 'Grand Canyon Education, Inc.' },
   'Household & Personal Products': { sector: 'Consumer Defensive', icon: SprayCan, exampleTicker: 'PG', exampleName: 'The Procter & Gamble Company' },
   'Tobacco': { sector: 'Consumer Defensive', icon: Cigarette, exampleTicker: 'PM', exampleName: 'Philip Morris International Inc.' },

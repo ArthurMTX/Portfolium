@@ -1,7 +1,7 @@
 import { useState, FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '@/api'
-import { AlertCircle, ArrowLeft, CheckCircle, Mail } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Mail } from 'lucide-react'
 import LoadingSpinner from '@/shared/components/LoadingSpinner'
 import { translateApiError } from '@/shared/lib/errorUtils'
 import { useTranslation, Trans } from 'react-i18next'

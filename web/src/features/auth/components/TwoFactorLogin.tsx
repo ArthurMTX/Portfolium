@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react'
-import { AlertCircle, Shield } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import LoadingSpinner from '@/shared/components/LoadingSpinner'
 import { useTranslation } from 'react-i18next'
 

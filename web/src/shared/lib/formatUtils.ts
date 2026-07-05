@@ -67,36 +67,6 @@ export function formatCurrency(
 }
 
 /**
- * Format currency without unnecessary decimals (101,00 -> 101)
- * Used for fees, totals, and other values where .00 is redundant
- */
-export function formatCurrencyCompact(
-  value: number | string | null, 
-  currency: string = 'EUR',
-  locale?: string
-): string {
-  if (value === null || value === undefined) return '-'
-  
-  const numValue = typeof value === 'string' ? parseFloat(value) : value
-  
-  if (isNaN(numValue)) return '-'
-  if (numValue === 0) return '-'
-  
-  const userLocale = locale || navigator.language || 'en-US'
-  
-  // Check if value is effectively a whole number (handles floating point precision issues)
-  const rounded = Math.round(numValue * 100) / 100
-  const isWholeNumber = rounded === Math.floor(rounded)
-  
-  return new Intl.NumberFormat(userLocale, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: isWholeNumber ? 0 : 2,
-    maximumFractionDigits: isWholeNumber ? 0 : 2,
-  }).format(rounded)
-}
-
-/**
  * Format a number with specified decimal places
  */
 export function formatNumber(value: number | string | null, decimals: number = 2): string {

@@ -60,7 +60,7 @@ const normalizeTickerForLogo = (symbol: string): string => {
  * Clean crypto asset names by removing currency suffixes like " USD", " EUR", etc.
  * For example: "XRP USD" -> "XRP", "Bitcoin USD" -> "Bitcoin"
  */
-export const cleanCryptoName = (name: string | null): string | null => {
+const cleanCryptoName = (name: string | null): string | null => {
   if (!name) return null
   return name.replace(/\s+(USD|EUR|GBP|CAD|AUD|JPY|CHF|CNY|USDT|BUSD)$/i, '')
 }

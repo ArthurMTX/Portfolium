@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '@/api'
-import { AlertCircle, CheckCircle } from 'lucide-react'
-import LoadingSpinner from '@/shared/components/LoadingSpinner'
 import { translateApiError } from '@/shared/lib/errorUtils'
 import { useTranslation } from 'react-i18next'
 import AuthPageShell from '@/features/auth/components/AuthPageShell'
