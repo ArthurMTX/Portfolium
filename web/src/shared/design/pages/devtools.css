@@ -1,0 +1,367 @@
+.devtools-page__tool-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.devtools-page__tool-card,
+.devtools-page__panel,
+.devtools-page__item-card {
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface);
+}
+
+.devtools-page__tool-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.95rem;
+}
+
+.devtools-page__tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border: 1px solid var(--pf-accent-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+}
+
+.devtools-page__tool-card h3,
+.devtools-page__panel-title,
+.devtools-page__item-title {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: 0.98rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.devtools-page__tool-card p,
+.devtools-page__panel-description,
+.devtools-page__muted {
+  margin: 0.2rem 0 0;
+  color: var(--pf-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.devtools-page__panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem;
+}
+
+.devtools-page__panel + .devtools-page__panel,
+.devtools-page__panel + .devtools-page__message,
+.devtools-page__message + .devtools-page__panel,
+.devtools-page__message + .pf-main-grid,
+.devtools-page__tool-grid + .devtools-page__message,
+.devtools-page__card-grid + .devtools-page__message {
+  margin-top: clamp(0.85rem, 1.6vw, 1.2rem);
+}
+
+.devtools-page .pf-section > .pf-empty-state,
+.devtools-page .pf-section > .devtools-page__card-grid,
+.devtools-page .pf-section > .devtools-page__wide-card-grid,
+.devtools-page .pf-section > .devtools-page__tool-grid,
+.devtools-page .pf-section > .devtools-page__panel,
+.devtools-page .pf-section > .devtools-page__message {
+  margin-top: clamp(0.75rem, 1.4vw, 1rem);
+}
+
+.devtools-page__panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.devtools-page__panel-heading {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.devtools-page__action-grid,
+.devtools-page__metric-grid,
+.devtools-page__card-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.devtools-page__action-grid {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.devtools-page__metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.devtools-page__card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.devtools-page__wide-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.8rem;
+}
+
+.devtools-page__metric {
+  display: grid;
+  gap: 0.35rem;
+  border-left: 1px solid var(--pf-line);
+  padding-left: 0.85rem;
+}
+
+.devtools-page__metric strong {
+  color: var(--pf-ink);
+  font-size: 1.35rem;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.devtools-page__metric span {
+  color: var(--pf-subtle);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.devtools-page__message {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  padding: 0.8rem;
+  color: var(--pf-muted);
+}
+
+.devtools-page__message.is-success {
+  border-color: var(--pf-success-border);
+  background: var(--pf-success-soft);
+  color: var(--pf-success);
+}
+
+.devtools-page__message.is-error,
+.devtools-page__message.is-danger {
+  border-color: var(--pf-danger-border);
+  background: var(--pf-danger-soft);
+  color: var(--pf-danger);
+}
+
+.devtools-page__message.is-info {
+  border-color: var(--pf-accent-border);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+}
+
+.devtools-page__message.is-warning {
+  border-color: var(--pf-warning-border);
+  background: var(--pf-warning-soft);
+  color: var(--pf-warning);
+}
+
+.devtools-page__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.devtools-page__search {
+  flex: 1 1 18rem;
+}
+
+.devtools-page__filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.devtools-page__segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-pill);
+  background: transparent;
+  color: var(--pf-muted);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 820;
+}
+
+.devtools-page__segment:hover,
+.devtools-page__segment.is-active {
+  border-color: var(--pf-accent-border);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+}
+
+.devtools-page__tone-action.is-blue,
+.devtools-page__tone-action.is-neutral {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.devtools-page__tone-action.is-green {
+  border-color: var(--pf-success-border);
+  color: var(--pf-success);
+  background: var(--pf-success-soft);
+}
+
+.devtools-page__tone-action.is-red {
+  border-color: var(--pf-danger-border);
+  color: var(--pf-danger);
+  background: var(--pf-danger-soft);
+}
+
+.devtools-page__tone-action.is-amber {
+  border-color: var(--pf-warning-border);
+  color: var(--pf-warning);
+  background: var(--pf-warning-soft);
+}
+
+.devtools-page__item-card {
+  padding: 0.85rem;
+  transition: background var(--pf-transition), border-color var(--pf-transition);
+}
+
+.devtools-page__item-card:hover {
+  border-color: var(--pf-accent-border);
+  background: var(--pf-accent-soft);
+}
+
+.devtools-page__item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.devtools-page__item-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-inset);
+}
+
+.devtools-page__badge,
+.devtools-page__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-pill);
+  background: var(--pf-inset);
+  color: var(--pf-muted);
+  padding: 0.18rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.devtools-page__badge.is-success {
+  border-color: var(--pf-success-border);
+  background: var(--pf-success-soft);
+  color: var(--pf-success);
+}
+
+.devtools-page__badge.is-danger {
+  border-color: var(--pf-danger-border);
+  background: var(--pf-danger-soft);
+  color: var(--pf-danger);
+}
+
+.devtools-page__badge.is-warning {
+  border-color: var(--pf-warning-border);
+  background: var(--pf-warning-soft);
+  color: var(--pf-warning);
+}
+
+.devtools-page__badge.is-accent {
+  border-color: var(--pf-accent-border);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+}
+
+.devtools-page__code,
+.devtools-page pre {
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-inset);
+  color: var(--pf-ink);
+}
+
+.devtools-page__code,
+.devtools-page pre {
+  overflow: auto;
+  padding: 0.8rem;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.devtools-page__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface);
+}
+
+.devtools-page__flag-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-inset);
+}
+
+.devtools-page__flag-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.devtools-page__asset-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.devtools-page__asset-header img,
+.devtools-page__asset-logo {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--pf-radius-sm);
+  object-fit: cover;
+}
+
+@media (max-width: 760px) {
+  .devtools-page__tool-card,
+  .devtools-page__asset-header {
+    grid-template-columns: 1fr;
+  }
+
+  .devtools-page__tool-card {
+    justify-items: start;
+  }
+}

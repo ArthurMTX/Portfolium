@@ -3,6 +3,18 @@ import { useSearchParams } from 'react-router-dom'
 import { Search, X, Database, TrendingUp, Calendar, DollarSign, Tag, Globe, Building2, BarChart3, AlertCircle, RefreshCw, Zap, Code, Activity } from 'lucide-react'
 import api from '@/api'
 import AssetLogo from '@/shared/components/AssetLogo'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import '@/shared/design/pages/devtools.css'
 
 interface TickerInfo {
   symbol: string
@@ -263,48 +275,60 @@ export default function AssetDebug() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <Database className="text-purple-600" size={28} />
-            Asset Debugger
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            Deep dive into asset data, transactions, prices, and health metrics
-          </p>
-        </div>
-      </div>
+    <PageShell className="devtools-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Developer Tools"
+          title="Asset Debugger"
+          description="Deep dive into asset data, transactions, prices, health metrics, and raw provider payloads."
+        />
+        <PageSummaryPanel
+          lead={selectedAsset?.symbol || yfinanceData?.symbol || 'No asset selected'}
+          description={selectedAsset?.name || yfinanceData?.name || 'Search for a symbol to inspect its data.'}
+        />
+      </PageHeader>
+
+      <PageMetricStrip label="Asset debug loaded data">
+        <PageMetric label="Transactions" value={transactions.length} />
+        <PageMetric label="Splits" value={splits.length} />
+        <PageMetric label="Price Points" value={priceHistory?.data_points ?? '-'} />
+        <PageMetric label="Health" value={healthInfo?.status || '-'} />
+      </PageMetricStrip>
 
       {/* Search Bar */}
-      <div className="card p-6">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={20} />
+      <PageControls
+        label="Asset debugger search"
+        start={
+          <label className="pf-search devtools-page__search">
+            <Search aria-hidden="true" size={18} />
           <input
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="Search for an asset by symbol or name..."
-            className="w-full pl-12 pr-12 py-3 text-lg border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
           />
           {searchQuery && (
             <button
+                type="button"
               onClick={clearSearch}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
             >
               <X size={20} />
             </button>
           )}
-        </div>
+          </label>
+        }
+      />
+
+      <PageMainGrid single>
+        <PageMainColumn>
 
         {/* Search Results */}
         {searchResults.length > 0 && (
-          <div className="mt-4 bg-white dark:bg-neutral-800 border-2 border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+            <div className="devtools-page__panel">
             {searchResults.map((item) => (
               <button
                 key={item.symbol}
-                className="w-full p-4 text-left hover:bg-purple-50 dark:hover:bg-purple-900/20 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 transition-colors"
+                  className="devtools-page__segment"
                 onClick={() => handleSelectAsset(item)}
               >
                 <div>
@@ -315,11 +339,10 @@ export default function AssetDebug() {
             ))}
           </div>
         )}
-      </div>
 
       {/* Loading State */}
       {loading && (
-        <div className="card p-12 text-center">
+            <div className="pf-empty-state">
           <RefreshCw className="animate-spin mx-auto mb-4 text-purple-600" size={48} />
           <p className="text-neutral-600 dark:text-neutral-400">Loading asset data...</p>
         </div>
@@ -327,7 +350,7 @@ export default function AssetDebug() {
 
       {/* Error State */}
       {error && (
-        <div className="card p-6 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800">
+            <div className="devtools-page__message is-error">
           <div className="flex items-center gap-3 text-red-700 dark:text-red-400">
             <AlertCircle size={24} />
             <div>
@@ -1144,7 +1167,7 @@ export default function AssetDebug() {
 
       {/* Empty State */}
       {!selectedAsset && !loading && !error && (
-        <div className="card p-12 text-center">
+            <div className="pf-empty-state">
           <Database className="mx-auto mb-4 text-neutral-400 dark:text-neutral-600" size={64} />
           <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
             No Asset Selected
@@ -1154,7 +1177,9 @@ export default function AssetDebug() {
           </p>
         </div>
       )}
-    </div>
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   )
 }
 

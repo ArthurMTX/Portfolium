@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
-  Wrench, 
   Bell, 
   CheckCircle, 
   AlertCircle, 
@@ -20,6 +19,19 @@ import {
   Download
 } from 'lucide-react'
 import { api } from '@/api'
+import {
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageSection,
+  PageSectionHeader,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import '@/shared/design/pages/devtools.css'
 
 interface AssetHealthData {
   asset_id: number
@@ -139,211 +151,105 @@ export default function DevTools() {
   ]
 
   const getButtonClasses = (color: string) => {
-    const baseClasses = "flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-    
-    const colorClasses: Record<string, string> = {
-      blue: 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800',
-      green: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800',
-      red: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800',
-      amber: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800',
-      neutral: 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-600'
-    }
-    
-    return `${baseClasses} ${colorClasses[color] || colorClasses.neutral}`
+    return `pf-button pf-button--secondary devtools-page__tone-action is-${color}`
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Wrench className="text-pink-600" size={28} />
-            Developer Tools
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Testing utilities and development tools
-          </p>
-        </div>
-      </div>
+    <PageShell className="devtools-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Admin"
+          title="Developer Tools"
+          description="Testing utilities, debug surfaces, and maintenance operations for local development."
+        />
+        <PageSummaryPanel
+          lead="Development Console"
+          description="Preview UI primitives, inspect assets, generate notifications, and run price-data checks."
+        />
+      </PageHeader>
 
-      {/* Alert Messages */}
+      <PageMetricStrip label="Developer tool summary">
+        <PageMetric label="Tools" value={5} />
+        <PageMetric label="Notification Types" value={notificationButtons.length} />
+        <PageMetric label="Health Threshold" value={`${minCoverage}%`} />
+        <PageMetric label="Backfill Needed" value={healthCheckResult?.assets_needing_backfill ?? '-'} />
+      </PageMetricStrip>
+
       {message && (
-        <div className={`rounded-lg p-4 flex items-start gap-3 ${
-          message.type === 'success' 
-            ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-900' 
-            : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900'
-        }`}>
+        <div className={`devtools-page__message is-${message.type}`}>
           {message.type === 'success' ? (
-            <CheckCircle className="text-green-600 dark:text-green-400 flex-shrink-0" size={20} />
+            <CheckCircle aria-hidden="true" size={20} />
           ) : (
-            <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0" size={20} />
+            <AlertCircle aria-hidden="true" size={20} />
           )}
-          <div className="flex-1">
-            <p className={`text-sm font-medium ${
-              message.type === 'success' 
-                ? 'text-green-800 dark:text-green-200' 
-                : 'text-red-800 dark:text-red-200'
-            }`}>
-              {message.text}
-            </p>
-          </div>
+          <span>{message.text}</span>
         </div>
       )}
 
-      {/* Icon Preview Link */}
-      <div className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20 rounded-lg shadow-sm border border-pink-200 dark:border-pink-900 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
-              <Palette className="text-pink-600" size={24} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Icon Preview Tool
-              </h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-                Preview all sector and industry icons without needing asset data
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/icon-preview')}
-            className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors font-medium"
-          >
-            <Palette size={16} />
-            View Icons
-          </button>
-        </div>
-      </div>
+      <PageMainGrid single>
+        <PageMainColumn>
+          <PageSection>
+            <PageSectionHeader
+              title="Debug Surfaces"
+              description="Open focused tools for visual previews, asset inspection, and dashboard widgets."
+            />
 
-      {/* Flag Preview Link */}
-      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg shadow-sm border border-blue-200 dark:border-blue-900 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
-              <Flag className="text-blue-600" size={24} />
+            <div className="devtools-page__tool-grid">
+              <ToolCard
+                icon={<Palette size={22} />}
+                title="Icon Preview Tool"
+                description="Preview all sector, industry, theme, and subtheme icons without needing asset data."
+                action="View Icons"
+                onClick={() => navigate('/icon-preview')}
+              />
+              <ToolCard
+                icon={<Flag size={22} />}
+                title="Country Flag Preview"
+                description="Test all country flags displayed on Assets and Insights pages."
+                action="View Flags"
+                onClick={() => navigate('/flag-preview')}
+              />
+              <ToolCard
+                icon={<Palette size={22} />}
+                title="Widget Debugger"
+                description="Test dashboard widgets with translations, mock data, and configuration details."
+                action="Debug Widgets"
+                onClick={() => navigate('/dev/widgets')}
+              />
+              <ToolCard
+                icon={<Database size={22} />}
+                title="Asset Debugger"
+                description="Deep dive into asset data, transactions, prices, and health metrics."
+                action="Debug Assets"
+                onClick={() => navigate('/dev/assets')}
+              />
+              <ToolCard
+                icon={<Database size={22} />}
+                title="Assets Database List"
+                description="Browse all database assets with filtering, search, and cleanup helpers."
+                action="View List"
+                onClick={() => navigate('/dev/assets-list')}
+              />
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Country Flag Preview
-              </h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-                Test all country flags displayed on Assets and Insights pages
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/flag-preview')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Flag size={16} />
-            View Flags
-          </button>
-        </div>
-      </div>
+          </PageSection>
 
-      {/* Widget Debugger Link */}
-      <div className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg shadow-sm border border-violet-200 dark:border-violet-900 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
-              <Palette className="text-violet-600" size={24} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Widget Debugger
-              </h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-                Test all dashboard widgets with translations, mock data, and configuration details
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/dev/widgets')}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
-          >
-            <Palette size={16} />
-            Debug Widgets
-          </button>
-        </div>
-      </div>
-
-      {/* Asset Debug Link */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm border border-purple-200 dark:border-purple-900 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
-              <Database className="text-purple-600" size={24} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Asset Debugger
-              </h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-                Deep dive into asset data, transactions, prices, and health metrics
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/dev/assets')}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-          >
-            <Database size={16} />
-            Debug Assets
-          </button>
-        </div>
-      </div>
-
-      {/* Assets List Link */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm border border-blue-200 dark:border-blue-900 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white dark:bg-neutral-800 rounded-lg">
-              <Database className="text-blue-600" size={24} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Assets Database List
-              </h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-                Browse all assets in the database with filtering and search capabilities
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/dev/assets-list')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Database size={16} />
-            View List
-          </button>
-        </div>
-      </div>
-
-      {/* Notification Testing Section */}
-      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Bell className="text-pink-600" size={24} />
-          <div>
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-              Test Notifications
-            </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-              Create test notifications to preview different types and states
-            </p>
-          </div>
-        </div>
+          <PageSection>
+            <PageSectionHeader
+              title="Test Notifications"
+              description="Create test notifications to preview different types and states."
+              aside={<Bell aria-hidden="true" size={22} />}
+            />
 
         {/* Quick Actions */}
-        <div className="mb-6 pb-6 border-b border-neutral-200 dark:border-neutral-700">
-          <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">
+            <div className="devtools-page__panel">
+          <h3 className="devtools-page__panel-title">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="devtools-page__action-grid">
             <button
               onClick={() => createTestNotifications()}
               disabled={loading}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="pf-button pf-button--primary"
             >
               {loading ? (
                 <>
@@ -385,14 +291,14 @@ export default function DevTools() {
               Alerts & System
             </button>
           </div>
-        </div>
+            </div>
 
         {/* Individual Notification Types */}
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">
+            <div className="devtools-page__panel">
+              <h3 className="devtools-page__panel-title">
             Individual Types
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="devtools-page__action-grid">
             {notificationButtons.map((button) => (
               <button
                 key={button.type}
@@ -408,12 +314,11 @@ export default function DevTools() {
         </div>
 
         {/* Info Box */}
-        <div className="mt-6 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={16} />
-            <div className="text-sm text-blue-800 dark:text-blue-200">
-              <p className="font-medium mb-1">How it works</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
+            <div className="devtools-page__message is-info">
+              <AlertCircle aria-hidden="true" size={16} />
+              <div>
+                <strong>How it works</strong>
+                <ul>
                 <li>Test notifications are created for your account only</li>
                 <li>They appear in your notification bell and notifications page</li>
                 <li>Each notification includes realistic sample data and metadata</li>
@@ -421,38 +326,31 @@ export default function DevTools() {
               </ul>
             </div>
           </div>
-        </div>
-      </div>
+          </PageSection>
 
-      {/* Asset Health Check & Backfill Section */}
-      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Database className="text-emerald-600" size={24} />
-          <div>
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-              Asset Health Check & Backfill
-            </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
-              Check price data coverage for all assets and backfill missing history
-            </p>
-          </div>
-        </div>
+          <PageSection>
+            <PageSectionHeader
+              title="Asset Health Check & Backfill"
+              description="Check price data coverage for all assets and backfill missing history."
+              aside={<Database aria-hidden="true" size={22} />}
+            />
 
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-4 mb-6 pb-6 border-b border-neutral-200 dark:border-neutral-700">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            <div className="devtools-page__panel">
+              <div className="devtools-page__controls">
+                <label className="pf-field">
+                  <span className="pf-field-label">
               Min Coverage %
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={minCoverage}
-              onChange={(e) => setMinCoverage(Number(e.target.value))}
-              className="w-20 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white"
-            />
-          </div>
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={minCoverage}
+                    onChange={(e) => setMinCoverage(Number(e.target.value))}
+                    className="pf-input"
+                  />
+                </label>
           
           <button
             onClick={async () => {
@@ -475,7 +373,7 @@ export default function DevTools() {
               }
             }}
             disabled={healthCheckLoading || backfillLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 font-medium"
+                  className="pf-button pf-button--primary"
           >
             {healthCheckLoading ? (
               <>
@@ -513,7 +411,7 @@ export default function DevTools() {
               }
             }}
             disabled={healthCheckLoading || backfillLoading || !healthCheckResult || healthCheckResult.assets_needing_backfill === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 font-medium"
+                  className="pf-button pf-button--secondary"
           >
             {backfillLoading ? (
               <>
@@ -527,41 +425,42 @@ export default function DevTools() {
               </>
             )}
           </button>
+              </div>
         </div>
 
         {/* Summary Cards */}
         {healthCheckResult && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-900 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="devtools-page__panel">
+                <div className="devtools-page__metric-grid">
+                  <div className="devtools-page__metric">
+                    <strong>
                   {healthCheckResult.summary.excellent}
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-300">Excellent (≥95%)</p>
+                    </strong>
+                    <span>Excellent (≥95%)</span>
               </div>
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <div className="devtools-page__metric">
+                    <strong>
                   {healthCheckResult.summary.good}
-                </p>
-                <p className="text-sm text-blue-700 dark:text-blue-300">Good (80-94%)</p>
+                    </strong>
+                    <span>Good (80-94%)</span>
               </div>
-              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                  <div className="devtools-page__metric">
+                    <strong>
                   {healthCheckResult.summary.fair}
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-300">Fair (50-79%)</p>
+                    </strong>
+                    <span>Fair (50-79%)</span>
               </div>
-              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  <div className="devtools-page__metric">
+                    <strong>
                   {healthCheckResult.summary.poor}
-                </p>
-                <p className="text-sm text-red-700 dark:text-red-300">Poor (&lt;50%)</p>
+                    </strong>
+                    <span>Poor (&lt;50%)</span>
               </div>
             </div>
 
             {/* Asset Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+                <div className="devtools-page__table-wrap">
+                  <table className="pf-table">
                 <thead>
                   <tr className="border-b border-neutral-200 dark:border-neutral-700">
                     <th className="text-left py-2 px-3 font-semibold text-neutral-700 dark:text-neutral-300">Symbol</th>
@@ -627,12 +526,11 @@ export default function DevTools() {
         )}
 
         {/* Info Box */}
-        <div className="mt-6 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" size={16} />
-            <div className="text-sm text-emerald-800 dark:text-emerald-200">
-              <p className="font-medium mb-1">How it works</p>
-              <ul className="list-disc list-inside space-y-1 text-emerald-700 dark:text-emerald-300">
+            <div className="devtools-page__message is-info">
+              <AlertCircle aria-hidden="true" size={16} />
+              <div>
+                <strong>How it works</strong>
+                <ul>
                 <li>Check scans all assets with transactions for price data coverage</li>
                 <li>Coverage is calculated based on expected trading days vs actual price records</li>
                 <li>Backfill fetches missing historical prices from Yahoo Finance</li>
@@ -640,8 +538,36 @@ export default function DevTools() {
               </ul>
             </div>
           </div>
-        </div>
+          </PageSection>
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
+  )
+}
+
+function ToolCard({
+  icon,
+  title,
+  description,
+  action,
+  onClick,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+  action: string
+  onClick: () => void
+}) {
+  return (
+    <article className="devtools-page__tool-card">
+      <div className="devtools-page__tool-icon">{icon}</div>
+      <div>
+        <h3>{title}</h3>
+        <p>{description}</p>
       </div>
-    </div>
+      <button type="button" onClick={onClick} className="pf-button pf-button--secondary">
+        {action}
+      </button>
+    </article>
   )
 }

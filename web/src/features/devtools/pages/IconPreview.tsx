@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, X, Palette, LucideIcon } from 'lucide-react';
+import { Search, X, LucideIcon } from 'lucide-react';
 import { 
   SECTOR_ICONS, 
   INDUSTRY_ICONS, 
@@ -13,6 +13,21 @@ import { getTranslatedSector, getTranslatedIndustry } from '@/shared/lib/transla
 import AssetLogo from '@/shared/components/AssetLogo';
 import { useTranslation } from 'react-i18next';
 import { getThemeColor, getThemeHexColor, getThemeIcon } from '@/shared/lib/themeUtils';
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageSection,
+  PageSectionHeader,
+  PageShell,
+  PageSummaryPanel,
+  PageTabs,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout';
+import '@/shared/design/pages/devtools.css';
 
 type ThemeHierarchy = Record<string, string[]>;
 
@@ -117,146 +132,104 @@ export default function IconPreview() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-          <Palette className="text-pink-600" size={28} />
-          Sector, Industry, Theme & Subtheme Icon Preview
-        </h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-          Preview all available sector, industry, theme, and subtheme icons and colors
-        </p>
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={18} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search sectors, industries, themes, or subthemes..."
-          className="w-full pl-10 pr-10 py-3 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+    <PageShell className="devtools-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Developer Tools"
+          title="Icon Preview"
+          description="Preview all available sector, industry, theme, and subtheme icons and colors."
         />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-          >
-            <X size={18} />
-          </button>
-        )}
-      </div>
+        <PageSummaryPanel
+          lead="Visual Taxonomy"
+          description={`${Object.keys(SECTOR_ICONS).length + Object.keys(INDUSTRY_ICONS).length} sector and industry icons · ${themeEntries.length + totalSubthemes} theme entries`}
+        />
+      </PageHeader>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
-        <button
-          onClick={() => setSelectedTab('sectors')}
-          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            selectedTab === 'sectors'
-              ? 'border-pink-600 text-pink-600 dark:text-pink-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          Sectors ({Object.keys(SECTOR_ICONS).length})
-        </button>
-        <button
-          onClick={() => setSelectedTab('industries')}
-          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            selectedTab === 'industries'
-              ? 'border-pink-600 text-pink-600 dark:text-pink-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          Industries ({Object.keys(INDUSTRY_ICONS).length})
-        </button>
-        <button
-          onClick={() => setSelectedTab('themes')}
-          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            selectedTab === 'themes'
-              ? 'border-pink-600 text-pink-600 dark:text-pink-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          Themes ({themeEntries.length})
-        </button>
-      </div>
+      <PageMetricStrip label="Icon preview totals">
+        <PageMetric label="Sectors" value={Object.keys(SECTOR_ICONS).length} />
+        <PageMetric label="Industries" value={Object.keys(INDUSTRY_ICONS).length} />
+        <PageMetric label="Icons" value={Object.keys(SECTOR_ICONS).length + Object.keys(INDUSTRY_ICONS).length} />
+        <PageMetric label="Themes + Subthemes" value={themeEntries.length + totalSubthemes} />
+      </PageMetricStrip>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Object.keys(SECTOR_ICONS).length}
-          </div>
-          <div className="text-sm text-neutral-600 dark:text-neutral-400">Total Sectors</div>
-        </div>
-        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {Object.keys(INDUSTRY_ICONS).length}
-          </div>
-          <div className="text-sm text-neutral-600 dark:text-neutral-400">Total Industries</div>
-        </div>
-        <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
-          <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">
-            {Object.keys(SECTOR_ICONS).length + Object.keys(INDUSTRY_ICONS).length}
-          </div>
-          <div className="text-sm text-neutral-600 dark:text-neutral-400">Total Icons</div>
-        </div>
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-            {themeEntries.length + totalSubthemes}
-          </div>
-          <div className="text-sm text-neutral-600 dark:text-neutral-400">Themes + Subthemes</div>
-        </div>
-      </div>
+      <PageControls
+        label="Icon preview controls"
+        start={
+          <PageTabs label="Icon families">
+            <button type="button" onClick={() => setSelectedTab('sectors')} className={selectedTab === 'sectors' ? 'is-active' : undefined}>
+              Sectors ({Object.keys(SECTOR_ICONS).length})
+            </button>
+            <button type="button" onClick={() => setSelectedTab('industries')} className={selectedTab === 'industries' ? 'is-active' : undefined}>
+              Industries ({Object.keys(INDUSTRY_ICONS).length})
+            </button>
+            <button type="button" onClick={() => setSelectedTab('themes')} className={selectedTab === 'themes' ? 'is-active' : undefined}>
+              Themes ({themeEntries.length})
+            </button>
+          </PageTabs>
+        }
+        end={
+          <label className="pf-search devtools-page__search">
+            <Search aria-hidden="true" size={18} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sectors, industries, themes, or subthemes..."
+            />
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery('')}>
+                <X size={18} />
+              </button>
+            )}
+          </label>
+        }
+      />
 
       {themeHierarchyError && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="devtools-page__message is-warning">
           {themeHierarchyError}
         </div>
       )}
 
+      <PageMainGrid single>
+        <PageMainColumn>
+
       {/* Sectors Tab Content */}
       {selectedTab === 'sectors' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
-              {searchQuery ? `Found ${filteredSectors.length} sector(s)` : 'All Sectors'}
-            </h2>
-          </div>
+            <PageSection>
+              <PageSectionHeader title={searchQuery ? `Found ${filteredSectors.length} sector(s)` : 'All Sectors'} />
 
           {filteredSectors.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+                <div className="pf-empty-state">
               <p>No sectors match your search</p>
               <button
                 onClick={() => setSearchQuery('')}
-                className="mt-2 text-pink-600 dark:text-pink-400 hover:underline"
+                    className="pf-button pf-button--secondary"
               >
                 Clear search
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="devtools-page__card-grid">
               {filteredSectors.map(([name, Icon]) => (
                 <div
                   key={name}
-                  className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4 hover:shadow-lg transition-shadow"
+                      className="devtools-page__item-card"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                      <div className="devtools-page__item-row">
+                        <div className="devtools-page__item-icon">
                       <Icon size={24} className={getSectorColor(name)} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                        <div>
+                          <h3 className="devtools-page__item-title">
                         {name}
                       </h3>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                          <p className="devtools-page__muted">
                         Icon: {Icon.displayName || Icon.name || 'LucideIcon'}
                       </p>
-                      <div className="mt-2 flex items-center gap-2">
+                          <div className="devtools-page__filter-row">
                         <Icon size={16} className={getSectorColor(name)} />
-                        <span className="text-xs text-neutral-600 dark:text-neutral-400">16px</span>
+                            <span className="devtools-page__muted">16px</span>
                       </div>
                     </div>
                   </div>
@@ -264,24 +237,22 @@ export default function IconPreview() {
               ))}
             </div>
           )}
-        </div>
+            </PageSection>
       )}
 
-      {/* Industries Tab Content */}
-      {selectedTab === 'industries' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
-              {searchQuery ? `Found ${totalFilteredIndustries} industry(ies) across ${sortedSectors.length} sector(s)` : 'All Industries by Sector'}
-            </h2>
-          </div>
+          {/* Industries Tab Content */}
+          {selectedTab === 'industries' && (
+            <PageSection>
+              <PageSectionHeader
+                title={searchQuery ? `Found ${totalFilteredIndustries} industry(ies) across ${sortedSectors.length} sector(s)` : 'All Industries by Sector'}
+              />
 
           {totalFilteredIndustries === 0 ? (
-            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+                <div className="pf-empty-state">
               <p>No industries match your search</p>
               <button
                 onClick={() => setSearchQuery('')}
-                className="mt-2 text-pink-600 dark:text-pink-400 hover:underline"
+                    className="pf-button pf-button--secondary"
               >
                 Clear search
               </button>
@@ -358,26 +329,22 @@ export default function IconPreview() {
               })}
             </div>
           )}
-        </div>
-      )}
+            </PageSection>
+          )}
 
-      {selectedTab === 'themes' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">
-              {searchQuery ? `Found ${sortedThemeEntries.length} theme(s)` : 'All Themes and Subthemes'}
-            </h2>
-            <div className="text-sm text-neutral-500 dark:text-neutral-400">
-              {themeEntries.length} themes, {totalSubthemes} subthemes
-            </div>
-          </div>
+          {selectedTab === 'themes' && (
+            <PageSection>
+              <PageSectionHeader
+                title={searchQuery ? `Found ${sortedThemeEntries.length} theme(s)` : 'All Themes and Subthemes'}
+                aside={`${themeEntries.length} themes · ${totalSubthemes} subthemes`}
+              />
 
           {sortedThemeEntries.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+                <div className="pf-empty-state">
               <p>No themes match your search</p>
               <button
                 onClick={() => setSearchQuery('')}
-                className="mt-2 text-pink-600 dark:text-pink-400 hover:underline"
+                    className="pf-button pf-button--secondary"
               >
                 Clear search
               </button>
@@ -436,8 +403,10 @@ export default function IconPreview() {
               })}
             </div>
           )}
-        </div>
-      )}
-    </div>
+            </PageSection>
+          )}
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   );
 }

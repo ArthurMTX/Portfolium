@@ -1,10 +1,24 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { AlertTriangle, Database, Search, ExternalLink, TrendingUp, Tag, Loader, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
+import { AlertTriangle, Search, ExternalLink, TrendingUp, Tag, Loader, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api, { type AssetCleanupCandidateDTO, type AssetThemeDTO, type DeleteInvalidProviderAssetsResponseDTO } from '@/api'
 import { getThemeHexColor, getThemeIcon } from '@/shared/lib/themeUtils'
 import AssetLogo from '@/shared/components/AssetLogo'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageSection,
+  PageSectionHeader,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import '@/shared/design/pages/devtools.css'
 
 interface Asset {
   id: number
@@ -284,65 +298,43 @@ export default function AssetsList() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-            <Database className="text-blue-600" size={28} />
-            Assets Database
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-            {filteredAssets.length} of {assets.length} assets
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleDeleteInvalidProviderAssets}
-          disabled={cleanupRunning || sortedAssets.length === 0}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          title="Validate visible assets with Yahoo Finance and delete not-found rows that have no user references"
-        >
-          {cleanupRunning ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
-          {cleanupRunning ? cleanupProgress || 'Working...' : 'Delete Not-Found Tickers'}
-        </button>
-      </div>
+    <PageShell className="devtools-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Developer Tools"
+          title="Assets Database"
+          description="Browse database assets, inspect taxonomy metadata, and run provider cleanup checks."
+        />
+        <PageSummaryPanel
+          lead={`${filteredAssets.length} of ${assets.length} assets`}
+          description={`Sorted by ${sortKey} ${sortDir}`}
+        />
+      </PageHeader>
 
-      {(cleanupMessage || cleanupError) && (
-        <div className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${
-          cleanupError
-            ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200'
-            : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200'
-        }`}>
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <span>{cleanupError || cleanupMessage}</span>
-        </div>
-      )}
+      <PageMetricStrip label="Asset database totals">
+        <PageMetric label="Visible" value={filteredAssets.length} />
+        <PageMetric label="Total" value={assets.length} />
+        <PageMetric label="Types" value={uniqueTypes.length} />
+        <PageMetric label="Currencies" value={uniqueCurrencies.length} />
+      </PageMetricStrip>
 
-      {/* Filters */}
-      <div className="card p-6 space-y-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500" size={20} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by symbol, name, sector, industry, or theme..."
-            className="w-full pl-12 pr-4 py-3 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          />
-        </div>
-
-        {/* Filter dropdowns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              Asset Type
+      <PageControls
+        label="Asset database filters"
+        start={
+          <>
+            <label className="pf-search devtools-page__search">
+              <Search aria-hidden="true" size={18} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by symbol, name, sector, industry, or theme..."
+              />
             </label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full px-4 py-2 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="pf-select"
             >
               <option value="all">All Types</option>
               {uniqueTypes.map((type) => (
@@ -351,16 +343,10 @@ export default function AssetsList() {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              Currency
-            </label>
             <select
               value={filterCurrency}
               onChange={(e) => setFilterCurrency(e.target.value)}
-              className="w-full px-4 py-2 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="pf-select"
             >
               <option value="all">All Currencies</option>
               {uniqueCurrencies.map((currency) => (
@@ -369,13 +355,35 @@ export default function AssetsList() {
                 </option>
               ))}
             </select>
-          </div>
+          </>
+        }
+        end={
+        <button
+          type="button"
+          onClick={handleDeleteInvalidProviderAssets}
+          disabled={cleanupRunning || sortedAssets.length === 0}
+            className="pf-button pf-button--danger"
+          title="Validate visible assets with Yahoo Finance and delete not-found rows that have no user references"
+        >
+          {cleanupRunning ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
+          {cleanupRunning ? cleanupProgress || 'Working...' : 'Delete Not-Found Tickers'}
+        </button>
+        }
+      />
+
+      {(cleanupMessage || cleanupError) && (
+        <div className={`devtools-page__message ${cleanupError ? 'is-error' : 'is-info'}`}>
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>{cleanupError || cleanupMessage}</span>
         </div>
-      </div>
+      )}
+
+      <PageMainGrid single>
+        <PageMainColumn>
 
       {/* Loading State */}
       {loading && (
-        <div className="card p-12 text-center">
+            <div className="pf-empty-state">
           <Loader className="animate-spin mx-auto mb-4 text-blue-600" size={48} />
           <p className="text-neutral-600 dark:text-neutral-400">Loading assets...</p>
         </div>
@@ -383,9 +391,10 @@ export default function AssetsList() {
 
       {/* Assets List */}
       {!loading && (
-        <div className="space-y-3">
-          <div className="card p-3">
-            <div className="flex flex-wrap items-center gap-2">
+            <PageSection>
+              <PageSectionHeader title="Assets" description="Sort visible assets and open the debugger for a focused symbol." />
+              <div className="devtools-page__panel">
+                <div className="devtools-page__filter-row">
               <span className="mr-1 text-xs font-medium uppercase text-neutral-500 dark:text-neutral-400">Sort</span>
               <SortButton column="id">ID</SortButton>
               <SortButton column="symbol">Symbol</SortButton>
@@ -402,14 +411,14 @@ export default function AssetsList() {
           </div>
 
           {filteredAssets.length === 0 ? (
-            <div className="card px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
+                <div className="pf-empty-state">
               No assets found matching your filters
             </div>
           ) : (
             sortedAssets.map((asset) => (
               <article
                 key={asset.id}
-                className="card p-4 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                    className="devtools-page__item-card"
               >
                 <div className="grid gap-4 lg:grid-cols-[minmax(240px,1.2fr)_minmax(220px,1fr)_minmax(260px,1.4fr)_minmax(160px,auto)] lg:items-start">
                   <div className="flex min-w-0 items-start gap-3">
@@ -478,9 +487,11 @@ export default function AssetsList() {
               </article>
             ))
           )}
-        </div>
+            </PageSection>
       )}
-    </div>
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   )
 }
 

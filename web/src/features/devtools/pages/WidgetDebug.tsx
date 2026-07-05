@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { 
-  Layers, 
   Search, 
   Grid3x3,
   List,
@@ -18,6 +17,20 @@ import {
 import { getAllWidgets, getWidgetsGroupedByCategory } from '@/features/dashboard/components/widgets/registry'
 import { WidgetConfig, WidgetCategory } from '@/features/dashboard/components/types'
 import { PositionDTO } from '@/api'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageSection,
+  PageSectionHeader,
+  PageShell,
+  PageSummaryPanel,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
+import '@/shared/design/pages/devtools.css'
 
 // Mock data for widget preview
 const mockMetrics = {
@@ -353,32 +366,32 @@ export default function WidgetDebug() {
   ]
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Layers className="text-purple-600" size={28} />
-            Widget Debugger
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1 text-sm sm:text-base">
-            Test all dashboard widgets with translations and mock data
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-            {filteredWidgets.length} widgets
-          </span>
-        </div>
-      </div>
+    <PageShell className="devtools-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker="Developer Tools"
+          title="Widget Debugger"
+          description="Test all dashboard widgets with translations, mock data, and configuration details."
+        />
+        <PageSummaryPanel
+          lead={`${filteredWidgets.length} widgets`}
+          description={`Current language: ${i18n.language.toUpperCase()}`}
+        />
+      </PageHeader>
+
+      <PageMetricStrip label="Widget registry totals">
+        <PageMetric label="All Widgets" value={allWidgets.length} />
+        <PageMetric label="Metrics" value={widgetsByCategory.metrics?.length || 0} />
+        <PageMetric label="Data" value={widgetsByCategory.data?.length || 0} />
+        <PageMetric label="Insights" value={widgetsByCategory.insights?.length || 0} />
+      </PageMetricStrip>
 
       {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Info className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={20} />
-          <div className="text-sm text-blue-800 dark:text-blue-200">
-            <p className="font-medium mb-1">About this tool</p>
-            <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
+      <div className="devtools-page__message is-info">
+        <Info aria-hidden="true" size={20} />
+        <div>
+          <strong>About this tool</strong>
+          <ul>
               <li>All widgets are rendered with mock data in preview mode</li>
               <li>Check translations, layouts, and visual appearance</li>
               <li>Current language: <strong>{i18n.language.toUpperCase()}</strong></li>
@@ -386,119 +399,113 @@ export default function WidgetDebug() {
             </ul>
           </div>
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 space-y-4">
-        {/* Search and View Mode */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
+      <PageControls
+        label="Widget debugger controls"
+        start={
+          <>
+            <label className="pf-search devtools-page__search">
+              <Search aria-hidden="true" size={18} />
             <input
               type="text"
               placeholder="Search widgets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
-          </div>
-          <div className="flex gap-2">
+            </label>
+            <div className="devtools-page__filter-row">
             <button
+                type="button"
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 rounded-lg transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
-              }`}
+                className={`devtools-page__segment ${viewMode === 'grid' ? 'is-active' : ''}`}
             >
               <Grid3x3 size={20} />
             </button>
             <button
+                type="button"
               onClick={() => setViewMode('list')}
-              className={`px-3 py-2 rounded-lg transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
-              }`}
+                className={`devtools-page__segment ${viewMode === 'list' ? 'is-active' : ''}`}
             >
               <List size={20} />
             </button>
           </div>
-        </div>
-
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Filter size={16} className="text-neutral-600 dark:text-neutral-400" />
-            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              Filter:
-            </span>
-          </div>
+          </>
+        }
+        end={
+          <>
+            <Filter size={16} />
           {categoryOptions.map((option) => (
             <button
+                type="button"
               key={option.value}
               onClick={() => setCategoryFilter(option.value)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                categoryFilter === option.value
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
-              }`}
+                className={`devtools-page__segment ${categoryFilter === option.value ? 'is-active' : ''}`}
             >
               {option.label} ({option.count})
             </button>
           ))}
-        </div>
+          </>
+        }
+      />
 
-        {/* Toggle Options */}
-        <div className="flex flex-wrap gap-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+      <PageControls
+        label="Widget debugger actions"
+        start={
+          <>
           <button
+              type="button"
             onClick={() => setShowTranslationKeys(!showTranslationKeys)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              showTranslationKeys
-                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
-            }`}
+              className={`devtools-page__segment ${showTranslationKeys ? 'is-active' : ''}`}
           >
             {showTranslationKeys ? <Eye size={16} /> : <EyeOff size={16} />}
             Show Translation Keys
           </button>
           <button
+              type="button"
             onClick={expandAll}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
+              className="devtools-page__segment"
           >
             <ChevronDown size={16} />
             Expand All
           </button>
           <button
+              type="button"
             onClick={collapseAll}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
+              className="devtools-page__segment"
           >
             <ChevronUp size={16} />
             Collapse All
           </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      {/* Widget Display */}
-      {filteredWidgets.length === 0 ? (
-        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-8 text-center">
-          <Clock size={48} className="mx-auto text-neutral-400 mb-3" />
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-1">
-            No widgets found
-          </h3>
-          <p className="text-neutral-600 dark:text-neutral-400">
-            Try adjusting your search or filter criteria
-          </p>
-        </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredWidgets.map((widget) => renderWidgetInfo(widget))}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredWidgets.map((widget) => renderWidgetInfo(widget))}
-        </div>
-      )}
-    </div>
+      <PageMainGrid single>
+        <PageMainColumn>
+          <PageSection>
+            <PageSectionHeader
+              title="Widget Display"
+              description="Expand a widget to inspect translation keys, configuration, and live preview."
+              aside={`${filteredWidgets.length} results`}
+            />
+            {filteredWidgets.length === 0 ? (
+              <div className="pf-empty-state">
+                <Clock size={48} />
+                <h3>No widgets found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+              </div>
+            ) : viewMode === 'grid' ? (
+              <div className="devtools-page__wide-card-grid">
+                {filteredWidgets.map((widget) => renderWidgetInfo(widget))}
+              </div>
+            ) : (
+              <div className="devtools-page__tool-grid">
+                {filteredWidgets.map((widget) => renderWidgetInfo(widget))}
+              </div>
+            )}
+          </PageSection>
+        </PageMainColumn>
+      </PageMainGrid>
+    </PageShell>
   )
 }
