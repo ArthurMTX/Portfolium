@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import AuthLanguageSwitcher from '@/features/auth/components/AuthLanguageSwitcher'
+import AuthBrandCollage from '@/features/auth/components/AuthBrandCollage'
 import '@/shared/design/pages/auth.css'
 
 interface AuthPageShellProps {
@@ -19,7 +20,15 @@ export default function AuthPageShell({
 
   return (
     <div className="auth-shell">
-      <div className="auth-shell__inner">
+      <aside className="auth-brand" aria-hidden="true">
+        <div className="auth-brand__glow auth-brand__glow--1" />
+        <div className="auth-brand__glow auth-brand__glow--2" />
+        <div className="auth-brand__mesh" />
+
+        <AuthBrandCollage />
+      </aside>
+
+      <div className="auth-shell__panel">
         <div className="auth-shell__toolbar">
           <AuthLanguageSwitcher darkMode={darkMode} />
           <button
@@ -32,7 +41,9 @@ export default function AuthPageShell({
           </button>
         </div>
 
-        {children}
+        <div className="auth-shell__inner">
+          {children}
+        </div>
       </div>
     </div>
   )

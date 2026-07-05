@@ -1,9 +1,631 @@
 .auth-shell {
   display: grid;
+  grid-template-columns: minmax(0, 58fr) minmax(25rem, 42fr);
+  align-items: stretch;
+  justify-items: stretch;
   min-height: 100vh;
-  place-items: center;
-  background: var(--pf-canvas);
+  overflow: hidden;
+  padding: 0;
+  background:
+    radial-gradient(48rem 34rem at 18% 14%, color-mix(in srgb, var(--pf-accent) 9%, transparent), transparent 64%),
+    radial-gradient(34rem 28rem at 48% 88%, color-mix(in srgb, #8b5cf6 7%, transparent), transparent 68%),
+    linear-gradient(105deg, var(--pf-canvas-muted) 0%, color-mix(in srgb, var(--pf-canvas-muted) 68%, var(--pf-canvas)) 48%, var(--pf-canvas) 74%);
   color: var(--pf-ink);
+}
+
+.auth-shell::before,
+.auth-shell::after {
+  content: none;
+}
+
+.dark .auth-shell {
+  background:
+    radial-gradient(48rem 34rem at 18% 14%, color-mix(in srgb, var(--pf-accent) 14%, transparent), transparent 64%),
+    radial-gradient(34rem 28rem at 48% 88%, color-mix(in srgb, #8b5cf6 12%, transparent), transparent 68%),
+    linear-gradient(105deg, var(--pf-canvas-muted) 0%, color-mix(in srgb, var(--pf-surface) 58%, var(--pf-canvas)) 48%, var(--pf-canvas) 74%);
+}
+
+/* ---------- Left: branding panel ---------- */
+
+.auth-brand {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  align-items: start;
+  justify-items: start;
+  min-height: 0;
+  background:
+    radial-gradient(17rem 13rem at 25% 23%, rgba(255, 239, 216, 0.86), transparent 62%),
+    radial-gradient(22rem 18rem at 78% 84%, rgba(28, 31, 38, 0.48), transparent 60%),
+    linear-gradient(136deg, #fb4c0a 0%, #ff842f 36%, #cf3c12 60%, #363942 100%);
+  padding: 0;
+}
+
+.dark .auth-brand {
+  background:
+    radial-gradient(17rem 13rem at 25% 23%, rgba(255, 133, 54, 0.42), transparent 62%),
+    radial-gradient(22rem 18rem at 78% 84%, rgba(0, 0, 0, 0.68), transparent 60%),
+    linear-gradient(136deg, #8f2306 0%, #d64a12 36%, #652316 60%, #101217 100%);
+}
+
+.auth-brand__glow {
+  display: none;
+}
+
+.auth-brand__glow--1 {
+  top: -10%;
+  left: -8%;
+  width: 26rem;
+  height: 26rem;
+  background: radial-gradient(circle, var(--pf-accent) 0%, transparent 68%);
+  opacity: 0.22;
+  animation: auth-drift-a 22s ease-in-out infinite alternate;
+}
+
+.auth-brand__glow--2 {
+  bottom: -14%;
+  right: -10%;
+  width: 22rem;
+  height: 22rem;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+  opacity: 0.16;
+  animation: auth-drift-b 26s ease-in-out infinite alternate;
+}
+
+.auth-brand__mesh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.86;
+  background:
+    linear-gradient(112deg, transparent 0 20%, rgba(255, 255, 255, 0.44) 21%, transparent 26% 100%),
+    repeating-linear-gradient(138deg, rgba(255, 255, 255, 0.13) 0 0.08rem, transparent 0.08rem 2rem);
+}
+
+/* ---------- Left: dashboard card collage ---------- */
+
+.auth-mock {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.auth-mock-card {
+  position: absolute;
+  display: grid;
+  gap: 0.66rem;
+  border: 1px solid color-mix(in srgb, var(--pf-line) 34%, transparent);
+  border-radius: 1.05rem;
+  background: color-mix(in srgb, var(--pf-surface-raised) 92%, transparent);
+  box-shadow:
+    0 1rem 2.9rem rgba(23, 21, 28, 0.1),
+    0 0.3rem 0.95rem rgba(23, 21, 28, 0.035),
+    inset 0 1px 0 color-mix(in srgb, var(--pf-surface-raised) 92%, transparent);
+  padding: 1.05rem 1.14rem;
+  color: var(--pf-ink);
+  transform: rotate(var(--auth-rot, 0deg));
+}
+
+.dark .auth-mock-card {
+  border-color: color-mix(in srgb, var(--pf-line) 58%, transparent);
+  background: color-mix(in srgb, var(--pf-surface-raised) 86%, transparent);
+  box-shadow:
+    0 1rem 2.9rem rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--pf-ink);
+}
+
+.auth-mock-card--portfolio {
+  top: 8%;
+  left: -12%;
+  z-index: 2;
+  width: 43%;
+  min-height: 20.8rem;
+  --auth-rot: -13deg;
+}
+
+.auth-mock-card--movers {
+  top: -1%;
+  left: 33%;
+  z-index: 5;
+  width: 39%;
+  min-height: 10.4rem;
+  --auth-rot: -8deg;
+}
+
+.auth-mock-card--allocation {
+  top: 29%;
+  left: 45%;
+  z-index: 3;
+  width: 44%;
+  min-height: 10.6rem;
+  --auth-rot: -7deg;
+}
+
+.auth-mock-card--watchlist {
+  top: 49%;
+  left: -7%;
+  z-index: 4;
+  width: 39%;
+  min-height: 12.4rem;
+  --auth-rot: -8deg;
+}
+
+.auth-mock-card--flower {
+  top: 42%;
+  left: 36%;
+  z-index: 7;
+  width: 8.2rem;
+  height: 7.8rem;
+  place-items: center;
+  padding: 0;
+  --auth-rot: -7deg;
+}
+
+.auth-mock-card--overview {
+  top: 61%;
+  left: 32%;
+  z-index: 4;
+  width: 29%;
+  min-height: 11.7rem;
+  --auth-rot: -8deg;
+}
+
+.auth-mock-card--holdings {
+  top: 76%;
+  left: 0%;
+  z-index: 3;
+  width: 43%;
+  min-height: 15rem;
+  --auth-rot: -8deg;
+}
+
+.auth-mock-card--activity {
+  top: 48%;
+  left: 63%;
+  z-index: 5;
+  width: 34%;
+  min-height: 13.8rem;
+  --auth-rot: -7deg;
+}
+
+.auth-mock-card--performance {
+  top: 78%;
+  left: 44%;
+  z-index: 5;
+  width: 29%;
+  min-height: 10.2rem;
+  --auth-rot: -8deg;
+}
+
+.auth-mock-card--news {
+  top: 71%;
+  left: 66%;
+  z-index: 4;
+  width: 35%;
+  min-height: 13.9rem;
+  --auth-rot: -8deg;
+}
+
+.auth-mock-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.auth-mock-logo {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+}
+
+.auth-mock-brand {
+  color: var(--pf-ink);
+  font-size: 1.42rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.auth-mock-menu {
+  position: absolute;
+  top: 0.82rem;
+  right: 1rem;
+  color: var(--pf-ink);
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0.08rem;
+  line-height: 1;
+}
+
+.auth-mock-title,
+.auth-mock-label {
+  margin: 0;
+  color: var(--pf-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+.auth-mock-title strong {
+  color: var(--pf-accent);
+  font-weight: 800;
+}
+
+.auth-mock-label {
+  margin-top: 1rem;
+  font-size: 0.86rem;
+}
+
+.auth-mock-value {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: 1.78rem;
+  font-weight: 860;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.auth-mock-value--sm {
+  color: var(--pf-accent);
+  font-size: 1.6rem;
+}
+
+.auth-mock-delta {
+  color: var(--pf-accent);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.auth-mock-delta--up {
+  color: var(--pf-accent);
+}
+
+.auth-mock-delta--down {
+  color: var(--pf-danger);
+}
+
+.auth-mock-chart {
+  width: 100%;
+  height: 1.85rem;
+  overflow: visible;
+}
+
+.auth-mock-chart--portfolio {
+  height: 6.4rem;
+  margin-top: 0.82rem;
+}
+
+.auth-mock-chart--performance {
+  height: 4.2rem;
+  align-self: end;
+}
+
+.auth-mock-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--pf-muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.auth-mock-list {
+  display: grid;
+  gap: 0.76rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-mock-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+}
+
+.auth-mock-ticker-name {
+  flex: 1;
+  color: var(--pf-ink);
+  font-size: 0.86rem;
+  font-weight: 770;
+}
+
+.auth-mock-ticker {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.45rem;
+  object-fit: contain;
+  background: var(--pf-surface);
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pf-line) 38%, transparent);
+}
+
+.auth-mock-list--two-line {
+  gap: 0.9rem;
+}
+
+.auth-mock-list--two-line li {
+  gap: 0.72rem;
+}
+
+.auth-mock-list--two-line span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.18rem;
+}
+
+.auth-mock-list--two-line b,
+.auth-mock-mini-markets b,
+.auth-mock-activity strong,
+.auth-mock-news-item b {
+  color: var(--pf-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.14;
+}
+
+.auth-mock-list--two-line small,
+.auth-mock-mini-markets small,
+.auth-mock-activity small,
+.auth-mock-news-item small {
+  color: var(--pf-muted);
+  font-size: 0.63rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.auth-mock-list--two-line strong {
+  display: grid;
+  justify-items: end;
+  color: var(--pf-ink);
+  font-size: 0.72rem;
+  font-weight: 790;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.auth-mock-list--two-line em,
+.auth-mock-mini-markets em {
+  font-size: 0.63rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.auth-mock-allocation {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  align-items: center;
+  gap: 0.82rem;
+}
+
+.auth-mock-donut {
+  justify-self: center;
+  width: 6.55rem;
+  height: 6.55rem;
+  border-radius: 50%;
+  background: conic-gradient(
+    #a55fb4 0% 54%,
+    var(--pf-accent) 54% 70%,
+    color-mix(in srgb, var(--pf-accent) 72%, #ffffff) 70% 83%,
+    color-mix(in srgb, var(--pf-accent) 38%, #ffffff) 83% 100%
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.72rem), #000 calc(100% - 1.72rem));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.72rem), #000 calc(100% - 1.72rem));
+}
+
+.auth-mock-legend {
+  display: grid;
+  gap: 0.76rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--pf-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.auth-mock-legend li {
+  display: grid;
+  grid-template-columns: 0.72rem 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.auth-mock-legend strong {
+  color: var(--pf-ink);
+  font-weight: 720;
+}
+
+.auth-mock-dot {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+}
+
+.auth-mock-dot--stocks { background: var(--pf-accent); }
+.auth-mock-dot--etfs { background: #a55fb4; }
+.auth-mock-dot--crypto { background: color-mix(in srgb, var(--pf-accent) 78%, #ffffff); }
+.auth-mock-dot--cash { background: color-mix(in srgb, var(--pf-accent) 38%, #ffffff); }
+
+.auth-flower {
+  display: block;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 32%;
+  object-fit: contain;
+}
+
+.auth-flower--brand {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.auth-flower--large {
+  width: 5.35rem;
+  height: 5.35rem;
+}
+
+.auth-mock-mini-markets,
+.auth-mock-activity {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-mock-mini-markets li {
+  display: grid;
+  grid-template-columns: 4.45rem 1fr;
+  align-items: end;
+  gap: 0.62rem;
+}
+
+.auth-mock-mini-markets span {
+  display: grid;
+  gap: 0.04rem;
+}
+
+.auth-mock-mini-markets .auth-mock-chart {
+  height: 1.9rem;
+}
+
+.auth-mock-profit {
+  margin: -0.34rem 0 0;
+  color: var(--pf-accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.auth-mock-activity {
+  gap: 0.86rem;
+}
+
+.auth-mock-activity li {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr auto;
+  align-items: start;
+  gap: 0.62rem;
+}
+
+.auth-mock-activity .auth-flower {
+  width: 1.36rem;
+  height: 1.36rem;
+  padding: 0.2rem;
+  border-radius: 0.45rem;
+  background: var(--pf-accent-soft);
+  box-sizing: content-box;
+}
+
+.auth-mock-activity li > span:not(.auth-flower) {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.auth-mock-activity b {
+  color: var(--pf-accent);
+  font-size: 0.66rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.auth-mock-activity time {
+  color: var(--pf-muted);
+  font-size: 0.66rem;
+  font-weight: 680;
+}
+
+.auth-mock-news-item {
+  display: grid;
+  grid-template-columns: 1fr 4.7rem;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.auth-mock-news-item span {
+  display: grid;
+  gap: 0.56rem;
+}
+
+.auth-mock-news-item b {
+  font-size: 0.8rem;
+  line-height: 1.34;
+}
+
+.auth-mock-news-thumb {
+  display: grid;
+  place-items: center;
+  width: 4.7rem;
+  aspect-ratio: 1 / 0.82;
+  overflow: hidden;
+  border-radius: 0.78rem;
+  background: var(--pf-surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pf-line) 38%, transparent);
+}
+
+.auth-mock-news-thumb .auth-mock-ticker {
+  width: 3.35rem;
+  height: 3.35rem;
+  border-radius: 0.72rem;
+}
+
+.auth-mock-news-thumb--nvidia {
+  background:
+    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.75), transparent 12%),
+    linear-gradient(135deg, #08090b 0%, #15191a 54%, #5ca912 100%);
+}
+
+.auth-mock-news-thumb--fed {
+  position: relative;
+  background:
+    linear-gradient(#9bc8f1 0 42%, #f8fafc 42% 75%, #65a65c 75% 100%);
+}
+
+.auth-mock-news-thumb--fed::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: 1.05rem;
+  height: 3rem;
+  background:
+    linear-gradient(90deg, transparent 0 9%, #cfd7e2 9% 15%, transparent 15% 25%, #cfd7e2 25% 31%, transparent 31% 41%, #cfd7e2 41% 47%, transparent 47% 57%, #cfd7e2 57% 63%, transparent 63% 73%, #cfd7e2 73% 79%, transparent 79% 100%),
+    linear-gradient(#e9edf3 0 0);
+  clip-path: polygon(0 100%, 100% 100%, 92% 34%, 50% 0, 8% 34%);
+}
+
+@keyframes auth-drift-a {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(2%, 3%) scale(1.08);
+  }
+}
+
+@keyframes auth-drift-b {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-3%, -2%) scale(1.1);
+  }
+}
+
+/* ---------- Right: form panel ---------- */
+
+.auth-shell__panel {
+  display: grid;
+  place-items: center;
   padding: clamp(1rem, 2.5vw, 2rem);
 }
 
@@ -11,6 +633,18 @@
   width: min(100%, 27rem);
   display: grid;
   gap: 0.85rem;
+  animation: auth-card-in 500ms ease-out both;
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-shell__toolbar {
@@ -23,6 +657,12 @@
 .auth-shell__theme {
   border: 1px solid var(--pf-line);
   background: var(--pf-surface);
+  transition: transform var(--pf-transition-fast), border-color var(--pf-transition-fast), background var(--pf-transition-fast);
+}
+
+.auth-shell__theme:hover {
+  transform: translateY(-1px);
+  border-color: var(--pf-accent-border);
 }
 
 .auth-language {
@@ -105,10 +745,10 @@
   display: grid;
   gap: 1rem;
   border: 1px solid var(--pf-line);
-  border-radius: var(--pf-radius-md);
+  border-radius: var(--pf-radius-lg);
   background: var(--pf-surface-raised);
-  box-shadow: var(--pf-shadow-card);
-  padding: clamp(1rem, 3vw, 1.35rem);
+  box-shadow: var(--pf-shadow-menu);
+  padding: clamp(1.25rem, 3vw, 1.75rem);
   font-variant-numeric: tabular-nums lining-nums;
 }
 
@@ -352,13 +992,299 @@
   color: var(--pf-ink);
 }
 
-@media (max-width: 480px) {
+/* ---------- Portfolium login composition ---------- */
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 56fr) minmax(24rem, 44fr);
+  align-items: stretch;
+  justify-items: stretch;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 0;
+  background:
+    radial-gradient(42rem 32rem at 12% 8%, var(--pf-accent-soft), transparent 62%),
+    linear-gradient(90deg, var(--pf-canvas-muted) 0%, var(--pf-canvas) 58%, var(--pf-canvas) 100%);
+  color: var(--pf-ink);
+}
+
+.auth-shell::before,
+.auth-shell::after {
+  content: none;
+}
+
+.dark .auth-shell {
+  background:
+    radial-gradient(42rem 32rem at 12% 8%, var(--pf-accent-soft), transparent 62%),
+    linear-gradient(90deg, var(--pf-canvas-muted) 0%, var(--pf-canvas) 58%, var(--pf-canvas) 100%);
+}
+
+.auth-brand {
+  position: relative;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, transparent 0%, transparent 72%, color-mix(in srgb, var(--pf-canvas) 48%, transparent) 100%),
+    radial-gradient(36rem 30rem at 28% 20%, color-mix(in srgb, var(--pf-accent) 10%, transparent), transparent 68%),
+    radial-gradient(30rem 24rem at 76% 82%, color-mix(in srgb, #8b5cf6 9%, transparent), transparent 64%);
+  padding: clamp(1.1rem, 2.2vw, 2rem);
+}
+
+.dark .auth-brand {
+  background:
+    linear-gradient(90deg, transparent 0%, transparent 72%, color-mix(in srgb, var(--pf-canvas) 52%, transparent) 100%),
+    radial-gradient(36rem 30rem at 28% 20%, color-mix(in srgb, var(--pf-accent) 15%, transparent), transparent 68%),
+    radial-gradient(30rem 24rem at 76% 82%, color-mix(in srgb, #8b5cf6 13%, transparent), transparent 64%);
+}
+
+.auth-brand::after {
+  content: none;
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  z-index: 3;
+  width: clamp(5rem, 10vw, 10rem);
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--pf-canvas) 72%, transparent) 72%, var(--pf-canvas) 100%);
+}
+
+.auth-brand__mesh {
+  opacity: 0.56;
+  background:
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--pf-line) 16%, transparent) 54%, transparent 100%),
+    radial-gradient(color-mix(in srgb, var(--pf-line) 20%, transparent) 1px, transparent 1px);
+  background-size: auto, 10px 10px;
+}
+
+.auth-mock {
+  width: min(100%, 53rem);
+  height: min(86vh, 47rem);
+  min-height: 38rem;
+  transform: translateX(0.7rem) rotate(-2deg);
+  transform-origin: center;
+}
+
+.auth-mock-card {
+  border-color: color-mix(in srgb, var(--pf-line) 34%, transparent);
+  border-radius: 1.2rem;
+  background: color-mix(in srgb, var(--pf-surface-raised) 88%, transparent);
+  box-shadow:
+    0 1.4rem 3.8rem rgba(23, 21, 28, 0.12),
+    0 0.4rem 1.1rem rgba(23, 21, 28, 0.04),
+    inset 0 1px 0 color-mix(in srgb, var(--pf-surface-raised) 90%, transparent);
+  padding: 1rem 1.12rem;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.dark .auth-mock-card {
+  border-color: color-mix(in srgb, var(--pf-line) 54%, transparent);
+  background: color-mix(in srgb, var(--pf-surface-raised) 82%, transparent);
+  box-shadow:
+    0 1.4rem 3.8rem rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.auth-mock-card--portfolio {
+  top: 3%;
+  left: 2%;
+  z-index: 3;
+  width: 42%;
+  min-height: 20.4rem;
+  --auth-rot: -6deg;
+}
+
+.auth-mock-card--movers {
+  top: 2%;
+  left: 48%;
+  z-index: 5;
+  width: 34%;
+  min-height: 10.8rem;
+  --auth-rot: -4deg;
+}
+
+.auth-mock-card--allocation {
+  top: 28.5%;
+  left: 51%;
+  z-index: 4;
+  width: 43%;
+  min-height: 11.3rem;
+  --auth-rot: -4deg;
+}
+
+.auth-mock-card--watchlist {
+  top: 43.5%;
+  left: 7%;
+  z-index: 6;
+  width: 34%;
+  min-height: 12.4rem;
+  --auth-rot: -5deg;
+}
+
+.auth-mock-card--flower {
+  top: 42.8%;
+  left: 42.4%;
+  z-index: 7;
+  width: 7.1rem;
+  height: 6.8rem;
+  --auth-rot: -4deg;
+}
+
+.auth-mock-card--flower .auth-flower--large {
+  width: 4.55rem;
+  height: 4.55rem;
+}
+
+.auth-mock-card--overview {
+  top: 59.5%;
+  left: 41%;
+  z-index: 5;
+  width: 26%;
+  min-height: 11.4rem;
+  --auth-rot: -5deg;
+}
+
+.auth-mock-card--holdings {
+  top: 75%;
+  left: 8%;
+  z-index: 3;
+  width: 36%;
+  min-height: 14.9rem;
+  --auth-rot: -5deg;
+}
+
+.auth-mock-card--activity {
+  top: 51.5%;
+  left: 69%;
+  z-index: 4;
+  width: 30%;
+  min-height: 13.8rem;
+  --auth-rot: -5deg;
+}
+
+.auth-mock-card--performance {
+  top: 84.5%;
+  left: 47%;
+  z-index: 5;
+  width: 25%;
+  min-height: 9.8rem;
+  --auth-rot: -5deg;
+}
+
+.auth-mock-card--news {
+  top: 76.5%;
+  left: 73%;
+  z-index: 4;
+  width: 31%;
+  min-height: 13.4rem;
+  --auth-rot: -6deg;
+}
+
+.auth-shell__panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  background: var(--pf-canvas);
+  padding: clamp(1.25rem, 3vw, 2.3rem);
+}
+
+.auth-shell__panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(-5rem, -5vw, -3rem);
+  width: clamp(5rem, 7vw, 7.5rem);
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--pf-canvas) 62%, transparent) 68%, var(--pf-canvas) 100%);
+}
+
+.auth-shell__toolbar {
+  position: relative;
+  z-index: 2;
+}
+
+.auth-shell__inner {
+  place-self: center;
+  width: min(100%, 26rem);
+}
+
+.auth-card {
+  border-radius: 1.1rem;
+  background: color-mix(in srgb, var(--pf-surface-raised) 94%, transparent);
+  box-shadow: 0 1.25rem 3.5rem rgba(23, 21, 28, 0.09);
+}
+
+.dark .auth-card {
+  box-shadow: 0 1.25rem 3.5rem rgba(0, 0, 0, 0.34);
+}
+
+.auth-mock-activity li {
+  grid-template-columns: 1.8rem 1fr auto;
+}
+
+.auth-mock-activity .auth-mock-ticker {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.42rem;
+  background: var(--pf-surface-raised);
+}
+
+.auth-mock-activity li > span {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.auth-mock-news-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.auth-mock-news-thumb--nvidia,
+.auth-mock-news-thumb--fed {
+  background: var(--pf-surface);
+}
+
+.auth-mock-news-thumb--fed::before {
+  content: none;
+}
+
+@media (max-width: 900px) {
   .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    display: none;
+  }
+
+  .auth-shell__panel {
+    min-height: 100vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-shell__panel {
     align-items: start;
     padding: 0.85rem;
   }
 
   .auth-card {
     padding: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-brand__glow--1,
+  .auth-brand__glow--2,
+  .auth-mock-card,
+  .auth-shell__inner {
+    animation: none;
   }
 }
