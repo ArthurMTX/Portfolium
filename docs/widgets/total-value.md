@@ -1,71 +1,62 @@
-# Total Value
+## Total Value
 
-The **Total Value** widget displays the current market value of all the assets you still hold in your portfolio.  
-It provides an instant overview of what your portfolio is worth right now based on the latest market prices.
+### What It Shows
 
----
+Total Value is the current market worth of everything you still hold in this portfolio — the number that answers:
+> "What would my portfolio be worth right now if I sold everything at today's prices?"
 
-## What It Shows
-
-- The **current value** of all open positions  
-- Displayed in your portfolio's currency 
-- Updated dynamically as market prices change  
-
-This metric answers the question:  
-> "What is the total worth of my portfolio if I sell everything now?"
+It's a single figure, shown in your portfolio's base currency, and it updates as market prices move.
 
 ---
 
-## How It's Calculated
+### How It's Calculated
 
-**Formula**
+Total Value adds up the current market value of every open position — quantity held times current price:
 
 $$
 \text{Total Value} = \sum_{i=1}^{n} \left( Q_i \times P_i \right)
 $$
 
-Where:  
-- \( Q_i \) = quantity of asset *i*  
-- \( P_i \) = current price of asset *i*  
+Where:
 
-Additional notes:
+- $Q_i$ = quantity currently held of asset $i$
+- $P_i$ = current market price of asset $i$, converted into your portfolio's base currency
 
-- Only **active positions** are included  
-- Sold positions are **not** part of this calculation  
-- Prices update based on your refresh settings (auto or manual)  
+Only **open positions** count. As soon as a position is fully sold, it drops out of Total Value entirely — its result lives on in [Realized P&L](realized-pnl.md) instead. Prices in a foreign currency are converted to your portfolio's base currency before being summed, so multi-currency portfolios still add up to one coherent number.
 
 ---
 
-## Example
+### Example
 
 | Asset | Quantity | Current Price | Value |
-|-------|----------|----------------|--------|
-| AAPL  | 10       | \$190          | \$1,900 |
-| MSFT  | 5        | \$420          | \$2,100 |
+|---|---|---|---|
+| AAPL | 10 | $190 | $1,900 |
+| MSFT | 5 | $420 | $2,100 |
 
 $$
-\text{Total Value} = 1\,900 + 2\,100 = 4\,000
+\text{Total Value} = 1{,}900 + 2{,}100 = 4{,}000
 $$
 
-The widget would display:
-
-- **$4,000.00** (or € depending on your portfolio settings)
+The widget displays **$4,000.00** (or in your portfolio's own currency).
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Total Value widget is useful for:
+Look at Total Value when you want to:
 
-- Monitoring the overall size of your portfolio  
-- Tracking how your total wealth evolves over time  
-- Assessing market exposure at a glance  
-- Comparing your portfolio value to targets or benchmarks  
+- get an instant read on **how big your portfolio is right now**;
+- track how your **overall wealth** in this portfolio evolves over time;
+- gauge your **market exposure** at a glance;
+- compare your current holdings against a savings goal or benchmark.
+
+For how much you've gained or lost to get here, pair this with [Total Return](total-return.md), [Unrealized P&L](unrealized-pnl.md), and [Realized P&L](realized-pnl.md).
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- If market prices are temporarily unavailable, the widget may show **N/A** until the next refresh
-- Currency formatting follows your portfolio settings
-- Total Value reflects only **open positions** (not realized gains)
+- Reflects **open positions only** — cash you've withdrawn or fully sold holdings don't appear here.
+- If a current price can't be fetched for one of your assets, the widget may show **N/A** until prices refresh rather than silently underestimating your value.
+- Values depend on the freshness of market data; prices may lag slightly outside market hours or for illiquid assets.
+- Currency formatting follows your portfolio's base currency settings.

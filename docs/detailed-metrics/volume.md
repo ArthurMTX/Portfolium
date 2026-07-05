@@ -113,7 +113,7 @@ These metrics are especially useful when:
 ### Notes & Limitations
 
 - **Volume doesn't show direction**  
-  High volume can be bullish or bearish, +-it only measures activity.
+  High volume can be bullish or bearish — it only measures activity.
 - **Average volume smooths volatility**  
   But it may lag during rapidly changing market conditions.
 - **Low-volume stocks behave unpredictably**  

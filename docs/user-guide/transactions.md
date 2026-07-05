@@ -144,6 +144,25 @@ Click any column header to sort by that field:
 2. Click the **Delete** button (trash icon)
 3. Confirm the deletion
 
+## Pending Dividends
+
+When Portfolium detects that one of your holdings paid a dividend, it doesn't record it automatically — it adds it to a **pending dividends** queue for your review first, so you can confirm the amount and add tax details before it becomes part of your history.
+
+### Reviewing a Pending Dividend
+
+1. Open the **Pending Dividends** panel on the Transactions page
+2. For each pending entry, you'll see the asset, payment date, and detected amount
+3. Choose an action:
+    - **Accept** — optionally enter a **tax withheld** amount and any notes, then confirm; this creates a DIVIDEND transaction in your history
+    - **Reject** — dismiss the entry if it doesn't apply to you (for example, a duplicate or incorrect detection)
+
+!!! tip "Why a Review Step?"
+    Dividend amounts and withholding taxes can vary by broker and account type. The review step lets you correct the numbers before they affect your P&L, instead of silently trusting an automated guess.
+
+## Currency & Crypto Conversions
+
+Converting one asset directly into another (for example, swapping USDT for Bitcoin, or one stock for another in an in-kind transfer) is recorded as a **conversion** rather than a separate sell and buy. See [Crypto Conversions](crypto-conversions.md) for the full walkthrough, including how fees and prices on both sides of the trade are handled.
+
 ## Bulk Import/Export
 
 ### Import from CSV
@@ -165,8 +184,10 @@ date,symbol,type,split_ratio,notes
 2024-06-01,AAPL,SPLIT,2:1,2-for-1 stock split
 ```
 
-3. Review the import results
-4. Fix any errors if needed and try again
+3. Portfolium shows a **preview** of the rows it detected before importing anything, so you can catch formatting mistakes early
+4. Start the import — a progress indicator tracks how many rows have been processed
+5. Review the import results: successful rows, and any that failed with an explanation why
+6. Fix any errors in your CSV and re-import just the corrected rows if needed
 
 ### Export to CSV
 

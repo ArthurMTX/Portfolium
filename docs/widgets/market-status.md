@@ -1,112 +1,60 @@
-# Market Status
+## Market Status
 
-The **Market Status** widget shows whether the main stock markets around the world are currently **open or closed**.  
-It helps you quickly see if it's a good time to expect **live price updates** or if markets are already shut.
+### What It Shows
 
----
+Market Status tells you, at a glance, whether the world's major stock markets are open for trading right now — which is exactly the context you need when a price hasn't moved and you're wondering if it's stale data or just a closed exchange. For four regions (USA, Europe, Asia, Oceania), it shows:
 
-## What It Shows
+- a **colored status dot** — green for open, amber for the US pre-market/after-hours windows, red for closed, grey if the status can't be determined;
+- a **status label** next to each region.
 
-For each major region, the widget displays:
+The US gets the most detail, with four possible states: **Pre-market**, **Open**, **After-hours**, and **Closed**. The other three regions are shown simply as **Open** or **Closed**.
 
-- A **colored status dot**:
+### How It's Calculated
 
-    - 🟢 Green → **Open**
-    - 🟠 Amber → **Pre-market / After-hours** (US only)
-    - 🔴 Red → **Closed**
-    - ⚪ Grey → **Unknown** (no data)
+Each region's status is derived from the current time in its local exchange timezone, checked against fixed session windows — there's no holiday calendar or half-day awareness, just weekday + time-of-day rules.
 
-- The **region name**:
+**United States** (America/New_York time), checked against:
 
-    - USA  
-    - Europe  
-    - Asia  
-    - Oceania
+- before $4{:}00$ → **Closed**
+- $4{:}00$–$9{:}30$ → **Pre-market**
+- $9{:}30$–$16{:}00$ → **Open**
+- $16{:}00$–$20{:}00$ → **After-hours**
+- after $20{:}00$ → **Closed**
 
-- A **status label**, such as:
+**Europe** (Europe/London time): **Open** between $8{:}00$ and $16{:}30$, **Closed** otherwise.
 
-    - **Open**
-    - **Pre-market** / **After-hours** (only for US)
-    - **Closed**
-    - **Unknown**  
+**Asia** (Asia/Tokyo time): **Open** between $9{:}00$ and $15{:}00$, **Closed** otherwise.
 
-This gives you, at a glance, the trading status of the main time zones that affect your portfolio.
+**Oceania** (Australia/Sydney time): **Open** between $10{:}00$ and $16{:}00$, **Closed** otherwise.
 
----
+For every region, **Saturdays and Sundays are always Closed**, regardless of the time of day. The widget refreshes this check automatically about once a minute.
 
-## How It Works
+### Example
 
-The widget uses your backend's market health endpoint to determine, for each region:
+Mid-morning in New York on a weekday, you might see:
 
-- **USA**:
-    - Uses **New York time** and official US market hours
-    - Supports 4 detailed states:
-        - **Pre-market** (between 4:00 AM and 9:30 AM ET)
-        - **Open** (regular session between 9:30 AM and 4:00 PM ET)
-        - **After-hours** (between 4:00 PM and 8:00 PM ET)
-        - **Closed** (outside all trading sessions or weekend/day off)
+| Region | Status |
+|---|---|
+| USA | 🟢 Open |
+| Europe | 🔴 Closed |
+| Asia | 🔴 Closed |
+| Oceania | 🔴 Closed |
 
-- **Europe**:
-    - Uses **London time** and typical European market hours
-    - Supports 2 states:
-        - **Open** (between 8:00 AM and 4:30 PM GMT)
-        - **Closed** (outside these hours or weekend/day off)
+A couple of hours earlier, before the US open, you'd instead see USA as 🟠 **Pre-market**, with the other regions reflecting their own local session at that moment.
 
-- **Asia**:
-    - Uses **Tokyo time** and typical Asian market hours
-    - Supports 2 states:
-        - **Open** (between 9:00 AM and 3:00 PM JST, with a lunch break from 11:30 AM to 12:30 PM)
-        - **Closed** (outside these hours or weekend/day off)
+### When To Use It
 
-- **Oceania**:
-    - Uses **Sydney time** and typical Australian market hours
-    - Supports 2 states:
-        - **Open** (between 10:00 AM and 4:00 PM AEST)
-        - **Closed** (outside these hours or weekend/day off)
+Check Market Status when you want to:
 
-The widget:
+- understand why a price or index hasn't updated — it may simply be outside trading hours;
+- time trades, rebalancing, or monitoring around actual market sessions rather than guessing;
+- get a quick view of which of the world's major regions are actively trading right now.
 
-- **Automatically refreshes every 60 seconds** (outside preview mode)  
-- Uses **translations** for labels (`Open`, `Closed`, etc.) based on your interface language  
-- Works even in preview mode (using mocked or intercepted data by the app)
+Pairs naturally with [Market Indices](market-indices.md) — index moves are only meaningful while the underlying exchange is open.
 
----
+### Notes & Limitations
 
-## Example
-
-When you open the Dashboard, you might see:
-
-- **USA** – 🟢 **Open**  
-- **Europe** – 🔴 **Closed**  
-- **Asia** – 🔴 **Closed**  
-- **Oceania** – 🔴 **Closed**
-
-This means:
-
-- US markets are currently trading  
-- European, Asian, and Oceania markets are outside regular trading hours
-
-During early US trading you might see:
-
-- **USA** – 🟠 **Pre-market**  
-- Other regions marked as **Open** or **Closed** depending on their local session.
-
----
-
-## When To Use It
-
-The Market Status widget is useful for:
-
-- Knowing whether **live price moves** are likely right now  
-- Understanding **why prices don't seem to move** (because markets are closed)  
-- Timing your **orders, rebalancing, or monitoring** around market sessions  
-- Getting a quick global view of **which regions are active** at the moment
-
----
-
-## Notes
-
-- Statuses are based on **local time zones** and typical **regular market hours**  
-- Some special sessions, holidays, or half-days may not be reflected perfectly  
-- The widget only shows **high-level session status**, not index performance or sentiment  
-- Labels and region names follow your **language settings** (via translations)
+- **Regular hours only.** Public holidays, exchange-specific half-days, and special sessions are not accounted for — the widget can show "Open" on a holiday if it falls on a weekday within normal hours.
+- **One reference exchange per region.** Europe uses London, Asia uses Tokyo, and Oceania uses Sydney as stand-ins for their broader region — other exchanges in the same region may keep slightly different hours.
+- **US-only detail.** Pre-market and after-hours states are only tracked for the US; other regions collapse to a simple open/closed.
+- Related page: [Market Indices](market-indices.md).

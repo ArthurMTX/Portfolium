@@ -1,69 +1,72 @@
-# Notifications
+## Notifications
 
-The **Notifications** widget shows your most recent alerts related to your portfolio and activity in Portfolium.  
-It provides a quick overview of important events without leaving the Dashboard.
+### What It Shows
 
----
+The Notifications widget is a rolling feed of things Portfolium thinks you should know about — without digging through emails or a separate page. It shows your **5 most recent notifications**, each with:
 
-## What It Shows
+- an icon indicating the type (price alert, transaction, login, dividend, etc.),
+- a short title and message describing what happened,
+- how long ago it happened (e.g. "30 minutes ago"),
+- a highlighted background and small dot for anything you haven't read yet.
 
-- A list of your **most recent notifications** (up to 5 items)  
-- The **type** of each notification (price alert, daily change, transaction, system, etc.)  
-- A **title** and short message describing what happened  
-- The **time since** the notification was created (e.g. "30 minutes ago", "2 hours ago")  
-- A visual indicator for **unread notifications**
+Clicking a notification marks it as read. A trash icon lets you dismiss individual entries directly from the widget.
 
-This widget answers the question:  
-> "What has recently happened in my portfolio that I should know about?"
+It answers the question:
+> "What happened recently that's worth my attention?"
 
 ---
 
-## How It Works
+### How It's Built
 
-- The widget automatically loads your latest notifications when it becomes visible on the Dashboard  
-- **Unread** notifications are highlighted (background + small colored dot)  
-- Clicking a notification marks it as **read**  
-- The **"View All"** action opens the full Notifications page with the complete history  
-- You can delete individual notifications using the **trash icon**
+The widget doesn't compute anything itself — it displays the same notification feed that powers the full Notifications page, just trimmed down. Portfolium currently generates these notification types:
 
-Additional notes:
+| Type | What triggers it |
+|---|---|
+| **Price Alert** | One of your assets crossed a target price you set, either above or below it |
+| **Daily Change (Up/Down)** | A holding moved noticeably during the day |
+| **Transaction Created/Updated/Deleted** | A buy, sell, dividend, fee, or other transaction was recorded, changed, or removed |
+| **Pending Dividend** | A dividend payment is waiting for your confirmation before it's added to your history |
+| **Daily Report** | A summary of the day's portfolio activity |
+| **Login** | A new sign-in was detected on your account |
+| **System** | Other account or app-level notices |
 
-- In some Dashboard layouts or during editing, a **preview mode** may show example notifications instead of your real data  
-- When there are no notifications, an empty state is displayed instead of a list
+Behavior in the widget:
 
----
-
-## Example
-
-Typical notifications you might see:
-
-- **Price alert** - one of your assets reached a target price you defined  
-- **Daily change** - your portfolio moved significantly up or down during the day  
-- **Transaction summary** - confirmation of a recorded buy, sell, or other transaction 
-- **System** - new login or important account activity 
-
-Each notification shows:
-
-- A small icon representing the type  
-- A short title (e.g. "AAPL Price Alert", "AAPL Up 3.46%")  
-- A message (e.g. "Apple reached your target price of $175")  
-- A timestamp like "30 minutes ago" or "1 day ago"
+- Only the latest $5$ notifications are shown, most recent first.
+- Unread notifications get a subtle highlighted background and a small colored dot; clicking one marks it read.
+- Deleting a notification from the widget removes it everywhere, including the full Notifications page.
+- If the widget is hidden (e.g. scrolled off-screen or on a collapsed layout), it skips loading data until it becomes visible again, to avoid unnecessary requests.
 
 ---
 
-## When To Use It
+### Example
 
-The Notifications widget is useful for:
+| Icon | Title | Message | When |
+|---|---|---|---|
+| 🔔 | AAPL Price Alert | Apple reached your target price of $175 | 30 minutes ago |
+| 📈 | Portfolio Up 3.46% | Your portfolio gained €373.98 today | 2 hours ago |
+| 💰 | Dividend Received | MSFT paid a dividend of €15.50 | 1 day ago |
 
-- Staying informed about **important portfolio events** without checking emails or separate pages  
-- Quickly reacting to **price alerts** or **large daily moves**  
-- Tracking your recent **transactions** and **account activity**
-- Keeping an eye on new activity while you work in other parts of the Dashboard  
+The first two are unread (highlighted); the dividend notice has already been read.
 
 ---
 
-## Notes
+### When To Use It
 
-- The widget shows only the **most recent notifications**; older ones remain available on the full Notifications page  
-- Deleting a notification removes it from both the widget and the Notifications page  
-- The content and frequency of notifications depend on your portfolio activity and Portfolium's notification rules  
+Check the Notifications widget when you want to:
+
+- catch a **price alert** the moment it fires, without checking every position manually;
+- confirm that a **transaction** you just entered was recorded correctly;
+- notice a **login** you don't recognize;
+- get a nudge about a **pending dividend** waiting for confirmation.
+
+For a quicker, curated version of "what matters today," see [Today's Brief](today-brief.md), which folds notable notifications together with performance and earnings data into a single ranked summary.
+
+---
+
+### Notes & Limitations
+
+- **Only the 5 most recent** notifications are shown here — open the full Notifications page for the complete history and to mark everything as read at once.
+- **Preview/edit mode** on the dashboard may show sample notifications instead of your real data.
+- **Empty is normal** — if nothing has happened recently, the widget shows an empty state rather than forcing content.
+- Notification types and wording depend on your account activity and Portfolium's alerting rules (e.g. price alerts you've configured, or thresholds for daily moves) — see [Recent Transactions](recent-transactions.md) for a dedicated transaction history view.

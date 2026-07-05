@@ -61,6 +61,25 @@ jobs:
       - run: timeout 15m pytest -q
       - run: pip-audit
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            api/pyproject.toml
+            docs/requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r docs/requirements.txt -e ./api
+      - run: python scripts/export_openapi.py
+      - run: git diff --exit-code -- docs/api/openapi.json
+      - run: python scripts/check_docs_health.py
+      - run: python scripts/check_docs_audit.py
+      - run: mkdocs build --strict
+
   filesystem-security:
     runs-on: ubuntu-latest
     steps:

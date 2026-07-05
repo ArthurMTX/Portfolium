@@ -1,93 +1,65 @@
-# Largest Holdings
+## Largest Holdings
 
-The **Largest Holdings** widget highlights the positions that take up the **biggest share** of your portfolio.  
-It helps you see at a glance where most of your capital is concentrated.
+### What It Shows
 
----
+Largest Holdings answers a simple but important question: **where is most of your money actually sitting?**
 
-## What It Shows
+The widget lists your top holdings ranked by current market value, showing for each one:
 
-For each of your largest positions, the widget displays:
+- its rank (#1, #2, ...);
+- the logo, ticker, and name;
+- its **weight** — the percentage of your total portfolio value it represents;
+- its **market value** in your portfolio's base currency.
 
-- **Rank** (#1, #2, #3, …)  
-- **Logo**, **Symbol**, and **Name** of the asset  
-- **Allocation (%)** – how much of your portfolio this position represents  
-- **Position value** – current market value of the position, in your portfolio currency  
-- A **horizontal bar** showing the allocation visually (longer bar = larger share)
+Each row also has a small progress bar that fills according to the holding's weight, so the biggest positions are visually obvious at a glance.
 
-By default, the widget shows the **top 5 holdings**.
+This is a snapshot of **concentration**, not performance — a holding can be your largest position while still being a loser, or your smallest position while being your best performer.
 
 ---
 
-## How It's Calculated
+### How It's Calculated
 
-For each position, the widget uses the **current market value**:
-
-- **Market value** = Quantity × Current Price  
-- **Total portfolio value** = Sum of market value of all open positions  
-
-Then, for each asset:
+1. Take all current positions with a market value greater than $0$.
+2. Sort them by market value, descending.
+3. Keep the top $5$.
+4. For each one, compute its weight as:
 
 $$
-\text{Allocation (\%)} =
-\frac{\text{Market value of the position}}{\text{Total portfolio value}} \times 100
+\text{weight} = \frac{\text{market value of holding}}{\text{total market value of all positions}} \times 100
 $$
 
-The list is sorted from **largest allocation to smallest**.
-
-Displayed values:
-
-- **Allocation (%)** – rounded to one decimal place  
-- **Position value** – formatted in your portfolio's base currency  
+The total market value used for the denominator is the sum of the market value across **all** of your current positions, not just the ones shown.
 
 ---
 
-## Example
+### Example
 
-Suppose your portfolio looks like this:
+| Rank | Symbol | Market Value | Weight |
+|---|---|---|---|
+| #1 | NVDA | $15{,}420 | $22.8\%$ |
+| #2 | MSFT | $9{,}622 | $14.2\%$ |
+| #3 | AAPL | $8{,}775 | $13.0\%$ |
+| #4 | AMZN | $6{,}543 | $9.7\%$ |
+| #5 | GOOGL | $5{,}234 | $7.7\%$ |
 
-| Symbol | Market Value |
-|--------|--------------|
-| AAPL   | €8,000       |
-| MSFT   | €6,000       |
-| NVDA   | €4,000       |
-| Other  | €12,000      |
-
-Total portfolio value:
-
-- **€8,000 + €6,000 + €4,000 + €12,000 = €30,000**
-
-Allocations:
-
-- AAPL: $\frac{8\,000}{30\,000} \times 100 = 26.7\%$
-- MSFT: $\frac{6\,000}{30\,000} \times 100 = 20.0\%$
-- NVDA: $\frac{4\,000}{30\,000} \times 100 = 13.3\%$
-
-The **Largest Holdings** widget might display:
-
-- **#1 AAPL – 26.7% — €8,000**  
-- **#2 MSFT – 20.0% — €6,000**  
-- **#3 NVDA – 13.3% — €4,000**  
-- (up to the top 5 positions)
-
-Each line includes a purple bar whose length matches the allocation.
+In this example, the top $5$ holdings alone make up about $67.4\%$ of the portfolio — useful to know if you're trying to gauge how diversified you really are.
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Largest Holdings widget is useful for:
+Check Largest Holdings when you want to:
 
-- Checking if your portfolio is **too concentrated** in a few names  
-- Seeing which assets dominate your allocation before rebalancing  
-- Comparing the size of positions relative to each other  
-- Combining with **Concentration Risk** and **Positions** to manage risk exposure
+- quickly see which positions would hurt the most if they dropped sharply;
+- sanity-check that no single stock has quietly grown into an outsized share of your portfolio;
+- decide where trimming would meaningfully change your overall risk;
+- get a fast overview without opening the full [Positions](positions.md) table.
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- Only **open positions** with a non-zero market value are included  
-- Allocation is based on the **latest market prices** and may change during the day  
-- Currency formatting follows your **portfolio base currency**  
-- This widget complements other risk-oriented widgets like **Concentration Risk** and **Positions**.
+- **Top 5 only** — for the complete ranked list with cost basis and gain/loss, use [Positions](positions.md).
+- **Value-based, not performance-based** — a holding can rank highly here purely because you've added a lot of capital to it, regardless of how well it's doing. For that angle, see [Top Performers](top-performers.md) and [Worst Performers](worst-performers.md).
+- **Positions with no market value are excluded** — if a price hasn't been fetched yet, that holding won't appear until data is available.
+- **Empty state** — if you have no open positions, the widget shows a simple "no data" message instead of an empty list.

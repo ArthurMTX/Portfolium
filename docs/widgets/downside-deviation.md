@@ -1,97 +1,58 @@
-# Downside Deviation
+## Downside Deviation
 
-The **Downside Deviation** widget measures how much your portfolio fluctuates **only on negative-return days**.  
-Unlike standard volatility, which treats upside and downside equally, downside deviation focuses exclusively on **losses**, making it a more realistic measure of downside risk.
+### What It Shows
 
-This metric shows how severe your portfolio's negative movements are.
+Downside Deviation measures how rough your portfolio's **losing days** have been. Unlike [Volatility](volatility.md), which treats a big up day and a big down day as equally "risky," downside deviation only looks at the days you lost money — it ignores upside swings entirely.
 
----
+It answers the question:
+> "When my portfolio has a bad day, how bad does it tend to get?"
 
-## What It Shows
+- **Low downside deviation** — your losing days tend to be small and contained.
+- **High downside deviation** — your losing days can be sharp and severe.
 
-The widget displays:
+Two portfolios can have identical overall volatility, but the one with lower downside deviation is the more comfortable ride, because its swings are concentrated on the upside rather than the downside.
 
-- Your portfolio's **annualized downside deviation (%)**  
-- A single numeric value, e.g. **12.10%**  
-- Calculated over the selected period (default: **1 year**)  
-- Expressed as a higher value when your portfolio experiences **large or frequent losses**
+### How It's Calculated
 
-Interpretation:
+Portfolium computes downside deviation from your portfolio's **daily returns over the past year**, adjusted for any deposits or withdrawals so cash flows don't distort the result.
 
-- **Low downside deviation** → losses are mild and infrequent  
-- **High downside deviation** → losses are large and volatile  
-- Often used alongside the **Sortino Ratio** (not yet included)
-
-This metric answers the question:  
-> "How risky is my portfolio when things go wrong?"
-
----
-
-## How It's Calculated
-
-Downside deviation is computed by analyzing **only negative daily returns**, ignoring positive days entirely.
-
-**Steps in Portfolium:**
-
-1. Calculate daily portfolio returns  
-2. Filter to keep **only negative returns**  
-3. Compute the **variance** of these negative returns  
-4. Take the square root to obtain daily downside volatility  
-5. Annualize using 252 trading days  
-
-**Formula**
+1. Compute daily returns for the selected period.
+2. Keep only the **negative** return days — every positive or flat day is discarded.
+3. Average the squared negative returns to get the downside variance.
+4. Take the square root to get daily downside deviation.
+5. Annualize by multiplying by $\sqrt{252}$ (the number of trading days in a year).
 
 $$
-\sigma_{\text{down}} =
-\sqrt{\frac{1}{N_{\text{neg}}} \sum_{r_t < 0} (r_t)^2} \times \sqrt{252}
+\sigma_{\text{down}} = \sqrt{\frac{1}{N_{\text{neg}}} \sum_{r_t < 0} r_t^2} \times \sqrt{252}
 $$
 
-Where:
+Where $r_t$ is a daily return and $N_{\text{neg}}$ is the number of negative-return days.
 
-- $r_t$ = daily return (only negative ones are included)  
-- $N_{\text{neg}}$ = number of negative-return days  
+If your portfolio had zero negative days in the period, downside deviation is $0\%$. If there isn't enough price history to compute daily returns, the widget shows **N/A**.
 
-Additional notes:
+### Example
 
-- If your portfolio had **no negative-return days**, downside deviation = **0%**  
-- If insufficient data exists, the widget shows **N/A**  
+| Step | Value |
+|---|---|
+| Negative-return days in the period | $80$ |
+| Average squared negative return | $0.0000578$ |
+| Daily downside deviation ($\sqrt{0.0000578}$) | $0.0076$ |
+| Annualization factor ($\sqrt{252}$) | $\approx 15.87$ |
+| **Annualized downside deviation** | $0.0076 \times 15.87 \approx 12.07\%$ |
 
----
+The widget would display **$12.07\%$**.
 
-## Example
+### When To Use It
 
-Assume over one year:
+Look at Downside Deviation when you want to:
 
-- You had **80 negative-return days**  
-- The squared average of those returns produces a daily downside deviation of **0.0076**  
-- Annualization factor: $\sqrt{252} \approx 15.87$
+- gauge how painful your portfolio's bad days actually are, rather than how "swingy" it is overall;
+- compare two portfolios with similar [Volatility](volatility.md) but a different balance of upside vs. downside moves;
+- get a feel for whether your risk is coming from occasional sharp drops or from broad two-sided noise.
 
-Annualized downside deviation:
+### Notes & Limitations
 
-$$
-0.0076 \times 15.87 \approx 0.1207
-$$
-
-Displayed as:
-
-- **12.07%**
-
----
-
-## When To Use It
-
-The Downside Deviation widget is useful for:
-
-- Evaluating **real downside risk**, not just overall volatility  
-- Comparing portfolios that have similar volatility but very different **loss profiles**  
-- Understanding how your portfolio behaves in negative environments  
-- Pairing with metrics like **VaR**, **Max Drawdown**, and **Volatility**
-
----
-
-## Notes
-
-- Focuses **only** on negative returns  
-- Always annualized and expressed as **a percentage**  
-- More realistic for risk-averse investors than general volatility  
-- Formatting follows your portfolio's display settings
+- Uses the default $1$-year lookback window, based on your portfolio's actual daily value history (not a single holding).
+- Only negative days count — a portfolio that only ever goes up would show $0\%$ downside deviation even with wild positive swings.
+- Backward-looking: it describes what already happened, not what will happen next.
+- Pairs naturally with [Max Drawdown](max-drawdown.md), [Value at Risk](value-at-risk.md), and [Volatility](volatility.md) for a fuller risk picture.

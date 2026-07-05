@@ -1,159 +1,75 @@
-# Diversification Score
+## Diversification Score
 
-The **Diversification Score** widget summarizes **how concentrated or diversified your portfolio is**.  
-It turns your position weights into a **0–100 score**, where **higher = more diversified** and **lower = more concentrated**.
+### What It Shows
 
----
-
-## What It Shows
+Diversification Score condenses "how spread out is my money?" into a single number from $0$ to $100$ — higher means your portfolio is more evenly spread across your holdings, lower means it's concentrated in a handful of positions (or one).
 
 The widget displays:
 
-- A **Diversification Score** from **0 to 100**, formatted like **75/100**  
-- A subtitle such as:  
-  > "Based on X position(s)"
+- the **score** out of 100 (e.g. $72/100$);
+- a subtitle noting how many positions the score is based on;
+- color coding: **green** at $70$ and above, **amber** from $40$ to $69$, **red** below $40$.
 
-Color logic:
+If you have no open positions, or your positions' total market value is zero, it shows **N/A**.
 
-- **Green** (good diversification) when score **≥ 70**  
-- **Amber** (moderate diversification) when **40 ≤ score < 70**  
-- **Red** (poor diversification) when score **< 40**  
+### How It's Calculated
 
-If there are **no positions** or the total market value is zero, the widget shows:
-
-- **N/A** and a specific "no positions" subtitle
-
-This metric answers the question:  
-> "How diversified is my portfolio right now?"
-
----
-
-## How It's Calculated
-
-The Diversification Score is based on how your portfolio's value is distributed across positions, using the **Herfindahl–Hirschman Index (HHI)**.
-
-### 1. Total portfolio value
-
-For each position:
-
-- `market_value` is converted to a number  
-- If `market_value` is `null` or `undefined`, it is treated as **0**  
-
-Total value:
+The score is built from the **Herfindahl-Hirschman Index (HHI)**, a standard concentration measure: it sums the squared weight of every position in your portfolio.
 
 $$
-\text{Total Value} = \sum_{i=1}^{n} \text{market\_value}_i
+\text{HHI} = \sum_{i=1}^{n} w_i^2, \qquad w_i = \frac{\text{market value of position } i}{\text{total portfolio value}}
 $$
 
-If total value is **0**, the score is **null** → widget shows **N/A**.
-
-### 2. Position weights and HHI
-
-For each position *i*:
+HHI ranges from $\frac{1}{n}$ (perfectly equal-weighted across $n$ positions — as diversified as possible) up to $1$ (100% in a single position — fully concentrated). Portfolium inverts and rescales HHI onto a $0$–$100$ scale so that higher always means *more* diversified:
 
 $$
-w_i = \frac{\text{market\_value}_i}{\text{Total Value}}
+\text{Score} = \frac{\text{maxHHI} - \text{HHI}}{\text{maxHHI} - \text{minHHI}} \times 100,
+\qquad \text{maxHHI} = 1,\ \ \text{minHHI} = \frac{1}{n}
 $$
 
-Then the **Herfindahl–Hirschman Index (HHI)** is:
+The result is clamped to the $[0, 100]$ range and rounded to the nearest whole number for display.
+
+Two things follow directly from the formula:
+
+- **More holdings, all else equal, raise the ceiling.** With more positions, the "perfectly diversified" HHI floor ($1/n$) gets smaller, meaning an equal-weighted portfolio of more positions scores closer to 100 than an equal-weighted portfolio of fewer positions.
+- **Concentration in a few large positions drags the score down hard**, because HHI squares each weight — a single 40% position contributes disproportionately more to HHI than four 10% positions combined.
+
+This measure only looks at **position weights** within the portfolio you hold — it does not account for sector, geography, or asset-class overlap between positions (see [Concentration Risk](concentration-risk.md) and [Asset Allocation](asset-allocation.md) for that kind of breakdown).
+
+### Example
+
+A portfolio with 4 positions:
+
+| Position | Market Value | Weight |
+|---|---|---|
+| A | €4,000 | $40\%$ |
+| B | €3,000 | $30\%$ |
+| C | €2,000 | $20\%$ |
+| D | €1,000 | $10\%$ |
 
 $$
-\text{HHI} = \sum_{i=1}^{n} w_i^2
+\text{HHI} = 0.40^2 + 0.30^2 + 0.20^2 + 0.10^2 = 0.16 + 0.09 + 0.04 + 0.01 = 0.30
 $$
 
-Properties:
-
-- **Perfect diversification** (all positions equal): $\text{HHI} = \frac{1}{n}$
-- **Maximum concentration** (single position): $\text{HHI} = 1$
-
-### 3. Convert HHI to a 0–100 score
-
-The widget inverts and rescales HHI so that:
-
-- **0** = worst (fully concentrated)  
-- **100** = best (perfectly equal weights)
-
-Let:
-
-- $\text{maxHHI} = 1$  
-- $\text{minHHI} = \frac{1}{n}$
-
-Diversification Score:
+With $n = 4$, the perfectly diversified floor is $\text{minHHI} = 1/4 = 0.25$:
 
 $$
-\text{Score} =
-\frac{\text{maxHHI} - \text{HHI}}{\text{maxHHI} - \text{minHHI}} \times 100
+\text{Score} = \frac{1 - 0.30}{1 - 0.25} \times 100 = \frac{0.70}{0.75} \times 100 \approx 93
 $$
 
-The result is then **clamped** between **0** and **100**.
+The widget shows **93/100** in green, with the subtitle "Based on 4 positions" — even with a 40% top position, the score reads high because the position count is small and the floor for "perfect" diversification at $n=4$ is itself fairly concentrated ($25\%$ each).
 
----
+### When To Use It
 
-## Example
+Reach for Diversification Score when you want to:
 
-Imagine a portfolio with 4 positions:
+- get an at-a-glance concentration check without manually eyeballing position weights;
+- track whether adding or trimming positions is actually improving balance, not just adding names;
+- catch a portfolio that looks diversified by holding count but is secretly dominated by one or two large positions.
 
-| Position | Market Value |
-|----------|--------------|
-| A        | €4,000       |
-| B        | €3,000       |
-| C        | €2,000       |
-| D        | €1,000       |
+### Notes & Limitations
 
-Total value:
-
-$\text{Total} = 4\,000 + 3\,000 + 2\,000 + 1\,000 = 10\,000$
-
-Weights:
-
-- $w_A = 4\,000 / 10\,000 = 0.40$  
-- $w_B = 3\,000 / 10\,000 = 0.30$
-- $w_C = 2\,000 / 10\,000 = 0.20$
-- $w_D = 1\,000 / 10\,000 = 0.10$
-
-HHI:
-
-$$
-\text{HHI} = 0.40^2 + 0.30^2 + 0.20^2 + 0.10^2
-= 0.16 + 0.09 + 0.04 + 0.01 = 0.30
-$$
-
-For 4 positions:
-
-- $\text{minHHI} = 1/4 = 0.25$  
-- $\text{maxHHI} = 1$
-
-Diversification Score:
-
-$$
-\text{Score} =
-\frac{1 - 0.30}{1 - 0.25} \times 100
-= \frac{0.70}{0.75} \times 100 \approx 93.3
-$$
-
-The widget would display:
-
-- **93/100**  
-- Subtitle like: **"Based on 4 positions"**  
-- Value colored **green** (high diversification)
-
----
-
-## When To Use It
-
-The Diversification Score widget is useful for:
-
-- Quickly assessing whether your portfolio is **too concentrated**  
-- Comparing diversification across different portfolios or strategies  
-- Checking if new trades increase or reduce concentration  
-- Complementing metrics like **Concentration Risk**, **Top Positions**, and **Sector Breakdown**
-
----
-
-## Notes
-
-- Only positions with **non-zero market value** contribute materially to the score  
-- Positions with missing `market_value` are treated as **0**  
-- More positions does **not** always mean better diversification, what matters is how value is **distributed**  
-- The score is **relative** to your current number of positions, scaled to 0–100  
-- Color coding (green / amber / red) helps you read the score at a glance
+- **Weight-based only.** It measures how evenly value is spread across positions — it says nothing about whether those positions are correlated, in the same sector, or in the same currency.
+- **Score is relative to your own position count.** More positions does not automatically mean better diversification — what matters is how evenly value is distributed among them, scaled against what's achievable for that number of holdings.
+- **Requires at least one open position with non-zero market value** — otherwise the widget shows N/A.
+- Pair with [Concentration Risk](concentration-risk.md), [Asset Allocation](asset-allocation.md), and [Theme Allocation](theme-allocation.md) for a fuller picture of how your portfolio is actually spread.

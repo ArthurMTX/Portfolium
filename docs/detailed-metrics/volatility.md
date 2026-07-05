@@ -36,13 +36,19 @@ Then, over a window of $N$ days (e.g. 30 or 90), you look at the **standard devi
 
 $$
 \sigma_N = \sqrt{
-\frac{1}{N - 1}
+\frac{1}{N}
 \sum_{t=1}^{N}
 \left(r_t - \bar{r}\right)^2
 }
 $$
 
 where $\bar{r}$ is the average return in that period.
+
+This daily standard deviation is then **annualized** by scaling it up to a full trading year (252 trading days), so it can be read as a yearly percentage:
+
+$$
+\text{Volatility} = \sigma_N \times \sqrt{252} \times 100
+$$
 
 In Portfolium:
 

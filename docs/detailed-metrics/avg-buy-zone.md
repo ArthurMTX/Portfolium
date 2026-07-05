@@ -1,6 +1,6 @@
-# Average Buy Zone
+## Average Buy Zone
 
-## What It Shows  
+### What It Shows  
 The **Average Buy Zone** tells you how far the current price is from **your personal average cost (cost basis)** for this asset.
 
 It helps you quickly see:
@@ -13,7 +13,7 @@ This metric is **personal to you**: two investors holding the same stock can hav
 
 ---
 
-## How It's Calculated  
+### How It's Calculated  
 
 Portfolium first reconstructs your **average cost (cost basis)** from your full transaction history:
 
@@ -46,7 +46,7 @@ Portfolium shows the resulting value as a **percentage**, e.g. `+25%` or `-18.5%
 
 ---
 
-## Examples  
+### Examples  
 
 ### Example 1 — Price Below Your Cost Basis (Potential Buy Zone)
 
@@ -105,7 +105,7 @@ Meaning:
 
 ---
 
-## When To Use It  
+### When To Use It  
 
 Use the Average Buy Zone when you want to:
 
@@ -137,7 +137,7 @@ Use the Average Buy Zone when you want to:
 
 ---
 
-## Notes & Limitations  
+### Notes & Limitations  
 
 - **Position-specific metric** 
 

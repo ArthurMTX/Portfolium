@@ -94,4 +94,3 @@ You can find links to each widget's documentation in the sidebar.
 For more information on how the Dashboard and layout system work:
 
 - [Dashboard](../user-guide/dashboard.md) – overall Dashboard behavior
-- [Example Layouts](../user-guide/example-layouts.md) – sample widget arrangements

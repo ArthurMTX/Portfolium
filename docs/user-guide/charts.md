@@ -1,590 +1,135 @@
 # Charts
 
-Visualize your portfolio performance over time with interactive charts and allocation heatmaps.
+Visualize your portfolio's value and performance over time with interactive charts and a position heatmap.
 
 ## Overview
 
-The Charts page provides visual representations of your portfolio's value history and asset allocation. Use charts to spot trends, understand composition, and track performance over different time periods. Visual data helps you make informed decisions and quickly identify patterns in your investments.
+The Charts page focuses on how your portfolio has moved: what it's worth today, how that value got there, and how your performance compares to the money you've put in. It's built around three views: a position heatmap, a portfolio value history chart, and an investment performance chart.
+
+For a breakdown of what you're invested in (by sector, country, currency, theme, or market cap), see [Allocation](allocation.md) instead — Charts is about movement over time and at-a-glance position sizing, not composition analysis.
 
 ## Accessing Charts
 
-1. Navigate to **Charts** in the main menu
-2. Ensure you have an active portfolio selected
-3. Verify you have transactions in your portfolio
-4. View your portfolio visualizations
+1. Select a portfolio from the dropdown
+2. Click **Charts** in the main navigation
+3. Choose a view: **Heatmap**, **History**, or **Performance**
 
-!!! note "Requires Transaction Data"
-    Charts require at least one transaction in your portfolio. If you see an empty state, add transactions first by visiting the [Transactions](transactions.md) page.
+!!! note "Requires transaction data"
+    Charts need at least one transaction in your portfolio. If you see an empty state, add a transaction first from the [Transactions](transactions.md) page.
 
-## Portfolio Heatmap
+At the top of the page you'll always see a quick context strip: your portfolio's current value, total return (in currency and percent), and the date of your first investment.
 
-The heatmap shows your current asset allocation as a visual treemap.
+## Heatmap
 
-### What It Shows
+The heatmap gives you an instant visual map of your open positions, sized by how much of your portfolio they represent and colored by how they've moved today.
 
-**Visual Asset Allocation**
+**What it shows**
 
-- Each rectangle represents one asset
-- Size proportional to market value
-- Larger boxes = bigger positions
-- Smaller boxes = smaller positions
-- All holdings visible at once
+- Each tile is one position you currently hold
+- Tile size is proportional to that position's share of your total portfolio value — bigger holdings get bigger tiles
+- Tile color reflects the position's **daily** price change: green shades for a gain today, red shades for a loss today, gray for roughly flat
+- Darker/more intense color means a bigger move; a soft green is a small gain, a deep green is a large one
 
-**Color Coding by Performance**
+**Reading the tiles**
 
-The heatmap uses color to show each asset's performance:
+Each tile shows the asset's logo, symbol, name, portfolio weight, and today's percentage change.
 
-- 🟢 **Green shades**: Positive P&L (profits)
-- 🔴 **Red shades**: Negative P&L (losses)
-- **Color intensity**: Stronger = bigger percentage gain/loss
-- **Neutral gray**: Break-even positions (~0% P&L)
+**Selected position panel**
 
-**Position Details**
+Click any tile to see more detail about that position alongside the heatmap:
 
-Each tile displays:
+- Current weight in the portfolio
+- Today's move
+- Total unrealized return
+- Portfolio contribution in currency
+- Sector, country, and theme, when available
 
-- **Symbol**: Asset ticker (e.g., AAPL, MSFT)
-- **Percentage**: Portfolio allocation (e.g., 25.3%)
-- **Market Value**: Current position value
-- **P&L %**: Performance percentage
+From there you can jump straight to that asset's research page.
 
-### Understanding the Layout
+!!! tip "Spotting concentration and movers at a glance"
+    A heatmap with one or two oversized tiles is telling you your portfolio is concentrated in a few names. A heatmap that's mostly one color is telling you today was broadly good or bad for you; a mix of bright green and bright red in your biggest tiles tells you your winners and losers today were both meaningful.
 
-**Size and Position**
+## Portfolio Value History
 
-- Largest holdings appear first (top-left)
-- Smaller holdings fill remaining space
-- Grid-based layout for clean organization
-- Responsive to screen size
+Tracks your total portfolio value over time as a line chart, so you can see the actual trajectory of your money.
 
-**Tile Sizes**
+**What it shows**
 
-- ≥20% holdings: Large tiles (50% width)
-- 12-20% holdings: Medium tiles (33% width)
-- 8-12% holdings: Medium-small tiles (25% width)
-- 5-8% holdings: Small tiles (25% width)
-- 2.5-5% holdings: Extra-small tiles (16% width)
-- <2.5% holdings: Tiny tiles (16% width)
+- Total portfolio value on the vertical axis, date on the horizontal axis
+- A smooth line with a gradient fill under it
+- Markers for capital events — buys, sells, dividends, and stock splits — plotted directly on the timeline so you can see how specific transactions lined up with changes in value
 
-### Interpreting the Heatmap
+**Time period controls**
 
-**Diversification Check**
+Choose how far back to look: **1W**, **1M**, **3M**, **6M**, **YTD**, **1Y**, or **All** (since your first transaction). The chart rescales both axes to fit the selected range.
 
-- One or two giant boxes? → Concentrated portfolio
-- Many medium boxes? → Well-diversified
-- Lots of tiny boxes? → Over-diversified or many small positions
-- Balance depends on your strategy
+**Hovering for detail**
 
-**Performance Overview**
+Hover anywhere on the line to see the exact portfolio value on that date. When you hover, the summary above the chart updates to show the value and change as of that specific point instead of the latest one.
 
-- Mostly green? → Portfolio performing well
-- Mostly red? → Portfolio underperforming
-- Mixed colors? → Some winners, some losers
-- Bright green in large box? → Big winner driving returns
-- Bright red in large box? → Big loser dragging down portfolio
+**Below the chart**
 
-**Allocation Analysis**
+A short summary of what happened during the period: how much you gained or lost, the highest and lowest points your portfolio reached, and your single largest daily gain and loss.
 
-- Compare tile sizes to your target allocation
-- Identify positions that have grown too large
-- Spot positions that may need rebalancing
-- Visualize sector/asset concentration
+!!! note "Value reflects deposits and withdrawals too"
+    This chart shows your total portfolio value, which moves both from market performance and from money you add or remove. A dip can mean the market fell, or that you withdrew cash — check the capital-event markers on the chart to tell them apart. For a view that isolates investment performance from your own deposits and withdrawals, use the Performance view instead.
 
-!!! tip "Rebalancing Indicator"
-    If one position grows much larger than intended, the heatmap makes it obvious. Use this visual cue to decide when to rebalance.
+## Investment Performance
 
-### Use Cases
+Shows your portfolio's percentage return over time, separated from the effect of adding or withdrawing cash — so you can judge how your investments actually performed, not just how your balance changed.
 
-**Portfolio Construction**
+**What it shows**
 
-- Verify allocation matches your strategy
-- Check for over-concentration
-- Identify diversification gaps
-- Plan new purchases
+- Percentage return on the vertical axis, date on the horizontal axis
+- The line and fill turn green when performance is positive and red when negative, with the color shifting right at the point where the line crosses zero
+- For the **All** time range, the line shows your current unrealized gain or loss on today's holdings
+- For shorter periods, the line shows a money-weighted return that adjusts for any deposits or withdrawals made during that window, so a large deposit mid-period doesn't distort the percentage
 
-**Risk Management**
+**Time period controls**
 
-- Spot concentration risk visually
-- Monitor largest positions
-- Track performance of key holdings
-- Identify hedging opportunities
+Same options as the History view: **1W**, **1M**, **3M**, **6M**, **YTD**, **1Y**, or **All**.
 
-**Performance Monitoring**
+**Performance summary**
 
-- Quick glance at what's up/down
-- Identify strongest/weakest performers
-- Track impact of winners and losers
-- Celebrate successes, analyze failures
+Below the chart you'll find your overall performance for the period, best and worst month, the number of positive months out of the total, and an annualized return figure (for the **All** range, this is your total return converted to a yearly rate).
 
-## Portfolio History Chart
-
-Track your portfolio value over time with an interactive line chart.
-
-### What It Shows
-
-**Value Over Time**
-
-- Total portfolio value on Y-axis
-- Date/time on X-axis
-- Line shows historical performance
-- Gradient fill emphasizes growth/decline
-- Interactive hover for exact values
-
-**Chart Features**
-
-- **Smooth line**: Connects daily portfolio values
-- **Gradient fill**: Visual area under the line
-- **Responsive**: Adjusts to screen size
-- **Interactive**: Hover for exact data points
-- **Clean design**: Minimal distractions, focus on data
-
-### Time Period Selection
-
-Choose the time range to visualize:
-
-**Available Intervals**
-
-- **1D**: Past 24 hours (daily granularity)
-- **1W**: Past week (daily points)
-- **6M**: Past 6 months (daily aggregation)
-- **YTD**: Year-to-date (from Jan 1 to today)
-- **1Y**: Past 365 days (daily points)
-- **ALL**: Entire portfolio history (since first transaction)
-
-**Selecting an Interval**
-
-1. Look for interval buttons above the chart
-2. Click the desired time period (1D, 1W, 6M, YTD, 1Y, ALL)
-3. Chart reloads with selected timeframe
-4. Selection persists as you navigate
-
-**What Changes**
-
-- X-axis scale adjusts to timeframe
-- Number of data points varies
-- Y-axis rescales to value range
-- Chart redraws with new data
-
-### Reading the Chart
-
-**Upward Trend**
-
-- Line slopes upward → Portfolio growing
-- Steep slope → Rapid growth
-- Gradual slope → Steady growth
-- Green gradient → Positive trajectory
-
-**Downward Trend**
-
-- Line slopes downward → Portfolio declining
-- Steep drop → Rapid loss
-- Gradual decline → Slow erosion
-- Shows need for strategy review
-
-**Flat/Sideways**
-
-- Horizontal line → Stable value
-- Small fluctuations → Normal volatility
-- Extended flatness → Market consolidation or no activity
-- May indicate good entry/exit points
-
-**Volatility**
-
-- Jagged line → High volatility
-- Smooth line → Stable performance
-- Sharp spikes → Major events or large trades
-- Consider risk tolerance
-
-### Hover Interactions
-
-**Viewing Exact Values**
-
-- Hover cursor over chart line
-- Tooltip appears with:
-    - Exact date
-    - Portfolio value at that date
-    - Formatted currency amount
-- Move along timeline to explore history
-
-**Tooltip Information**
-
-- **Date**: Precise date/time of data point
-- **Value**: Total portfolio value
-- **Currency**: In portfolio's base currency
-- **Format**: Clean, readable numbers
-
-### Historical Data Points
-
-**How Data is Calculated**
-
-For each date, the chart shows:
-
-```
-Portfolio Value = Σ (Holdings Quantity × Price on that Date)
-```
-
-**Includes**
-
-- All buy transactions up to that date
-- All sell transactions up to that date
-- Stock split adjustments
-- Historical prices for each holding
-
-**Excludes**
-
-- Dividends (added separately to metrics)
-- Fees (tracked separately)
-- Unrealized P&L from sold positions (realized separately)
-
-!!! note "Historical Price Availability"
-    Chart accuracy depends on historical price data availability. Some assets may not have complete history, showing gaps in the chart.
-
-## Backfill History Feature
-
-Populate missing historical price data for better chart accuracy.
-
-### What Is Backfilling?
-
-**Purpose**
-
-- Fetches historical daily prices for all portfolio assets
-- Fills gaps in price history
-- Enables accurate historical value calculations
-- Improves chart completeness
-
-**When to Use**
-
-- After adding old transactions with past dates
-- When importing historical data
-- If chart shows gaps or missing data
-- To complete portfolio history
-
-### How to Backfill
-
-**Running Backfill**
-
-1. Navigate to the Charts page
-2. Click **Backfill History** button
-3. Wait for process to complete
-4. See status message with results
-5. Chart updates automatically
-
-**What Happens**
-
-- System identifies all assets in your portfolio
-- Fetches daily prices for past 365 days (configurable)
-- Saves price data to database
-- Calculates historical portfolio values
-- Updates chart with new data
-
-**Backfill Results**
-
-Status message shows:
-
-- Number of assets processed
-- Price points saved per asset
-- Success/failure indication
-- Any errors encountered
-
-**Example Output**
-
-```
-Backfilled 5 assets. Saved: AAPL: 365, MSFT: 365, GOOGL: 365, TSLA: 250, BTC-USD: 365
-```
-
-This means:
-
-- 5 assets in portfolio
-- Most have 365 days of data
-- TSLA only has 250 days (maybe newer position or data gap)
-
-### Backfill Considerations
-
-**Time to Complete**
-
-- Depends on number of assets
-- More assets = longer process
-- Typically completes in 10-30 seconds
-- Progress shown during processing
-
-**API Rate Limits**
-
-- Uses Yahoo Finance API
-- Subject to rate limits
-- Multiple assets fetched sequentially
-- May fail if rate limited
-
-**Data Quality**
-
-- Historical data from Yahoo Finance
-- Some assets may have incomplete history
-- Delisted stocks may have gaps
-- Crypto may have shorter history
-
-**When It Fails**
-
-If backfill fails:
-
-- Check error message for details
-- Wait a few minutes and retry
-- Verify asset symbols are valid
-- Some assets may not have full history
-- Network issues may cause failure
-
-!!! tip "Run Backfill Sparingly"
-    Backfill is resource-intensive. Run it only when needed (after bulk imports or when historical data is missing), not regularly.
-
-## Chart Use Cases
-
-### Performance Tracking
-
-**Daily Monitoring**
-
-- Use **1D** interval during market hours
-- Track intraday portfolio value changes
-- Monitor impact of day's trades
-- Watch market volatility effect
-
-**Weekly Review**
-
-- Use **1W** interval for weekly check-in
-- Compare week's start vs end
-- Identify weekly trends
-- Plan next week's strategy
-
-**Long-term Analysis**
-
-- Use **1Y** or **ALL** for big picture
-- Evaluate long-term growth trajectory
-- Compare to investment goals
-- Track progress over years
-
-### Investment Decisions
-
-**Entry Points**
-
-- Identify dips in portfolio value
-- Look for buying opportunities
-- See if downtrends are reversing
-- Time new investments
-
-**Exit Points**
-
-- Spot peaks in portfolio value
-- Consider taking profits
-- Identify unsustainable growth
-- Plan strategic sells
-
-**Trend Analysis**
-
-- Recognize patterns (uptrend, downtrend, sideways)
-- Assess momentum
-- Evaluate strategy effectiveness
-- Adjust allocation based on trends
-
-### Risk Assessment
-
-**Volatility Check**
-
-- Jagged chart = high volatility = higher risk
-- Smooth chart = low volatility = lower risk
-- Match volatility to your risk tolerance
-- Consider hedging if too volatile
-
-**Drawdown Analysis**
-
-- Find peak-to-trough declines
-- Measure maximum drawdown
-- Assess recovery time
-- Determine if drawdowns are acceptable
-
-**Correlation with Markets**
-
-- Compare your chart to market indexes
-- See if you're tracking the market or diverging
-- Identify periods of outperformance/underperformance
-- Evaluate diversification effectiveness
-
-## Best Practices
-
-### Regular Monitoring
-
-**Daily Traders**
-
-- Check **1D** chart multiple times per day
-- Enable auto-refresh on Dashboard
-- Monitor heatmap for position changes
-- Use charts to time trades
-
-**Long-term Investors**
-
-- Review **1W** or **1M** chart weekly
-- Check heatmap monthly for rebalancing
-- Focus on long-term trends (1Y, ALL)
-- Ignore short-term fluctuations
-
-**Quarterly Reviews**
-
-- Use **6M** or **YTD** for quarterly analysis
-- Compare to investment goals
-- Assess allocation via heatmap
-- Adjust strategy as needed
-
-### Combining with Other Tools
-
-**Charts + Dashboard**
-
-- Charts show trends
-- Dashboard shows current snapshot
-- Use together for complete picture
-- Dashboard metrics explain chart movements
-
-**Charts + Insights**
-
-- Charts show what happened
-- Insights explain why (see [Insights](insights.md))
-- Combine visual and analytical views
-- Deeper understanding of performance
-
-**Charts + Transactions**
-
-- Transaction timing visible in chart
-- See impact of large buys/sells
-- Correlate trades with performance
-- Learn from past decisions
-
-### Interpretation Tips
-
-**Context Matters**
-
-- Portfolio value chart affected by:
-    - New deposits (adding cash)
-    - Withdrawals (removing cash)
-    - Market movements
-    - Transaction timing
-- Separate contribution effects from performance
-
-**Percentage vs Absolute**
-
-- Dollar value can be misleading if you're adding/removing money
-- Consider percentage returns
-- Compare to benchmarks (in Insights)
-- Account for cash flows
-
-**Time Horizon**
-
-- Short-term: More noise, less signal
-- Long-term: Clearer trends, better decisions
-- Match chart timeframe to your strategy
-- Don't overreact to short-term moves
+!!! tip "History vs Performance: which to use"
+    Use **History** when you want to know what your portfolio is worth and how that dollar value moved. Use **Performance** when you want to know how well your investments are actually doing, independent of how much money you've added or taken out.
 
 ## Troubleshooting
 
-### Charts Not Loading
+### Charts not loading
 
-**Empty Portfolio**
+- Confirm a portfolio is selected — the page needs an active portfolio to load any chart.
+- Charts require at least one transaction; if your portfolio is empty, add a transaction first. See [Transactions](transactions.md).
+- Check your internet connection and refresh the page if a chart fails to appear.
 
-- Charts require transactions to display
-- Add at least one transaction
-- See [Transactions](transactions.md)
+### Gaps or missing points in the history chart
 
-**No Active Portfolio**
+- Chart accuracy depends on historical price data being available for every asset you've held. If an asset is missing history for part of the period, the chart may show a gap or flat segment there.
+- Newly added assets or very recently listed assets may not have long price histories yet.
+- Delisted assets can have incomplete price history going forward.
 
-- Select a portfolio from the dropdown
-- Create a portfolio if you have none
-- See [Portfolios](portfolios.md)
+### Heatmap looks empty or wrong
 
-**Network Issues**
+- The heatmap only shows currently held positions — fully sold-out assets won't appear.
+- If a tile's weight or color looks off, check that all your buy and sell transactions are entered correctly and that current prices are up to date on the [Dashboard](dashboard.md).
+- Unrecorded stock splits will distort both position size and today's percentage move — make sure splits are logged in [Transactions](transactions.md).
 
-- Check internet connection
-- Refresh the page
-- Check browser console for errors
-- Try again in a few minutes
+### Performance chart doesn't match History chart
 
-### Missing Historical Data
+- This is expected: History shows raw portfolio value (affected by deposits and withdrawals), while Performance isolates your actual investment return. A big deposit will move the History chart up without moving the Performance chart much, since the deposit itself isn't a gain.
 
-**Gaps in Chart**
+### Unexpected drops in portfolio value
 
-- Run **Backfill History** to fill gaps
-- Some assets may not have full history
-- Delisted stocks may have missing data
-- Newly added assets won't have old data
-
-**Backfill Not Working**
-
-- Wait a few minutes and retry
-- Check API rate limits
-- Verify asset symbols are correct
-- Review error message for details
-
-### Heatmap Empty or Incorrect
-
-**No Current Positions**
-
-- Heatmap only shows held positions
-- Sold positions don't appear
-- Add BUY transactions to see holdings
-- Check Dashboard for current positions
-
-**Wrong Allocation Percentages**
-
-- Verify all transactions are entered
-- Ensure prices are up-to-date
-- Refresh price data on Dashboard
-- Check for missing SELL transactions
-
-**Colors Don't Make Sense**
-
-- Colors based on unrealized P&L %
-- Check position P&L on Dashboard
-- Verify cost basis is correct
-- Ensure stock splits are recorded
-
-### Chart Shows Unexpected Drops
-
-**Large Withdrawals**
-
-- Selling positions reduces portfolio value
-- Chart reflects actual value, not returns
-- Consider SELL transactions timing
-- Normal if you took profits or rebalanced
-
-**Price Data Issues**
-
-- Incorrect historical prices from data source
-- Delisted stocks may have price gaps
-- Check if specific asset has bad data
-- May require manual correction
-
-**Stock Splits**
-
-- Ensure splits are recorded in Transactions
-- Unrecorded splits cause incorrect valuations
-- See [Transactions](transactions.md) for split entry
-- Backfill after adding splits
-
-### Interval Selection Not Working
-
-**Chart Not Updating**
-
-- Click interval button again
-- Refresh browser page
-- Check for loading indicator
-- Clear browser cache
-
-**Data Missing for Interval**
-
-- Some intervals may have insufficient data
-- New portfolios won't have YTD or 1Y data
-- Add more transactions over time
-- Run backfill for historical intervals
+- Selling a position reduces portfolio value even if it wasn't a loss — look for a sell marker on the History chart around the date of the drop.
+- A withdrawal of cash will also show as a drop in value without representing a loss.
+- If neither explains it, check whether the affected asset has a pricing issue (a bad or missing price for that date).
 
 ## Next Steps
 
-Enhance your portfolio analysis by exploring:
-
 - [Dashboard](dashboard.md) for real-time metrics and position details
-- [Insights](insights.md) for advanced analytics and risk metrics
-- [Transactions](transactions.md) to maintain accurate historical data
+- [Allocation](allocation.md) to see how your portfolio is distributed by sector, country, and theme
+- [Insights](insights.md) for advanced analytics, attribution, and risk metrics
+- [Transactions](transactions.md) to keep your transaction history accurate
 - [Assets](assets.md) to explore individual asset performance
-- [Settings](settings.md) to configure your viewing preferences

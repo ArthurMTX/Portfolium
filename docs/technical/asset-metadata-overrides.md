@@ -115,9 +115,9 @@ CREATE INDEX idx_metadata_overrides_asset ON portfolio.asset_metadata_overrides(
 ```
 
 **Validation Rules**:
-1. Can only set overrides for NULL fields in Yahoo Finance data
+1. Can only set overrides for NULL fields in Yahoo Finance data — setting a non-null override is rejected if the provider already supplies that field (`ValueError` from `crud/assets.py::set_asset_metadata_overrides`)
 2. All fields are optional (can set any combination)
-3. Country must be valid 2-letter code (if provided)
+3. Passing `null` for a field clears that override; if all fields become null, the override record is deleted entirely
 4. Overrides apply only to the authenticated user
 
 **Response** (200 OK):

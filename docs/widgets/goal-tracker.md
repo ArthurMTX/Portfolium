@@ -1,128 +1,70 @@
-# Goal Tracker
+## Goal Tracker
 
-The **Goal Tracker** widget lets you set a **target portfolio value** and see how close you are to reaching it.  
-It combines a **circular progress indicator**, key amounts (current, goal, remaining), and a **rough time estimate** based on assumed market returns.
+### What It Shows
 
----
+Goal Tracker turns a savings target — a house down payment, retirement number, emergency fund — into something you can actually watch move. You create one or more goals (a title, a target amount, an optional target date, and an optional monthly contribution), and the widget shows:
 
-## What It Shows
+- a **progress ring** with the percentage of the goal reached so far;
+- your **current value**, **goal amount**, and **amount remaining**;
+- your **monthly contribution**, if you set one;
+- an **estimated time to goal**, based on simulated portfolio growth;
+- a **target date** (if you set one), flagged if it's already in the past;
+- an **achievement probability** — the odds your goal is reached by the projected date;
+- three **projection scenarios** (pessimistic / median / optimistic) showing where your money could realistically land.
 
-The widget focuses on a single portfolio-level goal:
+If you track more than one goal, arrows let you flip between them. Each goal is tied to your account and portfolio, so it follows you across devices.
 
-- **Circular progress** toward your target value (in %)  
-- **Current portfolio value** (based on **Total Value** from your metrics)  
-- **Goal amount** (your target value, editable per portfolio)  
-- **Amount remaining** to reach the goal  
-- **Estimated time to goal** (in years/months, optional)  
-- A short **info line** at the bottom (congratulations, estimate disclaimer, or hint to set a goal)
+### How It's Calculated
 
-All amounts are displayed in your **portfolio's base currency**.
+**Progress and remaining amount** are straightforward:
 
----
+$$
+\text{progress} = \min\left(\frac{\text{current value}}{\text{target amount}} \times 100,\ 100\right)
+\qquad
+\text{remaining} = \max(\text{target amount} - \text{current value},\ 0)
+$$
 
-## Goal & Progress
+The current value is your portfolio's total value; the goal is reached as soon as it meets or exceeds the target.
 
-- **Goal amount**  
-    - One goal per portfolio, stored in the browser's localStorage.
-    - Default:
-        - **Preview mode**: `15,000` (mock target)
-        - **Real mode**: `100,000` (until you change it)
+**Time to goal and probability** come from a Monte Carlo simulation run on the server, not a simple compounding formula:
 
-- **Current value**  
-    - Uses **Total Value** from the dashboard context.  
-    - If metrics are missing, defaults to `0`.
+1. Portfolium reconstructs your portfolio's daily mark-to-market value over roughly the last year from your actual transaction and price history, and derives its **historical annualized return and volatility** from those daily log-returns.
+2. If there isn't enough history (fewer than $60$ trading days of data), it falls back to conservative defaults: an $8\%$ annual return and $15\%$ volatility.
+3. Either way, the return is capped between $-60\%$ and $+40\%$ a year, and volatility is capped between $5\%$ and $40\%$ — bounds meant to keep projections within realistic equity-market ranges.
+4. Using these numbers, it simulates $1{,}000$ possible future paths for your portfolio with geometric Brownian motion (monthly steps, random shocks drawn from a normal distribution), adding your monthly contribution at each step, out to your target date (or $10$ years if you didn't set one).
+5. From the $1{,}000$ simulated outcomes it reads off the $10^{\text{th}}$, $50^{\text{th}}$, and $90^{\text{th}}$ percentiles — these become your **Pessimistic**, **Median**, and **Optimistic** scenarios.
+6. The **achievement probability** is simply the share of the $1{,}000$ simulated paths that reach your target amount by the target date.
+7. The **estimated time to goal** shown in the widget uses the months-to-target from the **Median** scenario.
 
-- **Progress %**  
-    - $\text{progress} = \min\left(\frac{\text{currentValue}}{\text{goalAmount}} \times 100, 100\right)$
-    - Clamped at **100%** when you reach or exceed the goal.  
-    - When $\text{currentValue} \geq \text{goalAmount}$, the widget displays a small **"Goal reached"** label inside the circle.
+Four **milestones** are also tracked at $25\%$, $50\%$, $75\%$, and $100\%$ of the target amount, each marked as achieved once your current value passes it.
 
-- **Remaining to goal**
-    - $\text{remaining} = \max(\text{goalAmount} - \text{currentValue}, 0)$  
-    - Only shown if the goal is **not yet reached**.
+If your target date has already passed, the widget still runs the projection (using a $1$-month horizon) and shows a warning that the timeline reflects your current trajectory rather than the original plan.
 
----
+### Example
 
-## Editing the Goal
+Say your goal is **€100,000** for retirement, you currently hold **€42,000**, contribute **€500/month**, and your portfolio's historical performance works out to roughly $9\%$ annual return with $16\%$ volatility.
 
-You can update your target directly from the widget:
+| Scenario | Annual Return (implied) | Projected Value | Meets Goal? |
+|---|---|---|---|
+| Pessimistic (P10) | ≈ $2\%$ | €68,000 | No |
+| Median (P50) | ≈ $9\%$ | €101,500 | Yes |
+| Optimistic (P90) | ≈ $17\%$ | €148,000 | Yes |
 
-1. Click **"Edit goal"** (top-right).  
-2. Enter a new amount in the input field.  
-3. Press **Enter**, click **Save**, or hit **Escape** to cancel.
+With an achievement probability of, say, $58\%$, the widget would show a **58% achievement probability** bar in amber (moderate confidence), a progress ring at **42%**, and an estimated time to goal drawn from the median scenario's projected months.
 
-Validation:
+### When To Use It
 
-- The new goal must be a **positive number**.  
-- If the value is invalid, the widget **reverts** to the previous goal.
+Use Goal Tracker when you want to:
 
-The goal is **saved per portfolio and per device** (because it's stored in localStorage with the portfolio ID).  
-If you switch portfolio, the widget automatically uses the goal associated with that portfolio.
+- keep a concrete savings target in view instead of just watching total portfolio value drift;
+- get a realistic (not just optimistic) read on whether your current contribution rate is enough;
+- decide whether to increase your monthly contribution, extend your timeline, or adjust the target;
+- track multiple goals at once — retirement, a house, a vacation — each with its own pace.
 
----
+### Notes & Limitations
 
-## Circular Progress Display
-
-In the center of the widget, you get a **ring-style progress circle**:
-
-- Grey background circle = 100% of the goal  
-- Colored arc = current percentage of completion  
-    - Default: emerald shades, slightly different if the goal is reached  
-- Percentage is shown in **large text** in the middle (`0–100%`).  
-- When the goal is reached, a small **"Goal reached"** text appears below the percentage.
-
-This gives you an immediate visual sense of how far along you are.
-
----
-
-## Time to Goal (Estimate)
-
-Below the progress ring, the widget can show an **estimated time to reach the goal**:
-
-- Only shown if:
-    - The goal is **not reached**  
-    - $\text{currentValue} > 0$
-    - $\text{remaining} > 0$
-- Uses a **simplified growth model** with a fixed **8% annual return assumption**.
-
-The estimate is calculated by:
-
-- Assuming **constant annual growth** at 8%  
-- Solving: $\text{goalAmount} = \text{currentValue} \times (1 + 0.08)^{\text{years}}$  
-- Then formatting the result as:
-    - `<N> months` if less than 1 year
-    - `Xy Ym` if multiple years and months  
-    - `X years` if months round to 0  
-
-A note at the bottom reminds you that this is a **rough estimate** based on an 8% return, not a guarantee.
-
----
-
-## Info Messages
-
-At the bottom of the widget, a **short message** adapts to your situation:
-
-- If the goal is reached → **congratulatory message**  
-- Else if time-to-goal is available → text explaining that the estimate assumes ~8% yearly returns  
-- Else → a hint to **set or adjust** your goal to something realistic
-
----
-
-## When To Use It
-
-The Goal Tracker widget is useful for:
-
-- Setting a **clear portfolio target** (e.g. 25k, 100k, 1M…)  
-- Tracking your **long-term progress** rather than just daily P&L  
-- Getting a **rough idea** of how long it might take to reach your number (assuming markets behave reasonably)  
-- Motivating yourself with a **visual completion circle** that updates as your portfolio grows
-
----
-
-## Notes
-
-- This widget is WIP and may evolve over time based on user feedback.
-- A lot of ameliorations could be made, such as:
-    - More sophisticated growth models for the time estimate (rather than fixed 8%)
-    - Additional goal types (e.g. percentage growth rather than absolute value)  
-    - Syncing goals across devices via user accounts
+- **Projections are simulations, not promises.** They're driven by your own historical return and volatility, which may not repeat going forward, especially over long horizons.
+- **New or low-history portfolios** fall back to generic default assumptions ($8\%$ return, $15\%$ volatility) until enough trading history accumulates.
+- **A very low achievement probability** (under $5\%$) triggers an explicit warning that the goal is unlikely to be met as currently configured.
+- **Past target dates** are handled gracefully — the widget flags them rather than showing a nonsensical negative time-to-goal.
+- Related pages: [Total Value](total-value.md), [Total Return](total-return.md).

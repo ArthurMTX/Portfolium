@@ -1,298 +1,149 @@
 # Technical Reference Overview
 
-This section provides detailed technical documentation about Portfolium's core systems and algorithms.
-
-## Purpose
-
-The Technical Reference is designed for:
-
-- **Developers** working on the codebase
-- **Contributors** understanding implementation details
-- **Advanced users** wanting to know how things work under the hood
-- **System administrators** troubleshooting issues
-
-## Topics Covered
-
-### [Stock Splits](stock-splits.md)
-
-Learn how Portfolium handles stock split transactions, including:
-
-- Split ratio parsing and validation
-- Position quantity adjustments
-- Cost basis preservation
-- Historical accuracy maintenance
-
-### [Logo Fetching](logo-fetching.md)
-
-Understand the logo resolution system:
-
-- Multi-strategy logo fetching (Brandfetch API)
-- Image validation and optimization
-- Caching mechanisms
-- Fallback SVG generation
-
-### [Price Fetching](price-fetching.md)
-
-Deep dive into price data management:
-
-- Yahoo Finance integration (yfinance)
-- Price caching with TTL
-- Daily change percentage calculation
-- Concurrent price updates
-- Historical price backfilling
-
-### [Currency Conversion](currency-conversion.md)
-
-Currency handling and conversion:
-
-- Exchange rate fetching from Yahoo Finance
-- Rate caching strategy
-- Multi-currency portfolio support
-- Conversion accuracy
-
-### [Data Models](data-models.md)
-
-Complete database schema and ORM models:
-
-- SQLAlchemy models (User, Portfolio, Asset, Transaction, Price)
-- Pydantic schemas for validation
-- Relationships and constraints
-- Enumerations and types
-
-### [Pricing Service](pricing-service.md)
-
-Architecture of the pricing subsystem:
-
-- Service class design
-- Async/await patterns for performance
-- Error handling strategies
-- Cache invalidation logic
-
-### [Asset Metadata Overrides](asset-metadata-overrides.md)
-
-User-specific asset classification system:
-
-- Custom sector, industry, and country assignments
-- User-specific overrides (each user can set their own)
-- Fallback-only design (only when Yahoo Finance has no data)
-- Automatic integration with distributions and insights
-- Database table for override storage
-
-### Asset Theme Classification
-
-Global asset theme/exposure classification uses one configured provider at a time:
-
-- `ASSET_THEME_CLASSIFIER_MODE=minilm` uses the local MiniLM ONNX classifier and is the default for fresh installs.
-- `ASSET_THEME_CLASSIFIER_MODE=gemini` uses Gemini and requires `GEMINI_API_KEY`.
-- Persisted theme classifications store `source` (`minilm`, `gemini`, or `manual`) and `model_name` for provenance.
-- Manual classifications are authoritative and are not overwritten by automatic jobs unless a force refresh is requested.
-
-## Technology Stack
-
-### Backend
-
-- **Framework**: FastAPI (Python 3.11+)
-- **ORM**: SQLAlchemy 2.0
-- **Database**: PostgreSQL 14+
-- **Validation**: Pydantic v2
-- **Data Sources**: yfinance, Brandfetch API
-- **Async Tasks**: APScheduler
-- **Migration Tool**: Alembic
-
-### Frontend
-
-- **Framework**: React 18 with TypeScript
-- **State Management**: Zustand
-- **Styling**: Tailwind CSS
-- **Charts**: Chart.js
-- **Build Tool**: Vite
-
-### Infrastructure
-
-- **Containerization**: Docker & Docker Compose
-- **Database Schema**: `portfolio` schema in PostgreSQL
-- **API Documentation**: OpenAPI/Swagger (auto-generated)
-
-## Code Organization
-
-```
-api/
-├── app/
-│   ├── models.py          # SQLAlchemy ORM models
-│   ├── schemas.py         # Pydantic validation schemas
-│   ├── crud/              # CRUD operations
-│   ├── routers/           # API endpoints
-│   ├── services/          # Business logic
-│   │   ├── pricing.py     # Price fetching service
-│   │   ├── logos.py       # Logo fetching service
-│   │   ├── currency.py    # Currency conversion
-│   │   ├── metrics.py     # Portfolio calculations
-│   │   └── insights.py    # Analytics engine
-│   └── tasks/             # Background jobs
-│       └── scheduler.py   # APScheduler tasks
-```
-
-## Design Principles
-
-### 1. Separation of Concerns
-
-- **Routers**: Handle HTTP requests/responses
-- **CRUD**: Database operations
-- **Services**: Business logic and external integrations
-- **Models**: Data structure definitions
-- **Schemas**: Input/output validation
-
-### 2. Async-First
-
-- Use `async/await` for I/O-bound operations
-- Concurrent API calls with `asyncio.gather()`
-- Non-blocking database queries where beneficial
-- Background task processing with APScheduler
-
-### 3. Caching Strategy
-
-- **Price data**: TTL-based caching in database
-- **Logo data**: Persistent storage in `asset.logo_data`
-- **Exchange rates**: In-memory cache with 1-hour TTL
-- **Portfolio metrics**: 5-minute in-memory cache
-
-### 4. Data Integrity
-
-- **Transaction validation**: Prevent overselling (configurable)
-- **Referential integrity**: Foreign key constraints
-- **Type safety**: Pydantic schemas + SQLAlchemy types
-- **Enum validation**: Python enums for controlled values
-
-### 5. Error Handling
-
-- **Graceful degradation**: Fallback to cached data on API failures
-- **Detailed logging**: Structured logging with context
-- **User-friendly errors**: Clear HTTP status codes and messages
-- **Retry logic**: For transient failures (rate limits, network)
-
-## Performance Optimizations
-
-### Database
-
-- **Indexes**: On foreign keys, symbols, dates
-- **Query optimization**: Select only needed columns
-- **Batch operations**: Bulk inserts for imports
-- **Connection pooling**: SQLAlchemy engine configuration
-
-### API
-
-- **Concurrent requests**: Multiple price fetches in parallel
-- **Response caching**: ETags and cache headers
-- **Pagination**: Limit result sets
-- **Lazy loading**: Load data only when needed
-
-### Frontend
-
-- **Code splitting**: Route-based lazy loading
-- **Image optimization**: WebP logos, lazy loading
-- **Virtual scrolling**: For large transaction lists
-- **Debouncing**: Search inputs and auto-refresh
-
-## Security Considerations
-
-### Authentication
-
-- **JWT tokens**: Secure, stateless authentication
-- **Password hashing**: bcrypt with salt
-- **Token expiration**: 7-day default, configurable
-- **Email verification**: Required for activation
-
-### Authorization
-
-- **User isolation**: Users only see their own data
-- **Portfolio ownership**: Verified on every request
-- **Admin permissions**: Separate superuser flag
-- **API key protection**: Environment variable storage
-
-### Data Protection
-
-- **SQL injection prevention**: SQLAlchemy ORM (parameterized queries)
-- **CORS configuration**: Whitelist allowed origins
-- **Input validation**: Pydantic schemas on all inputs
-- **Rate limiting**: Planned (not yet implemented)
-
-## External Dependencies
-
-### Yahoo Finance (yfinance)
-
-- **Purpose**: Stock/crypto prices and historical data
-- **Rate Limits**: Approximately 2,000 requests/hour (informal)
-- **Reliability**: Generally reliable, occasional outages
-- **Alternatives**: Alpha Vantage, IEX Cloud (not implemented)
-
-### Brandfetch API
-
-- **Purpose**: Company logos
-- **Rate Limits**: Depends on plan (free tier available)
-- **Fallback**: SVG generation with ticker letters
-- **Optional**: Works without API key (limited results)
-
-## Testing Strategy
-
-### Unit Tests
-
-- **CRUD operations**: Test database interactions
-- **Service logic**: Test business rules (splits, metrics)
-- **Schema validation**: Test Pydantic models
-- **Utility functions**: Test parsers, converters
-
-### Integration Tests
-
-- **API endpoints**: Test full request/response cycle
-- **Database transactions**: Test rollback behavior
-- **External APIs**: Mock yfinance and Brandfetch
-- **Price calculations**: Test portfolio metrics accuracy
-
-### Test Coverage
-
-- Run tests: `pytest tests/ -v`
-- Coverage report: `pytest --cov=app tests/`
-- Test fixtures: Shared test data in `conftest.py`
-
-## Debugging Tips
-
-### Backend
-
-- **Enable debug logs**: Set `LOG_LEVEL=DEBUG` in `.env`
-- **Check logs**: `docker compose logs api -f`
-- **Interactive shell**: `docker compose exec api python`
-- **Database inspection**: Use pgAdmin or psql
-
-### Frontend
-
-- **React DevTools**: Inspect component state
-- **Network tab**: Monitor API requests
-- **Console errors**: Check browser console
-- **Zustand DevTools**: State management debugging
-
-### Common Issues
-
-- **Price fetch failures**: Check rate limits, verify symbol
-- **Logo not appearing**: Check Brandfetch API key, fallback SVG
-- **Incorrect metrics**: Verify transaction dates, check for missing splits
-- **Performance**: Check database indexes, analyze slow queries
-
-## Contributing
-
-See [Contributing Guide](../development/contributing.md) for:
-
-- Code style guidelines
-- Pull request process
-- Development setup
-- Testing requirements
-
-## Next Steps
-
-Dive into specific technical topics:
-
-- [Stock Splits](stock-splits.md) - Learn split handling
-- [Logo Fetching](logo-fetching.md) - Understand logo system
-- [Price Fetching](price-fetching.md) - Explore price management
-- [Currency Conversion](currency-conversion.md) - Multi-currency support
-- [Data Models](data-models.md) - Database schema
-- [Pricing Service](pricing-service.md) - Service architecture
+This section documents Portfolium's implementation for developers, contributors, and
+self-hosters who need to understand what's actually running under the hood. It is not
+end-user documentation — see the [User Guide](../user-guide/) for that.
+
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Backend framework | FastAPI (Python), Uvicorn |
+| Background jobs | Celery workers + Celery Beat scheduler |
+| Broker / result backend / cache | Redis |
+| Database | PostgreSQL |
+| ORM / migrations | SQLAlchemy 2.0, Alembic |
+| Frontend | React + TypeScript, Vite, React Router, TanStack Query |
+| Market data | Yahoo Finance (`yfinance`) |
+| Deployment | Docker Compose |
+
+There is no APScheduler anywhere in the current codebase — all periodic and
+asynchronous work runs through Celery. The FastAPI process itself never schedules
+background work; it only serves HTTP requests.
+
+## Services and how they talk to each other
+
+`docker-compose.yml` defines these containers, all on a single `portfolium` bridge
+network:
+
+- **db** — PostgreSQL, holds all persistent state.
+- **redis** — Celery broker/result backend and application cache (price data,
+  computed metrics, dashboard payloads).
+- **bootstrap** — one-shot container (`python -m app.bootstrap`) that runs Alembic
+  migrations and any first-run setup, then exits. `api`, `celery-worker`, and
+  `celery-beat` all wait for it to complete successfully before starting.
+- **api** — the FastAPI app (`app/main.py`), serving all HTTP/JSON endpoints.
+- **celery-worker** — runs `celery -A app.celery_app worker` consuming the
+  `default`, `high`, and `low` queues.
+- **celery-beat** — runs `celery -A app.celery_app beat`, the single source of
+  periodic scheduling for the whole application.
+- **web** — the built React app served by Nginx, talking to `api` over
+  `VITE_API_URL`.
+
+The API and both Celery processes share the same Docker image and the same
+`app/` codebase — they differ only in their container `command`. This means a
+change to a service module or model is picked up by all three simultaneously on
+redeploy.
+
+## Request flow (HTTP)
+
+1. The browser (React SPA, built with Vite) calls the API, e.g.
+   `GET /portfolios/{id}/metrics`.
+2. `app/main.py` wires the request through `CORSMiddleware`,
+   `ObservabilityMiddleware` (request ID, structured logging, Prometheus metrics —
+   see [Observability](observability.md)), and `SecurityHeadersMiddleware`.
+3. FastAPI dispatches to the matching router in `app/routers/` (e.g.
+   `portfolios.py`, `transactions.py`, `assets.py`, `prices.py`). Each router is
+   included in `main.py` with a fixed prefix and OpenAPI tag.
+4. The router calls into a service module under `app/services/` — grouped by
+   domain (`market_data`, `portfolio_analytics`, `asset_intelligence`,
+   `communications`, `workflows`, `platform`, `security`, `reference_data`) — which
+   contains the actual business logic and talks to PostgreSQL via SQLAlchemy models
+   in `app/models/`, and to Redis for cached reads where applicable.
+5. Some request paths enqueue Celery tasks instead of doing work inline — for
+   example, a new transaction can trigger `dashboard.warmup_portfolio_on_transaction`
+   on the `high` priority queue so the next dashboard load is already warm. The HTTP
+   response does not wait for that task to finish.
+6. The response is serialized through Pydantic schemas and returned as JSON.
+
+Redis is optional at startup (`REDIS_ENABLED`): if it's unreachable, the API logs a
+warning and continues to run without caching rather than failing to boot.
+
+## Background job flow (Celery)
+
+Celery Beat (`app/celery_app.py`) holds the full periodic schedule — cron-style
+entries built with `celery.schedules.crontab`, gated on
+`ENABLE_BACKGROUND_TASKS`. Representative examples:
+
+| Schedule entry | Task | Purpose |
+| --- | --- | --- |
+| Every N minutes, market hours | `metrics_tasks.refresh_all_portfolio_metrics` | Recompute cached portfolio metrics |
+| Every 2 minutes, market hours | `cache_tasks.warmup_price_cache` | Pre-fetch prices so user requests hit cache |
+| Every 5 minutes | `maintenance_tasks.check_price_alerts` | Evaluate watchlist price alerts |
+| Every 10 minutes | `maintenance_tasks.check_daily_changes` | Detect daily portfolio swings for notifications |
+| Daily 03:00 | `cache_tasks.cleanup_expired_cache` | Evict stale cache rows/keys |
+| Daily 06:00 | `dividend_tasks.fetch_all_dividends` | Pull upcoming/pending dividends |
+| Daily 06:30 | `calendar_tasks.refresh_earnings_cache` | Refresh earnings-calendar cache |
+| Weekdays 16:00 | `report_tasks.send_daily_reports` | Email daily portfolio reports |
+| Weekly (Sun) | `reference_data_tasks.sync_adanos_listings_task` | Sync ISIN/reference listings |
+
+Beat only enqueues; it never executes task bodies itself. The flow for any one
+entry is:
+
+1. **Celery Beat** evaluates its schedule and publishes a task message to Redis
+   (the broker) on the queue named in that entry's `options.queue`
+   (`default`, `high`, or `low`).
+2. **celery-worker** (started with `-Q default,high,low`, concurrency 4) picks up
+   the message, and Celery signal handlers (`task_prerun`/`task_postrun` in
+   `celery_app.py`) attach request-ID/task-name context and start duration timing.
+3. The task body — a module in `app/tasks/` (`metrics_tasks.py`, `cache_tasks.py`,
+   `insights_tasks.py`, `maintenance_tasks.py`, `dividend_tasks.py`,
+   `calendar_tasks.py`, `ath_tasks.py`, `logo_tasks.py`, `reference_data_tasks.py`,
+   `report_tasks.py`, `dashboard_tasks.py`) — opens its own DB session, calls the
+   relevant service (e.g. `portfolio_analytics`, `market_data`), and writes results
+   back to PostgreSQL and/or the Redis cache.
+4. On completion, `task_postrun` records duration and outcome into Prometheus
+   metrics (`portfolium_celery_task_duration_seconds`,
+   `portfolium_celery_task_failures_total`) and clears the request/task context.
+   Failures are also counted via the `task_failure` signal.
+5. HTTP-triggered tasks (like the transaction-driven dashboard warmup) follow the
+   same worker path but are published directly from a router instead of by Beat.
+
+Tasks are routed to queues by priority (`task_routes` in `celery_app.py`): `high`
+for cache warmups that affect perceived UI latency, `default` for metrics/insights
+computation, `low` for cleanup and maintenance. Several tasks also carry
+`task_annotations` rate limits (e.g. `10/m` for
+`metrics_tasks.calculate_portfolio_metrics`) to avoid flooding the worker when many
+requests arrive at once.
+
+See [Background Jobs](background-jobs.md) for the full task/queue reference (task
+signatures, retry behavior, and per-task detail) once that page is published, and
+[Observability](observability.md) for the metrics and dashboards that monitor this
+pipeline.
+
+## Frontend structure
+
+`web/src/app/App.tsx` sets up:
+
+- `QueryClientProvider` (TanStack Query) with a 30s stale time and single-retry
+  policy for all data fetching.
+- `AuthProvider` and `LanguageProvider` context providers.
+- `BrowserRouter` with lazy-loaded (`React.lazy`) feature pages under
+  `web/src/features/` — dashboard, portfolios, transactions, assets,
+  asset-research, watchlist, notifications, insights, calendar, allocation,
+  charts, admin, devtools, settings.
+- A public, unauthenticated route (`/p/:shareToken`) for shared portfolios,
+  served alongside the authenticated app shell.
+
+Protected routes require an authenticated session (`ProtectedRoute`); admin-only
+pages (theme taxonomy, classification benchmark, dev tools) additionally require
+`requireAdmin`.
+
+## Where to go next
+
+- [Data Models](data-models.md) — entity reference for everything under `app/models/`.
+- [Pricing](pricing.md) — market data fetching, caching, and refresh scheduling.
+- [Currency Conversion](currency-conversion.md) — how multi-currency portfolios are converted.
+- [Logo Fetching](logo-fetching.md) — asset logo provider chain and caching.
+- [Observability](observability.md) — logging, metrics, dashboards, alerts.
+- [Architecture](../development/architecture.md) — contributor-facing structural overview.

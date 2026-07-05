@@ -1,6 +1,6 @@
-# Relative Performance (vs Sector ETF)
+## Relative Performance (vs Sector ETF)
 
-## What It Shows  
+### What It Shows  
 Relative Performance tells you **how your asset performed compared to its sector benchmark ETF** over different time periods.
 
 Instead of only showing *absolute returns* (e.g., +12% YTD), Portfolium also shows whether your stock:
@@ -32,7 +32,7 @@ Portfolium computes this for **30d, 90d, YTD, and 1Y**.
 
 ---
 
-## How It's Calculated  
+### How It's Calculated  
 
 For each time period:
 
@@ -79,7 +79,7 @@ Portfolium displays:
 
 ---
 
-## Examples
+### Examples
 
 ### Example 1 — Outperforming
 
@@ -123,7 +123,7 @@ Portfolium labels this as:
 
 ---
 
-## When To Use It  
+### When To Use It  
 
 Relative Performance is extremely valuable when:
 
@@ -146,7 +146,7 @@ Works especially well for:
 
 ---
 
-## Notes & Limitations
+### Notes & Limitations
 
 - **Requires a known sector**  
   If the asset has no sector classification, the metric is unavailable.

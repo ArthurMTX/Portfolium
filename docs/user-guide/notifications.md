@@ -1,418 +1,194 @@
 # Notifications
 
-Stay informed about your portfolio activity and important market events.
+Stay on top of your portfolio with alerts for price milestones, trading activity, and account security — in the app and, if you choose, directly on your device.
 
 ## Overview
 
-Notifications keep you updated on portfolio changes, price movements, and system events. Portfolium automatically generates notifications for key activities and allows you to customize what notifications you receive.
+Portfolium keeps you informed with two layers of notifications:
+
+- **In-app notifications** — a running feed available from the bell icon in the top navigation and from the full Notifications page.
+- **Browser push notifications** — optional alerts delivered by your browser or operating system, even when Portfolium isn't open in a tab.
+
+Notifications are generated automatically as things happen in your account. You decide which categories you want to receive from your notification preferences, and old notifications are cleaned up automatically so your history doesn't grow forever.
 
 ## Notification Types
 
-Portfolium supports several types of notifications:
+Portfolium can generate the following kinds of notifications:
 
-### Transaction Notifications
+### Price Milestones
 
-Automatic notifications for all portfolio activity:
+- **All-Time High** 🚀 — one of your holdings just closed above its previous highest recorded price. The notification tells you the new high and how much higher it is than the last record.
+- **All-Time Low** 📉 — one of your holdings just dropped below its previous lowest recorded price, with the same kind of detail.
+- **Price Alert** — a watchlist asset you're tracking reached the target price you set for it.
+- **Daily Gain** 📈 / **Daily Loss** 📉 — one of your holdings moved by more than your chosen threshold in a single day, showing the percentage move and the dollar impact on your position.
 
-- **Transaction Created**: New buy, sell, or dividend transaction added
-- **Transaction Updated**: Existing transaction modified
-- **Transaction Deleted**: Transaction removed from portfolio
+### Transactions
 
-### Daily Change Notifications
+- **Transaction Created** — a new buy, sell, dividend, conversion, or fee entry was added to a portfolio.
+- **Transaction Updated** — an existing transaction was edited.
+- **Transaction Deleted** — a transaction was removed.
 
-Get alerted when your holdings experience significant price movements:
+### Dividends
 
-- **Daily Change Up** 📈: Asset price increased significantly
-- **Daily Change Down** 📉: Asset price decreased significantly
+- **Pending Dividend** 💰 — Portfolium detected one or more dividend payments for assets you hold and is waiting for you to review and confirm them before they're added to your portfolio.
 
-### Price Alerts
+### Account & Reports
 
-Receive notifications when watchlist assets reach target prices:
+- **Login** — a new login to your account was detected, including the IP address it came from. This notification is always created and cannot be turned off.
+- **Daily Report** 📊 — confirms that your daily portfolio report was generated and emailed successfully.
+- **System** — general announcements or important system messages.
 
-- **Price Alert**: Asset hits your specified target price
-
-### System Notifications
-
-Important system messages:
-
-- **Login**: New login to your account detected
-- **Daily Report Sent** 📊: Confirmation that your daily portfolio report was emailed
-- **System**: Important system updates or announcements
+!!! note "New since the last release"
+    All-time high/low alerts and pending dividend detection are newer additions — if you haven't looked at your notification settings in a while, it's worth reviewing them so you don't miss these.
 
 ## Viewing Notifications
 
 ### Notification Bell
 
-The bell icon in the top navigation shows:
-
-- **Badge**: Number of unread notifications
-- **Red dot**: Indicates new unread notifications
-- **Click**: Opens notification dropdown
+The bell icon in the top navigation shows a badge with your unread count (displayed as **99+** once it climbs past that). Hovering over the bell previews your most recent notifications; clicking it takes you to the full Notifications page. The unread count refreshes automatically in the background so the badge stays current while you work.
 
 ### Notification Dropdown
 
-Click the bell to see recent notifications:
+Hovering the bell opens a quick-preview dropdown showing your **5 most recent** notifications, with:
 
-- Shows last 5 notifications
-- Quick access to mark as read
-- Link to view all notifications
+- A "Mark all as read" shortcut when you have unread items.
+- The ability to mark an individual notification as read by clicking it.
+- A delete (trash) button on each entry.
+- A "View all notifications" link to the full page.
 
 ### Notifications Page
 
-Access the full Notifications page for:
+The full Notifications page gives you:
 
-- Complete notification history
-- Filtering by read/unread
-- Detailed notification information
-- Bulk actions (mark all as read)
+- Your complete notification history.
+- Filter tabs for **All** and **Unread**, each showing a live count.
+- Details specific to the notification type — for example, transaction notifications show the asset, quantity, price, and date; price-alert and daily-change notifications show the current price, percentage move, and dollar impact; login notifications show the IP address.
 
 ## Managing Notifications
 
 ### Marking as Read
 
-Individual notifications:
-
-1. Find the notification in the list
-2. Click **Mark as read** button
-3. Notification moves to read state (no red dot)
-
-All notifications:
-
-1. Click **Mark all as read** button at the top
-2. All current notifications marked as read instantly
+- **One at a time**: click **Mark as read** on any unread notification.
+- **All at once**: click **Mark all as read** to clear every unread item instantly.
 
 ### Deleting Notifications
 
-Remove notifications you no longer need:
-
-1. Find the notification
-2. Click the **Delete** button (trash icon)
-3. Notification is permanently removed
+Click the delete (trash) icon on a notification to remove it.
 
 !!! warning "Permanent Deletion"
-    Deleted notifications cannot be recovered. They are permanently removed from the system.
+    Deleted notifications cannot be recovered.
 
 ### Filtering Notifications
 
-Use filter buttons to view:
+Use the **All** and **Unread** tabs to narrow the list. Each tab shows a live count so you can see at a glance how many notifications are in each state.
 
-- **All**: Show all notifications (read and unread)
-- **Unread**: Show only unread notifications
+## Browser Push Notifications
 
-Counts are displayed next to each filter option.
+In addition to the in-app feed, Portfolium can send you push notifications through your browser or operating system — useful for catching price milestones and alerts even when you don't have a Portfolium tab open.
 
-## Notification Settings
+### Enabling Push Notifications
 
-Configure your notification preferences in Settings → Notifications.
+1. Open your notification preferences and turn on push notifications.
+2. Your browser will show a permission prompt asking whether Portfolium can send you notifications.
+3. Approve the prompt to finish enabling push notifications on that device.
+
+Each browser and device you approve is registered separately, so you can, for example, enable push notifications on your laptop and your phone independently, and turn either one off without affecting the other.
+
+!!! note "Secure connection and browser permission required"
+    Browser push notifications only work over a secure (HTTPS) connection, and only after you explicitly approve your browser's permission prompt. If you dismiss or deny the prompt, push notifications won't be delivered until you re-enable the permission in your browser settings and try again.
+
+### Sending a Test Notification
+
+After enabling push notifications, you can send yourself a test alert to confirm everything is working correctly on that device.
+
+### Disabling Push Notifications
+
+Turning off push notifications removes the registration for that device. If you use Portfolium on multiple devices, disable it separately on each one, or turn off the master push toggle in your preferences to stop all push delivery.
+
+## Notification Preferences
+
+Configure what you receive from **Settings → Notifications**. See [Settings](settings.md) for the full settings page.
 
 ### Daily Change Notifications
 
-Get alerted when your holdings have significant price movements:
-
-**Enable/Disable**
-
-- Toggle daily change notifications on or off
-- When enabled, you'll receive alerts for price movements
-- When disabled, no daily change alerts are sent
-
-**Notification Threshold**
-
-Set the percentage change that triggers alerts:
-
-- Default: 5%
-- Range: 0% to 100%
-- Example: 5% threshold triggers alerts when price moves up or down 5% or more
+- Toggle **Daily Gain / Daily Loss** alerts on or off.
+- Set the percentage move that triggers an alert — default $5\%$, adjustable from $0\%$ to $100\%$ in $0.5\%$ increments.
+- Applies to both gains and losses, and only to positions you currently hold.
 
 !!! tip "Threshold Recommendations"
-    - **2-3%**: Very sensitive, many notifications (active trading)
+    - **2–3%**: Very sensitive, frequent notifications (active trading)
     - **5%**: Balanced, significant movements only (default)
     - **10%+**: Only major price swings (long-term holding)
 
-**How It Works**
+### All-Time High / Low Alerts
 
-1. Portfolium checks daily price changes for all your holdings
-2. If any asset moves above your threshold, a notification is created
-3. Shows both percentage change and dollar impact on your position
-4. Separate notifications for increases (📈) and decreases (📉)
+Toggle notifications for when your holdings hit a new all-time high or all-time low. These are checked whenever fresh price data comes in, so you'll typically hear about a new record within the same update cycle it happens in.
 
 ### Transaction Notifications
 
-Get notified about portfolio transaction activity:
+Toggle alerts for transactions you create, update, or delete. Each notification includes the transaction type, asset, quantity, price, and date.
 
-**Enable/Disable**
+### Push Notifications
 
-- Toggle transaction notifications on or off
-- When enabled, you receive alerts for all transaction changes
-- When disabled, no transaction alerts are sent
-
-**What You'll Receive**
-
-- Notification when you add a new transaction
-- Alert when you update an existing transaction
-- Notice when a transaction is deleted
-
-Each notification includes:
-    - Transaction type (BUY, SELL, DIVIDEND, etc.)
-    - Asset symbol and name
-    - Quantity and price
-    - Transaction date
+Master toggle for whether Portfolium is allowed to send push notifications to your registered devices at all, independent of which specific alert categories are enabled above.
 
 ### Daily Portfolio Reports
 
-Receive comprehensive PDF reports via email with delivery confirmation:
+Toggle whether you receive a comprehensive PDF report by email on trading days, with an in-app confirmation once it's been sent. See [Settings](settings.md) for report contents and delivery timing.
 
-**Enable/Disable**
+### Saving Preferences
 
-- Toggle daily portfolio reports on or off
-- When enabled, receive PDF reports weekdays at 4:00 PM ET
-- When disabled, no reports are sent
+1. Adjust your preferences.
+2. Click **Save Notification Settings**.
+3. A success message confirms the update, and preferences apply account-wide across every device you're logged into.
 
-**What You'll Receive**
+!!! note "Login notifications can't be disabled"
+    Every other category can be turned on or off, but login notifications are always generated as a basic account-security measure.
 
-- Beautiful PDF report emailed to your address
-- In-app notification confirming successful delivery
-- Report includes portfolio metrics, heatmap, holdings, and transactions
+## How Notifications Are Triggered
 
-**Report Details**
+- **Transactions**: created immediately whenever you add, edit, or delete a transaction (if enabled).
+- **Daily Gain/Loss**: generated during price update cycles; Portfolium won't send more than one per asset per trading day, so you won't be spammed if a price keeps moving.
+- **Price Alerts**: generated when a watchlist asset you've flagged reaches your target price.
+- **All-Time High/Low**: generated the moment a new price record is set for an asset you hold; because the record itself updates immediately, you'll only be notified again if the price goes on to break that new record.
+- **Pending Dividends**: generated when Portfolium detects a dividend payment for an asset you hold, so you can review and confirm it.
+- **Login**: generated every time you log in.
+- **Daily Report**: generated after your report email is confirmed sent.
 
-- Sent Monday-Friday at 4:00 PM Eastern Time (market close)
-- No weekend reports (markets closed)
-- Notification includes report date and portfolio count
-- Email contains PDF attachment with comprehensive data
+## Notification Retention
 
-!!! note "Confirmation Notifications"
-    When a daily report is successfully sent, you'll receive a system notification titled "📊 Daily Portfolio Report Sent" with details about the report date and delivery.
-
-### Saving Settings
-
-After adjusting notification preferences:
-
-1. Click **Save Notification Settings**
-2. Settings are saved immediately
-3. Success message confirms update
-4. Changes take effect for future notifications
-
-## Notification Details
-
-Each notification displays:
-
-### Header Information
-
-- **Icon**: Color-coded icon for notification type
-- **Title**: Brief description of the event
-- **Badge**: Notification type label (color-coded)
-- **Time**: How long ago the notification was created
-- **Unread indicator**: Red dot for unread notifications
-
-### Message Content
-
-- **Description**: Detailed message about the event
-- **Metadata**: Additional context (varies by type)
-
-### Transaction Notification Details
-
-- Asset symbol
-- Transaction date
-- Quantity and price (for trades)
-- Transaction type
-
-### Daily Change Notification Details
-
-- Current price
-- Percentage change
-- Dollar impact on your position
-- Number of shares you hold
-
-### Login Notification Details
-
-- IP address of login
-- Time of login
-- User agent (device/browser)
-
-### Daily Report Notification Details
-
-- Report date (e.g., "October 29, 2025")
-- Email address where report was sent
-- Number of portfolios included in the report
-- Confirmation of successful delivery
-
-## Understanding Notification Behavior
-
-### When Notifications Are Created
-
-**Transaction Notifications**
-
-- Created immediately when you add, edit, or delete transactions
-- One notification per transaction action
-- Requires transaction notifications to be enabled
-
-**Daily Report Notifications**
-
-- Created when daily portfolio report is successfully emailed
-- Sent weekdays at 4:00 PM ET (after market close)
-- Confirms report generation and email delivery
-- Includes report date and portfolio count metadata
-- Only if you have daily reports enabled in Settings
-
-**Daily Change Notifications**
-
-- Created during daily price update cycles
-- One notification per asset per day (if threshold exceeded)
-- Only for currently held positions (quantity > 0)
-- Requires daily change notifications to be enabled
-
-**Price Alerts**
-
-- Created when watchlist asset hits target price
-- Triggered during price updates
-- Only if you have price alert enabled for the asset
-
-**Login Notifications**
-
-- Created each time you log in
-- Helps you monitor account access
-- Always created (cannot be disabled)
-
-### Notification Timing
-
-- **Immediate**: Transaction and login notifications
-- **Periodic**: Daily change and price alerts (during price updates)
-- **Batched**: No batching; notifications created as events occur
-
-### Duplicate Prevention
-
-- Same asset won't generate multiple daily change notifications on the same day
-- Transaction notifications are unique per transaction action
-- Login notifications are created per login session
-
-## Best Practices
-
-### Notification Settings
-
-**Balance Your Preferences**
-
-- Enable notifications for events you care about
-- Set appropriate daily change threshold
-- Don't set threshold too low (notification fatigue)
-
-**Regular Review**
-
-- Check notifications daily or weekly
-- Mark read notifications to stay organized
-- Delete old notifications you no longer need
-
-### Managing Notification Volume
-
-**Too Many Notifications?**
-
-- Increase daily change threshold (5% → 10%)
-- Disable transaction notifications if you trade frequently
-- Focus on significant events only
-
-**Not Enough Notifications?**
-
-- Lower daily change threshold (5% → 2%)
-- Enable all notification types
-- Add price alerts to watchlist items
-
-### Using Notifications Effectively
-
-**Daily Change Alerts**
-
-- Review why assets moved significantly
-- Check news or market conditions
-- Consider rebalancing if needed
-- Track patterns over time
-
-**Transaction Notifications**
-
-- Verify transactions were recorded correctly
-- Track your trading activity
-- Review for unexpected changes
-
-**Login Notifications**
-
-- Monitor for unauthorized access
-- Verify logins from new devices/locations
-- Contact support if suspicious activity
+To keep your notification history manageable, Portfolium automatically deletes notifications older than $30$ days. This cleanup runs automatically every night — you don't need to do anything, and there's nothing to configure. If you want to keep a record of something, note it down or act on it before the retention window passes; deleted notifications (whether removed by you or by automatic cleanup) cannot be recovered.
 
 ## Troubleshooting
 
-### Not Receiving Notifications
+### Not Receiving In-App Notifications
 
-**Check Settings**
+- Go to **Settings → Notifications** and verify the relevant category is enabled.
+- Check that your daily-change threshold isn't set too high for the price movement you expected to trigger it.
+- Confirm you still hold the position — notifications for daily change and price milestones only apply to assets you currently own.
+- Save your settings after making changes; unsaved changes don't take effect.
 
-- Go to Settings → Notifications
-- Verify notifications are enabled
-- Check threshold isn't too high
-- Save settings after making changes
+### Not Receiving Push Notifications
 
-**For Daily Change Notifications**
-
-- Ensure your holdings actually moved above threshold
-- Price updates may have a delay
-- Check that you have current positions (not sold)
-
-**For Transaction Notifications**
-
-- Verify setting is enabled in Settings
-- Check that transactions are being created
-- Refresh the notifications page
+- Confirm push notifications are enabled in your notification preferences.
+- Check your browser's own notification permission for the site — if you previously denied the prompt, you'll need to re-allow it in your browser settings.
+- Push notifications require a secure (HTTPS) connection; they won't work on an insecure connection.
+- Try sending a test notification to confirm the device is registered and working.
+- If you use multiple browsers or devices, remember each one needs its own permission approval.
 
 ### Too Many Notifications
 
-**Adjust Threshold**
-
-- Increase daily change threshold percentage
-- Disable less important notification types
-- Focus on critical alerts only
-
-**Clear Old Notifications**
-
-- Mark all as read to clear the slate
-- Delete notifications you've addressed
-- Filter to unread to focus on new items
-
-### Notifications Not Showing Count
-
-- Refresh the page
-- Check browser console for errors
-- Ensure you're logged in
-- Try logging out and back in
+- Raise your daily-change threshold (for example, from $5\%$ to $10\%$).
+- Turn off categories you don't need, such as transaction notifications if you trade frequently.
+- Use the **Unread** filter to focus on what's new, and mark-all-as-read to clear the slate.
 
 ### Missing Notification Details
 
-- Some older notifications may have limited metadata
-- Metadata depends on notification type
-- System notifications may have minimal details
-
-## Notification Privacy
-
-### What's Stored
-
-Notifications contain:
-    - Event type and description
-    - Related asset/transaction information
-    - Timestamp of event
-    - Read/unread status
-
-### Who Can See
-
-- Only you can see your notifications
-- Notifications are user-specific
-- Not shared with other users
-- Stored securely in the database
-
-### Data Retention
-
-- Notifications remain until you delete them
-- No automatic expiration
-- You control retention through deletion
-- Can delete individually or in bulk
+Some notification types show more detail than others — transaction, price-alert, daily-change, and login notifications include rich metadata, while system-style notifications may show only a title and message.
 
 ## Next Steps
 
-- [Configure Settings](settings.md) to customize notification preferences
-- [View Transactions](transactions.md) referenced in notifications
-- [Check Portfolio](portfolios.md) performance after price alerts
-- [Review Assets](assets.md) with significant price changes
+- [Configure Settings](settings.md) to adjust notification and app preferences
+- [View Transactions](transactions.md) referenced in transaction notifications
+- [Check Portfolios](portfolios.md) performance after a price alert or milestone
+- [Review Watchlist](watchlist.md) to set price alert targets

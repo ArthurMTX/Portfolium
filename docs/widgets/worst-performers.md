@@ -1,85 +1,66 @@
-# Worst Performers
+## Worst Performers
 
-The **Worst Performers** widget highlights the positions that contribute most to your portfolio's losses.  
-It shows which assets have the **lowest percentage return** based on their current unrealized P&L.
+### What It Shows
 
----
+Worst Performers is the mirror image of [Top Performers](top-performers.md) — it surfaces the holdings that are **losing you the most money, percentage-wise**, so you can spot problem positions without scanning the whole [Positions](positions.md) table.
 
-## What It Shows
+For each entry, the widget shows:
 
-For each worst performer, the widget displays:
+- its rank (#1, #2, ...);
+- logo, ticker, and name;
+- its **return** — unrealized gain or loss, as a percentage;
+- its current **position value** in your portfolio's base currency.
 
-- **Rank** (#1, #2, #3, …)  
-- **Logo**, **Symbol**, and **Name** of the asset  
-- **Return (%)** - unrealized P&L percentage for that position  
-- **Position value** - current market value of that position in your portfolio currency  
-
-The list is limited to a small number of assets (typically the **bottom 5**) so you can see your biggest losers at a glance.
-
-Only positions you **still hold** are included. Closed positions belong to **Realized P&L**, not Worst Performers.
+Only positions you **currently hold** are considered. Once you fully sell a losing position, it moves into your realized P&L history and no longer appears here.
 
 ---
 
-## How It's Calculated
+### How It's Calculated
 
-For each open position, the widget uses the **unrealized P&L percentage**:
+For every open position, the widget uses the same unrealized profit/loss percentage as Top Performers:
 
 $$
-\text{Return (\%)} =
-\frac{\text{Current Value} - \text{Cost Basis}}{\text{Cost Basis}} \times 100
+\text{return} = \frac{\text{current value} - \text{cost basis}}{\text{cost basis}} \times 100
 $$
 
-Then:
+Steps:
 
-1. All positions with valid unrealized P&L are collected.  
-2. They are **sorted from lowest to highest return (%)**.  
-3. The top few positions (e.g. 5) are shown in the widget.
+1. Collect every open position that has a valid unrealized P&L.
+2. Sort them from **lowest to highest** return percentage — the biggest losses first.
+3. Keep the bottom $5$.
 
-Displayed value for each asset:
-
-- **Return (%)** - rounded to two decimals, with a leading `+` when positive or `-` when negative
-- **Position value** - current value of the position (quantity × current price), formatted in your portfolio currency  
+The return is shown rounded to two decimals, with a `-` sign for losses. Because the ranking is purely on percentage, a small position that's down heavily will outrank a large position with a modest loss.
 
 ---
 
-## Example
+### Example
 
-Imagine you hold:
+Using the same holdings as the Top Performers example:
 
-| Symbol | Cost Basis | Current Value | Unrealized P&L (%) |
-|--------|------------|---------------|--------------------|
-| NVDA   | $5,000     | $9,250        | +85.00%            |
-| AAPL   | $4,000     | $5,000        | +25.00%            |
-| TSLA   | $7,000     | $7,500        | +7.14%             |
-| AMZN   | $3,000     | $2,700        | -10.00%            |
-| MSFT   | $6,000     | $8,400        | +40.00%            |
-| META   | $2,000     | $1,800        | -15.00%            |
-| GME    | $1,500     | $1,200        | -20.00%            |
+| Rank | Symbol | Cost Basis | Current Value | Return |
+|---|---|---|---|---|
+| #1 | GME | $1{,}500 | $1{,}200 | $-20.00\%$ |
+| #2 | META | $2{,}000 | $1{,}800 | $-15.00\%$ |
+| #3 | AMZN | $3{,}000 | $2{,}700 | $-10.00\%$ |
 
-The Worst Performers widget might display:
-
-- **#1 GME** - **-20.00%**, position value **$1,200.00**  
-- **#2 META** - **-15.00%**, position value **$1,800.00**  
-- **#3 AMZN** - **-10.00%**, position value **$2,700.00**  
-
-This makes it immediately clear which assets are driving your losses.
+If you have fewer than $5$ positions currently at a loss, the list fills the remaining spots with your smallest gainers — so it's possible to see a positive return here on a quiet day.
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Worst Performers widget is useful for:
+Use Worst Performers when you want to:
 
-- Seeing **which positions contribute most** to your current losses  
-- Spotting **big losers** that might justify taking partial profits or rebalancing  
-- Understanding how your portfolio performance is distributed across assets  
-- Complementing other widgets such as **Unrealized P&L**, **Positions**, and **Concentration Risk**
+- catch **underperforming positions** early, before a small loss becomes a large one;
+- decide whether to average down, hold, or cut a losing position;
+- separate "this holding is genuinely struggling" from "the whole market is down today" by cross-checking with [Today's Brief](today-brief.md) or your portfolio's overall return;
+- avoid the temptation to only look at your winners.
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- Only **open positions** with a valid unrealized P&L are included 
-- Returns are based on the **latest available market data** and your recorded **cost basis**
-- Currency formatting follows your **portfolio base currency**
-- The widget can show positive returns if your worst positions are currently at a gain
+- **Open positions only** — fully sold holdings are excluded, even if they were realized at a loss.
+- **Percentage-based, not value-based** — a small position that dropped sharply can outrank a large position with a smaller percentage loss. For raw position size instead, see [Largest Holdings](largest-holdings.md).
+- **Can show gains** — if fewer than 5 positions are currently underwater, the list is padded with your weakest (but still positive) performers rather than left incomplete.
+- Depends on up-to-date market prices; if a price hasn't refreshed recently, the return shown reflects the last price Portfolium has.

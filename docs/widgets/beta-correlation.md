@@ -1,4 +1,4 @@
-# Beta & Market Correlation
+# Beta Correlation
 
 The **Beta & Market Correlation** widget measures how **sensitive your portfolio is to the overall market**.  
 It shows how much your portfolio tends to move when the market (represented by **SPY – S&P 500 ETF**) moves.

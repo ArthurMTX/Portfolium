@@ -1,85 +1,72 @@
-# Daily Gain
+## Daily Gain
 
-The **Daily Gain** widget shows how much your portfolio has moved during the current trading day, both in currency and percentage.  
-It gives you a quick view of whether today's market performance is positive or negative for your portfolio.
+### What It Shows
 
----
+Daily Gain shows how much your portfolio has genuinely gained or lost **today**, in both currency and percentage — color-coded green for a gain, red for a loss.
 
-## What It Shows
+It answers:
 
-- The **daily change** in your portfolio value (gain or loss)  
-- Displayed in your portfolio's currency
-- A **percentage change** for the day  
-- Color-coded:
+> "Is my portfolio actually up or down today because of the market, not because I moved money around?"
 
-  - Green for gains
-  - Red for losses
-  - Neutral when data is missing  
-
-This metric answers the question:  
-> "How much has the total worth of my portfolio changed today? Is it up or down?"
+Importantly, this is not just "today's value minus yesterday's value." If you deposited cash, made a withdrawal, bought, or sold something today, those actions don't count as gains or losses — Daily Gain is built to isolate genuine market performance from your own cash movements.
 
 ---
 
-## How It's Calculated
+### How It's Calculated
 
-**Formula (Value)**
-
-$$
-\text{Daily Gain} = V_{\text{today}} - V_{\text{previous}}
-$$
-
-Where:  
-- $V_{\text{today}}$ = current total portfolio value  
-- $V_{\text{previous}}$ = total portfolio value at the previous market close  
-
-**Formula (Percentage)**  
+Portfolium starts from the previous official market close and walks forward to today, formula:
 
 $$
-\text{Daily Gain (\%)} = \frac{V_{\text{today}} - V_{\text{previous}}}{V_{\text{previous}}} \times 100
+\text{Daily Gain} = V_{\text{today}} - V_{\text{previous close}} - \text{Net External Cash Flow}
 $$
 
-Additional notes:
+Where:
 
-- Positive result = daily gain  
-- Negative result = daily loss  
-- If previous close data is unavailable, the widget may show **N/A**  
+- $V_{\text{today}}$ = your current total portfolio value,
+- $V_{\text{previous close}}$ = your portfolio's value as of the last official close for which historical prices are available,
+- **Net External Cash Flow** = deposits, withdrawals, buys, sells, and transfers that happened between the previous close and now.
+
+Subtracting cash flow is what makes this a meaningful *performance* number rather than a raw balance change — buying a new position with fresh cash increases your portfolio's value, but it isn't a "gain," so it's backed out. The percentage is then:
+
+$$
+\text{Daily Gain (\%)} = \frac{\text{Daily Gain}}{V_{\text{previous close}}} \times 100
+$$
+
+To build this, Portfolium reconstructs your holdings as of the previous close from your transaction history, tracks any external cash movements since then per asset, and combines it all into the figures above.
+
+If there's no reliable previous close price (for example, a brand-new position with no historical data yet, or missing market data), the widget shows **N/A** rather than a misleading number — silently showing "$0$" would be worse than admitting the data isn't there.
 
 ---
 
-## Example
+### Example
 
-- $V_{\text{previous}} = \text{€} 12\,000$
-- $V_{\text{today}} = \text{€} 12\,300$
-
-$$
-\text{Daily Gain} = 12\,300 - 12\,000 = \text{€} 300
-$$
+Say your portfolio was worth $\text{\euro}12{,}000$ at the previous close, and today it's worth $\text{\euro}12{,}500$ — but you also deposited $\text{\euro}200$ and used it to buy shares this morning.
 
 $$
-\text{Daily Gain (\%)} = \frac{300}{12\,000} \times 100 = 2.50
+\text{Daily Gain} = 12{,}500 - 12{,}000 - 200 = \text{\euro}300
 $$
 
-The widget would display:
+$$
+\text{Daily Gain (\%)} = \frac{300}{12{,}000} \times 100 = 2.50\%
+$$
 
-- **+€300.00**  
-- **+2.50%**
+The widget displays **$+\text{\euro}300.00$** and **$+2.50\%$** — reflecting genuine market performance, not the extra $\text{\euro}200$ you added.
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Daily Gain widget is useful for:
+Check Daily Gain when you want to:
 
-- Monitoring your **intraday performance**  
-- Seeing whether your portfolio is up or down **today**  
-- Tracking short-term volatility  
-- Evaluating market impact during trading hours  
+- get a quick sense of how the market treated your portfolio today, without your own deposits or trades muddying the picture;
+- keep tabs on short-term volatility across your holdings as a whole;
+- start your day on [Today's Brief](today-brief.md), which leads with this same number.
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- Daily Gain resets at each new trading day  
-- Updates follow your refresh settings  
-- Currency formatting follows your portfolio settings
+- **Excludes your own cash activity.** Deposits, withdrawals, buys, and sells are deliberately backed out so the number reflects market movement, not money movement.
+- **Depends on having a reliable previous close.** New positions without historical price data, or missing market data for any held asset, can make the figure unavailable (**N/A**) rather than approximate.
+- **Ties to official market closes**, so figures may lag slightly outside normal trading hours, especially for less liquid assets.
+- For a deeper breakdown of which specific holdings drove today's move, see [Best & Worst Today](best-worst-today.md) or [Today's Brief](today-brief.md).

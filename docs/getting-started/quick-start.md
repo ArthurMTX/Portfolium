@@ -4,7 +4,7 @@ This guide will help you create your first portfolio and add transactions.
 
 ## Step 1: Create an Account
 
-1. Navigate to [http://localhost:5173](http://localhost:5173)
+1. Navigate to [http://localhost](http://localhost) (or your configured domain)
 2. Click **Register** if you don't have an account
 3. Fill in your details:
    - Email

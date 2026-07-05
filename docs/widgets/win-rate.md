@@ -1,88 +1,50 @@
-# Win Rate
+## Win Rate
 
-The **Win Rate** widget shows the percentage of your **current positions** that are in profit.  
-It gives you a quick sense of how many of your active trades are currently "winning".
+### What It Shows
 
----
+Win Rate is a compact, dedicated card that answers: *out of everything I currently hold, how many positions are actually green right now?* It shows:
 
-## What It Shows
+- the **Win Rate** as a whole-number percentage (e.g. $63\%$);
+- a subtitle with the raw count of profitable positions out of the total;
+- the value colored **green** at $70\%$ or above, **amber** between $50\%$ and $69\%$, and **red** below $50\%$.
 
-- The **percentage of positions in profit** (Win Rate)  
-- The **number of profitable positions**  
-- The **total number of positions** considered  
-- Color-coded Win Rate:
+It uses the same underlying signal as [Hit Ratio](hit-ratio.md) — the share of open positions with positive unrealized P&L — but is a separate, simpler widget with its own three-tier color scale (rather than Hit Ratio's two-tier green/amber split) and no "N/A" empty-state distinction for missing P&L.
 
-    - Green when your win rate is **70% or higher**
-    - Amber between **50% and 69%**
-    - Red when **below 50%**
+### How It's Calculated
 
-This widget answers the question:  
-> "Out of all my open positions, how many are actually green right now?"
+Win Rate counts **open positions with a defined unrealized P&L**, then checks how many of those are strictly positive:
 
----
-
-## How It's Calculated
-
-Win Rate is based on the **unrealized P&L** of your current positions.
-
-1. Count how many positions have **unrealized P&L > 0** (profitable)
-2. Count how many positions have a **unrealized P&L** 
-3. Compute the Win Rate as a percentage
-
-**Formula**
+1. Count positions where unrealized P&L is not null and greater than $0$ → the "winners."
+2. Count positions where unrealized P&L is not null (regardless of sign) → the total considered.
+3. Compute the percentage.
 
 $$
-\text{Win Rate (\%)} =
-\frac{\text{Number of positions with } P_{\text{unrealized}} > 0}
-{\text{Number of positions } P_{\text{unrealized}}}
-\times 100
+\text{Win Rate} = \frac{\text{positions with unrealized P\&L} > 0}{\text{positions with a defined unrealized P\&L}} \times 100
 $$
 
-Additional notes:
+The displayed value is rounded to the nearest whole percent (no decimal), unlike Hit Ratio which shows one decimal place. Positions sitting at exactly $0$ P&L are not counted as winners. If there are no positions with a defined P&L, the widget shows $0\%$.
 
-- Only positions with a **defined** unrealized P&L are counted  
-- Positions at exactly **0** P&L are treated as **non-winning** (not included in the numerator)  
+### Example
 
----
-
-## Example
-
-Suppose your portfolio has:
-
-- 8 positions with a defined unrealized P&L  
-- Among them:
-
-    - 5 positions are in profit (unrealized P&L > 0)  
-    - 3 positions are at a loss or breakeven  
-
-Win Rate:
+Say your portfolio has 8 positions with a defined unrealized P&L, and 5 of them are currently profitable:
 
 $$
-\text{Win Rate (\%)} = \frac{5}{8} \times 100 = 62.5
+\text{Win Rate} = \frac{5}{8} \times 100 = 62.5\% \rightarrow 63\%
 $$
 
-The widget would display:
+The widget displays **63%** in amber (since it falls between $50\%$ and $69\%$), with a line reading "5 of 8 in profit."
 
-- **63%** (rounded to the nearest integer)  
-- A line such as: "5 positions in profit out of 8"
+### When To Use It
 
-Because the win rate is between 50% and 69%, the main value would be shown in **amber**.
+Use Win Rate when you want:
 
----
+- a quick glance at trade quality without opening the full positions table;
+- a stricter visual signal than Hit Ratio — the extra "green ≥ 70%" tier makes it easier to tell a strong streak from a merely adequate one;
+- to track whether a change in strategy (position sizing, stop-losses, entry timing) is nudging your win/loss count in the right direction over time.
 
-## When To Use It
+### Notes & Limitations
 
-The Win Rate widget is useful for:
-
-- Getting a **quick snapshot** of how many of your current trades are working  
-- Tracking how your **position quality** evolves over time  
-- Complementing P&L metrics with a **count-based** view of performance  
-- Checking whether recent changes to your strategy improve the proportion of winning positions  
-
----
-
-## Notes
-
-- Win Rate is based on **current market prices**, so it changes throughout the day.  
-- It does **not** consider position size: a small winning position and a large losing one both count as a single position.  
-- For monetary impact, combine this widget with **Unrealized P&L** and **Total Return** metrics.
+- **Ignores position size.** A tiny winning position and a large losing one count exactly the same, so Win Rate can look good even while the portfolio is down in absolute terms.
+- **Live prices, so it moves throughout the day.** Because it's based on unrealized P&L, Win Rate shifts as prices update — it's a snapshot, not a historical average.
+- **Not the same scale as Hit Ratio.** The two widgets use the same underlying win/loss test, but different rounding (whole percent vs. one decimal) and different color thresholds — expect the color, not necessarily the number, to sometimes differ between them.
+- Pair with [Unrealized P&L](unrealized-pnl.md) and [Total Return](total-return.md) to see the euro impact behind the percentage.

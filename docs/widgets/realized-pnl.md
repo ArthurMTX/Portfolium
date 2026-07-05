@@ -1,82 +1,60 @@
-# Realized P&L
+## Realized P&L
 
-The **Realized P&L** widget shows the profit or loss you have already locked in by **selling positions**.  
-It represents the total gains or losses from completed trades, based on the difference between your sale price and your cost basis.
+### What It Shows
 
----
+Realized P&L shows the profit or loss you've already **locked in** by selling — money you've actually made or lost on completed trades, as opposed to paper gains that could still change. It answers:
+> "How much have I actually made or lost from the trades I've already closed?"
 
-## What It Shows
-
-- The **total realized profit or loss** from all closed positions  
-- Displayed in your portfolio's currency  
-- Color-coded:
-
-  - Green when your realized P&L is positive
-  - Red when your realized P&L is negative  
-
-This metric answers the question:  
-> "How much money have I actually made or lost from the trades I already completed?"
+The widget shows a single currency amount, colored green when positive and red when negative.
 
 ---
 
-## How It's Calculated
+### How It's Calculated
 
-Realized P&L compares, for every closed position, the **proceeds from your sales** to your **original cost basis**.
-
-**Formula (Value)**
+For every sell (or transfer/conversion out), Portfolium compares the sale proceeds to the cost basis being disposed of at that moment, using a moving weighted-average cost per asset:
 
 $$
 \text{Realized PNL} = \sum_{i=1}^{n} \left( S_i - C_i \right)
 $$
 
-Where:  
-- $S_i$ = total sale proceeds for asset *i*  
-- $C_i$ = total cost basis for asset *i*  
+Where, for each disposal $i$:
 
-Additional notes:
+- $S_i$ = net sale proceeds (quantity sold × sale price, minus fees on that sale)
+- $C_i$ = the average cost basis attributed to the shares sold, based on the weighted-average cost of the position at the time of the sale
 
-- Only **fully closed positions** contribute to Realized P&L  
-- Gains and losses are final, they do **not** change with market prices  
-- Partial sells contribute proportionally (the cost basis is adjusted accordingly)
+This total is summed across **every sell you've ever made** in the portfolio — both from positions you've fully closed and from partial sells on positions you still hold today. Once realized, a gain or loss is final: it does not fluctuate with today's market price.
 
 ---
 
-## Example
+### Example
 
-Suppose you sold the following positions:
-
-- Asset A: $S_1 = \text{€} 2\,400$, $C_1 = \text{€} 2\,000$  
-- Asset B: $S_2 = \text{€} 1\,300$, $C_2 = \text{€} 1\,500$  
-
-Total Realized P&L:
+- Asset A: sold for $S_1 = €2{,}400$, cost basis of shares sold $C_1 = €2{,}000$
+- Asset B: sold for $S_2 = €1{,}300$, cost basis of shares sold $C_2 = €1{,}500$
 
 $$
-\text{Realized PNL} = (2\,400 - 2\,000) + (1\,300 - 1\,500)
+\text{Realized PNL} = (2{,}400 - 2{,}000) + (1{,}300 - 1{,}500) = 400 - 200 = 200
 $$
 
-$$
-\text{Realized PNL} = 400 - 200 = 200
-$$
-
-The widget would display:
-
-- **+€200.00**
+The widget displays **+€200.00**.
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Realized P&L widget is useful for:
+Check Realized P&L when you want to:
 
-- Reviewing the results of trades you have already completed  
-- Tracking long-term performance separate from open positions  
-- Supporting tax reporting and fiscal optimisation  
-- Understanding which trades contributed most to your actual gains or losses  
+- review the results of **trades you've already completed**;
+- track your long-term trading performance separately from open positions;
+- support **tax reporting**, since realized gains and losses are what typically matters for tax purposes;
+- see which past trades actually contributed to your results.
+
+Pair it with [Unrealized P&L](unrealized-pnl.md) for paper gains still in play, and [Total Return](total-return.md) for the combined picture including dividends and fees.
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- Realized P&L does **not** change with current market prices
-- Only closed positions appear in Realized P&L; open ones remain in **Unrealized P&L**  
-- Currency and formatting follow your portfolio settings
+- Realized P&L is **final** — it does not change with current market prices, unlike Unrealized P&L.
+- Both fully closed positions and partial sells on still-open positions contribute to this total.
+- Cost basis for each sale is calculated using a moving weighted-average method, so the exact split between "cost" and "gain" on a partial sell depends on your full buy history for that asset up to that point.
+- Currency and formatting follow your portfolio's base currency settings; sales in a foreign currency are converted at the time of the transaction.
