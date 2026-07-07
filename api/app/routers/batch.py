@@ -497,7 +497,7 @@ async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional
         from app.services.portfolio_analytics.metrics import MetricsService
         metrics_service = MetricsService(db)
         # Fetch multiple periods in parallel
-        periods = ['1W', '1M', 'YTD', '1Y']
+        periods = ['1W', '1M', '3M', 'YTD', '1Y', 'ALL']
         results = {}
         for period in periods:
             try:

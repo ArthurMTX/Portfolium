@@ -75,7 +75,14 @@ const DASHBOARD_WIDGETS = [
   'recent-transactions',
 ]
 
-const PERIODS: DashboardPeriod[] = ['1W', '1M', 'YTD', '1Y']
+const PERIODS: Array<{ value: DashboardPeriod; label: string }> = [
+  { value: '1W', label: '1W' },
+  { value: '1M', label: '1M' },
+  { value: '3M', label: '3M' },
+  { value: 'YTD', label: 'YTD' },
+  { value: '1Y', label: '1Y' },
+  { value: 'ALL', label: 'All Time' },
+]
 
 function getExposureDimensions(t: TFunction): { key: ExposureDimension; label: string }[] {
   return [
@@ -420,13 +427,13 @@ export default function DashboardOverview() {
           <PageTabs label={t('dashboardOverview.trajectoryPeriod')}>
             {PERIODS.map((item) => (
               <button
-                key={item}
+                key={item.value}
                 type="button"
-                className={period === item ? 'is-active' : ''}
-                aria-pressed={period === item}
-                onClick={() => setPeriod(item)}
+                className={period === item.value ? 'is-active' : ''}
+                aria-pressed={period === item.value}
+                onClick={() => setPeriod(item.value)}
               >
-                {item}
+                {item.label}
               </button>
             ))}
           </PageTabs>

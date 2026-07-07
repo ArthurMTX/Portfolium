@@ -5,7 +5,7 @@ import type {
   ThemeDistributionItemDTO,
 } from '@/api'
 
-export type DashboardPeriod = '1W' | '1M' | 'YTD' | '1Y'
+export type DashboardPeriod = '1W' | '1M' | '3M' | 'YTD' | '1Y' | 'ALL'
 export type ExposureDimension = 'sector' | 'theme' | 'type' | 'country'
 
 export interface DashboardOverviewMetrics {
