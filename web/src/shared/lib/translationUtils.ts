@@ -13,6 +13,27 @@
 type TranslationFunction = (key: string, options?: any) => string;
 
 /**
+ * Canonical asset type synonyms.
+ *
+ * The backend exposes two loosely related fields for an asset's type:
+ * `asset_type` (verbatim from the market data provider, e.g. "EQUITY")
+ * and the legacy `class` enum (defaults to "stock" for most assets).
+ * Both end up rendered as "asset type" in the UI, so anything reaching
+ * these formatters must be normalized to one vocabulary first or the
+ * same instrument shows up as "Stock" in one place and "Equity" in
+ * another.
+ */
+const ASSET_TYPE_SYNONYMS: Record<string, string> = {
+  STOCK: 'EQUITY',
+  'MUTUAL FUND': 'MUTUAL_FUND',
+}
+
+export function normalizeAssetType(assetType: string): string {
+  const normalized = assetType.toUpperCase().trim()
+  return ASSET_TYPE_SYNONYMS[normalized] || normalized
+}
+
+/**
  * Get translated sector name
  * @param sector - Original sector name from API
  * @param t - Translation function from react-i18next
@@ -115,10 +136,10 @@ export function getTranslatedAssetType(
   }
   
   if (!assetType) return '-';
-  
-  // Normalize to uppercase for consistency
-  const normalizedType = assetType.toUpperCase().trim();
-  
+
+  // Normalize to a canonical type (e.g. STOCK -> EQUITY) for consistency
+  const normalizedType = normalizeAssetType(assetType);
+
   // Special handling for ETF to keep it uppercase
   if (normalizedType === 'ETF') {
     const translationKey = `assetTypes.${normalizedType}`;
@@ -133,11 +154,11 @@ export function getTranslatedAssetType(
   // If translation returns the key itself, it means translation doesn't exist
   if (translated === translationKey) {
     // Fallback: convert to title case
-    return assetType
+    return normalizedType
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   }
-  
+
   return translated;
 }

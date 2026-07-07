@@ -1,3 +1,5 @@
+import { normalizeAssetType } from './translationUtils'
+
 /**
  * Determine optimal decimal places based on price value
  * For very small prices (like penny stocks or some crypto), show more decimal places
@@ -93,12 +95,16 @@ export function formatQuantity(value: number | string | null): string {
  * Format asset type for display
  * Converts uppercase or snake_case to title case
  * Special handling for ETF to keep it uppercase
+ * Normalizes legacy synonyms (e.g. STOCK) to their canonical type (EQUITY)
+ * so the same instrument doesn't render differently depending on which
+ * field (asset_type vs the legacy class enum) was passed in.
  */
 export function formatAssetType(type: string | null): string {
   if (!type) return '-'
-  if (type.trim().toLowerCase() === 'etf') return 'ETF'
+  const normalized = normalizeAssetType(type)
+  if (normalized === 'ETF') return 'ETF'
   // Convert to title case and clean up
-  return type
+  return normalized
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')

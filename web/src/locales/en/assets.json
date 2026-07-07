@@ -359,7 +359,7 @@
     }
   },
   "assetClasses": {
-    "stock": "Stock",
+    "stock": "Equity",
     "etf": "ETF",
     "crypto": "Crypto",
     "cash": "Cash"

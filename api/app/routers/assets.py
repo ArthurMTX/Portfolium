@@ -40,6 +40,7 @@ from app.schemas import (
     AssetWithOverrides,
 )
 from app.crud import assets as crud
+from app.crud.assets import normalize_asset_type
 from app.auth import get_current_admin_user, get_current_user
 from app.models import Asset as AssetModel, AssetThemeTaxonomySuggestion as AssetThemeTaxonomySuggestionModel, User
 from app.dependencies import MetricsServiceDep
@@ -2442,7 +2443,7 @@ async def get_types_distribution(
         )
     
     for asset in held_assets_data:
-        asset_type = asset.get("asset_type") or "Unknown"
+        asset_type = normalize_asset_type(asset.get("asset_type"))
         type_data[asset_type]["assets"].append(asset["id"])
         type_data[asset_type]["count"] += 1
         

@@ -9,6 +9,7 @@ import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { ListSkeleton, StateBlock } from '@/shared/components/StatePrimitives'
 import { getFlagUrl } from '@/shared/lib/countryUtils'
+import { normalizeAssetType } from '@/shared/lib/translationUtils'
 import {
   PageAsideColumn,
   PageHeader,
@@ -83,14 +84,12 @@ function normalizeSymbol(symbol: string | null | undefined) {
 }
 
 function compactAssetType(type: string | null | undefined) {
-  const normalized = (type || '').replace(/_/g, ' ').trim().toUpperCase()
-  if (!normalized) return null
+  if (!type) return null
+  const normalized = normalizeAssetType(type).replace(/_/g, ' ')
   const labels: Record<string, string> = {
     EQUITY: 'Equity',
-    STOCK: 'Equity',
     ETF: 'ETF',
     FUND: 'Fund',
-    MUTUALFUND: 'Fund',
     'MUTUAL FUND': 'Fund',
     CRYPTO: 'Crypto',
     CRYPTOCURRENCY: 'Crypto',

@@ -36,6 +36,23 @@ def _decimal_or_none(value: Any) -> Optional[Decimal]:
     return parsed if parsed > 0 else None
 
 
+_ASSET_TYPE_SYNONYMS = {
+    "STOCK": "EQUITY",
+    "MUTUAL FUND": "MUTUAL_FUND",
+}
+
+
+def normalize_asset_type(asset_type: Optional[str]) -> str:
+    """Canonicalize an asset type string (e.g. provider `quoteType` values or
+    the legacy `class` enum) so equivalent types group/compare consistently
+    regardless of casing or synonym (e.g. "stock" and "EQUITY" both become
+    "EQUITY")."""
+    if not asset_type:
+        return "Unknown"
+    normalized = asset_type.strip().upper()
+    return _ASSET_TYPE_SYNONYMS.get(normalized, normalized)
+
+
 def update_asset_market_cap_from_info(asset: Asset, info: Any) -> bool:
     """Persist provider market-cap metadata on an asset when available."""
     if not isinstance(info, dict):
