@@ -369,23 +369,23 @@ export default function AssetResearchSearch() {
   )
 
   function rememberSearch(item: ResearchAssetResult) {
-    setRecent((prev) => {
-      const nextItem = {
-        ...item,
-        symbol: normalizeSymbol(item.symbol),
-        name: item.name || normalizeSymbol(item.symbol),
-      }
-      const next = [nextItem, ...prev.filter((entry) => normalizeSymbol(entry.symbol) !== nextItem.symbol)].slice(
-        0,
-        MAX_RECENT_SEARCHES
-      )
-      try {
-        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next))
-      } catch {
-        // Ignore storage failures; recents are a convenience, not critical.
-      }
-      return next
-    })
+    const nextItem = {
+      ...item,
+      symbol: normalizeSymbol(item.symbol),
+      name: item.name || normalizeSymbol(item.symbol),
+    }
+    const next = [nextItem, ...recent.filter((entry) => normalizeSymbol(entry.symbol) !== nextItem.symbol)].slice(
+      0,
+      MAX_RECENT_SEARCHES
+    )
+
+    setRecent(next)
+
+    try {
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next))
+    } catch {
+      // Ignore storage failures; recents are a convenience, not critical.
+    }
   }
 
   function clearRecentSearches() {
