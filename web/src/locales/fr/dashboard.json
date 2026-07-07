@@ -483,6 +483,7 @@
     "recentCapitalActivity": "Activité récente du capital",
     "activityDescription": "Les transactions sont présentées comme des événements qui ont modifié la détention, la trésorerie ou le rendement.",
     "openActivityLedger": "Ouvrir le registre d'activité →",
+    "viewAllocation": "Voir la répartition →",
     "cash": "Espèces",
     "portfolioActivity": "Activité du portefeuille",
     "noCapitalActivity": "Aucune activité de capital n'a été enregistrée pour ce portefeuille.",

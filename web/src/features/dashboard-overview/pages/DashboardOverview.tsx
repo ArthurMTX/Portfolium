@@ -617,6 +617,7 @@ export default function DashboardOverview() {
           title={t('dashboardOverview.exposureFingerprint')}
           titleId="exposure-heading"
           description={t('dashboardOverview.exposureDescription')}
+          aside={<Link to="/allocation">{t('dashboardOverview.viewAllocation')}</Link>}
         />
         <PageMainGrid>
           <PageMainColumn className="dashboard-overview__exposure-main">

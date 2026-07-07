@@ -483,6 +483,7 @@
     "recentCapitalActivity": "Recent capital activity",
     "activityDescription": "Transactions are shown as events that changed ownership, cash, or return.",
     "openActivityLedger": "Open activity ledger →",
+    "viewAllocation": "View allocation →",
     "cash": "Cash",
     "portfolioActivity": "Portfolio activity",
     "noCapitalActivity": "No capital activity has been recorded for this portfolio.",
