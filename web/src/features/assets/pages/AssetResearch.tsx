@@ -660,6 +660,11 @@ export default function AssetResearch() {
             <>
               {sectionLoading.themes ? (
                 <Section title={t('assetResearch.themesExposures')} icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                  <StateBlock
+                    tone="info"
+                    title={t('assets.searchResearchThemesLoading')}
+                    className="mb-3"
+                  />
                   <CardSkeleton rows={4} />
                 </Section>
               ) : (

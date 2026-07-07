@@ -538,6 +538,7 @@ export default function AssetResearchView() {
             fundamentals={fundamentals}
             currency={quoteCurrency}
             themes={themes}
+            themesLoading={research.themesQuery.isLoading}
             loading={
               research.businessQuery.isLoading ||
               research.fundamentalsQuery.isLoading ||
@@ -665,6 +666,7 @@ function OverviewSection({
   fundamentals,
   currency,
   themes,
+  themesLoading,
   loading,
   children,
 }: {
@@ -673,6 +675,7 @@ function OverviewSection({
   fundamentals?: AssetResearchFundamentalsDTO
   currency: string
   themes: AssetThemeDTO[]
+  themesLoading: boolean
   loading: boolean
   children: ReactNode
 }) {
@@ -780,8 +783,16 @@ function OverviewSection({
           <ClassificationLine kind="sector" label={asset.sector} />
         )}
         {asset.industry && <ClassificationLine kind="industry" label={asset.industry} />}
+        {themesLoading && themes.length === 0 && (
+          <StateBlock
+            tone="info"
+            title={t('assetResearchView.classificationLoading')}
+            description={t('assetResearchView.classificationLoadingDescription')}
+            className="mt-3"
+          />
+        )}
         {themes.length > 0 && <ThemeClassificationTree themes={themes} />}
-        {!asset.sector && !asset.industry && themes.length === 0 && (
+        {!themesLoading && !asset.sector && !asset.industry && themes.length === 0 && (
           <div className="asset-research__quiet-state">
             {t('assetResearchView.classificationUnknown')}
           </div>
