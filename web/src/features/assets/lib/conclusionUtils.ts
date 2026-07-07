@@ -16,40 +16,40 @@ export function getPerformanceConclusion(
   // Exceptional outlier (penny stock or major disruption)
   if (Math.abs(relativePerf) > 500) {
     return assetPerf && assetPerf > 500
-      ? t("dashboard.conclusions.performance.exceptionalOutlierPositive")
-      : t("dashboard.conclusions.performance.exceptionalOutlierNegative");
+      ? t("assets.conclusions.performance.exceptionalOutlierPositive")
+      : t("assets.conclusions.performance.exceptionalOutlierNegative");
   }
 
   // Very strong performance ranges
   if (relativePerf > 50) {
     return period === "1y"
-      ? t("dashboard.conclusions.performance.veryStrongLongTerm")
-      : t("dashboard.conclusions.performance.veryStrongOtherPeriods", { period });
+      ? t("assets.conclusions.performance.veryStrongLongTerm")
+      : t("assets.conclusions.performance.veryStrongOtherPeriods", { period });
   }
   if (relativePerf < -50) {
-    return t("dashboard.conclusions.performance.severeUnderperformance");
+    return t("assets.conclusions.performance.severeUnderperformance");
   }
 
   // Strong performance ranges
   if (relativePerf > 20) {
     return period === "ytd" || period === "1y"
-      ? t("dashboard.conclusions.performance.strongLongTerm")
-      : t("dashboard.conclusions.performance.strongShortTerm");
+      ? t("assets.conclusions.performance.strongLongTerm")
+      : t("assets.conclusions.performance.strongShortTerm");
   }
   if (relativePerf < -20) {
-    return t("dashboard.conclusions.performance.significantUnderperformance");
+    return t("assets.conclusions.performance.significantUnderperformance");
   }
 
   // Moderate ranges
   if (relativePerf > 5) {
-    return t("dashboard.conclusions.performance.moderateOutperformance");
+    return t("assets.conclusions.performance.moderateOutperformance");
   }
   if (relativePerf < -5) {
-    return t("dashboard.conclusions.performance.moderateUnderperformance");
+    return t("assets.conclusions.performance.moderateUnderperformance");
   }
 
   // In-line with benchmark
-  return t("dashboard.conclusions.performance.inLineWithBenchmark");
+  return t("assets.conclusions.performance.inLineWithBenchmark");
 }
 
 /**
@@ -57,15 +57,15 @@ export function getPerformanceConclusion(
  */
 export function getVolatilityConclusion(vol: number, t: TFunc): string {
   if (vol > 60) {
-    return t("dashboard.conclusions.volatility.veryHigh");
+    return t("assets.conclusions.volatility.veryHigh");
   }
   if (vol > 40) {
-    return t("dashboard.conclusions.volatility.high");
+    return t("assets.conclusions.volatility.high");
   }
   if (vol > 20) {
-    return t("dashboard.conclusions.volatility.moderate");
+    return t("assets.conclusions.volatility.moderate");
   }
-  return t("dashboard.conclusions.volatility.low");
+  return t("assets.conclusions.volatility.low");
 }
 
 /**
@@ -73,21 +73,21 @@ export function getVolatilityConclusion(vol: number, t: TFunc): string {
  */
 export function getBetaConclusion(beta: number, t: TFunc): string {
   if (beta > 1.5) {
-    return t("dashboard.conclusions.beta.high");
+    return t("assets.conclusions.beta.high");
   }
   if (beta > 1.2) {
-    return t("dashboard.conclusions.beta.aboveAverage");
+    return t("assets.conclusions.beta.aboveAverage");
   }
   if (beta >= 0.8 && beta <= 1.2) {
-    return t("dashboard.conclusions.beta.marketLike");
+    return t("assets.conclusions.beta.marketLike");
   }
   if (beta >= 0.5 && beta < 0.8) {
-    return t("dashboard.conclusions.beta.defensive");
+    return t("assets.conclusions.beta.defensive");
   }
   if (beta >= 0) {
-    return t("dashboard.conclusions.beta.low");
+    return t("assets.conclusions.beta.low");
   }
-  return t("dashboard.conclusions.beta.negative");
+  return t("assets.conclusions.beta.negative");
 }
 
 /**
@@ -95,18 +95,18 @@ export function getBetaConclusion(beta: number, t: TFunc): string {
  */
 export function getRiskScoreConclusion(score: number, t: TFunc): string {
   if (score >= 80) {
-    return t("dashboard.conclusions.risk.extreme");
+    return t("assets.conclusions.risk.extreme");
   }
   if (score >= 60) {
-    return t("dashboard.conclusions.risk.high");
+    return t("assets.conclusions.risk.high");
   }
   if (score >= 40) {
-    return t("dashboard.conclusions.risk.moderate");
+    return t("assets.conclusions.risk.moderate");
   }
   if (score >= 20) {
-    return t("dashboard.conclusions.risk.low");
+    return t("assets.conclusions.risk.low");
   }
-  return t("dashboard.conclusions.risk.veryLow");
+  return t("assets.conclusions.risk.veryLow");
 }
 
 /**
@@ -114,18 +114,18 @@ export function getRiskScoreConclusion(score: number, t: TFunc): string {
  */
 export function getMarketCapConclusion(marketCap: number, t: TFunc): string {
   if (marketCap >= 200_000_000_000) {
-    return t("dashboard.conclusions.marketCap.megacap");
+    return t("assets.conclusions.marketCap.megacap");
   }
   if (marketCap >= 10_000_000_000) {
-    return t("dashboard.conclusions.marketCap.largecap");
+    return t("assets.conclusions.marketCap.largecap");
   }
   if (marketCap >= 2_000_000_000) {
-    return t("dashboard.conclusions.marketCap.midcap");
+    return t("assets.conclusions.marketCap.midcap");
   }
   if (marketCap >= 300_000_000) {
-    return t("dashboard.conclusions.marketCap.smallcap");
+    return t("assets.conclusions.marketCap.smallcap");
   }
-  return t("dashboard.conclusions.marketCap.microcap");
+  return t("assets.conclusions.marketCap.microcap");
 }
 
 /**
@@ -133,9 +133,9 @@ export function getMarketCapConclusion(marketCap: number, t: TFunc): string {
  */
 export function getPEConclusion(peRatio: number, t: TFunc): string {
   if (peRatio < 0) {
-    return t("dashboard.conclusions.peRatio.nonProfitable");
+    return t("assets.conclusions.peRatio.nonProfitable");
   }
-  return t("dashboard.conclusions.peRatio.profitable");
+  return t("assets.conclusions.peRatio.profitable");
 }
 
 /**
@@ -143,24 +143,24 @@ export function getPEConclusion(peRatio: number, t: TFunc): string {
  */
 export function getVolumeConclusion(volume: number, avgVolume: number, t: TFunc): string {
   if (!volume || !avgVolume || avgVolume <= 0) {
-    return t("dashboard.conclusions.volume.unknown");
+    return t("assets.conclusions.volume.unknown");
   }
 
   const ratio = volume / avgVolume;
 
   if (ratio >= 2) {
-    return t("dashboard.conclusions.volume.veryHigh");
+    return t("assets.conclusions.volume.veryHigh");
   }
   if (ratio >= 1.2) {
-    return t("dashboard.conclusions.volume.aboveAverage");
+    return t("assets.conclusions.volume.aboveAverage");
   }
   if (ratio > 0.8) {
-    return t("dashboard.conclusions.volume.inLine");
+    return t("assets.conclusions.volume.inLine");
   }
   if (ratio > 0.4) {
-    return t("dashboard.conclusions.volume.belowAverage");
+    return t("assets.conclusions.volume.belowAverage");
   }
-  return t("dashboard.conclusions.volume.veryLow");
+  return t("assets.conclusions.volume.veryLow");
 }
 
 /**
@@ -168,18 +168,18 @@ export function getVolumeConclusion(volume: number, avgVolume: number, t: TFunc)
  */
 export function getEpsConclusion(eps: number, t: TFunc): string {
   if (eps > 0.5) {
-    return t("dashboard.conclusions.eps.profitable");
+    return t("assets.conclusions.eps.profitable");
   }
   if (eps >= -0.5 && eps <= 0.5) {
-    return t("dashboard.conclusions.eps.breakEven");
+    return t("assets.conclusions.eps.breakEven");
   }
   if (eps > -10) {
-    return t("dashboard.conclusions.eps.negative");
+    return t("assets.conclusions.eps.negative");
   }
   if (eps > -50) {
-    return t("dashboard.conclusions.eps.heavyLoss");
+    return t("assets.conclusions.eps.heavyLoss");
   }
-  return t("dashboard.conclusions.eps.severeLoss");
+  return t("assets.conclusions.eps.severeLoss");
 }
 
 /**
@@ -187,18 +187,18 @@ export function getEpsConclusion(eps: number, t: TFunc): string {
  */
 export function getLiquidityScoreConclusion(liquidityScore: number, t: TFunc): string {
   if (liquidityScore >= 90) {
-    return t("dashboard.conclusions.liquidityScore.excellent");
+    return t("assets.conclusions.liquidityScore.excellent");
   }
   if (liquidityScore >= 70) {
-    return t("dashboard.conclusions.liquidityScore.good");
+    return t("assets.conclusions.liquidityScore.good");
   }
   if (liquidityScore >= 40) {
-    return t("dashboard.conclusions.liquidityScore.average");
+    return t("assets.conclusions.liquidityScore.average");
   }
   if (liquidityScore >= 20) {
-    return t("dashboard.conclusions.liquidityScore.belowAverage");
+    return t("assets.conclusions.liquidityScore.belowAverage");
   }
-  return t("dashboard.conclusions.liquidityScore.poor");
+  return t("assets.conclusions.liquidityScore.poor");
 }
 
 /**
@@ -209,15 +209,15 @@ export function getRevenueGrowthConclusion(
   t: TFunc
 ): string {
   if (revenueGrowthPct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = revenueGrowthPct;
-  if (v > 30) return t("dashboard.conclusions.growth.revenue.hyperGrowth");
-  if (v > 15) return t("dashboard.conclusions.growth.revenue.strongGrowth");
-  if (v > 5) return t("dashboard.conclusions.growth.revenue.moderateGrowth");
-  if (v > 0) return t("dashboard.conclusions.growth.revenue.lowGrowth");
-  return t("dashboard.conclusions.growth.revenue.declining");
+  if (v > 30) return t("assets.conclusions.growth.revenue.hyperGrowth");
+  if (v > 15) return t("assets.conclusions.growth.revenue.strongGrowth");
+  if (v > 5) return t("assets.conclusions.growth.revenue.moderateGrowth");
+  if (v > 0) return t("assets.conclusions.growth.revenue.lowGrowth");
+  return t("assets.conclusions.growth.revenue.declining");
 }
 
 /**
@@ -228,14 +228,14 @@ export function getEarningsGrowthConclusion(
   t: TFunc
 ): string {
   if (earningsGrowthPct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = earningsGrowthPct;
-  if (v > 30) return t("dashboard.conclusions.growth.earnings.exceptional");
-  if (v > 10) return t("dashboard.conclusions.growth.earnings.healthy");
-  if (v > 0) return t("dashboard.conclusions.growth.earnings.mild");
-  return t("dashboard.conclusions.growth.earnings.declining");
+  if (v > 30) return t("assets.conclusions.growth.earnings.exceptional");
+  if (v > 10) return t("assets.conclusions.growth.earnings.healthy");
+  if (v > 0) return t("assets.conclusions.growth.earnings.mild");
+  return t("assets.conclusions.growth.earnings.declining");
 }
 
 /**
@@ -246,15 +246,15 @@ export function getNetMarginConclusion(
   t: TFunc
 ): string {
   if (netMarginPct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = netMarginPct;
-  if (v > 20) return t("dashboard.conclusions.margins.net.excellent");
-  if (v > 10) return t("dashboard.conclusions.margins.net.good");
-  if (v > 5) return t("dashboard.conclusions.margins.net.moderate");
-  if (v > 0) return t("dashboard.conclusions.margins.net.low");
-  return t("dashboard.conclusions.margins.net.negative");
+  if (v > 20) return t("assets.conclusions.margins.net.excellent");
+  if (v > 10) return t("assets.conclusions.margins.net.good");
+  if (v > 5) return t("assets.conclusions.margins.net.moderate");
+  if (v > 0) return t("assets.conclusions.margins.net.low");
+  return t("assets.conclusions.margins.net.negative");
 }
 
 /**
@@ -265,14 +265,14 @@ export function getOperatingMarginConclusion(
   t: TFunc
 ): string {
   if (opMarginPct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = opMarginPct;
-  if (v > 25) return t("dashboard.conclusions.margins.operating.highlyEfficient");
-  if (v > 10) return t("dashboard.conclusions.margins.operating.good");
-  if (v > 0) return t("dashboard.conclusions.margins.operating.low");
-  return t("dashboard.conclusions.margins.operating.negative");
+  if (v > 25) return t("assets.conclusions.margins.operating.highlyEfficient");
+  if (v > 10) return t("assets.conclusions.margins.operating.good");
+  if (v > 0) return t("assets.conclusions.margins.operating.low");
+  return t("assets.conclusions.margins.operating.negative");
 }
 
 /**
@@ -283,15 +283,15 @@ export function getRoeConclusion(
   t: TFunc
 ): string {
   if (roePct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = roePct;
-  if (v > 20) return t("dashboard.conclusions.roe.excellent");
-  if (v > 10) return t("dashboard.conclusions.roe.healthy");
-  if (v > 5) return t("dashboard.conclusions.roe.moderate");
-  if (v > 0) return t("dashboard.conclusions.roe.low");
-  return t("dashboard.conclusions.roe.negative");
+  if (v > 20) return t("assets.conclusions.roe.excellent");
+  if (v > 10) return t("assets.conclusions.roe.healthy");
+  if (v > 5) return t("assets.conclusions.roe.moderate");
+  if (v > 0) return t("assets.conclusions.roe.low");
+  return t("assets.conclusions.roe.negative");
 }
 
 /**
@@ -302,12 +302,12 @@ export function getNetCashConclusion(
   t: TFunc
 ): string {
   if (netCash == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
-  if (netCash > 0) return t("dashboard.conclusions.balanceSheet.netCash");
-  if (netCash === 0) return t("dashboard.conclusions.balanceSheet.neutral");
-  return t("dashboard.conclusions.balanceSheet.netDebt");
+  if (netCash > 0) return t("assets.conclusions.balanceSheet.netCash");
+  if (netCash === 0) return t("assets.conclusions.balanceSheet.neutral");
+  return t("assets.conclusions.balanceSheet.netDebt");
 }
 
 /**
@@ -318,14 +318,14 @@ export function getDebtToEquityConclusion(
   t: TFunc
 ): string {
   if (debtToEquityPct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = debtToEquityPct;
-  if (v < 50) return t("dashboard.conclusions.balanceSheet.dte.lowLeverage");
-  if (v < 100) return t("dashboard.conclusions.balanceSheet.dte.moderateLeverage");
-  if (v < 200) return t("dashboard.conclusions.balanceSheet.dte.highLeverage");
-  return t("dashboard.conclusions.balanceSheet.dte.veryHighLeverage");
+  if (v < 50) return t("assets.conclusions.balanceSheet.dte.lowLeverage");
+  if (v < 100) return t("assets.conclusions.balanceSheet.dte.moderateLeverage");
+  if (v < 200) return t("assets.conclusions.balanceSheet.dte.highLeverage");
+  return t("assets.conclusions.balanceSheet.dte.veryHighLeverage");
 }
 
 /**
@@ -336,14 +336,14 @@ export function getCurrentRatioConclusion(
   t: TFunc
 ): string {
   if (currentRatio == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = currentRatio;
-  if (v > 2) return t("dashboard.conclusions.balanceSheet.current.veryStrong");
-  if (v >= 1) return t("dashboard.conclusions.balanceSheet.current.healthy");
-  if (v >= 0.8) return t("dashboard.conclusions.balanceSheet.current.tight");
-  return t("dashboard.conclusions.balanceSheet.current.weak");
+  if (v > 2) return t("assets.conclusions.balanceSheet.current.veryStrong");
+  if (v >= 1) return t("assets.conclusions.balanceSheet.current.healthy");
+  if (v >= 0.8) return t("assets.conclusions.balanceSheet.current.tight");
+  return t("assets.conclusions.balanceSheet.current.weak");
 }
 
 /**
@@ -354,14 +354,14 @@ export function getQuickRatioConclusion(
   t: TFunc
 ): string {
   if (quickRatio == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = quickRatio;
-  if (v > 1.5) return t("dashboard.conclusions.balanceSheet.quick.excellent");
-  if (v >= 1) return t("dashboard.conclusions.balanceSheet.quick.adequate");
-  if (v >= 0.5) return t("dashboard.conclusions.balanceSheet.quick.weak");
-  return t("dashboard.conclusions.balanceSheet.quick.veryWeak");
+  if (v > 1.5) return t("assets.conclusions.balanceSheet.quick.excellent");
+  if (v >= 1) return t("assets.conclusions.balanceSheet.quick.adequate");
+  if (v >= 0.5) return t("assets.conclusions.balanceSheet.quick.weak");
+  return t("assets.conclusions.balanceSheet.quick.veryWeak");
 }
 
 /**
@@ -372,15 +372,15 @@ export function getAnalystConsensusConclusion(
   t: TFunc
 ): string {
   if (recMean == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = recMean;
-  if (v <= 1.5) return t("dashboard.conclusions.analyst.consensus.strongBuy");
-  if (v <= 2.5) return t("dashboard.conclusions.analyst.consensus.buy");
-  if (v <= 3.5) return t("dashboard.conclusions.analyst.consensus.hold");
-  if (v <= 4.5) return t("dashboard.conclusions.analyst.consensus.sell");
-  return t("dashboard.conclusions.analyst.consensus.strongSell");
+  if (v <= 1.5) return t("assets.conclusions.analyst.consensus.strongBuy");
+  if (v <= 2.5) return t("assets.conclusions.analyst.consensus.buy");
+  if (v <= 3.5) return t("assets.conclusions.analyst.consensus.hold");
+  if (v <= 4.5) return t("assets.conclusions.analyst.consensus.sell");
+  return t("assets.conclusions.analyst.consensus.strongSell");
 }
 
 /**
@@ -391,12 +391,12 @@ export function getImpliedUpsideConclusion(
   t: TFunc
 ): string {
   if (impliedUpsidePct == null) {
-    return t("dashboard.conclusions.common.insufficientData");
+    return t("assets.conclusions.common.insufficientData");
   }
 
   const v = impliedUpsidePct;
-  if (v > 30) return t("dashboard.conclusions.analyst.upside.high");
-  if (v > 10) return t("dashboard.conclusions.analyst.upside.moderate");
-  if (v > 0) return t("dashboard.conclusions.analyst.upside.limited");
-  return t("dashboard.conclusions.analyst.upside.downside");
+  if (v > 30) return t("assets.conclusions.analyst.upside.high");
+  if (v > 10) return t("assets.conclusions.analyst.upside.moderate");
+  if (v > 0) return t("assets.conclusions.analyst.upside.limited");
+  return t("assets.conclusions.analyst.upside.downside");
 }

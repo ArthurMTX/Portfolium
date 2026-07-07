@@ -409,7 +409,7 @@ class TestInsightsDomainSnapshots:
         ]
         snapshot.total_value = Decimal("2000")
 
-        results = service._simulate_scenarios_from_snapshot(snapshot, service._scenario_definitions())
+        results = service._simulate_scenarios_from_snapshot(snapshot, service._scenario_definitions("en"))
         crypto_winter = next(result for result in results if result.name == "Crypto winter")
 
         assert crypto_winter.estimated_impact_value == Decimal("-350")

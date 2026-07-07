@@ -133,12 +133,12 @@ export default function Settings() {
   const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const tabs: Array<{ id: SettingsTab; label: string }> = [
-    { id: 'account', label: 'Account' },
-    { id: 'preferences', label: 'Preferences' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'security', label: 'Security' },
-    { id: 'danger', label: 'Danger Zone' },
-    { id: 'about', label: 'About' },
+    { id: 'account', label: t('settingsPage.accountTab') },
+    { id: 'preferences', label: t('settingsPage.preferencesTab') },
+    { id: 'notifications', label: t('settingsPage.notificationsTab') },
+    { id: 'security', label: t('settingsPage.securityTab') },
+    { id: 'danger', label: t('settingsPage.dangerTab') },
+    { id: 'about', label: t('settingsPage.aboutTab') },
   ]
 
   const handleAutoRefreshSettingsChange = (interval: string, enabled: boolean) => {
@@ -177,10 +177,10 @@ export default function Settings() {
       setValidateSellQuantity(updated.validate_sell_quantity)
       setSettingsMessage({
         type: 'success',
-        text: `Sell quantity validation ${enabled ? 'enabled' : 'disabled'} successfully`,
+        text: enabled ? t('settingsPage.sellQuantityValidationEnabled') : t('settingsPage.sellQuantityValidationDisabled'),
       })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Failed to update settings'
+      const message = e instanceof Error ? e.message : t('settingsPage.updateSettingsFailed')
       setSettingsMessage({ type: 'error', text: message })
       setValidateSellQuantity(!enabled)
     } finally {
@@ -207,17 +207,17 @@ export default function Settings() {
     setAthAtlNotificationsEnabled(next.ath_atl_notifications_enabled)
     setDailyReportsEnabled(next.daily_report_enabled)
     setSavingNotifications(true)
-    setNotificationMessage({ type: 'success', text: 'Saving…' })
+    setNotificationMessage({ type: 'success', text: t('settingsPage.saving') })
     try {
       await api.updateCurrentUser(next)
       await refreshUser()
-      setNotificationMessage({ type: 'success', text: 'Saved' })
+      setNotificationMessage({ type: 'success', text: t('settingsPage.saved') })
     } catch (err: unknown) {
       setNotificationsEnabled(previous.daily_change_notifications_enabled)
       setTransactionNotificationsEnabled(previous.transaction_notifications_enabled)
       setAthAtlNotificationsEnabled(previous.ath_atl_notifications_enabled)
       setDailyReportsEnabled(previous.daily_report_enabled)
-      const text = err instanceof Error ? err.message : 'Failed to update notification settings'
+      const text = err instanceof Error ? err.message : t('settingsPage.updateNotificationSettingsFailed')
       setNotificationMessage({ type: 'error', text })
     } finally {
       setSavingNotifications(false)
@@ -232,11 +232,16 @@ export default function Settings() {
     try {
       const res = await api.deleteAllData()
       setResult(
-        `Deleted data successfully. Transactions: ${res.deleted?.transactions ?? 0}, Prices: ${res.deleted?.prices ?? 0}, Portfolios: ${res.deleted?.portfolios ?? 0}, Assets: ${res.deleted?.assets ?? 0}`,
+        t('settingsPage.deletedDataSuccess', {
+          transactions: res.deleted?.transactions ?? 0,
+          prices: res.deleted?.prices ?? 0,
+          portfolios: res.deleted?.portfolios ?? 0,
+          assets: res.deleted?.assets ?? 0,
+        }),
       )
       setConfirmText('')
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Failed to delete data'
+      const message = e instanceof Error ? e.message : t('settingsPage.deleteDataFailed')
       setError(message)
     } finally {
       setLoading(false)
@@ -248,7 +253,7 @@ export default function Settings() {
   return (
     <PageShell className="settings">
       <PageHeader>
-        <PageTitleBlock kicker="Settings" title={t('settings.title')} />
+        <PageTitleBlock kicker={t('settings.title')} title={t('settings.title')} />
         <PageSummaryPanel
           lead={tabs.find((tab) => tab.id === activeTab)?.label}
           description={t('settings.description')}
@@ -256,9 +261,9 @@ export default function Settings() {
       </PageHeader>
 
       <PageControls
-        label="Settings sections"
+        label={t('settingsPage.sectionsLabel')}
         start={
-          <PageTabs label="Settings sections">
+          <PageTabs label={t('settingsPage.sectionsLabel')}>
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -277,28 +282,28 @@ export default function Settings() {
         <PageMainColumn className="settings__content">
         {activeTab === 'account' && (
           <SettingsSection
-            eyebrow="Account"
-            title="Current user"
-            description="Identity and login details are managed from Profile."
+            eyebrow={t('settingsPage.accountEyebrow')}
+            title={t('settingsPage.currentUser')}
+            description={t('settingsPage.currentUserDescription')}
           >
-            <SettingRow title="Email">
+            <SettingRow title={t('settingsPage.email')}>
               <StaticValue>{user?.email || '—'}</StaticValue>
             </SettingRow>
-            <SettingRow title="Username">
+            <SettingRow title={t('settingsPage.username')}>
               <StaticValue>{user?.username || '—'}</StaticValue>
             </SettingRow>
-            <SettingRow title="Name">
+            <SettingRow title={t('settingsPage.name')}>
               <StaticValue>{user?.full_name || '—'}</StaticValue>
             </SettingRow>
-            <SettingRow title="Verification">
+            <SettingRow title={t('settingsPage.verification')}>
               <span className={`settings-badge ${user?.is_verified ? 'is-success' : 'is-warning'}`}>
-                {user?.is_verified ? 'Verified' : 'Not verified'}
+                {user?.is_verified ? t('settingsPage.verified') : t('settingsPage.notVerified')}
               </span>
             </SettingRow>
             <div className="settings-action-row">
-              <span>Account settings</span>
+              <span>{t('settingsPage.accountSettings')}</span>
               <div>
-                <a className="pf-button pf-button--secondary" href="/profile">Manage profile</a>
+                <a className="pf-button pf-button--secondary" href="/profile">{t('settingsPage.manageProfile')}</a>
               </div>
             </div>
           </SettingsSection>
@@ -306,24 +311,24 @@ export default function Settings() {
 
         {activeTab === 'preferences' && (
           <SettingsSection
-            eyebrow="Preferences"
+            eyebrow={t('settingsPage.preferencesEyebrow')}
             title={t('settings.autoRefreshSettings')}
-            description="Control how often prices refresh while you use Portfolium."
+            description={t('settingsPage.autoRefreshDescription')}
           >
             <SettingRow
               title={t('settings.enableAutoRefresh')}
-              description="Refresh portfolio prices automatically."
+              description={t('settingsPage.autoRefreshDescription2')}
             >
               <Toggle
                 checked={autoRefreshEnabled}
                 onChange={(checked) => handleAutoRefreshSettingsChange(autoRefreshInterval, checked)}
-                label={autoRefreshEnabled ? 'Enabled' : 'Disabled'}
+                label={autoRefreshEnabled ? t('settingsPage.enabled') : t('settingsPage.disabled')}
               />
             </SettingRow>
 
             <SettingRow
               title={t('settings.refreshInterval')}
-              description="Shorter intervals increase API usage."
+              description={t('settingsPage.refreshIntervalDescription')}
             >
               <select
                 value={autoRefreshInterval}
@@ -345,9 +350,9 @@ export default function Settings() {
         {activeTab === 'notifications' && (
           <>
             <SettingsSection
-              eyebrow="Notifications"
-              title="Notification rules"
-              description="Notification preferences save automatically."
+              eyebrow={t('settingsPage.notificationsEyebrow')}
+              title={t('settingsPage.notificationRules')}
+              description={t('settingsPage.notificationRulesDescription')}
             >
               <Message message={notificationMessage} />
 
@@ -359,7 +364,7 @@ export default function Settings() {
                   checked={notificationsEnabled}
                   onChange={(checked) => handleNotificationPreferenceChange('daily_change_notifications_enabled', checked)}
                   disabled={savingNotifications}
-                  label={notificationsEnabled ? 'Enabled' : 'Disabled'}
+                  label={notificationsEnabled ? t('settingsPage.enabled') : t('settingsPage.disabled')}
                 />
               </SettingRow>
 
@@ -371,7 +376,7 @@ export default function Settings() {
                   checked={athAtlNotificationsEnabled}
                   onChange={(checked) => handleNotificationPreferenceChange('ath_atl_notifications_enabled', checked)}
                   disabled={savingNotifications}
-                  label={athAtlNotificationsEnabled ? 'Enabled' : 'Disabled'}
+                  label={athAtlNotificationsEnabled ? t('settingsPage.enabled') : t('settingsPage.disabled')}
                 />
               </SettingRow>
 
@@ -383,7 +388,7 @@ export default function Settings() {
                   checked={transactionNotificationsEnabled}
                   onChange={(checked) => handleNotificationPreferenceChange('transaction_notifications_enabled', checked)}
                   disabled={savingNotifications}
-                  label={transactionNotificationsEnabled ? 'Enabled' : 'Disabled'}
+                  label={transactionNotificationsEnabled ? t('settingsPage.enabled') : t('settingsPage.disabled')}
                 />
               </SettingRow>
 
@@ -395,15 +400,15 @@ export default function Settings() {
                   checked={dailyReportsEnabled}
                   onChange={(checked) => handleNotificationPreferenceChange('daily_report_enabled', checked)}
                   disabled={savingNotifications}
-                  label={dailyReportsEnabled ? 'Enabled' : 'Disabled'}
+                  label={dailyReportsEnabled ? t('settingsPage.enabled') : t('settingsPage.disabled')}
                 />
               </SettingRow>
             </SettingsSection>
 
             <SettingsSection
-              eyebrow="Push"
+              eyebrow={t('settingsPage.pushEyebrow')}
               title={t('settings.pushNotifications')}
-              description="Browser push delivery for supported notifications."
+              description={t('settingsPage.pushDescription')}
             >
               {!pushNotifications.isSupported ? (
                 <div className="settings-message is-warning">
@@ -442,7 +447,7 @@ export default function Settings() {
                   <Message message={pushMessage} />
 
                   <div className="settings-action-row">
-                    <span>Push actions</span>
+                    <span>{t('settingsPage.pushActions')}</span>
                     <div>
                     {!pushNotifications.isSubscribed ? (
                       <button
@@ -509,12 +514,12 @@ export default function Settings() {
 
         {activeTab === 'security' && (
           <SettingsSection
-            eyebrow="Security"
+            eyebrow={t('settingsPage.securityEyebrow')}
             title={t('settings.transactionValidationSettings')}
-            description="Protect transaction entry from impossible sells."
+            description={t('settingsPage.protectSellDescription')}
           >
             {settingsLoading ? (
-              <ListSkeleton className="settings-loading" rows={2} label="Loading security settings" />
+              <ListSkeleton className="settings-loading" rows={2} label={t('settingsPage.loadingSecuritySettings')} />
             ) : (
               <>
                 <Message message={settingsMessage} />
@@ -526,7 +531,7 @@ export default function Settings() {
                     checked={validateSellQuantity}
                     onChange={handleValidateSellQuantityChange}
                     disabled={settingsSaving}
-                    label={validateSellQuantity ? 'Enabled' : 'Disabled'}
+                    label={validateSellQuantity ? t('settingsPage.enabled') : t('settingsPage.disabled')}
                   />
                 </SettingRow>
                 <p className="settings-note">
@@ -541,9 +546,9 @@ export default function Settings() {
 
         {activeTab === 'danger' && (
           <SettingsSection
-            eyebrow="Danger Zone"
+            eyebrow={t('settingsPage.dangerZoneEyebrow')}
             title={t('settings.dangerZone')}
-            description="Permanent data deletion controls."
+            description={t('settingsPage.permanentDeletionDescription')}
             tone="danger"
           >
             <div className="settings-action-row is-danger">
@@ -575,12 +580,12 @@ export default function Settings() {
         {activeTab === 'about' && (
           <>
             <SettingsSection
-              eyebrow="About"
+              eyebrow={t('settingsPage.aboutEyebrow')}
               title={t('settings.about')}
-              description="Application version and project information."
+              description={t('settingsPage.versionDescription')}
             >
               <div className="settings-action-row">
-                <span>Project</span>
+                <span>{t('settingsPage.project')}</span>
                 <div>
                 <a
                   href="https://github.com/ArthurMTX/Portfolium"

@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { BadgeDollarSign, Building2, Coins, Globe2, HelpCircle, Info, RefreshCw } from 'lucide-react'
+import i18n from 'i18next'
 import type { ContributionItemDTO } from '@/api'
 import { StateBlock, TableSkeleton } from '@/shared/components/StatePrimitives'
 import AssetLogo from '@/shared/components/AssetLogo'
@@ -71,18 +72,18 @@ export function periodLabel(period: string): string {
     '6m': '6M',
     ytd: 'YTD',
     '1y': '1Y',
-    all: 'All time',
+    all: i18n.t('insights.shared.allTime'),
   }
   return labels[period] || period.toUpperCase()
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Failed to load this block.'
+  return error instanceof Error ? error.message : i18n.t('insights.shared.failedToLoad')
 }
 
 function InfoTooltip({
   children,
-  label = 'More information',
+  label = i18n.t('insights.shared.moreInformation'),
   align = 'right',
 }: {
   children: ReactNode
@@ -118,7 +119,7 @@ export function InsightBlock({
   isLoading,
   error,
   isEmpty,
-  emptyMessage = 'No data available for this block.',
+  emptyMessage = i18n.t('insights.shared.noDataDefault'),
   onRetry,
   skeleton,
   children,
@@ -147,12 +148,12 @@ export function InsightBlock({
         </div>
         <div className="pf-section-header__aside insights-block__actions">
           {(description || formula) && (
-            <InfoTooltip label={`${title} details`}>
+            <InfoTooltip label={i18n.t('insights.shared.detailsLabel', { title })}>
               <div className="space-y-2">
                 {description && <p>{description}</p>}
                 {formula && (
                   <p>
-                    <span className="font-semibold text-neutral-900 dark:text-neutral-100">Formula: </span>
+                    <span className="font-semibold text-neutral-900 dark:text-neutral-100">{i18n.t('insights.shared.formula')}: </span>
                     {formula}
                   </p>
                 )}
@@ -164,8 +165,8 @@ export function InsightBlock({
               type="button"
               onClick={onRetry}
               className="insights-icon-button"
-              title="Refresh"
-              aria-label={`Refresh ${title}`}
+              title={i18n.t('insights.shared.refresh')}
+              aria-label={i18n.t('insights.shared.refreshLabel', { title })}
             >
               <RefreshCw size={15} />
             </button>
@@ -179,18 +180,18 @@ export function InsightBlock({
         <StateBlock
           tone="error"
           className="insights-error"
-          eyebrow="Insight unavailable"
-          title="This block could not load."
+          eyebrow={i18n.t('insights.shared.unavailableEyebrow')}
+          title={i18n.t('insights.shared.unavailableTitle')}
           detail={errorMessage(error)}
-          actionLabel={onRetry ? 'Retry' : undefined}
+          actionLabel={onRetry ? i18n.t('insights.shared.retry') : undefined}
           onAction={onRetry}
         />
       ) : isEmpty ? (
         <StateBlock
           className="insights-empty"
-          eyebrow="No data"
+          eyebrow={i18n.t('insights.shared.noDataEyebrow')}
           title={emptyMessage}
-          description="This insight will appear when enough portfolio data is available."
+          description={i18n.t('insights.shared.noDataDescription')}
         />
       ) : (
         children
@@ -262,7 +263,7 @@ export function BarsSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 export function MiniTableSkeleton({ rows = 5 }: { rows?: number }) {
-  return <TableSkeleton rows={rows} columns={3} label="Loading insight table" />
+  return <TableSkeleton rows={rows} columns={3} label={i18n.t('insights.shared.loadingTable')} />
 }
 
 export function ContributionBars({

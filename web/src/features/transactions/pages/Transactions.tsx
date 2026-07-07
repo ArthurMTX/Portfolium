@@ -26,7 +26,7 @@ import {
 } from '@/shared/components/PageLayout'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency, formatQuantity } from '@/shared/lib/formatUtils'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { getFilteredSortedTransactions } from '@/features/transactions/lib/transactionSortUtils'
 import {
   getTransactionSummary,
@@ -220,11 +220,11 @@ export default function Transactions() {
       setTransactions(data)
     } catch (error: unknown) {
       console.error('Failed to fetch transactions:', error)
-      setLoadError(error instanceof Error ? error.message : 'Failed to load transactions')
+      setLoadError(error instanceof Error ? error.message : t('transactionsPage.loadFailedGeneric'))
     } finally {
       setLoading(false)
     }
-  }, [activePortfolioId])
+  }, [activePortfolioId, t])
 
   useEffect(() => {
     // Clear transactions immediately when portfolio changes
@@ -537,8 +537,8 @@ export default function Transactions() {
 
   const getValidationErrorMessage = (code: TransactionValidationErrorCode) => {
     const messages: Record<TransactionValidationErrorCode, string> = {
-      'portfolio-required': 'Please select a portfolio first',
-      'ticker-required': 'Please select a ticker',
+      'portfolio-required': t('transactionsPage.portfolioRequired'),
+      'ticker-required': t('transactionsPage.tickerRequired'),
       'invalid-date': t('transactions.errors.invalidDate'),
       'future-date': t('transactions.warnings.futureDate'),
       'quantity-must-be-positive': t('transactions.errors.quantityMustBePositive'),
@@ -604,7 +604,7 @@ export default function Transactions() {
           const symbol = selectedTicker?.symbol || ticker
 
           if (!symbol) {
-            throw new Error("Ticker symbol is required")
+            throw new Error(t('transactionsPage.tickerSymbolRequired'))
           }
 
           try {
@@ -770,15 +770,15 @@ export default function Transactions() {
     setImportLoading(false)
     
     if (success) {
-      setImportSuccess(`Successfully imported transactions!`)
+      setImportSuccess(t('transactionsPage.importedSuccessfully'))
       await fetchTransactions()
-      
+
       // Clear success message after 5 seconds
       setTimeout(() => setImportSuccess(""), 5000)
     } else {
-      setImportError('Import failed. Check the log for details.')
+      setImportError(t('transactionsPage.importFailedGeneric'))
     }
-  }, [fetchTransactions])
+  }, [fetchTransactions, t])
 
   const handleImportClose = useCallback(() => {
     setShowImportProgress(false)
@@ -791,7 +791,7 @@ export default function Transactions() {
 
   const handleExportClick = () => {
     if (transactions.length === 0) {
-      setToast({ type: 'error', message: 'No transactions to export' })
+      setToast({ type: 'error', message: t('transactionsPage.noTransactionsToExport') })
       return
     }
 
@@ -1034,18 +1034,7 @@ export default function Transactions() {
   }, [currentLocale, getTransactionAmountInPortfolioCurrency, portfolioCurrency, transactions])
 
   // Get human-readable label for sort key
-  const getSortLabel = (key: SortKey): string => {
-    const labels: Record<SortKey, string> = {
-      tx_date: 'Date',
-      symbol: 'Symbol',
-      type: 'Type',
-      quantity: 'Quantity',
-      price: 'Price',
-      fees: 'Fees',
-      total: 'Total',
-    }
-    return labels[key]
-  }
+  const getSortLabel = (key: SortKey): string => t(`transactionsPage.sortLabels.${key}`)
 
   const availableSortOptions: SortKey[] = ['tx_date', 'symbol', 'type', 'quantity', 'price', 'fees', 'total']
 
@@ -1060,7 +1049,7 @@ export default function Transactions() {
   const formatHeroDate = (dateString: string | null) => {
     if (!dateString) return '—'
     const date = new Date(dateString)
-    if (isSameCalendarDay(date, new Date())) return 'Today'
+    if (isSameCalendarDay(date, new Date())) return t('transactionsPage.today')
     return date.toLocaleDateString(currentLocale, {
       day: 'numeric',
       month: 'long',
@@ -1085,27 +1074,27 @@ export default function Transactions() {
 
   const getEventVerb = (type: string) => {
     const labels: Record<string, string> = {
-      BUY: 'Bought',
-      SELL: 'Sold',
-      DIVIDEND: 'Dividend received',
-      FEE: 'Fee paid',
-      SPLIT: 'Stock split',
-      TRANSFER_IN: 'Transferred in',
-      TRANSFER_OUT: 'Transferred out',
-      CONVERSION_IN: 'Converted into',
-      CONVERSION_OUT: 'Converted out',
+      BUY: t('transactionsPage.eventVerbs.BUY'),
+      SELL: t('transactionsPage.eventVerbs.SELL'),
+      DIVIDEND: t('transactionsPage.eventVerbs.DIVIDEND'),
+      FEE: t('transactionsPage.eventVerbs.FEE'),
+      SPLIT: t('transactionsPage.eventVerbs.SPLIT'),
+      TRANSFER_IN: t('transactionsPage.eventVerbs.TRANSFER_IN'),
+      TRANSFER_OUT: t('transactionsPage.eventVerbs.TRANSFER_OUT'),
+      CONVERSION_IN: t('transactionsPage.eventVerbs.CONVERSION_IN'),
+      CONVERSION_OUT: t('transactionsPage.eventVerbs.CONVERSION_OUT'),
     }
     return labels[type.toUpperCase()] || getTranslatedType(type)
   }
 
   const getTransactionContext = (transaction: Transaction) => {
     const tags: string[] = []
-    if (firstPurchaseByAssetId.get(transaction.asset_id) === transaction.id) tags.push('First purchase')
-    if (largestPurchaseId === transaction.id) tags.push('Largest purchase')
-    if (transaction.type === 'SELL') tags.push('Ownership reduced')
-    if (transaction.type === 'DIVIDEND') tags.push('Income event')
-    if (transaction.type === 'SPLIT') tags.push('Share count changed')
-    if (transaction.type === 'CONVERSION_IN' || transaction.type === 'CONVERSION_OUT') tags.push('Currency conversion')
+    if (firstPurchaseByAssetId.get(transaction.asset_id) === transaction.id) tags.push(t('transactionsPage.tags.firstPurchase'))
+    if (largestPurchaseId === transaction.id) tags.push(t('transactionsPage.tags.largestPurchase'))
+    if (transaction.type === 'SELL') tags.push(t('transactionsPage.tags.ownershipReduced'))
+    if (transaction.type === 'DIVIDEND') tags.push(t('transactionsPage.tags.incomeEvent'))
+    if (transaction.type === 'SPLIT') tags.push(t('transactionsPage.tags.shareCountChanged'))
+    if (transaction.type === 'CONVERSION_IN' || transaction.type === 'CONVERSION_OUT') tags.push(t('transactionsPage.tags.currencyConversion'))
     return tags
   }
 
@@ -1113,7 +1102,7 @@ export default function Transactions() {
     const amount = getTransactionAmount(transaction)
     if (transaction.type === 'SPLIT') {
       const ratio = transaction.metadata?.split ? ` ${transaction.metadata.split}` : ''
-      return `Stock split${ratio}`
+      return t('transactionsPage.stockSplitRatio', { ratio })
     }
 
     const formattedAmount = amount === null
@@ -1129,14 +1118,14 @@ export default function Transactions() {
   const getClipboardText = (transaction: Transaction) => {
     const amount = getTransactionAmount(transaction)
     const value = amount === null
-      ? 'No capital amount'
+      ? t('transactionsPage.noCapitalAmount')
       : formatCurrency(Math.abs(amount), transaction.currency || portfolioCurrency, currentLocale)
     return [
       `${getEventVerb(transaction.type)} ${transaction.asset.symbol}`,
       value,
-      `${formatQuantity(toNumber(transaction.quantity))} shares`,
+      `${formatQuantity(toNumber(transaction.quantity))} ${t('assetsPage.shares')}`,
       formatDate(transaction.tx_date),
-      transaction.notes ? `Notes: ${transaction.notes}` : null,
+      transaction.notes ? t('transactionsPage.notesLine', { notes: transaction.notes }) : null,
     ].filter(Boolean).join('\n')
   }
 
@@ -1144,9 +1133,9 @@ export default function Transactions() {
     const text = getClipboardText(transaction)
     try {
       await navigator.clipboard.writeText(text)
-      setToast({ type: 'success', message: 'Transaction copied' })
+      setToast({ type: 'success', message: t('transactionsPage.transactionCopied') })
     } catch {
-      setToast({ type: 'error', message: 'Could not copy transaction' })
+      setToast({ type: 'error', message: t('transactionsPage.couldNotCopy') })
     } finally {
       setOpenActionMenuId(null)
     }
@@ -1211,20 +1200,20 @@ export default function Transactions() {
     <PageShell className="transactions-page">
       <PageHeader>
         <PageTitleBlock
-          kicker="Transactions"
-          title={`${transactions.length} capital ${transactions.length === 1 ? 'event' : 'events'}`}
+          kicker={t('transactionsPage.kicker')}
+          title={t('transactionsPage.capitalEvents', { count: transactions.length })}
         />
         <PageSummaryPanel
-          lead={`${formatCurrency(investedCapital, portfolioCurrency, currentLocale)} invested.`}
-          description="Every event that changed ownership, cash, or return in this portfolio."
+          lead={t('transactionsPage.investedLead', { amount: formatCurrency(investedCapital, portfolioCurrency, currentLocale) })}
+          description={t('transactionsPage.pageDescription')}
         />
       </PageHeader>
 
-      <PageMetricStrip label="Transactions context">
-        <PageMetric label="Transactions" value={transactions.length} />
-        <PageMetric label="Invested" value={formatCurrency(investedCapital, portfolioCurrency, currentLocale)} />
-        <PageMetric label="First investment" value={formatHeroDate(firstTransactionDate)} />
-        <PageMetric label="Latest activity" value={formatHeroDate(latestTransactionDate)} />
+      <PageMetricStrip label={t('transactionsPage.contextLabel')}>
+        <PageMetric label={t('transactionsPage.transactionsMetric')} value={transactions.length} />
+        <PageMetric label={t('transactionsPage.invested')} value={formatCurrency(investedCapital, portfolioCurrency, currentLocale)} />
+        <PageMetric label={t('transactionsPage.firstInvestment')} value={formatHeroDate(firstTransactionDate)} />
+        <PageMetric label={t('transactionsPage.latestActivity')} value={formatHeroDate(latestTransactionDate)} />
       </PageMetricStrip>
 
       {importSuccess && <div className="transactions-notice is-success">{importSuccess}</div>}
@@ -1240,7 +1229,7 @@ export default function Transactions() {
       />
 
       <PageControls
-        label="Transaction controls"
+        label={t('transactionsPage.controlsLabel')}
         start={
         <div className="pf-search">
           <Search size={16} />
@@ -1248,10 +1237,10 @@ export default function Transactions() {
             type="text"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search by company or symbol"
+            placeholder={t('transactionsPage.searchPlaceholder')}
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} aria-label="Clear search">
+            <button onClick={() => setSearchQuery('')} aria-label={t('transactionsPage.clearSearch')}>
               <X size={14} />
             </button>
           )}
@@ -1260,7 +1249,7 @@ export default function Transactions() {
         end={
         <div className="pf-control-group pf-dark-control-group transactions-controls">
           <label>
-            Type
+            {t('transactionsPage.type')}
             <select value={activeTab} onChange={(event) => setActiveTab(event.target.value as TabType)}>
               {tabs.map((tab) => (
                 <option key={tab.id} value={tab.id}>{tab.label}</option>
@@ -1268,7 +1257,7 @@ export default function Transactions() {
             </select>
           </label>
           <label>
-            Sort
+            {t('transactionsPage.sort')}
             <select value={sortKey} onChange={(event) => handleSort(event.target.value as SortKey)}>
               {availableSortOptions.map((option) => (
                 <option key={option} value={option}>{getSortLabel(option)}</option>
@@ -1277,11 +1266,11 @@ export default function Transactions() {
           </label>
           <button onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}>
             {sortDir === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+            {sortDir === 'asc' ? t('transactionsPage.ascending') : t('transactionsPage.descending')}
           </button>
           <button onClick={() => navigate('/transactions/metrics')}>
             <BarChart3 size={16} />
-            Metrics
+            {t('transactionsPage.metrics')}
           </button>
           <button onClick={handleImportClick} disabled={importLoading}>
             <Upload size={16} />
@@ -1297,7 +1286,7 @@ export default function Transactions() {
           </button>
           <button className="is-primary" onClick={openAddModal}>
             <PlusCircle size={16} />
-            Record transaction
+            {t('transactionsPage.recordTransaction')}
           </button>
         </div>
         }
@@ -1306,7 +1295,11 @@ export default function Transactions() {
       {transactions.length > 0 && (
         <div className="pf-dark-control-group transactions-count">
           <span>
-            Showing <strong>{sortedTransactions.length}</strong> of <strong>{transactions.length}</strong> capital events.
+            <Trans
+              i18nKey="transactionsPage.showingOfCapitalEvents"
+              values={{ shown: sortedTransactions.length, total: transactions.length }}
+              components={{ strong: <strong /> }}
+            />
           </span>
           {transactions.length > displayLimit && (
             <button onClick={() => setShowAllTransactions(!showAllTransactions)}>
@@ -1317,15 +1310,15 @@ export default function Transactions() {
       )}
 
       <PageMainGrid single>
-      <PageMainColumn className="transactions-timeline" aria-label="Capital history">
+      <PageMainColumn className="transactions-timeline" aria-label={t('transactionsPage.capitalHistoryLabel')}>
         {loading ? (
-          <ListSkeleton className="transactions-loading" rows={5} label="Loading transactions" />
+          <ListSkeleton className="transactions-loading" rows={5} label={t('transactionsPage.loadingTransactions')} />
         ) : loadError ? (
           <StateBlock
             tone="error"
-            eyebrow="Transactions"
-            title="Could not load transactions."
-            description="Portfolium could not refresh the ownership ledger for this portfolio."
+            eyebrow={t('transactionsPage.errorEyebrow')}
+            title={t('transactionsPage.errorTitle')}
+            description={t('transactionsPage.errorDescription')}
             detail={loadError}
             actionLabel={t('common.retry')}
             onAction={fetchTransactions}
@@ -1333,20 +1326,20 @@ export default function Transactions() {
         ) : transactions.length === 0 ? (
           <StateBlock
             className="transactions-empty"
-            eyebrow="No transactions"
-            title="Your investment history will appear here once capital starts moving."
-            description="Record your first transaction to begin the ownership ledger."
+            eyebrow={t('transactionsPage.noTransactionsEyebrow')}
+            title={t('transactionsPage.noTransactionsTitle')}
+            description={t('transactionsPage.noTransactionsDescription')}
           >
-            <button className="pf-button pf-button--primary is-primary" onClick={openAddModal}>Record your first transaction</button>
+            <button className="pf-button pf-button--primary is-primary" onClick={openAddModal}>{t('transactionsPage.recordFirstTransaction')}</button>
           </StateBlock>
         ) : sortedTransactions.length === 0 ? (
           <StateBlock
             className="transactions-empty"
-            eyebrow="No results"
-            title="No capital event matches this view."
-            description="Clear the search or change the transaction type filter."
+            eyebrow={t('transactionsPage.noResultsEyebrow')}
+            title={t('transactionsPage.noResultsTitle')}
+            description={t('transactionsPage.noResultsDescription')}
           >
-            <button className="pf-button pf-button--secondary is-primary" onClick={() => setSearchQuery('')}>Clear search</button>
+            <button className="pf-button pf-button--secondary is-primary" onClick={() => setSearchQuery('')}>{t('transactionsPage.clearSearch')}</button>
           </StateBlock>
         ) : (
           groupedTransactions.map((group) => (
@@ -1358,33 +1351,33 @@ export default function Transactions() {
                   const netCapitalFlow = summary.invested - summary.sold - summary.dividends + summary.fees
                   return (
                     <div className="transactions-month-summary">
-                      <p>{group.transactions.length} investment {group.transactions.length === 1 ? 'event' : 'events'}</p>
+                      <p>{t('transactionsPage.investmentEvents', { count: group.transactions.length })}</p>
                       {summary.invested > 0 && (
                         <div>
                           <span>{formatCurrency(summary.invested, portfolioCurrency, currentLocale)}</span>
-                          <em>invested</em>
+                          <em>{t('transactionsPage.investedLabel')}</em>
                         </div>
                       )}
                       {summary.sold > 0 && (
                         <div>
                           <span>{formatCurrency(summary.sold, portfolioCurrency, currentLocale)}</span>
-                          <em>sold</em>
+                          <em>{t('transactionsPage.soldLabel')}</em>
                         </div>
                       )}
                       {summary.dividends > 0 && (
                         <div>
                           <span>{formatCurrency(summary.dividends, portfolioCurrency, currentLocale)}</span>
-                          <em>dividends</em>
+                          <em>{t('transactionsPage.dividendsLabel')}</em>
                         </div>
                       )}
                       {summary.fees > 0 && (
                         <div>
                           <span>{formatCurrency(summary.fees, portfolioCurrency, currentLocale)}</span>
-                          <em>fees</em>
+                          <em>{t('transactionsPage.feesLabel')}</em>
                         </div>
                       )}
                       <div className="transactions-net-flow">
-                        <em>Net capital flow</em>
+                        <em>{t('transactionsPage.netCapitalFlow')}</em>
                         <strong>{formatSignedCurrency(netCapitalFlow, portfolioCurrency, currentLocale)}</strong>
                       </div>
                     </div>
@@ -1445,12 +1438,15 @@ export default function Transactions() {
                           <h3>{getTransactionSentence(transaction)}</h3>
                           <p>
                             {transaction.type === 'SPLIT'
-                              ? 'Share count changed without moving capital.'
-                              : `${formatQuantity(quantity)} shares · ${formatCurrency(priceValue, transaction.currency || portfolioCurrency, currentLocale)} per share`}
+                              ? t('transactionsPage.splitNoCapitalMove')
+                              : t('transactionsPage.sharesPerShare', {
+                                  quantity: formatQuantity(quantity),
+                                  price: formatCurrency(priceValue, transaction.currency || portfolioCurrency, currentLocale),
+                                })}
                           </p>
                           {feesValue > 0 && (
                             <p className="transactions-fee-sentence">
-                              {formatCurrency(feesValue, transaction.currency || portfolioCurrency, currentLocale)} in fees
+                              {t('transactionsPage.feesInFees', { amount: formatCurrency(feesValue, transaction.currency || portfolioCurrency, currentLocale) })}
                             </p>
                           )}
                           {transaction.notes && (
@@ -1478,7 +1474,7 @@ export default function Transactions() {
                         >
                           <button
                           className="transactions-overflow-button"
-                          aria-label="Transaction actions"
+                          aria-label={t('transactionsPage.transactionActions')}
                           aria-expanded={actionMenuOpen}
                           onClick={(event) => {
                             event.stopPropagation()
@@ -1491,10 +1487,10 @@ export default function Transactions() {
                           <div className="transactions-overflow-menu">
                             <button onClick={() => openEditModal(transaction)}>{t('common.edit')}</button>
                             <button onClick={() => setDeleteConfirm(transaction.id)}>{t('common.delete')}</button>
-                            <button onClick={() => handleCopyTransaction(transaction)}>Copy</button>
+                            <button onClick={() => handleCopyTransaction(transaction)}>{t('transactionsPage.copy')}</button>
                             {assetHasSplits(transaction.asset_id) && (
                               <button onClick={() => setSplitHistoryAsset({ id: transaction.asset_id, symbol: transaction.asset.symbol })}>
-                                Split history
+                                {t('transactionsPage.splitHistory')}
                               </button>
                             )}
                           </div>
@@ -1505,35 +1501,35 @@ export default function Transactions() {
                         <div className="transactions-details">
                           <dl>
                             <div>
-                              <dt>Fees</dt>
+                              <dt>{t('transactionsPage.fees')}</dt>
                               <dd>{formatCurrency(feesValue, transaction.currency || portfolioCurrency, currentLocale)}</dd>
                             </div>
                             <div>
-                              <dt>Currency</dt>
+                              <dt>{t('transactionsPage.currency')}</dt>
                               <dd>{transaction.currency || portfolioCurrency}</dd>
                             </div>
                             <div>
-                              <dt>Transaction type</dt>
+                              <dt>{t('transactionsPage.transactionType')}</dt>
                               <dd>{getTranslatedType(transaction.type)}</dd>
                             </div>
                             <div>
-                              <dt>Order reference</dt>
+                              <dt>{t('transactionsPage.orderReference')}</dt>
                               <dd>#{transaction.id}</dd>
                             </div>
                             {transaction.metadata?.split && (
                               <div>
-                                <dt>Split ratio</dt>
+                                <dt>{t('transactionsPage.splitRatio')}</dt>
                                 <dd>{transaction.metadata.split}</dd>
                               </div>
                             )}
                             {Boolean(transaction.metadata?.conversion_id) && (
                               <div>
-                                <dt>Conversion group</dt>
+                                <dt>{t('transactionsPage.conversionGroup')}</dt>
                                 <dd>{String(transaction.metadata?.conversion_id)}</dd>
                               </div>
                             )}
                             <div>
-                              <dt>Notes</dt>
+                              <dt>{t('transactionsPage.notes')}</dt>
                               <dd>{transaction.notes || '—'}</dd>
                             </div>
                           </dl>
@@ -1612,10 +1608,10 @@ export default function Transactions() {
             <div className="pf-modal-header">
               <div>
                 <h3 className="pf-modal-title">
-                  {t('transactions.deleteTransaction')}
+                  {t('transactionsPage.deleteTransactionTitle')}
                 </h3>
                 <p className="pf-modal-description">
-                  {t('transactions.deleteConfirm')}
+                  {t('transactionsPage.deleteTransactionConfirm')}
                 </p>
               </div>
             </div>

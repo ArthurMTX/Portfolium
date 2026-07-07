@@ -1,10 +1,12 @@
 import { Bell } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/features/notifications/store/useNotificationStore'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import NotificationDropdown from '@/features/notifications/components/NotificationDropdown'
 
 export default function NotificationBell() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { unreadCount, fetchUnreadCount, fetchNotifications } = useNotificationStore()
   const [isHovered, setIsHovered] = useState(false)
@@ -65,7 +67,7 @@ export default function NotificationBell() {
       <button
         onClick={handleClick}
         className="pf-icon-button"
-        aria-label="Notifications"
+        aria-label={t('notifications.title')}
       >
         <Bell aria-hidden="true" />
         {unreadCount > 0 && (

@@ -240,7 +240,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
               {t('watchlist.tags.manage')}
             </h2>
             <p className="pf-modal-description">
-              {tags.length} {tags.length === 1 ? 'tag' : 'tags'}
+              {t('watchlist.tags.tagsCount', { count: tags.length })}
             </p>
           </div>
           <button
@@ -316,10 +316,10 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                     ))}
                   </div>
                   {iconSearch && filteredIcons.length === 0 && (
-                    <p className="pf-dropdown-empty">No matching icons.</p>
+                    <p className="pf-dropdown-empty">{t('watchlist.tags.noMatchingIcons')}</p>
                   )}
                   {iconSearch && filteredIcons.length === 100 && (
-                    <p className="text-xs text-neutral-400 text-center pt-2">Showing first 100 results</p>
+                    <p className="text-xs text-neutral-400 text-center pt-2">{t('watchlist.tags.showingFirst100')}</p>
                   )}
                 </div>
               )}
@@ -389,7 +389,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
           {/* Preview */}
           {newTagName && (
             <div className="mt-3 flex items-center gap-2">
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">Preview:</span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">{t('watchlist.tags.preview')}</span>
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
                 style={{ backgroundColor: newTagColor + '20', color: newTagColor }}
@@ -409,12 +409,12 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
             </label>
             
             {loading ? (
-              <ListSkeleton rows={3} label="Loading watchlist tags" />
+              <ListSkeleton rows={3} label={t('watchlist.tags.loadingWatchlistTags')} />
             ) : tags.length === 0 ? (
               <StateBlock
-                eyebrow="No tags"
+                eyebrow={t('watchlist.tags.noTags')}
                 title={t('watchlist.tags.noTags')}
-                description="Create a tag to group companies by thesis, priority, or theme."
+                description={t('watchlist.tags.createTagHint')}
               />
             ) : (
               <div className="space-y-2">
@@ -465,7 +465,7 @@ export default function WatchlistTagManager({ isOpen, onClose, onTagsUpdated }: 
                           <IconComponent name={tag.icon} size={16} />
                         </div>
                         <span className="flex-1 text-sm text-red-600 dark:text-red-400">
-                          {t('common.delete')} "{tag.name}"?
+                          {t('watchlist.tags.deleteTagConfirm', { action: t('common.delete'), name: tag.name })}
                         </span>
                         <button
                           onClick={() => handleDeleteTag(tag.id)}

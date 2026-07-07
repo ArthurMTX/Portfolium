@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { type InsightsTabProps } from '@/features/insights/components/InsightsShared'
@@ -24,17 +25,20 @@ const AIInsightsTab = lazy(() => import('@/features/insights/components/AIInsigh
 
 type InsightsTabId = 'performance' | 'attribution' | 'exposure' | 'risk' | 'ai'
 
-const tabs: Array<{ id: InsightsTabId; label: string; purpose: string }> = [
-  { id: 'performance', label: 'Performance', purpose: 'What happened?' },
-  { id: 'attribution', label: 'Attribution', purpose: 'Why did it happen?' },
-  { id: 'exposure', label: 'Exposure', purpose: 'What am I exposed to?' },
-  { id: 'risk', label: 'Risk', purpose: 'What can go wrong?' },
-  { id: 'ai', label: 'AI Insights', purpose: 'Future' },
-]
+function getTabs(t: TFunction): Array<{ id: InsightsTabId; label: string; purpose: string }> {
+  return [
+    { id: 'performance', label: t('insights.tabs.performance.label'), purpose: t('insights.tabs.performance.purpose') },
+    { id: 'attribution', label: t('insights.tabs.attribution.label'), purpose: t('insights.tabs.attribution.purpose') },
+    { id: 'exposure', label: t('insights.tabs.exposure.label'), purpose: t('insights.tabs.exposure.purpose') },
+    { id: 'risk', label: t('insights.tabs.risk.label'), purpose: t('insights.tabs.risk.purpose') },
+    { id: 'ai', label: t('insights.tabs.ai.label'), purpose: t('insights.tabs.ai.purpose') },
+  ]
+}
 
 export default function Insights() {
   const { activePortfolioId, portfolios } = usePortfolioStore()
   const { t, i18n } = useTranslation()
+  const tabs = useMemo(() => getTabs(t), [t])
   const [period, setPeriod] = useState('1y')
   const [benchmark, setBenchmark] = useState('SPY')
   const [activeTab, setActiveTab] = useState<InsightsTabId>('performance')
@@ -59,7 +63,7 @@ export default function Insights() {
   return (
     <PageShell className="insights">
       <PageHeader>
-        <PageTitleBlock kicker="Insights" title={t('insights.title')} />
+        <PageTitleBlock kicker={t('insights.kicker')} title={t('insights.title')} />
         <PageSummaryPanel
           lead={tabs.find((tab) => tab.id === activeTab)?.purpose}
           description={t('insights.description')}
@@ -67,9 +71,9 @@ export default function Insights() {
       </PageHeader>
 
       <PageControls
-        label="Insights controls"
+        label={t('insights.controls.insightsControls')}
         start={
-          <PageTabs label="Insights sections">
+          <PageTabs label={t('insights.controls.insightsSections')}>
             {tabs.map((tab) => {
               const selected = activeTab === tab.id
               return (
@@ -92,7 +96,7 @@ export default function Insights() {
             <select
               value={period}
               onChange={(event) => setPeriod(event.target.value)}
-              aria-label="Insights period"
+              aria-label={t('insights.controls.insightsPeriod')}
             >
               <option value="1m">{t('insights.periods.1M')}</option>
               <option value="3m">{t('insights.periods.3M')}</option>
@@ -105,7 +109,7 @@ export default function Insights() {
             <select
               value={benchmark}
               onChange={(event) => setBenchmark(event.target.value)}
-              aria-label="Insights benchmark"
+              aria-label={t('insights.controls.insightsBenchmark')}
             >
               <option value="SPY">S&P 500</option>
               <option value="QQQ">Nasdaq 100</option>
@@ -119,7 +123,7 @@ export default function Insights() {
 
       <PageMainGrid single>
         <PageMainColumn className="insights__content">
-          <Suspense fallback={<TabFallback />}>
+          <Suspense fallback={<TabFallback t={t} />}>
             {activeTab === 'performance' && <PerformanceTab {...tabProps} />}
             {activeTab === 'attribution' && <AttributionTab {...tabProps} />}
             {activeTab === 'exposure' && <ExposureTab {...tabProps} />}
@@ -132,11 +136,11 @@ export default function Insights() {
   )
 }
 
-function TabFallback() {
+function TabFallback({ t }: { t: TFunction }) {
   return (
     <div className="insights-tab-fallback">
-      <MetricSkeletonStrip label="Loading insights metrics" />
-      <ChartSkeleton className="insights-chart-loading" label="Loading insights chart" />
+      <MetricSkeletonStrip label={t('insights.loadingMetrics')} />
+      <ChartSkeleton className="insights-chart-loading" label={t('insights.loadingChart')} />
     </div>
   )
 }

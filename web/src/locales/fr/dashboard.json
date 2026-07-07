@@ -1,0 +1,522 @@
+{
+  "dashboard": {
+    "page": {
+      "title": "Tableau de bord",
+      "description": "Suivez vos investissements en temps réel",
+      "autoRefresh": "Actualisation automatique",
+      "refreshInterval": "Intervalle d'actualisation",
+      "enabled": "Activée",
+      "disabled": "Désactivée",
+      "customize": "Personnaliser",
+      "editDashboard": "Modifier le dashboard",
+      "doneEditing": "Terminer l'édition",
+      "totalValue": "Valeur totale",
+      "dailyGain": "Gain quotidien",
+      "unrealizedPnL": "P&L non réalisé",
+      "realizedPnL": "P&L réalisé",
+      "dividends": "Dividendes",
+      "todayBrief": {
+        "name": "Brief du jour",
+        "description": "Résumé quotidien compact de ce qui compte maintenant.",
+        "emptyState": "Rien d’important aujourd’hui"
+      },
+      "editMode": "Mode d'édition",
+      "editModeInfo": "Faites glisser les widgets pour les réorganiser ou redimensionnez-les en faisant glisser les coins. Utilisez Personnaliser quand vous avez terminé.",
+      "emptyDashboard": "Votre tableau de bord se sent seul !",
+      "emptyDashboardInfo": "Utilisez Personnaliser pour ajouter des widgets ou charger une mise en page.",
+      "proTip": "Astuce Pro",
+      "proTipInfo": "Vous pouvez utiliser les mises en page par défaut comme point de départ !",
+      "removeWidget": "Supprimer le widget",
+      "removeWidgetMessage": "Êtes-vous sûr de vouloir supprimer ce widget de votre tableau de bord ?"
+    },
+    "widgets": {
+      "totalValue": {
+        "name": "Valeur Totale",
+        "description": "Afficher la valeur totale de votre portefeuille"
+      },
+      "dailyGain": {
+        "name": "Gain Quotidien",
+        "description": "Afficher le gain/perte quotidien de votre portefeuille"
+      },
+      "unrealizedPnL": {
+        "name": "P&L non réalisé",
+        "description": "Afficher le P&L non réalisé de votre portefeuille"
+      },
+      "realizedPnL": {
+        "name": "P&L réalisé",
+        "description": "Afficher le P&L réalisé de votre portefeuille"
+      },
+      "dividends": {
+        "name": "Dividendes",
+        "description": "Afficher les dividendes totaux reçus"
+      },
+      "notifications": {
+        "name": "Notifications récentes",
+        "description": "Afficher les notifications récentes du système"
+      },
+      "watchlist": {
+        "name": "Liste de surveillance",
+        "description": "Suivez vos actifs de la liste de surveillance",
+        "noWatchlistItems": "Aucun actif dans la liste de surveillance"
+      },
+      "positions": {
+        "name": "Tableau des positions",
+        "description": "Afficher toutes vos positions actuelles et vendues",
+        "currentPositions": "Positions actuelles",
+        "realizedPositions": "Positions réalisées",
+        "soldPositions": "Positions vendues",
+        "loadingSoldPositions": "Chargement des positions vendues..."
+      },
+      "totalReturn": {
+        "name": "Retour total",
+        "description": "Afficher le retour total de votre portefeuille (non réalisé + réalisé + dividendes - frais)",
+        "subtitle": "Tous les gains et pertes"
+      },
+      "winRate": {
+        "name": "Taux de réussite",
+        "description": "Afficher le pourcentage de positions gagnantes dans votre portefeuille",
+        "positionsInProfit": "positions gagnantes",
+        "profitOutOfTotal": "{{profit}} sur {{total}} au total"
+      },
+      "concentrationRisk": {
+        "name": "Risque de concentration",
+        "description": "Analyser le risque de sur-concentration dans votre portefeuille"
+      },
+      "bestWorstToday": {
+        "name": "Meilleurs/Pires aujourd'hui",
+        "description": "Mettre en évidence vos meilleurs et pires actifs performants aujourd'hui"
+      },
+      "performanceMetrics": {
+        "name": "Performance Hebdomadaire/Mensuelle/YTD",
+        "description": "Afficher la performance de votre portefeuille sur différentes périodes",
+        "weekly": "Performance Hebdomadaire",
+        "monthly": "Performance Mensuelle",
+        "ytd": "Performance Annuelle"
+      },
+      "topPerformers": {
+        "name": "Meilleurs Performeurs",
+        "description": "Meilleures 5 positions par pourcentage de retour",
+        "noPerformanceData": "Aucune donnée de performance disponible."
+      },
+      "worstPerformers": {
+        "name": "Pires Performeurs",
+        "description": "Pires 5 positions par pourcentage de retour",
+        "noPerformanceData": "Aucune donnée de performance disponible."
+      },
+      "largestHoldings": {
+        "name": "Plus Grandes Positions",
+        "description": "Top 5 positions par valeur marchande avec allocation",
+        "noHoldingsData": "Aucune donnée de positions disponible."
+      },
+      "recentTransactions": {
+        "name": "Transactions Récentes",
+        "description": "Chronologie des 5 dernières transactions",
+        "noTransactions": "Aucune transaction récente à afficher.",
+        "buy": "Achat",
+        "sell": "Vente",
+        "dividend": "Dividende",
+        "split": "Fractionnement",
+        "conversionIn": "Conversion Entrante",
+        "conversionOut": "Conversion Sortante",
+        "transferIn": "Transfert Entrant",
+        "transferOut": "Transfert Sortant"
+      },
+      "marketStatus": {
+        "name": "Statut du Marché",
+        "description": "Statuts actuels du marché pour les principales régions"
+      },
+      "marketIndices": {
+        "name": "Indices du Marché",
+        "description": "Principaux indices boursiers par région (S&P 500, DAX, Nikkei, etc.)",
+        "failedToLoad": "Échec du chargement des indices du marché.",
+        "keyMarkets": "Marchés clés",
+        "showMoreMarkets": "Afficher {{count}} marchés de plus",
+        "hideMoreMarkets": "Masquer les marchés supplémentaires",
+        "regions": {
+          "us": "USA",
+          "europe": "Europe",
+          "asia": "Asie"
+        }
+      },
+      "assetAllocation": {
+        "name": "Répartition des Actifs",
+        "description": "Répartition visuelle du portefeuille par secteur, type ou pays",
+        "donutChart": "Graphique en anneau",
+        "pieChart": "Graphique en secteurs",
+        "barChart": "Graphique en barres",
+        "noAllocationData": "Aucune donnée de répartition disponible."
+      },
+      "themeAllocation": {
+        "name": "Répartition par thème",
+        "description": "Répartition visuelle du portefeuille par thème d'investissement",
+        "empty": "Aucune donnée de répartition par thème disponible.",
+        "columns": {
+          "theme": "Nom du thème",
+          "percentage": "% du portefeuille",
+          "value": "Valeur allouée"
+        },
+        "modal": {
+          "portfolioShare": "{{percentage}}% du portefeuille",
+          "assets": "Actifs"
+        }
+      },
+      "portfolioHeatmap": {
+        "name": "Carte de Chaleur du Portefeuille",
+        "description": "Carte de chaleur visuelle de toutes les positions avec performance quotidienne codée par couleur"
+      },
+      "goalTracker": {
+        "name": "Suivi des Objectifs",
+        "description": "Suivez vos progrès vers vos objectifs d'investissement",
+        "editGoal": "Modifier l'objectif",
+        "addGoal": "Ajouter un objectif",
+        "goalTitle": "Titre de l'objectif",
+        "goalTitlePlaceholder": "ex: Fonds de retraite",
+        "category": "Catégorie",
+        "categories": {
+          "retirement": "Retraite",
+          "house": "Maison",
+          "education": "Éducation",
+          "vacation": "Vacances",
+          "emergency": "Fonds d'urgence",
+          "other": "Autre"
+        },
+        "scenarios": {
+          "pessimistic": "Pessimiste",
+          "median": "Médian",
+          "optimistic": "Optimiste"
+        },
+        "targetAmount": "Montant cible",
+        "amountPlaceholder": "Entrez le montant cible",
+        "targetDate": "Date cible",
+        "monthlyContribution": "Contribution mensuelle",
+        "monthlyContributionHelp": "Dépôts mensuels prévus pour cet objectif",
+        "createGoal": "Créer l'objectif",
+        "goalReached": "Objectif atteint !",
+        "current": "Actuel",
+        "goal": "Objectif",
+        "toGo": "Restant",
+        "monthly": "Mensuel",
+        "estTime": "Temps estimé",
+        "noGoals": "Aucun objectif",
+        "noGoalsDescription": "Créez votre premier objectif financier pour commencer à suivre vos progrès",
+        "addFirstGoal": "Ajouter votre premier objectif",
+        "congratulations": "Félicitations ! Vous avez atteint votre objectif d'investissement.",
+        "setARealisticGoal": "Définissez un montant d'objectif réaliste pour suivre vos progrès d'investissement.",
+        "estimates8PercentReturn": "Basé sur un rendement annuel estimé de 8 %.",
+        "withContributions": "Les projections incluent les contributions mensuelles avec un rendement annuel de 8 %.",
+        "tip": "Astuce",
+        "contributionImpact": "Augmentez votre contribution mensuelle de {{amount}} pour atteindre votre objectif {{months}} mois plus tôt",
+        "targetDateInPast": "La date cible est dans le passé. Vous pouvez envisager de l'ajuster.",
+        "calculatingProjections": "Calcul des projections d'objectifs...",
+        "veryUnlikelyGoalTitle": "Objectif très improbable",
+        "veryUnlikelyGoalMessage": "En fonction de votre portefeuille actuel et de votre plan de contribution, atteindre cet objectif à la date cible est très improbable. Envisagez d'augmenter vos contributions ou d'ajuster votre date cible.",
+        "achievementProbability": "Probabilité de réalisation",
+        "highConfidence": "Haute confiance basée sur des simulations de Monte Carlo.",
+        "moderateConfidence": "Confiance modérée, envisagez de revoir votre plan.",
+        "lowConfidence": "Faible confiance, des ajustements significatifs peuvent être nécessaires.",
+        "projectionsScenarios": "Scénarios de projections",
+        "percentAnnualReturn": "{{percent}}% annuel",
+        "basedOnVolatility": "Basé sur un rendement historique de {{return}}% ± {{volatility}}% de volatilité",
+        "goalInfo": "Les projections utilisent la performance historique et la simulation de Monte Carlo",
+        "addContribution": "Ajoutez des contributions mensuelles pour voir des projections détaillées"
+      },
+      "sharpeRatio": {
+        "name": "Ratio de Sharpe",
+        "description": "Mesure les rendements ajustés au risque de votre portefeuille",
+        "subtitle": "Rendements ajustés au risque"
+      },
+      "volatility": {
+        "name": "Volatilité",
+        "description": "Écart-type des rendements du portefeuille",
+        "subtitle": "Annualisé (1A)"
+      },
+      "maxDrawdown": {
+        "name": "Drawdown Maximum",
+        "description": "Plus grande baisse du pic au creux de la valeur du portefeuille",
+        "subtitle": "Pic au creux (1A)"
+      },
+      "betaCorrelation": {
+        "name": "Bêta",
+        "description": "Corrélation du portefeuille avec l'indice de référence du marché",
+        "subtitle": "vs Marché (1A)"
+      },
+      "valueAtRisk": {
+        "name": "Valeur à Risque (VaR)",
+        "description": "Perte potentielle avec un niveau de confiance de 95 %",
+        "subtitle": "Confiance à 95 % (1 jour)"
+      },
+      "downsideDeviation": {
+        "name": "Écart à la Baisse",
+        "description": "Volatilité des rendements négatifs uniquement",
+        "subtitle": "Risque à la baisse (1A)"
+      },
+      "hitRatio": {
+        "name": "Taux de Réussite",
+        "description": "Pourcentage de transactions rentables",
+        "subtitle": "{{profit}} sur {{total}} gagnantes",
+        "noTrades": "Aucune position"
+      },
+      "alpha": {
+        "name": "Alpha",
+        "description": "Rendements excédentaires au-dessus de l'indice de référence",
+        "subtitle": "vs SPY (1A)"
+      },
+      "rSquared": {
+        "name": "R-Carré",
+        "description": "Force de corrélation avec le marché",
+        "subtitle": "vs SPY (1A)"
+      },
+      "avgHoldingPeriod": {
+        "name": "Période de Détention Moy.",
+        "description": "Durée moyenne des positions détenues",
+        "subtitle": "Méthode FIFO"
+      },
+      "diversificationScore": {
+        "name": "Score de Diversification",
+        "description": "Mesure de la diversification du portefeuille",
+        "subtitle": "{{count}} position{{suffix}}",
+        "noPositions": "Aucune position"
+      },
+      "bitcoinPizzaIndex": {
+        "name": "Indice Pizza Bitcoin",
+        "description": "Valeur de 10 000 BTC aujourd'hui (le célèbre achat de pizza)",
+        "subtitle": "10 000 BTC (2 pizzas, 2010)"
+      },
+      "marketSentiment": {
+        "name": "Sentiment du Marché boursier",
+        "description": "Indice CNN Fear & Greed - Sentiment du marché boursier"
+      },
+      "cryptoSentiment": {
+        "name": "Sentiment du Marché Crypto",
+        "description": "Indice Alternative.me Fear & Greed - Sentiment du marché crypto"
+      },
+      "vixIndex": {
+        "name": "Indice VIX",
+        "description": "Indice de Volatilité CBOE - Indicateur de volatilité du marché",
+        "subtitle": "Indice de Volatilité CBOE",
+        "volatilityLevels": {
+          "low": "Faible volatilité",
+          "normal": "Volatilité normale",
+          "elevated": "Volatilité élevée",
+          "high": "Haute volatilité"
+        }
+      },
+      "tnxIndex": {
+        "name": "Indice TNX",
+        "description": "Rendement du Trésor à 10 ans - Indicateur clé des taux d'intérêt",
+        "subtitle": "Rendement du Trésor à 10 ans",
+        "yieldLevels": {
+          "veryLow": "Rendement très faible",
+          "low": "Faible rendement",
+          "normal": "Rendement normal",
+          "elevated": "Rendement élevé",
+          "high": "Rendement très élevé"
+        }
+      },
+      "dxyIndex": {
+        "name": "Indice DXY",
+        "description": "Indice du dollar américain - Indicateur de force du dollar",
+        "subtitle": "Indice du dollar américain",
+        "strengthLevels": {
+          "veryWeak": "Dollar très faible",
+          "weak": "Dollar faible",
+          "normal": "Dollar normal",
+          "strong": "Dollar fort",
+          "veryStrong": "Dollar très fort"
+        }
+      },
+      "todayBrief": {
+        "name": "Brief du jour",
+        "description": "Résumé compact des événements les plus importants d'aujourd'hui.",
+        "freshness": {
+          "marketClosed": "Marché fermé · Derniers prix disponibles",
+          "recent": "Prix actualisés récemment",
+          "mayBeDelayed": "Certains prix peuvent être différés",
+          "secondary": "Dernières données de marché disponibles",
+          "tooltip": "{{count}} prix dépassent la fenêtre de fraîcheur"
+        },
+        "dividends": {
+          "expectedSoon": "{{amount}} attendus bientôt",
+          "upcoming": "Dividendes à venir ce mois-ci",
+          "secondary": "En attente de validation",
+          "tooltip": "{{count}} lignes de dividendes en attente"
+        },
+        "relativeDates": {
+          "today": "Aujourd'hui",
+          "tomorrow": "Demain",
+          "thisWeek": "Cette semaine",
+          "recently": "Récemment"
+        }
+      },
+      "categories": {
+        "insights": {
+          "label": "Graphiques & Analyses",
+          "description": "Analytique visuelle et données de performance"
+        },
+        "metrics": {
+          "label": "Indicateurs Clés",
+          "description": "Statistiques et valeurs essentielles du portefeuille"
+        },
+        "data": {
+          "label": "Données & Listes",
+          "description": "Données tabulaires et vues en liste"
+        }
+      },
+      "library": {
+        "title": "Bibliothèque de Widgets",
+        "description": "Cliquez pour ajouter des widgets à votre tableau de bord",
+        "widgetsCount": "{{count}} widgets actifs",
+        "resetDashboard": "Réinitialiser le tableau de bord",
+        "resetDashboardMessage": "Réinitialiser le tableau de bord à la mise en page par défaut ? Cela supprimera toutes vos personnalisations et widgets.",
+        "widgetAlreadyExists": "Le widget existe déjà",
+        "widgetAlreadyExistsMessage": "Ce widget est déjà sur votre tableau de bord. Vous ne pouvez ajouter qu'une seule instance de ce type de widget."
+      },
+      "dataLoadError": "Les données du widget n'ont pas pu être chargées."
+    },
+    "layouts": {
+      "title": "Gestionnaire de Mise en Page",
+      "description": "Enregistrer, charger et partager vos mises en page de tableau de bord",
+      "saveCurrentLayout": "Enregistrer la mise en page actuelle",
+      "saveAsNewLayout": "Enregistrer comme nouvelle mise en page",
+      "saveCurrentToThisLayout": "Enregistrer le tableau de bord actuel dans cette mise en page",
+      "confirmSave": "Confirmer l'enregistrement",
+      "saveCurrentConfirm": "Cela remplacera la configuration de mise en page de \"{name}\" par votre tableau de bord actuel. Continuer ?",
+      "myLayouts": "Mes Mises en Page",
+      "templates": "Modèles",
+      "template": "Modèle",
+      "loadingLayouts": "Chargement des mises en page...",
+      "noSavedLayouts": "Aucune mise en page enregistrée pour le moment",
+      "noSavedLayoutsInfo": "Enregistrez votre mise en page actuelle pour commencer.",
+      "loadThisLayout": "Charger cette mise en page",
+      "setAsDefault": "Définir comme mise en page par défaut",
+      "removeAsDefault": "Retirer comme mise en page par défaut",
+      "duplicateLayout": "Dupliquer la mise en page",
+      "deleteLayoutConfirm": "Êtes-vous sûr de vouloir supprimer \"{name}\" ?",
+      "proTipInfo": "Ces mises en page sont conçues par des professionnels et optimisées pour différents styles d'investissement. Cliquez sur \"Charger\" pour appliquer un modèle.",
+      "importLayoutInfo": "Sélectionnez un fichier JSON de mise en page exporté pour importer une mise en page personnalisée.",
+      "selectLayoutFile": "Sélectionner le fichier de mise en page",
+      "layoutName": "Nom de la mise en page",
+      "layoutNamePlaceholder": "ex. Configuration de trading journalier, Vue retraite",
+      "descriptionField": "Description de la mise en page",
+      "descriptionPlaceholder": "Description optionnelle de cette mise en page"
+    }
+  },
+  "dashboardOverview": {
+    "loading": "Chargement du tableau de bord",
+    "emptyTitle": "Votre portefeuille est le point de départ de cet écran.",
+    "emptyDescription": "Créez un portefeuille et enregistrez des mouvements de capital avant que Portfolium ne tente d'expliquer la performance.",
+    "createPortfolio": "Créer un portefeuille",
+    "errorTitle": "Portfolium ne parvient pas à établir une valorisation fiable.",
+    "errorDescription": "Les données de portefeuille existantes restent inchangées. Réessayez la requête du tableau de bord avant de prendre une décision financière.",
+    "retryValuation": "Réessayer la valorisation",
+    "returnToDashboard": "Retour au tableau de bord",
+    "kickerPortfolio": "Portefeuille",
+    "valuedAt": "Valorisé {{timestamp}}",
+    "cachedValuation": "valorisation en cache",
+    "currentValuation": "valorisation actuelle",
+    "attributionUnavailableNoTotal": "Portfolium ne peut pas attribuer le mouvement du jour tant qu'un total de portefeuille fiable n'est pas disponible.",
+    "attributionCalculating": "Calcul des positions expliquant le mouvement du jour.",
+    "attributionUnavailable": "Le mouvement de marché au niveau des positions est indisponible, la variation du jour ne peut donc pas être attribuée de manière fiable.",
+    "attributionLargestMove": "{{label}} a eu l'effet estimé le plus important sur le mouvement du jour.",
+    "attributionNoContributor": "Le mouvement du jour n'a pas de contributeur significatif au niveau des positions.",
+    "updating": "Mise à jour…",
+    "refresh": "Actualiser",
+    "metricToday": "Aujourd'hui",
+    "metricUnavailable": "Indisponible",
+    "metricSinceInception": "Depuis le début",
+    "metricRealized": "Réalisé",
+    "metricUnrealized": "Latent",
+    "trajectoryPeriod": "Période de trajectoire",
+    "cause": "Cause",
+    "whatChanged": "Ce qui a changé",
+    "portfolioMoved": {
+      "lost": "a perdu",
+      "gained": "a gagné",
+      "moved": "a évolué de"
+    },
+    "portfolioMovedToday": "Le portefeuille {{verb}} <strong>{{amount}}</strong> aujourd'hui.",
+    "estimated": "estimé",
+    "authoritativeTotal": "Total de référence",
+    "inspectTodaysMovement": "Examiner le mouvement du jour →",
+    "calculatingAttribution": "Calcul de l'attribution au niveau des positions…",
+    "attributionUnavailableAuthoritative": "L'attribution au niveau des positions est indisponible. Le total du portefeuille reste la référence.",
+    "attributionWithheld": "L'attribution quotidienne est suspendue car le mouvement au niveau du portefeuille est indisponible.",
+    "reconciliation": "Réconciliation",
+    "yourReturn": "Votre rendement",
+    "totalGain": "gain total",
+    "returnEquationNote": "Le rendement est présenté sous forme d'équation afin que chaque agrégat reste traçable.",
+    "returnCalculation": "Calcul du rendement",
+    "unrealized": "latent",
+    "realized": "réalisé",
+    "dividends": "dividendes",
+    "fees": "frais",
+    "ownership": "Détention",
+    "holdings": "Positions",
+    "holdingsDescription": "{{count}} positions classées selon la part de votre capital qu'elles contrôlent.",
+    "inspectAllHoldings": "Examiner toutes les positions →",
+    "columnPosition": "Position",
+    "columnValue": "Valeur",
+    "columnPortfolio": "Portefeuille",
+    "columnTodayEstimated": "Aujourd'hui · estimé",
+    "columnTotalReturn": "Rendement total",
+    "unnamedAsset": "Actif sans nom",
+    "units": "unités",
+    "ofPortfolio": "du portefeuille",
+    "structure": "Structure",
+    "exposureFingerprint": "Empreinte d'exposition",
+    "exposureDescription": "Une question à la fois : où votre capital est réellement concentré.",
+    "exposureDimensionLabel": "Dimension d'exposition",
+    "consequence": "Conséquence",
+    "whatDeservesAttention": "Ce qui mérite votre attention",
+    "largestHoldingsShare": "Vos trois positions les plus importantes contrôlent cette part du portefeuille.",
+    "largestPosition": "Position la plus importante",
+    "ifItFell10Percent": "En cas de baisse de 10 %",
+    "mechanicalScenarioNote": "Scénario mécanique, pas une prévision. Les autres positions sont maintenues constantes.",
+    "noOwnedPositions": "Aucune position détenue à évaluer.",
+    "direction": "Direction",
+    "funded": "financé",
+    "percentFunded": "{{percent}} pour cent financé",
+    "of": "sur",
+    "remains": "restant",
+    "reviewGoal": "Examiner l'objectif →",
+    "evidence": "Preuves",
+    "recentCapitalActivity": "Activité récente du capital",
+    "activityDescription": "Les transactions sont présentées comme des événements qui ont modifié la détention, la trésorerie ou le rendement.",
+    "openActivityLedger": "Ouvrir le registre d'activité →",
+    "cash": "Espèces",
+    "portfolioActivity": "Activité du portefeuille",
+    "noCapitalActivity": "Aucune activité de capital n'a été enregistrée pour ce portefeuille.",
+    "valuationTimeUnavailable": "heure de valorisation indisponible",
+    "exposureDimensions": {
+      "sector": "Secteur",
+      "theme": "Thème",
+      "type": "Type d'actif",
+      "country": "Pays"
+    },
+    "transactionTypes": {
+      "buy": "Achat",
+      "sell": "Vente",
+      "dividend": "Dividende",
+      "split": "Division",
+      "fee": "Frais",
+      "transferIn": "Transfert entrant",
+      "transferOut": "Transfert sortant",
+      "conversionIn": "Conversion entrante",
+      "conversionOut": "Conversion sortante"
+    },
+    "exposure": {
+      "notAvailable": "La classification n'est pas encore disponible pour ce portefeuille.",
+      "completeExposureLabel": "Exposition complète du portefeuille",
+      "segmentAriaLabel": "{{label}} : {{value}}, {{percent}} pour cent",
+      "rankedOnlyNote": "Exposition classée uniquement. Ces classifications se chevauchent et ne forment pas un ensemble additif."
+    },
+    "trajectory": {
+      "portfolioValue": "Valeur du portefeuille",
+      "netInvested": "Net investi",
+      "empty": "Une trajectoire apparaîtra dès que Portfolium disposera de suffisamment de valorisations datées.",
+      "ariaLabel": "Trajectoire de la valeur du portefeuille et du net investi"
+    },
+    "otherPositionsAndMarketEffects": "Autres positions et effets de marché",
+    "unknown": "Inconnu"
+  }
+}

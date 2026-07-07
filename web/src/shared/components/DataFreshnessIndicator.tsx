@@ -113,7 +113,7 @@ function buildDefaultTooltip({
   estimated: boolean
 }): string {
   return [
-    `${t('dashboard.marketStatus')}: ${getMarketLabel(t, marketStatus)}`,
+    `${t('common.marketStatus')}: ${getMarketLabel(t, marketStatus)}`,
     `${t('freshness.asOf')}: ${formatTimestamp(fallbackDate(asOfDate, referenceDate), locale)}`,
     `${t('freshness.lastAvailable')}: ${formatTimestamp(fallbackDate(latestPriceDate, asOfDate), locale)}`,
     optionalEstimatedLine(estimated, t),

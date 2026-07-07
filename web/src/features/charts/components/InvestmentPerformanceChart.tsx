@@ -84,7 +84,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     }),
     datasets: [
       {
-        label: 'Performance',
+        label: t('investmentPerformanceChart.performanceDataset'),
         data: performanceData,
         borderColor: 'rgb(148,163,184)', // Default color, will be overridden by segment
         backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
@@ -296,10 +296,10 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
     <section className="pf-section pf-section--spacious charts-section">
       <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header">
         <div>
-          <p className="pf-section-kicker">PERFORMANCE</p>
+          <p className="pf-section-kicker">{t('investmentPerformanceChart.performanceKicker')}</p>
           <h2 className="pf-section-title">{t('charts.portfolioPerformanceLabel')}</h2>
         </div>
-        <span className="pf-section-description">Cumulative performance separates portfolio return from the capital you added over time.</span>
+        <span className="pf-section-description">{t('investmentPerformanceChart.cumulativePerformanceNote')}</span>
       </div>
       <div className="charts-chart-panel">
         {loading ? (
@@ -363,34 +363,34 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             </div>
             {performanceSummary && (
               <div className="charts-observations">
-                <p>Performance summary</p>
+                <p>{t('investmentPerformanceChart.performanceSummary')}</p>
                 <dl>
                   <div>
-                    <dt>Portfolio</dt>
+                    <dt>{t('investmentPerformanceChart.portfolio')}</dt>
                     <dd className={performanceSummary.portfolio >= 0 ? 'is-positive' : 'is-negative'}>{performanceSummary.portfolio >= 0 ? '+' : ''}{performanceSummary.portfolio.toFixed(2)}%</dd>
                   </div>
                   <div>
-                    <dt>Benchmark</dt>
-                    <dd>Not selected</dd>
+                    <dt>{t('investmentPerformanceChart.benchmark')}</dt>
+                    <dd>{t('investmentPerformanceChart.notSelected')}</dd>
                   </div>
                   <div>
-                    <dt>Alpha</dt>
+                    <dt>{t('investmentPerformanceChart.alpha')}</dt>
                     <dd>—</dd>
                   </div>
                   <div>
-                    <dt>Best month</dt>
+                    <dt>{t('investmentPerformanceChart.bestMonth')}</dt>
                     <dd className="is-positive">{performanceSummary.bestMonth ? `${performanceSummary.bestMonth.value >= 0 ? '+' : ''}${performanceSummary.bestMonth.value.toFixed(2)}%` : '—'}</dd>
                   </div>
                   <div>
-                    <dt>Worst month</dt>
+                    <dt>{t('investmentPerformanceChart.worstMonth')}</dt>
                     <dd className="is-negative">{performanceSummary.worstMonth ? `${performanceSummary.worstMonth.value >= 0 ? '+' : ''}${performanceSummary.worstMonth.value.toFixed(2)}%` : '—'}</dd>
                   </div>
                   <div>
-                    <dt>Positive months</dt>
+                    <dt>{t('investmentPerformanceChart.positiveMonths')}</dt>
                     <dd>{performanceSummary.positiveMonths}/{performanceSummary.totalMonths}</dd>
                   </div>
                   <div>
-                    <dt>Annualized return</dt>
+                    <dt>{t('investmentPerformanceChart.annualizedReturn')}</dt>
                     <dd className={performanceSummary.annualized >= 0 ? 'is-positive' : 'is-negative'}>{performanceSummary.annualized >= 0 ? '+' : ''}{performanceSummary.annualized.toFixed(2)}%</dd>
                   </div>
                 </dl>

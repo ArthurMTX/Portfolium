@@ -40,7 +40,8 @@ import {
   PageTitleBlock,
 } from '@/shared/components/PageLayout'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   getTranslatedAssetClass,
   getTranslatedAssetType,
@@ -131,7 +132,7 @@ function formatPercent(value: number | string | null | undefined, decimals = 2, 
   return `${prefix}${Math.abs(number).toFixed(decimals)}%`
 }
 
-function formatHoldingPeriod(startDate: string | null | undefined): string {
+function formatHoldingPeriod(startDate: string | null | undefined, t: TFunction): string {
   if (!startDate) return '—'
 
   const start = new Date(startDate)
@@ -139,15 +140,18 @@ function formatHoldingPeriod(startDate: string | null | undefined): string {
 
   const now = new Date()
   const days = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000))
-  if (days < 30) return `${days || 1} ${days === 1 ? 'day' : 'days'}`
+  if (days < 30) {
+    const count = days || 1
+    return `${count} ${t('assetsPage.day', { count })}`
+  }
 
   const months = Math.floor(days / 30)
-  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'}`
+  if (months < 12) return `${months} ${t('assetsPage.month', { count: months })}`
 
   const years = Math.floor(months / 12)
   const remainingMonths = months % 12
-  if (remainingMonths === 0) return `${years} ${years === 1 ? 'year' : 'years'}`
-  return `${years} ${years === 1 ? 'year' : 'years'} ${remainingMonths} ${remainingMonths === 1 ? 'month' : 'months'}`
+  if (remainingMonths === 0) return `${years} ${t('assetsPage.year', { count: years })}`
+  return `${years} ${t('assetsPage.year', { count: years })} ${remainingMonths} ${t('assetsPage.month', { count: remainingMonths })}`
 }
 
 function getPositionValue(position: PositionDTO | null | undefined): number | null {
@@ -243,12 +247,12 @@ export default function Assets() {
 
       setError(null)
     } catch (err) {
-      setError('Failed to load holdings')
+      setError(t('assetsPage.loadFailed'))
       console.error('Error loading holdings:', err)
     } finally {
       setLoading(false)
     }
-  }, [activePortfolioId, portfolios, setActivePortfolio, setPortfolios])
+  }, [activePortfolioId, portfolios, setActivePortfolio, setPortfolios, t])
 
   useEffect(() => {
     loadAssets()
@@ -463,24 +467,7 @@ export default function Assets() {
 
   const isActive = (key: SortKey) => sortKey === key
 
-  const getSortLabel = (key: SortKey): string => {
-    const labels: Record<SortKey, string> = {
-      market_value: 'Value',
-      portfolio_weight: 'Portfolio weight',
-      daily_impact: "Today's impact",
-      lifetime_return: 'Lifetime return',
-      symbol: 'Symbol',
-      name: 'Name',
-      class: 'Class',
-      country: 'Country',
-      asset_type: 'Type',
-      sector: 'Sector',
-      industry: 'Industry',
-      total_quantity: 'Quantity',
-      portfolio_count: 'Portfolios',
-    }
-    return labels[key]
-  }
+  const getSortLabel = (key: SortKey): string => t(`assetsPage.sortLabels.${key}`)
 
   const renderThemes = (themes?: AssetThemeDTO[]) => {
     if (!themes || themes.length === 0) return null
@@ -513,7 +500,7 @@ export default function Assets() {
             <span>{asset.symbol}</span>
             {asset.total_quantity === 0 && <em>{t('assets.sold')}</em>}
           </div>
-          <div className="holdings-name">{asset.name || 'Unknown asset'}</div>
+          <div className="holdings-name">{asset.name || t('assetsPage.unknownAsset')}</div>
           <div className="holdings-meta-line">
             {type && <span>{getTranslatedAssetType(type, t)}</span>}
             {sector && <span>{getTranslatedSector(sector, t)}</span>}
@@ -532,7 +519,7 @@ export default function Assets() {
         <strong>{getPositionValue(position) !== null
           ? formatCurrency(getPositionValue(position), portfolioCurrency, locale)
           : '—'}</strong>
-        <span>{formatQuantity(position?.quantity ?? asset.total_quantity)} shares</span>
+        <span>{formatQuantity(position?.quantity ?? asset.total_quantity)} {t('assetsPage.shares')}</span>
       </div>
     )
   }
@@ -543,7 +530,7 @@ export default function Assets() {
     return (
       <div className={`holdings-number-cell ${large ? 'holdings-emphasis' : ''}`}>
         <strong>{formatPercent(weight, weight !== null && weight < 1 ? 2 : 1)}</strong>
-        <span>of portfolio</span>
+        <span>{t('assetsPage.ofPortfolio')}</span>
       </div>
     )
   }
@@ -554,7 +541,7 @@ export default function Assets() {
     return (
       <div className={`holdings-number-cell ${signClass(impact)}`}>
         <strong>{formatSignedCurrency(impact, portfolioCurrency, locale)}</strong>
-        <span>{formatPercent(position?.daily_change_pct, 2, true)} today</span>
+        <span>{formatPercent(position?.daily_change_pct, 2, true)} {t('assetsPage.today')}</span>
       </div>
     )
   }
@@ -566,7 +553,7 @@ export default function Assets() {
     return (
       <div className={`holdings-number-cell ${signClass(returnValue)}`}>
         <strong>{formatSignedCurrency(returnValue, portfolioCurrency, locale)}</strong>
-        <span>{formatPercent(returnPct, 2, true)} since first purchase</span>
+        <span>{formatPercent(returnPct, 2, true)} {t('assetsPage.sinceFirstPurchase')}</span>
       </div>
     )
   }
@@ -580,74 +567,74 @@ export default function Assets() {
     return (
       <div className="holdings-expanded">
         <div className="holdings-expanded-section">
-          <p className="holdings-expanded-kicker">Cost and price</p>
+          <p className="holdings-expanded-kicker">{t('assetsPage.costAndPrice')}</p>
           <dl>
             <div>
-              <dt>Average cost</dt>
+              <dt>{t('assetsPage.averageCost')}</dt>
               <dd>{formatCurrency(position?.avg_cost ?? null, portfolioCurrency, locale)}</dd>
             </div>
             <div>
-              <dt>Current price</dt>
+              <dt>{t('assetsPage.currentPrice')}</dt>
               <dd>{formatCurrency(position?.current_price ?? null, portfolioCurrency, locale)}</dd>
             </div>
             <div>
-              <dt>Cost basis</dt>
+              <dt>{t('assetsPage.costBasis')}</dt>
               <dd>{formatCurrency(position?.cost_basis ?? null, portfolioCurrency, locale)}</dd>
             </div>
             <div>
-              <dt>Quantity owned</dt>
+              <dt>{t('assetsPage.quantityOwned')}</dt>
               <dd>{formatQuantity(position?.quantity ?? asset.total_quantity)}</dd>
             </div>
           </dl>
         </div>
 
         <div className="holdings-expanded-section">
-          <p className="holdings-expanded-kicker">Ownership record</p>
+          <p className="holdings-expanded-kicker">{t('assetsPage.ownershipRecord')}</p>
           <dl>
             <div>
-              <dt>Transactions</dt>
+              <dt>{t('assetsPage.transactions')}</dt>
               <dd>{asset.transaction_count ?? 0}</dd>
             </div>
             <div>
-              <dt>Splits</dt>
+              <dt>{t('assetsPage.splits')}</dt>
               <dd>{asset.split_count ?? 0}</dd>
             </div>
             <div>
-              <dt>Portfolios</dt>
+              <dt>{t('assetsPage.portfolios')}</dt>
               <dd>{asset.portfolio_count}</dd>
             </div>
             <div>
-              <dt>Holding period</dt>
-              <dd>{formatHoldingPeriod(asset.created_at)}</dd>
+              <dt>{t('assetsPage.holdingPeriod')}</dt>
+              <dd>{formatHoldingPeriod(asset.created_at, t)}</dd>
             </div>
             <div>
-              <dt>Status</dt>
-              <dd>{asset.total_quantity === 0 ? t('assets.sold') : 'Open'}</dd>
+              <dt>{t('assetsPage.status')}</dt>
+              <dd>{asset.total_quantity === 0 ? t('assets.sold') : t('assetsPage.open')}</dd>
             </div>
           </dl>
         </div>
 
         <div className="holdings-expanded-section">
-          <p className="holdings-expanded-kicker">Classification</p>
+          <p className="holdings-expanded-kicker">{t('assetsPage.classification')}</p>
           <dl>
             <div>
-              <dt>Class</dt>
+              <dt>{t('assetsPage.class')}</dt>
               <dd>{getTranslatedAssetClass(asset.class, t)}</dd>
             </div>
             <div>
-              <dt>Type</dt>
+              <dt>{t('assetsPage.type')}</dt>
               <dd>{getTranslatedAssetType(asset.asset_type, t)}</dd>
             </div>
             <div>
-              <dt>Sector</dt>
+              <dt>{t('assetsPage.sector')}</dt>
               <dd>{sector ? getTranslatedSector(sector, t) : '—'}</dd>
             </div>
             <div>
-              <dt>Industry</dt>
+              <dt>{t('assetsPage.industry')}</dt>
               <dd>{industry ? getTranslatedIndustry(industry, t) : '—'}</dd>
             </div>
             <div>
-              <dt>Country</dt>
+              <dt>{t('assetsPage.country')}</dt>
               <dd className="holdings-country">
                 {country && getCountryCode(country) && (
                   <img
@@ -670,31 +657,31 @@ export default function Assets() {
           {(asset.transaction_count ?? 0) > 0 && (
             <button onClick={() => setTransactionHistoryAsset({ id: asset.id, symbol: asset.symbol })}>
               <Activity size={15} />
-              Transactions
+              {t('assetsPage.transactions')}
             </button>
           )}
           {(asset.split_count ?? 0) > 0 && (
             <button onClick={() => setSplitHistoryAsset({ id: asset.id, symbol: asset.symbol })}>
               <Shuffle size={15} />
-              Splits
+              {t('assetsPage.splits')}
             </button>
           )}
           <button onClick={() => setPriceChartAsset({ id: asset.id, symbol: asset.symbol, currency: asset.currency || 'USD', assetType: asset.asset_type, name: asset.name })}>
             <LineChart size={15} />
-            Price chart
+            {t('assetsPage.priceChart')}
           </button>
           <button onClick={() => openAssetResearch(asset.symbol)}>
             <BookOpen size={15} />
-            Asset research
+            {t('assetsPage.assetResearch')}
           </button>
           <button onClick={() => openInvestmentNote(asset)}>
             <NotebookPen size={15} />
-            Note
+            {t('assetsPage.note')}
           </button>
           {(!asset.sector || !asset.industry || !asset.country) && (
             <button onClick={() => setEditAsset(asset)}>
               <Edit size={15} />
-              Metadata
+              {t('assetsPage.metadata')}
             </button>
           )}
         </div>
@@ -703,7 +690,7 @@ export default function Assets() {
   }
 
   if (loading) {
-    return <PageStateSkeleton label="Loading holdings" className="holdings-page" />
+    return <PageStateSkeleton label={t('assetsPage.loadingHoldings')} className="holdings-page" />
   }
 
   if (portfolios.length === 0) {
@@ -716,9 +703,9 @@ export default function Assets() {
         <StateBlock
           tone="error"
           className="holdings-error"
-          eyebrow="Holdings"
-          title="Could not load holdings."
-          description="Portfolium could not refresh current and sold positions."
+          eyebrow={t('assetsPage.errorEyebrow')}
+          title={t('assetsPage.errorTitle')}
+          description={t('assetsPage.errorDescription')}
           detail={error}
           actionLabel={t('common.retry')}
           onAction={loadAssets}
@@ -735,30 +722,32 @@ export default function Assets() {
         <>
           <PageHeader>
             <PageTitleBlock
-              kicker="Holdings"
-              title={`${heldAssets.length} ${heldAssets.length === 1 ? 'position' : 'positions'}`}
+              kicker={t('assetsPage.kicker')}
+              title={t('assetsPage.positionsCount', { count: heldAssets.length })}
             />
             <PageSummaryPanel
               lead={formatCurrency(totalPortfolioValue, portfolioCurrency, locale)}
               description={totalPortfolioValue > 0 ? (
-                <>
-                  Invested across <strong>{heroSectors || '—'}</strong> sectors and <strong>{heroCountries || '—'}</strong> countries.
-                </>
+                <Trans
+                  i18nKey="assetsPage.investedAcross"
+                  values={{ sectors: heroSectors || '—', countries: heroCountries || '—' }}
+                  components={{ strong: <strong /> }}
+                />
               ) : (
-                <>Every position represents a portion of your capital.</>
+                <>{t('assetsPage.everyPositionRepresents')}</>
               )}
             />
           </PageHeader>
 
-          <PageMetricStrip label="Holdings context">
-            <PageMetric label="Value" value={formatCurrency(totalPortfolioValue, portfolioCurrency, locale)} />
-            <PageMetric label="Positions" value={heldAssets.length} />
-            <PageMetric label="Sectors" value={heroSectors || '—'} />
-            <PageMetric label="Countries" value={heroCountries || '—'} />
+          <PageMetricStrip label={t('assetsPage.contextLabel')}>
+            <PageMetric label={t('assetsPage.value')} value={formatCurrency(totalPortfolioValue, portfolioCurrency, locale)} />
+            <PageMetric label={t('assetsPage.positions')} value={heldAssets.length} />
+            <PageMetric label={t('assetsPage.sectors')} value={heroSectors || '—'} />
+            <PageMetric label={t('assetsPage.countries')} value={heroCountries || '—'} />
           </PageMetricStrip>
 
           <PageControls
-            label="Holdings controls"
+            label={t('assetsPage.controlsLabel')}
             start={
               <div className="pf-search">
                 <Search size={16} />
@@ -766,10 +755,10 @@ export default function Assets() {
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by symbol or company"
+                  placeholder={t('assetsPage.searchPlaceholder')}
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} aria-label="Clear search">
+                  <button onClick={() => setSearchQuery('')} aria-label={t('assetsPage.clearSearch')}>
                     <X size={14} />
                   </button>
                 )}
@@ -778,7 +767,7 @@ export default function Assets() {
             end={
               <div className="pf-control-group pf-dark-control-group holdings-controls">
                 <label>
-                  Sort
+                  {t('assetsPage.sort')}
                   <select value={sortKey} onChange={(event) => handleSort(event.target.value as SortKey)}>
                     {sortableColumns.map((option) => (
                       <option key={option} value={option}>{getSortLabel(option)}</option>
@@ -787,10 +776,10 @@ export default function Assets() {
                 </label>
                 <button
                   onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                  aria-label={sortDir === 'asc' ? 'Sort descending' : 'Sort ascending'}
+                  aria-label={sortDir === 'asc' ? t('assetsPage.sortDescending') : t('assetsPage.sortAscending')}
                 >
                   {sortDir === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+                  {sortDir === 'asc' ? t('assetsPage.ascending') : t('assetsPage.descending')}
                 </button>
                 <button onClick={() => setShowSold(!showSold)}>
                   <Archive size={16} />
@@ -800,7 +789,7 @@ export default function Assets() {
                   onClick={() => navigate('/allocation')}
                 >
                   <BarChart3 size={16} />
-                  Allocation
+                  {t('assetsPage.allocation')}
                 </button>
                 <button onClick={handleEnrichAll} disabled={enriching}>
                   <RefreshCw size={16} className={enriching ? 'animate-spin' : ''} />
@@ -811,7 +800,7 @@ export default function Assets() {
           />
 
           <PageMainGrid single>
-            <PageMainColumn className="holdings-ledger-shell" aria-label="Holdings ledger">
+            <PageMainColumn className="holdings-ledger-shell" aria-label={t('assetsPage.ledgerLabel')}>
             <table className="holdings-ledger">
               <thead>
                 <tr>
@@ -819,33 +808,33 @@ export default function Assets() {
                     onClick={() => handleSort('symbol')}
                     aria-sort={isActive('symbol') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
-                    Position <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
+                    {t('assetsPage.columnPosition')} <SortIcon column="symbol" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('market_value')}
                     aria-sort={isActive('market_value') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
-                    Value <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
+                    {t('assetsPage.columnValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('portfolio_weight')}
                     aria-sort={isActive('portfolio_weight') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
-                    Portfolio weight <SortIcon column="portfolio_weight" activeColumn={sortKey} direction={sortDir} />
+                    {t('assetsPage.columnPortfolioWeight')} <SortIcon column="portfolio_weight" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('daily_impact')}
                     aria-sort={isActive('daily_impact') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
-                    Today's impact <SortIcon column="daily_impact" activeColumn={sortKey} direction={sortDir} />
+                    {t('assetsPage.columnTodaysImpact')} <SortIcon column="daily_impact" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('lifetime_return')}
                     aria-sort={isActive('lifetime_return') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
-                    Lifetime return <SortIcon column="lifetime_return" activeColumn={sortKey} direction={sortDir} />
+                    {t('assetsPage.columnLifetimeReturn')} <SortIcon column="lifetime_return" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th>Ledger</th>
+                  <th>{t('assetsPage.columnLedger')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -854,9 +843,9 @@ export default function Assets() {
                     <td colSpan={6}>
                       <StateBlock
                         className="holdings-empty"
-                        eyebrow="No results"
+                        eyebrow={t('assetsPage.noResultsEyebrow')}
                         title={t('assets.empty.noAssetsMatch')}
-                        description="Clear the search or filters to return to the full holdings list."
+                        description={t('assetsPage.noResultsDescription')}
                       />
                     </td>
                   </tr>
@@ -872,19 +861,19 @@ export default function Assets() {
                           onKeyDown={(event) => handleAssetResearchKeyDown(event, asset.symbol)}
                           className={asset.total_quantity === 0 ? 'holdings-row-sold' : undefined}
                         >
-                          <td data-label="Position">{renderIdentity(asset)}</td>
-                          <td data-label="Value">{renderValueCell(asset)}</td>
-                          <td data-label="Portfolio weight">{renderWeightCell(asset)}</td>
-                          <td data-label="Today's impact">{renderDailyImpactCell(asset)}</td>
-                          <td data-label="Lifetime return">{renderLifetimeReturnCell(asset)}</td>
-                          <td data-label="Ledger" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                          <td data-label={t('assetsPage.columnPosition')}>{renderIdentity(asset)}</td>
+                          <td data-label={t('assetsPage.columnValue')}>{renderValueCell(asset)}</td>
+                          <td data-label={t('assetsPage.columnPortfolioWeight')}>{renderWeightCell(asset)}</td>
+                          <td data-label={t('assetsPage.columnTodaysImpact')}>{renderDailyImpactCell(asset)}</td>
+                          <td data-label={t('assetsPage.columnLifetimeReturn')}>{renderLifetimeReturnCell(asset)}</td>
+                          <td data-label={t('assetsPage.columnLedger')} onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
                             <button
                               className="holdings-expand-button"
                               onClick={() => setExpandedAssetId(expanded ? null : asset.id)}
                               aria-expanded={expanded}
-                              aria-label={`${expanded ? 'Close' : 'Open'} ${asset.symbol} ledger`}
+                              aria-label={t('assetsPage.closeOpenLedger', { action: expanded ? t('assetsPage.close') : t('assetsPage.openAction'), symbol: asset.symbol })}
                             >
-                              {expanded ? 'Close' : 'Open'}
+                              {expanded ? t('assetsPage.close') : t('assetsPage.openAction')}
                               {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                             </button>
                           </td>
@@ -942,7 +931,7 @@ export default function Assets() {
                 <button
                   onClick={() => setDebugAsset({ id: priceChartAsset.id, symbol: priceChartAsset.symbol })}
                   className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
-                  title="Debug Price Data Health"
+                  title={t('assetsPage.debugPriceDataHealth')}
                 >
                   <Activity size={20} />
                 </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, Eye } from 'lucide-react'
+import type { TFunction } from 'i18next'
 import { api, DailyPerformanceDay, EarningsEvent, MarketHolidaysResponse } from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
@@ -48,15 +49,15 @@ function formatCompactDate(dateValue: string, locale: string): string {
   return new Date(dateValue).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
 }
 
-function getDaysRemaining(dateValue: string): string {
+function getDaysRemaining(dateValue: string, t: TFunction): string {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const target = new Date(dateValue)
   target.setHours(0, 0, 0, 0)
   const days = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (days <= 0) return 'Today'
-  if (days === 1) return 'Tomorrow'
-  return `${days} days`
+  if (days <= 0) return t('calendar.today')
+  if (days === 1) return t('calendar.tomorrow')
+  return t('calendar.daysCount', { count: days })
 }
 
 function formatRevenueEstimate(value: number | string | null | undefined): string {
@@ -68,10 +69,10 @@ function formatRevenueEstimate(value: number | string | null | undefined): strin
   return `$${numeric.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
-function getPortfolioExposureLabel(earning: EarningsEvent): string {
-  if (earning.portfolios.length === 0) return 'Portfolio'
+function getPortfolioExposureLabel(earning: EarningsEvent, t: TFunction): string {
+  if (earning.portfolios.length === 0) return t('calendar.portfolio')
   if (earning.portfolios.length === 1) return earning.portfolios[0].name
-  return `${earning.portfolios.length} portfolios`
+  return t('calendar.portfoliosCount', { count: earning.portfolios.length })
 }
 
 function getGainToneClass(value: number | null | undefined): 'is-positive' | 'is-negative' | '' {
@@ -214,12 +215,12 @@ export default function Calendar() {
       setLoadedMonths(prev => new Set([...prev, monthKey]))
     } catch (err) {
       console.error('Failed to load calendar data:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load calendar data')
+      setError(err instanceof Error ? err.message : t('calendar.loadFailedGeneric'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [activePortfolioId, loadedMonths])
+  }, [activePortfolioId, loadedMonths, t])
 
   // Load data when month changes
   useEffect(() => {
@@ -380,10 +381,10 @@ export default function Calendar() {
   const refreshCalendar = useCallback(async () => {
     setRefreshing(true)
     setRefreshError(null)
-    setRefreshNotice('Calendar refresh queued.')
+    setRefreshNotice(t('calendar.refreshQueued'))
     try {
       const refresh = await api.refreshEarningsCache({ include_watchlist: showWatchlistEarnings })
-      setRefreshNotice('Refreshing earnings data.')
+      setRefreshNotice(t('calendar.refreshingEarningsData'))
 
       for (;;) {
         const status = await api.getEarningsRefreshStatus(refresh.task_id)
@@ -391,20 +392,20 @@ export default function Calendar() {
         if (status.progress) {
           const { current, total, symbol } = status.progress
           setRefreshNotice(
-            `Refreshing earnings ${current}/${total}${symbol ? ` · ${symbol}` : ''}`
+            t('calendar.refreshingEarningsProgress', { current, total, symbolSuffix: symbol ? ` · ${symbol}` : '' })
           )
         } else if (!status.done) {
-          setRefreshNotice('Earnings refresh waiting for a worker.')
+          setRefreshNotice(t('calendar.refreshWaitingForWorker'))
         }
 
         if (status.done) {
           if (status.failed) {
-            throw new Error(status.error || 'Calendar refresh failed')
+            throw new Error(status.error || t('calendar.refreshFailedGeneric'))
           }
           if (status.result?.status === 'error') {
-            throw new Error(status.result.message || 'Calendar refresh failed')
+            throw new Error(status.result.message || t('calendar.refreshFailedGeneric'))
           }
-          setRefreshNotice('Earnings refreshed. Updating calendar.')
+          setRefreshNotice(t('calendar.earningsRefreshedUpdating'))
           break
         }
 
@@ -412,15 +413,15 @@ export default function Calendar() {
       }
 
       await loadMonthData(currentDate, true)
-      setRefreshNotice('Calendar refresh complete.')
+      setRefreshNotice(t('calendar.refreshComplete'))
     } catch (err) {
       console.error('Failed to refresh calendar:', err)
-      setRefreshError(err instanceof Error ? err.message : 'Failed to refresh calendar')
+      setRefreshError(err instanceof Error ? err.message : t('calendar.refreshCalendarFailedGeneric'))
       setRefreshNotice(null)
     } finally {
       setRefreshing(false)
     }
-  }, [currentDate, loadMonthData, showWatchlistEarnings])
+  }, [currentDate, loadMonthData, showWatchlistEarnings, t])
 
   // Toggle watchlist earnings (client-side filter, no reload)
   const toggleWatchlistEarnings = useCallback(() => {
@@ -466,10 +467,10 @@ export default function Calendar() {
     const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
 
     const groups: Array<{ key: string; title: string; items: EarningsEvent[] }> = [
-      { key: 'this-week', title: 'This week', items: [] },
-      { key: 'next-week', title: 'Next week', items: [] },
-      { key: 'later-this-month', title: 'Later this month', items: [] },
-      { key: 'later', title: 'Later', items: [] },
+      { key: 'this-week', title: t('calendar.groups.thisWeek'), items: [] },
+      { key: 'next-week', title: t('calendar.groups.nextWeek'), items: [] },
+      { key: 'later-this-month', title: t('calendar.groups.laterThisMonth'), items: [] },
+      { key: 'later', title: t('calendar.groups.later'), items: [] },
     ]
 
     upcomingEarningsList.forEach((earning) => {
@@ -481,7 +482,7 @@ export default function Calendar() {
     })
 
     return groups.filter(group => group.items.length > 0)
-  }, [currentDate, upcomingEarningsList])
+  }, [currentDate, t, upcomingEarningsList])
 
   const recentReportedEarnings = useMemo(() => pastEarningsList.slice(0, 10), [pastEarningsList])
 
@@ -498,44 +499,44 @@ export default function Calendar() {
   return (
     <PageShell className="calendar">
       <PageHeader>
-        <PageTitleBlock kicker="Calendar" title="Portfolio timeline" />
+        <PageTitleBlock kicker={t('calendar.pageKicker')} title={t('calendar.pageTitle')} />
         <PageSummaryPanel
           lead={monthName}
-          description="Performance days, earnings events and market closures for the active portfolio."
+          description={t('calendar.pageDescription')}
           actions={
             <button className="pf-button pf-button--secondary" type="button" onClick={refreshCalendar} disabled={refreshing}>
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-              {refreshing ? t('calendar.refreshing', 'Refreshing Calendar') : t('calendar.refresh', 'Refresh Calendar')}
+              {refreshing ? t('calendar.refreshing') : t('calendar.refresh')}
             </button>
           }
         />
       </PageHeader>
 
-      <PageMetricStrip label="Calendar context">
-        <PageMetric label="Current month" value={monthName} />
-        <PageMetric label="Upcoming earnings" value={monthStats.upcomingEarnings} />
-        <PageMetric label="Earnings this week" value={earningsThisWeek} />
-        <PageMetric label="Positive trading days" value={monthStats.positiveDays} tone="positive" />
-        <PageMetric label="Negative trading days" value={monthStats.negativeDays} tone="negative" />
+      <PageMetricStrip label={t('calendar.contextLabel')}>
+        <PageMetric label={t('calendar.currentMonth')} value={monthName} />
+        <PageMetric label={t('calendar.upcomingEarningsMetric')} value={monthStats.upcomingEarnings} />
+        <PageMetric label={t('calendar.earningsThisWeek')} value={earningsThisWeek} />
+        <PageMetric label={t('calendar.positiveTradingDays')} value={monthStats.positiveDays} tone="positive" />
+        <PageMetric label={t('calendar.negativeTradingDays')} value={monthStats.negativeDays} tone="negative" />
       </PageMetricStrip>
 
       <PageControls
-        label="Calendar views"
+        label={t('calendar.viewsLabel')}
         start={
-          <PageTabs label="Calendar views">
+          <PageTabs label={t('calendar.viewsLabel')}>
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
               className={activeTab === 'overview' ? 'is-active' : ''}
             >
-              {t('calendar.tabs.overview', 'Calendar Overview')}
+              {t('calendar.tabs.overview')}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('earnings')}
               className={activeTab === 'earnings' ? 'is-active' : ''}
             >
-              {t('calendar.tabs.earnings', 'Earnings Calendar')}
+              {t('calendar.tabs.earnings')}
               {upcomingEarningsList.length > 0 && <span>{upcomingEarningsList.length}</span>}
             </button>
           </PageTabs>
@@ -546,10 +547,10 @@ export default function Calendar() {
               type="button"
               onClick={toggleWatchlistEarnings}
               className={showWatchlistEarnings ? 'is-active' : ''}
-              title={t('calendar.toggleWatchlist', 'Toggle watchlist earnings')}
+              title={t('calendar.toggleWatchlist')}
             >
               <Eye size={15} />
-              {t('calendar.watchlist', 'Watchlist')}
+              {t('calendar.watchlist')}
             </button>
           </div>
         }
@@ -557,19 +558,19 @@ export default function Calendar() {
 
       {(refreshNotice || refreshError) && (
         <p className={refreshError ? 'calendar__refresh-status is-error' : 'calendar__refresh-status'}>
-          {refreshError ? `Calendar refresh did not complete: ${refreshError}` : refreshNotice}
+          {refreshError ? t('calendar.refreshFailed', { error: refreshError }) : refreshNotice}
         </p>
       )}
 
       {loading ? (
-        <ChartSkeleton className="calendar__loading" label={t('calendar.loading', 'Loading calendar')} />
+        <ChartSkeleton className="calendar__loading" label={t('calendar.loading')} />
       ) : error ? (
         <StateBlock
           tone="error"
           className="calendar-empty"
-          eyebrow="Calendar"
-          title="Could not load calendar data."
-          description="Performance and earnings events could not be refreshed for this period."
+          eyebrow={t('calendar.errorEyebrow')}
+          title={t('calendar.errorTitle')}
+          description={t('calendar.errorDescription')}
           detail={error}
           actionLabel={t('common.tryAgain')}
           onAction={() => loadMonthData(currentDate, true)}
@@ -577,24 +578,28 @@ export default function Calendar() {
       ) : activeTab === 'overview' ? (
         <PageSection className="calendar-section">
           <PageSectionHeader
-            kicker="Month view"
+            kicker={t('calendar.monthView')}
             title={monthName}
             aside={
               <span className={`pf-section-description calendar-month-change ${monthGainToneClass}`.trim()}>
-                {monthStats.totalChange >= 0 ? '+' : ''}{totalChangePct.toFixed(2)}% this month · {monthStats.totalChange >= 0 ? '+' : ''}{formatCurrency(monthStats.totalChange, currency)}
+                {t('calendar.monthChangeSummary', {
+                  sign: monthStats.totalChange >= 0 ? '+' : '',
+                  percent: totalChangePct.toFixed(2),
+                  amount: formatCurrency(monthStats.totalChange, currency),
+                })}
               </span>
             }
           />
 
           <div className="calendar__calendar-toolbar">
             <div>
-              <button type="button" onClick={goToPreviousMonth} aria-label="Previous month">
+              <button type="button" onClick={goToPreviousMonth} aria-label={t('calendar.previousMonth')}>
                 <ChevronLeft size={18} />
               </button>
-              <button type="button" onClick={goToNextMonth} aria-label="Next month">
+              <button type="button" onClick={goToNextMonth} aria-label={t('calendar.nextMonth')}>
                 <ChevronRight size={18} />
               </button>
-              <button type="button" onClick={goToToday}>{t('calendar.today', 'Today')}</button>
+              <button type="button" onClick={goToToday}>{t('calendar.today')}</button>
             </div>
           </div>
 
@@ -602,7 +607,7 @@ export default function Calendar() {
             <PageMainColumn className="calendar__calendar">
               <div className="calendar__weekdays">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => (
-                  <div key={day}>{t(`calendar.days.${day.toLowerCase()}`, day)}</div>
+                  <div key={day}>{t(`calendar.days.${day.toLowerCase()}`)}</div>
                 ))}
               </div>
 
@@ -656,21 +661,21 @@ export default function Calendar() {
             <PageAsideColumn className="calendar-summary">
               {selectedDay ? (
                 <>
-                  <p>Selected day</p>
+                  <p>{t('calendar.selectedDay')}</p>
                   <h3>{selectedDay.date.toLocaleDateString(currentLocale, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
 
                   <dl>
                     <div>
-                      <dt>Portfolio</dt>
+                      <dt>{t('calendar.portfolio')}</dt>
                       <dd className={getGainToneClass(selectedDay.performance?.total_change)}>
                         {selectedDay.performance
                           ? `${selectedDay.performance.is_positive ? '+' : ''}${selectedDay.performance.total_change_pct.toFixed(2)}%`
-                          : 'No performance data'}
+                          : t('calendar.noPerformanceData')}
                       </dd>
                     </div>
                     {selectedDay.performance && (
                       <div>
-                        <dt>Gain / loss</dt>
+                        <dt>{t('calendar.gainLoss')}</dt>
                         <dd className={getGainToneClass(selectedDay.performance.total_change)}>
                           {selectedDay.performance.total_change >= 0 ? '+' : ''}{formatCurrency(selectedDay.performance.total_change, currency)}
                         </dd>
@@ -678,22 +683,22 @@ export default function Calendar() {
                     )}
                     {selectedDay.isMarketClosed && (
                       <div>
-                        <dt>Market state</dt>
-                        <dd>{selectedDay.isPartialClosure ? 'Partial closure' : 'Closed'}</dd>
+                        <dt>{t('calendar.marketState')}</dt>
+                        <dd>{selectedDay.isPartialClosure ? t('calendar.partialClosure') : t('calendar.closed')}</dd>
                       </div>
                     )}
                   </dl>
 
                   <div className="calendar-summary__events">
-                    <span>Events</span>
+                    <span>{t('calendar.events')}</span>
                     {selectedDay.earnings.length === 0 && !selectedDay.isMarketClosed ? (
-                      <p>No recorded calendar events.</p>
+                      <p>{t('calendar.noRecordedEvents')}</p>
                     ) : (
                       <ul>
                         {selectedDay.isMarketClosed && (
                           <li>
-                            <strong>{selectedDay.holidayName || 'Market holiday'}</strong>
-                            <small>{selectedDay.closedExchangeNames?.join(', ') || 'Tracked exchanges'}</small>
+                            <strong>{selectedDay.holidayName || t('calendar.marketHoliday')}</strong>
+                            <small>{selectedDay.closedExchangeNames?.join(', ') || t('calendar.trackedExchanges')}</small>
                           </li>
                         )}
                         {selectedDay.earnings.map((earning, index) => (
@@ -709,8 +714,8 @@ export default function Calendar() {
                               className="calendar-summary__events-logo"
                             />
                             <div>
-                              <strong>{earning.symbol} earnings</strong>
-                              <small>{earning.name || 'Company'}</small>
+                              <strong>{t('calendar.earningsSuffix', { symbol: earning.symbol })}</strong>
+                              <small>{earning.name || t('calendar.company')}</small>
                             </div>
                           </li>
                         ))}
@@ -719,56 +724,56 @@ export default function Calendar() {
                   </div>
                 </>
               ) : (
-                <p>Select a day to inspect its financial footprint.</p>
+                <p>{t('calendar.selectDayPrompt')}</p>
               )}
             </PageAsideColumn>
           </PageMainGrid>
 
           <div className="calendar-observations">
-            <p>Calendar observations</p>
+            <p>{t('calendar.calendarObservations')}</p>
             <dl>
               <div>
-                <dt>Next portfolio catalyst</dt>
-                <dd>{nextPortfolioCatalyst ? `${nextPortfolioCatalyst.symbol} on ${formatCompactDate(nextPortfolioCatalyst.date, currentLocale)}` : '—'}</dd>
+                <dt>{t('calendar.nextPortfolioCatalyst')}</dt>
+                <dd>{nextPortfolioCatalyst ? t('calendar.onDate', { symbol: nextPortfolioCatalyst.symbol, date: formatCompactDate(nextPortfolioCatalyst.date, currentLocale) }) : '—'}</dd>
               </div>
               <div>
-                <dt>Largest holding reporting soon</dt>
+                <dt>{t('calendar.largestHoldingReporting')}</dt>
                 <dd>{largestReportingHolding ? `${largestReportingHolding.symbol} · ${formatCompactDate(largestReportingHolding.date, currentLocale)}` : '—'}</dd>
               </div>
               <div>
-                <dt>Watchlist earnings</dt>
+                <dt>{t('calendar.watchlistEarningsLabel')}</dt>
                 <dd>{watchlistEarningsCount}</dd>
               </div>
               <div>
-                <dt>Recently reported</dt>
+                <dt>{t('calendar.recentlyReported')}</dt>
                 <dd>{recentReportedEarnings[0] ? `${recentReportedEarnings[0].symbol} · ${formatCompactDate(recentReportedEarnings[0].date, currentLocale)}` : '—'}</dd>
               </div>
             </dl>
           </div>
 
           <div className="calendar-legend">
-            <span><i className="is-positive" />Positive day</span>
-            <span><i className="is-negative" />Negative day</span>
-            <span><i className="is-earnings" />Earnings</span>
-            <span><i className="is-closed" />Market closure</span>
+            <span><i className="is-positive" />{t('calendar.legendPositive')}</span>
+            <span><i className="is-negative" />{t('calendar.legendNegative')}</span>
+            <span><i className="is-earnings" />{t('calendar.legendEarnings')}</span>
+            <span><i className="is-closed" />{t('calendar.legendClosure')}</span>
           </div>
         </PageSection>
       ) : (
         <PageSection className="calendar-section">
           <PageSectionHeader
-            kicker="Earnings timeline"
-            title={t('calendar.earnings.upcoming', 'Upcoming Earnings')}
+            kicker={t('calendar.earningsTimeline')}
+            title={t('calendar.earnings.upcoming')}
             aside={
-              <span className="pf-section-description">{upcomingEarningsList.length} upcoming events · {watchlistEarningsCount} from watchlist.</span>
+              <span className="pf-section-description">{t('calendar.upcomingEventsSummary', { count: upcomingEarningsList.length, watchlistCount: watchlistEarningsCount })}</span>
             }
           />
 
           {groupedUpcomingEarnings.length === 0 ? (
             <StateBlock
               className="calendar-empty"
-              eyebrow="No earnings"
-              title={t('calendar.earnings.noUpcoming', 'No earnings found for this period.')}
-              description="Owned and watched companies with upcoming earnings will appear here."
+              eyebrow={t('calendar.noEarnings')}
+              title={t('calendar.earnings.noUpcoming')}
+              description={t('calendar.upcomingEarningsDescription')}
             />
           ) : (
             <div className="calendar-timeline">
@@ -796,31 +801,31 @@ export default function Calendar() {
                           />
                           <div>
                             <strong>{earning.symbol}</strong>
-                            <span>{earning.name || 'Company'}</span>
+                            <span>{earning.name || t('calendar.company')}</span>
                           </div>
                         </div>
 
                         <dl>
                           <div>
-                            <dt>Days remaining</dt>
-                            <dd>{getDaysRemaining(earning.date)}</dd>
+                            <dt>{t('calendar.daysRemaining')}</dt>
+                            <dd>{getDaysRemaining(earning.date, t)}</dd>
                           </div>
                           <div>
-                            <dt>Expected EPS</dt>
+                            <dt>{t('calendar.expectedEps')}</dt>
                             <dd>{earning.eps_estimate !== undefined && earning.eps_estimate !== null ? `$${Number(earning.eps_estimate).toFixed(2)}` : '—'}</dd>
                           </div>
                           <div>
-                            <dt>Expected revenue</dt>
+                            <dt>{t('calendar.expectedRevenue')}</dt>
                             <dd>{formatRevenueEstimate(earning.revenue_estimate)}</dd>
                           </div>
                           <div>
-                            <dt>Exposure</dt>
-                            <dd>{earning.source === 'watchlist' ? 'Not owned' : getPortfolioExposureLabel(earning)}</dd>
+                            <dt>{t('calendar.exposure')}</dt>
+                            <dd>{earning.source === 'watchlist' ? t('calendar.notOwned') : getPortfolioExposureLabel(earning, t)}</dd>
                           </div>
                         </dl>
 
                         <div className="calendar-earning__actions">
-                          <a href={`/assets/${encodeURIComponent(earning.symbol)}/research`}>Open Asset Research</a>
+                          <a href={`/assets/${encodeURIComponent(earning.symbol)}/research`}>{t('calendar.openAssetResearch')}</a>
                         </div>
                       </article>
                     ))}
@@ -832,19 +837,19 @@ export default function Calendar() {
 
           <PageSection className="calendar-recent">
             <PageSectionHeader
-              kicker="Recently reported"
-              title={t('calendar.earnings.past', 'Past Earnings')}
+              kicker={t('calendar.recentlyReported')}
+              title={t('calendar.earnings.past')}
               aside={
-                <span className="pf-section-description">{pastEarningsList.length > 10 ? t('calendar.earnings.showingRecent', 'Showing 10 most recent earnings') : `${pastEarningsList.length} reported events.`}</span>
+                <span className="pf-section-description">{pastEarningsList.length > 10 ? t('calendar.earnings.showingRecent') : t('calendar.reportedEventsSuffix', { count: pastEarningsList.length })}</span>
               }
             />
 
             {recentReportedEarnings.length === 0 ? (
               <StateBlock
                 className="calendar-empty"
-                eyebrow="No reported earnings"
-                title={t('calendar.earnings.noPast', 'No past earnings data available.')}
-                description="Recently reported earnings for owned and watched companies will appear here."
+                eyebrow={t('calendar.noReportedEarnings')}
+                title={t('calendar.earnings.noPast')}
+                description={t('calendar.pastEarningsDescription')}
               />
             ) : (
               <div className="calendar-recent__list">
@@ -864,20 +869,20 @@ export default function Calendar() {
                       />
                       <div>
                         <strong>{earning.symbol}</strong>
-                        <span>{earning.name || 'Company'}</span>
+                        <span>{earning.name || t('calendar.company')}</span>
                       </div>
                     </div>
                     {(earning.eps_actual !== undefined && earning.eps_actual !== null) || (earning.surprise_pct !== undefined && earning.surprise_pct !== null) ? (
                       <dl>
                         {earning.eps_actual !== undefined && earning.eps_actual !== null && (
                           <div>
-                            <dt>EPS</dt>
+                            <dt>{t('calendar.eps')}</dt>
                             <dd>${Number(earning.eps_actual).toFixed(2)}</dd>
                           </div>
                         )}
                         {earning.surprise_pct !== undefined && earning.surprise_pct !== null && (
                           <div>
-                            <dt>Surprise</dt>
+                            <dt>{t('calendar.surprise')}</dt>
                             <dd className={Number(earning.surprise_pct) >= 0 ? 'is-positive' : 'is-negative'}>
                               {Number(earning.surprise_pct) >= 0 ? '+' : ''}{Number(earning.surprise_pct).toFixed(1)}%
                             </dd>
@@ -885,7 +890,7 @@ export default function Calendar() {
                         )}
                       </dl>
                     ) : (
-                      <p className="calendar-recent__quiet">Reported. Actual figures unavailable.</p>
+                      <p className="calendar-recent__quiet">{t('calendar.reportedActualUnavailable')}</p>
                     )}
                   </article>
                 ))}

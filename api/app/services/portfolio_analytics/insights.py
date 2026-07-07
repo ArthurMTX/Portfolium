@@ -1866,44 +1866,75 @@ class InsightsService:
             self._group_contribution_from_snapshot(snapshot, "theme"),
         )
 
-    def _scenario_definitions(self) -> List[Dict[str, Any]]:
+    _SCENARIO_TEXT = {
+        "en": {
+            "broad_equity_selloff": ("Broad equity selloff", "Global risk assets fall, with higher shocks for crypto and single-name equities."),
+            "rate_shock": ("Rate shock", "Interest rates rise sharply; long-duration growth sectors are hit hardest."),
+            "usd_strength": ("USD strength", "The US dollar strengthens; non-base-currency exposure faces translation pressure."),
+            "crypto_winter": ("Crypto winter", "Digital assets reprice materially lower while other holdings are unchanged."),
+            "largest_position_drawdown": ("Largest position drawdown", "{label} falls 30%."),
+            "top_sector_shock": ("Top sector shock", "{label} exposure falls 20%."),
+            "top_currency_shock": ("Top currency translation shock", "{label} exposure weakens 8% versus the portfolio base currency."),
+            "liquidity_stress": ("Liquidity stress", "All marked positions are shocked by 12% to approximate forced-sale pressure."),
+        },
+        "fr": {
+            "broad_equity_selloff": ("Krach boursier généralisé", "Les actifs à risque chutent globalement, avec des chocs plus importants pour les cryptomonnaies et les actions individuelles."),
+            "rate_shock": ("Choc de taux", "Les taux d'intérêt augmentent fortement ; les secteurs de croissance à longue duration sont les plus touchés."),
+            "usd_strength": ("Renforcement du dollar", "Le dollar américain se renforce ; l'exposition aux devises étrangères subit une pression de conversion."),
+            "crypto_winter": ("Hiver crypto", "Les actifs numériques se déprécient fortement tandis que les autres positions restent inchangées."),
+            "largest_position_drawdown": ("Retrait de la position la plus importante", "{label} chute de 30 %."),
+            "top_sector_shock": ("Choc sectoriel principal", "L'exposition à {label} chute de 20 %."),
+            "top_currency_shock": ("Choc de change principal", "L'exposition à {label} s'affaiblit de 8 % par rapport à la devise de référence du portefeuille."),
+            "liquidity_stress": ("Tension de liquidité", "Toutes les positions valorisées subissent un choc de 12 % pour approximer une pression de vente forcée."),
+        },
+    }
+
+    def _scenario_locale(self, accept_language: str) -> str:
+        primary = (accept_language or "en").split(",")[0].strip().lower()
+        return "fr" if primary.startswith("fr") else "en"
+
+    def _scenario_definitions(self, locale: str) -> List[Dict[str, Any]]:
+        text = self._SCENARIO_TEXT[locale]
         return [
             {
-                "name": "Broad equity selloff",
-                "description": "Global risk assets fall, with higher shocks for crypto and single-name equities.",
+                "name": text["broad_equity_selloff"][0],
+                "description": text["broad_equity_selloff"][1],
                 "default": Decimal("-10"),
                 "asset_type": {"CRYPTO": Decimal("-25"), "CRYPTOCURRENCY": Decimal("-25"), "EQUITY": Decimal("-15"), "ETF": Decimal("-10")},
             },
             {
-                "name": "Rate shock",
-                "description": "Interest rates rise sharply; long-duration growth sectors are hit hardest.",
+                "name": text["rate_shock"][0],
+                "description": text["rate_shock"][1],
                 "default": Decimal("-4"),
                 "sector": {"Technology": Decimal("-12"), "Real Estate": Decimal("-14"), "Utilities": Decimal("-8"), "Financial Services": Decimal("3"), "Financials": Decimal("3")},
             },
             {
-                "name": "USD strength",
-                "description": "The US dollar strengthens; non-base-currency exposure faces translation pressure.",
+                "name": text["usd_strength"][0],
+                "description": text["usd_strength"][1],
                 "default": Decimal("0"),
                 "foreign_currency": Decimal("-5"),
             },
             {
-                "name": "Crypto winter",
-                "description": "Digital assets reprice materially lower while other holdings are unchanged.",
+                "name": text["crypto_winter"][0],
+                "description": text["crypto_winter"][1],
                 "default": Decimal("0"),
                 "asset_type": {"CRYPTO": Decimal("-35"), "CRYPTOCURRENCY": Decimal("-35")},
                 "theme": {"Crypto Infrastructure": Decimal("-35")},
             },
         ]
 
-    async def get_scenario_analysis(self, portfolio_id: int, user_id: int) -> List[ScenarioResult]:
+    async def get_scenario_analysis(self, portfolio_id: int, user_id: int, accept_language: str = "en") -> List[ScenarioResult]:
         snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
-        return self._simulate_scenarios_from_snapshot(snapshot, self._scenario_definitions())
+        locale = self._scenario_locale(accept_language)
+        return self._simulate_scenarios_from_snapshot(snapshot, self._scenario_definitions(locale))
 
-    async def get_stress_tests(self, portfolio_id: int, user_id: int) -> List[ScenarioResult]:
+    async def get_stress_tests(self, portfolio_id: int, user_id: int, accept_language: str = "en") -> List[ScenarioResult]:
         snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
-        return self._stress_tests_from_snapshot(snapshot)
+        locale = self._scenario_locale(accept_language)
+        return self._stress_tests_from_snapshot(snapshot, locale)
 
-    def _stress_tests_from_snapshot(self, snapshot: PortfolioInsightsSnapshot) -> List[ScenarioResult]:
+    def _stress_tests_from_snapshot(self, snapshot: PortfolioInsightsSnapshot, locale: str = "en") -> List[ScenarioResult]:
+        text = self._SCENARIO_TEXT[locale]
         concentration = self._concentration_from_snapshot(snapshot)
         sector_exposure = self._group_contribution_from_snapshot(snapshot, "sector")
         currency_exposure = self._group_contribution_from_snapshot(snapshot, "currency")
@@ -1911,10 +1942,11 @@ class InsightsService:
 
         if concentration.largest_position:
             impact_value = concentration.largest_position.value * Decimal("-0.30")
+            name, description_template = text["largest_position_drawdown"]
             results.append(
                 ScenarioResult(
-                    name="Largest position drawdown",
-                    description=f"{concentration.largest_position.symbol or concentration.largest_position.name} falls 30%.",
+                    name=name,
+                    description=description_template.format(label=concentration.largest_position.symbol or concentration.largest_position.name),
                     estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
                     estimated_impact_value=impact_value,
                 )
@@ -1923,10 +1955,11 @@ class InsightsService:
         if sector_exposure:
             top_sector = sector_exposure[0]
             impact_value = top_sector.value * Decimal("-0.20")
+            name, description_template = text["top_sector_shock"]
             results.append(
                 ScenarioResult(
-                    name="Top sector shock",
-                    description=f"{top_sector.name} exposure falls 20%.",
+                    name=name,
+                    description=description_template.format(label=top_sector.name),
                     estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
                     estimated_impact_value=impact_value,
                 )
@@ -1935,10 +1968,11 @@ class InsightsService:
         if currency_exposure:
             top_currency = currency_exposure[0]
             impact_value = top_currency.value * Decimal("-0.08")
+            name, description_template = text["top_currency_shock"]
             results.append(
                 ScenarioResult(
-                    name="Top currency translation shock",
-                    description=f"{top_currency.name} exposure weakens 8% versus the portfolio base currency.",
+                    name=name,
+                    description=description_template.format(label=top_currency.name),
                     estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
                     estimated_impact_value=impact_value,
                 )
@@ -1947,10 +1981,11 @@ class InsightsService:
         total_position_value = sum((position.market_value or Decimal(0)) for position in snapshot.positions)
         if total_position_value > 0:
             impact_value = total_position_value * Decimal("-0.12")
+            name, description = text["liquidity_stress"]
             results.append(
                 ScenarioResult(
-                    name="Liquidity stress",
-                    description="All marked positions are shocked by 12% to approximate forced-sale pressure.",
+                    name=name,
+                    description=description,
                     estimated_impact_pct=self._safe_pct(impact_value, snapshot.total_value),
                     estimated_impact_value=impact_value,
                 )
@@ -2104,8 +2139,10 @@ class InsightsService:
         user_id: int,
         period: str = "1y",
         benchmark_symbol: str = "SPY",
+        accept_language: str = "en",
     ) -> RiskInsights:
         snapshot = await self.build_portfolio_insights_snapshot(portfolio_id, user_id)
+        locale = self._scenario_locale(accept_language)
         logger.debug(
             "Building risk insights domain portfolio_id=%s period=%s benchmark=%s holdings=%s",
             portfolio_id,
@@ -2121,8 +2158,8 @@ class InsightsService:
                 period,
                 positions=snapshot.positions,
             ),
-            scenarios=self._simulate_scenarios_from_snapshot(snapshot, self._scenario_definitions()),
-            stress_tests=self._stress_tests_from_snapshot(snapshot),
+            scenarios=self._simulate_scenarios_from_snapshot(snapshot, self._scenario_definitions(locale)),
+            stress_tests=self._stress_tests_from_snapshot(snapshot, locale),
         )
     
     def get_average_holding_period(self, portfolio_id: int) -> Optional[Decimal]:

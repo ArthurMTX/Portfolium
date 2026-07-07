@@ -241,7 +241,7 @@ export default function ImportProgressModal({
               </div>
               {result.errors && result.errors.length > 0 && (
                 <div className="flex justify-between">
-                  <span className="font-medium">Errors:</span>
+                  <span className="font-medium">{t('importProgressModal.errors')}</span>
                   <span className="text-red-600 dark:text-red-400 font-bold">
                     {result.errors.length}
                   </span>

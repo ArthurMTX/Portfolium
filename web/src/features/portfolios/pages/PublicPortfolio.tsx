@@ -241,7 +241,7 @@ const PublicPortfolio: React.FC = () => {
                             <button
                                 onClick={() => setLangMenuOpen(!langMenuOpen)}
                                 className="flex items-center gap-2 p-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800/50 dark:hover:bg-neutral-700/50 border border-neutral-200 dark:border-neutral-700/50 transition-all duration-200"
-                                aria-label="Change language"
+                                aria-label={t('navigation.changeLanguage')}
                             >
                                 <img
                                     src={getFlagUrl(currentLanguage.country, 'w20') || ''}
@@ -279,7 +279,7 @@ const PublicPortfolio: React.FC = () => {
                         <button
                             onClick={toggleDarkMode}
                             className="p-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800/50 dark:hover:bg-neutral-700/50 border border-neutral-200 dark:border-neutral-700/50 transition-all duration-200"
-                            aria-label="Toggle theme"
+                            aria-label={t('navigation.toggleDarkMode')}
                         >
                             {darkMode ? <Sun size={18} className="text-amber-500" /> : <Moon size={18} className="text-neutral-600" />}
                         </button>

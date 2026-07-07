@@ -31,7 +31,7 @@ import {
   PageTabs,
   PageTitleBlock,
 } from '@/shared/components/PageLayout'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import '@/shared/design/pages/allocation.css'
 
 interface HeldAsset {
@@ -64,14 +64,16 @@ interface AllocationItem {
   assetIds: number[]
 }
 
-const lenses: Array<{ id: AllocationLens; label: string }> = [
-  { id: 'sector', label: 'Sector' },
-  { id: 'country', label: 'Country' },
-  { id: 'assetClass', label: 'Asset class' },
-  { id: 'currency', label: 'Currency' },
-  { id: 'theme', label: 'Theme' },
-  { id: 'marketCap', label: 'Market cap' },
-]
+function getLenses(t: (key: string) => string): Array<{ id: AllocationLens; label: string }> {
+  return [
+    { id: 'sector', label: t('allocation.lenses.sector') },
+    { id: 'country', label: t('allocation.lenses.country') },
+    { id: 'assetClass', label: t('allocation.lenses.assetClass') },
+    { id: 'currency', label: t('allocation.lenses.currency') },
+    { id: 'theme', label: t('allocation.lenses.theme') },
+    { id: 'marketCap', label: t('allocation.lenses.marketCap') },
+  ]
+}
 
 function toNumber(value: number | string | null | undefined): number {
   if (value === null || value === undefined) return 0
@@ -152,6 +154,7 @@ export default function Allocation() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const locale = i18n.language || navigator.language
+  const lenses = useMemo(() => getLenses(t), [t])
   const { portfolios, activePortfolioId, setPortfolios, setActivePortfolio } = usePortfolioStore()
   const activePortfolio = portfolios.find((portfolio) => portfolio.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
@@ -221,7 +224,7 @@ export default function Allocation() {
       setThemeItems(themes)
     } catch (err) {
       console.error('Failed to load allocation:', err)
-      setError('Failed to load allocation')
+      setError(t('allocation.loadError'))
     } finally {
       setLoading(false)
     }
@@ -322,7 +325,7 @@ export default function Allocation() {
       }
     }
     return unknowns.sort((a, b) => b.item.value - a.item.value)
-  }, [allocationByLens])
+  }, [allocationByLens, lenses])
 
   const sectorsCount = allocationByLens.sector.filter((item) => item.value > 0 && !isUnknownLabel(item.label)).length
   const countriesCount = allocationByLens.country.filter((item) => item.value > 0 && !isUnknownLabel(item.label)).length
@@ -339,9 +342,9 @@ export default function Allocation() {
         <StateBlock
           tone="error"
           className="allocation-empty"
-          eyebrow="Allocation"
-          title="Could not load allocation."
-          description="Portfolio distribution data could not be refreshed."
+          eyebrow={t('allocation.errorEyebrow')}
+          title={t('allocation.errorTitle')}
+          description={t('allocation.errorDescription')}
           detail={error}
           actionLabel={t('common.retry')}
           onAction={loadAllocation}
@@ -354,52 +357,52 @@ export default function Allocation() {
     <PageShell className="allocation-page">
       <PageHeader>
         <PageTitleBlock
-          kicker="Allocation"
-          title={`${formatCurrency(totalValue, portfolioCurrency, locale)} deployed.`}
+          kicker={t('allocation.kicker')}
+          title={t('allocation.deployed', { amount: formatCurrency(totalValue, portfolioCurrency, locale) })}
         />
         <PageSummaryPanel
-          lead={`${heldAssets.length} ${heldAssets.length === 1 ? 'position' : 'positions'} across the active portfolio.`}
+          lead={t('allocation.positions', { count: heldAssets.length })}
         >
           <div className="allocation-hero-facts">
-            <span>{sectorsCount} sectors.</span>
-            <span>{countriesCount} countries.</span>
-            <span>{currenciesCount} currencies.</span>
+            <span>{t('allocation.sectorsCount', { count: sectorsCount })}</span>
+            <span>{t('allocation.countriesCount', { count: countriesCount })}</span>
+            <span>{t('allocation.currenciesCount', { count: currenciesCount })}</span>
           </div>
         </PageSummaryPanel>
       </PageHeader>
 
-      <PageMetricStrip label="Concentration">
+      <PageMetricStrip label={t('allocation.concentration')}>
         <PageMetric
-          label="Top holding"
+          label={t('allocation.topHolding')}
           value={topHolding ? `${((positionValue(topHolding) / totalValue) * 100).toFixed(1)}%` : '—'}
-          detail={topHolding?.symbol || 'No position'}
+          detail={topHolding?.symbol || t('allocation.noPosition')}
         />
         <PageMetric
-          label="Top 3"
+          label={t('allocation.top3')}
           value={totalValue > 0 ? `${((topThreeValue / totalValue) * 100).toFixed(1)}%` : '—'}
           detail={formatCurrency(topThreeValue, portfolioCurrency, locale)}
         />
         <PageMetric
-          label="Top 10"
+          label={t('allocation.top10')}
           value={totalValue > 0 ? `${((topTenValue / totalValue) * 100).toFixed(1)}%` : '—'}
           detail={formatCurrency(topTenValue, portfolioCurrency, locale)}
         />
         <PageMetric
-          label="Largest country"
+          label={t('allocation.largestCountry')}
           value={largestCountry?.label || '—'}
           detail={largestCountry ? `${largestCountry.percentage.toFixed(1)}%` : '—'}
         />
         <PageMetric
-          label="Largest sector"
+          label={t('allocation.largestSector')}
           value={largestSector?.label || '—'}
           detail={largestSector ? `${largestSector.percentage.toFixed(1)}%` : '—'}
         />
       </PageMetricStrip>
 
       <PageControls
-        label="Allocation lens"
+        label={t('allocation.allocationLens')}
         start={
-          <PageTabs label="Allocation lens" role="tablist">
+          <PageTabs label={t('allocation.allocationLens')} role="tablist">
             {lenses.map((lens) => (
               <button
                 key={lens.id}
@@ -421,18 +424,18 @@ export default function Allocation() {
 
       <PageSection className="allocation-section">
         <PageSectionHeader
-          kicker="Where your capital lives"
-          title="Which parts of the portfolio own your money?"
+          kicker={t('allocation.whereCapitalLivesKicker')}
+          title={t('allocation.whereCapitalLivesTitle')}
         />
 
         {loading ? (
-          <ListSkeleton className="allocation-loading" rows={5} label="Loading allocation" />
+          <ListSkeleton className="allocation-loading" rows={5} label={t('allocation.loadingAllocation')} />
         ) : activeItems.length === 0 ? (
           <StateBlock
             className="allocation-empty"
-            eyebrow="No allocation data"
-            title="No allocation data for this lens yet."
-            description="Classification data is missing or portfolio values are unavailable."
+            eyebrow={t('allocation.noAllocationDataEyebrow')}
+            title={t('allocation.noAllocationDataTitle')}
+            description={t('allocation.noAllocationDataDescription')}
           />
         ) : (
           <PageMainGrid>
@@ -465,9 +468,9 @@ export default function Allocation() {
                     <span>{selectedAllocation.label}</span>
                   </p>
                   <h3>{formatCurrency(selectedAllocation.value, portfolioCurrency, locale)}</h3>
-                  <strong>{selectedAllocation.percentage.toFixed(1)}% of portfolio capital</strong>
+                  <strong>{t('allocation.ofPortfolioCapital', { percent: selectedAllocation.percentage.toFixed(1) })}</strong>
                   <span>
-                    {selectedAllocation.count} {selectedAllocation.count === 1 ? 'position' : 'positions'} explain this allocation.
+                    {t('allocation.positionsExplain', { count: selectedAllocation.count })}
                   </span>
                   <div className="allocation-holdings">
                     {selectedAssets.slice(0, 8).map((asset) => {
@@ -506,14 +509,14 @@ export default function Allocation() {
 
       <PageSection className="allocation-section">
         <PageSectionHeader
-          kicker="Unknown exposure"
-          title="What capital still lacks classification?"
+          kicker={t('allocation.unknownExposureKicker')}
+          title={t('allocation.unknownExposureTitle')}
         />
         {unknownItems.length > 0 ? (
           <div className="allocation-unknown">
             <h3>{formatCurrency(unknownItems[0].item.value, portfolioCurrency, locale)}</h3>
             <p>
-              {unknownItems[0].item.percentage.toFixed(1)}% of your capital is currently unclassified in {unknownItems[0].lens.toLowerCase()}.
+              {t('allocation.unclassifiedIn', { percent: unknownItems[0].item.percentage.toFixed(1), lens: unknownItems[0].lens.toLowerCase() })}
             </p>
             <div>
               {unknownItems.slice(0, 5).map(({ lens, item }) => (
@@ -522,36 +525,45 @@ export default function Allocation() {
                 </span>
               ))}
             </div>
-            <button onClick={() => navigate('/assets')}>Review classifications →</button>
+            <button onClick={() => navigate('/assets')}>{t('allocation.reviewClassifications')}</button>
           </div>
         ) : (
           <div className="allocation-unknown is-clear">
-            <h3>No major unknown allocation bucket.</h3>
-            <p>Your current capital has usable classification data across the main lenses.</p>
+            <h3>{t('allocation.noUnknownTitle')}</h3>
+            <p>{t('allocation.noUnknownDescription')}</p>
           </div>
         )}
       </PageSection>
 
       <PageSection className="allocation-section">
         <PageSectionHeader
-          kicker="Diversification"
-          title="Your portfolio spans capital, not scores."
+          kicker={t('allocation.diversificationKicker')}
+          title={t('allocation.diversificationTitle')}
         />
         <div className="allocation-story">
           <p>
-            Your portfolio spans <strong>{countriesCount} countries</strong>, <strong>{sectorsCount} sectors</strong> and{' '}
-            <strong>{heldAssets.length} companies or funds</strong>.
+            <Trans
+              i18nKey="allocation.spansCountriesSectorsCompanies"
+              values={{ countries: countriesCount, sectors: sectorsCount, companies: heldAssets.length }}
+              components={{ strong: <strong /> }}
+            />
           </p>
           {largestSector && (
             <p>
-              However, <strong>{largestSector.percentage.toFixed(1)}%</strong> remains concentrated in{' '}
-              <strong>{largestSector.label}</strong>.
+              <Trans
+                i18nKey="allocation.concentratedIn"
+                values={{ percent: largestSector.percentage.toFixed(1), sector: largestSector.label }}
+                components={{ strong: <strong /> }}
+              />
             </p>
           )}
           {largestCountry && (
             <p>
-              Geographically, <strong>{largestCountry.label}</strong> is the largest home for your capital at{' '}
-              <strong>{largestCountry.percentage.toFixed(1)}%</strong>.
+              <Trans
+                i18nKey="allocation.largestHomeFor"
+                values={{ country: largestCountry.label, percent: largestCountry.percentage.toFixed(1) }}
+                components={{ strong: <strong /> }}
+              />
             </p>
           )}
         </div>
@@ -560,24 +572,24 @@ export default function Allocation() {
       {etfCount > 0 && (
         <PageSection className="allocation-section">
           <PageSectionHeader
-            kicker="Look through"
-            title="ETF ownership needs underlying exposure."
+            kicker={t('allocation.lookThroughKicker')}
+            title={t('allocation.lookThroughTitle')}
           />
           <div className="allocation-future">
-            <p>You own {etfCount} ETF {etfCount === 1 ? 'position' : 'positions'}.</p>
-            <span>Underlying constituent exposure is not available yet. This section is reserved for ETF overlap and look-through analysis.</span>
+            <p>{t('allocation.youOwnEtf', { count: etfCount })}</p>
+            <span>{t('allocation.lookThroughDescription')}</span>
           </div>
         </PageSection>
       )}
 
       <PageSection className="allocation-section">
         <PageSectionHeader
-          kicker="Changes over time"
-          title="Allocation history appears only when it explains something."
+          kicker={t('allocation.changesOverTimeKicker')}
+          title={t('allocation.changesOverTimeTitle')}
         />
         <div className="allocation-future">
-          <p>Not enough allocation history is available yet.</p>
-          <span>When meaningful changes emerge, this section will show movements such as Technology 41% → 58% without turning into a chart wall.</span>
+          <p>{t('allocation.notEnoughHistory')}</p>
+          <span>{t('allocation.notEnoughHistoryDescription')}</span>
         </div>
       </PageSection>
     </PageShell>

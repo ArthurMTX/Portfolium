@@ -172,7 +172,7 @@ export default function Watchlist() {
     }
   }, [])
 
-  const getErrorMessage = (err: unknown, fallback = 'An unexpected error occurred') => {
+  const getErrorMessage = (err: unknown, fallback = t('watchlistPage.unexpectedError')) => {
     if (err instanceof Error) return err.message
     if (typeof err === 'string') return err
     try {
@@ -204,11 +204,11 @@ export default function Watchlist() {
       setWatchlist(normalized)
       setError(null)
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to load watchlist'))
+      setError(getErrorMessage(err, t('watchlistPage.loadFailedGeneric')))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadTags = useCallback(async () => {
     try {
@@ -225,7 +225,7 @@ export default function Watchlist() {
       await api.refreshWatchlistPrices()
       await loadWatchlist()
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to refresh prices'))
+      setError(getErrorMessage(err, t('watchlistPage.refreshFailedGeneric')))
     } finally {
       setLoading(false)
     }
@@ -286,16 +286,7 @@ export default function Watchlist() {
   }, [watchlist, sortKey, sortDir])
 
   // Get human-readable label for sort key
-  const getSortLabel = (key: SortKey): string => {
-    const labels: Record<SortKey, string> = {
-      symbol: 'Symbol',
-      name: 'Name',
-      current_price: 'Price',
-      daily_change_pct: 'Daily Change %',
-      alert_target_price: 'Alert Price',
-    }
-    return labels[key]
-  }
+  const getSortLabel = (key: SortKey): string => t(`watchlistPage.sortLabels.${key}`)
 
   const openAssetResearch = (symbol: string) => {
     navigate(`/assets/${encodeURIComponent(symbol)}/research`)
@@ -389,7 +380,7 @@ export default function Watchlist() {
       // Reload watchlist
       loadWatchlist()
     } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err, 'Failed to add symbol')
+      const errorMsg = getErrorMessage(err, t('watchlistPage.addFailedGeneric'))
       setAddFormError(errorMsg)
       
       // Clear error message after 5 seconds
@@ -403,16 +394,16 @@ export default function Watchlist() {
       await loadWatchlist()
       setDeleteConfirm(null)
     } catch (err: unknown) {
-      setToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete item') })
+      setToast({ type: 'error', message: getErrorMessage(err, t('watchlistPage.deleteFailedGeneric')) })
     }
   }
 
   const handleCopySymbol = async (symbol: string) => {
     try {
       await navigator.clipboard.writeText(symbol)
-      setToast({ type: 'success', message: `${symbol} copied` })
+      setToast({ type: 'success', message: t('watchlistPage.symbolCopied', { symbol }) })
     } catch {
-      setToast({ type: 'error', message: 'Failed to copy symbol' })
+      setToast({ type: 'error', message: t('watchlistPage.copyFailedGeneric') })
     }
   }
 
@@ -475,13 +466,13 @@ export default function Watchlist() {
       a.download = `watchlist_${new Date().toISOString().split('T')[0]}.csv`
       a.click()
     } catch (err: unknown) {
-      setToast({ type: 'error', message: getErrorMessage(err, 'Failed to export') })
+      setToast({ type: 'error', message: getErrorMessage(err, t('watchlistPage.exportFailedGeneric')) })
     }
   }
 
   const handleConvertToBuy = async () => {
     if (!convertItem || !convertPortfolioId || !convertQuantity || !convertPrice) {
-      setToast({ type: 'error', message: 'Please fill in all fields' })
+      setToast({ type: 'error', message: t('watchlistPage.fillAllFields') })
       return
     }
 
@@ -506,7 +497,7 @@ export default function Watchlist() {
       setConvertDate(new Date().toISOString().split('T')[0])
       setConvertPriceInfo(null)
     } catch (err: unknown) {
-      setToast({ type: 'error', message: getErrorMessage(err, 'Failed to convert to BUY') })
+      setToast({ type: 'error', message: getErrorMessage(err, t('watchlistPage.convertFailedGeneric')) })
     }
   }
 
@@ -528,7 +519,7 @@ export default function Watchlist() {
 
   const formatPrice = (price: number | null, currency: string) => {
     const n = toNumber(price as unknown)
-    if (n === null) return 'N/A'
+    if (n === null) return t('watchlistPage.notAvailable')
     return formatCurrency(n, currency)
   }
 
@@ -555,9 +546,9 @@ export default function Watchlist() {
   }
 
   const formatShortDate = (date: string | null) => {
-    if (!date) return 'No recent update'
+    if (!date) return t('watchlistPage.noRecentUpdate')
     const parsed = new Date(date)
-    if (Number.isNaN(parsed.getTime())) return 'No recent update'
+    if (Number.isNaN(parsed.getTime())) return t('watchlistPage.noRecentUpdate')
     return new Intl.DateTimeFormat(undefined, {
       month: 'short',
       day: 'numeric',
@@ -579,8 +570,8 @@ export default function Watchlist() {
     const reached = current <= target
     const near = !reached && distancePct <= 5
     const distanceLabel = reached
-      ? 'Target reached'
-      : `${distancePct.toFixed(1)}% above target`
+      ? t('watchlistPage.targetReached')
+      : t('watchlistPage.aboveTarget', { percent: distancePct.toFixed(1) })
 
     return {
       current,
@@ -598,15 +589,15 @@ export default function Watchlist() {
 
     if (target?.reached) {
       return {
-        label: 'Target reached',
-        detail: 'Current price is at or below your watch target.',
+        label: t('watchlistPage.targetReached'),
+        detail: t('watchlistPage.targetReachedDetail'),
         tone: 'urgent' as const,
       }
     }
 
     if (target?.near) {
       return {
-        label: 'Near target',
+        label: t('watchlistPage.nearTarget'),
         detail: target.distanceLabel,
         tone: 'attention' as const,
       }
@@ -614,51 +605,51 @@ export default function Watchlist() {
 
     if (dailyMove !== null && Math.abs(dailyMove) >= 5) {
       return {
-        label: 'Large move today',
-        detail: `${formatSignedPercent(dailyMove)} today.`,
+        label: t('watchlistPage.largeMoveToday'),
+        detail: t('watchlistPage.largeMoveDetail', { percent: formatSignedPercent(dailyMove) }),
         tone: 'attention' as const,
       }
     }
 
     if (!item.notes?.trim()) {
       return {
-        label: 'Needs thesis',
-        detail: 'No watch reason has been written yet.',
+        label: t('watchlistPage.needsThesis'),
+        detail: t('watchlistPage.needsThesisDetail'),
         tone: 'quiet' as const,
       }
     }
 
     return {
-      label: 'Watching',
-      detail: `Updated ${formatShortDate(item.last_updated)}`,
+      label: t('watchlistPage.watching'),
+      detail: t('watchlistPage.updatedOn', { date: formatShortDate(item.last_updated) }),
       tone: 'neutral' as const,
     }
   }
 
   const attentionCount = watchlist.filter((item) => {
     const status = getAttentionStatus(item)
-    return status.label === 'Target reached' || status.label === 'Near target' || status.label === 'Large move today' || status.label === 'Needs thesis'
+    return status.label === t('watchlistPage.targetReached') || status.label === t('watchlistPage.nearTarget') || status.label === t('watchlistPage.largeMoveToday') || status.label === t('watchlistPage.needsThesis')
   }).length
 
-  const targetReachedCount = watchlist.filter((item) => getAttentionStatus(item).label === 'Target reached').length
-  const needsThesisCount = watchlist.filter((item) => getAttentionStatus(item).label === 'Needs thesis').length
+  const targetReachedCount = watchlist.filter((item) => getAttentionStatus(item).label === t('watchlistPage.targetReached')).length
+  const needsThesisCount = watchlist.filter((item) => getAttentionStatus(item).label === t('watchlistPage.needsThesis')).length
 
   const newestWatchDate = (() => {
     const dates = watchlist
       .map((item) => new Date(item.created_at))
       .filter((date) => !Number.isNaN(date.getTime()))
       .sort((a, b) => b.getTime() - a.getTime())
-    return dates[0] ? formatShortDate(dates[0].toISOString()) : 'No assets yet'
+    return dates[0] ? formatShortDate(dates[0].toISOString()) : t('watchlistPage.noAssetsYet')
   })()
 
   const primaryThemesLabel = (themes?: AssetThemeDTO[]) => {
-    if (!themes || themes.length === 0) return 'No theme classified'
+    if (!themes || themes.length === 0) return t('watchlistPage.noThemeClassified')
     const [primary, ...rest] = themes
     return rest.length > 0 ? `${primary.label} +${rest.length}` : primary.label
   }
 
   if (loading) {
-    return <PageStateSkeleton label="Loading watchlist" className="watchlist" />
+    return <PageStateSkeleton label={t('watchlistPage.loadingWatchlist')} className="watchlist" />
   }
 
   if (portfolios.length === 0) {
@@ -669,15 +660,15 @@ export default function Watchlist() {
     <PageShell className="watchlist">
       <PageHeader>
         <PageTitleBlock
-          kicker="Watchlist"
-          title={`${watchlist.length} ${watchlist.length === 1 ? 'company' : 'companies'}.`}
+          kicker={t('watchlistPage.kicker')}
+          title={t('watchlistPage.companies', { count: watchlist.length })}
         />
         <PageSummaryPanel
-          lead={`${attentionCount} ${attentionCount === 1 ? 'deserves' : 'deserve'} attention today.`}
+          lead={t('watchlistPage.deservesAttention', { count: attentionCount })}
           description={
             <>
-              Assets you are still evaluating. Nothing here is owned yet.
-              {watchlist.length > 0 ? ` Latest addition: ${newestWatchDate}.` : ''}
+              {t('watchlistPage.evaluatingDescription')}
+              {watchlist.length > 0 ? t('watchlistPage.latestAddition', { date: newestWatchDate }) : ''}
             </>
           }
           actions={
@@ -696,27 +687,27 @@ export default function Watchlist() {
               </button>
               <button type="button" onClick={() => setShowAddModal(true)} className="pf-button pf-button--primary is-primary">
                 <Plus size={15} />
-                Add company
+                {t('watchlistPage.addCompany')}
               </button>
             </>
           }
         />
       </PageHeader>
 
-      <PageMetricStrip label="Watchlist context">
-        <PageMetric label="Watching" value={watchlist.length} />
-        <PageMetric label="Deserve attention" value={attentionCount} />
-        <PageMetric label="Target reached" value={targetReachedCount} />
-        <PageMetric label="Needs thesis" value={needsThesisCount} />
+      <PageMetricStrip label={t('watchlistPage.contextLabel')}>
+        <PageMetric label={t('watchlistPage.watching_metric')} value={watchlist.length} />
+        <PageMetric label={t('watchlistPage.deserveAttention')} value={attentionCount} />
+        <PageMetric label={t('watchlistPage.targetReachedMetric')} value={targetReachedCount} />
+        <PageMetric label={t('watchlistPage.needsThesisMetric')} value={needsThesisCount} />
       </PageMetricStrip>
 
       {error && (
         <StateBlock
           tone="error"
           className="watchlist__error"
-          eyebrow="Watchlist"
-          title="Could not refresh watchlist data."
-          description="Prices and watchlist companies could not be loaded."
+          eyebrow={t('watchlistPage.errorEyebrow')}
+          title={t('watchlistPage.errorTitle')}
+          description={t('watchlistPage.errorDescription')}
           detail={error}
           actionLabel={t('common.retry')}
           onAction={() => loadWatchlist(selectedTagIds, tagFilterMode)}
@@ -724,15 +715,15 @@ export default function Watchlist() {
       )}
 
       <PageControls
-        label="Watchlist controls"
+        label={t('watchlistPage.controlsLabel')}
         start={
         <div className="pf-control-group watchlist__filters">
           <span className="watchlist__toolbar-label">
             <Filter size={15} />
-            Filters
+            {t('watchlistPage.filters')}
           </span>
           {tags.length === 0 ? (
-            <span className="watchlist__muted">No tags yet.</span>
+            <span className="watchlist__muted">{t('watchlistPage.noTagsYet')}</span>
           ) : (
             tags.map(tag => (
               <button
@@ -758,7 +749,7 @@ export default function Watchlist() {
             </button>
           )}
           {selectedTagIds.length > 1 && (
-            <div className="watchlist__tag-mode" aria-label="Tag filter mode">
+            <div className="watchlist__tag-mode" aria-label={t('watchlistPage.tagFilterMode')}>
               <button
                 type="button"
                 onClick={() => setTagFilterMode('any')}
@@ -779,7 +770,7 @@ export default function Watchlist() {
         }
         end={
         <div className="watchlist__sort">
-          <label htmlFor="watchlist-sort">Sort by</label>
+          <label htmlFor="watchlist-sort">{t('watchlistPage.sortBy')}</label>
           <select
             id="watchlist-sort"
             value={sortKey}
@@ -794,7 +785,7 @@ export default function Watchlist() {
           <button
             type="button"
             onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-            aria-label={sortDir === 'asc' ? 'Sort descending' : 'Sort ascending'}
+            aria-label={sortDir === 'asc' ? t('watchlistPage.sortDescending') : t('watchlistPage.sortAscending')}
           >
             {sortDir === 'asc' ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
           </button>
@@ -811,28 +802,28 @@ export default function Watchlist() {
       />
 
       <PageMainGrid single>
-      <PageMainColumn className="watchlist__ledger" aria-label="Watched companies">
+      <PageMainColumn className="watchlist__ledger" aria-label={t('watchlistPage.watchedCompaniesLabel')}>
         {sortedWatchlist.length === 0 ? (
           <StateBlock
             className="watchlist__empty"
-            eyebrow={selectedTagIds.length > 0 ? 'No matching companies' : 'No watchlist'}
-            title={selectedTagIds.length > 0 ? 'No companies match the selected tags.' : 'Companies you are evaluating before buying will appear here.'}
-            description={selectedTagIds.length > 0 ? 'Clear the active tag filters to see the full watchlist.' : 'Add a company to start tracking it before investing.'}
+            eyebrow={selectedTagIds.length > 0 ? t('watchlistPage.noMatchingCompaniesEyebrow') : t('watchlistPage.noWatchlistEyebrow')}
+            title={selectedTagIds.length > 0 ? t('watchlistPage.noCompaniesMatchTags') : t('watchlistPage.companiesEvaluatingBeforeBuying')}
+            description={selectedTagIds.length > 0 ? t('watchlistPage.clearTagFiltersToSeeFull') : t('watchlistPage.addCompanyToStartTracking')}
           >
             <button type="button" onClick={() => setShowAddModal(true)}>
               <Plus size={15} />
-              {selectedTagIds.length > 0 ? 'Add company' : 'Add first company'}
+              {selectedTagIds.length > 0 ? t('watchlistPage.addCompany') : t('watchlistPage.addFirstCompany')}
             </button>
           </StateBlock>
         ) : (
           <>
             <div className="watchlist__table-header" aria-hidden="true">
-              <span>Company</span>
-              <span>Price</span>
-              <span>Today</span>
-              <span>Target</span>
-              <span>Status</span>
-              <span>Action</span>
+              <span>{t('watchlistPage.columnCompany')}</span>
+              <span>{t('watchlistPage.columnPrice')}</span>
+              <span>{t('watchlistPage.columnToday')}</span>
+              <span>{t('watchlistPage.columnTarget')}</span>
+              <span>{t('watchlistPage.columnStatus')}</span>
+              <span>{t('watchlistPage.columnAction')}</span>
             </div>
             {sortedWatchlist.map((item) => {
             const dailyMove = getDailyMove(item)
@@ -861,10 +852,10 @@ export default function Watchlist() {
                   <div>
                     <span title={getThemesTitle(item.themes)}>{primaryThemesLabel(item.themes)}</span>
                     <h2>{item.symbol}</h2>
-                    <p>{item.name || 'Unknown company'}</p>
+                    <p>{item.name || t('watchlistPage.unknownCompany')}</p>
                     <div className="watchlist__row-tags" aria-label={`${item.symbol} tags`}>
                       {sortedTags.length === 0 ? (
-                        <span>No tags</span>
+                        <span>{t('watchlistPage.noTags')}</span>
                       ) : (
                         sortedTags.map(tag => (
                           <button
@@ -905,10 +896,10 @@ export default function Watchlist() {
                     <>
                       <strong>{formatPrice(targetState.target, item.currency)}</strong>
                       <small className={targetState.reached ? 'is-positive' : targetState.near ? 'is-attention' : ''}>
-                        {targetState.distancePct > 0 ? '+' : ''}{targetState.distancePct.toFixed(1)}% distance
+                        {t('watchlistPage.distance', { sign: targetState.distancePct > 0 ? '+' : '', percent: targetState.distancePct.toFixed(1) })}
                       </small>
                       <em className={targetState.reached ? 'is-positive' : targetState.near ? 'is-attention' : ''}>
-                        {item.alert_enabled ? 'Alert on' : 'Alert off'}
+                        {item.alert_enabled ? t('watchlistPage.alertOn') : t('watchlistPage.alertOff')}
                       </em>
                     </>
                   ) : (
@@ -924,12 +915,12 @@ export default function Watchlist() {
 
                 <div className="watchlist__row-actions" onClick={(event) => event.stopPropagation()}>
                   <button type="button" onClick={() => openAssetResearch(item.symbol)} className="watchlist__research-link">
-                    Research
+                    {t('watchlistPage.research')}
                   </button>
                   <div className="watchlist__overflow">
                     <button
                       type="button"
-                      aria-label={`Actions for ${item.symbol}`}
+                      aria-label={t('watchlistPage.actionsFor', { symbol: item.symbol })}
                       aria-expanded={openActionMenuId === item.id}
                       onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
                       className="watchlist__overflow-trigger"
@@ -947,7 +938,7 @@ export default function Watchlist() {
                           }}
                         >
                           <Pencil size={14} />
-                          Edit watch reason
+                          {t('watchlistPage.editWatchReason')}
                         </button>
                         <button
                           type="button"
@@ -958,7 +949,7 @@ export default function Watchlist() {
                           }}
                         >
                           <ShoppingCart size={14} />
-                          Record purchase
+                          {t('watchlistPage.recordPurchase')}
                         </button>
                         <button
                           type="button"
@@ -968,7 +959,7 @@ export default function Watchlist() {
                             setOpenActionMenuId(null)
                           }}
                         >
-                          Copy symbol
+                          {t('watchlistPage.copySymbol')}
                         </button>
                         <button
                           type="button"
@@ -1265,7 +1256,7 @@ export default function Watchlist() {
                   value={addSymbol}
                   onChange={handleTickerChange}
                   className="pf-modal-input"
-                  placeholder="Search ticker (e.g., AAPL)..."
+                  placeholder={t('watchlistPage.searchTickerPlaceholder')}
                   required
                 />
                 {searchResults.length > 0 && (
@@ -1292,7 +1283,7 @@ export default function Watchlist() {
 
               <div>
                 <label className="pf-modal-label">
-                  {t('fields.notes')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
+                  {t('fields.notes')} <span className="text-neutral-500 dark:text-neutral-400">{t('watchlistPage.optional')}</span>
                 </label>
                 <input
                   type="text"
@@ -1307,7 +1298,7 @@ export default function Watchlist() {
               {tags.length > 0 && (
                 <div>
                   <label className="pf-modal-label">
-                    {t('watchlist.tags.title')} <span className="text-neutral-500 dark:text-neutral-400">(Optional)</span>
+                    {t('watchlist.tags.title')} <span className="text-neutral-500 dark:text-neutral-400">{t('watchlistPage.optional')}</span>
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {tags.map(tag => (

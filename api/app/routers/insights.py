@@ -3,7 +3,7 @@ Portfolio insights and analytics router
 """
 import asyncio
 from typing import List, Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
@@ -128,11 +128,12 @@ async def get_risk_insights_domain(
     benchmark: str = "SPY",
     period: str = "1y",
     current_user: User = Depends(get_current_user),
-    portfolio: Portfolio = Depends(verify_portfolio_access)
+    portfolio: Portfolio = Depends(verify_portfolio_access),
+    accept_language: str = Header(default="en"),
 ):
     """Get risk-tab data from one shared deterministic snapshot and cached risk metrics."""
     _ = portfolio
-    return await insights_service.get_risk_domain(portfolio_id, current_user.id, period, benchmark)
+    return await insights_service.get_risk_domain(portfolio_id, current_user.id, period, benchmark, accept_language)
 
 
 @router.get("/{portfolio_id}/allocation", response_model=List[AssetAllocation])
@@ -342,11 +343,12 @@ async def get_scenario_analysis(
     portfolio_id: int,
     insights_service: InsightsServiceDep,
     current_user: User = Depends(get_current_user),
-    portfolio: Portfolio = Depends(verify_portfolio_access)
+    portfolio: Portfolio = Depends(verify_portfolio_access),
+    accept_language: str = Header(default="en"),
 ):
     """Simulate predefined deterministic market events."""
     _ = portfolio
-    return await insights_service.get_scenario_analysis(portfolio_id, current_user.id)
+    return await insights_service.get_scenario_analysis(portfolio_id, current_user.id, accept_language)
 
 
 @router.get("/{portfolio_id}/risk/stress-tests", response_model=List[ScenarioResult])
@@ -354,11 +356,12 @@ async def get_stress_tests(
     portfolio_id: int,
     insights_service: InsightsServiceDep,
     current_user: User = Depends(get_current_user),
-    portfolio: Portfolio = Depends(verify_portfolio_access)
+    portfolio: Portfolio = Depends(verify_portfolio_access),
+    accept_language: str = Header(default="en"),
 ):
     """Run deterministic concentration stress tests."""
     _ = portfolio
-    return await insights_service.get_stress_tests(portfolio_id, current_user.id)
+    return await insights_service.get_stress_tests(portfolio_id, current_user.id, accept_language)
 
 
 @router.get("/{portfolio_id}/performance", response_model=PerformanceMetrics)

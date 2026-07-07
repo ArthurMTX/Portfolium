@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import api from '@/api'
 import {
   ChartPeriodButtons,
@@ -129,7 +130,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
     }),
     datasets: [
       {
-        label: 'Portfolio Value',
+        label: t('portfolioHistoryChart.portfolioValueDataset'),
         data: history.map(h => h.value),
         borderColor: 'rgb(236,72,153)',
         backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
@@ -151,7 +152,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
         pointHoverBorderWidth: 2,
       },
       {
-        label: 'Capital events',
+        label: t('portfolioHistoryChart.capitalEvents'),
         data: transactionMarkerData,
         borderColor: transactionMarkerColors,
         backgroundColor: transactionMarkerColors,
@@ -175,9 +176,9 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
         callbacks: {
           title: createTooltipTitleCallback(history, currentLocale),
           label: (context: { parsed: { y: number | null }; dataIndex: number; dataset: { label?: string } }) => {
-            if (context.dataset.label === 'Capital events') {
+            if (context.dataset.label === t('portfolioHistoryChart.capitalEvents')) {
               const events = transactionEventsByIndex.get(context.dataIndex) ?? []
-              return events.map(formatTransactionEvent)
+              return events.map((event) => formatTransactionEvent(event, t))
             }
             const value = context.parsed.y
             if (value === null) return ''
@@ -218,10 +219,10 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
     <section className="pf-section pf-section--spacious charts-section">
       <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header">
         <div>
-          <p className="pf-section-kicker">VISUAL HISTORY</p>
+          <p className="pf-section-kicker">{t('portfolioHistoryChart.visualHistoryKicker')}</p>
           <h2 className="pf-section-title">{t('charts.portfolioValueLabel')}</h2>
         </div>
-        <span className="pf-section-description">Every valuation point is a trace of capital added, sold, distributed, or re-priced.</span>
+        <span className="pf-section-description">{t('portfolioHistoryChart.everyValuationPointNote')}</span>
       </div>
       <div className="charts-chart-panel">
         {loading ? (
@@ -313,37 +314,37 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
             </div>
             {summary && (
               <div className="charts-observations">
-                <p>During this period your portfolio:</p>
+                <p>{t('portfolioHistoryChart.duringThisPeriod')}</p>
                 <dl>
                   <div>
-                    <dt>Gained</dt>
+                    <dt>{t('portfolioHistoryChart.gained')}</dt>
                     <dd className={summary.gained >= 0 ? 'is-positive' : 'is-negative'}>{summary.gained >= 0 ? '+' : '-'}{currencySymbol}{Math.abs(summary.gained).toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div>
-                    <dt>Reached a high</dt>
+                    <dt>{t('portfolioHistoryChart.reachedHigh')}</dt>
                     <dd className="is-positive">{currencySymbol}{summary.highPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div>
-                    <dt>Reached a low</dt>
+                    <dt>{t('portfolioHistoryChart.reachedLow')}</dt>
                     <dd className="is-negative">{currencySymbol}{summary.lowPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</dd>
                   </div>
                   <div>
-                    <dt>Largest daily gain</dt>
+                    <dt>{t('portfolioHistoryChart.largestDailyGain')}</dt>
                     <dd className="is-positive">{summary.largestGain ? `+${currencySymbol}${Math.abs(summary.largestGain.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</dd>
                   </div>
                   <div>
-                    <dt>Largest daily loss</dt>
+                    <dt>{t('portfolioHistoryChart.largestDailyLoss')}</dt>
                     <dd className="is-negative">{summary.largestLoss ? `-${currencySymbol}${Math.abs(summary.largestLoss.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</dd>
                   </div>
                 </dl>
               </div>
             )}
             {transactionEventsByIndex.size > 0 && (
-              <div className="charts-event-legend" aria-label="Capital event markers">
-                <span><i className="is-buy" />Buy</span>
-                <span><i className="is-sell" />Sell</span>
-                <span><i className="is-dividend" />Dividend</span>
-                <span><i className="is-split" />Split</span>
+              <div className="charts-event-legend" aria-label={t('portfolioHistoryChart.capitalEventMarkersLabel')}>
+                <span><i className="is-buy" />{t('portfolioHistoryChart.buy')}</span>
+                <span><i className="is-sell" />{t('portfolioHistoryChart.sell')}</span>
+                <span><i className="is-dividend" />{t('portfolioHistoryChart.dividend')}</span>
+                <span><i className="is-split" />{t('portfolioHistoryChart.split')}</span>
               </div>
             )}
           </div>
@@ -371,12 +372,23 @@ function getTransactionMarkerColor(type: string | null | undefined): string {
   return '#aaa3ad'
 }
 
-function formatTransactionEvent(event: ChartTransactionEvent): string {
-  const type = event.type.replace(/_/g, ' ').toLowerCase()
-  const label = type.charAt(0).toUpperCase() + type.slice(1)
+function formatTransactionEvent(event: ChartTransactionEvent, t: TFunction): string {
+  const typeKeyMap: Record<string, string> = {
+    BUY: 'transaction.types.buy',
+    SELL: 'transaction.types.sell',
+    DIVIDEND: 'transaction.types.dividend',
+    FEE: 'transaction.types.fee',
+    SPLIT: 'transaction.types.split',
+    TRANSFER_IN: 'transaction.types.transferIn',
+    TRANSFER_OUT: 'transaction.types.transferOut',
+    CONVERSION_IN: 'transaction.types.conversionIn',
+    CONVERSION_OUT: 'transaction.types.conversionOut',
+  }
+  const key = typeKeyMap[event.type.toUpperCase()]
+  const label = key ? t(key) : event.type
   const symbol = event.asset?.symbol ? ` · ${event.asset.symbol}` : ''
   const quantity = event.quantity !== null && event.quantity !== undefined && Number(event.quantity) > 0
-    ? ` · ${Number(event.quantity).toLocaleString(undefined, { maximumFractionDigits: 4 })} shares`
+    ? ` · ${Number(event.quantity).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${t('assetsPage.shares')}`
     : ''
   return `${label}${symbol}${quantity}`
 }

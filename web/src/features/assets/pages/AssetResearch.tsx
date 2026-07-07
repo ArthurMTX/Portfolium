@@ -71,13 +71,15 @@ interface TickerSearchResult {
 
 type ResearchSection = 'fundamentals' | 'business' | 'ownership' | 'themes' | 'risk' | 'performance' | 'metadata'
 
-const tabs: Array<{ id: TabId; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'fundamentals', label: 'Fundamentals' },
-  { id: 'performance', label: 'Performance' },
-  { id: 'risk', label: 'Risk' },
-  { id: 'analyst', label: 'Analyst / Valuation' },
-]
+function getTabs(t: (key: string) => string): Array<{ id: TabId; label: string }> {
+  return [
+    { id: 'overview', label: t('assetResearch.tabs.overview') },
+    { id: 'fundamentals', label: t('assetResearch.tabs.fundamentals') },
+    { id: 'performance', label: t('assetResearch.tabs.performance') },
+    { id: 'risk', label: t('assetResearch.tabs.risk') },
+    { id: 'analyst', label: t('assetResearch.tabs.analyst') },
+  ]
+}
 
 const emptyFundamentals: AssetResearchFundamentalsDTO = {
   market_cap: null,
@@ -171,6 +173,7 @@ export default function AssetResearch() {
   const routeSymbol = symbol.trim()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const tabs = useMemo(() => getTabs(t), [t])
   const [assetResearch, setAssetResearch] = useState<AssetResearchDTO | null>(null)
   const [investmentNote, setInvestmentNote] = useState<AssetInvestmentNoteDTO | null>(null)
   const [investmentNoteLoading, setInvestmentNoteLoading] = useState(false)
@@ -290,7 +293,7 @@ export default function AssetResearch() {
               setAssetResearch((current) => current ? applyData(current, data) : current)
             }
           } catch (err) {
-            const message = err instanceof Error ? err.message : `Failed to load ${section}`
+            const message = err instanceof Error ? err.message : t('assetResearch.failedToLoadSection', { section })
             if (!cancelled) {
               setSectionErrors((current) => ({ ...current, [section]: message }))
             }
@@ -356,7 +359,7 @@ export default function AssetResearch() {
         )
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Failed to load asset research'
+          const message = err instanceof Error ? err.message : t('assetResearch.failedToLoadAssetResearch')
           setError(message)
           setInvestmentNote(null)
         }
@@ -370,6 +373,7 @@ export default function AssetResearch() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeSymbol])
 
   const metrics = useMemo(
@@ -384,9 +388,9 @@ export default function AssetResearch() {
       setWatchlistMessage(null)
       const item = await api.addToWatchlist({ symbol: assetResearch.asset.symbol })
       setWatchlistItemId(item.id)
-      setWatchlistMessage({ type: 'success', text: `${assetResearch.asset.symbol} added to watchlist.` })
+      setWatchlistMessage({ type: 'success', text: t('assetResearch.addedToWatchlist', { symbol: assetResearch.asset.symbol }) })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add to watchlist'
+      const message = err instanceof Error ? err.message : t('assetResearch.failedToAddToWatchlist')
       setWatchlistMessage({ type: 'error', text: message })
     } finally {
       setAddingToWatchlist(false)
@@ -407,7 +411,7 @@ export default function AssetResearch() {
       const data = await api.searchTicker(value)
       setSearchResults(data)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to search tickers'
+      const message = err instanceof Error ? err.message : t('assetResearch.failedToSearchTickers')
       setSearchError(message)
       setSearchResults([])
     } finally {
@@ -427,7 +431,7 @@ export default function AssetResearch() {
   }
 
   if (summaryLoading) {
-    return <PageStateSkeleton label="Loading asset research" />
+    return <PageStateSkeleton label={t('assetResearch.loadingAssetResearch')} />
   }
 
   if (!routeSymbol) {
@@ -435,7 +439,7 @@ export default function AssetResearch() {
       <div className="space-y-6">
         <button onClick={() => navigate(-1)} className="btn-secondary inline-flex items-center gap-2">
           <ArrowLeft size={16} />
-          Back
+          {t('assetResearch.back')}
         </button>
 
         <div className="card p-5 sm:p-6">
@@ -508,12 +512,12 @@ export default function AssetResearch() {
       <div className="space-y-4">
         <button onClick={() => navigate(-1)} className="btn-secondary inline-flex items-center gap-2">
           <ArrowLeft size={16} />
-          Back
+          {t('assetResearch.back')}
         </button>
         <div className="card p-8 text-center">
           <AlertTriangle size={32} className="mx-auto mb-3 text-red-500" />
-          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Asset research unavailable</h1>
-          <p className="mt-2 text-neutral-500 dark:text-neutral-400">{error || 'No data returned for this asset.'}</p>
+          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{t('assetResearch.assetResearchUnavailable')}</h1>
+          <p className="mt-2 text-neutral-500 dark:text-neutral-400">{error || t('assetResearch.noDataReturned')}</p>
         </div>
       </div>
     )
@@ -532,7 +536,7 @@ export default function AssetResearch() {
     <div className="space-y-6">
       <button onClick={() => navigate(-1)} className="btn-secondary inline-flex items-center gap-2">
         <ArrowLeft size={16} />
-        Back
+        {t('assetResearch.back')}
       </button>
 
       <div className="card p-5 sm:p-6">
@@ -585,19 +589,19 @@ export default function AssetResearch() {
               >
                 {watchlistItemId !== null ? <Check size={16} /> : <Plus size={16} />}
                 {watchlistStatusLoading
-                  ? 'Checking...'
+                  ? t('assetResearch.checking')
                   : watchlistItemId !== null
-                    ? 'In watchlist'
+                    ? t('assetResearch.inWatchlist')
                     : addingToWatchlist
-                      ? 'Adding...'
-                      : 'Add to watchlist'}
+                      ? t('assetResearch.adding')
+                      : t('assetResearch.addToWatchlist')}
               </button>
               <button
                 onClick={() => navigate(`/transactions?symbol=${encodeURIComponent(asset.symbol)}`)}
                 className="btn-secondary inline-flex items-center gap-2"
               >
                 <ShoppingCart size={16} />
-                Add transaction
+                {t('assetResearch.addTransaction')}
               </button>
             </div>
           </div>
@@ -644,22 +648,22 @@ export default function AssetResearch() {
             onEdit={() => setInvestmentNoteOpen(true)}
           />
           {tradingPerformanceQuery.isLoading ? (
-            <Section title="Trading Performance" icon={<Activity size={20} className="text-blue-600 dark:text-blue-400" />}>
+            <Section title={t('assetResearch.tradingPerformance')} icon={<Activity size={20} className="text-blue-600 dark:text-blue-400" />}>
               <MetricSkeletonGrid count={4} />
             </Section>
           ) : tradingPerformanceQuery.data ? (
-            <Section title="Trading Performance" icon={<Activity size={20} className="text-blue-600 dark:text-blue-400" />}>
+            <Section title={t('assetResearch.tradingPerformance')} icon={<Activity size={20} className="text-blue-600 dark:text-blue-400" />}>
               <MetricGrid metrics={buildTradingPerformanceMetrics(tradingPerformanceQuery.data)} />
             </Section>
           ) : null}
           {showThemeSection && (
             <>
               {sectionLoading.themes ? (
-                <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                <Section title={t('assetResearch.themesExposures')} icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
                   <CardSkeleton rows={4} />
                 </Section>
               ) : (
-                <ThemeSection themes={asset.themes || []} />
+                <ThemeSection themes={asset.themes || []} t={t} />
               )}
               <SectionErrorBanner message={sectionErrors.themes} />
             </>
@@ -667,7 +671,7 @@ export default function AssetResearch() {
           {showProfileSections && (
             <>
               {sectionLoading.business ? (
-                <Section title="Business" icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                <Section title={t('assetResearch.business')} icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
                   <CardSkeleton rows={6} />
                 </Section>
               ) : (
@@ -676,15 +680,16 @@ export default function AssetResearch() {
                   asset={asset}
                   descriptionExpanded={descriptionExpanded}
                   onToggleDescription={() => setDescriptionExpanded((expanded) => !expanded)}
+                  t={t}
                 />
               )}
               <SectionErrorBanner message={sectionErrors.business} />
               {sectionLoading.ownership ? (
-                <Section title="Ownership" icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+                <Section title={t('assetResearch.ownership')} icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
                   <MetricSkeletonGrid count={3} />
                 </Section>
               ) : (
-                <OwnershipSection ownership={assetResearch.ownership} />
+                <OwnershipSection ownership={assetResearch.ownership} t={t} />
               )}
               <SectionErrorBanner message={sectionErrors.ownership} />
             </>
@@ -703,15 +708,15 @@ export default function AssetResearch() {
             initialPeriod="ALL"
             ensureAllTimeHistory
           />
-          <Section title="Market Metadata" icon={<BarChart3 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+          <Section title={t('assetResearch.marketMetadata')} icon={<BarChart3 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
             {sectionLoading.metadata ? (
               <MetricSkeletonGrid count={4} />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <InfoCard label="ATH" value={formatCurrency(metadata.ath_price, metrics.currency)} />
-                <InfoCard label="ATH Date" value={metadata.ath_date ? new Date(metadata.ath_date).toLocaleDateString() : '-'} />
-                <InfoCard label="ATL" value={formatCurrency(metadata.atl_price, metrics.currency)} />
-                <InfoCard label="ATL Date" value={metadata.atl_date ? new Date(metadata.atl_date).toLocaleDateString() : '-'} />
+                <InfoCard label={t('assetResearch.ath')} value={formatCurrency(metadata.ath_price, metrics.currency)} />
+                <InfoCard label={t('assetResearch.athDate')} value={metadata.ath_date ? new Date(metadata.ath_date).toLocaleDateString() : '-'} />
+                <InfoCard label={t('assetResearch.atl')} value={formatCurrency(metadata.atl_price, metrics.currency)} />
+                <InfoCard label={t('assetResearch.atlDate')} value={metadata.atl_date ? new Date(metadata.atl_date).toLocaleDateString() : '-'} />
               </div>
             )}
             <SectionErrorBanner message={sectionErrors.metadata} />
@@ -723,18 +728,18 @@ export default function AssetResearch() {
         <div className="space-y-6">
           {sectionLoading.fundamentals ? (
             <>
-              <Section title="Fundamentals & Liquidity" icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />}>
+              <Section title={t('assetResearch.fundamentalsLiquidity')} icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />}>
                 <MetricSkeletonGrid />
               </Section>
-              <Section title="Growth & Profitability" icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />}>
+              <Section title={t('assetResearch.growthProfitability')} icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />}>
                 <MetricSkeletonGrid />
               </Section>
             </>
           ) : (
             <>
-              <MaybeSection title="Fundamentals & Liquidity" metrics={metrics.fundamentals} icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />} />
-              <MaybeSection title="Growth & Profitability" metrics={metrics.growth} icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />} />
-              <MaybeSection title="Balance Sheet" metrics={metrics.balanceSheet} icon={<Shield size={20} className="text-cyan-600 dark:text-cyan-400" />} />
+              <MaybeSection title={t('assetResearch.fundamentalsLiquidity')} metrics={metrics.fundamentals} icon={<DollarSign size={20} className="text-emerald-600 dark:text-emerald-400" />} />
+              <MaybeSection title={t('assetResearch.growthProfitability')} metrics={metrics.growth} icon={<LineChart size={20} className="text-green-600 dark:text-green-400" />} />
+              <MaybeSection title={t('assetResearch.balanceSheet')} metrics={metrics.balanceSheet} icon={<Shield size={20} className="text-cyan-600 dark:text-cyan-400" />} />
             </>
           )}
           <SectionErrorBanner message={sectionErrors.fundamentals} />
@@ -742,7 +747,7 @@ export default function AssetResearch() {
       )}
 
       {activeTab === 'performance' && (
-        <Section title={`Relative Performance${metrics.relative.sector_etf ? ` vs ${metrics.relative.sector_etf}` : ''}`} icon={<BarChart3 size={20} className="text-indigo-600 dark:text-indigo-400" />}>
+        <Section title={metrics.relative.sector_etf ? t('assetResearch.relativePerformanceVs', { etf: metrics.relative.sector_etf }) : t('assetResearch.relativePerformance')} icon={<BarChart3 size={20} className="text-indigo-600 dark:text-indigo-400" />}>
           {sectionLoading.performance ? (
             <MetricSkeletonGrid />
           ) : (
@@ -753,7 +758,7 @@ export default function AssetResearch() {
                 buildRelativeMetric('YTD', metrics.relative.relative_perf_ytd, metrics.relative.asset_perf_ytd, metrics.relative.etf_perf_ytd, asset.symbol, metrics.relative.sector_etf),
                 buildRelativeMetric('1Y', metrics.relative.relative_perf_1y, metrics.relative.asset_perf_1y, metrics.relative.etf_perf_1y, asset.symbol, metrics.relative.sector_etf),
               ].filter((metric): metric is AssetResearchMetric => metric !== null)}
-              emptyMessage="No relative performance data available yet."
+              emptyMessage={t('assetResearch.noRelativePerformance')}
             />
           )}
           <SectionErrorBanner message={sectionErrors.performance} />
@@ -761,7 +766,7 @@ export default function AssetResearch() {
       )}
 
       {activeTab === 'risk' && (
-        <Section title="Risk Metrics" icon={<AlertTriangle size={20} className="text-orange-600 dark:text-orange-400" />}>
+        <Section title={t('assetResearch.riskMetrics')} icon={<AlertTriangle size={20} className="text-orange-600 dark:text-orange-400" />}>
           {sectionLoading.risk ? (
             <MetricSkeletonGrid />
           ) : (
@@ -772,7 +777,7 @@ export default function AssetResearch() {
       )}
 
       {activeTab === 'analyst' && (
-        <Section title="Analyst View & Valuation" icon={<Users size={20} className="text-violet-600 dark:text-violet-400" />}>
+        <Section title={t('assetResearch.analystViewValuation')} icon={<Users size={20} className="text-violet-600 dark:text-violet-400" />}>
           {sectionLoading.fundamentals ? (
             <MetricSkeletonGrid />
           ) : (
@@ -815,7 +820,8 @@ function AssetTypePill({ value }: { value: string }) {
 }
 
 function SectorPill({ value }: { value: string | null | undefined }) {
-  const label = value || 'Unknown sector'
+  const { t } = useTranslation()
+  const label = value || t('assetResearch.unknownSector')
   const Icon = getSectorIcon(value)
   return (
     <Pill title={label}>
@@ -826,7 +832,8 @@ function SectorPill({ value }: { value: string | null | undefined }) {
 }
 
 function IndustryPill({ value }: { value: string | null | undefined }) {
-  const label = value || 'Unknown industry'
+  const { t } = useTranslation()
+  const label = value || t('assetResearch.unknownIndustry')
   const Icon = getIndustryIcon(value)
   return (
     <Pill title={label}>
@@ -837,7 +844,8 @@ function IndustryPill({ value }: { value: string | null | undefined }) {
 }
 
 function CountryPill({ value }: { value: string | null | undefined }) {
-  const label = value || 'Unknown country'
+  const { t } = useTranslation()
+  const label = value || t('assetResearch.unknownCountry')
   const countryCode = getCountryCode(value)
   return (
     <Pill title={label}>
@@ -932,11 +940,11 @@ function SectionErrorBanner({ message }: { message: string | null }) {
   )
 }
 
-function ThemeSection({ themes }: { themes: AssetResearchDTO['asset']['themes'] }) {
+function ThemeSection({ themes, t }: { themes: AssetResearchDTO['asset']['themes']; t: (key: string) => string }) {
   if (!themes || themes.length === 0) return null
 
   return (
-    <Section title="Themes & Exposures" icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+    <Section title={t('assetResearch.themesExposures')} icon={<Tags size={20} className="text-neutral-600 dark:text-neutral-400" />}>
       <div className="grid gap-3 sm:grid-cols-2">
         {themes.map((theme) => (
           (() => {
@@ -972,48 +980,50 @@ function BusinessSection({
   asset,
   descriptionExpanded,
   onToggleDescription,
+  t,
 }: {
   business: AssetResearchDTO['business']
   asset: AssetResearchDTO['asset']
   descriptionExpanded: boolean
   onToggleDescription: () => void
+  t: (key: string) => string
 }) {
   const description = business.description?.trim()
   const businessItems = [
     {
-      label: 'Founded',
+      label: t('assetResearch.founded'),
       value: business.founded ? String(business.founded) : '-',
       icon: <CalendarDays size={16} className="text-neutral-500 dark:text-neutral-400" />,
     },
     {
-      label: 'Employees',
+      label: t('assetResearch.employees'),
       value: business.employees ? formatWithSeparators(business.employees) : '-',
       icon: <Users size={16} className="text-neutral-500 dark:text-neutral-400" />,
     },
     {
-      label: 'Headquarters',
+      label: t('assetResearch.headquarters'),
       value: business.headquarters || '-',
       icon: <MapPin size={16} className="text-neutral-500 dark:text-neutral-400" />,
     },
     {
-      label: 'Country',
+      label: t('assetResearch.country'),
       value: business.country || asset.country || '-',
       icon: <MapPin size={16} className="text-neutral-500 dark:text-neutral-400" />,
     },
     {
-      label: 'Sector',
+      label: t('assetResearch.sector'),
       value: business.sector || asset.sector || '-',
       icon: <Building2 size={16} className="text-neutral-500 dark:text-neutral-400" />,
     },
     {
-      label: 'Industry',
+      label: t('assetResearch.industry'),
       value: business.industry || asset.industry || '-',
       icon: <Building2 size={16} className="text-neutral-500 dark:text-neutral-400" />,
     },
   ]
 
   return (
-    <Section title="Business" icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+    <Section title={t('assetResearch.business')} icon={<Building2 size={20} className="text-neutral-600 dark:text-neutral-400" />}>
       <div className="card p-5 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-4">
           {businessItems.map((item) => (
@@ -1033,7 +1043,7 @@ function BusinessSection({
           <div className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               <BookOpenText size={16} className="text-neutral-500 dark:text-neutral-400" />
-              Company Description
+              {t('assetResearch.companyDescription')}
             </div>
             <p className={`text-sm leading-6 text-neutral-600 dark:text-neutral-400 ${descriptionExpanded ? '' : 'max-h-24 overflow-hidden'}`}>
               {description}
@@ -1046,12 +1056,12 @@ function BusinessSection({
               {descriptionExpanded ? (
                 <>
                   <ChevronUp size={16} />
-                  Hide full company description
+                  {t('assetResearch.hideDescription')}
                 </>
               ) : (
                 <>
                   <ChevronDown size={16} />
-                  Show full company description
+                  {t('assetResearch.showDescription')}
                 </>
               )}
             </button>
@@ -1062,25 +1072,26 @@ function BusinessSection({
   )
 }
 
-function OwnershipSection({ ownership }: { ownership: AssetResearchDTO['ownership'] }) {
+function OwnershipSection({ ownership, t }: { ownership: AssetResearchDTO['ownership']; t: (key: string) => string }) {
   return (
-    <Section title="Ownership" icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
+    <Section title={t('assetResearch.ownership')} icon={<Users size={20} className="text-neutral-600 dark:text-neutral-400" />}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <InfoCard label="Institutional Ownership" value={formatOwnershipPercent(ownership.institutional_ownership)} />
-        <InfoCard label="Insider Ownership" value={formatOwnershipPercent(ownership.insider_ownership)} />
-        <InfoCard label="Short Interest" value={formatOwnershipPercent(ownership.short_interest)} />
+        <InfoCard label={t('assetResearch.institutionalOwnership')} value={formatOwnershipPercent(ownership.institutional_ownership)} />
+        <InfoCard label={t('assetResearch.insiderOwnership')} value={formatOwnershipPercent(ownership.insider_ownership)} />
+        <InfoCard label={t('assetResearch.shortInterest')} value={formatOwnershipPercent(ownership.short_interest)} />
       </div>
     </Section>
   )
 }
 
-function MetricGrid({ metrics, emptyMessage = 'No data available.' }: { metrics: AssetResearchMetric[]; emptyMessage?: string }) {
+function MetricGrid({ metrics, emptyMessage }: { metrics: AssetResearchMetric[]; emptyMessage?: string }) {
+  const { t } = useTranslation()
   if (metrics.length === 0) {
     return (
       <StateBlock
-        eyebrow="No data"
-        title={emptyMessage}
-        description="This research section will populate when market data is available."
+        eyebrow={t('assetResearch.noDataEyebrow')}
+        title={emptyMessage ?? t('assetResearch.noDataAvailable')}
+        description={t('assetResearch.noDataDescription')}
       />
     )
   }

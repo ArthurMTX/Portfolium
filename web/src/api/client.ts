@@ -15,6 +15,11 @@ export function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+function getLanguageHeaders(): Record<string, string> {
+  const language = localStorage.getItem('portfolium-language')
+  return language ? { 'Accept-Language': language } : {}
+}
+
 export async function request<T>(
   endpoint: string,
   options: RequestInit & { timeout?: number } = {}
@@ -23,6 +28,7 @@ export async function request<T>(
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
+    ...getLanguageHeaders(),
     ...options.headers,
   }
 

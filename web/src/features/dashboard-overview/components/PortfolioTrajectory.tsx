@@ -11,6 +11,7 @@ import {
   type ChartOptions,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { useTranslation } from 'react-i18next'
 import type { PortfolioHistoryPointDTO } from '@/api'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
@@ -26,6 +27,7 @@ export default function PortfolioTrajectory({
   currency,
   locale,
 }: PortfolioTrajectoryProps) {
+  const { t } = useTranslation()
   const formatter = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
@@ -45,7 +47,7 @@ export default function PortfolioTrajectory({
       ),
       datasets: [
         {
-          label: 'Portfolio value',
+          label: t('dashboardOverview.trajectory.portfolioValue'),
           data: points.map((point) => Number(point.value)),
           borderColor: '#b51f5e',
           backgroundColor: 'rgba(181, 31, 94, 0.07)',
@@ -57,7 +59,7 @@ export default function PortfolioTrajectory({
           fill: true,
         },
         {
-          label: 'Net invested',
+          label: t('dashboardOverview.trajectory.netInvested'),
           data: points.map((point) =>
             point.invested === undefined ? null : Number(point.invested),
           ),
@@ -71,7 +73,7 @@ export default function PortfolioTrajectory({
         },
       ],
     }),
-    [locale, points],
+    [locale, points, t],
   )
 
   const options = useMemo<ChartOptions<'line'>>(
@@ -132,7 +134,7 @@ export default function PortfolioTrajectory({
   if (points.length < 2) {
     return (
       <div className="dashboard-overview__chart-empty">
-        A trajectory will appear after Portfolium has enough dated valuations.
+        {t('dashboardOverview.trajectory.empty')}
       </div>
     )
   }
@@ -141,7 +143,7 @@ export default function PortfolioTrajectory({
     <div
       className="dashboard-overview__chart"
       role="img"
-      aria-label="Portfolio value and net invested trajectory"
+      aria-label={t('dashboardOverview.trajectory.ariaLabel')}
     >
       <Line data={data} options={options} />
     </div>

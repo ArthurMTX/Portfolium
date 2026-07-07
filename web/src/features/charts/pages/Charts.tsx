@@ -25,12 +25,6 @@ import '@/shared/design/pages/charts.css'
 
 type ChartTab = 'heatmap' | 'history' | 'performance'
 
-const TAB_PURPOSES: Record<ChartTab, string> = {
-  heatmap: 'Position map of the portfolio, colored by daily movement.',
-  history: 'Portfolio value over the selected period.',
-  performance: 'Investment performance measured against invested capital.',
-}
-
 function metricTone(value: number | null | undefined): 'positive' | 'negative' | 'neutral' {
   if (value === null || value === undefined || value === 0) return 'neutral'
   return value > 0 ? 'positive' : 'negative'
@@ -127,24 +121,29 @@ export default function Charts() {
   const firstInvestmentPoint = heroHistory.find((point) => (point.value || 0) > 0 || (point.invested || 0) > 0)
   const totalReturn = latestPoint && latestPoint.invested !== undefined ? latestPoint.value - latestPoint.invested : null
   const totalReturnPct = latestPoint?.gain_pct
+  const tabPurposes: Record<ChartTab, string> = {
+    heatmap: t('chartsPage.tabPurposeHeatmap'),
+    history: t('chartsPage.tabPurposeHistory'),
+    performance: t('chartsPage.tabPurposePerformance'),
+  }
 
   return (
     <PageShell className="charts">
       <PageHeader>
-        <PageTitleBlock kicker="Charts" title="Portfolio history" />
+        <PageTitleBlock kicker={t('chartsPage.kicker')} title={t('chartsPage.title')} />
         <PageSummaryPanel
-          lead={activePortfolio?.name || 'Active portfolio'}
-          description={TAB_PURPOSES[activeTab]}
+          lead={activePortfolio?.name || t('chartsPage.activePortfolioFallback')}
+          description={tabPurposes[activeTab]}
         />
       </PageHeader>
 
-      <PageMetricStrip label="Portfolio chart context">
+      <PageMetricStrip label={t('chartsPage.contextLabel')}>
         <PageMetric
-          label="Current value"
+          label={t('chartsPage.currentValue')}
           value={latestPoint ? `${currencySymbol}${latestPoint.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
         />
         <PageMetric
-          label="Total return"
+          label={t('chartsPage.totalReturn')}
           tone={metricTone(totalReturn)}
           value={totalReturn !== null ? `${totalReturn >= 0 ? '+' : '-'}${currencySymbol}${Math.abs(totalReturn).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           detail={totalReturnPct !== undefined && totalReturnPct !== null
@@ -152,17 +151,17 @@ export default function Charts() {
             : undefined}
           detailTone={metricTone(totalReturnPct)}
         />
-        <PageMetric label="Selected period" value="All time" />
+        <PageMetric label={t('chartsPage.selectedPeriod')} value={t('chartsPage.allTime')} />
         <PageMetric
-          label="First investment"
+          label={t('chartsPage.firstInvestment')}
           value={firstInvestmentPoint ? new Date(firstInvestmentPoint.date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—'}
         />
       </PageMetricStrip>
 
       <PageControls
-        label="Chart views"
+        label={t('chartsPage.viewsLabel')}
         start={
-          <PageTabs label="Chart views">
+          <PageTabs label={t('chartsPage.viewsLabel')}>
             <button
               type="button"
               onClick={() => setActiveTab('heatmap')}

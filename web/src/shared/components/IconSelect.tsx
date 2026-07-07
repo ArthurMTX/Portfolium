@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface IconSelectOption {
   value: string;
@@ -24,11 +25,13 @@ export default function IconSelect({
   value,
   onChange,
   options,
-  placeholder = 'Select...',
+  placeholder,
   disabled = false,
   className = '',
   clearable = false,
 }: IconSelectProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('iconSelect.select');
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -112,7 +115,7 @@ export default function IconSelect({
                 <span className="truncate">{selectedOption.label}</span>
               </>
             ) : (
-              <span className="text-neutral-400 dark:text-neutral-500">{placeholder}</span>
+              <span className="text-neutral-400 dark:text-neutral-500">{resolvedPlaceholder}</span>
             )}
           </div>
           <ChevronDown
@@ -129,7 +132,7 @@ export default function IconSelect({
             type="button"
             onClick={handleClear}
             className="absolute right-10 top-1/2 -translate-y-1/2 p-1 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors z-10"
-            title="Clear selection"
+            title={t('iconSelect.clearSelection')}
           >
             <X size={14} className="text-neutral-500 dark:text-neutral-400" />
           </button>
@@ -146,7 +149,7 @@ export default function IconSelect({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search..."
+              placeholder={t('iconSelect.search')}
               className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
           </div>
@@ -154,7 +157,7 @@ export default function IconSelect({
           {/* Options List */}
           <div className="overflow-y-auto flex-1">
             {filteredOptions.length === 0 ? (
-              <div className="pf-dropdown-empty">No matching options.</div>
+              <div className="pf-dropdown-empty">{t('iconSelect.noMatchingOptions')}</div>
             ) : (
               filteredOptions.map((option) => (
                 <button

@@ -86,7 +86,7 @@ export default function MarketStatusWidget({ isPreview = false }: MarketStatusWi
           <Globe className="text-sky-600 dark:text-sky-400" size={18} />
         </div>
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          {t('dashboard.marketStatus')}
+          {t('common.marketStatus')}
         </h3>
       </div>
 

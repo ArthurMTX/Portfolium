@@ -19,9 +19,9 @@ export function WidgetEmptyState({ message }: WidgetEmptyStateProps) {
 
   return (
     <StateBlock
-      eyebrow="No data"
+      eyebrow={t('common.noData')}
       title={displayMessage}
-      description="Data will appear here when enough portfolio activity is available."
+      description={t('common.widgetEmptyStateDescription')}
     />
   )
 }

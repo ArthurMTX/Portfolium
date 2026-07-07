@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Activity, Award, Coins, Globe2, Layers, PieChart, Target, TrendingDown, TrendingUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ContributionItemDTO } from '@/api'
 import {
   BarsSkeleton,
@@ -19,6 +20,7 @@ import { useAttributionInsights } from '@/features/insights/components/useInsigh
 type AttributionQuery = ReturnType<typeof useAttributionInsights>
 
 export default function AttributionTab({ portfolioId, currency }: InsightsTabProps) {
+  const { t } = useTranslation()
   const query = useAttributionInsights(portfolioId)
 
   return (
@@ -26,17 +28,17 @@ export default function AttributionTab({ portfolioId, currency }: InsightsTabPro
       <PortfolioMoveBlock query={query} currency={currency} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <AssetContributionBlock query={query} currency={currency} title="Top Contributors" ascending={false} />
-        <AssetContributionBlock query={query} currency={currency} title="Top Detractors" ascending />
+        <AssetContributionBlock query={query} currency={currency} title={t('insights.attribution.topContributors')} ascending={false} />
+        <AssetContributionBlock query={query} currency={currency} title={t('insights.attribution.topDetractors')} ascending />
       </div>
 
-      <GroupContributionBlock query={query} currency={currency} group="assets" title="Contribution by Asset" icon={<Activity className="h-5 w-5 text-pink-600" />} />
+      <GroupContributionBlock query={query} currency={currency} group="assets" title={t('insights.attribution.byAsset')} icon={<Activity className="h-5 w-5 text-pink-600" />} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <GroupContributionBlock query={query} currency={currency} group="themes" title="Contribution by Theme" icon={<Layers className="h-5 w-5 text-pink-600" />} />
-        <GroupContributionBlock query={query} currency={currency} group="sectors" title="Contribution by Sector" icon={<PieChart className="h-5 w-5 text-pink-600" />} />
-        <GroupContributionBlock query={query} currency={currency} group="countries" title="Contribution by Country" icon={<Globe2 className="h-5 w-5 text-pink-600" />} />
-        <GroupContributionBlock query={query} currency={currency} group="currencies" title="Contribution by Currency" icon={<Coins className="h-5 w-5 text-pink-600" />} />
+        <GroupContributionBlock query={query} currency={currency} group="themes" title={t('insights.attribution.byTheme')} icon={<Layers className="h-5 w-5 text-pink-600" />} />
+        <GroupContributionBlock query={query} currency={currency} group="sectors" title={t('insights.attribution.bySector')} icon={<PieChart className="h-5 w-5 text-pink-600" />} />
+        <GroupContributionBlock query={query} currency={currency} group="countries" title={t('insights.attribution.byCountry')} icon={<Globe2 className="h-5 w-5 text-pink-600" />} />
+        <GroupContributionBlock query={query} currency={currency} group="currencies" title={t('insights.attribution.byCurrency')} icon={<Coins className="h-5 w-5 text-pink-600" />} />
       </div>
 
       <ConcentrationBlock query={query} />
@@ -45,43 +47,44 @@ export default function AttributionTab({ portfolioId, currency }: InsightsTabPro
 }
 
 function PortfolioMoveBlock({ query, currency }: { query: AttributionQuery; currency: string }) {
+  const { t } = useTranslation()
   const data = query.data?.move
 
   return (
     <InsightBlock
-      title="Why Does My Portfolio Move?"
+      title={t('insights.attribution.portfolioMove.title')}
       icon={<TrendingUp className="h-5 w-5 text-pink-600" />}
-      scope="Latest daily move"
-      description="Shows which current holdings explain today's portfolio move using the latest available daily change for each asset."
-      formula="position market value x daily change %, then summed and divided by total portfolio value."
+      scope={t('insights.attribution.portfolioMove.scope')}
+      description={t('insights.attribution.portfolioMove.description')}
+      formula={t('insights.attribution.portfolioMove.formula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!data || ((data.best_movers?.length || 0) === 0 && (data.worst_movers?.length || 0) === 0 && data.movers.length === 0)}
-      emptyMessage="Daily change data is not available for the current holdings."
+      emptyMessage={t('insights.attribution.portfolioMove.empty')}
       onRetry={() => void query.refetch()}
       skeleton={<MiniTableSkeleton rows={4} />}
     >
       <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
         <SummaryStat
-          label="Daily Change"
-          value={data?.daily_change_pct === null ? 'N/A' : formatPercent(data?.daily_change_pct, 2, true)}
+          label={t('insights.attribution.portfolioMove.dailyChange')}
+          value={data?.daily_change_pct === null ? t('insights.risk.notAvailable') : formatPercent(data?.daily_change_pct, 2, true)}
           tone={valueColor(data?.daily_change_pct)}
         />
-        <SummaryStat label="Estimated Move" value={data?.daily_change_value === null ? 'N/A' : formatCurrencyValue(data?.daily_change_value, currency)} />
-        <SummaryStat label="Explained By Holdings" value={formatCurrencyValue(data?.explained_value, currency)} />
+        <SummaryStat label={t('insights.attribution.portfolioMove.estimatedMove')} value={data?.daily_change_value === null ? t('insights.risk.notAvailable') : formatCurrencyValue(data?.daily_change_value, currency)} />
+        <SummaryStat label={t('insights.attribution.portfolioMove.explainedByHoldings')} value={formatCurrencyValue(data?.explained_value, currency)} />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DailyMoverList
-          title="Best 5 assets"
+          title={t('insights.attribution.portfolioMove.bestAssets')}
           items={data?.best_movers || []}
           currency={currency}
-          emptyMessage="No positive daily movers."
+          emptyMessage={t('insights.attribution.portfolioMove.noPositiveMovers')}
         />
         <DailyMoverList
-          title="Worst 5 assets"
+          title={t('insights.attribution.portfolioMove.worstAssets')}
           items={data?.worst_movers || []}
           currency={currency}
-          emptyMessage="No negative daily movers."
+          emptyMessage={t('insights.attribution.portfolioMove.noNegativeMovers')}
         />
       </div>
     </InsightBlock>
@@ -99,15 +102,16 @@ function AssetContributionBlock({
   title: string
   ascending?: boolean
 }) {
+  const { t } = useTranslation()
   const items = ascending ? query.data?.top_detractors : query.data?.top_contributors
 
   return (
     <InsightBlock
       title={title}
       icon={ascending ? <TrendingDown className="h-5 w-5 text-red-600" /> : <Award className="h-5 w-5 text-green-600" />}
-      scope="Current holdings"
-      description="Ranks open positions by total unrealized P&L, not by today's move or the selected period."
-      formula="market value minus cost basis for each open position."
+      scope={t('insights.shared.currentHoldings')}
+      description={t('insights.attribution.contributionDescription')}
+      formula={t('insights.attribution.contributionFormula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!items || items.length === 0}
@@ -134,6 +138,7 @@ function GroupContributionBlock({
   title: string
   icon: ReactNode
 }) {
+  const { t } = useTranslation()
   const items =
     group === 'assets'
       ? query.data?.asset_contribution
@@ -156,9 +161,9 @@ function GroupContributionBlock({
     <InsightBlock
       title={title}
       icon={icon}
-      scope="Current holdings"
-      description="Groups current open positions and shows how much each group contributes to total unrealized return."
-      formula="sum unrealized P&L for the group / total portfolio cost basis."
+      scope={t('insights.shared.currentHoldings')}
+      description={t('insights.attribution.groupDescription')}
+      formula={t('insights.attribution.groupFormula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!items || items.length === 0}
@@ -177,15 +182,16 @@ function GroupContributionBlock({
 }
 
 function ConcentrationBlock({ query }: { query: AttributionQuery }) {
+  const { t } = useTranslation()
   const data = query.data?.concentration
 
   return (
     <InsightBlock
-      title="Concentration Metrics"
+      title={t('insights.attribution.concentration.title')}
       icon={<Target className="h-5 w-5 text-pink-600" />}
-      scope="Current holdings"
-      description="Measures whether portfolio value is concentrated in a few positions."
-      formula="effective positions = 1 / Herfindahl index; diversification combines holding count and concentration spread."
+      scope={t('insights.shared.currentHoldings')}
+      description={t('insights.attribution.concentration.description')}
+      formula={t('insights.attribution.concentration.formula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!data}
@@ -193,18 +199,18 @@ function ConcentrationBlock({ query }: { query: AttributionQuery }) {
       skeleton={<BarsSkeleton rows={5} />}
     >
       <div className="grid grid-cols-2 gap-5 md:grid-cols-5">
-        <SummaryStat label="Largest Position" value={formatPercent(data?.largest_position_weight, 1)} />
-        <SummaryStat label="Top 3 Weight" value={formatPercent(data?.top_3_weight, 1)} />
-        <SummaryStat label="Top 5 Weight" value={formatPercent(data?.top_5_weight, 1)} />
-        <SummaryStat label="Effective Positions" value={formatNumber(data?.effective_positions, 1)} />
-        <SummaryStat label="Diversification" value={formatNumber(data?.diversification_score, 0)} />
+        <SummaryStat label={t('insights.attribution.concentration.largestPosition')} value={formatPercent(data?.largest_position_weight, 1)} />
+        <SummaryStat label={t('insights.attribution.concentration.top3Weight')} value={formatPercent(data?.top_3_weight, 1)} />
+        <SummaryStat label={t('insights.attribution.concentration.top5Weight')} value={formatPercent(data?.top_5_weight, 1)} />
+        <SummaryStat label={t('insights.attribution.concentration.effectivePositions')} value={formatNumber(data?.effective_positions, 1)} />
+        <SummaryStat label={t('insights.attribution.concentration.diversification')} value={formatNumber(data?.diversification_score, 0)} />
       </div>
       {data?.largest_position && (
         <div className="mt-5 rounded-lg bg-neutral-50 p-4 text-sm dark:bg-neutral-800/70">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Largest holding</p>
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{t('insights.attribution.concentration.largestHolding')}</p>
           <ContributionIdentity item={data.largest_position} kind="asset" />
           <p className="mt-3 text-neutral-600 dark:text-neutral-400">
-            {formatPercent(data.largest_position.portfolio_weight, 1)} of portfolio value.
+            {t('insights.attribution.concentration.ofPortfolioValue', { percent: formatPercent(data.largest_position.portfolio_weight, 1) })}
           </p>
         </div>
       )}

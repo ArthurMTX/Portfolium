@@ -129,7 +129,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
             {/* Fundamentals & Liquidity */}
             {showFundamentals && (
               <MetricSection
-                title={t('dashboard.positionDetail.fundamentalsLiquidity')}
+                title={t('portfolios.positionDetail.fundamentalsLiquidity')}
                 icon="dollarSign"
                 loading={loadingMetrics}
                 skeletonCount={5}
@@ -141,7 +141,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
             {/* Growth & Profitability */}
             {showGrowth && (
               <MetricSection
-                title={t('dashboard.positionDetail.growthProfitability')}
+                title={t('portfolios.positionDetail.growthProfitability')}
                 icon="lineChart"
                 loading={loadingMetrics}
                 skeletonCount={5}
@@ -153,7 +153,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
             {/* Balance Sheet Health */}
             {showBalanceSheet && (
               <MetricSection
-                title={t('dashboard.positionDetail.balanceSheetHealth')}
+                title={t('portfolios.positionDetail.balanceSheetHealth')}
                 icon="shield"
                 loading={loadingMetrics}
                 skeletonCount={4}
@@ -165,7 +165,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
             {/* Analyst View & Valuation */}
             {showAnalyst && (
               <MetricSection
-                title={t('dashboard.positionDetail.analystViewValuation')}
+                title={t('portfolios.positionDetail.analystViewValuation')}
                 icon="users"
                 loading={loadingMetrics}
                 skeletonCount={4}
@@ -176,7 +176,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
             {/* Performance Metrics */}
             <MetricSection
-              title={t('dashboard.positionDetail.performance')}
+              title={t('portfolios.positionDetail.performance')}
               icon="activity"
               loading={loadingMetrics}
               skeletonCount={4}
@@ -187,7 +187,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
             {/* Trading Zones */}
             <MetricSection
-              title={t('dashboard.positionDetail.tradingZones')}
+              title={t('portfolios.positionDetail.tradingZones')}
               icon="target"
               loading={loadingMetrics}
               skeletonCount={4}
@@ -213,7 +213,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
             {/* Risk Metrics */}
             {showRisk ? (
               <MetricSection
-                title={t('dashboard.positionDetail.riskMetrics')}
+                title={t('portfolios.positionDetail.riskMetrics')}
                 icon="alertTriangle"
                 loading={loadingMetrics}
                 skeletonCount={4}
@@ -226,7 +226,7 @@ export default function PositionDetailModal({ position, portfolioId, isOpen, onC
 
             {/* Position Details */}
             <section>
-              <SectionHeader icon="info" title={t('dashboard.positionDetail.basicInfo')} />
+              <SectionHeader icon="info" title={t('portfolios.positionDetail.basicInfo')} />
               <InfoGrid rows={buildBasicInfoRows(position, t)} />
             </section>
           </div>

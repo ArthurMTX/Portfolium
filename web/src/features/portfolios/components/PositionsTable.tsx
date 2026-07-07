@@ -140,13 +140,13 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
       symbol: t('fields.symbol'),
       name: t('fields.name'),
       quantity: t('fields.quantity'),
-      avg_cost: t('dashboard.avgCost'),
-      current_price: t('dashboard.currentPrice'),
-      daily_change_pct: t('dashboard.dailyChange'),
-      market_value: t('dashboard.marketValue'),
-      wallet_pct: t('dashboard.percentOfWallet'),
-      unrealized_pnl: isSold ? t('dashboard.realizedPnL') : 'P&L',
-      unrealized_pnl_pct: isSold ? t('dashboard.realizedPnL') : 'P&L %',
+      avg_cost: t('common.positionFields.avgCost'),
+      current_price: t('common.positionFields.currentPrice'),
+      daily_change_pct: t('common.positionFields.dailyChange'),
+      market_value: t('common.positionFields.marketValue'),
+      wallet_pct: t('common.positionFields.percentOfWallet'),
+      unrealized_pnl: isSold ? t('dashboard.page.realizedPnL') : 'P&L',
+      unrealized_pnl_pct: isSold ? t('dashboard.page.realizedPnL') : 'P&L %',
     }
     return labels[key]
   }
@@ -293,13 +293,13 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
               {isSold ? (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.avgCostBasis')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.positionFields.avgCostBasis')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.avg_cost, position.currency)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.avgProceeds')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.positionFields.avgProceeds')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.current_price, position.currency)}
                     </div>
@@ -320,7 +320,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     </div>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.avgCost')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.positionFields.avgCost')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatCurrency(position.avg_cost, position.currency)}
                     </div>
@@ -331,7 +331,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                       tooltip={getPriceTooltip(position)}
                       className="text-neutral-500 dark:text-neutral-400 text-xs"
                     >
-                      {t('dashboard.currentPrice')}
+                      {t('common.positionFields.currentPrice')}
                     </DataFreshnessIndicator>
                     <DataFreshnessIndicator
                       variant="tooltipOnly"
@@ -353,7 +353,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     </DataFreshnessIndicator>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.dailyChange')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('common.positionFields.dailyChange')}</span>
                     <div className={`font-medium ${
                       position.daily_change_pct !== null && position.daily_change_pct !== undefined
                         ? (Number(position.daily_change_pct) > 0
@@ -382,7 +382,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
               {!isSold && !isPositive && position.breakeven_gain_pct && (
                 <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
                   <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
-                    📈 {t('dashboard.breakeven.gainNeeded')}
+                    📈 {t('common.positionFields.breakeven.gainNeeded')}
                   </div>
                   <div className="font-medium text-amber-600 dark:text-amber-400">
                     +{formatNumber(position.breakeven_gain_pct, 2)}%
@@ -395,8 +395,8 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
 
         {sortedPositions.length === 0 && (
           <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
-            <p>{t('dashboard.noPositions')}</p>
-            <p className="text-sm mt-2">{t('dashboard.noPositionsInfo')}</p>
+            <p>{t('common.positionFields.noPositions')}</p>
+            <p className="text-sm mt-2">{t('common.positionFields.noPositionsInfo')}</p>
           </div>
         )}
         </div>
@@ -427,31 +427,31 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     onClick={() => handleSort('avg_cost')}
                     aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    title="Average cost per share including fees"
+                    title={t('portfolios.avgCostTooltip')}
                   >
-                    {t('dashboard.avgCostBasis')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
+                    {t('common.positionFields.avgCostBasis')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('current_price')}
                     aria-sort={isActive('current_price') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    title="Average proceeds per share after fees"
+                    title={t('portfolios.avgProceedsTooltip')}
                   >
-                    {t('dashboard.avgProceeds')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                    {t('common.positionFields.avgProceeds')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl')}
                     aria-sort={sortKey === 'unrealized_pnl' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('dashboard.realizedPnL')} <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.page.realizedPnL')} <SortIcon column="unrealized_pnl" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('unrealized_pnl_pct')}
                     aria-sort={sortKey === 'unrealized_pnl_pct' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('dashboard.realizedPnL')} % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
+                    {t('dashboard.page.realizedPnL')} % <SortIcon column="unrealized_pnl_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                 </>
               ) : (
@@ -468,7 +468,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     aria-sort={isActive('avg_cost') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    {t('dashboard.avgCost')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
+                    {t('common.positionFields.avgCost')} <SortIcon column="avg_cost" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('current_price')}
@@ -481,7 +481,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                       className="justify-end"
                     >
                       <span>
-                        {t('dashboard.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
+                        {t('common.positionFields.currentPrice')} <SortIcon column="current_price" activeColumn={sortKey} direction={sortDir} />
                       </span>
                     </DataFreshnessIndicator>
                   </th>
@@ -490,7 +490,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                     aria-sort={isActive('daily_change_pct') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     className="px-3 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 hidden xl:table-cell"
                   >
-                    {t('dashboard.dailyChange')} % <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
+                    {t('common.positionFields.dailyChange')} % <SortIcon column="daily_change_pct" activeColumn={sortKey} direction={sortDir} />
                   </th>
                   <th
                     onClick={() => handleSort('market_value')}
@@ -503,7 +503,7 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
                       className="justify-end"
                     >
                       <span>
-                        {t('dashboard.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
+                        {t('common.positionFields.marketValue')} <SortIcon column="market_value" activeColumn={sortKey} direction={sortDir} />
                       </span>
                     </DataFreshnessIndicator>
                   </th>
@@ -701,8 +701,8 @@ export default function PositionsTable({ positions, portfolioId, isSold = false 
 
         {sortedPositions.length === 0 && (
           <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-            <p>{t('dashboard.noPositions')}</p>
-            <p className="text-sm mt-2">{t('dashboard.noPositionsInfo')}</p>
+            <p>{t('common.positionFields.noPositions')}</p>
+            <p className="text-sm mt-2">{t('common.positionFields.noPositionsInfo')}</p>
           </div>
         )}
       </div>

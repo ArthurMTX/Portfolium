@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   ArrowDownToLine,
   ArrowLeftRight,
@@ -74,12 +76,15 @@ const DASHBOARD_WIDGETS = [
 ]
 
 const PERIODS: DashboardPeriod[] = ['1W', '1M', 'YTD', '1Y']
-const EXPOSURE_DIMENSIONS: { key: ExposureDimension; label: string }[] = [
-  { key: 'sector', label: 'Sector' },
-  { key: 'theme', label: 'Theme' },
-  { key: 'type', label: 'Asset type' },
-  { key: 'country', label: 'Country' },
-]
+
+function getExposureDimensions(t: TFunction): { key: ExposureDimension; label: string }[] {
+  return [
+    { key: 'sector', label: t('dashboardOverview.exposureDimensions.sector') },
+    { key: 'theme', label: t('dashboardOverview.exposureDimensions.theme') },
+    { key: 'type', label: t('dashboardOverview.exposureDimensions.type') },
+    { key: 'country', label: t('dashboardOverview.exposureDimensions.country') },
+  ]
+}
 
 function signedCurrency(value: number, currency: string, locale: string) {
   const formatted = formatCurrency(Math.abs(value), currency, locale)
@@ -107,35 +112,35 @@ interface TransactionVisual {
   tone: string
 }
 
-function getTransactionVisual(type: string): TransactionVisual {
+function getTransactionVisual(type: string, t: TFunction): TransactionVisual {
   switch (type.toUpperCase()) {
     case 'BUY':
-      return { Icon: ArrowDownToLine, label: 'Buy', tone: 'buy' }
+      return { Icon: ArrowDownToLine, label: t('dashboardOverview.transactionTypes.buy'), tone: 'buy' }
     case 'SELL':
-      return { Icon: ArrowUpFromLine, label: 'Sell', tone: 'sell' }
+      return { Icon: ArrowUpFromLine, label: t('dashboardOverview.transactionTypes.sell'), tone: 'sell' }
     case 'DIVIDEND':
-      return { Icon: CircleDollarSign, label: 'Dividend', tone: 'dividend' }
+      return { Icon: CircleDollarSign, label: t('dashboardOverview.transactionTypes.dividend'), tone: 'dividend' }
     case 'SPLIT':
-      return { Icon: Shuffle, label: 'Split', tone: 'split' }
+      return { Icon: Shuffle, label: t('dashboardOverview.transactionTypes.split'), tone: 'split' }
     case 'FEE':
-      return { Icon: ReceiptText, label: 'Fee', tone: 'fee' }
+      return { Icon: ReceiptText, label: t('dashboardOverview.transactionTypes.fee'), tone: 'fee' }
     case 'TRANSFER_IN':
-      return { Icon: BanknoteArrowDown, label: 'Transfer in', tone: 'inflow' }
+      return { Icon: BanknoteArrowDown, label: t('dashboardOverview.transactionTypes.transferIn'), tone: 'inflow' }
     case 'TRANSFER_OUT':
-      return { Icon: ArrowUpFromLine, label: 'Transfer out', tone: 'outflow' }
+      return { Icon: ArrowUpFromLine, label: t('dashboardOverview.transactionTypes.transferOut'), tone: 'outflow' }
     case 'CONVERSION_IN':
-      return { Icon: ArrowLeftRight, label: 'Conversion in', tone: 'inflow' }
+      return { Icon: ArrowLeftRight, label: t('dashboardOverview.transactionTypes.conversionIn'), tone: 'inflow' }
     case 'CONVERSION_OUT':
-      return { Icon: ArrowLeftRight, label: 'Conversion out', tone: 'outflow' }
+      return { Icon: ArrowLeftRight, label: t('dashboardOverview.transactionTypes.conversionOut'), tone: 'outflow' }
     default:
       return { Icon: ArrowLeftRight, label: type, tone: 'neutral' }
   }
 }
 
-function formatTimestamp(value: string | undefined, locale: string) {
-  if (!value) return 'valuation time unavailable'
+function formatTimestamp(value: string | undefined, locale: string, t: TFunction) {
+  if (!value) return t('dashboardOverview.valuationTimeUnavailable')
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return 'valuation time unavailable'
+  if (Number.isNaN(parsed.getTime())) return t('dashboardOverview.valuationTimeUnavailable')
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'long',
@@ -147,6 +152,7 @@ function formatTimestamp(value: string | undefined, locale: string) {
 
 
 export default function DashboardOverview() {
+  const { t } = useTranslation()
   const {
     portfolios,
     activePortfolioId,
@@ -156,6 +162,7 @@ export default function DashboardOverview() {
   const [period, setPeriod] = useState<DashboardPeriod>('1M')
   const [exposureDimension, setExposureDimension] = useState<ExposureDimension>('sector')
   const locale = navigator.language || 'en-US'
+  const exposureDimensions = useMemo(() => getExposureDimensions(t), [t])
 
   const { data: portfoliosData, isLoading: portfoliosLoading } = useQuery({
     queryKey: ['portfolios'],
@@ -241,8 +248,8 @@ export default function DashboardOverview() {
   const hasDailyChange = metrics?.daily_change_value !== null && metrics?.daily_change_value !== undefined
   const dailyChange = numberValue(metrics?.daily_change_value)
   const dailyAttribution = useMemo(
-    () => (hasDailyChange ? buildDailyAttribution(displayPositions, dailyChange, 5) : []),
-    [dailyChange, displayPositions, hasDailyChange],
+    () => (hasDailyChange ? buildDailyAttribution(displayPositions, dailyChange, t, 5) : []),
+    [dailyChange, displayPositions, hasDailyChange, t],
   )
   const concentration = useMemo(
     () => calculateConcentration(displayPositions),
@@ -273,25 +280,29 @@ export default function DashboardOverview() {
         return buildExposure(
           batch?.theme_allocation as ThemeDistributionItemDTO[] | undefined,
           'theme',
+          t,
         )
       case 'type':
         return buildExposure(
           batch?.asset_allocation as DistributionItemDTO[] | undefined,
           'standard',
+          t,
         )
       case 'country':
         return buildExposure(
           batch?.country_allocation as DistributionItemDTO[] | undefined,
           'standard',
+          t,
         )
       case 'sector':
       default:
         return buildExposure(
           batch?.sector_allocation as DistributionItemDTO[] | undefined,
           'standard',
+          t,
         )
     }
-  }, [batch, exposureDimension])
+  }, [batch, exposureDimension, t])
 
   const activeGoal = goalsQuery.data?.[0]
   const goalTarget = numberValue(activeGoal?.target_amount)
@@ -301,19 +312,19 @@ export default function DashboardOverview() {
       : 0
 
   if (portfoliosLoading || (activePortfolioId && batchQuery.isLoading)) {
-    return <PageStateSkeleton label="Loading dashboard" className="dashboard-overview" />
+    return <PageStateSkeleton label={t('dashboardOverview.loading')} className="dashboard-overview" />
   }
 
   if (!portfoliosLoading && portfolios.length === 0) {
     return (
       <PageShell className="dashboard-overview">
         <StateBlock
-          eyebrow="Dashboard"
-          title="Your portfolio is the beginning of this screen."
-          description="Create a portfolio and record capital activity before Portfolium attempts to explain performance."
+          eyebrow={t('navigation.dashboard')}
+          title={t('dashboardOverview.emptyTitle')}
+          description={t('dashboardOverview.emptyDescription')}
         >
           <Link to="/portfolios" className="pf-button pf-button--primary">
-            Create a portfolio
+            {t('dashboardOverview.createPortfolio')}
           </Link>
         </StateBlock>
       </PageShell>
@@ -325,13 +336,13 @@ export default function DashboardOverview() {
       <PageShell className="dashboard-overview">
         <StateBlock
           tone="error"
-          eyebrow="Dashboard"
-          title="Portfolium cannot establish a reliable valuation."
-          description="The existing portfolio data remains unchanged. Retry the shared dashboard request before making a financial decision."
-          actionLabel="Retry valuation"
+          eyebrow={t('navigation.dashboard')}
+          title={t('dashboardOverview.errorTitle')}
+          description={t('dashboardOverview.errorDescription')}
+          actionLabel={t('dashboardOverview.retryValuation')}
           onAction={() => batchQuery.refetch()}
         >
-          <Link to="/dashboard" className="pf-button pf-button--secondary">Return to Dashboard</Link>
+          <Link to="/dashboard" className="pf-button pf-button--secondary">{t('dashboardOverview.returnToDashboard')}</Link>
         </StateBlock>
       </PageShell>
     )
@@ -341,26 +352,27 @@ export default function DashboardOverview() {
     <PageShell className="dashboard-overview">
       <PageHeader>
         <PageTitleBlock
-          kicker="Portfolio"
+          kicker={t('dashboardOverview.kickerPortfolio')}
           title={activePortfolio.name}
           description={
             <>
-              Valued {formatTimestamp(batchQuery.data?.timestamp, locale)}
-              {batchQuery.data?.cached ? ' · cached valuation' : ' · current valuation'}
+              {t('dashboardOverview.valuedAt', { timestamp: formatTimestamp(batchQuery.data?.timestamp, locale, t) })}
+              {' · '}
+              {batchQuery.data?.cached ? t('dashboardOverview.cachedValuation') : t('dashboardOverview.currentValuation')}
             </>
           }
         />
         <PageSummaryPanel
           lead={formatCurrency(metrics.total_value, currency, locale)}
           description={!hasDailyChange
-            ? 'Portfolium cannot attribute today’s movement until a reliable portfolio total is available.'
+            ? t('dashboardOverview.attributionUnavailableNoTotal')
             : attributionIsLoading
-              ? 'Calculating which positions explain today’s movement.'
+              ? t('dashboardOverview.attributionCalculating')
               : attributionIsUnavailable
-                ? 'Position-level market movement is unavailable, so today’s change cannot be attributed reliably.'
+                ? t('dashboardOverview.attributionUnavailable')
             : largestMove
-              ? `${largestMove.label} had the largest estimated effect on today’s movement.`
-              : 'Today’s movement has no material position-level contributor.'}
+              ? t('dashboardOverview.attributionLargestMove', { label: largestMove.label })
+              : t('dashboardOverview.attributionNoContributor')}
           actions={
             <button
               type="button"
@@ -372,40 +384,40 @@ export default function DashboardOverview() {
               disabled={batchQuery.isRefetching || batchPricesQuery.isRefetching}
             >
               {batchQuery.isRefetching || batchPricesQuery.isRefetching
-                ? 'Updating…'
-                : 'Refresh'}
+                ? t('dashboardOverview.updating')
+                : t('dashboardOverview.refresh')}
             </button>
           }
         />
       </PageHeader>
 
-      <PageMetricStrip label="Portfolio performance context">
+      <PageMetricStrip label={t('dashboardOverview.trajectoryPeriod')}>
         <PageMetric
-          label="Today"
+          label={t('dashboardOverview.metricToday')}
           value={hasDailyChange ? signedCurrency(dailyChange, currency, locale) : '—'}
-          detail={hasDailyChange ? signedPercentage(metrics.daily_change_pct) : 'Unavailable'}
+          detail={hasDailyChange ? signedPercentage(metrics.daily_change_pct) : t('dashboardOverview.metricUnavailable')}
           tone={hasDailyChange ? (dailyChange > 0 ? 'positive' : dailyChange < 0 ? 'negative' : 'neutral') : 'neutral'}
         />
         <PageMetric
-          label="Since inception"
+          label={t('dashboardOverview.metricSinceInception')}
           value={signedCurrency(totalGain, currency, locale)}
           detail={sinceInceptionPercentage !== undefined ? signedPercentage(sinceInceptionPercentage) : undefined}
           tone={totalGain > 0 ? 'positive' : totalGain < 0 ? 'negative' : 'neutral'}
         />
         <PageMetric
-          label="Realized"
+          label={t('dashboardOverview.metricRealized')}
           value={formatCurrency(metrics.total_realized_pnl, currency, locale)}
         />
         <PageMetric
-          label="Unrealized"
+          label={t('dashboardOverview.metricUnrealized')}
           value={formatCurrency(metrics.total_unrealized_pnl, currency, locale)}
         />
       </PageMetricStrip>
 
       <PageControls
-        label="Trajectory period"
+        label={t('dashboardOverview.trajectoryPeriod')}
         start={
-          <PageTabs label="Trajectory period">
+          <PageTabs label={t('dashboardOverview.trajectoryPeriod')}>
             {PERIODS.map((item) => (
               <button
                 key={item}
@@ -431,13 +443,19 @@ export default function DashboardOverview() {
         </PageMainColumn>
 
         <PageAsideColumn className="dashboard-overview__attribution" aria-labelledby="what-changed-heading">
-          <p className="pf-section-kicker">Cause</p>
-          <h2 id="what-changed-heading" className="pf-section-title">What changed</h2>
+          <p className="pf-section-kicker">{t('dashboardOverview.cause')}</p>
+          <h2 id="what-changed-heading" className="pf-section-title">{t('dashboardOverview.whatChanged')}</h2>
           {hasDailyChange && !attributionIsLoading && !attributionIsUnavailable ? (
             <>
               <p className="dashboard-overview__attribution-summary">
-                The portfolio {dailyChange < 0 ? 'lost' : dailyChange > 0 ? 'gained' : 'moved'}{' '}
-                <strong>{formatCurrency(Math.abs(dailyChange), currency, locale)}</strong> today.
+                <Trans
+                  i18nKey="dashboardOverview.portfolioMovedToday"
+                  values={{
+                    verb: dailyChange < 0 ? t('dashboardOverview.portfolioMoved.lost') : dailyChange > 0 ? t('dashboardOverview.portfolioMoved.gained') : t('dashboardOverview.portfolioMoved.moved'),
+                    amount: formatCurrency(Math.abs(dailyChange), currency, locale),
+                  }}
+                  components={{ strong: <strong /> }}
+                />
               </p>
               <ol>
                 {dailyAttribution.map((item) => (
@@ -454,7 +472,7 @@ export default function DashboardOverview() {
                       )}
                       <span>
                         {item.label}
-                        {item.estimated && <small>estimated</small>}
+                        {item.estimated && <small>{t('dashboardOverview.estimated')}</small>}
                       </span>
                     </span>
                     <strong className={valueTone(item.value)}>
@@ -464,22 +482,22 @@ export default function DashboardOverview() {
                 ))}
               </ol>
               <div className="dashboard-overview__reconciliation">
-                <span>Authoritative total</span>
+                <span>{t('dashboardOverview.authoritativeTotal')}</span>
                 <strong className={valueTone(dailyChange)}>
                   {signedCurrency(dailyChange, currency, locale)}
                 </strong>
               </div>
-              <Link to="/insights">Inspect today’s movement →</Link>
+              <Link to="/insights">{t('dashboardOverview.inspectTodaysMovement')}</Link>
             </>
           ) : attributionIsLoading ? (
             <div className="dashboard-overview__quiet-state" aria-live="polite">
-              Calculating position-level attribution…
+              {t('dashboardOverview.calculatingAttribution')}
             </div>
           ) : (
             <div className="dashboard-overview__quiet-state">
               {hasDailyChange
-                ? 'Position-level attribution is unavailable. The portfolio total remains authoritative.'
-                : 'Daily attribution is withheld because the portfolio-level movement is unavailable.'}
+                ? t('dashboardOverview.attributionUnavailableAuthoritative')
+                : t('dashboardOverview.attributionWithheld')}
             </div>
           )}
         </PageAsideColumn>
@@ -487,53 +505,53 @@ export default function DashboardOverview() {
 
       <PageSection className="dashboard-overview__return" aria-labelledby="return-heading">
         <div>
-          <p className="pf-section-kicker">Reconciliation</p>
-          <h2 id="return-heading" className="pf-section-title">Your return</h2>
+          <p className="pf-section-kicker">{t('dashboardOverview.reconciliation')}</p>
+          <h2 id="return-heading" className="pf-section-title">{t('dashboardOverview.yourReturn')}</h2>
           <p className={`dashboard-overview__return-total ${valueTone(totalGain)}`}>
-            {signedCurrency(totalGain, currency, locale)} total gain
+            {signedCurrency(totalGain, currency, locale)} {t('dashboardOverview.totalGain')}
           </p>
           <p className="dashboard-overview__financial-sentence">
-            Return is shown as an equation so every aggregate remains traceable.
+            {t('dashboardOverview.returnEquationNote')}
           </p>
         </div>
-        <div className="dashboard-overview__equation" aria-label="Return calculation">
+        <div className="dashboard-overview__equation" aria-label={t('dashboardOverview.returnCalculation')}>
           <span>
             <b>=</b> {formatCurrency(metrics.total_unrealized_pnl, currency, locale)}
-            <small>unrealized</small>
+            <small>{t('dashboardOverview.unrealized')}</small>
           </span>
           <span>
             <b>+</b> {formatCurrency(metrics.total_realized_pnl, currency, locale)}
-            <small>realized</small>
+            <small>{t('dashboardOverview.realized')}</small>
           </span>
           <span>
             <b>+</b> {formatCurrency(metrics.total_dividends, currency, locale)}
-            <small>dividends</small>
+            <small>{t('dashboardOverview.dividends')}</small>
           </span>
           <span>
             <b>−</b> {formatCurrency(metrics.total_fees, currency, locale)}
-            <small>fees</small>
+            <small>{t('dashboardOverview.fees')}</small>
           </span>
         </div>
       </PageSection>
 
       <PageSection className="dashboard-overview__ledger-section" aria-labelledby="holdings-heading">
         <PageSectionHeader
-          kicker="Ownership"
-          title="Holdings"
+          kicker={t('dashboardOverview.ownership')}
+          title={t('dashboardOverview.holdings')}
           titleId="holdings-heading"
-          description={`${displayPositions.length} positions ordered by the amount of your capital they control.`}
-          aside={<Link to="/assets">Inspect all holdings →</Link>}
+          description={t('dashboardOverview.holdingsDescription', { count: displayPositions.length })}
+          aside={<Link to="/assets">{t('dashboardOverview.inspectAllHoldings')}</Link>}
         />
 
         <div className="dashboard-overview__ledger-scroll">
           <table className="dashboard-overview__ledger">
             <thead>
               <tr>
-                <th scope="col">Position</th>
-                <th scope="col">Value</th>
-                <th scope="col">Portfolio</th>
-                <th scope="col">Today · estimated</th>
-                <th scope="col">Total return</th>
+                <th scope="col">{t('dashboardOverview.columnPosition')}</th>
+                <th scope="col">{t('dashboardOverview.columnValue')}</th>
+                <th scope="col">{t('dashboardOverview.columnPortfolio')}</th>
+                <th scope="col">{t('dashboardOverview.columnTodayEstimated')}</th>
+                <th scope="col">{t('dashboardOverview.columnTotalReturn')}</th>
               </tr>
             </thead>
             <tbody>
@@ -561,17 +579,17 @@ export default function DashboardOverview() {
                         />
                         <span className="dashboard-overview__holding-identity">
                           <strong>{position.symbol}</strong>
-                          <small>{position.name || 'Unnamed asset'}</small>
+                          <small>{position.name || t('dashboardOverview.unnamedAsset')}</small>
                         </span>
                       </Link>
                     </td>
                     <td>
                       <strong>{formatCurrency(marketValue, currency, locale)}</strong>
-                      <small>{formatQuantity(position.quantity)} units</small>
+                      <small>{formatQuantity(position.quantity)} {t('dashboardOverview.units')}</small>
                     </td>
                     <td>
                       <strong>{weight.toFixed(1)}%</strong>
-                      <small>of portfolio</small>
+                      <small>{t('dashboardOverview.ofPortfolio')}</small>
                     </td>
                     <td>
                       <strong className={valueTone(dailyImpact)}>
@@ -595,15 +613,15 @@ export default function DashboardOverview() {
 
       <PageSection className="dashboard-overview__exposure-section" aria-labelledby="exposure-heading">
         <PageSectionHeader
-          kicker="Structure"
-          title="Exposure fingerprint"
+          kicker={t('dashboardOverview.structure')}
+          title={t('dashboardOverview.exposureFingerprint')}
           titleId="exposure-heading"
-          description="One question at a time: where your capital is actually concentrated."
+          description={t('dashboardOverview.exposureDescription')}
         />
         <PageMainGrid>
           <PageMainColumn className="dashboard-overview__exposure-main">
-            <div className="pf-tabs dashboard-overview__tabs" aria-label="Exposure dimension">
-              {EXPOSURE_DIMENSIONS.map((item) => (
+            <div className="pf-tabs dashboard-overview__tabs" aria-label={t('dashboardOverview.exposureDimensionLabel')}>
+              {exposureDimensions.map((item) => (
                 <button
                   key={item.key}
                   type="button"
@@ -624,25 +642,25 @@ export default function DashboardOverview() {
           </PageMainColumn>
 
           <PageAsideColumn className="dashboard-overview__attention" aria-labelledby="attention-heading">
-            <p className="pf-section-kicker">Consequence</p>
-            <h2 id="attention-heading" className="pf-section-title">What deserves attention</h2>
+            <p className="pf-section-kicker">{t('dashboardOverview.consequence')}</p>
+            <h2 id="attention-heading" className="pf-section-title">{t('dashboardOverview.whatDeservesAttention')}</h2>
           {concentration.largest ? (
             <>
               <p className="dashboard-overview__attention-number">
                 {concentration.topThreeWeight.toFixed(1)}%
               </p>
               <p className="dashboard-overview__financial-sentence">
-                Your three largest holdings control this share of the portfolio.
+                {t('dashboardOverview.largestHoldingsShare')}
               </p>
               <dl>
                 <div>
-                  <dt>Largest position</dt>
+                  <dt>{t('dashboardOverview.largestPosition')}</dt>
                   <dd>
                     {concentration.largest.symbol} · {concentration.largestWeight.toFixed(1)}%
                   </dd>
                 </div>
                 <div>
-                  <dt>If it fell 10%</dt>
+                  <dt>{t('dashboardOverview.ifItFell10Percent')}</dt>
                   <dd className="dashboard-overview__value--negative">
                     −{formatCurrency(
                       numberValue(concentration.largest.market_value) * 0.1,
@@ -653,11 +671,11 @@ export default function DashboardOverview() {
                 </div>
               </dl>
               <p className="dashboard-overview__confidence-note">
-                Mechanical scenario, not a forecast. Other positions are held constant.
+                {t('dashboardOverview.mechanicalScenarioNote')}
               </p>
             </>
           ) : (
-            <div className="dashboard-overview__quiet-state">No owned positions to evaluate.</div>
+            <div className="dashboard-overview__quiet-state">{t('dashboardOverview.noOwnedPositions')}</div>
           )}
           </PageAsideColumn>
         </PageMainGrid>
@@ -666,16 +684,16 @@ export default function DashboardOverview() {
       {activeGoal && (
         <PageSection className="dashboard-overview__goal" aria-labelledby="goal-heading">
           <div>
-            <p className="pf-section-kicker">Direction</p>
+            <p className="pf-section-kicker">{t('dashboardOverview.direction')}</p>
             <h2 id="goal-heading" className="pf-section-title">{activeGoal.title}</h2>
-            <p className="dashboard-overview__goal-progress">{goalProgress.toFixed(1)}% funded</p>
+            <p className="dashboard-overview__goal-progress">{goalProgress.toFixed(1)}% {t('dashboardOverview.funded')}</p>
           </div>
-          <div className="dashboard-overview__goal-track" aria-label={`${goalProgress.toFixed(1)} percent funded`}>
+          <div className="dashboard-overview__goal-track" aria-label={t('dashboardOverview.percentFunded', { percent: goalProgress.toFixed(1) })}>
             <span style={{ width: `${goalProgress}%` }} />
           </div>
           <div className="dashboard-overview__goal-detail">
             <p>
-              {formatCurrency(metrics.total_value, currency, locale)} of{' '}
+              {formatCurrency(metrics.total_value, currency, locale)} {t('dashboardOverview.of')}{' '}
               {formatCurrency(activeGoal.target_amount, currency, locale)}
             </p>
             <p>
@@ -684,26 +702,26 @@ export default function DashboardOverview() {
                 currency,
                 locale,
               )}{' '}
-              remains
+              {t('dashboardOverview.remains')}
             </p>
-            <Link to="/portfolios">Review goal →</Link>
+            <Link to="/portfolios">{t('dashboardOverview.reviewGoal')}</Link>
           </div>
         </PageSection>
       )}
 
       <PageSection className="dashboard-overview__activity" aria-labelledby="activity-heading">
         <PageSectionHeader
-          kicker="Evidence"
-          title="Recent capital activity"
+          kicker={t('dashboardOverview.evidence')}
+          title={t('dashboardOverview.recentCapitalActivity')}
           titleId="activity-heading"
-          description="Transactions are shown as events that changed ownership, cash, or return."
-          aside={<Link to="/transactions">Open activity ledger →</Link>}
+          description={t('dashboardOverview.activityDescription')}
+          aside={<Link to="/transactions">{t('dashboardOverview.openActivityLedger')}</Link>}
         />
 
         {transactions.length > 0 ? (
           <ol className="dashboard-overview__activity-list">
             {transactions.slice(0, 5).map((transaction) => {
-              const { Icon, label, tone } = getTransactionVisual(transaction.type)
+              const { Icon, label, tone } = getTransactionVisual(transaction.type, t)
               return (
                 <li key={transaction.id}>
                   <time dateTime={transaction.tx_date}>
@@ -733,11 +751,11 @@ export default function DashboardOverview() {
                       </span>
                     )}
                     <span>
-                      <strong>{transaction.asset?.symbol || 'Cash'}</strong>
+                      <strong>{transaction.asset?.symbol || t('dashboardOverview.cash')}</strong>
                       <small>
                         {transaction.asset?.name ||
                           transaction.notes ||
-                          'Portfolio activity'}
+                          t('dashboardOverview.portfolioActivity')}
                       </small>
                     </span>
                   </span>
@@ -760,7 +778,7 @@ export default function DashboardOverview() {
           </ol>
         ) : (
           <div className="dashboard-overview__quiet-state">
-            No capital activity has been recorded for this portfolio.
+            {t('dashboardOverview.noCapitalActivity')}
           </div>
         )}
       </PageSection>

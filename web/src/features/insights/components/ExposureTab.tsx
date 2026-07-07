@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { BarChart3, Dna, Globe2, Layers, LineChart, Repeat2, Search, Tags } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -36,16 +37,17 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip,
 type ExposureQuery = ReturnType<typeof useExposureInsights>
 
 export default function ExposureTab({ portfolioId, period, currency, locale }: InsightsTabProps) {
+  const { t } = useTranslation()
   const query = useExposureInsights(portfolioId, period)
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <ExposureBlock query={query} currency={currency} type="themes" title="Theme Exposure" icon={<Tags className="h-5 w-5 text-pink-600" />} />
-        <ExposureBlock query={query} currency={currency} type="sectors" title="Sector Exposure" icon={<Layers className="h-5 w-5 text-pink-600" />} />
-        <ExposureBlock query={query} currency={currency} type="countries" title="Country Exposure" icon={<Globe2 className="h-5 w-5 text-pink-600" />} />
-        <ExposureBlock query={query} currency={currency} type="currencies" title="Currency Exposure" icon={<BarChart3 className="h-5 w-5 text-pink-600" />} />
-        <ExposureBlock query={query} currency={currency} type="marketCaps" title="Market Cap Exposure" icon={<BarChart3 className="h-5 w-5 text-pink-600" />} />
+        <ExposureBlock query={query} currency={currency} type="themes" title={t('insights.exposure.theme.title')} icon={<Tags className="h-5 w-5 text-pink-600" />} />
+        <ExposureBlock query={query} currency={currency} type="sectors" title={t('insights.exposure.sector.title')} icon={<Layers className="h-5 w-5 text-pink-600" />} />
+        <ExposureBlock query={query} currency={currency} type="countries" title={t('insights.exposure.country.title')} icon={<Globe2 className="h-5 w-5 text-pink-600" />} />
+        <ExposureBlock query={query} currency={currency} type="currencies" title={t('insights.exposure.currency.title')} icon={<BarChart3 className="h-5 w-5 text-pink-600" />} />
+        <ExposureBlock query={query} currency={currency} type="marketCaps" title={t('insights.exposure.marketCap.title')} icon={<BarChart3 className="h-5 w-5 text-pink-600" />} />
         <PortfolioDNABlock query={query} />
       </div>
 
@@ -84,6 +86,7 @@ function ExposureBlock({
           : type === 'currencies'
             ? query.data?.currency_exposure
             : query.data?.market_cap_exposure
+  const { t } = useTranslation()
   const visualKind: Record<ExposureType, ContributionVisualKind> = {
     themes: 'theme',
     sectors: 'sector',
@@ -91,13 +94,13 @@ function ExposureBlock({
     currencies: 'currency',
     marketCaps: 'marketCap',
   }
-  const copy = exposureCopy(type)
+  const copy = exposureCopy(type, t)
 
   return (
     <InsightBlock
       title={title}
       icon={icon}
-      scope={type === 'marketCaps' ? 'Current holdings / available metadata' : 'Current holdings'}
+      scope={type === 'marketCaps' ? t('insights.exposure.marketCap.scope') : t('insights.shared.currentHoldings')}
       description={copy.description}
       formula={copy.formula}
       isLoading={query.isLoading}
@@ -117,19 +120,20 @@ function ExposureBlock({
 }
 
 function DuplicateExposureBlock({ query }: { query: ExposureQuery }) {
+  const { t } = useTranslation()
   const items = query.data?.duplicate_exposure
 
   return (
     <InsightBlock
-      title="Duplicate Exposure"
+      title={t('insights.exposure.duplicate.title')}
       icon={<Repeat2 className="h-5 w-5 text-pink-600" />}
-      scope="Current holdings"
-      description="Flags categories where multiple holdings may be exposed to the same underlying driver."
-      formula="group weight is the sum of current market values for holdings sharing that exposure / total portfolio value."
+      scope={t('insights.shared.currentHoldings')}
+      description={t('insights.exposure.duplicate.description')}
+      formula={t('insights.exposure.duplicate.formula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!items || items.length === 0}
-      emptyMessage="No repeated high-weight exposure detected."
+      emptyMessage={t('insights.exposure.duplicate.empty')}
       onRetry={() => void query.refetch()}
       skeleton={<MiniTableSkeleton rows={4} />}
     >
@@ -139,19 +143,20 @@ function DuplicateExposureBlock({ query }: { query: ExposureQuery }) {
 }
 
 function HiddenConcentrationBlock({ query }: { query: ExposureQuery }) {
+  const { t } = useTranslation()
   const items = query.data?.hidden_concentration
 
   return (
     <InsightBlock
-      title="Hidden Concentration"
+      title={t('insights.exposure.hiddenConcentration.title')}
       icon={<Search className="h-5 w-5 text-pink-600" />}
-      scope="Current holdings"
-      description="Highlights grouped exposure that may be less obvious than looking at individual assets."
-      formula="sum grouped market value / total portfolio value; only high-weight grouped exposures are shown."
+      scope={t('insights.shared.currentHoldings')}
+      description={t('insights.exposure.hiddenConcentration.description')}
+      formula={t('insights.exposure.hiddenConcentration.formula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!items || items.length === 0}
-      emptyMessage="No grouped exposure above the concentration threshold."
+      emptyMessage={t('insights.exposure.hiddenConcentration.empty')}
       onRetry={() => void query.refetch()}
       skeleton={<MiniTableSkeleton rows={4} />}
     >
@@ -161,6 +166,7 @@ function HiddenConcentrationBlock({ query }: { query: ExposureQuery }) {
 }
 
 function ExposureFindingRows({ items }: { items: Array<DuplicateExposureItemDTO | HiddenConcentrationItemDTO> }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       {items.map((item) => (
@@ -168,7 +174,7 @@ function ExposureFindingRows({ items }: { items: Array<DuplicateExposureItemDTO 
           <ContributionIdentity
             item={findingAsContribution(item)}
             kind={exposureKind(item.exposure_type)}
-            subtitle={`${item.exposure_type} exposure · ${item.count} holdings${'assets' in item && item.assets.length > 0 ? ` · ${item.assets.join(', ')}` : ''}`}
+            subtitle={`${t('insights.exposure.findingSubtitle', { type: item.exposure_type, count: item.count })}${'assets' in item && item.assets.length > 0 ? ` · ${item.assets.join(', ')}` : ''}`}
           />
           <p className="text-lg font-semibold">{formatPercent(item.portfolio_weight, 1)}</p>
         </div>
@@ -178,6 +184,7 @@ function ExposureFindingRows({ items }: { items: Array<DuplicateExposureItemDTO 
 }
 
 function ThemeEvolutionBlock({ query, locale, period }: { query: ExposureQuery; locale: string; period: string }) {
+  const { t } = useTranslation()
   const themeEvolution = query.data?.theme_evolution
   const data = useMemo(() => themeEvolution || [], [themeEvolution])
   const chartData = useMemo(() => {
@@ -255,17 +262,17 @@ function ThemeEvolutionBlock({ query, locale, period }: { query: ExposureQuery; 
 
   return (
     <InsightBlock
-      title="Theme Evolution"
+      title={t('insights.exposure.themeEvolution.title')}
       icon={<LineChart className="h-5 w-5 text-pink-600" />}
-      scope={`Selected period: ${periodLabel(period)}`}
-      description="Shows how top theme exposure changed over time from transactions and cost basis snapshots."
-      formula="theme cost basis at each snapshot / total active cost basis at that snapshot."
+      scope={t('insights.shared.selectedPeriod', { period: periodLabel(period) })}
+      description={t('insights.exposure.themeEvolution.description')}
+      formula={t('insights.exposure.themeEvolution.formula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={data.length === 0}
-      emptyMessage="Theme history is not available yet."
+      emptyMessage={t('insights.exposure.themeEvolution.empty')}
       onRetry={() => void query.refetch()}
-      skeleton={<ChartSkeleton label="Loading theme evolution chart" />}
+      skeleton={<ChartSkeleton label={t('insights.exposure.themeEvolution.loading')} />}
     >
       <div className="h-80">
         <Line data={chartData} options={chartOptions} />
@@ -275,15 +282,16 @@ function ThemeEvolutionBlock({ query, locale, period }: { query: ExposureQuery; 
 }
 
 function PortfolioDNABlock({ query }: { query: ExposureQuery }) {
+  const { t } = useTranslation()
   const data = query.data?.portfolio_dna
 
   return (
     <InsightBlock
-      title="Portfolio DNA"
+      title={t('insights.exposure.portfolioDna.title')}
       icon={<Dna className="h-5 w-5 text-pink-600" />}
-      scope="Current holdings"
-      description="Summarizes the portfolio's style using current concentration, instrument, geography, currency, theme, and breadth metrics."
-      formula="each trait is based on the dominant current exposure, except breadth, which uses effective positions."
+      scope={t('insights.shared.currentHoldings')}
+      description={t('insights.exposure.portfolioDna.description')}
+      formula={t('insights.exposure.portfolioDna.formula')}
       isLoading={query.isLoading}
       error={query.error}
       isEmpty={!data || data.traits.length === 0}
@@ -297,7 +305,7 @@ function PortfolioDNABlock({ query }: { query: ExposureQuery }) {
             <div className="min-w-0">
               <p className="text-sm text-neutral-600 dark:text-neutral-400">{trait.label}</p>
               <p className="mt-1 truncate font-semibold">{trait.value}</p>
-              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{traitContext(trait)}</p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{traitContext(trait, t)}</p>
             </div>
           </div>
         ))}
@@ -306,16 +314,16 @@ function PortfolioDNABlock({ query }: { query: ExposureQuery }) {
   )
 }
 
-function exposureCopy(type: ExposureType): { description: string; formula: string } {
+function exposureCopy(type: ExposureType, t: (key: string) => string): { description: string; formula: string } {
   if (type === 'marketCaps') {
     return {
-      description: 'Groups holdings by company market-cap bucket when market cap metadata is available. Funds, crypto, and missing market caps are shown separately.',
-      formula: 'sum current market value in each bucket / total portfolio value.',
+      description: t('insights.exposure.marketCap.description'),
+      formula: t('insights.exposure.marketCap.formula'),
     }
   }
   return {
-    description: 'Shows the current market-value split for this exposure dimension.',
-    formula: 'group current market value / total portfolio value.',
+    description: t('insights.exposure.genericDescription'),
+    formula: t('insights.exposure.genericFormula'),
   }
 }
 
@@ -379,8 +387,8 @@ function dnaContributionItem(name: string): ContributionItemDTO {
   }
 }
 
-function traitContext(trait: { label: string; score: number }): string {
-  if (trait.label === 'Breadth') return `Effective positions: ${formatNumber(trait.score, 1)}`
-  if (trait.label === 'Concentration') return `${formatPercent(trait.score, 1)} in largest holding`
-  return `${formatPercent(trait.score, 1)} of portfolio`
+function traitContext(trait: { label: string; score: number }, t: (key: string, options?: Record<string, unknown>) => string): string {
+  if (trait.label === 'Breadth') return t('insights.exposure.traitContext.breadth', { value: formatNumber(trait.score, 1) })
+  if (trait.label === 'Concentration') return t('insights.exposure.traitContext.concentration', { percent: formatPercent(trait.score, 1) })
+  return t('insights.exposure.traitContext.default', { percent: formatPercent(trait.score, 1) })
 }

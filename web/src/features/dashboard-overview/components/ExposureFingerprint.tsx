@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ExposureDimension, ExposureResult } from '@/features/dashboard-overview/types'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
@@ -69,12 +70,13 @@ export default function ExposureFingerprint({
   currency,
   locale,
 }: ExposureFingerprintProps) {
+  const { t } = useTranslation()
   const [activeSegmentKey, setActiveSegmentKey] = useState<string | null>(null)
 
   if (exposure.items.length === 0) {
     return (
       <div className="dashboard-overview__quiet-state">
-        Classification is not available for this portfolio yet.
+        {t('dashboardOverview.exposure.notAvailable')}
       </div>
     )
   }
@@ -121,7 +123,7 @@ export default function ExposureFingerprint({
           )}
           <div
             className="dashboard-overview__fingerprint"
-            aria-label="Complete portfolio exposure"
+            aria-label={t('dashboardOverview.exposure.completeExposureLabel')}
           >
             {exposure.items.map((item, index) => (
               <button
@@ -132,11 +134,11 @@ export default function ExposureFingerprint({
                   width: `${item.percentage}%`,
                   backgroundColor: SEGMENT_COLORS[index % SEGMENT_COLORS.length],
                 }}
-                aria-label={`${item.label}: ${formatCurrency(
-                  item.value,
-                  currency,
-                  locale,
-                )}, ${item.percentage.toFixed(1)} percent`}
+                aria-label={t('dashboardOverview.exposure.segmentAriaLabel', {
+                  label: item.label,
+                  value: formatCurrency(item.value, currency, locale),
+                  percent: item.percentage.toFixed(1),
+                })}
                 aria-describedby={
                   activeSegmentKey === item.key ? 'dashboard-overview-exposure-tooltip' : undefined
                 }
@@ -150,7 +152,7 @@ export default function ExposureFingerprint({
         </div>
       ) : (
         <p className="dashboard-overview__confidence-note">
-          Ranked exposure only. These classifications overlap and do not form one additive whole.
+          {t('dashboardOverview.exposure.rankedOnlyNote')}
         </p>
       )}
 

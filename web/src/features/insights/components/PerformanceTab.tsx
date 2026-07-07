@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Activity, BarChart3, Shield, Target, TrendingUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -30,6 +31,7 @@ import { useBenchmarkInsights, usePerformanceInsights } from '@/features/insight
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
 export default function PerformanceTab({ portfolioId, period, benchmark, currency, locale }: InsightsTabProps) {
+  const { t } = useTranslation()
   const performanceDomainQuery = usePerformanceInsights(portfolioId, period)
   const benchmarkQuery = useBenchmarkInsights(portfolioId, benchmark, period)
 
@@ -47,7 +49,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
       ),
       datasets: [
         {
-          label: 'Portfolio',
+          label: t('insights.performance.vsBenchmarkChart.portfolio'),
           data: portfolioSeries.map((point) => toNumber(point.value)),
           borderColor: 'rgb(236, 72, 153)',
           backgroundColor: 'rgba(236, 72, 153, 0.1)',
@@ -70,7 +72,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
         },
       ],
     }
-  }, [benchmark, benchmarkData, locale])
+  }, [benchmark, benchmarkData, locale, t])
 
   const chartOptions = useMemo(
     () => ({
@@ -95,7 +97,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
         y: {
           title: {
             display: true,
-            text: 'Performance (%)',
+            text: t('insights.performance.vsBenchmarkChart.yAxisLabel'),
           },
           ticks: {
             callback: (value: string | number) => formatPercent(value, 0, true),
@@ -103,7 +105,7 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
         },
       },
     }),
-    [],
+    [t],
   )
 
   return (
@@ -112,95 +114,95 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
         {performanceDomainQuery.isLoading && <MetricCardSkeleton />}
         {!performanceDomainQuery.isLoading && summaryData && (
           <MetricCard
-            label="Total Return"
+            label={t('insights.performance.totalReturn')}
             value={formatPercent(summaryData.total_return_pct, 2, true)}
             subtitle={formatCurrencyValue(summaryData.total_return, currency)}
             icon={<Activity size={22} />}
             tone={valueTone(summaryData.total_return_pct)}
-            tooltip="Total return is current portfolio value minus cost basis over the selected period."
+            tooltip={t('insights.performance.totalReturnTooltip')}
           />
         )}
         {!performanceDomainQuery.isLoading && performanceDomainQuery.error && (
-          <MetricCard label="Total Return" value="Error" subtitle="Failed to load" icon={<Activity size={22} />} tone="negative" />
+          <MetricCard label={t('insights.performance.totalReturn')} value={t('insights.performance.error')} subtitle={t('insights.performance.failedToLoad')} icon={<Activity size={22} />} tone="negative" />
         )}
 
         {performanceDomainQuery.isLoading && <MetricCardSkeleton />}
         {!performanceDomainQuery.isLoading && performanceData && (
           <MetricCard
-            label="Annualized Return"
+            label={t('insights.performance.annualizedReturn')}
             value={formatPercent(performanceData.annualized_return, 2, true)}
-            subtitle={`Period: ${period.toUpperCase()}`}
+            subtitle={t('insights.performance.annualizedReturnSubtitle', { period: period.toUpperCase() })}
             icon={<TrendingUp size={22} />}
             tone={valueTone(performanceData.annualized_return)}
-            tooltip="Annualized return converts the selected-period return into a yearly rate."
+            tooltip={t('insights.performance.annualizedReturnTooltip')}
           />
         )}
         {!performanceDomainQuery.isLoading && performanceDomainQuery.error && (
-          <MetricCard label="Annualized Return" value="Error" subtitle="Failed to load" icon={<TrendingUp size={22} />} tone="negative" />
+          <MetricCard label={t('insights.performance.annualizedReturn')} value={t('insights.performance.error')} subtitle={t('insights.performance.failedToLoad')} icon={<TrendingUp size={22} />} tone="negative" />
         )}
 
         {performanceDomainQuery.isLoading && <MetricCardSkeleton />}
         {!performanceDomainQuery.isLoading && riskData && (
           <MetricCard
-            label="Sharpe Ratio"
-            value={riskData.sharpe_ratio === null ? 'N/A' : toNumber(riskData.sharpe_ratio).toFixed(2)}
-            subtitle="Risk-adjusted return"
+            label={t('insights.performance.sharpeRatio')}
+            value={riskData.sharpe_ratio === null ? t('insights.risk.notAvailable') : toNumber(riskData.sharpe_ratio).toFixed(2)}
+            subtitle={t('insights.performance.sharpeRatioSubtitle')}
             icon={<Shield size={22} />}
             tone="accent"
-            tooltip="Sharpe ratio compares excess return with volatility. Higher usually means better risk-adjusted performance."
+            tooltip={t('insights.performance.sharpeRatioTooltip')}
           />
         )}
         {!performanceDomainQuery.isLoading && performanceDomainQuery.error && (
-          <MetricCard label="Sharpe Ratio" value="Error" subtitle="Failed to load" icon={<Shield size={22} />} tone="negative" />
+          <MetricCard label={t('insights.performance.sharpeRatio')} value={t('insights.performance.error')} subtitle={t('insights.performance.failedToLoad')} icon={<Shield size={22} />} tone="negative" />
         )}
 
         {benchmarkQuery.isLoading && <MetricCardSkeleton />}
         {!benchmarkQuery.isLoading && benchmarkQuery.data && (
           <MetricCard
-            label={`vs ${benchmarkQuery.data.benchmark_name}`}
+            label={t('insights.performance.vsBenchmark', { benchmark: benchmarkQuery.data.benchmark_name })}
             value={formatPercent(benchmarkQuery.data.alpha, 2, true)}
-            subtitle="Alpha"
+            subtitle={t('insights.performance.alpha')}
             icon={<Target size={22} />}
             tone={valueTone(benchmarkQuery.data.alpha)}
-            tooltip="Alpha is portfolio return minus benchmark return for the selected period."
+            tooltip={t('insights.performance.alphaTooltip')}
           />
         )}
         {!benchmarkQuery.isLoading && benchmarkQuery.error && (
-          <MetricCard label="Alpha" value="Error" subtitle="Failed to load" icon={<Target size={22} />} tone="negative" />
+          <MetricCard label={t('insights.performance.alpha')} value={t('insights.performance.error')} subtitle={t('insights.performance.failedToLoad')} icon={<Target size={22} />} tone="negative" />
         )}
       </div>
 
       <InsightBlock
-        title="Performance vs Benchmark"
+        title={t('insights.performance.vsBenchmarkChart.title')}
         icon={<BarChart3 className="h-5 w-5 text-pink-600" />}
-        scope={`Selected period: ${periodLabel(period)}`}
-        description="Compares cumulative portfolio performance against the selected benchmark."
-        formula="alpha = portfolio return - benchmark return; correlation compares the shape of both return series."
+        scope={t('insights.shared.selectedPeriod', { period: periodLabel(period) })}
+        description={t('insights.performance.vsBenchmarkChart.description')}
+        formula={t('insights.performance.vsBenchmarkChart.formula')}
         isLoading={benchmarkQuery.isLoading}
         error={benchmarkQuery.error}
         isEmpty={!benchmarkData || benchmarkData.portfolio_series.length === 0}
-        emptyMessage="Benchmark history is not available for this period."
+        emptyMessage={t('insights.performance.vsBenchmarkChart.empty')}
         onRetry={() => void benchmarkQuery.refetch()}
-        skeleton={<ChartSkeleton label="Loading benchmark chart" />}
+        skeleton={<ChartSkeleton label={t('insights.performance.vsBenchmarkChart.loading')} />}
       >
         <div className="h-80">
           <Line key={`${period}-${benchmark}`} data={chartData} options={chartOptions} />
         </div>
         <div className="mt-5 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-          <Stat label="Portfolio Return" value={formatPercent(benchmarkData?.portfolio_return, 2, true)} tone={valueColor(benchmarkData?.portfolio_return)} />
-          <Stat label="Benchmark Return" value={formatPercent(benchmarkData?.benchmark_return, 2, true)} tone={valueColor(benchmarkData?.benchmark_return)} />
-          <Stat label="Alpha" value={formatPercent(benchmarkData?.alpha, 2, true)} tone={valueColor(benchmarkData?.alpha)} />
-          <Stat label="Correlation" value={benchmarkData?.correlation === null ? 'N/A' : toNumber(benchmarkData?.correlation).toFixed(2)} />
+          <Stat label={t('insights.performance.portfolioReturn')} value={formatPercent(benchmarkData?.portfolio_return, 2, true)} tone={valueColor(benchmarkData?.portfolio_return)} />
+          <Stat label={t('insights.performance.benchmarkReturn')} value={formatPercent(benchmarkData?.benchmark_return, 2, true)} tone={valueColor(benchmarkData?.benchmark_return)} />
+          <Stat label={t('insights.performance.alpha')} value={formatPercent(benchmarkData?.alpha, 2, true)} tone={valueColor(benchmarkData?.alpha)} />
+          <Stat label={t('insights.performance.correlation')} value={benchmarkData?.correlation === null ? t('insights.risk.notAvailable') : toNumber(benchmarkData?.correlation).toFixed(2)} />
         </div>
       </InsightBlock>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <InsightBlock
-          title="Performance Statistics"
+          title={t('insights.performance.statistics.title')}
           icon={<Activity className="h-5 w-5 text-pink-600" />}
-          scope={`Selected period: ${periodLabel(period)}`}
-          description="Summarizes daily performance changes within the selected period."
-          formula="best/worst day use day-to-day changes in portfolio performance percentage."
+          scope={t('insights.shared.selectedPeriod', { period: periodLabel(period) })}
+          description={t('insights.performance.statistics.description')}
+          formula={t('insights.performance.statistics.formula')}
           isLoading={performanceDomainQuery.isLoading}
           error={performanceDomainQuery.error}
           isEmpty={!performanceData}
@@ -209,28 +211,28 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
         >
           <div className="grid grid-cols-2 gap-5">
             <Stat
-              label="Best Day"
-              value={performanceData?.best_day === null ? 'N/A' : formatPercent(performanceData?.best_day, 2, true)}
-              subtitle={formatDate(performanceData?.best_day_date, locale)}
+              label={t('insights.performance.statistics.bestDay')}
+              value={performanceData?.best_day === null ? t('insights.risk.notAvailable') : formatPercent(performanceData?.best_day, 2, true)}
+              subtitle={formatDate(performanceData?.best_day_date, locale, t)}
               tone={valueColor(performanceData?.best_day)}
             />
             <Stat
-              label="Worst Day"
-              value={performanceData?.worst_day === null ? 'N/A' : formatPercent(performanceData?.worst_day, 2, true)}
-              subtitle={formatDate(performanceData?.worst_day_date, locale)}
+              label={t('insights.performance.statistics.worstDay')}
+              value={performanceData?.worst_day === null ? t('insights.risk.notAvailable') : formatPercent(performanceData?.worst_day, 2, true)}
+              subtitle={formatDate(performanceData?.worst_day_date, locale, t)}
               tone={valueColor(performanceData?.worst_day)}
             />
-            <Stat label="Positive Days" value={String(performanceData?.positive_days ?? 0)} subtitle={`${performanceData?.negative_days ?? 0} negative days`} />
-            <Stat label="Win Rate" value={formatPercent(performanceData?.win_rate, 1)} subtitle="Positive days / observed days" tone={valueColor(performanceData?.win_rate)} />
+            <Stat label={t('insights.performance.statistics.positiveDays')} value={String(performanceData?.positive_days ?? 0)} subtitle={t('insights.performance.statistics.negativeDaysSubtitle', { count: performanceData?.negative_days ?? 0 })} />
+            <Stat label={t('insights.performance.statistics.winRate')} value={formatPercent(performanceData?.win_rate, 1)} subtitle={t('insights.performance.statistics.winRateSubtitle')} tone={valueColor(performanceData?.win_rate)} />
           </div>
         </InsightBlock>
 
         <InsightBlock
-          title="Risk Summary"
+          title={t('insights.performance.riskSummary.title')}
           icon={<Shield className="h-5 w-5 text-pink-600" />}
-          scope={`Selected period: ${periodLabel(period)}`}
-          description="Shows volatility and downside metrics calculated from the selected-period return series."
-          formula="volatility is annualized standard deviation; max drawdown is the largest peak-to-trough decline."
+          scope={t('insights.shared.selectedPeriod', { period: periodLabel(period) })}
+          description={t('insights.performance.riskSummary.description')}
+          formula={t('insights.performance.riskSummary.formula')}
           isLoading={performanceDomainQuery.isLoading}
           error={performanceDomainQuery.error}
           isEmpty={!riskData}
@@ -238,10 +240,10 @@ export default function PerformanceTab({ portfolioId, period, benchmark, currenc
           skeleton={<BarsSkeleton rows={4} />}
         >
           <div className="grid grid-cols-2 gap-5">
-            <Stat label="Volatility" value={formatPercent(riskData?.volatility)} tone={valueColor(riskData?.volatility)} />
-            <Stat label="Beta" value={riskData?.beta === null ? 'N/A' : toNumber(riskData?.beta).toFixed(2)} />
-            <Stat label="Max Drawdown" value={`-${formatPercent(riskData?.max_drawdown).replace('-', '')}`} tone={valueColor(-Math.abs(toNumber(riskData?.max_drawdown)))} />
-            <Stat label="Value at Risk 95%" value={riskData?.var_95 === null ? 'N/A' : formatPercent(riskData?.var_95)} tone={valueColor(riskData?.var_95)} />
+            <Stat label={t('insights.performance.riskSummary.volatility')} value={formatPercent(riskData?.volatility)} tone={valueColor(riskData?.volatility)} />
+            <Stat label={t('insights.performance.riskSummary.beta')} value={riskData?.beta === null ? t('insights.risk.notAvailable') : toNumber(riskData?.beta).toFixed(2)} />
+            <Stat label={t('insights.performance.riskSummary.maxDrawdown')} value={`-${formatPercent(riskData?.max_drawdown).replace('-', '')}`} tone={valueColor(-Math.abs(toNumber(riskData?.max_drawdown)))} />
+            <Stat label={t('insights.performance.riskSummary.var95')} value={riskData?.var_95 === null ? t('insights.risk.notAvailable') : formatPercent(riskData?.var_95)} tone={valueColor(riskData?.var_95)} />
           </div>
         </InsightBlock>
       </div>
@@ -259,7 +261,7 @@ function Stat({ label, value, subtitle, tone }: { label: string; value: string; 
   )
 }
 
-function formatDate(value: string | null | undefined, locale: string): string {
-  if (!value) return 'No date available'
+function formatDate(value: string | null | undefined, locale: string, t: (key: string) => string): string {
+  if (!value) return t('insights.performance.statistics.noDateAvailable')
   return new Date(value).toLocaleDateString(locale, { dateStyle: 'medium' })
 }

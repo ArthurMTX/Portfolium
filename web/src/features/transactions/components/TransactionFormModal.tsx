@@ -129,7 +129,7 @@ export default function TransactionFormModal({
         <form onSubmit={onSubmit} className="pf-modal-body pf-modal-section">
           {modalMode === 'add' && (
             <div className="pf-modal-subsection">
-              <div className="pf-modal-subsection-title">Asset</div>
+              <div className="pf-modal-subsection-title">{t('transactionFormModal.asset')}</div>
               <label className="pf-modal-label">
                 {t('transactions.ticker')}
               </label>
@@ -178,7 +178,7 @@ export default function TransactionFormModal({
           )}
 
           <div className="pf-modal-subsection">
-            <div className="pf-modal-subsection-title">Trade</div>
+            <div className="pf-modal-subsection-title">{t('transactionFormModal.trade')}</div>
             <div className="pf-modal-grid">
             <div>
               <label className="pf-modal-label">
@@ -218,7 +218,7 @@ export default function TransactionFormModal({
 
           {txType === 'SPLIT' && (
             <div className="pf-modal-subsection">
-              <div className="pf-modal-subsection-title">Execution</div>
+              <div className="pf-modal-subsection-title">{t('transactionFormModal.execution')}</div>
               <label className="pf-modal-label">
                 {t('transactions.splitRatio')}
               </label>
@@ -238,7 +238,7 @@ export default function TransactionFormModal({
 
           {txType !== 'SPLIT' && (
             <div className="pf-modal-subsection">
-              <div className="pf-modal-subsection-title">Execution</div>
+              <div className="pf-modal-subsection-title">{t('transactionFormModal.execution')}</div>
               <div className="pf-modal-grid--3">
               <div>
                 <label className="pf-modal-label">
@@ -327,7 +327,7 @@ export default function TransactionFormModal({
           )}
 
           <div className="pf-modal-subsection">
-            <div className="pf-modal-subsection-title">Notes</div>
+            <div className="pf-modal-subsection-title">{t('transactionFormModal.notes')}</div>
             <label className="sr-only">
               {t('fields.notes')}
             </label>

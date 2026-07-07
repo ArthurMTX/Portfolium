@@ -28,7 +28,7 @@ export default function BestWorstTodayWidget({ positions }: BestWorstTodayWidget
   if (!best || !worst) {
     return (
       <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">No data available</p>
+        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.noData')}</p>
       </div>
     )
   }

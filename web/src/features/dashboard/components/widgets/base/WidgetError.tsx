@@ -16,7 +16,7 @@ export function WidgetError({ error, retry }: WidgetErrorProps) {
     <StateBlock
       tone="error"
       eyebrow={t('common.error')}
-      title="Widget data could not load."
+      title={t('dashboard.widgets.dataLoadError')}
       detail={error.message}
       actionLabel={retry ? t('common.retry') : undefined}
       onAction={retry}

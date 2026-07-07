@@ -46,7 +46,7 @@ export default function PositionsTableWidget({
               : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
           }`}
         >
-          {t('dashboard.currentPositions')}
+          {t('dashboard.widgets.positions.currentPositions')}
           {positions && positions.length > 0 && (
             <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
               {positions.length}
@@ -61,7 +61,7 @@ export default function PositionsTableWidget({
               : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
           }`}
         >
-          {t('dashboard.realizedPositions')}
+          {t('dashboard.widgets.positions.realizedPositions')}
           {realizedPositions.length > 0 && (
             <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
               {realizedPositions.length}
@@ -76,7 +76,7 @@ export default function PositionsTableWidget({
               : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
           }`}
         >
-          {t('dashboard.soldPositions')}
+          {t('dashboard.widgets.positions.soldPositions')}
           {soldPositions && soldPositions.length > 0 && (
             <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
               {soldPositions.length}
@@ -94,7 +94,7 @@ export default function PositionsTableWidget({
         ) : soldPositionsLoading ? (
           <div className="p-12 text-center">
             <p className="text-neutral-500 dark:text-neutral-400">
-              {t('dashboard.loadingSoldPositions')}
+              {t('dashboard.widgets.positions.loadingSoldPositions')}
             </p>
           </div>
         ) : (

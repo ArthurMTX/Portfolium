@@ -349,10 +349,10 @@ export default function Dashboard() {
           <p className="pf-page-kicker">DASHBOARD</p>
           <h1 className="pf-page-title pf-page-title--compact flex items-center gap-3">
             <LayoutDashboard className="text-pink-600" size={28} />
-            {t('dashboard.title')}
+            {t('dashboard.page.title')}
           </h1>
           <p className="pf-page-description mt-2">
-            {t('dashboard.description')}
+            {t('dashboard.page.description')}
           </p>
         </div>
         <div className="pf-page-actions pf-summary-panel dashboard-widgets__actions">
@@ -400,10 +400,10 @@ export default function Dashboard() {
               }`}
               aria-expanded={isCustomizeMenuOpen}
               aria-haspopup="menu"
-              title={t('dashboard.customize')}
+              title={t('dashboard.page.customize')}
             >
               <SlidersHorizontal size={16} />
-              <span>{t('dashboard.customize')}</span>
+              <span>{t('dashboard.page.customize')}</span>
               <ChevronDown size={14} className={`transition-transform ${isCustomizeMenuOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -421,7 +421,7 @@ export default function Dashboard() {
                   className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
                 >
                   <Grid3x3 size={16} className={isEditMode ? 'text-pink-600 dark:text-pink-400' : 'text-neutral-500'} />
-                  <span className="flex-1">{isEditMode ? t('dashboard.doneEditing') : t('dashboard.editDashboard')}</span>
+                  <span className="flex-1">{isEditMode ? t('dashboard.page.doneEditing') : t('dashboard.page.editDashboard')}</span>
                 </button>
 
                 <button
@@ -460,15 +460,15 @@ export default function Dashboard() {
                   ) : (
                     <ZapOff size={16} className="text-neutral-500" />
                   )}
-                  <span className="flex-1">{t('dashboard.autoRefresh')}</span>
+                  <span className="flex-1">{t('dashboard.page.autoRefresh')}</span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {isAutoRefreshEnabled ? t('dashboard.enabled') : t('dashboard.disabled')}
+                    {isAutoRefreshEnabled ? t('dashboard.page.enabled') : t('dashboard.page.disabled')}
                   </span>
                 </button>
 
                 <div className="flex items-center gap-3 px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400">
                   <RefreshCw size={14} />
-                  <span className="flex-1">{t('dashboard.refreshInterval')}</span>
+                  <span className="flex-1">{t('dashboard.page.refreshInterval')}</span>
                   <span>{autoRefreshIntervalSeconds}s</span>
                 </div>
 
@@ -506,7 +506,7 @@ export default function Dashboard() {
       {isEditMode && (
         <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
           <p className="text-sm text-pink-800 dark:text-pink-200">
-            <strong>{t('dashboard.editMode')}</strong> {t('dashboard.editModeInfo', { save: t('common.save') })}
+            <strong>{t('dashboard.page.editMode')}</strong> {t('dashboard.page.editModeInfo', { save: t('common.save') })}
           </p>
         </div>
       )}

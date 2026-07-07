@@ -305,25 +305,25 @@ export default function WidgetLibraryNew({
                   {/* Widget Details */}
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="bg-white dark:bg-neutral-900 rounded-lg p-3">
-                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">Category</div>
+                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">{t('common.category')}</div>
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                         {t(getCategoryLabel(selectedWidget.category))}
                       </div>
                     </div>
                     <div className="bg-white dark:bg-neutral-900 rounded-lg p-3">
-                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">Size</div>
+                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">{t('common.size')}</div>
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                         {selectedWidget.defaultSize.w} × {selectedWidget.defaultSize.h}
                       </div>
                     </div>
                     <div className="bg-white dark:bg-neutral-900 rounded-lg p-3">
-                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">Multiple</div>
+                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">{t('common.canAddMultiple')}</div>
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                         {selectedWidget.allowMultiple ? t('common.yes') : t('common.no')}
                       </div>
                     </div>
                     <div className="bg-white dark:bg-neutral-900 rounded-lg p-3">
-                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">Active</div>
+                      <div className="text-neutral-500 dark:text-neutral-400 mb-1">{t('common.active')}</div>
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                         {currentLayout.filter(item => item.i.startsWith(selectedWidget.id)).length}
                       </div>

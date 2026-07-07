@@ -1,0 +1,262 @@
+{
+  "insights": {
+    "title": "Analyses",
+    "description": "Analysez la performance de vos investissements et les tendances du marché",
+    "totalMarket": "Marché total",
+    "period": "Période",
+    "vs": "vs",
+    "alpha": "Alpha",
+    "volatility": "Volatilité",
+    "sectorAllocation": "Répartition sectorielle",
+    "geographicAllocation": "Répartition géographique",
+    "assets": "actifs",
+    "periods": {
+      "1M": "1 Mois",
+      "3M": "3 Mois",
+      "6M": "6 Mois",
+      "1Y": "1 An",
+      "YTD": "Depuis le début de l'année",
+      "ALL": "Tout le temps"
+    },
+    "shared": {
+      "moreInformation": "Plus d'informations",
+      "formula": "Formule",
+      "refresh": "Actualiser",
+      "refreshLabel": "Actualiser {{title}}",
+      "detailsLabel": "Détails de {{title}}",
+      "failedToLoad": "Impossible de charger ce bloc.",
+      "unavailableEyebrow": "Analyse indisponible",
+      "unavailableTitle": "Ce bloc n'a pas pu être chargé.",
+      "retry": "Réessayer",
+      "noDataEyebrow": "Aucune donnée",
+      "noDataDefault": "Aucune donnée disponible pour ce bloc.",
+      "noDataDescription": "Cette analyse apparaîtra dès que suffisamment de données de portefeuille seront disponibles.",
+      "currentHoldings": "Positions actuelles",
+      "selectedPeriod": "Période sélectionnée : {{period}}",
+      "allTime": "Tout le temps",
+      "loadingTable": "Chargement du tableau d'analyse"
+    },
+    "risk": {
+      "volatility": {
+        "title": "Volatilité",
+        "description": "Mesure l'ampleur des fluctuations des rendements du portefeuille sur la période sélectionnée.",
+        "formula": "la volatilité annualisée est l'écart-type des rendements quotidiens ramené à un an ; l'écart de baisse n'utilise que les rendements négatifs.",
+        "annualizedVolatility": "Volatilité annualisée",
+        "downsideDeviation": "Écart de baisse",
+        "sharpeRatio": "Ratio de Sharpe"
+      },
+      "correlation": {
+        "title": "Bêta et corrélation",
+        "description": "Compare le comportement du portefeuille avec le benchmark sélectionné.",
+        "formula": "le bêta estime la sensibilité aux mouvements du benchmark ; la corrélation varie de -1 à +1 selon les séries de rendements alignées.",
+        "beta": "Bêta",
+        "correlationVs": "Corrélation vs {{benchmark}}",
+        "alpha": "Alpha"
+      },
+      "var": {
+        "title": "Valeur à risque",
+        "description": "Estime les seuils de perte potentielle à partir de la distribution des rendements de la période sélectionnée.",
+        "formula": "la VaR est le seuil de perte à un niveau de confiance donné ; la CVaR est la perte moyenne au-delà de ce seuil.",
+        "var95_1d": "VaR 95 % 1J",
+        "var99_1d": "VaR 99 % 1J",
+        "cvar95": "CVaR 95 %",
+        "var95_1m": "VaR 95 % 1M"
+      },
+      "drawdown": {
+        "title": "Retrait",
+        "description": "Affiche les pertes du plus haut au plus bas et la fréquence des événements extrêmes sur la période sélectionnée.",
+        "formula": "le retrait maximal est la plus forte baisse en pourcentage entre un sommet et un creux ultérieur.",
+        "maxDrawdown": "Retrait maximal",
+        "drawdownDate": "Date du retrait",
+        "tailExposure": "Exposition aux risques extrêmes"
+      },
+      "scenario": {
+        "title": "Analyse de scénarios",
+        "description": "Applique des scénarios de marché prédéfinis aux pondérations d'exposition actuelles.",
+        "formula": "impact estimé = pondération de l'exposition x choc du scénario, additionné sur les groupes correspondants.",
+        "empty": "Aucun résultat de scénario disponible."
+      },
+      "stress": {
+        "title": "Tests de résistance",
+        "description": "Met en évidence les chocs sévères sur l'exposition actuelle qui auraient un impact important sur le portefeuille.",
+        "formula": "valeur d'impact = valeur de marché exposée actuelle x pourcentage du choc de résistance.",
+        "empty": "Aucun résultat de test de résistance disponible."
+      },
+      "scope": "Positions actuelles / période sélectionnée : {{period}}",
+      "notAvailable": "N/A"
+    },
+    "attribution": {
+      "portfolioMove": {
+        "title": "Pourquoi mon portefeuille bouge-t-il ?",
+        "scope": "Dernier mouvement quotidien",
+        "description": "Montre quelles positions actuelles expliquent le mouvement du portefeuille aujourd'hui, à partir de la dernière variation quotidienne connue de chaque actif.",
+        "formula": "valeur de marché de la position x variation quotidienne en %, puis somme divisée par la valeur totale du portefeuille.",
+        "empty": "Les données de variation quotidienne ne sont pas disponibles pour les positions actuelles.",
+        "dailyChange": "Variation quotidienne",
+        "estimatedMove": "Mouvement estimé",
+        "explainedByHoldings": "Expliqué par les positions",
+        "bestAssets": "5 meilleurs actifs",
+        "worstAssets": "5 pires actifs",
+        "noPositiveMovers": "Aucune hausse quotidienne notable.",
+        "noNegativeMovers": "Aucune baisse quotidienne notable."
+      },
+      "topContributors": "Meilleurs contributeurs",
+      "topDetractors": "Principaux détracteurs",
+      "contributionDescription": "Classe les positions ouvertes par P&L latent total, indépendamment du mouvement du jour ou de la période sélectionnée.",
+      "contributionFormula": "valeur de marché moins le coût de revient pour chaque position ouverte.",
+      "byAsset": "Contribution par actif",
+      "byTheme": "Contribution par thème",
+      "bySector": "Contribution par secteur",
+      "byCountry": "Contribution par pays",
+      "byCurrency": "Contribution par devise",
+      "groupDescription": "Regroupe les positions ouvertes actuelles et montre la contribution de chaque groupe au rendement latent total.",
+      "groupFormula": "somme du P&L latent du groupe / coût de revient total du portefeuille.",
+      "concentration": {
+        "title": "Indicateurs de concentration",
+        "description": "Mesure si la valeur du portefeuille est concentrée sur un petit nombre de positions.",
+        "formula": "positions effectives = 1 / indice de Herfindahl ; la diversification combine le nombre de positions et la dispersion de la concentration.",
+        "largestPosition": "Position la plus importante",
+        "top3Weight": "Poids du top 3",
+        "top5Weight": "Poids du top 5",
+        "effectivePositions": "Positions effectives",
+        "diversification": "Diversification",
+        "largestHolding": "Position la plus importante",
+        "ofPortfolioValue": "{{percent}} de la valeur du portefeuille."
+      }
+    },
+    "exposure": {
+      "theme": {
+        "title": "Exposition par thème"
+      },
+      "sector": {
+        "title": "Exposition sectorielle"
+      },
+      "country": {
+        "title": "Exposition géographique"
+      },
+      "currency": {
+        "title": "Exposition par devise"
+      },
+      "marketCap": {
+        "title": "Exposition par capitalisation",
+        "scope": "Positions actuelles / métadonnées disponibles",
+        "description": "Regroupe les positions par tranche de capitalisation boursière lorsque cette métadonnée est disponible. Les fonds, cryptos et capitalisations manquantes sont affichés séparément.",
+        "formula": "somme de la valeur de marché actuelle dans chaque tranche / valeur totale du portefeuille."
+      },
+      "genericDescription": "Montre la répartition actuelle de la valeur de marché selon cette dimension d'exposition.",
+      "genericFormula": "valeur de marché actuelle du groupe / valeur totale du portefeuille.",
+      "duplicate": {
+        "title": "Exposition dupliquée",
+        "description": "Signale les catégories où plusieurs positions peuvent être exposées au même facteur sous-jacent.",
+        "formula": "le poids du groupe est la somme des valeurs de marché actuelles des positions partageant cette exposition / valeur totale du portefeuille.",
+        "empty": "Aucune exposition répétée à poids élevé détectée."
+      },
+      "hiddenConcentration": {
+        "title": "Concentration cachée",
+        "description": "Met en évidence les expositions groupées potentiellement moins évidentes qu'en regardant les actifs individuellement.",
+        "formula": "somme de la valeur de marché groupée / valeur totale du portefeuille ; seules les expositions groupées à poids élevé sont affichées.",
+        "empty": "Aucune exposition groupée au-dessus du seuil de concentration."
+      },
+      "findingSubtitle": "Exposition {{type}} · {{count}} positions",
+      "themeEvolution": {
+        "title": "Évolution des thèmes",
+        "description": "Montre l'évolution dans le temps de l'exposition aux principaux thèmes, à partir des transactions et des relevés de coût de revient.",
+        "formula": "coût de revient du thème à chaque relevé / coût de revient actif total à ce relevé.",
+        "empty": "L'historique des thèmes n'est pas encore disponible.",
+        "loading": "Chargement du graphique d'évolution des thèmes"
+      },
+      "portfolioDna": {
+        "title": "ADN du portefeuille",
+        "description": "Résume le style du portefeuille à partir de la concentration, de l'instrument, de la géographie, de la devise, du thème et des indicateurs d'ampleur actuels.",
+        "formula": "chaque trait est basé sur l'exposition actuelle dominante, sauf l'ampleur, qui utilise les positions effectives."
+      },
+      "traitContext": {
+        "breadth": "Positions effectives : {{value}}",
+        "concentration": "{{percent}} sur la position la plus importante",
+        "default": "{{percent}} du portefeuille"
+      }
+    },
+    "performance": {
+      "totalReturn": "Retour total",
+      "totalReturnTooltip": "Le retour total est la valeur actuelle du portefeuille moins le coût de revient sur la période sélectionnée.",
+      "annualizedReturn": "Retour annualisé",
+      "annualizedReturnSubtitle": "Période : {{period}}",
+      "annualizedReturnTooltip": "Le retour annualisé convertit le retour de la période sélectionnée en taux annuel.",
+      "sharpeRatio": "Ratio de Sharpe",
+      "sharpeRatioSubtitle": "Retour ajusté au risque",
+      "sharpeRatioTooltip": "Le ratio de Sharpe compare le retour excédentaire à la volatilité. Plus il est élevé, meilleure est généralement la performance ajustée au risque.",
+      "vsBenchmark": "vs {{benchmark}}",
+      "alpha": "Alpha",
+      "alphaTooltip": "L'alpha est le retour du portefeuille moins le retour du benchmark sur la période sélectionnée.",
+      "error": "Erreur",
+      "failedToLoad": "Échec du chargement",
+      "vsBenchmarkChart": {
+        "title": "Performance vs Benchmark",
+        "description": "Compare la performance cumulée du portefeuille au benchmark sélectionné.",
+        "formula": "alpha = retour du portefeuille - retour du benchmark ; la corrélation compare la forme des deux séries de rendements.",
+        "empty": "L'historique du benchmark n'est pas disponible pour cette période.",
+        "loading": "Chargement du graphique de benchmark",
+        "yAxisLabel": "Performance (%)",
+        "portfolio": "Portefeuille"
+      },
+      "portfolioReturn": "Retour du portefeuille",
+      "benchmarkReturn": "Retour du benchmark",
+      "correlation": "Corrélation",
+      "statistics": {
+        "title": "Statistiques de performance",
+        "description": "Résume les variations de performance quotidiennes sur la période sélectionnée.",
+        "formula": "meilleur/pire jour utilisent les variations quotidiennes du pourcentage de performance du portefeuille.",
+        "bestDay": "Meilleur jour",
+        "worstDay": "Pire jour",
+        "positiveDays": "Jours positifs",
+        "negativeDaysSubtitle": "{{count}} jours négatifs",
+        "winRate": "Taux de réussite",
+        "winRateSubtitle": "Jours positifs / jours observés",
+        "noDateAvailable": "Date non disponible"
+      },
+      "riskSummary": {
+        "title": "Résumé du risque",
+        "description": "Montre les indicateurs de volatilité et de baisse calculés sur la série de rendements de la période sélectionnée.",
+        "formula": "la volatilité est l'écart-type annualisé ; le retrait maximal est la plus forte baisse du plus haut au plus bas.",
+        "volatility": "Volatilité",
+        "beta": "Bêta",
+        "maxDrawdown": "Retrait maximal",
+        "var95": "Valeur à risque 95 %"
+      }
+    },
+    "kicker": "Analyses",
+    "controls": {
+      "insightsControls": "Contrôles d'analyse",
+      "insightsSections": "Sections d'analyse",
+      "insightsPeriod": "Période d'analyse",
+      "insightsBenchmark": "Benchmark d'analyse"
+    },
+    "tabs": {
+      "performance": {
+        "label": "Performance",
+        "purpose": "Que s'est-il passé ?"
+      },
+      "attribution": {
+        "label": "Attribution",
+        "purpose": "Pourquoi est-ce arrivé ?"
+      },
+      "exposure": {
+        "label": "Exposition",
+        "purpose": "À quoi suis-je exposé ?"
+      },
+      "risk": {
+        "label": "Risque",
+        "purpose": "Qu'est-ce qui pourrait mal tourner ?"
+      },
+      "ai": {
+        "label": "Analyses IA",
+        "purpose": "Futur"
+      }
+    },
+    "loadingMetrics": "Chargement des indicateurs d'analyse",
+    "loadingChart": "Chargement du graphique d'analyse",
+    "future": "Futur",
+    "aiInsights": "Analyses IA",
+    "aiInsightsDescription": "Réservé aux futures analyses de portefeuille alimentées par l'IA : détection de risques cachés, lacunes de diversification, analyse d'opportunités et explications narratives."
+  }
+}

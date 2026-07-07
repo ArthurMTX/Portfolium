@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import AssetLogo from '@/shared/components/AssetLogo'
 import FlowerMark from '@/features/auth/components/FlowerMark'
 
@@ -37,6 +38,7 @@ const NVIDIA_NEWS_IMAGE = 'https://commons.wikimedia.org/wiki/Special:Redirect/f
 const FED_NEWS_IMAGE = 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Marriner%20S.%20Eccles%20Federal%20Reserve%20Board%20Building.jpg?width=320'
 
 export default function AuthBrandCollage() {
+  const { t } = useTranslation()
   return (
     <div className="auth-mock" aria-hidden="true">
       <div className="auth-mock-card auth-mock-card--portfolio">
@@ -45,7 +47,7 @@ export default function AuthBrandCollage() {
           <FlowerMark className="auth-flower--brand" />
           <span className="auth-mock-brand">Portfolium</span>
         </div>
-        <p className="auth-mock-label">Portfolio Value</p>
+        <p className="auth-mock-label">{t('authBrandCollage.portfolioValue')}</p>
         <p className="auth-mock-value">$28,934.12</p>
         <p className="auth-mock-delta auth-mock-delta--up">+12.45%</p>
         <Sparkline id="auth-mock-spark-portfolio" points={PORTFOLIO_POINTS} className="auth-mock-chart--portfolio" />
@@ -60,7 +62,7 @@ export default function AuthBrandCollage() {
 
       <div className="auth-mock-card auth-mock-card--movers">
         <CardMenu />
-        <p className="auth-mock-title">Top Movers <strong>(Today)</strong></p>
+        <p className="auth-mock-title">{t('authBrandCollage.topMovers')} <strong>({t('authBrandCollage.today')})</strong></p>
         <ul className="auth-mock-list">
           <li>
             <AssetLogo symbol="NVDA" assetType="EQUITY" className="auth-mock-ticker" />
@@ -82,21 +84,21 @@ export default function AuthBrandCollage() {
 
       <div className="auth-mock-card auth-mock-card--allocation">
         <CardMenu />
-        <p className="auth-mock-title">Asset Allocation</p>
+        <p className="auth-mock-title">{t('authBrandCollage.assetAllocation')}</p>
         <div className="auth-mock-allocation">
           <div className="auth-mock-donut" />
           <ul className="auth-mock-legend">
-            <li><span className="auth-mock-dot auth-mock-dot--stocks" />Stocks <strong>60%</strong></li>
-            <li><span className="auth-mock-dot auth-mock-dot--etfs" />ETFs <strong>25%</strong></li>
-            <li><span className="auth-mock-dot auth-mock-dot--crypto" />Crypto <strong>10%</strong></li>
-            <li><span className="auth-mock-dot auth-mock-dot--cash" />Cash <strong>5%</strong></li>
+            <li><span className="auth-mock-dot auth-mock-dot--stocks" />{t('authBrandCollage.stocks')} <strong>60%</strong></li>
+            <li><span className="auth-mock-dot auth-mock-dot--etfs" />{t('authBrandCollage.etfs')} <strong>25%</strong></li>
+            <li><span className="auth-mock-dot auth-mock-dot--crypto" />{t('authBrandCollage.crypto')} <strong>10%</strong></li>
+            <li><span className="auth-mock-dot auth-mock-dot--cash" />{t('authBrandCollage.cash')} <strong>5%</strong></li>
           </ul>
         </div>
       </div>
 
       <div className="auth-mock-card auth-mock-card--watchlist">
         <CardMenu />
-        <p className="auth-mock-title">Watchlist</p>
+        <p className="auth-mock-title">{t('authBrandCollage.watchlist')}</p>
         <ul className="auth-mock-list auth-mock-list--two-line">
           <li>
             <AssetLogo symbol="AAPL" assetType="EQUITY" className="auth-mock-ticker" />
@@ -122,7 +124,7 @@ export default function AuthBrandCollage() {
 
       <div className="auth-mock-card auth-mock-card--overview">
         <CardMenu />
-        <p className="auth-mock-title">Market Overview</p>
+        <p className="auth-mock-title">{t('authBrandCollage.marketOverview')}</p>
         <ul className="auth-mock-mini-markets">
           <li>
             <span><b>S&amp;P 500</b><small>5,509.01</small><em className="auth-mock-delta--up">+0.78%</em></span>
@@ -141,7 +143,7 @@ export default function AuthBrandCollage() {
 
       <div className="auth-mock-card auth-mock-card--holdings">
         <CardMenu />
-        <p className="auth-mock-title">Holdings</p>
+        <p className="auth-mock-title">{t('authBrandCollage.holdings')}</p>
         <ul className="auth-mock-list auth-mock-list--two-line">
           <li>
             <AssetLogo symbol="NVDA" assetType="EQUITY" className="auth-mock-ticker" />
@@ -163,29 +165,29 @@ export default function AuthBrandCollage() {
 
       <div className="auth-mock-card auth-mock-card--activity">
         <CardMenu />
-        <p className="auth-mock-title">Recent Activity</p>
+        <p className="auth-mock-title">{t('authBrandCollage.recentActivity')}</p>
         <ul className="auth-mock-activity">
           <li>
             <AssetLogo symbol="ASML" assetType="EQUITY" className="auth-mock-ticker" />
-            <span><b>Bought</b><strong>ASML</strong><small>10 shares</small></span>
-            <time>Today</time>
+            <span><b>{t('authBrandCollage.bought')}</b><strong>ASML</strong><small>{t('authBrandCollage.sharesCount', { count: 10 })}</small></span>
+            <time>{t('authBrandCollage.today')}</time>
           </li>
           <li>
             <AssetLogo symbol="VUSA" assetType="ETF" className="auth-mock-ticker" />
-            <span><b>Dividend</b><strong>VUSA</strong><small>$12.45</small></span>
-            <time>2d ago</time>
+            <span><b>{t('authBrandCollage.dividend')}</b><strong>VUSA</strong><small>$12.45</small></span>
+            <time>{t('authBrandCollage.daysAgo', { count: 2 })}</time>
           </li>
           <li>
             <AssetLogo symbol="AMD" assetType="EQUITY" className="auth-mock-ticker" />
-            <span><b>Sold</b><strong>AMD</strong><small>5 shares</small></span>
-            <time>5d ago</time>
+            <span><b>{t('authBrandCollage.sold')}</b><strong>AMD</strong><small>{t('authBrandCollage.sharesCount', { count: 5 })}</small></span>
+            <time>{t('authBrandCollage.daysAgo', { count: 5 })}</time>
           </li>
         </ul>
       </div>
 
       <div className="auth-mock-card auth-mock-card--performance">
         <CardMenu />
-        <p className="auth-mock-title">Performance</p>
+        <p className="auth-mock-title">{t('authBrandCollage.performance')}</p>
         <p className="auth-mock-value auth-mock-value--sm">+12.45%</p>
         <p className="auth-mock-profit">+$3,204.12 (1M)</p>
         <Sparkline id="auth-mock-spark-performance" points={PERFORMANCE_POINTS} className="auth-mock-chart--performance" />
@@ -193,15 +195,15 @@ export default function AuthBrandCollage() {
 
       <div className="auth-mock-card auth-mock-card--news">
         <CardMenu />
-        <p className="auth-mock-title">News</p>
+        <p className="auth-mock-title">{t('authBrandCollage.news')}</p>
         <div className="auth-mock-news-item">
-          <span><b>Nvidia shares jump on strong earnings</b><small>2h ago</small></span>
+          <span><b>{t('authBrandCollage.nvidiaHeadline')}</b><small>{t('authBrandCollage.hoursAgo', { count: 2 })}</small></span>
           <div className="auth-mock-news-thumb auth-mock-news-thumb--nvidia">
             <img src={NVIDIA_NEWS_IMAGE} alt="" loading="lazy" draggable={false} />
           </div>
         </div>
         <div className="auth-mock-news-item">
-          <span><b>Fed signals rate cut later this year</b><small>5h ago</small></span>
+          <span><b>{t('authBrandCollage.fedHeadline')}</b><small>{t('authBrandCollage.hoursAgo', { count: 5 })}</small></span>
           <div className="auth-mock-news-thumb auth-mock-news-thumb--fed">
             <img src={FED_NEWS_IMAGE} alt="" loading="lazy" draggable={false} />
           </div>

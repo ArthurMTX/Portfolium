@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Languages } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useLanguage } from '@/app/hooks/useLanguage'
 import { getFlagUrl } from '@/shared/lib/countryUtils'
 import '@/shared/design/pages/auth.css'
@@ -14,6 +15,7 @@ interface AuthLanguageSwitcherProps {
 }
 
 export default function AuthLanguageSwitcher({ darkMode = false }: AuthLanguageSwitcherProps) {
+  const { t } = useTranslation()
   const { language, changeLanguage } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -25,7 +27,7 @@ export default function AuthLanguageSwitcher({ darkMode = false }: AuthLanguageS
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="pf-button pf-button--secondary auth-language__trigger"
-        aria-label="Change language"
+        aria-label={t('navigation.changeLanguage')}
         aria-expanded={isOpen}
       >
         <Languages aria-hidden="true" />

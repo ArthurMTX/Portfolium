@@ -93,7 +93,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
         ) : positions.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-              {t('dashboard.noPositions')}
+              {t('common.positionFields.noPositions')}
             </p>
           </div>
         ) : (
@@ -137,7 +137,7 @@ export default function PortfolioHeatmapWidget({ isPreview = false }: PortfolioH
                   </div>
                   <div className="mt-auto">
                     <div className={`${isLarge ? 'text-sm' : 'text-xs'} opacity-90`}>
-                      <span className="opacity-70">Weight: </span>{percentage.toFixed(1)}%
+                      <span className="opacity-70">{t('charts.weight')}: </span>{percentage.toFixed(1)}%
                     </div>
                     {dailyPct !== null && (
                       <div className={`${isLarge ? 'text-sm' : 'text-xs'} font-semibold`}>

@@ -278,15 +278,15 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
   }
 
   if (loading) {
-    return <ChartSkeleton label="Loading position heatmap" />
+    return <ChartSkeleton label={t('portfolioHeatmap.loadingHeatmap')} />
   }
 
   if (positions.length === 0) {
     return (
       <StateBlock
-        eyebrow="No chart data"
-        title={t('dashboard.noPositions')}
-        description="Add holdings before using the portfolio heatmap."
+        eyebrow={t('portfolioHeatmap.noChartData')}
+        title={t('common.positionFields.noPositions')}
+        description={t('portfolioHeatmap.addHoldingsFirst')}
       />
     )
   }
@@ -295,7 +295,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
     <section className="pf-section pf-section--spacious charts-section">
       <div className="pf-section-header pf-section-header--grid pf-section-header--spacious charts-section__header charts-section__header--heatmap">
         <div>
-          <p className="pf-section-kicker">POSITION MAP</p>
+          <p className="pf-section-kicker">{t('portfolioHeatmap.positionMapKicker')}</p>
           <h2 className="pf-section-title">{t('charts.heatmap')}</h2>
         </div>
         <span className="pf-section-description">{t('charts.heatmapDescription')}</span>
@@ -420,7 +420,7 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
 
         {selectedPosition && (
           <aside className="charts-analysis-panel">
-            <p>Selected position</p>
+            <p>{t('portfolioHeatmap.selectedPosition')}</p>
             <div className="charts-analysis-panel__identity">
                 <AssetLogo
                 symbol={selectedPosition.symbol}
@@ -436,38 +436,38 @@ export default function PortfolioHeatmap({ portfolioId }: Props) {
             </div>
             <dl>
               <div>
-                <dt>Current weight</dt>
+                <dt>{t('portfolioHeatmap.currentWeight')}</dt>
                 <dd>{totalValue > 0 ? `${(((Number(selectedPosition.market_value) || 0) / totalValue) * 100).toFixed(2)}%` : '—'}</dd>
               </div>
               <div>
-                <dt>Daily move</dt>
+                <dt>{t('portfolioHeatmap.dailyMove')}</dt>
                 <dd className={performanceClass(selectedPosition.daily_change_pct)}>{formatSignedPercent(selectedPosition.daily_change_pct)}</dd>
               </div>
               <div>
-                <dt>Total return</dt>
+                <dt>{t('portfolioHeatmap.totalReturn')}</dt>
                 <dd className={performanceClass(selectedPosition.unrealized_pnl_pct)}>{formatSignedPercent(selectedPosition.unrealized_pnl_pct)}</dd>
               </div>
               <div>
-                <dt>Portfolio contribution</dt>
+                <dt>{t('portfolioHeatmap.portfolioContribution')}</dt>
                 <dd className={performanceClass(selectedPosition.unrealized_pnl)}>
                   {formatSignedCurrency(selectedPosition.unrealized_pnl, selectedPosition.currency)}
                 </dd>
               </div>
               <div>
-                <dt>Sector</dt>
-                <dd>{selectedPosition.effective_sector || selectedPosition.sector || 'Unavailable'}</dd>
+                <dt>{t('portfolioHeatmap.sector')}</dt>
+                <dd>{selectedPosition.effective_sector || selectedPosition.sector || t('portfolioHeatmap.unavailable')}</dd>
               </div>
               <div>
-                <dt>Country</dt>
-                <dd>{selectedPosition.effective_country || selectedPosition.country || 'Unavailable'}</dd>
+                <dt>{t('portfolioHeatmap.country')}</dt>
+                <dd>{selectedPosition.effective_country || selectedPosition.country || t('portfolioHeatmap.unavailable')}</dd>
               </div>
               <div>
-                <dt>Theme</dt>
-                <dd>{selectedPosition.themes?.[0]?.label || selectedPosition.themes?.[0]?.name || 'Unavailable'}</dd>
+                <dt>{t('portfolioHeatmap.theme')}</dt>
+                <dd>{selectedPosition.themes?.[0]?.label || selectedPosition.themes?.[0]?.name || t('portfolioHeatmap.unavailable')}</dd>
               </div>
             </dl>
             <button type="button" onClick={() => navigate(`/assets/${encodeURIComponent(selectedPosition.symbol)}/research`)}>
-              Open Asset Research →
+              {t('portfolioHeatmap.openAssetResearch')}
             </button>
           </aside>
         )}

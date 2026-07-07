@@ -302,7 +302,7 @@ export default function LayoutManager({
           <div className="mx-6 mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
             <AlertTriangle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={18} />
             <div>
-              <p className="text-sm font-medium text-red-900 dark:text-red-100">Error</p>
+              <p className="text-sm font-medium text-red-900 dark:text-red-100">{t('common.error')}</p>
               <p className="text-sm text-red-700 dark:text-red-300 mt-1">{error}</p>
             </div>
             <button
@@ -583,7 +583,7 @@ export default function LayoutManager({
             <>
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
-                  <strong>{t('dashboard.proTip')}:</strong> {t('dashboard.layouts.proTipInfo')}
+                  <strong>{t('dashboard.page.proTip')}:</strong> {t('dashboard.layouts.proTipInfo')}
                 </p>
               </div>
               {PREDEFINED_LAYOUTS.map((template, index) => (

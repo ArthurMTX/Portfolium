@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import {
   CategoryScale,
@@ -29,7 +31,6 @@ interface TransactionIndicatorVisual {
 }
 
 const PERIODS: PricePeriod[] = ['1M', '3M', 'YTD', '1Y', 'ALL']
-const AVERAGE_COST_LABEL = 'Average cost'
 const EMPTY_FX_RATES: FxRateMap = {}
 const TRANSACTION_KIND_ORDER: TransactionIndicatorKind[] = [
   'buy',
@@ -38,32 +39,35 @@ const TRANSACTION_KIND_ORDER: TransactionIndicatorKind[] = [
   'transfer',
   'split',
 ]
-const TRANSACTION_INDICATORS: Record<TransactionIndicatorKind, TransactionIndicatorVisual> = {
-  buy: {
-    label: 'Buy',
-    color: 'rgb(34,197,94)',
-    radius: 3,
-  },
-  sell: {
-    label: 'Sell',
-    color: 'rgb(239,68,68)',
-    radius: 3,
-  },
-  conversion: {
-    label: 'Conversion',
-    color: 'rgb(99,102,241)',
-    radius: 3,
-  },
-  transfer: {
-    label: 'Transfer',
-    color: 'rgb(6,182,212)',
-    radius: 3,
-  },
-  split: {
-    label: 'Split',
-    color: 'rgb(168,85,247)',
-    radius: 3.5,
-  },
+
+function getTransactionIndicators(t: TFunction): Record<TransactionIndicatorKind, TransactionIndicatorVisual> {
+  return {
+    buy: {
+      label: t('assetResearchPriceChart.transactionKinds.buy'),
+      color: 'rgb(34,197,94)',
+      radius: 3,
+    },
+    sell: {
+      label: t('assetResearchPriceChart.transactionKinds.sell'),
+      color: 'rgb(239,68,68)',
+      radius: 3,
+    },
+    conversion: {
+      label: t('assetResearchPriceChart.transactionKinds.conversion'),
+      color: 'rgb(99,102,241)',
+      radius: 3,
+    },
+    transfer: {
+      label: t('assetResearchPriceChart.transactionKinds.transfer'),
+      color: 'rgb(6,182,212)',
+      radius: 3,
+    },
+    split: {
+      label: t('assetResearchPriceChart.transactionKinds.split'),
+      color: 'rgb(168,85,247)',
+      radius: 3.5,
+    },
+  }
 }
 
 interface AssetResearchPriceChartProps {
@@ -87,6 +91,9 @@ export default function AssetResearchPriceChart({
   currentAverageCost = null,
   currentAverageCostCurrency = null,
 }: AssetResearchPriceChartProps) {
+  const { t } = useTranslation()
+  const averageCostLabel = t('assetResearchPriceChart.averageCost')
+  const transactionIndicators = useMemo(() => getTransactionIndicators(t), [t])
   const [period, setPeriod] = useState<PricePeriod>('1Y')
   const [showAverageCost, setShowAverageCost] = useState(true)
   const [hiddenIndicatorKinds, setHiddenIndicatorKinds] = useState<TransactionIndicatorKind[]>([])
@@ -194,7 +201,7 @@ export default function AssetResearchPriceChart({
       ),
       datasets: [
         {
-          label: `${symbol} price`,
+          label: t('assetResearchPriceChart.symbolPrice', { symbol }),
           data: points.map((point) => point.price),
           borderColor: '#b51f5e',
           borderWidth: 2.25,
@@ -206,7 +213,7 @@ export default function AssetResearchPriceChart({
         ...(showAverageCost && hasAverageCostLine
           ? [
               {
-                label: AVERAGE_COST_LABEL,
+                label: averageCostLabel,
                 data: averageCostSeries,
                 borderColor: 'rgba(168, 162, 158, 0.62)',
                 borderWidth: 1.15,
@@ -221,7 +228,7 @@ export default function AssetResearchPriceChart({
           : []),
       ],
     }),
-    [averageCostSeries, hasAverageCostLine, locale, period, points, showAverageCost, symbol],
+    [averageCostLabel, averageCostSeries, hasAverageCostLine, locale, period, points, showAverageCost, symbol, t],
   )
   const transactionAnnotations = useMemo(() => {
     const annotations: Record<string, TransactionAnnotation> = {}
@@ -238,7 +245,7 @@ export default function AssetResearchPriceChart({
         const kind = getTransactionIndicatorKind(transaction.type)
         if (!kind) return
         if (!visibleTransactionKinds.has(kind)) return
-        const visual = TRANSACTION_INDICATORS[kind]
+        const visual = transactionIndicators[kind]
         const transactionPrice = getChartCompatibleTransactionPrice(transaction, currency, fxRates)
 
         annotations[`tx-point-${transaction.id}`] = {
@@ -254,7 +261,7 @@ export default function AssetResearchPriceChart({
     })
 
     return annotations
-  }, [currency, fxRates, points, transactions, visibleDateRange, visibleTransactionKinds])
+  }, [currency, fxRates, points, transactionIndicators, transactions, visibleDateRange, visibleTransactionKinds])
   const visibleIndicatorKinds = useMemo(() => {
     const kinds = new Set<TransactionIndicatorKind>()
     transactions.forEach((transaction) => {
@@ -283,20 +290,20 @@ export default function AssetResearchPriceChart({
             label: (context) => {
               const value = Number(context.parsed.y)
               if (!Number.isFinite(value)) return ''
-              if (context.dataset.label === AVERAGE_COST_LABEL) {
-                return `${AVERAGE_COST_LABEL}: ${currencyFormatter.format(value)}`
+              if (context.dataset.label === averageCostLabel) {
+                return t('assetResearchPriceChart.averageCostTooltip', { value: currencyFormatter.format(value) })
               }
-              return `Market close: ${currencyFormatter.format(value)}`
+              return t('assetResearchPriceChart.marketClose', { value: currencyFormatter.format(value) })
             },
             afterLabel: (context) => {
-              if (context.dataset.label === AVERAGE_COST_LABEL) return []
+              if (context.dataset.label === averageCostLabel) return []
               const transactionsOnDate = transactionPointMap.get(context.dataIndex) ?? []
               return transactionsOnDate
                 .filter((transaction) => {
                   const kind = getTransactionIndicatorKind(transaction.type)
                   return Boolean(kind && visibleTransactionKinds.has(kind))
                 })
-                .map((transaction) => formatTransactionTooltipLine(transaction, currencyFormatter))
+                .map((transaction) => formatTransactionTooltipLine(transaction, currencyFormatter, transactionIndicators, t))
                 .filter((line): line is string => Boolean(line))
             },
           },
@@ -329,7 +336,7 @@ export default function AssetResearchPriceChart({
         },
       },
     }),
-    [currencyFormatter, transactionAnnotations, transactionPointMap, visibleTransactionKinds],
+    [averageCostLabel, currencyFormatter, t, transactionAnnotations, transactionIndicators, transactionPointMap, visibleTransactionKinds],
   )
   const toggleIndicatorKind = (kind: TransactionIndicatorKind) => {
     setHiddenIndicatorKinds((current) =>
@@ -343,8 +350,8 @@ export default function AssetResearchPriceChart({
     <section className="asset-research__trajectory" aria-labelledby="asset-trajectory-heading">
       <div className="pf-section-header asset-research__section-heading">
         <div>
-          <p className="pf-section-kicker asset-research__section-label">Observed market data</p>
-          <h2 id="asset-trajectory-heading">Price trajectory</h2>
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchPriceChart.observedMarketData')}</p>
+          <h2 id="asset-trajectory-heading">{t('assetResearchPriceChart.priceTrajectory')}</h2>
           {periodChange !== null && (
             <p
               className={`asset-research__trajectory-return ${
@@ -355,12 +362,15 @@ export default function AssetResearchPriceChart({
                     : 'asset-research__value--neutral'
               }`}
             >
-              {periodChange > 0 ? '+' : ''}
-              {periodChange.toFixed(2)}% from the first to the latest price in {period}
+              {t('assetResearchPriceChart.changeFromFirstToLatest', {
+                sign: periodChange > 0 ? '+' : '',
+                percent: periodChange.toFixed(2),
+                period,
+              })}
             </p>
           )}
         </div>
-        <div className="pf-tabs asset-research__periods" aria-label="Price period">
+        <div className="pf-tabs asset-research__periods" aria-label={t('assetResearchPriceChart.pricePeriod')}>
           {PERIODS.map((item) => (
             <button
               key={item}
@@ -376,35 +386,35 @@ export default function AssetResearchPriceChart({
       </div>
 
       {historyQuery.isLoading ? (
-        <ChartSkeleton className="asset-research__chart-skeleton" label="Loading price history" />
+        <ChartSkeleton className="asset-research__chart-skeleton" label={t('assetResearchPriceChart.loadingPriceHistory')} />
       ) : historyQuery.isError ? (
         <StateBlock
           tone="error"
           className="asset-research__quiet-state"
-          eyebrow="Price history"
-          title="Price history could not be loaded."
-          description="The current quote remains available above."
-          actionLabel="Retry"
+          eyebrow={t('assetResearchPriceChart.priceHistory')}
+          title={t('assetResearchPriceChart.priceHistoryError')}
+          description={t('assetResearchPriceChart.currentQuoteAvailable')}
+          actionLabel={t('assetResearchPriceChart.retry')}
           onAction={() => historyQuery.refetch()}
         />
       ) : points.length < 2 ? (
         <StateBlock
           className="asset-research__quiet-state"
-          eyebrow="No chart data"
-          title="Not enough data to draw this chart."
-          description="More dated prices are needed to establish a trajectory."
+          eyebrow={t('assetResearchPriceChart.noChartData')}
+          title={t('assetResearchPriceChart.notEnoughData')}
+          description={t('assetResearchPriceChart.moreDataNeeded')}
         />
       ) : (
         <div
           className="asset-research__chart"
           role="img"
-          aria-label={`${symbol} price trajectory over ${period}`}
+          aria-label={t('assetResearchPriceChart.priceTrajectoryOver', { symbol, period })}
         >
           <Line data={data} options={options} />
         </div>
       )}
       {(hasAverageCostLine || visibleIndicatorKinds.length > 0) && (
-        <div className="asset-research__transaction-indicators" aria-label="Transaction indicators">
+        <div className="asset-research__transaction-indicators" aria-label={t('assetResearchPriceChart.transactionIndicators')}>
           {hasAverageCostLine && (
             <button
               type="button"
@@ -416,11 +426,11 @@ export default function AssetResearchPriceChart({
               style={{ '--indicator-color': 'rgba(168, 162, 158, 0.72)' } as CSSProperties}
             >
               <i aria-hidden="true" />
-              Average cost
+              {averageCostLabel}
             </button>
           )}
           {visibleIndicatorKinds.map((kind) => {
-            const visual = TRANSACTION_INDICATORS[kind]
+            const visual = transactionIndicators[kind]
             const isActive = visibleTransactionKinds.has(kind)
             return (
               <button
@@ -750,10 +760,12 @@ function getTransactionIndicatorKind(type: string): TransactionIndicatorKind | n
 function formatTransactionTooltipLine(
   transaction: AssetResearchViewTransaction,
   chartCurrencyFormatter: Intl.NumberFormat,
+  transactionIndicators: Record<TransactionIndicatorKind, TransactionIndicatorVisual>,
+  t: TFunction,
 ) {
   const kind = getTransactionIndicatorKind(transaction.type)
   if (!kind) return null
-  const visual = TRANSACTION_INDICATORS[kind]
+  const visual = transactionIndicators[kind]
   const quantity = Number(transaction.quantity)
   const price = Number(transaction.price)
   const transactionCurrencyFormatter = new Intl.NumberFormat(chartCurrencyFormatter.resolvedOptions().locale, {
@@ -766,10 +778,10 @@ function formatTransactionTooltipLine(
 
   if (transaction.type.toUpperCase() === 'SPLIT') {
     const split = transaction.metadata?.split
-    return split ? `${visual.label}: ${split}` : visual.label
+    return split ? t('assetResearchPriceChart.tooltipLines.splitLine', { label: visual.label, split }) : visual.label
   }
 
-  if (quantityText && priceText) return `${visual.label} price: ${quantityText} @ ${priceText}`
-  if (quantityText) return `${visual.label}: ${quantityText}`
+  if (quantityText && priceText) return t('assetResearchPriceChart.tooltipLines.priceLine', { label: visual.label, quantity: quantityText, price: priceText })
+  if (quantityText) return t('assetResearchPriceChart.tooltipLines.quantityLine', { label: visual.label, quantity: quantityText })
   return visual.label
 }

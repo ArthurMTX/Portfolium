@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { DistributionItemDTO, PositionDTO, ThemeDistributionItemDTO } from '@/api'
 import type {
   AttributionItem,
@@ -34,6 +35,7 @@ export function calculatePositionDailyImpact(position: PositionDTO): number {
 export function buildDailyAttribution(
   positions: PositionDTO[],
   authoritativeTotal: number,
+  t: TFunction,
   visibleCount = 3,
 ): AttributionItem[] {
   const ranked: AttributionItem[] = positions
@@ -55,7 +57,7 @@ export function buildDailyAttribution(
   if (ranked.length > visibleCount || Math.abs(remainder) >= 0.005) {
     visible.push({
       key: 'remainder',
-      label: 'Other positions and market effects',
+      label: t('dashboardOverview.otherPositionsAndMarketEffects'),
       value: remainder,
       estimated: true,
     })
@@ -64,20 +66,20 @@ export function buildDailyAttribution(
   return visible
 }
 
-function fromDistribution(items: DistributionItemDTO[] = []): ExposureItem[] {
+function fromDistribution(items: DistributionItemDTO[] = [], t: TFunction): ExposureItem[] {
   return items.map((item, index) => ({
     key: `${item.name}-${index}`,
-    label: item.name || 'Unknown',
+    label: item.name || t('dashboardOverview.unknown'),
     value: numberValue(item.total_value),
     percentage: numberValue(item.percentage),
     count: item.count,
   }))
 }
 
-function fromThemes(items: ThemeDistributionItemDTO[] = []): ExposureItem[] {
+function fromThemes(items: ThemeDistributionItemDTO[] = [], t: TFunction): ExposureItem[] {
   return items.map((item, index) => ({
     key: `${item.theme}-${index}`,
-    label: item.theme || 'Unknown',
+    label: item.theme || t('dashboardOverview.unknown'),
     value: numberValue(item.value),
     percentage: numberValue(item.percentage),
     count: item.assets?.length,
@@ -87,11 +89,12 @@ function fromThemes(items: ThemeDistributionItemDTO[] = []): ExposureItem[] {
 export function buildExposure(
   items: DistributionItemDTO[] | ThemeDistributionItemDTO[] | undefined,
   dimension: 'theme' | 'standard',
+  t: TFunction,
 ): ExposureResult {
   const normalized =
     dimension === 'theme'
-      ? fromThemes((items ?? []) as ThemeDistributionItemDTO[])
-      : fromDistribution((items ?? []) as DistributionItemDTO[])
+      ? fromThemes((items ?? []) as ThemeDistributionItemDTO[], t)
+      : fromDistribution((items ?? []) as DistributionItemDTO[], t)
 
   const sorted = normalized
     .filter((item) => item.percentage > 0)

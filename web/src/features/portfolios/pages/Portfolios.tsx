@@ -164,7 +164,7 @@ export default function Portfolios() {
       setLargestAllocationByPortfolio(Object.fromEntries(allocationEntries))
     } catch (error) {
       console.error('Failed to fetch portfolios:', error)
-      setLoadError(error instanceof Error ? error.message : 'Failed to load portfolios')
+      setLoadError(error instanceof Error ? error.message : t('portfoliosPage.loadFailedGeneric'))
     } finally {
       setLoading(false)
     }
@@ -250,7 +250,7 @@ export default function Portfolios() {
       await fetchPortfolios()
       closeModal()
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Operation failed')
+      setFormError(err instanceof Error ? err.message : t('portfoliosPage.operationFailed'))
     } finally {
       setFormLoading(false)
     }
@@ -316,20 +316,23 @@ export default function Portfolios() {
     <PageShell className="portfolios">
       <PageHeader>
         <PageTitleBlock
-          kicker="Portfolios"
-          title={`${portfolios.length} ${portfolios.length === 1 ? 'portfolio' : 'portfolios'}`}
+          kicker={t('portfoliosPage.kicker')}
+          title={t('portfoliosPage.portfoliosCount', { count: portfolios.length })}
         />
         <PageSummaryPanel
           lead={
             <>
-              {formatCapitalGroups(capitalByCurrency, locale)} deployed across {portfolios.length}{' '}
-              {portfolios.length === 1 ? 'portfolio' : 'portfolios'}.
+              {t('portfoliosPage.deployedAcross', {
+                amount: formatCapitalGroups(capitalByCurrency, locale),
+                count: portfolios.length,
+                plural: portfolios.length === 1 ? '' : 's',
+              })}
             </>
           }
           description={
             <>
-              {activePortfolio ? `${activePortfolio.name} is currently active. ` : ''}
-              The selected portfolio powers every page in Portfolium.
+              {activePortfolio ? t('portfoliosPage.activePortfolioIs', { name: activePortfolio.name }) : ''}
+              {t('portfoliosPage.poweredDescription')}
             </>
           }
           actions={
@@ -341,11 +344,11 @@ export default function Portfolios() {
         />
       </PageHeader>
 
-      <PageMetricStrip label="Portfolios context">
-        <PageMetric label="Portfolios" value={portfolios.length} />
-        <PageMetric label="Total value" value={formatCapitalGroups(capitalByCurrency, locale)} />
-        <PageMetric label="Active portfolio" value={activePortfolio?.name || '—'} />
-        <PageMetric label="Last activity" value={lastActivity} />
+      <PageMetricStrip label={t('portfoliosPage.contextLabel')}>
+        <PageMetric label={t('portfoliosPage.portfoliosMetric')} value={portfolios.length} />
+        <PageMetric label={t('portfoliosPage.totalValue')} value={formatCapitalGroups(capitalByCurrency, locale)} />
+        <PageMetric label={t('portfoliosPage.activePortfolioMetric')} value={activePortfolio?.name || '—'} />
+        <PageMetric label={t('portfoliosPage.lastActivity')} value={lastActivity} />
       </PageMetricStrip>
 
       {loading ? (
@@ -353,9 +356,9 @@ export default function Portfolios() {
       ) : loadError ? (
         <StateBlock
           tone="error"
-          eyebrow="Portfolios"
-          title="Could not load portfolios."
-          description="Portfolium could not refresh your portfolio list."
+          eyebrow={t('portfoliosPage.errorEyebrow')}
+          title={t('portfoliosPage.errorTitle')}
+          description={t('portfoliosPage.errorDescription')}
           detail={loadError}
           actionLabel={t('common.retry')}
           onAction={fetchPortfolios}
@@ -363,9 +366,9 @@ export default function Portfolios() {
       ) : portfolios.length === 0 ? (
         <StateBlock
           className="portfolios__empty"
-          eyebrow="No portfolios"
-          title="Your portfolios define the investment context Portfolium works in."
-          description="Create one portfolio to start tracking a strategy, broker account, or investment universe."
+          eyebrow={t('portfoliosPage.noPortfoliosEyebrow')}
+          title={t('portfoliosPage.noPortfoliosTitle')}
+          description={t('portfoliosPage.noPortfoliosDescription')}
         >
           <button className="pf-button pf-button--primary" onClick={openAddModal}>
             <PlusCircle size={16} />
@@ -374,7 +377,7 @@ export default function Portfolios() {
         </StateBlock>
       ) : (
         <PageMainGrid single>
-        <PageMainColumn className="portfolios__list" aria-label="Portfolio selector">
+        <PageMainColumn className="portfolios__list" aria-label={t('portfoliosPage.portfolioSelectorLabel')}>
           {portfolios.map((portfolio) => {
             const metrics = metricsByPortfolio[portfolio.id]
             const isActive = activePortfolioId === portfolio.id
@@ -392,44 +395,44 @@ export default function Portfolios() {
                   <div className="portfolios__identity">
                     <span>
                       <i />
-                      {isActive ? 'CURRENTLY ACTIVE' : 'INACTIVE'}
+                      {isActive ? t('portfoliosPage.currentlyActive') : t('portfoliosPage.inactive')}
                     </span>
                     <h2>{portfolio.name}</h2>
-                    <p>{portfolio.description || 'No strategy note yet.'}</p>
+                    <p>{portfolio.description || t('portfoliosPage.noStrategyNote')}</p>
                   </div>
 
                   <div className="portfolios__value">
                     <strong>{metrics ? formatCurrency(metrics.total_value, portfolio.base_currency, locale) : '—'}</strong>
-                    <span>{metrics ? `${metrics.positions_count} ${metrics.positions_count === 1 ? 'position' : 'positions'}` : 'No position data'}</span>
+                    <span>{metrics ? t('portfoliosPage.positionsCount', { count: metrics.positions_count }) : t('portfoliosPage.noPositionData')}</span>
                   </div>
                 </div>
 
                 <dl className="portfolios__facts">
                   <div>
-                    <dt>Performance</dt>
+                    <dt>{t('portfoliosPage.performance')}</dt>
                     <dd className={valueTone(totalReturn)}>
-                      {totalReturn === null ? '—' : `${signedPercent(totalReturnPct)} since inception`}
+                      {totalReturn === null ? '—' : t('portfoliosPage.sinceInception', { percent: signedPercent(totalReturnPct) })}
                     </dd>
                   </div>
                   <div>
-                    <dt>Largest allocation</dt>
+                    <dt>{t('portfoliosPage.largestAllocation')}</dt>
                     <dd>
                       {largestAllocation
                         ? `${largestAllocation.label} · ${largestAllocation.percentage.toFixed(1)}%`
-                        : 'Not classified yet'}
+                        : t('portfoliosPage.notClassifiedYet')}
                     </dd>
                   </div>
                   <div>
-                    <dt>Last activity</dt>
+                    <dt>{t('portfoliosPage.lastActivity')}</dt>
                     <dd>{formatDate(metrics?.last_updated || portfolio.created_at, locale)}</dd>
                   </div>
                 </dl>
 
                 <div className="portfolios__metadata">
-                  <span>{portfolio.base_currency} base currency</span>
-                  <span>{portfolio.is_public ? 'Public sharing enabled' : 'Private portfolio'}</span>
+                  <span>{t('portfoliosPage.baseCurrency', { currency: portfolio.base_currency })}</span>
+                  <span>{portfolio.is_public ? t('portfoliosPage.publicSharingEnabled') : t('portfoliosPage.privatePortfolio')}</span>
                   <div>
-                    Created {formatDate(portfolio.created_at, locale)}
+                    {t('portfoliosPage.created', { date: formatDate(portfolio.created_at, locale) })}
                   </div>
                 </div>
 
@@ -439,7 +442,7 @@ export default function Portfolios() {
                     disabled={isActive}
                     onClick={() => handleSelectPortfolio(portfolio.id)}
                   >
-                    {isActive ? 'Currently active' : 'Switch portfolio →'}
+                    {isActive ? t('portfoliosPage.currentlyActiveButton') : t('portfoliosPage.switchPortfolio')}
                   </button>
                   <div className="portfolios__tertiary-actions">
                     <button
@@ -447,15 +450,15 @@ export default function Portfolios() {
                       title={portfolio.is_public ? t('portfolios.publicEnabled') : t('portfolios.publicDisabled')}
                     >
                       {portfolio.is_public ? <Globe size={15} /> : <GlobeLock size={15} />}
-                      Share
+                      {t('portfoliosPage.share')}
                     </button>
                     <button onClick={() => openEditModal(portfolio)} title={t('common.edit')}>
                       <Edit2 size={15} />
-                      Rename
+                      {t('portfoliosPage.rename')}
                     </button>
                     <button onClick={() => setDeleteConfirm(portfolio.id)} title={t('common.delete')}>
                       <Trash2 size={15} />
-                      Delete
+                      {t('portfoliosPage.delete')}
                     </button>
                   </div>
                 </div>

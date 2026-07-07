@@ -76,13 +76,15 @@ import type {
 } from '@/features/asset-research/types'
 import '@/shared/design/pages/asset-research.css'
 
-const TABS: Array<{ id: AssetResearchViewTab; label: string; object: 'asset' | 'position' }> = [
-  { id: 'overview', label: 'Overview', object: 'asset' },
-  { id: 'financials', label: 'Financials', object: 'asset' },
-  { id: 'valuation', label: 'Valuation', object: 'asset' },
-  { id: 'risk', label: 'Risk', object: 'asset' },
-  { id: 'position', label: 'My Position', object: 'position' },
-]
+function getTabs(t: (key: string) => string): Array<{ id: AssetResearchViewTab; label: string; object: 'asset' | 'position' }> {
+  return [
+    { id: 'overview', label: t('assetResearchView.tabs.overview'), object: 'asset' },
+    { id: 'financials', label: t('assetResearchView.tabs.financials'), object: 'asset' },
+    { id: 'valuation', label: t('assetResearchView.tabs.valuation'), object: 'asset' },
+    { id: 'risk', label: t('assetResearchView.tabs.risk'), object: 'asset' },
+    { id: 'position', label: t('assetResearchView.tabs.position'), object: 'position' },
+  ]
+}
 
 interface TransactionVisual {
   Icon: LucideIcon
@@ -90,26 +92,26 @@ interface TransactionVisual {
   tone: string
 }
 
-function getTransactionVisual(type: string): TransactionVisual {
+function getTransactionVisual(type: string, t: (key: string) => string): TransactionVisual {
   switch (type.toUpperCase()) {
     case 'BUY':
-      return { Icon: ArrowDownToLine, label: 'Buy', tone: 'positive' }
+      return { Icon: ArrowDownToLine, label: t('assetResearchView.transactionKinds.buy'), tone: 'positive' }
     case 'SELL':
-      return { Icon: ArrowUpFromLine, label: 'Sell', tone: 'negative' }
+      return { Icon: ArrowUpFromLine, label: t('assetResearchView.transactionKinds.sell'), tone: 'negative' }
     case 'DIVIDEND':
-      return { Icon: CircleDollarSign, label: 'Dividend', tone: 'income' }
+      return { Icon: CircleDollarSign, label: t('assetResearchView.transactionKinds.dividend'), tone: 'income' }
     case 'SPLIT':
-      return { Icon: Shuffle, label: 'Split', tone: 'structure' }
+      return { Icon: Shuffle, label: t('assetResearchView.transactionKinds.split'), tone: 'structure' }
     case 'FEE':
-      return { Icon: ReceiptText, label: 'Fee', tone: 'negative' }
+      return { Icon: ReceiptText, label: t('assetResearchView.transactionKinds.fee'), tone: 'negative' }
     case 'TRANSFER_IN':
-      return { Icon: ArrowDownToLine, label: 'Transfer in', tone: 'positive' }
+      return { Icon: ArrowDownToLine, label: t('assetResearchView.transactionKinds.transferIn'), tone: 'positive' }
     case 'TRANSFER_OUT':
-      return { Icon: ArrowUpFromLine, label: 'Transfer out', tone: 'negative' }
+      return { Icon: ArrowUpFromLine, label: t('assetResearchView.transactionKinds.transferOut'), tone: 'negative' }
     case 'CONVERSION_IN':
-      return { Icon: ArrowLeftRight, label: 'Conversion in', tone: 'structure' }
+      return { Icon: ArrowLeftRight, label: t('assetResearchView.transactionKinds.conversionIn'), tone: 'structure' }
     case 'CONVERSION_OUT':
-      return { Icon: ArrowLeftRight, label: 'Conversion out', tone: 'structure' }
+      return { Icon: ArrowLeftRight, label: t('assetResearchView.transactionKinds.conversionOut'), tone: 'structure' }
     default:
       return { Icon: ArrowLeftRight, label: type, tone: 'neutral' }
   }
@@ -174,6 +176,7 @@ export default function AssetResearchView() {
   const { symbol = '' } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const TABS = useMemo(() => getTabs(t), [t])
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<AssetResearchViewTab>('overview')
   const [noteOpen, setNoteOpen] = useState(false)
@@ -234,14 +237,14 @@ export default function AssetResearchView() {
   const dividendCount = transactions.filter((transaction) => transaction.type === 'DIVIDEND').length
   const portfolioCurrency = position?.currency || activePortfolio?.base_currency || 'EUR'
   const partialFailures = [
-    research.fundamentalsQuery.isError ? 'fundamentals' : null,
-    research.businessQuery.isError ? 'business profile' : null,
-    research.themesQuery.isError ? 'theme classification' : null,
-    research.riskQuery.isError ? 'risk evidence' : null,
-    research.performanceQuery.isError ? 'relative performance' : null,
-    research.metadataQuery.isError ? 'market metadata' : null,
-    research.positionQuery.isError ? 'position relationship' : null,
-    research.transactionsQuery.isError ? 'transaction history' : null,
+    research.fundamentalsQuery.isError ? t('assetResearchView.partialFailures.fundamentals') : null,
+    research.businessQuery.isError ? t('assetResearchView.partialFailures.businessProfile') : null,
+    research.themesQuery.isError ? t('assetResearchView.partialFailures.themeClassification') : null,
+    research.riskQuery.isError ? t('assetResearchView.partialFailures.riskEvidence') : null,
+    research.performanceQuery.isError ? t('assetResearchView.partialFailures.relativePerformance') : null,
+    research.metadataQuery.isError ? t('assetResearchView.partialFailures.marketMetadata') : null,
+    research.positionQuery.isError ? t('assetResearchView.partialFailures.positionRelationship') : null,
+    research.transactionsQuery.isError ? t('assetResearchView.partialFailures.transactionHistory') : null,
   ].filter((item): item is string => item !== null)
 
   const financialGroups = useMemo(() => {
@@ -307,10 +310,10 @@ export default function AssetResearchView() {
         <StateBlock
           tone="error"
           className="asset-research__error"
-          eyebrow="Asset research unavailable"
-          title="Portfolium cannot establish this asset’s market identity."
-          description="No portfolio data was changed. Retry the existing research request or return to the dashboard to research a different asset."
-          actionLabel="Retry research"
+          eyebrow={t('assetResearchView.errorEyebrow')}
+          title={t('assetResearchView.errorTitle')}
+          description={t('assetResearchView.errorDescription')}
+          actionLabel={t('assetResearchView.retryResearch')}
           onAction={() => research.summaryQuery.refetch()}
         />
       </PageShell>
@@ -319,7 +322,7 @@ export default function AssetResearchView() {
 
   const countryFlag = getFlagUrl(asset.country, 'w40')
   const marketState =
-    research.marketStatusQuery.data?.market_status || 'market state unavailable'
+    research.marketStatusQuery.data?.market_status || t('assetResearchView.marketStateUnavailable')
   const quoteTimestamp = quote?.asof
     ? new Intl.DateTimeFormat(locale, {
         day: 'numeric',
@@ -328,19 +331,19 @@ export default function AssetResearchView() {
         hour: '2-digit',
         minute: '2-digit',
       }).format(new Date(quote.asof))
-    : 'quote time unavailable'
+    : t('assetResearchView.quoteTimeUnavailable')
 
   return (
     <PageShell className="asset-research">
       <div className="asset-research__topline">
         <button type="button" onClick={() => navigate(-1)}>
           <ArrowLeft size={15} aria-hidden="true" />
-          Back
+          {t('assetResearchView.back')}
         </button>
       </div>
 
       <PageHeader>
-        <PageTitleBlock kicker="Asset Research">
+        <PageTitleBlock kicker={t('assetResearchView.kicker')}>
           <div className="asset-research__identity">
             <AssetLogo
               symbol={asset.symbol}
@@ -382,23 +385,23 @@ export default function AssetResearchView() {
 
         <PageSummaryPanel
           lead={currentPrice === null
-            ? 'Price unavailable'
+            ? t('assetResearchView.priceUnavailable')
             : formatCurrency(currentPrice, quoteCurrency, locale)}
           description={
             <>
               {dailyPercentage !== null && dailyAmount !== null ? (
                 <span className={`asset-research__daily ${valueTone(dailyAmount)}`}>
-                  {dailyAmount < 0 ? 'Down' : dailyAmount > 0 ? 'Up' : 'Unchanged'}{' '}
+                  {dailyAmount < 0 ? t('assetResearchView.down') : dailyAmount > 0 ? t('assetResearchView.up') : t('assetResearchView.unchanged')}{' '}
                   {formatCurrency(Math.abs(dailyAmount), quoteCurrency, locale)} ·{' '}
-                  {formatResearchPercent(dailyPercentage)} today
+                  {formatResearchPercent(dailyPercentage)} {t('assetResearchView.today')}
                 </span>
               ) : (
                 <span className="asset-research__daily asset-research__value--neutral">
-                  Daily movement unavailable
+                  {t('assetResearchView.dailyMovementUnavailable')}
                 </span>
               )}
               <span className="asset-research__market-state">
-                Quote observed {quoteTimestamp} · {marketState}
+                {t('assetResearchView.quoteObserved', { timestamp: quoteTimestamp, marketState })}
               </span>
             </>
           }
@@ -415,20 +418,20 @@ export default function AssetResearchView() {
               >
                 {research.watchlistQuery.data ? <Check size={15} /> : <Plus size={15} />}
                 {research.watchlistQuery.data
-                  ? 'In watchlist'
+                  ? t('assetResearchView.inWatchlist')
                   : addToWatchlistMutation.isPending
-                    ? 'Adding…'
-                    : 'Add to watchlist'}
+                    ? t('assetResearchView.adding')
+                    : t('assetResearchView.addToWatchlist')}
               </button>
               <Link to={`/transactions?symbol=${encodeURIComponent(asset.symbol)}`}>
-                Record transaction
+                {t('assetResearchView.recordTransaction')}
               </Link>
             </div>
           }
         >
           {addToWatchlistMutation.isError && (
             <p className="asset-research__action-error" role="alert">
-              The watchlist could not be updated.
+              {t('assetResearchView.watchlistUpdateError')}
             </p>
           )}
         </PageSummaryPanel>
@@ -441,70 +444,69 @@ export default function AssetResearchView() {
         aria-labelledby="relationship-heading"
       >
         <div>
-          <p className="pf-section-kicker asset-research__section-label">My relationship</p>
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.myRelationship')}</p>
           <h2 id="relationship-heading">
             {ownsAsset
-              ? `You own ${formatCurrency(position?.market_value ?? 0, portfolioCurrency, locale)} of ${asset.symbol}.`
+              ? t('assetResearchView.youOwn', { amount: formatCurrency(position?.market_value ?? 0, portfolioCurrency, locale), symbol: asset.symbol })
               : hasTransactions
-                ? `You have historical activity in ${asset.symbol}.`
-                : 'You do not currently own this asset.'}
+                ? t('assetResearchView.haveHistoricalActivity', { symbol: asset.symbol })
+                : t('assetResearchView.doNotOwn')}
           </h2>
           {ownsAsset && position ? (
             <>
               <p className="asset-research__relationship-equation">
-                = {formatQuantity(position.quantity)} shares
+                = {t('assetResearchView.sharesOf', { quantity: formatQuantity(position.quantity) })}
                 {portfolioWeight !== null
-                  ? ` · ${portfolioWeight.toFixed(1)}% of ${activePortfolio?.name || 'your portfolio'}`
+                  ? t('assetResearchView.percentOfPortfolio', { percent: portfolioWeight.toFixed(1), portfolio: activePortfolio?.name || t('assetResearchView.yourPortfolio') })
                   : ''}
               </p>
               {totalReturn !== null && (
                 <p className={valueTone(totalReturn)}>
-                  {signedCurrency(totalReturn, portfolioCurrency, locale)} lifetime P&amp;L
-                  since first buy
+                  {t('assetResearchView.lifetimePnlSinceFirstBuy', { amount: signedCurrency(totalReturn, portfolioCurrency, locale) })}
                 </p>
               )}
             </>
           ) : !hasTransactions ? (
             <p>
-              Add to watchlist or record a transaction to track your relationship with it.
+              {t('assetResearchView.addToWatchlistOrRecord')}
             </p>
           ) : (
             <p>
-              The position is closed, but its transactions and realized history remain available.
+              {t('assetResearchView.positionClosedHistory')}
             </p>
           )}
         </div>
         <button type="button" onClick={() => setActiveTab('position')}>
-          {hasRelationship ? 'Inspect my position →' : 'Review relationship →'}
+          {hasRelationship ? t('assetResearchView.inspectMyPosition') : t('assetResearchView.reviewRelationship')}
         </button>
       </section>
 
-      <PageMetricStrip label="Position context">
+      <PageMetricStrip label={t('assetResearchView.positionContext')}>
         <PageMetric
-          label="Position value"
+          label={t('assetResearchView.positionValue')}
           value={position ? formatCurrency(position.market_value ?? 0, portfolioCurrency, locale) : '—'}
         />
         <PageMetric
-          label="Portfolio weight"
+          label={t('assetResearchView.portfolioWeight')}
           value={portfolioWeight !== null ? `${portfolioWeight.toFixed(1)}%` : '—'}
-          detail={activePortfolio?.name ? `of ${activePortfolio.name}` : undefined}
+          detail={activePortfolio?.name ? t('assetResearchView.ofPortfolioName', { name: activePortfolio.name }) : undefined}
         />
         <PageMetric
-          label="Lifetime P&L"
+          label={t('assetResearchView.lifetimePnl')}
           value={totalReturn !== null ? signedCurrency(totalReturn, portfolioCurrency, locale) : '—'}
           tone={totalReturn !== null ? (totalReturn > 0 ? 'positive' : totalReturn < 0 ? 'negative' : 'neutral') : 'neutral'}
         />
         <PageMetric
-          label="Classification"
+          label={t('assetResearchView.classification')}
           value={asset.sector || formatAssetType(asset.asset_type || asset.class)}
           detail={asset.industry || undefined}
         />
       </PageMetricStrip>
 
       <PageControls
-        label="Asset Research sections"
+        label={t('assetResearchView.sectionsLabel')}
         start={
-          <PageTabs className="asset-research__tabs" label="Asset Research sections">
+          <PageTabs className="asset-research__tabs" label={t('assetResearchView.sectionsLabel')}>
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -526,8 +528,7 @@ export default function AssetResearchView() {
       <PageMainColumn className="asset-research__content">
         {partialFailures.length > 0 && (
           <div className="asset-research__partial-error" role="status">
-            Some evidence could not be loaded: {partialFailures.join(', ')}. Available evidence
-            remains visible and no missing value has been inferred.
+            {t('assetResearchView.partialFailuresNotice', { items: partialFailures.join(', ') })}
           </div>
         )}
         {activeTab === 'overview' && (
@@ -559,20 +560,20 @@ export default function AssetResearchView() {
         {activeTab === 'financials' && (
           <div className="asset-research__question-stack">
             <EvidenceQuestion
-              eyebrow="Financial quality"
-              title="Is the business growing profitably?"
+              eyebrow={t('assetResearchView.financialQuality')}
+              title={t('assetResearchView.isBusinessGrowingProfitably')}
               metrics={financialGroups?.growth ?? []}
               loading={research.fundamentalsQuery.isLoading}
             />
             <EvidenceQuestion
-              eyebrow="Balance sheet"
-              title="Can the business finance its obligations?"
+              eyebrow={t('assetResearchView.balanceSheet')}
+              title={t('assetResearchView.canFinanceObligations')}
               metrics={financialGroups?.balanceSheet ?? []}
               loading={research.fundamentalsQuery.isLoading}
             />
             <EvidenceQuestion
-              eyebrow="Market scale"
-              title="How large and liquid is the market object?"
+              eyebrow={t('assetResearchView.marketScale')}
+              title={t('assetResearchView.howLargeAndLiquid')}
               metrics={financialGroups?.fundamentals ?? []}
               loading={research.fundamentalsQuery.isLoading}
             />
@@ -582,16 +583,16 @@ export default function AssetResearchView() {
         {activeTab === 'valuation' && (
           <div className="asset-research__question-stack">
             <EvidenceQuestion
-              eyebrow="Observed valuation"
-              title="What is the market currently paying for?"
+              eyebrow={t('assetResearchView.observedValuation')}
+              title={t('assetResearchView.whatMarketPayingFor')}
               metrics={(financialGroups?.fundamentals ?? []).filter((metric) =>
                 ['P/E Ratio', 'EPS', 'Market Cap'].includes(metric.label),
               )}
               loading={research.fundamentalsQuery.isLoading}
             />
             <EvidenceQuestion
-              eyebrow="Analyst estimate"
-              title="What does the market expect?"
+              eyebrow={t('assetResearchView.analystEstimate')}
+              title={t('assetResearchView.whatMarketExpects')}
               metrics={financialGroups?.analyst ?? []}
               loading={research.fundamentalsQuery.isLoading}
             />
@@ -601,14 +602,14 @@ export default function AssetResearchView() {
         {activeTab === 'risk' && (
           <div className="asset-research__question-stack">
             <EvidenceQuestion
-              eyebrow="Market risk"
-              title="How unstable has the asset been?"
+              eyebrow={t('assetResearchView.marketRisk')}
+              title={t('assetResearchView.howUnstable')}
               metrics={riskMetrics}
               loading={research.riskQuery.isLoading}
             />
             <EvidenceQuestion
-              eyebrow="Relative evidence"
-              title={`How has ${asset.symbol} behaved against its sector baseline?`}
+              eyebrow={t('assetResearchView.relativeEvidence')}
+              title={t('assetResearchView.behavedAgainstSector', { symbol: asset.symbol })}
               metrics={relativeMetrics}
               loading={research.performanceQuery.isLoading}
             />
@@ -675,40 +676,43 @@ function OverviewSection({
   loading: boolean
   children: ReactNode
 }) {
+  const { t } = useTranslation()
   return (
     <div className="pf-main-grid asset-research__overview-grid">
       <div className="pf-main-col asset-research__overview-main">
         <section aria-labelledby="known-heading">
-          <p className="pf-section-kicker asset-research__section-label">What is known</p>
-          <h2 id="known-heading">What is this asset?</h2>
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.whatIsKnown')}</p>
+          <h2 id="known-heading">{t('assetResearchView.whatIsThisAsset')}</h2>
           {loading && !business?.description ? (
             <EvidenceSkeleton rows={4} />
           ) : (
             <>
               <p className="asset-research__narrative">
                 {business?.description ||
-                  `${asset.name || asset.symbol} is classified as ${formatAssetType(
-                    asset.asset_type || asset.class,
-                  )}${asset.sector ? ` in ${asset.sector}` : ''}. A verified business description is not currently available.`}
+                  t('assetResearchView.classifiedAsDescription', {
+                    name: asset.name || asset.symbol,
+                    type: formatAssetType(asset.asset_type || asset.class),
+                    sectorSuffix: asset.sector ? t('assetResearchView.inSector', { sector: asset.sector }) : '',
+                  })}
               </p>
               <dl className="asset-research__asset-facts">
                 <div>
-                  <dt>Founded</dt>
-                  <dd>{business?.founded || 'Unknown'}</dd>
+                  <dt>{t('assetResearchView.founded')}</dt>
+                  <dd>{business?.founded || t('assetResearchView.unknown')}</dd>
                 </div>
                 <div>
-                  <dt>Employees</dt>
+                  <dt>{t('assetResearchView.employees')}</dt>
                   <dd>
-                    {business?.employees ? formatWithSeparators(business.employees) : 'Unknown'}
+                    {business?.employees ? formatWithSeparators(business.employees) : t('assetResearchView.unknown')}
                   </dd>
                 </div>
                 <div>
-                  <dt>Headquarters</dt>
-                  <dd>{business?.headquarters || 'Unknown'}</dd>
+                  <dt>{t('assetResearchView.headquarters')}</dt>
+                  <dd>{business?.headquarters || t('assetResearchView.unknown')}</dd>
                 </div>
                 <div>
-                  <dt>ISIN</dt>
-                  <dd>{asset.isin || 'Unknown'}</dd>
+                  <dt>{t('assetResearchView.isin')}</dt>
+                  <dd>{asset.isin || t('assetResearchView.unknown')}</dd>
                 </div>
               </dl>
             </>
@@ -717,51 +721,51 @@ function OverviewSection({
 
         <div className="asset-research__evidence-grid">
           <EvidenceValue
-            label="Market capitalisation"
+            label={t('assetResearchView.marketCapitalisation')}
             value={
               fundamentals?.market_cap
                 ? `${formatLargeNumber(fundamentals.market_cap, 2)} ${currency}`
-                : 'Unavailable'
+                : t('assetResearchView.unavailable')
             }
           />
           <EvidenceValue
-            label="Revenue growth"
+            label={t('assetResearchView.revenueGrowth')}
             value={
               fundamentals?.revenue_growth !== null &&
               fundamentals?.revenue_growth !== undefined
                 ? formatResearchPercent(fundamentals.revenue_growth * 100)
-                : 'Unavailable'
+                : t('assetResearchView.unavailable')
             }
             tone={valueTone(fundamentals?.revenue_growth)}
           />
           <EvidenceValue
-            label="Net margin"
+            label={t('assetResearchView.netMargin')}
             value={
               fundamentals?.profit_margins !== null &&
               fundamentals?.profit_margins !== undefined
                 ? formatResearchPercent(fundamentals.profit_margins * 100)
-                : 'Unavailable'
+                : t('assetResearchView.unavailable')
             }
           />
           <EvidenceValue
-            label="P/E ratio"
+            label={t('assetResearchView.peRatio')}
             value={
               fundamentals?.pe_ratio !== null && fundamentals?.pe_ratio !== undefined
                 ? `${formatNumber(fundamentals.pe_ratio, 1)}×`
-                : 'Unavailable'
+                : t('assetResearchView.unavailable')
             }
           />
           <EvidenceValue
-            label="Analyst target"
+            label={t('assetResearchView.analystTarget')}
             value={formatCurrency(fundamentals?.target_mean ?? null, currency)}
           />
           <EvidenceValue
-            label="Implied upside"
+            label={t('assetResearchView.impliedUpside')}
             value={
               fundamentals?.implied_upside_pct !== null &&
               fundamentals?.implied_upside_pct !== undefined
                 ? formatResearchPercent(fundamentals.implied_upside_pct)
-                : 'Unavailable'
+                : t('assetResearchView.unavailable')
             }
           />
         </div>
@@ -770,8 +774,8 @@ function OverviewSection({
       </div>
 
       <aside className="pf-aside-col asset-research__overview-context">
-        <p className="pf-section-kicker asset-research__section-label">Inferred classification</p>
-        <h2>How the market object is classified</h2>
+        <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.inferredClassification')}</p>
+        <h2>{t('assetResearchView.howClassified')}</h2>
         {asset.sector && (
           <ClassificationLine kind="sector" label={asset.sector} />
         )}
@@ -779,7 +783,7 @@ function OverviewSection({
         {themes.length > 0 && <ThemeClassificationTree themes={themes} />}
         {!asset.sector && !asset.industry && themes.length === 0 && (
           <div className="asset-research__quiet-state">
-            Classification remains unknown.
+            {t('assetResearchView.classificationUnknown')}
           </div>
         )}
       </aside>
@@ -800,6 +804,7 @@ function EvidenceQuestion({
   loading: boolean
   confidence?: string
 }) {
+  const { t } = useTranslation()
   return (
     <section className="asset-research__evidence-question">
       <div className="pf-section-header asset-research__section-heading">
@@ -825,7 +830,7 @@ function EvidenceQuestion({
         </dl>
       ) : (
         <div className="asset-research__quiet-state">
-          This evidence is not available for the current asset.
+          {t('assetResearchView.evidenceNotAvailable')}
         </div>
       )}
     </section>
@@ -865,19 +870,20 @@ function MyPositionSection({
   onEditNote: () => void
   onRecordTransaction: () => void
 }) {
+  const { t } = useTranslation()
   if (loading) return <EvidenceSkeleton rows={10} />
 
   const hasRelationship = Boolean(position || transactions.length > 0)
   if (!hasRelationship) {
     return (
       <section className="asset-research__position-empty">
-        <p className="pf-section-kicker asset-research__section-label">My Position</p>
-        <h2>You do not currently own this asset.</h2>
+        <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.myPosition')}</p>
+        <h2>{t('assetResearchView.doNotOwnTitle')}</h2>
         <p>
-          Add to watchlist or record a transaction to track your relationship with it.
+          {t('assetResearchView.addToWatchlistOrRecord')}
         </p>
         <button type="button" onClick={onRecordTransaction}>
-          Record a transaction
+          {t('assetResearchView.recordATransaction')}
         </button>
       </section>
     )
@@ -903,30 +909,30 @@ function MyPositionSection({
   return (
     <div className="asset-research__position">
       <section className="asset-research__position-hero">
-        <p className="pf-section-kicker asset-research__section-label">Personal capital</p>
-        <h2>How has {asset.symbol} affected me?</h2>
+        <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.personalCapital')}</p>
+        <h2>{t('assetResearchView.howHasAffectedMe', { symbol: asset.symbol })}</h2>
         {position?.quantity && position.quantity > 0 ? (
           <>
             <p className="asset-research__position-value">
               {formatCurrency(position.market_value, portfolioCurrency, locale)}
             </p>
             <p>
-              {formatQuantity(position.quantity)} shares
+              {t('assetResearchView.sharesOf', { quantity: formatQuantity(position.quantity) })}
               {portfolioWeight !== null
-                ? ` · ${portfolioWeight.toFixed(1)}% of ${portfolioName || 'portfolio value'}`
+                ? t('assetResearchView.percentOfPortfolioValue', { percent: portfolioWeight.toFixed(1), portfolio: portfolioName || t('assetResearchView.portfolioValueFallback') })
                 : ''}
             </p>
             {position.unrealized_pnl !== null && (
               <p className={`asset-research__financial-sentence ${valueTone(position.unrealized_pnl)}`}>
                 {signedCurrency(position.unrealized_pnl, portfolioCurrency, locale)}
                 {' · '}
-                {signedPercent(position.unrealized_pnl_pct)} unrealized on current holdings.
+                {t('assetResearchView.unrealizedOnHoldings', { percent: signedPercent(position.unrealized_pnl_pct) })}
               </p>
             )}
           </>
         ) : (
           <p className="asset-research__financial-sentence">
-            This position is closed. Historical financial consequence remains visible.
+            {t('assetResearchView.positionClosedFinancial')}
           </p>
         )}
       </section>
@@ -934,11 +940,11 @@ function MyPositionSection({
       {position && (
         <section className="asset-research__position-equation">
           <div>
-            <p className="pf-section-kicker asset-research__section-label">Return equation</p>
+            <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.returnEquation')}</p>
             <h2>
               {totalReturn === null
-                ? 'Lifetime P&L unavailable'
-                : `${signedCurrency(totalReturn, portfolioCurrency, locale)} lifetime P&L`}
+                ? t('assetResearchView.lifetimePnlUnavailable')
+                : t('assetResearchView.lifetimePnlSuffix', { amount: signedCurrency(totalReturn, portfolioCurrency, locale) })}
             </h2>
           </div>
           <div className="asset-research__equation">
@@ -950,7 +956,7 @@ function MyPositionSection({
                     ? '-'
                     : signedCurrency(position.unrealized_pnl, portfolioCurrency, locale)}
                 </strong>
-                <small>{signedPercent(position.unrealized_pnl_pct)} unrealized</small>
+                <small>{t('assetResearchView.unrealizedSuffix', { percent: signedPercent(position.unrealized_pnl_pct) })}</small>
               </span>
             )}
             <span>
@@ -960,31 +966,28 @@ function MyPositionSection({
               </strong>
               <small>
                 {position.realized_pnl_percent !== null
-                  ? `${signedPercent(position.realized_pnl_percent)} realized`
-                  : 'realized'}
+                  ? t('assetResearchView.realizedSuffix', { percent: signedPercent(position.realized_pnl_percent) })
+                  : t('assetResearchView.realized')}
               </small>
             </span>
             {dividendCount > 0 && dividendCurrenciesMatchPortfolio && (
               <span>
                 <b>+</b>
                 <strong>{formatCurrency(dividends, portfolioCurrency, locale)}</strong>
-                <small>{dividendCount} dividend transaction{dividendCount === 1 ? '' : 's'}</small>
+                <small>{t('assetResearchView.dividendTransactions', { count: dividendCount })}</small>
               </span>
             )}
           </div>
           {position.realized_fees > 0 && (
             <p className="asset-research__confidence-note">
-              Realized P&amp;L is net of{' '}
-              {formatCurrency(position.realized_fees, portfolioCurrency, locale)} in sale fees.
+              {t('assetResearchView.realizedNetOfFees', { amount: formatCurrency(position.realized_fees, portfolioCurrency, locale) })}
             </p>
           )}
           {dividendCount > 0 && (
             <p className="asset-research__confidence-note">
-              {dividendCount} dividend transaction{dividendCount === 1 ? '' : 's'} recorded
               {dividendCurrenciesMatchPortfolio
-                ? `, totaling ${formatCurrency(dividends, portfolioCurrency, locale)}`
-                : '. Dividend currencies differ, so Portfolium does not combine them here'}
-              .
+                ? t('assetResearchView.dividendRecordedTotaling', { dividendLine: t('assetResearchView.dividendTransactions', { count: dividendCount }), amount: formatCurrency(dividends, portfolioCurrency, locale) })
+                : t('assetResearchView.dividendRecordedDiffer', { dividendLine: t('assetResearchView.dividendTransactions', { count: dividendCount }) })}
             </p>
           )}
         </section>
@@ -993,35 +996,35 @@ function MyPositionSection({
       {position && (
         <section className="asset-research__position-anatomy">
           <div>
-            <p className="pf-section-kicker asset-research__section-label">Cost and break-even</p>
-            <h2>What price relationship am I carrying?</h2>
+            <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.costAndBreakeven')}</p>
+            <h2>{t('assetResearchView.whatPriceRelationship')}</h2>
           </div>
           <dl className="asset-research__position-ledger">
             <div>
-              <dt>Quantity owned</dt>
+              <dt>{t('assetResearchView.quantityOwned')}</dt>
               <dd>{formatQuantity(position.quantity)}</dd>
             </div>
             <div>
-              <dt>Average cost</dt>
+              <dt>{t('assetResearchView.averageCost')}</dt>
               <dd>{formatCurrency(position.avg_cost, portfolioCurrency, locale)}</dd>
             </div>
             <div>
-              <dt>Current price</dt>
+              <dt>{t('assetResearchView.currentPrice')}</dt>
               <dd>{formatCurrency(position.current_price, portfolioCurrency, locale)}</dd>
             </div>
             <div>
-              <dt>Cost basis</dt>
+              <dt>{t('assetResearchView.costBasis')}</dt>
               <dd>{formatCurrency(position.cost_basis, portfolioCurrency, locale)}</dd>
             </div>
             <div>
-              <dt>Market value</dt>
+              <dt>{t('assetResearchView.marketValue')}</dt>
               <dd>{formatCurrency(position.market_value, portfolioCurrency, locale)}</dd>
             </div>
             {position.unrealized_pnl !== null && (
               <div>
                 <dt>
-                  Unrealized P&amp;L
-                  <small>Open position only</small>
+                  {t('assetResearchView.unrealizedPnl')}
+                  <small>{t('assetResearchView.openPositionOnly')}</small>
                 </dt>
                 <dd className={valueTone(position.unrealized_pnl)}>
                   {signedCurrency(position.unrealized_pnl, portfolioCurrency, locale)}
@@ -1032,15 +1035,15 @@ function MyPositionSection({
             {breakevenGain !== null && (
               <div>
                 <dt>
-                  Gain needed to break even
-                  <small>Shown only while unrealized P&amp;L is negative</small>
+                  {t('assetResearchView.gainNeededBreakeven')}
+                  <small>{t('assetResearchView.shownOnlyNegative')}</small>
                 </dt>
                 <dd className="asset-research__value--warning">
                   +{formatNumber(breakevenGain, 2)}%
                   {position.breakeven_target_price !== null &&
                     position.breakeven_target_price !== undefined && (
                       <small>
-                        at {formatCurrency(position.breakeven_target_price, portfolioCurrency, locale)}
+                        {t('assetResearchView.atPrice', { price: formatCurrency(position.breakeven_target_price, portfolioCurrency, locale) })}
                       </small>
                     )}
                 </dd>
@@ -1053,34 +1056,34 @@ function MyPositionSection({
       {position && hasRealizedHistory && (
         <section className="asset-research__position-anatomy">
           <div>
-            <p className="pf-section-kicker asset-research__section-label">Realized history</p>
-            <h2>What has already been crystallized?</h2>
+            <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.realizedHistory')}</p>
+            <h2>{t('assetResearchView.whatCrystallized')}</h2>
           </div>
           <dl className="asset-research__position-ledger">
             <div>
-              <dt>Quantity sold</dt>
+              <dt>{t('assetResearchView.quantitySold')}</dt>
               <dd>{formatQuantity(position.realized_quantity)}</dd>
             </div>
             {position.average_sell_price !== null && (
               <div>
-                <dt>Average sell price</dt>
+                <dt>{t('assetResearchView.averageSellPrice')}</dt>
                 <dd>{formatCurrency(position.average_sell_price, portfolioCurrency, locale)}</dd>
               </div>
             )}
             {position.realized_sale_proceeds > 0 && (
               <div>
-                <dt>Sale proceeds</dt>
+                <dt>{t('assetResearchView.saleProceeds')}</dt>
                 <dd>{formatCurrency(position.realized_sale_proceeds, portfolioCurrency, locale)}</dd>
               </div>
             )}
             {position.realized_cost_basis > 0 && (
               <div>
-                <dt>Cost basis sold</dt>
+                <dt>{t('assetResearchView.costBasisSold')}</dt>
                 <dd>{formatCurrency(position.realized_cost_basis, portfolioCurrency, locale)}</dd>
               </div>
             )}
             <div>
-              <dt>Realized P&amp;L</dt>
+              <dt>{t('assetResearchView.realizedPnl')}</dt>
               <dd className={valueTone(position.realized_pnl)}>
                 {signedCurrency(position.realized_pnl, portfolioCurrency, locale)}
                 {position.realized_pnl_percent !== null && (
@@ -1090,13 +1093,13 @@ function MyPositionSection({
             </div>
             {position.realized_fees > 0 && (
               <div>
-                <dt>Realized fees</dt>
+                <dt>{t('assetResearchView.realizedFees')}</dt>
                 <dd>{formatCurrency(position.realized_fees, portfolioCurrency, locale)}</dd>
               </div>
             )}
             {position.realized_sell_count > 0 && (
               <div>
-                <dt>Sell transactions</dt>
+                <dt>{t('assetResearchView.sellTransactions')}</dt>
                 <dd>{formatWithSeparators(position.realized_sell_count)}</dd>
               </div>
             )}
@@ -1106,25 +1109,25 @@ function MyPositionSection({
 
       <section className="asset-research__position-consequence">
         <div>
-          <p className="pf-section-kicker asset-research__section-label">Portfolio consequence</p>
-          <h2>What does this position contribute?</h2>
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.portfolioConsequence')}</p>
+          <h2>{t('assetResearchView.whatContribute')}</h2>
         </div>
         <dl>
           {position?.market_value !== null && position?.market_value !== undefined && (
             <div>
-              <dt>{asset.sector || 'Unknown sector'} exposure</dt>
+              <dt>{t('assetResearchView.unknownSectorExposure', { sector: asset.sector || t('assetResearchView.unknownSector') })}</dt>
               <dd>{formatCurrency(position.market_value, portfolioCurrency, locale)}</dd>
             </div>
           )}
           {portfolioWeight !== null && (
             <div>
-              <dt>Concentration contribution</dt>
-              <dd>{portfolioWeight.toFixed(1)}% of portfolio value</dd>
+              <dt>{t('assetResearchView.concentrationContribution')}</dt>
+              <dd>{t('assetResearchView.percentOfPortfolioValueDd', { percent: portfolioWeight.toFixed(1) })}</dd>
             </div>
           )}
           {dailyContribution !== null && (
             <div>
-              <dt>Estimated effect today</dt>
+              <dt>{t('assetResearchView.estimatedEffectToday')}</dt>
               <dd className={valueTone(dailyContribution)}>
                 {signedCurrency(dailyContribution, portfolioCurrency, locale)}
               </dd>
@@ -1133,7 +1136,7 @@ function MyPositionSection({
           {position?.vol_contribution_pct !== null &&
             position?.vol_contribution_pct !== undefined && (
               <div>
-                <dt>Volatility contribution</dt>
+                <dt>{t('assetResearchView.volatilityContribution')}</dt>
                 <dd>{formatResearchPercent(position.vol_contribution_pct)}</dd>
               </div>
             )}
@@ -1160,44 +1163,45 @@ function PositionNote({
   currency: string
   onEdit: () => void
 }) {
+  const { t } = useTranslation()
   const hasContent = hasNoteContent(note)
   return (
     <section className="asset-research__note">
       <div className="pf-section-header asset-research__section-heading">
         <div>
-          <p className="pf-section-kicker asset-research__section-label">Investment record</p>
-          <h2>My thesis</h2>
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.investmentRecord')}</p>
+          <h2>{t('assetResearchView.myThesis')}</h2>
           <p>
-            Personal reasoning is position evidence. It does not alter the neutral asset research.
+            {t('assetResearchView.personalReasoningNote')}
           </p>
         </div>
         <button type="button" onClick={onEdit}>
-          {hasContent ? 'Edit thesis' : 'Add thesis'}
+          {hasContent ? t('assetResearchView.editThesis') : t('assetResearchView.addThesis')}
         </button>
       </div>
       {hasContent ? (
         <dl>
           {note?.thesis && (
             <div>
-              <dt>Why I own it</dt>
+              <dt>{t('assetResearchView.whyIOwnIt')}</dt>
               <dd>{note.thesis}</dd>
             </div>
           )}
           {note?.risks && (
             <div>
-              <dt>Risks I accept</dt>
+              <dt>{t('assetResearchView.risksIAccept')}</dt>
               <dd>{note.risks}</dd>
             </div>
           )}
           {note?.invalidation_thesis && (
             <div>
-              <dt>What invalidates the thesis</dt>
+              <dt>{t('assetResearchView.whatInvalidates')}</dt>
               <dd>{note.invalidation_thesis}</dd>
             </div>
           )}
           {(note?.target_price || note?.target_text) && (
             <div>
-              <dt>Target</dt>
+              <dt>{t('assetResearchView.target')}</dt>
               <dd>
                 {[
                   note.target_price
@@ -1213,7 +1217,7 @@ function PositionNote({
         </dl>
       ) : (
         <div className="asset-research__quiet-state">
-          No personal thesis has been recorded.
+          {t('assetResearchView.noThesisRecorded')}
         </div>
       )}
     </section>
@@ -1231,6 +1235,7 @@ function PositionTransactions({
   fallbackCurrency: string
   onRecordTransaction: () => void
 }) {
+  const { t } = useTranslation()
   const sorted = [...transactions].sort(
     (a, b) => new Date(b.tx_date).getTime() - new Date(a.tx_date).getTime(),
   )
@@ -1238,11 +1243,11 @@ function PositionTransactions({
     <section className="asset-research__transactions">
       <div className="pf-section-header asset-research__section-heading">
         <div>
-          <p className="pf-section-kicker asset-research__section-label">Ownership history</p>
-          <h2>Transactions</h2>
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.ownershipHistory')}</p>
+          <h2>{t('assetResearchView.transactions')}</h2>
         </div>
         <button type="button" onClick={onRecordTransaction}>
-          Record transaction
+          {t('assetResearchView.recordTransaction')}
         </button>
       </div>
       {sorted.length > 0 ? (
@@ -1250,16 +1255,16 @@ function PositionTransactions({
           <table>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Event</th>
-                <th>Quantity</th>
-                <th>Price</th>
-                <th>Amount</th>
+                <th>{t('assetResearchView.columnDate')}</th>
+                <th>{t('assetResearchView.columnEvent')}</th>
+                <th>{t('assetResearchView.columnQuantity')}</th>
+                <th>{t('assetResearchView.columnPrice')}</th>
+                <th>{t('assetResearchView.columnAmount')}</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((transaction) => {
-                const visual = getTransactionVisual(transaction.type)
+                const visual = getTransactionVisual(transaction.type, t)
                 const currency = transaction.currency || fallbackCurrency
                 return (
                   <tr key={transaction.id}>
@@ -1295,7 +1300,7 @@ function PositionTransactions({
         </div>
       ) : (
         <div className="asset-research__quiet-state">
-          No transactions are recorded in the active portfolio.
+          {t('assetResearchView.noTransactionsRecorded')}
         </div>
       )}
     </section>
@@ -1322,9 +1327,10 @@ function ClassificationLine({
 }
 
 function ThemeClassificationTree({ themes }: { themes: AssetThemeDTO[] }) {
+  const { t } = useTranslation()
   return (
     <div className="asset-research__classification-themes">
-      <p>Themes and subthemes</p>
+      <p>{t('assetResearchView.themesAndSubthemes')}</p>
       <ol>
         {themes.map((theme) => {
           const ThemeIcon = getThemeIcon(theme.label)
@@ -1342,10 +1348,10 @@ function ThemeClassificationTree({ themes }: { themes: AssetThemeDTO[] }) {
                   <strong>{theme.label}</strong>
                   <small>
                     {theme.confidence
-                      ? `${Math.round(theme.confidence * 100)}% confidence`
-                      : 'Confidence unavailable'}
+                      ? t('assetResearchView.confidencePercent', { percent: Math.round(theme.confidence * 100) })
+                      : t('assetResearchView.confidenceUnavailable')}
                     {theme.weight !== null && theme.weight !== undefined
-                      ? ` · ${(theme.weight * 100).toFixed(1)}% classification weight`
+                      ? t('assetResearchView.classificationWeight', { percent: (theme.weight * 100).toFixed(1) })
                       : ''}
                   </small>
                 </span>
@@ -1368,8 +1374,8 @@ function ThemeClassificationTree({ themes }: { themes: AssetThemeDTO[] }) {
                           <strong>{subtheme.label}</strong>
                           <small>
                             {subtheme.confidence
-                              ? `${Math.round(subtheme.confidence * 100)}% confidence`
-                              : 'Confidence unavailable'}
+                              ? t('assetResearchView.confidencePercent', { percent: Math.round(subtheme.confidence * 100) })
+                              : t('assetResearchView.confidenceUnavailable')}
                           </small>
                         </span>
                       </li>
@@ -1406,8 +1412,9 @@ function EvidenceValue({
 }
 
 function EvidenceSkeleton({ rows }: { rows: number }) {
+  const { t } = useTranslation()
   return (
-    <div className="asset-research__skeleton-list" aria-label="Loading evidence">
+    <div className="asset-research__skeleton-list" aria-label={t('assetResearchView.loadingEvidence')}>
       {Array.from({ length: rows }, (_, index) => (
         <span key={index} />
       ))}
@@ -1416,5 +1423,6 @@ function EvidenceSkeleton({ rows }: { rows: number }) {
 }
 
 function AssetResearchViewSkeleton() {
-  return <PageStateSkeleton label="Loading asset research" className="asset-research asset-research--loading" />
+  const { t } = useTranslation()
+  return <PageStateSkeleton label={t('assetResearchView.loadingAssetResearch')} className="asset-research asset-research--loading" />
 }

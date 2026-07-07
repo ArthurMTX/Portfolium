@@ -393,14 +393,14 @@ export default function DashboardGrid({
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
           <div className="text-6xl mb-4">📊</div>
           <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-            {t('dashboard.emptyDashboard')}
+            {t('dashboard.page.emptyDashboard')}
           </h3>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6 max-w-md">
-            {t('dashboard.emptyDashboardInfo')}
+            {t('dashboard.page.emptyDashboardInfo')}
           </p>
           <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-900/30 rounded-lg p-4 max-w-sm">
             <p className="text-sm text-pink-700 dark:text-pink-400">
-              💡 <strong>{t('dashboard.proTip')}:</strong> {t('dashboard.proTipInfo')}
+              💡 <strong>{t('dashboard.page.proTip')}:</strong> {t('dashboard.page.proTipInfo')}
             </p>
           </div>
         </div>
@@ -443,8 +443,8 @@ export default function DashboardGrid({
                   {/* Delete Button */}
                   <button
                     onClick={() => handleDeleteWidget(item.i)}
-                    className="absolute top-0 right-0 h-8 w-12 bg-red-500 hover:bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-20 rounded-tr-lg select-none"
-                    title="Remove widget"
+                    className="widget-remove-button absolute top-0 right-0 h-8 w-12 bg-red-500 hover:bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-20 rounded-tr-lg select-none"
+                    title={t('dashboard.page.removeWidget')}
                   >
                     <Trash2 size={16} className="pointer-events-none" />
                   </button>
@@ -496,7 +496,7 @@ export default function DashboardGrid({
         }
         
         .widget-item:hover .widget-drag-handle,
-        .widget-item:hover button[title="Remove widget"] {
+        .widget-item:hover .widget-remove-button {
           opacity: 1 !important;
         }
         
@@ -543,8 +543,8 @@ export default function DashboardGrid({
         isOpen={deleteConfirmWidget !== null}
         onClose={() => setDeleteConfirmWidget(null)}
         onConfirm={confirmDeleteWidget}
-        title={t('dashboard.removeWidget')}
-        message={t('dashboard.removeWidgetMessage')}
+        title={t('dashboard.page.removeWidget')}
+        message={t('dashboard.page.removeWidgetMessage')}
         confirmText={t('common.remove')}
         cancelText={t('common.cancel')}
         variant="danger"

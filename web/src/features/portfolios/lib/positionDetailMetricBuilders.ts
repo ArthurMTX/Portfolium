@@ -194,7 +194,7 @@ export const buildFundamentalMetrics = (metrics: DetailedMetrics, t: Translate):
   if (hasValue(metrics.market_cap) && metrics.market_cap > 0) {
     items.push(metric({
       key: 'market-cap',
-      label: t('dashboard.positionDetail.marketCap'),
+      label: t('portfolios.positionDetail.marketCap'),
       value: `${formatLargeNumber(metrics.market_cap, 2)} ${currency}`,
       color: neutralText,
       subtitle: getMarketCapConclusion(metrics.market_cap, t),
@@ -205,7 +205,7 @@ export const buildFundamentalMetrics = (metrics: DetailedMetrics, t: Translate):
   if (hasValue(metrics.volume)) {
     items.push(metric({
       key: 'volume',
-      label: t('dashboard.positionDetail.volume'),
+      label: t('portfolios.positionDetail.volume'),
       value: formatWithSeparators(metrics.volume),
       color: neutralText,
       subtitle: metrics.avg_volume ? getVolumeConclusion(metrics.volume, metrics.avg_volume, t) : undefined,
@@ -216,7 +216,7 @@ export const buildFundamentalMetrics = (metrics: DetailedMetrics, t: Translate):
   if (hasValue(metrics.pe_ratio)) {
     items.push(metric({
       key: 'pe-ratio',
-      label: t('dashboard.positionDetail.peRatio'),
+      label: t('portfolios.positionDetail.peRatio'),
       value: formatNumber(metrics.pe_ratio, 2),
       color: neutralText,
       subtitle: getPEConclusion(metrics.pe_ratio, t),
@@ -227,7 +227,7 @@ export const buildFundamentalMetrics = (metrics: DetailedMetrics, t: Translate):
   if (hasValue(metrics.eps)) {
     items.push(metric({
       key: 'eps',
-      label: t('dashboard.positionDetail.eps'),
+      label: t('portfolios.positionDetail.eps'),
       value: formatCurrency(metrics.eps, currency),
       color: neutralText,
       subtitle: getEpsConclusion(metrics.eps, t),
@@ -238,7 +238,7 @@ export const buildFundamentalMetrics = (metrics: DetailedMetrics, t: Translate):
   if (hasValue(metrics.liquidity_score)) {
     items.push(metric({
       key: 'liquidity-score',
-      label: t('dashboard.positionDetail.liquidityScore'),
+      label: t('portfolios.positionDetail.liquidityScore'),
       value: formatNumber(metrics.liquidity_score, 2),
       color: neutralText,
       subtitle: getLiquidityScoreConclusion(metrics.liquidity_score, t),
@@ -256,7 +256,7 @@ export const buildGrowthMetrics = (metrics: DetailedMetrics, t: Translate): Metr
     const value = metrics.revenue_growth * 100
     items.push(metric({
       key: 'revenue-growth',
-      label: t('dashboard.positionDetail.revenueGrowth'),
+      label: t('portfolios.positionDetail.revenueGrowth'),
       value: signedPercent(value),
       color: metrics.revenue_growth >= 0 ? positiveText : negativeText,
       subtitle: getRevenueGrowthConclusion(value, t),
@@ -268,7 +268,7 @@ export const buildGrowthMetrics = (metrics: DetailedMetrics, t: Translate): Metr
     const value = metrics.earnings_growth * 100
     items.push(metric({
       key: 'earnings-growth',
-      label: t('dashboard.positionDetail.earningsGrowth'),
+      label: t('portfolios.positionDetail.earningsGrowth'),
       value: signedPercent(value),
       color: metrics.earnings_growth >= 0 ? positiveText : negativeText,
       subtitle: getEarningsGrowthConclusion(value, t),
@@ -280,7 +280,7 @@ export const buildGrowthMetrics = (metrics: DetailedMetrics, t: Translate): Metr
     const value = metrics.profit_margins * 100
     items.push(metric({
       key: 'profit-margins',
-      label: t('dashboard.positionDetail.netMargin'),
+      label: t('portfolios.positionDetail.netMargin'),
       value: `${formatNumber(value, 2)}%`,
       color: neutralText,
       subtitle: getNetMarginConclusion(value, t),
@@ -292,7 +292,7 @@ export const buildGrowthMetrics = (metrics: DetailedMetrics, t: Translate): Metr
     const value = metrics.operating_margins * 100
     items.push(metric({
       key: 'operating-margins',
-      label: t('dashboard.positionDetail.operatingMargin'),
+      label: t('portfolios.positionDetail.operatingMargin'),
       value: `${formatNumber(value, 2)}%`,
       color: neutralText,
       subtitle: getOperatingMarginConclusion(value, t),
@@ -304,7 +304,7 @@ export const buildGrowthMetrics = (metrics: DetailedMetrics, t: Translate): Metr
     const value = metrics.return_on_equity * 100
     items.push(metric({
       key: 'return-on-equity',
-      label: t('dashboard.positionDetail.roe'),
+      label: t('portfolios.positionDetail.roe'),
       value: `${formatNumber(value, 2)}%`,
       color: neutralText,
       subtitle: getRoeConclusion(value, t),
@@ -322,7 +322,7 @@ export const buildBalanceSheetMetrics = (metrics: DetailedMetrics, t: Translate)
   if (hasValue(metrics.net_cash)) {
     items.push(metric({
       key: 'net-cash',
-      label: t('dashboard.positionDetail.netCashPosition'),
+      label: t('portfolios.positionDetail.netCashPosition'),
       value: `${formatLargeNumber(metrics.net_cash, 2)} ${currency}`,
       color: metrics.net_cash > 0 ? positiveText : negativeText,
       subtitle: getNetCashConclusion(metrics.net_cash, t),
@@ -333,7 +333,7 @@ export const buildBalanceSheetMetrics = (metrics: DetailedMetrics, t: Translate)
   if (hasValue(metrics.debt_to_equity)) {
     items.push(metric({
       key: 'debt-to-equity',
-      label: t('dashboard.positionDetail.debtToEquity'),
+      label: t('portfolios.positionDetail.debtToEquity'),
       value: formatNumber(metrics.debt_to_equity, 2),
       color: neutralText,
       subtitle: getDebtToEquityConclusion(metrics.debt_to_equity, t),
@@ -344,7 +344,7 @@ export const buildBalanceSheetMetrics = (metrics: DetailedMetrics, t: Translate)
   if (hasValue(metrics.current_ratio)) {
     items.push(metric({
       key: 'current-ratio',
-      label: t('dashboard.positionDetail.currentRatio'),
+      label: t('portfolios.positionDetail.currentRatio'),
       value: formatNumber(metrics.current_ratio, 2),
       color: metrics.current_ratio >= 1.5 ? positiveText : metrics.current_ratio >= 1 ? warningText : negativeText,
       subtitle: getCurrentRatioConclusion(metrics.current_ratio, t),
@@ -355,7 +355,7 @@ export const buildBalanceSheetMetrics = (metrics: DetailedMetrics, t: Translate)
   if (hasValue(metrics.quick_ratio)) {
     items.push(metric({
       key: 'quick-ratio',
-      label: t('dashboard.positionDetail.quickRatio'),
+      label: t('portfolios.positionDetail.quickRatio'),
       value: formatNumber(metrics.quick_ratio, 2),
       color: metrics.quick_ratio >= 1 ? positiveText : warningText,
       subtitle: getQuickRatioConclusion(metrics.quick_ratio, t),
@@ -375,7 +375,7 @@ export const buildAnalystMetrics = (metrics: DetailedMetrics, t: Translate): Met
     const score = formatNumber(metrics.recommendation_mean, 2)
     items.push(metric({
       key: 'recommendation',
-      label: t('dashboard.positionDetail.consensus'),
+      label: t('portfolios.positionDetail.consensus'),
       value: metrics.recommendation_key.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
       color: metrics.recommendation_key.includes('buy') ? positiveText : metrics.recommendation_key.includes('hold') ? warningText : negativeText,
       subtitle: conclusion && score ? `${conclusion} · Score: ${score}` : conclusion || undefined,
@@ -386,7 +386,7 @@ export const buildAnalystMetrics = (metrics: DetailedMetrics, t: Translate): Met
   if (hasValue(metrics.num_analysts)) {
     items.push(metric({
       key: 'num-analysts',
-      label: t('dashboard.positionDetail.analysts'),
+      label: t('portfolios.positionDetail.analysts'),
       value: metrics.num_analysts.toString(),
       color: neutralText,
       subtitle: 'Covering',
@@ -397,7 +397,7 @@ export const buildAnalystMetrics = (metrics: DetailedMetrics, t: Translate): Met
   if (hasValue(metrics.target_mean)) {
     items.push(metric({
       key: 'target-mean',
-      label: t('dashboard.positionDetail.targetMean'),
+      label: t('portfolios.positionDetail.targetMean'),
       value: formatCurrency(metrics.target_mean, currency),
       color: neutralText,
       subtitle: metrics.target_high && metrics.target_low
@@ -410,7 +410,7 @@ export const buildAnalystMetrics = (metrics: DetailedMetrics, t: Translate): Met
   if (hasValue(metrics.implied_upside_pct)) {
     items.push(metric({
       key: 'implied-upside',
-      label: t('dashboard.positionDetail.impliedUpside'),
+      label: t('portfolios.positionDetail.impliedUpside'),
       value: signedPercent(metrics.implied_upside_pct),
       color: metrics.implied_upside_pct >= 20 ? positiveText : metrics.implied_upside_pct >= 0 ? warningText : negativeText,
       subtitle: getImpliedUpsideConclusion(metrics.implied_upside_pct, t),
@@ -432,7 +432,7 @@ export const buildPerformanceMetrics = (
     const pnlValue = Number(position.unrealized_pnl)
     items.push(metric({
       key: 'unrealized-pnl',
-      label: t('dashboard.unrealizedPnL'),
+      label: t('dashboard.page.unrealizedPnL'),
       value: formatCurrency(position.unrealized_pnl, position.currency),
       percentage: hasValue(position.unrealized_pnl_pct) ? signedPercent(position.unrealized_pnl_pct) : undefined,
       color: getPnlColor(pnlValue),
@@ -443,7 +443,7 @@ export const buildPerformanceMetrics = (
   if (position.realized_quantity > 0) {
     items.push(metric({
       key: 'realized-pnl',
-      label: t('dashboard.realizedPnL'),
+      label: t('dashboard.page.realizedPnL'),
       value: formatCurrency(position.realized_pnl, position.currency),
       percentage: hasValue(position.realized_pnl_percent) ? signedPercent(position.realized_pnl_percent) : undefined,
       color: getPnlColor(position.realized_pnl),
@@ -453,7 +453,7 @@ export const buildPerformanceMetrics = (
     if (hasValue(position.lifetime_pnl)) {
       items.push(metric({
         key: 'lifetime-pnl',
-        label: t('dashboard.lifetimePnL'),
+        label: t('portfolios.realizedPositions.lifetimePnL'),
         value: formatCurrency(position.lifetime_pnl, position.currency),
         color: getPnlColor(position.lifetime_pnl),
         icon: position.lifetime_pnl >= 0 ? 'trendingUp' : 'trendingDown',
@@ -463,13 +463,13 @@ export const buildPerformanceMetrics = (
     items.push(
       metric({
         key: 'sold-quantity',
-        label: t('dashboard.soldQuantity'),
+        label: t('portfolios.realizedPositions.soldQuantity'),
         value: formatQuantity(position.realized_quantity),
         color: neutralText,
       }),
       metric({
         key: 'remaining-quantity',
-        label: t('dashboard.remainingQuantity'),
+        label: t('portfolios.realizedPositions.remainingQuantity'),
         value: formatQuantity(position.quantity),
         color: neutralText,
       }),
@@ -478,7 +478,7 @@ export const buildPerformanceMetrics = (
     if (hasValue(position.average_sell_price)) {
       items.push(metric({
         key: 'average-sell-price',
-        label: t('dashboard.averageSellPrice'),
+        label: t('portfolios.realizedPositions.averageSellPrice'),
         value: formatCurrency(position.average_sell_price, position.currency),
         color: neutralText,
       }))
@@ -487,7 +487,7 @@ export const buildPerformanceMetrics = (
     if (position.realized_cost_basis > 0) {
       items.push(metric({
         key: 'realized-cost-basis',
-        label: t('dashboard.costBasisSold'),
+        label: t('portfolios.realizedPositions.costBasisSold'),
         value: formatCurrency(position.realized_cost_basis, position.currency),
         color: neutralText,
       }))
@@ -496,7 +496,7 @@ export const buildPerformanceMetrics = (
     if (position.realized_sale_proceeds > 0) {
       items.push(metric({
         key: 'sale-proceeds',
-        label: t('dashboard.saleProceeds'),
+        label: t('portfolios.realizedPositions.saleProceeds'),
         value: formatCurrency(position.realized_sale_proceeds, position.currency),
         color: neutralText,
       }))
@@ -513,7 +513,7 @@ export const buildPerformanceMetrics = (
 
     items.push(metric({
       key: 'sell-count',
-      label: t('dashboard.sellTransactionCount'),
+      label: t('portfolios.realizedPositions.sellTransactionCount'),
       value: formatWithSeparators(position.realized_sell_count),
       color: neutralText,
     }))
@@ -522,7 +522,7 @@ export const buildPerformanceMetrics = (
   if (position.breakeven_gain_pct && position.unrealized_pnl !== null && position.unrealized_pnl < 0) {
     items.push(metric({
       key: 'breakeven-gain',
-      label: t('dashboard.breakeven.gainNeeded'),
+      label: t('common.positionFields.breakeven.gainNeeded'),
       value: `+${formatNumber(position.breakeven_gain_pct, 2)}%`,
       color: warningText,
       icon: 'arrowUpCircle',
@@ -532,7 +532,7 @@ export const buildPerformanceMetrics = (
   if (metrics && hasValue(metrics.personal_drawdown_pct)) {
     items.push(metric({
       key: 'personal-drawdown',
-      label: t('dashboard.positionDetail.personalDrawdown'),
+      label: t('portfolios.positionDetail.personalDrawdown'),
       value: `${formatNumber(metrics.personal_drawdown_pct, 2)}%`,
       color: metrics.personal_drawdown_pct >= 0 ? positiveText : negativeText,
       subtitle: metrics.local_ath_price
@@ -545,7 +545,7 @@ export const buildPerformanceMetrics = (
   if (hasValue(position.daily_change_pct)) {
     items.push(metric({
       key: 'daily-change',
-      label: t('dashboard.dailyChange'),
+      label: t('common.positionFields.dailyChange'),
       value: `${formatNumber(position.daily_change_pct, 2)}%`,
       color: position.daily_change_pct >= 0 ? positiveText : negativeText,
       icon: 'clock',
@@ -567,10 +567,10 @@ export const buildTradingZoneMetrics = (
   if (metrics && hasValue(metrics.avg_buy_zone_pct)) {
     items.push(metric({
       key: 'avg-buy-zone',
-      label: t('dashboard.positionDetail.avgBuyZone'),
+      label: t('portfolios.positionDetail.avgBuyZone'),
       value: `${formatNumber(metrics.avg_buy_zone_pct, 2)}%`,
       color: metrics.avg_buy_zone_pct > 0 ? positiveText : mutedText,
-      subtitle: metrics.avg_buy_zone_pct > 0 ? t('dashboard.positionDetail.opportunityToBuy') : t('dashboard.positionDetail.priceAboveAvg'),
+      subtitle: metrics.avg_buy_zone_pct > 0 ? t('portfolios.positionDetail.opportunityToBuy') : t('portfolios.positionDetail.priceAboveAvg'),
       icon: 'target',
     }))
   }
@@ -578,10 +578,10 @@ export const buildTradingZoneMetrics = (
   if (!isPositive && metrics && hasValue(metrics.cost_to_average_down)) {
     items.push(metric({
       key: 'cost-to-average-down',
-      label: t('dashboard.positionDetail.costToAvgDown'),
+      label: t('portfolios.positionDetail.costToAvgDown'),
       value: formatCurrency(metrics.cost_to_average_down, position.currency),
       color: neutralText,
-      subtitle: t('dashboard.positionDetail.targetPRU5Pct'),
+      subtitle: t('portfolios.positionDetail.targetPRU5Pct'),
       icon: 'dollarSign',
     }))
   }
@@ -591,7 +591,7 @@ export const buildTradingZoneMetrics = (
     const athDate = position.ath_date || metrics.local_ath_date
     items.push(metric({
       key: 'distance-to-ath',
-      label: t('dashboard.positionDetail.distanceToATH'),
+      label: t('portfolios.positionDetail.distanceToATH'),
       value: `${formatNumber(metrics.distance_to_ath_pct, 2)}%`,
       color: metrics.distance_to_ath_pct >= -10 ? positiveText : metrics.distance_to_ath_pct >= -30 ? warningText : negativeText,
       subtitle: athPrice ? `ATH: ${formatCurrency(athPrice, position.currency)}${athDate ? ` • ${new Date(athDate).toLocaleDateString()}` : ''}` : undefined,
@@ -601,7 +601,7 @@ export const buildTradingZoneMetrics = (
     items.push({
       kind: 'empty',
       key: 'distance-to-ath-empty',
-      label: t('dashboard.positionDetail.distanceToATH'),
+      label: t('portfolios.positionDetail.distanceToATH'),
       message: 'No data available',
     })
   }
@@ -683,10 +683,10 @@ export const buildRiskMetrics = (
   if (hasValue(position.vol_contribution_pct)) {
     items.push(metric({
       key: 'vol-contribution',
-      label: t('dashboard.positionDetail.volContribution'),
+      label: t('portfolios.positionDetail.volContribution'),
       value: `${formatNumber(position.vol_contribution_pct, 2)}%`,
       color: orangeText,
-      subtitle: t('dashboard.positionDetail.portfolioVolatility'),
+      subtitle: t('portfolios.positionDetail.portfolioVolatility'),
       icon: 'zap',
     }))
   }
@@ -694,10 +694,10 @@ export const buildRiskMetrics = (
   if (metrics && hasValue(metrics.volatility_30d)) {
     items.push(metric({
       key: 'volatility-30d',
-      label: t('dashboard.positionDetail.30DayVolatility'),
+      label: t('portfolios.positionDetail.30DayVolatility'),
       value: `${formatNumber(metrics.volatility_30d, 2)}%`,
       color: orangeText,
-      subtitle: t('dashboard.positionDetail.30DayVolatilitySubtitle'),
+      subtitle: t('portfolios.positionDetail.30DayVolatilitySubtitle'),
       icon: 'activity',
       conclusion: getVolatilityConclusion(metrics.volatility_30d, t),
     }))
@@ -706,10 +706,10 @@ export const buildRiskMetrics = (
   if (metrics && hasValue(metrics.volatility_90d)) {
     items.push(metric({
       key: 'volatility-90d',
-      label: t('dashboard.positionDetail.90DayVolatility'),
+      label: t('portfolios.positionDetail.90DayVolatility'),
       value: `${formatNumber(metrics.volatility_90d, 2)}%`,
       color: orangeText,
-      subtitle: t('dashboard.positionDetail.90DayVolatilitySubtitle'),
+      subtitle: t('portfolios.positionDetail.90DayVolatilitySubtitle'),
       icon: 'activity',
       conclusion: getVolatilityConclusion(metrics.volatility_90d, t),
     }))
@@ -718,10 +718,10 @@ export const buildRiskMetrics = (
   if (metrics && hasValue(metrics.beta)) {
     items.push(metric({
       key: 'beta',
-      label: t('dashboard.positionDetail.beta'),
+      label: t('portfolios.positionDetail.beta'),
       value: formatNumber(metrics.beta, 2),
       color: orangeText,
-      subtitle: metrics.beta_benchmark ? `vs ${metrics.beta_benchmark}` : t('dashboard.positionDetail.marketCorrelation'),
+      subtitle: metrics.beta_benchmark ? `vs ${metrics.beta_benchmark}` : t('portfolios.positionDetail.marketCorrelation'),
       icon: 'trendingUp',
       conclusion: getBetaConclusion(metrics.beta, t),
     }))
@@ -730,10 +730,10 @@ export const buildRiskMetrics = (
   if (metrics && hasValue(metrics.risk_score)) {
     items.push(metric({
       key: 'risk-score',
-      label: t('dashboard.positionDetail.riskScore'),
+      label: t('portfolios.positionDetail.riskScore'),
       value: formatNumber(metrics.risk_score, 1),
       color: orangeText,
-      subtitle: t('dashboard.positionDetail.riskScoreSubtitle'),
+      subtitle: t('portfolios.positionDetail.riskScoreSubtitle'),
       icon: 'alertTriangle',
       conclusion: getRiskScoreConclusion(metrics.risk_score, t),
     }))
@@ -744,9 +744,9 @@ export const buildRiskMetrics = (
 
 export const buildBasicInfoRows = (position: PositionDTO, t: Translate): InfoRowModel[] => [
   { key: 'quantity', label: t('fields.quantity'), value: formatNumber(position.quantity, 4) },
-  { key: 'avg-cost', label: t('dashboard.avgCost'), value: formatCurrency(position.avg_cost, position.currency) },
-  { key: 'current-price', label: t('dashboard.currentPrice'), value: formatCurrency(position.current_price, position.currency) },
-  { key: 'market-value', label: t('dashboard.marketValue'), value: formatCurrency(position.market_value, position.currency) },
-  { key: 'cost-basis', label: t('dashboard.positionDetail.costBasis'), value: formatCurrency(position.cost_basis, position.currency) },
-  { key: 'asset-type', label: t('dashboard.positionDetail.assetType'), value: position.asset_type || '-' },
+  { key: 'avg-cost', label: t('common.positionFields.avgCost'), value: formatCurrency(position.avg_cost, position.currency) },
+  { key: 'current-price', label: t('common.positionFields.currentPrice'), value: formatCurrency(position.current_price, position.currency) },
+  { key: 'market-value', label: t('common.positionFields.marketValue'), value: formatCurrency(position.market_value, position.currency) },
+  { key: 'cost-basis', label: t('portfolios.positionDetail.costBasis'), value: formatCurrency(position.cost_basis, position.currency) },
+  { key: 'asset-type', label: t('portfolios.positionDetail.assetType'), value: position.asset_type || '-' },
 ]

@@ -46,11 +46,11 @@ export default function RealizedPositionsTable({ positions, portfolioId }: Reali
 
   const sortLabels: Record<SortKey, string> = {
     symbol: t('fields.symbol'),
-    realized_pnl: t('dashboard.realizedPnL'),
-    realized_pnl_percent: `${t('dashboard.realizedPnL')} %`,
-    realized_quantity: t('dashboard.soldQuantity'),
-    quantity: t('dashboard.remainingQuantity'),
-    lifetime_pnl: t('dashboard.lifetimePnL'),
+    realized_pnl: t('dashboard.page.realizedPnL'),
+    realized_pnl_percent: `${t('dashboard.page.realizedPnL')} %`,
+    realized_quantity: t('portfolios.realizedPositions.soldQuantity'),
+    quantity: t('portfolios.realizedPositions.remainingQuantity'),
+    lifetime_pnl: t('portfolios.realizedPositions.lifetimePnL'),
   }
 
   const openPosition = (position: PositionDTO) => setSelectedPosition(position)
@@ -132,19 +132,19 @@ export default function RealizedPositionsTable({ positions, portfolioId }: Reali
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.soldQuantity')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('portfolios.realizedPositions.soldQuantity')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatQuantity(position.realized_quantity)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.remainingQuantity')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('portfolios.realizedPositions.remainingQuantity')}</span>
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {formatQuantity(position.quantity)}
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('dashboard.lifetimePnL')}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-xs">{t('portfolios.realizedPositions.lifetimePnL')}</span>
                     <div className={`font-semibold flex items-center gap-1 ${position.lifetime_pnl === null ? 'text-neutral-500 dark:text-neutral-400' : lifetimeColor}`}>
                       {position.lifetime_pnl === null ? '-' : (
                         <>
@@ -161,8 +161,8 @@ export default function RealizedPositionsTable({ positions, portfolioId }: Reali
 
           {sortedPositions.length === 0 && (
             <div className="card text-center py-12 text-neutral-500 dark:text-neutral-400">
-              <p>{t('dashboard.noRealizedPositions')}</p>
-              <p className="text-sm mt-2">{t('dashboard.realizedPositionsInfo')}</p>
+              <p>{t('portfolios.realizedPositions.noRealizedPositions')}</p>
+              <p className="text-sm mt-2">{t('portfolios.realizedPositions.realizedPositionsInfo')}</p>
             </div>
           )}
         </div>
@@ -255,8 +255,8 @@ export default function RealizedPositionsTable({ positions, portfolioId }: Reali
 
         {sortedPositions.length === 0 && (
           <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-            <p>{t('dashboard.noRealizedPositions')}</p>
-            <p className="text-sm mt-2">{t('dashboard.realizedPositionsInfo')}</p>
+            <p>{t('portfolios.realizedPositions.noRealizedPositions')}</p>
+            <p className="text-sm mt-2">{t('portfolios.realizedPositions.realizedPositionsInfo')}</p>
           </div>
         )}
       </div>

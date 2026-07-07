@@ -122,7 +122,7 @@ export default function NotificationsWidget({ isPreview = false }: Notifications
                         <button
                           onClick={(e) => handleDelete(e, notification.id)}
                           className="flex-shrink-0 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          title="Delete"
+                          title={t('common.delete')}
                         >
                           <Trash2 size={12} />
                         </button>
