@@ -10,6 +10,7 @@ import random
 import socket
 import time
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
 from typing import Any, Callable, Protocol, Sequence, TypeVar
@@ -72,6 +73,15 @@ class MarketDataProvider(Protocol):
         action: str = "ticker_info",
         timeout_seconds: float | None = None,
     ) -> dict[str, Any]:
+        ...
+
+    def get_info_batch(
+        self,
+        symbols: Sequence[str],
+        *,
+        action: str = "ticker_info_batch",
+        timeout_seconds: float | None = None,
+    ) -> dict[str, dict[str, Any]]:
         ...
 
     def get_history(
@@ -349,6 +359,28 @@ class YahooMarketDataProvider:
             action=action,
             timeout_seconds=timeout_seconds,
         )
+
+    def get_info_batch(
+        self,
+        symbols: Sequence[str],
+        *,
+        action: str = "ticker_info_batch",
+        timeout_seconds: float | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        unique_symbols = [symbol.strip().upper() for symbol in symbols if symbol and symbol.strip()]
+        if not unique_symbols:
+            return {}
+
+        max_workers = min(8, len(unique_symbols))
+
+        def fetch(symbol: str) -> tuple[str, dict[str, Any]]:
+            try:
+                return symbol, self.get_info(symbol, action=action, timeout_seconds=timeout_seconds)
+            except Exception:
+                return symbol, {}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            return {symbol: info for symbol, info in executor.map(fetch, unique_symbols)}
 
     def get_history(
         self,

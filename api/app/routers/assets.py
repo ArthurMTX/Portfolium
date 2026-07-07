@@ -738,18 +738,52 @@ def _fetch_screener_tickers(screener: str, count: int = 10) -> list[dict]:
         return []
 
     quotes = result.get("quotes", []) if isinstance(result, dict) else []
-    return [
-        {
-            "symbol": quote["symbol"],
-            "name": quote.get("shortName") or quote.get("longName") or quote["symbol"],
-            "type": quote.get("quoteType", ""),
-            "exchange": quote.get("exchange"),
-            "currency": quote.get("currency"),
-            "daily_change_pct": quote.get("regularMarketChangePercent"),
-        }
-        for quote in quotes[:count]
-        if quote.get("symbol")
-    ]
+    provider = get_market_data_provider()
+    exchange_country_map = {
+        "NMS": ("United States", "US"),
+        "NYQ": ("United States", "US"),
+        "NAS": ("United States", "US"),
+        "PCX": ("United States", "US"),
+        "PAR": ("France", "FR"),
+        "AMS": ("Netherlands", "NL"),
+        "GER": ("Germany", "DE"),
+        "LSE": ("United Kingdom", "GB"),
+        "TOR": ("Canada", "CA"),
+    }
+
+    symbols = [quote.get("symbol") for quote in quotes[:count] if quote.get("symbol")]
+    metadata_by_symbol = provider.get_info_batch(
+        symbols,
+        action="market_mover_info_batch",
+        timeout_seconds=yahoo_timeout_seconds(),
+    )
+
+    results: list[dict] = []
+    for quote in quotes[:count]:
+        symbol = quote.get("symbol")
+        if not symbol:
+            continue
+
+        market_metadata = metadata_by_symbol.get(symbol, {})
+        exchange = (market_metadata.get("exchange") or quote.get("exchange") or "").strip().upper()
+        fallback_country = exchange_country_map.get(exchange)
+        results.append(
+            {
+                "symbol": symbol,
+                "name": quote.get("shortName") or quote.get("longName") or symbol,
+                "type": quote.get("quoteType", ""),
+                "exchange": market_metadata.get("exchange") or quote.get("exchange"),
+                "exchange_name": market_metadata.get("exchange_name")
+                or quote.get("fullExchangeName")
+                or quote.get("exchangeName"),
+                "country": market_metadata.get("country") or (fallback_country[0] if fallback_country else None),
+                "country_code": market_metadata.get("country_code") or (fallback_country[1] if fallback_country else None),
+                "currency": market_metadata.get("currency") or quote.get("currency"),
+                "daily_change_pct": quote.get("regularMarketChangePercent"),
+            }
+        )
+
+    return results
 
 
 def _fetch_trending_tickers() -> list[dict]:

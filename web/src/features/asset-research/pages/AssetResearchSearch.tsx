@@ -128,7 +128,7 @@ function loadRecentSearches(): ResearchAssetResult[] {
 function metadataParts(item: ResearchAssetResult, enrichment: AssetEnrichment): ReactNode[] {
   const parts: ReactNode[] = []
   const typeLabel = compactAssetType(enrichment.assetType)
-  const flagUrl = getFlagUrl(enrichment.countryCode || enrichment.country, 'w20')
+  const flagUrl = getFlagUrl(enrichment.country || enrichment.countryCode, 'w20')
 
   if (typeLabel) parts.push(typeLabel)
   if (enrichment.country) {
@@ -303,15 +303,24 @@ export default function AssetResearchSearch() {
   }, [watchlist])
 
   const enrichAsset = useCallback(
-    (item: ResearchAssetResult): AssetEnrichment => {
+    (item: ResearchAssetResult, options: { preferPortfolioMetadata?: boolean } = {}): AssetEnrichment => {
       const symbol = normalizeSymbol(item.symbol)
       const position = positionsBySymbol.get(symbol)
       const watchlistItem = watchlistBySymbol.get(symbol)
       const market = inferMarket(symbol, item.exchange)
+      const preferPortfolioMetadata = options.preferPortfolioMetadata ?? true
       const assetType = position?.asset_type || watchlistItem?.asset_type || item.asset_type || item.type || null
-      const country = item.country || position?.effective_country || position?.country || market?.name || null
+      const country =
+        item.country ||
+        market?.name ||
+        (preferPortfolioMetadata ? position?.effective_country || position?.country : null) ||
+        null
       const countryCode = item.country_code || market?.code || null
-      const currency = item.currency || position?.currency || watchlistItem?.currency || market?.currency || null
+      const currency =
+        item.currency ||
+        market?.currency ||
+        (preferPortfolioMetadata ? position?.currency || watchlistItem?.currency : null) ||
+        null
       const name = item.name || position?.name || watchlistItem?.name || symbol
       const sector = position?.effective_sector || position?.sector || null
       const isin = item.isin || null
@@ -566,7 +575,7 @@ export default function AssetResearchSearch() {
                   <AssetResultRow
                     key={`${activeMoverTab}-${item.symbol}`}
                     item={item}
-                    enrichment={enrichAsset(item)}
+                    enrichment={enrichAsset(item, { preferPortfolioMetadata: false })}
                     onSelect={openResearch}
                     showDailyMove
                   />
