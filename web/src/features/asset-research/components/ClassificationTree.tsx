@@ -1,3 +1,4 @@
+import { Landmark } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { AssetThemeDTO } from '@/api'
 import { getSectorIcon } from '@/shared/lib/sectorIndustryUtils'
@@ -7,15 +8,16 @@ export function ClassificationLine({
   kind,
   label,
 }: {
-  kind: 'sector' | 'industry' | 'theme'
+  kind: 'sector' | 'industry' | 'theme' | 'marketCap'
   label: string
 }) {
-  const Icon = kind === 'theme' ? getThemeIcon(label) : getSectorIcon(label)
+  const { t } = useTranslation()
+  const Icon = kind === 'theme' ? getThemeIcon(label) : kind === 'marketCap' ? Landmark : getSectorIcon(label)
   return (
     <div className="asset-research__classification-line">
       <Icon size={17} strokeWidth={1.8} aria-hidden="true" />
       <span>
-        <small>{kind}</small>
+        <small>{t(`assetResearchView.classificationKinds.${kind}`)}</small>
         <strong>{label}</strong>
       </span>
     </div>

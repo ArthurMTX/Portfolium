@@ -779,6 +779,19 @@
     "classificationLoading": "Chargement de la classification Gemini/MiniLM",
     "classificationLoadingDescription": "La classification IA est encore en cours de génération.",
     "classificationUnknown": "La classification reste inconnue.",
+    "classificationKinds": {
+      "sector": "secteur",
+      "industry": "industrie",
+      "theme": "thème",
+      "marketCap": "capitalisation"
+    },
+    "marketCapTiers": {
+      "megacap": "Méga capitalisation",
+      "largecap": "Grande capitalisation",
+      "midcap": "Moyenne capitalisation",
+      "smallcap": "Petite capitalisation",
+      "microcap": "Micro capitalisation"
+    },
     "financialQuality": "Qualité financière",
     "isBusinessGrowingProfitably": "L'entreprise croît-elle de manière rentable ?",
     "balanceSheet": "Bilan",

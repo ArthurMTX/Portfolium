@@ -109,23 +109,24 @@ export function getRiskScoreConclusion(score: number, t: TFunc): string {
   return t("assets.conclusions.risk.veryLow");
 }
 
+export type MarketCapTier = "megacap" | "largecap" | "midcap" | "smallcap" | "microcap";
+
+/**
+ * Classify a market cap value (in its native currency) into a tier
+ */
+export function getMarketCapTier(marketCap: number): MarketCapTier {
+  if (marketCap >= 200_000_000_000) return "megacap";
+  if (marketCap >= 10_000_000_000) return "largecap";
+  if (marketCap >= 2_000_000_000) return "midcap";
+  if (marketCap >= 300_000_000) return "smallcap";
+  return "microcap";
+}
+
 /**
  * Generate market cap conclusion
  */
 export function getMarketCapConclusion(marketCap: number, t: TFunc): string {
-  if (marketCap >= 200_000_000_000) {
-    return t("assets.conclusions.marketCap.megacap");
-  }
-  if (marketCap >= 10_000_000_000) {
-    return t("assets.conclusions.marketCap.largecap");
-  }
-  if (marketCap >= 2_000_000_000) {
-    return t("assets.conclusions.marketCap.midcap");
-  }
-  if (marketCap >= 300_000_000) {
-    return t("assets.conclusions.marketCap.smallcap");
-  }
-  return t("assets.conclusions.marketCap.microcap");
+  return t(`assets.conclusions.marketCap.${getMarketCapTier(marketCap)}`);
 }
 
 /**

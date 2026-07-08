@@ -18,6 +18,7 @@ import { StateBlock } from '@/shared/components/StatePrimitives'
 import { valueTone } from '@/features/asset-research/lib/assetResearchViewFormatting'
 import { ClassificationLine, ThemeClassificationTree } from '@/features/asset-research/components/ClassificationTree'
 import { EvidenceSkeleton, EvidenceValue } from '@/features/asset-research/components/EvidencePrimitives'
+import { getMarketCapTier } from '@/features/assets/lib/conclusionUtils'
 
 export function OverviewSection({
   asset,
@@ -39,7 +40,8 @@ export function OverviewSection({
   children: ReactNode
 }) {
   const { t } = useTranslation()
-  const hasClassification = Boolean(asset.sector || asset.industry || themes.length > 0)
+  const marketCapTier = fundamentals?.market_cap ? getMarketCapTier(fundamentals.market_cap) : null
+  const hasClassification = Boolean(asset.sector || asset.industry || themes.length > 0 || marketCapTier)
   const showAside = themesLoading || hasClassification
   return (
     <div
@@ -145,6 +147,12 @@ export function OverviewSection({
         <aside className="pf-aside-col asset-research__overview-context">
           <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.inferredClassification')}</p>
           <h2>{t('assetResearchView.howClassified')}</h2>
+          {marketCapTier && (
+            <ClassificationLine
+              kind="marketCap"
+              label={t(`assetResearchView.marketCapTiers.${marketCapTier}`)}
+            />
+          )}
           {asset.sector && (
             <ClassificationLine kind="sector" label={asset.sector} />
           )}

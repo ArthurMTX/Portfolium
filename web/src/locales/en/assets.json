@@ -779,6 +779,19 @@
     "classificationLoading": "Loading Gemini/MiniLM classification",
     "classificationLoadingDescription": "The AI classification is still being generated.",
     "classificationUnknown": "Classification remains unknown.",
+    "classificationKinds": {
+      "sector": "sector",
+      "industry": "industry",
+      "theme": "theme",
+      "marketCap": "market cap"
+    },
+    "marketCapTiers": {
+      "megacap": "Mega cap",
+      "largecap": "Large cap",
+      "midcap": "Mid cap",
+      "smallcap": "Small cap",
+      "microcap": "Micro cap"
+    },
     "financialQuality": "Financial quality",
     "isBusinessGrowingProfitably": "Is the business growing profitably?",
     "balanceSheet": "Balance sheet",
