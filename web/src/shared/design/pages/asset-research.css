@@ -486,13 +486,15 @@
 .asset-research__section-heading p:not(.asset-research__section-label) {
   max-width: 46rem;
   margin-bottom: 0;
-  color: var(--asset-research-muted);
   font-size: 0.8rem;
   line-height: 1.55;
 }
 
-.asset-research__section-heading .asset-research__trajectory-return {
-  color: currentColor;
+.asset-research__section-heading p:not(.asset-research__section-label):not(.asset-research__trajectory-return) {
+  color: var(--asset-research-muted);
+}
+
+.asset-research__section-heading p.asset-research__trajectory-return {
   font-weight: 680;
 }
 
