@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 import { useAverageHoldingPeriod } from '@/features/boards/components/widgets/hooks/useRiskMetrics'
 import { formatHoldingPeriod } from '@/features/boards/components/widgets/utils/metricsCalculations'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetMetric } from '@/features/boards/components/widgets/base/WidgetMetric'
 
 interface HoldingPeriodWidgetProps extends BaseWidgetProps {
   title: string
@@ -16,7 +18,7 @@ interface HoldingPeriodWidgetProps extends BaseWidgetProps {
 
 export default function HoldingPeriodWidget({
   title,
-  icon: Icon,
+  icon,
   iconBgColor,
   iconColor,
   subtitle,
@@ -40,33 +42,16 @@ export default function HoldingPeriodWidget({
   }, [data, isPreview])
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-start gap-2.5 mb-4">
-        <div className={`w-9 h-9 ${iconBgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <Icon className={iconColor} size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            {t(title)}
-          </h3>
-          {subtitle && (
-            <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">
-              {t(subtitle)}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col justify-center -mt-2">
-        {loading ? (
-          <div className="flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-blue-500 rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <p className={`text-xl font-semibold break-words leading-tight ${valueColor}`}>
-            {value}
-          </p>
-        )}
-      </div>
-    </div>
+    <BaseWidget
+      title={title}
+      icon={icon}
+      iconColor={iconColor}
+      iconBgColor={iconBgColor}
+      description={subtitle ? t(subtitle) : undefined}
+      isLoading={loading}
+      contentClassName="pf-card--content"
+    >
+      <WidgetMetric value={value} valueColor={valueColor} size="md" />
+    </BaseWidget>
   )
 }

@@ -74,12 +74,12 @@ export default function BoardsList() {
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
       setIsCreateOpen(false)
-      navigate(`/boards/${created.id}`)
+      navigate(`/boards/${created.uuid}`)
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.deleteDashboardLayout(id),
+    mutationFn: (uuid: string) => api.deleteDashboardLayout(uuid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
       setDeleteTarget(null)
@@ -87,12 +87,12 @@ export default function BoardsList() {
   })
 
   const duplicateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) => api.duplicateDashboardLayout(id, name),
+    mutationFn: ({ uuid, name }: { uuid: string; name: string }) => api.duplicateDashboardLayout(uuid, name),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['boards'] }),
   })
 
   const renameMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) => api.updateDashboardLayout(id, { name }),
+    mutationFn: ({ uuid, name }: { uuid: string; name: string }) => api.updateDashboardLayout(uuid, { name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
       setRenameTarget(null)
@@ -100,8 +100,8 @@ export default function BoardsList() {
   })
 
   const setDefaultMutation = useMutation({
-    mutationFn: ({ id, isDefault }: { id: number; isDefault: boolean }) =>
-      api.updateDashboardLayout(id, { is_default: isDefault }),
+    mutationFn: ({ uuid, isDefault }: { uuid: string; isDefault: boolean }) =>
+      api.updateDashboardLayout(uuid, { is_default: isDefault }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['boards'] }),
   })
 
@@ -163,7 +163,7 @@ export default function BoardsList() {
                 <button
                   type="button"
                   className="boards-list__card-open"
-                  onClick={() => navigate(`/boards/${board.id}`)}
+                  onClick={() => navigate(`/boards/${board.uuid}`)}
                   aria-label={`${t('boards.list.open')} ${board.name}`}
                 >
                   <div className="boards-list__card-icon" aria-hidden="true">
@@ -191,7 +191,7 @@ export default function BoardsList() {
                 <div className="boards-list__card-actions">
                   <button
                     type="button"
-                    onClick={() => setDefaultMutation.mutate({ id: board.id, isDefault: !board.is_default })}
+                    onClick={() => setDefaultMutation.mutate({ uuid: board.uuid, isDefault: !board.is_default })}
                     title={board.is_default ? t('boards.list.removeDefault') : t('boards.list.setDefault')}
                     aria-label={board.is_default ? t('boards.list.removeDefault') : t('boards.list.setDefault')}
                   >
@@ -210,7 +210,7 @@ export default function BoardsList() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => duplicateMutation.mutate({ id: board.id, name: `${board.name} (${t('common.copy')})` })}
+                    onClick={() => duplicateMutation.mutate({ uuid: board.uuid, name: `${board.name} (${t('common.copy')})` })}
                     title={t('boards.list.duplicate')}
                     aria-label={t('boards.list.duplicate')}
                   >
@@ -243,7 +243,7 @@ export default function BoardsList() {
       <ConfirmModal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.uuid)}
         title={t('boards.list.deleteConfirmTitle')}
         message={t('boards.list.deleteConfirmMessage', { name: deleteTarget?.name })}
         confirmText={t('common.delete')}
@@ -265,7 +265,7 @@ export default function BoardsList() {
               onSubmit={(event) => {
                 event.preventDefault()
                 if (renameTarget && renameValue.trim()) {
-                  renameMutation.mutate({ id: renameTarget.id, name: renameValue.trim() })
+                  renameMutation.mutate({ uuid: renameTarget.uuid, name: renameValue.trim() })
                 }
               }}
             >

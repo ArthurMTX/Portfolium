@@ -99,8 +99,8 @@ export default function TNXWidget({
   return (
     <MarketIndexCard
       icon={TrendingUp}
-      iconClass={iconColor}
-      bgColor={bgColor}
+      iconColor={iconColor}
+      iconBgColor={bgColor}
       title={t(title)}
       subtitle={subtitle ? t(subtitle) : undefined}
       loading={loading}

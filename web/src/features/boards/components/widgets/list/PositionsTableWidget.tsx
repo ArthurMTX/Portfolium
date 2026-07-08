@@ -6,6 +6,7 @@ import { PositionDTO } from '@/api'
 import { useTranslation } from 'react-i18next'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 import { getRealizedPositions } from '@/features/portfolios/lib/realizedPositions'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
 
 interface PositionsTableWidgetProps extends BaseWidgetProps {
   portfolioId: number
@@ -14,9 +15,9 @@ interface PositionsTableWidgetProps extends BaseWidgetProps {
   soldPositionsLoading?: boolean
 }
 
-export default function PositionsTableWidget({ 
+export default function PositionsTableWidget({
   portfolioId,
-  positions, 
+  positions,
   soldPositions,
   soldPositionsLoading
 }: PositionsTableWidgetProps) {
@@ -25,67 +26,51 @@ export default function PositionsTableWidget({
   const realizedPositions = getRealizedPositions(positions || [])
 
   return (
-    <div className="card h-full flex flex-col overflow-hidden">
-      {/* Header with Icon and Title */}
-      <div className="px-5 pt-5 pb-2 flex items-center gap-2.5">
-        <div className="w-9 h-9 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <LayoutList className="text-cyan-600 dark:text-cyan-400" size={18} />
+    <BaseWidget
+      title="dashboard.widgets.positions.name"
+      icon={LayoutList}
+      iconColor="text-cyan-600 dark:text-cyan-400"
+      iconBgColor="bg-cyan-50 dark:bg-cyan-900/20"
+      scrollable={false}
+      contentClassName="flex flex-col min-h-0"
+      subHeader={
+        <div className="pf-widget-subheader">
+          <button
+            onClick={() => setActiveTab('current')}
+            className={`pf-widget-subheader-tab ${activeTab === 'current' ? 'pf-widget-subheader-tab--active' : ''}`}
+          >
+            {t('dashboard.widgets.positions.currentPositions')}
+            {positions && positions.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                {positions.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('realized')}
+            className={`pf-widget-subheader-tab ${activeTab === 'realized' ? 'pf-widget-subheader-tab--active' : ''}`}
+          >
+            {t('dashboard.widgets.positions.realizedPositions')}
+            {realizedPositions.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                {realizedPositions.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('sold')}
+            className={`pf-widget-subheader-tab ${activeTab === 'sold' ? 'pf-widget-subheader-tab--active' : ''}`}
+          >
+            {t('dashboard.widgets.positions.soldPositions')}
+            {soldPositions && soldPositions.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+                {soldPositions.length}
+              </span>
+            )}
+          </button>
         </div>
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          {t('dashboard.widgets.positions.name')}
-        </h3>
-      </div>
-      
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-4 px-4 pt-2 border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('current')}
-          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            activeTab === 'current'
-              ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          {t('dashboard.widgets.positions.currentPositions')}
-          {positions && positions.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-              {positions.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('realized')}
-          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            activeTab === 'realized'
-              ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          {t('dashboard.widgets.positions.realizedPositions')}
-          {realizedPositions.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-              {realizedPositions.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('sold')}
-          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            activeTab === 'sold'
-              ? 'border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
-          }`}
-        >
-          {t('dashboard.widgets.positions.soldPositions')}
-          {soldPositions && soldPositions.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-              {soldPositions.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Tab Content */}
+      }
+    >
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {activeTab === 'current' ? (
           <PositionsTable positions={positions || []} portfolioId={portfolioId} />
@@ -101,6 +86,6 @@ export default function PositionsTableWidget({
           <PositionsTable positions={soldPositions || []} portfolioId={portfolioId} isSold={true} />
         )}
       </div>
-    </div>
+    </BaseWidget>
   )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -58,7 +58,7 @@ function formatDateTime(dateString: string, locale?: string): string {
 
 export default function BoardDetail() {
   const { id } = useParams<{ id: string }>()
-  const boardId = Number(id)
+  const boardUuid = id ?? ''
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
@@ -73,9 +73,11 @@ export default function BoardDetail() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
   const [localLayoutConfig, setLocalLayoutConfig] = useState<LayoutConfig | null>(null)
+  const hasUnsavedChangesRef = useRef(false)
 
-  const isValidId = Number.isFinite(boardId) && boardId > 0
+  const isValidId = boardUuid.length > 0
 
   const { data: portfoliosData, isLoading: portfoliosLoading } = useQuery({
     queryKey: ['portfolios'],
@@ -97,14 +99,14 @@ export default function BoardDetail() {
     isLoading: boardLoading,
     isError: boardError,
   } = useQuery({
-    queryKey: ['board', boardId],
-    queryFn: () => api.getDashboardLayout(boardId),
+    queryKey: ['board', boardUuid],
+    queryFn: () => api.getDashboardLayout(boardUuid),
     enabled: isValidId,
   })
 
   useEffect(() => {
     setLocalLayoutConfig(null)
-  }, [boardId])
+  }, [boardUuid])
 
   const layoutConfig = useMemo(() => {
     const source = localLayoutConfig ?? board?.layout_config ?? EMPTY_LAYOUT_CONFIG
@@ -119,15 +121,16 @@ export default function BoardDetail() {
 
   const updateMutation = useMutation({
     mutationFn: (nextLayoutConfig: LayoutConfig) =>
-      api.updateDashboardLayout(boardId, { layout_config: nextLayoutConfig }),
+      api.updateDashboardLayout(boardUuid, { layout_config: nextLayoutConfig }),
     onSuccess: (updated) => {
-      queryClient.setQueryData(['board', boardId], updated)
+      queryClient.setQueryData(['board', boardUuid], updated)
       queryClient.invalidateQueries({ queryKey: ['boards'] })
     },
   })
 
   const persistLayoutConfig = useCallback((nextLayoutConfig: LayoutConfig) => {
     setLocalLayoutConfig(nextLayoutConfig)
+    hasUnsavedChangesRef.current = true
     updateMutation.mutate(nextLayoutConfig)
   }, [updateMutation])
 
@@ -140,7 +143,7 @@ export default function BoardDetail() {
   }, [layoutConfig, persistLayoutConfig])
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.deleteDashboardLayout(boardId),
+    mutationFn: () => api.deleteDashboardLayout(boardUuid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
       navigate('/boards')
@@ -148,10 +151,10 @@ export default function BoardDetail() {
   })
 
   const duplicateMutation = useMutation({
-    mutationFn: () => api.duplicateDashboardLayout(boardId, `${board?.name ?? 'Board'} (${t('common.copy')})`),
+    mutationFn: () => api.duplicateDashboardLayout(boardUuid, `${board?.name ?? 'Board'} (${t('common.copy')})`),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
-      navigate(`/boards/${created.id}`)
+      navigate(`/boards/${created.uuid}`)
     },
   })
 
@@ -254,6 +257,25 @@ export default function BoardDetail() {
     setResetConfirmOpen(false)
   }
 
+  const handleEnterEditMode = () => {
+    hasUnsavedChangesRef.current = false
+    setIsEditMode(true)
+  }
+
+  const handleExitEditMode = () => {
+    if (hasUnsavedChangesRef.current) {
+      setSaveConfirmOpen(true)
+      return
+    }
+    setIsEditMode(false)
+  }
+
+  const handleAcknowledgeSave = () => {
+    hasUnsavedChangesRef.current = false
+    setSaveConfirmOpen(false)
+    setIsEditMode(false)
+  }
+
   if (!portfoliosLoading && portfolios.length === 0) {
     return <EmptyPortfolioPrompt pageType="boards" />
   }
@@ -351,7 +373,7 @@ export default function BoardDetail() {
               type="button"
               className={!isEditMode ? 'is-active' : ''}
               aria-pressed={!isEditMode}
-              onClick={() => setIsEditMode(false)}
+              onClick={handleExitEditMode}
             >
               {t('boards.detail.viewMode')}
             </button>
@@ -359,7 +381,7 @@ export default function BoardDetail() {
               type="button"
               className={isEditMode ? 'is-active' : ''}
               aria-pressed={isEditMode}
-              onClick={() => setIsEditMode(true)}
+              onClick={handleEnterEditMode}
             >
               {t('boards.detail.editMode')}
             </button>
@@ -483,6 +505,17 @@ export default function BoardDetail() {
         cancelText={t('common.cancel')}
         variant="danger"
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmModal
+        isOpen={saveConfirmOpen}
+        onClose={handleAcknowledgeSave}
+        onConfirm={handleAcknowledgeSave}
+        title={t('boards.detail.saveConfirmTitle')}
+        message={t('boards.detail.saveConfirmMessage')}
+        confirmText={t('common.ok')}
+        cancelText=""
+        variant="info"
       />
     </PageShell>
   )

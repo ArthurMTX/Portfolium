@@ -732,8 +732,8 @@ class NotAuthorizedNotificationAccessError(PortfoliumException):
 # Dashboard-related errors
 class DashboardLayoutNotFoundError(PortfoliumException):
     """Raised when a dashboard layout is not found"""
-    
-    def __init__(self, layout_id: int):
+
+    def __init__(self, layout_id: int | str):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dashboard layout {layout_id} not found"
@@ -772,8 +772,8 @@ class FailedToImportDashboardLayoutError(PortfoliumException):
 
 class SourceLayoutNotFoundError(PortfoliumException):
     """Raised when the source layout for duplication is not found"""
-    
-    def __init__(self, source_layout_id: int):
+
+    def __init__(self, source_layout_id: int | str):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Source layout {source_layout_id} not found"

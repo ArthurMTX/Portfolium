@@ -27,10 +27,24 @@ def get_user_layouts(
 
 
 def get_layout_by_id(db: Session, layout_id: int, user_id: int) -> Optional[DashboardLayout]:
-    """Get a specific dashboard layout by ID (must belong to user)"""
+    """Get a specific dashboard layout by internal ID (must belong to user)"""
     return db.query(DashboardLayout).filter(
         and_(
             DashboardLayout.id == layout_id,
+            DashboardLayout.user_id == user_id
+        )
+    ).first()
+
+
+def get_layout_by_uuid(db: Session, layout_uuid: str, user_id: int) -> Optional[DashboardLayout]:
+    """Get a specific dashboard layout by its public UUID (must belong to user).
+
+    A layout uuid belonging to another user returns None here, same as an
+    unknown uuid — this is what prevents cross-user board access.
+    """
+    return db.query(DashboardLayout).filter(
+        and_(
+            DashboardLayout.uuid == layout_uuid,
             DashboardLayout.user_id == user_id
         )
     ).first()
@@ -98,23 +112,23 @@ def create_layout(
 
 def update_layout(
     db: Session,
-    layout_id: int,
+    layout_uuid: str,
     user_id: int,
     layout_update: DashboardLayoutUpdate
 ) -> Optional[DashboardLayout]:
     """Update an existing dashboard layout"""
-    db_layout = get_layout_by_id(db, layout_id, user_id)
-    
+    db_layout = get_layout_by_uuid(db, layout_uuid, user_id)
+
     if not db_layout:
         return None
-    
+
     # If setting as default, unset any existing defaults for this user (all layouts, not just global)
     if layout_update.is_default and layout_update.is_default != db_layout.is_default:
         db.query(DashboardLayout).filter(
             and_(
                 DashboardLayout.user_id == user_id,
                 DashboardLayout.is_default == True,
-                DashboardLayout.id != layout_id
+                DashboardLayout.id != db_layout.id
             )
         ).update({"is_default": False})
     
@@ -129,28 +143,28 @@ def update_layout(
     return db_layout
 
 
-def delete_layout(db: Session, layout_id: int, user_id: int) -> bool:
+def delete_layout(db: Session, layout_uuid: str, user_id: int) -> bool:
     """Delete a dashboard layout"""
-    db_layout = get_layout_by_id(db, layout_id, user_id)
-    
+    db_layout = get_layout_by_uuid(db, layout_uuid, user_id)
+
     if not db_layout:
         return False
-    
+
     db.delete(db_layout)
     db.commit()
-    
+
     return True
 
 
 def duplicate_layout(
     db: Session,
-    layout_id: int,
+    layout_uuid: str,
     user_id: int,
     new_name: str
 ) -> Optional[DashboardLayout]:
     """Duplicate an existing layout with a new name (global across all portfolios)"""
-    source_layout = get_layout_by_id(db, layout_id, user_id)
-    
+    source_layout = get_layout_by_uuid(db, layout_uuid, user_id)
+
     if not source_layout:
         return None
     

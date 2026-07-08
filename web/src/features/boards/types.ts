@@ -13,6 +13,7 @@ export interface LayoutConfig {
 
 export interface DashboardLayoutDTO {
   id: number
+  uuid: string
   user_id: number
   portfolio_id: number | null
   name: string

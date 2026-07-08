@@ -9,6 +9,8 @@ import { getSectorHexColor } from '@/shared/lib/sectorIndustryUtils'
 import { useTranslation } from 'react-i18next'
 import { getTranslatedSector, getTranslatedAssetType } from '@/shared/lib/translationUtils'
 import { mockSectorsDistribution, mockTypesDistribution, mockCountriesDistribution } from '@/features/boards/components/utils/mockDataProvider'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetChartFrame } from '@/features/boards/components/widgets/base/WidgetChartFrame'
 
 Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement)
 
@@ -170,23 +172,52 @@ export default function AssetAllocationWidget({ isPreview = false, batchData }: 
     },
   }
 
-  return (
-    <div className="card h-full flex flex-col p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-            {chartType === 'bar' ? (
-              <BarChart3 className="text-purple-600 dark:text-purple-400" size={18} />
-            ) : (
-              <PieChartIcon className="text-purple-600 dark:text-purple-400" size={18} />
-            )}
-          </div>
-          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            {t('dashboard.widgets.assetAllocation.name')}
-          </h3>
+  const legend = (
+    <div className="flex flex-wrap gap-2 text-xs px-5">
+      {distributionData.slice(0, 5).map((item, idx) => (
+        <div key={item.name} className="flex items-center gap-1.5" title={
+          `${activeTab === 'sector'
+            ? getTranslatedSector(item.name, t)
+            : activeTab === 'type'
+            ? getTranslatedAssetType(item.name, t)
+            : item.name}: ${item.percentage < 0.1 ? item.percentage.toFixed(2) : item.percentage.toFixed(1)}%`
+        }>
+          <div
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            style={{
+              backgroundColor:
+                activeTab === 'sector'
+                  ? getSectorHexColor(item.name)
+                  : chartData.datasets[0].backgroundColor[idx],
+            }}
+          />
+          <span className="text-neutral-700 dark:text-neutral-300 truncate max-w-[120px]">
+            {activeTab === 'sector'
+              ? getTranslatedSector(item.name, t)
+              : activeTab === 'type'
+              ? getTranslatedAssetType(item.name, t)
+              : item.name}
+          </span>
+          <span className="text-neutral-500 dark:text-neutral-400 font-medium whitespace-nowrap">
+            {item.percentage < 0.1
+              ? item.percentage.toFixed(2)
+              : item.percentage < 1
+              ? item.percentage.toFixed(1)
+              : item.percentage.toFixed(0)}%
+          </span>
         </div>
-        {/* Chart Type Toggle */}
+      ))}
+    </div>
+  )
+
+  return (
+    <BaseWidget
+      title="dashboard.widgets.assetAllocation.name"
+      icon={chartType === 'bar' ? BarChart3 : PieChartIcon}
+      iconColor="text-purple-600 dark:text-purple-400"
+      iconBgColor="bg-purple-50 dark:bg-purple-900/20"
+      contentClassName="pf-card--content"
+      actions={
         <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5">
           <button
             onClick={() => setChartType('donut')}
@@ -222,104 +253,54 @@ export default function AssetAllocationWidget({ isPreview = false, batchData }: 
             <BarChart3 size={14} />
           </button>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4">
-        <button
-          onClick={() => setActiveTab('sector')}
-          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeTab === 'sector'
-              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-          }`}
-        >
-          {t('assets.sector')}
-        </button>
-        <button
-          onClick={() => setActiveTab('type')}
-          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeTab === 'type'
-              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-          }`}
-        >
-          {t('assets.type')}
-        </button>
-        <button
-          onClick={() => setActiveTab('country')}
-          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            activeTab === 'country'
-              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-          }`}
-        >
-          {t('assets.country')}
-        </button>
-      </div>
-
-      {/* Chart */}
-      <div className="flex-1 min-h-0">
-        {loading ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
-          </div>
-        ) : distributionData.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-              {t('dashboard.widgets.assetAllocation.noAllocationData')}
-            </p>
-          </div>
+      }
+      subHeader={
+        <div className="flex gap-1 px-5 pb-4">
+          <button
+            onClick={() => setActiveTab('sector')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeTab === 'sector'
+                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            {t('assets.sector')}
+          </button>
+          <button
+            onClick={() => setActiveTab('type')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeTab === 'type'
+                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            {t('assets.type')}
+          </button>
+          <button
+            onClick={() => setActiveTab('country')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeTab === 'country'
+                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            {t('assets.country')}
+          </button>
+        </div>
+      }
+    >
+      <WidgetChartFrame
+        isLoading={loading}
+        isEmpty={distributionData.length === 0}
+        emptyMessage={t('dashboard.widgets.assetAllocation.noAllocationData')}
+        legend={legend}
+      >
+        {chartType === 'bar' ? (
+          <Bar data={chartData} options={barOptions} />
         ) : (
-          <div className="h-full flex flex-col gap-3">
-            {/* Chart Area */}
-            <div className="flex-1 min-h-0">
-              {chartType === 'bar' ? (
-                <Bar data={chartData} options={barOptions} />
-              ) : (
-                <Pie data={chartData} options={chartOptions} />
-              )}
-
-            </div>
-            {/* Legend */}
-            <div className="flex flex-wrap gap-2 text-xs">
-              {distributionData.slice(0, 5).map((item, idx) => (
-                <div key={item.name} className="flex items-center gap-1.5" title={
-                  `${activeTab === 'sector'
-                    ? getTranslatedSector(item.name, t)
-                    : activeTab === 'type'
-                    ? getTranslatedAssetType(item.name, t)
-                    : item.name}: ${item.percentage < 0.1 ? item.percentage.toFixed(2) : item.percentage.toFixed(1)}%`
-                }>
-                  <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{
-                      backgroundColor:
-                        activeTab === 'sector'
-                          ? getSectorHexColor(item.name)
-                          : chartData.datasets[0].backgroundColor[idx],
-                    }}
-                  />
-                  <span className="text-neutral-700 dark:text-neutral-300 truncate max-w-[120px]">
-                    {activeTab === 'sector'
-                      ? getTranslatedSector(item.name, t)
-                      : activeTab === 'type'
-                      ? getTranslatedAssetType(item.name, t)
-                      : item.name}
-                  </span>
-                  <span className="text-neutral-500 dark:text-neutral-400 font-medium whitespace-nowrap">
-                    {item.percentage < 0.1 
-                      ? item.percentage.toFixed(2)
-                      : item.percentage < 1
-                      ? item.percentage.toFixed(1)
-                      : item.percentage.toFixed(0)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Pie data={chartData} options={chartOptions} />
         )}
-      </div>
-    </div>
+      </WidgetChartFrame>
+    </BaseWidget>
   )
 }

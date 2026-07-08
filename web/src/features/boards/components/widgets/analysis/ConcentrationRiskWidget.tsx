@@ -3,6 +3,9 @@ import { PositionDTO } from '@/api'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 import { useTranslation } from 'react-i18next'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
 
 interface ConcentrationRiskWidgetProps extends BaseWidgetProps {
   positions: PositionDTO[]
@@ -10,7 +13,7 @@ interface ConcentrationRiskWidgetProps extends BaseWidgetProps {
 
 export default function ConcentrationRiskWidget({ positions }: ConcentrationRiskWidgetProps) {
   const { t } = useTranslation()
-  
+
   // Calculate total portfolio value
   const totalValue = positions.reduce((sum, p) => {
     const value = p.market_value !== null ? Number(p.market_value) : 0
@@ -32,84 +35,50 @@ export default function ConcentrationRiskWidget({ positions }: ConcentrationRisk
   const isHighRisk = concentrationPct > 60
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-start justify-between gap-2.5 mb-4">
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`w-9 h-9 ${
-              isHighRisk
-                ? 'bg-orange-50 dark:bg-orange-900/20'
-                : 'bg-emerald-50 dark:bg-emerald-900/20'
-            } rounded-lg flex items-center justify-center flex-shrink-0`}
-          >
-            {isHighRisk ? (
-              <AlertTriangle className="text-orange-600 dark:text-orange-400" size={18} />
-            ) : (
-              <Shield className="text-emerald-600 dark:text-emerald-400" size={18} />
-            )}
-          </div>
-          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            {t('dashboard.widgets.concentrationRisk.name')}
-          </h3>
-        </div>
-        
-        <div className="text-right">
-          <p
-            className={`text-2xl font-semibold ${
-              isHighRisk
-                ? 'text-orange-600 dark:text-orange-400'
-                : 'text-emerald-600 dark:text-emerald-400'
-            }`}
-          >
-            {concentrationPct.toFixed(1)}%
-          </p>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col">
-        {sortedPositions.length > 0 && (
-          <div className="space-y-3">
-            {sortedPositions.map((position, idx) => {
-              const pct = totalValue > 0 ? (Number(position.market_value) / totalValue) * 100 : 0
-              return (
-                <div
-                  key={position.asset_id}
-                  className="flex items-center justify-between p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-neutral-400 w-4">
-                      #{idx + 1}
-                    </span>
-
-                    {/* Asset Logo */}
-                    <AssetLogo
-                      symbol={position.symbol || 'UNKNOWN'}
-                      assetType={position.asset_type || 'STOCK'}
-                      assetName={position.name}
-                      alt={position.symbol || 'Unknown'}
-                      className="w-10 h-10 object-contain flex-shrink-0"
-                    />
-
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                        {position.symbol}
-                      </p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                        {position.name}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right ml-3">
-                    <p className="font-semibold text-neutral-900 dark:text-neutral-100">
-                      {pct.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+    <BaseWidget
+      title="dashboard.widgets.concentrationRisk.name"
+      icon={isHighRisk ? AlertTriangle : Shield}
+      iconColor={isHighRisk ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}
+      iconBgColor={isHighRisk ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}
+      actions={
+        <p className={`text-2xl font-semibold ${isHighRisk ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          {concentrationPct.toFixed(1)}%
+        </p>
+      }
+      isEmpty={sortedPositions.length === 0}
+      emptyMessage={t('common.noData')}
+    >
+      <WidgetList variant="cards">
+        {sortedPositions.map((position, idx) => {
+          const pct = totalValue > 0 ? (Number(position.market_value) / totalValue) * 100 : 0
+          return (
+            <WidgetListItem
+              key={position.asset_id}
+              leading={
+                <>
+                  <span className="text-xs font-semibold text-neutral-400 w-4">
+                    #{idx + 1}
+                  </span>
+                  <AssetLogo
+                    symbol={position.symbol || 'UNKNOWN'}
+                    assetType={position.asset_type || 'STOCK'}
+                    assetName={position.name}
+                    alt={position.symbol || 'Unknown'}
+                    className="w-10 h-10 object-contain flex-shrink-0"
+                  />
+                </>
+              }
+              title={position.symbol}
+              subtitle={position.name}
+              trailing={
+                <p className="font-semibold text-neutral-900 dark:text-neutral-100">
+                  {pct.toFixed(1)}%
+                </p>
+              }
+            />
+          )
+        })}
+      </WidgetList>
+    </BaseWidget>
   )
 }

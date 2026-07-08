@@ -93,8 +93,8 @@ export default function VIXWidget({
   return (
     <MarketIndexCard
       icon={Activity}
-      iconClass={iconColor}
-      bgColor={bgColor}
+      iconColor={iconColor}
+      iconBgColor={bgColor}
       title={t(title)}
       subtitle={subtitle ? t(subtitle) : undefined}
       loading={loading}

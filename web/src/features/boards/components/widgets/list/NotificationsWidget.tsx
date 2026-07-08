@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, ExternalLink, Clock, Trash2 } from 'lucide-react'
+import { Bell, Clock, Trash2 } from 'lucide-react'
 import { useNotificationStore } from '@/features/notifications/store/useNotificationStore'
 import { formatDistanceToNow } from 'date-fns'
 import { getNotificationIcon } from '@/features/notifications/lib/notificationUtils'
@@ -8,6 +8,9 @@ import { translateNotification } from '@/features/notifications/lib/notification
 import { useTranslation } from 'react-i18next'
 import { useWidgetVisibility } from '@/features/boards/context/BoardContext'
 import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { ViewAllButton } from '@/features/boards/components/widgets/base/ViewAllButton'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 
 interface NotificationsWidgetProps extends BaseWidgetProps {}
@@ -77,13 +80,7 @@ export default function NotificationsWidget({ isPreview = false }: Notifications
 
   // View all action button
   const viewAllAction = notifications.length > 0 && !isPreview ? (
-    <button
-      onClick={handleViewAll}
-      className="text-xs text-fuchsia-600 dark:text-fuchsia-400 hover:underline flex items-center gap-1"
-    >
-      {t('notifications.viewAll')}
-      <ExternalLink size={12} />
-    </button>
+    <ViewAllButton onClick={handleViewAll} label={t('notifications.viewAll')} />
   ) : null
 
   return (
@@ -95,53 +92,47 @@ export default function NotificationsWidget({ isPreview = false }: Notifications
       isLoading={loading && !isPreview}
       isEmpty={recentNotifications.length === 0}
       emptyMessage="notifications.noNotifications"
-      emptyIcon={Clock}
+      emptyIconSlot={<Clock size={48} className="text-neutral-300 dark:text-neutral-700" />}
       actions={viewAllAction}
     >
-      <div>
-            {recentNotifications.map((notification) => {
-              const { title, message } = translateNotification(notification, t)
-              
-              return (
-                <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification.id, notification.is_read)}
-                  className={`px-5 py-3.5 border-b border-neutral-100 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer transition-colors ${
-                    !notification.is_read ? 'bg-fuchsia-50/30 dark:bg-fuchsia-950/10' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1 flex-shrink-0">
-                      {getNotificationIcon(notification.type, 14)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="text-xs font-medium text-neutral-900 dark:text-white truncate">
-                          {title}
-                        </h4>
-                        <button
-                          onClick={(e) => handleDelete(e, notification.id)}
-                          className="flex-shrink-0 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          title={t('common.delete')}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                      <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
-                        {message}
-                      </p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                    {!notification.is_read && (
-                      <div className="w-2 h-2 bg-fuchsia-600 rounded-full flex-shrink-0 mt-2" />
-                    )}
-                  </div>
+      <WidgetList variant="divide">
+        {recentNotifications.map((notification) => {
+          const { title, message } = translateNotification(notification, t)
+
+          return (
+            <WidgetListItem
+              key={notification.id}
+              onClick={() => handleNotificationClick(notification.id, notification.is_read)}
+              isUnread={!notification.is_read}
+              leading={<div className="mt-1">{getNotificationIcon(notification.type, 14)}</div>}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-xs font-medium text-neutral-900 dark:text-white truncate">
+                    {title}
+                  </h4>
+                  <button
+                    onClick={(e) => handleDelete(e, notification.id)}
+                    className="flex-shrink-0 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                    title={t('common.delete')}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
-            )
-          })}
-        </div>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
+                  {message}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                </p>
+              </div>
+              {!notification.is_read && (
+                <div className="w-2 h-2 bg-fuchsia-600 rounded-full flex-shrink-0 mt-2" />
+              )}
+            </WidgetListItem>
+          )
+        })}
+      </WidgetList>
     </BaseWidget>
   )
 }

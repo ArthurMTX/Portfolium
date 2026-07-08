@@ -34,23 +34,16 @@ export default function TopPerformersWidget({ isPreview = false }: TopPerformers
 
   const displayPerformers = isPreview ? mockPerformers : (performers || [])
 
-  if (!isPreview && (isLoading || !performers)) {
-    return (
-      <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
-      </div>
-    )
-  }
-
   return (
     <PerformerListWidget
       icon={TrendingUp}
-      iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
-      iconClass="text-emerald-600 dark:text-emerald-400"
+      iconBgColor="bg-emerald-50 dark:bg-emerald-900/20"
+      iconColor="text-emerald-600 dark:text-emerald-400"
       title={t('dashboard.widgets.topPerformers.name')}
       emptyText={t('dashboard.widgets.topPerformers.noPerformanceData')}
       performers={displayPerformers}
       portfolioCurrency={portfolioCurrency}
+      isLoading={!isPreview && (isLoading || !performers)}
     />
   )
 }

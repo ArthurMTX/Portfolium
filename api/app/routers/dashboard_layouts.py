@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.errors import (
-    DashboardLayoutNotFoundError, 
+    DashboardLayoutNotFoundError,
     FailedToCreateDashboardLayoutError,
     FailedToImportDashboardLayoutError,
     SourceLayoutNotFoundError
@@ -52,18 +52,18 @@ def get_default_layout(
     return layout
 
 
-@router.get("/{layout_id}", response_model=DashboardLayoutResponse)
+@router.get("/{layout_uuid}", response_model=DashboardLayoutResponse)
 def get_layout(
-    layout_id: int,
+    layout_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get a specific dashboard layout by ID"""
-    layout = crud.get_layout_by_id(db, layout_id, current_user.id)
-    
+    """Get a specific dashboard layout by its public UUID"""
+    layout = crud.get_layout_by_uuid(db, layout_uuid, current_user.id)
+
     if not layout:
-        raise DashboardLayoutNotFoundError(layout_id)
-    
+        raise DashboardLayoutNotFoundError(layout_uuid)
+
     return layout
 
 
@@ -80,56 +80,56 @@ def create_layout(
         raise FailedToCreateDashboardLayoutError(str(e))
 
 
-@router.put("/{layout_id}", response_model=DashboardLayoutResponse)
+@router.put("/{layout_uuid}", response_model=DashboardLayoutResponse)
 def update_layout(
-    layout_id: int,
+    layout_uuid: str,
     layout_update: DashboardLayoutUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Update an existing dashboard layout"""
-    updated_layout = crud.update_layout(db, layout_id, current_user.id, layout_update)
-    
+    updated_layout = crud.update_layout(db, layout_uuid, current_user.id, layout_update)
+
     if not updated_layout:
-        raise DashboardLayoutNotFoundError(layout_id)
-    
+        raise DashboardLayoutNotFoundError(layout_uuid)
+
     return updated_layout
 
 
-@router.delete("/{layout_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{layout_uuid}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_layout(
-    layout_id: int,
+    layout_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Delete a dashboard layout"""
-    success = crud.delete_layout(db, layout_id, current_user.id)
-    
+    success = crud.delete_layout(db, layout_uuid, current_user.id)
+
     if not success:
-        raise DashboardLayoutNotFoundError(layout_id)
-    
+        raise DashboardLayoutNotFoundError(layout_uuid)
+
     return None
 
 
-@router.post("/{layout_id}/duplicate", response_model=DashboardLayoutResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{layout_uuid}/duplicate", response_model=DashboardLayoutResponse, status_code=status.HTTP_201_CREATED)
 def duplicate_layout(
-    layout_id: int,
+    layout_uuid: str,
     new_name: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Duplicate an existing layout with a new name"""
-    new_layout = crud.duplicate_layout(db, layout_id, current_user.id, new_name)
-    
+    new_layout = crud.duplicate_layout(db, layout_uuid, current_user.id, new_name)
+
     if not new_layout:
-        raise SourceLayoutNotFoundError(layout_id)
-    
+        raise SourceLayoutNotFoundError(layout_uuid)
+
     return new_layout
 
 
-@router.get("/{layout_id}/export", response_model=DashboardLayoutExport)
+@router.get("/{layout_uuid}/export", response_model=DashboardLayoutExport)
 def export_layout(
-    layout_id: int,
+    layout_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -137,11 +137,11 @@ def export_layout(
     Export a dashboard layout as JSON for sharing or backup.
     This format can be imported by any user.
     """
-    layout = crud.get_layout_by_id(db, layout_id, current_user.id)
-    
+    layout = crud.get_layout_by_uuid(db, layout_uuid, current_user.id)
+
     if not layout:
-        raise DashboardLayoutNotFoundError(layout_id)
-    
+        raise DashboardLayoutNotFoundError(layout_uuid)
+
     return DashboardLayoutExport(
         name=layout.name,
         description=layout.description,
@@ -170,7 +170,7 @@ def import_layout(
             is_shared=False,
             layout_config=layout_export.layout_config
         )
-        
+
         return crud.create_layout(db, layout_create, current_user.id)
     except Exception as e:
         raise FailedToImportDashboardLayoutError(str(e))

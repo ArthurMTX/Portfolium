@@ -118,24 +118,36 @@ export interface BaseWidgetWrapperProps {
   iconColor: string
   /** Icon background color class */
   iconBgColor: string
+  /** Optional secondary line under the title (e.g. "2 of 3 goals") */
+  description?: string
   /** Widget is currently loading */
   isLoading?: boolean
   /** Error that occurred during data fetching */
   error?: Error | null
+  /** Retry callback shown alongside the error state */
+  onRetry?: () => void
   /** Data is empty (no items to display) */
   isEmpty?: boolean
   /** Message to show when empty (can be translation key) */
   emptyMessage?: string
-  /** Icon to show in empty state */
-  emptyIcon?: LucideIcon
-  /** Optional action buttons in header */
+  /** Description to show under the empty-state title (can be translation key) */
+  emptyDescription?: string
+  /** Content (icon, illustration) to show above the empty-state title */
+  emptyIconSlot?: ReactNode
+  /** Optional action buttons in header, top-right */
   actions?: ReactNode
+  /** Optional secondary row rendered under the header (tabs, toggles) */
+  subHeader?: ReactNode
   /** Widget content */
   children: ReactNode
-  /** Optional className for custom styling */
+  /** Optional className for custom styling on the outer card */
   className?: string
+  /** Optional className for the content wrapper (e.g. to opt out of default padding) */
+  contentClassName?: string
   /** Enable scroll in content area */
   scrollable?: boolean
+  /** Optional persistent bottom strip, rendered below content */
+  footer?: ReactNode
 }
 
 /**

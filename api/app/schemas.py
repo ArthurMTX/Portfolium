@@ -1491,11 +1491,12 @@ class DashboardLayoutUpdate(BaseModel):
 class DashboardLayoutResponse(DashboardLayoutBase):
     """Schema for dashboard layout response"""
     id: int
+    uuid: str
     user_id: int
     layout_config: LayoutConfigSchema
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 

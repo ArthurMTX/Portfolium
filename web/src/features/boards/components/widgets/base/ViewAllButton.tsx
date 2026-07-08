@@ -2,7 +2,6 @@ import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface ViewAllButtonProps {
-  to?: string
   onClick?: () => void
   label?: string
 }

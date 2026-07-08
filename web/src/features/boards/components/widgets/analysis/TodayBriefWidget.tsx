@@ -213,7 +213,7 @@ export default function TodayBriefWidget({ isPreview = false }: TodayBriefWidget
       isLoading={loading}
       isEmpty={items.length === 0}
       emptyMessage="dashboard.widgets.todayBrief.emptyState"
-      emptyIcon={Clock3}
+      emptyIconSlot={<Clock3 size={48} className="text-neutral-300 dark:text-neutral-700" />}
       scrollable={false}
     >
       <div className="divide-y divide-neutral-100 dark:divide-neutral-800">

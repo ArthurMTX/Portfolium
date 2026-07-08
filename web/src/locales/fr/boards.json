@@ -63,6 +63,8 @@
       "emptyDescription": "Ajoutez votre premier widget pour construire ce tableau.",
       "removeWidget": "Retirer le widget",
       "removeWidgetMessage": "Retirer ce widget du tableau ?",
+      "saveConfirmTitle": "Disposition enregistrée",
+      "saveConfirmMessage": "Vos modifications de disposition ont été enregistrées.",
       "moveWidget": "Déplacer le widget",
       "moveWidgetUp": "Déplacer le widget vers le haut",
       "moveWidgetDown": "Déplacer le widget vers le bas",

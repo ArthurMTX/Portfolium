@@ -20,8 +20,8 @@ export async function getDefaultDashboardLayout(portfolioId?: number) {
   }
 }
 
-export async function getDashboardLayout(layoutId: number) {
-  return request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutId}`)
+export async function getDashboardLayout(layoutUuid: string) {
+  return request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutUuid}`)
 }
 
 export async function createDashboardLayout(layout: DashboardLayoutCreate) {
@@ -31,28 +31,28 @@ export async function createDashboardLayout(layout: DashboardLayoutCreate) {
   })
 }
 
-export async function updateDashboardLayout(layoutId: number, update: DashboardLayoutUpdate) {
-  return request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutId}`, {
+export async function updateDashboardLayout(layoutUuid: string, update: DashboardLayoutUpdate) {
+  return request<DashboardLayoutDTO>(`/dashboard-layouts/${layoutUuid}`, {
     method: 'PUT',
     body: JSON.stringify(update),
   })
 }
 
-export async function deleteDashboardLayout(layoutId: number) {
-  return request<void>(`/dashboard-layouts/${layoutId}`, {
+export async function deleteDashboardLayout(layoutUuid: string) {
+  return request<void>(`/dashboard-layouts/${layoutUuid}`, {
     method: 'DELETE',
   })
 }
 
-export async function duplicateDashboardLayout(layoutId: number, newName: string) {
+export async function duplicateDashboardLayout(layoutUuid: string, newName: string) {
   return request<DashboardLayoutDTO>(
-    `/dashboard-layouts/${layoutId}/duplicate?new_name=${encodeURIComponent(newName)}`,
+    `/dashboard-layouts/${layoutUuid}/duplicate?new_name=${encodeURIComponent(newName)}`,
     { method: 'POST' }
   )
 }
 
-export async function exportDashboardLayout(layoutId: number) {
-  return request<DashboardLayoutExport>(`/dashboard-layouts/${layoutId}/export`)
+export async function exportDashboardLayout(layoutUuid: string) {
+  return request<DashboardLayoutExport>(`/dashboard-layouts/${layoutUuid}/export`)
 }
 
 export async function importDashboardLayout(layout: DashboardLayoutExport, portfolioId?: number) {

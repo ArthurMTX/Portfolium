@@ -1,0 +1,57 @@
+/* Shared widget presentation layer classes.
+   Structural chrome (padding, radius, borders, row layout) is token-driven here;
+   per-widget icon accent colors stay as Tailwind utility strings passed by widgets. */
+
+@layer components {
+  .pf-widget-list-item--divide {
+    @apply px-5 py-3.5;
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-widget-list-item--divide:last-child {
+    border-bottom: 0;
+  }
+
+  .pf-widget-list-item--cards {
+    @apply p-3.5 rounded-lg;
+    background: var(--pf-canvas-muted);
+  }
+
+  .pf-widget-list-item--compact {
+    @apply rounded-md px-2.5 py-2;
+    background: var(--pf-canvas-muted);
+  }
+
+  .pf-widget-list-item--unread {
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-widget-subheader {
+    @apply px-5 pt-2 pb-0 flex items-center gap-4 overflow-x-auto flex-shrink-0;
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-widget-subheader-tab {
+    @apply pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors;
+    border-bottom: 2px solid transparent;
+    color: var(--pf-muted);
+  }
+
+  .pf-widget-subheader-tab:hover {
+    color: var(--pf-ink);
+  }
+
+  .pf-widget-subheader-tab--active {
+    border-color: var(--pf-accent);
+    color: var(--pf-accent);
+  }
+
+  .pf-widget-metric-row {
+    @apply flex items-center justify-between p-2.5 rounded-lg;
+  }
+
+  .pf-widget-footer {
+    @apply px-5 py-3 flex-shrink-0;
+    border-top: 1px solid var(--pf-line);
+  }
+}

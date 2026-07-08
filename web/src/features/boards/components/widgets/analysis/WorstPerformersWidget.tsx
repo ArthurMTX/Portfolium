@@ -39,23 +39,16 @@ export default function WorstPerformersWidget({ isPreview = false }: WorstPerfor
       ? [...allPerformers].sort((a, b) => a.return_pct - b.return_pct).slice(0, 5)
       : [])
 
-  if (!isPreview && isLoading) {
-    return (
-      <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
-      </div>
-    )
-  }
-
   return (
     <PerformerListWidget
       icon={TrendingDown}
-      iconBgClass="bg-rose-50 dark:bg-rose-900/20"
-      iconClass="text-rose-600 dark:text-rose-400"
+      iconBgColor="bg-rose-50 dark:bg-rose-900/20"
+      iconColor="text-rose-600 dark:text-rose-400"
       title={t('dashboard.widgets.worstPerformers.name')}
       emptyText={t('dashboard.widgets.worstPerformers.noPerformanceData')}
       performers={performers}
       portfolioCurrency={portfolioCurrency}
+      isLoading={!isPreview && isLoading}
     />
   )
 }

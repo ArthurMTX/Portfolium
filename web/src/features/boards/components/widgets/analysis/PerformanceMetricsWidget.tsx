@@ -4,6 +4,8 @@ import { BaseWidgetProps } from '@/features/boards/components/types'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api, { PortfolioHistoryPointDTO } from '@/api'
 import { useTranslation } from 'react-i18next'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetMetricRow } from '@/features/boards/components/widgets/base/WidgetMetricRow'
 
 interface PerformanceMetricsWidgetProps extends BaseWidgetProps {
   batchData?: { performance_history?: unknown }
@@ -102,58 +104,35 @@ export default function PerformanceMetricsWidget({ isPreview = false, batchData 
   ]
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-9 h-9 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <BarChart3 className="text-indigo-600 dark:text-indigo-400" size={18} />
-        </div>
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          {t('dashboard.widgets.performanceMetrics.name')}
-        </h3>
-      </div>
+    <BaseWidget
+      title="dashboard.widgets.performanceMetrics.name"
+      icon={BarChart3}
+      iconColor="text-indigo-600 dark:text-indigo-400"
+      iconBgColor="bg-indigo-50 dark:bg-indigo-900/20"
+      isLoading={loading}
+      contentClassName="pf-card--content"
+    >
+      <div className="grid grid-cols-1 gap-3">
+        {periods.map((period) => {
+          const value = period.value
+          const isUndefined = value === undefined
+          const isPositive = value !== undefined && value > 0
+          const isNegative = value !== undefined && value < 0
+          const isZero = value !== undefined && value === 0
+          const Icon = isPositive ? TrendingUp : isNegative ? TrendingDown : BarChart3
+          const tone = isUndefined || isZero ? 'neutral' : isPositive ? 'success' : 'danger'
 
-      <div className="flex-1 flex flex-col justify-center -mt-2">
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {periods.map((period) => {
-              const value = period.value
-              const isUndefined = value === undefined
-              const isPositive = value !== undefined && value > 0
-              const isNegative = value !== undefined && value < 0
-              const isZero = value !== undefined && value === 0
-              const Icon = isPositive ? TrendingUp : isNegative ? TrendingDown : BarChart3
-              const colorClass = isUndefined || isZero
-                ? 'text-neutral-500 dark:text-neutral-400'
-                : isPositive
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-rose-600 dark:text-rose-400'
-
-              return (
-                <div
-                  key={period.key}
-                  className="flex items-center justify-between p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon className={`w-4 h-4 ${colorClass}`} />
-                    <span className="text-sm text-neutral-600 dark:text-neutral-300">
-                      {period.label}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${colorClass}`}>
-                      {isUndefined ? 'N/A' : `${isPositive ? '+' : ''}${value.toFixed(2)}%`}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+          return (
+            <WidgetMetricRow
+              key={period.key}
+              icon={Icon}
+              label={period.label}
+              value={isUndefined ? 'N/A' : `${isPositive ? '+' : ''}${value.toFixed(2)}%`}
+              tone={tone}
+            />
+          )
+        })}
       </div>
-    </div>
+    </BaseWidget>
   )
 }

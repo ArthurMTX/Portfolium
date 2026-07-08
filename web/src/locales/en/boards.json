@@ -63,6 +63,8 @@
       "emptyDescription": "Add your first widget to build this board.",
       "removeWidget": "Remove widget",
       "removeWidgetMessage": "Remove this widget from the board?",
+      "saveConfirmTitle": "Layout saved",
+      "saveConfirmMessage": "Your layout changes have been saved.",
       "moveWidget": "Move widget",
       "moveWidgetUp": "Move widget up",
       "moveWidgetDown": "Move widget down",

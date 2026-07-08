@@ -1,12 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Eye, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react'
+import { Eye, TrendingUp, TrendingDown } from 'lucide-react'
 import { api } from '@/api'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { useWidgetVisibility } from '@/features/boards/context/BoardContext'
 import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { ViewAllButton } from '@/features/boards/components/widgets/base/ViewAllButton'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 
 interface WatchlistItem {
@@ -129,13 +132,7 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
 
   // View all action button
   const viewAllAction = watchlist.length > 0 && !isPreview ? (
-    <button
-      onClick={handleViewAll}
-      className="text-xs text-fuchsia-600 dark:text-fuchsia-400 hover:underline flex items-center gap-1"
-    >
-      {t('watchlist.viewAll')}
-      <ExternalLink size={12} />
-    </button>
+    <ViewAllButton onClick={handleViewAll} label={t('watchlist.viewAll')} />
   ) : null
 
   return (
@@ -147,67 +144,55 @@ export default function WatchlistWidget({ isPreview = false, batchData }: Watchl
       isLoading={loading && !isPreview}
       isEmpty={watchlist.length === 0}
       emptyMessage="dashboard.widgets.watchlist.noWatchlistItems"
-      emptyIcon={Eye}
+      emptyIconSlot={<Eye size={48} className="text-neutral-300 dark:text-neutral-700" />}
       actions={viewAllAction}
       scrollable={false}
     >
-      <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-            {watchlist.map((item) => (
-              <div
-                key={item.id}
-                className="px-5 py-3.5 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer"
-                onClick={() => navigate('/watchlist')}
-              >
-                <div className="flex items-center gap-3">
-                  <AssetLogo
-                    symbol={item.symbol}
-                    assetType={item.asset_type || 'STOCK'}
-                    assetName={item.name}
-                    alt={item.symbol}
-                    className="w-8 h-8  object-contain bg-white dark:bg-neutral-900"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
-                          {item.symbol}
-                        </p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                          {item.name || item.symbol}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        {item.current_price !== null ? (
-                          <>
-                            <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                              {formatCurrency(item.current_price, item.currency)}
-                            </p>
-                            {item.daily_change_pct !== null && (
-                              <p className={`text-xs font-medium flex items-center justify-end gap-0.5 ${
-                                Number(item.daily_change_pct) >= 0
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-rose-600 dark:text-rose-400'
-                              }`}>
-                                {Number(item.daily_change_pct) >= 0 ? (
-                                  <TrendingUp size={12} />
-                                ) : (
-                                  <TrendingDown size={12} />
-                                )}
-                                {Number(item.daily_change_pct) >= 0 ? '+' : ''}
-                                {Number(item.daily_change_pct).toFixed(2)}%
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-xs text-neutral-400">N/A</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-      </div>
+      <WidgetList variant="divide">
+        {watchlist.map((item) => (
+          <WidgetListItem
+            key={item.id}
+            onClick={() => navigate('/watchlist')}
+            leading={
+              <AssetLogo
+                symbol={item.symbol}
+                assetType={item.asset_type || 'STOCK'}
+                assetName={item.name}
+                alt={item.symbol}
+                className="w-8 h-8 object-contain bg-white dark:bg-neutral-900"
+              />
+            }
+            title={item.symbol}
+            subtitle={item.name || item.symbol}
+            trailing={
+              item.current_price !== null ? (
+                <>
+                  <p className="text-sm font-medium text-neutral-900 dark:text-white">
+                    {formatCurrency(item.current_price, item.currency)}
+                  </p>
+                  {item.daily_change_pct !== null && (
+                    <p className={`text-xs font-medium flex items-center justify-end gap-0.5 ${
+                      Number(item.daily_change_pct) >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                    }`}>
+                      {Number(item.daily_change_pct) >= 0 ? (
+                        <TrendingUp size={12} />
+                      ) : (
+                        <TrendingDown size={12} />
+                      )}
+                      {Number(item.daily_change_pct) >= 0 ? '+' : ''}
+                      {Number(item.daily_change_pct).toFixed(2)}%
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-neutral-400">N/A</p>
+              )
+            }
+          />
+        ))}
+      </WidgetList>
     </BaseWidget>
   )
 }

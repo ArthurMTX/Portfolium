@@ -5,6 +5,8 @@ import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/api'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetMetricRow } from '@/features/boards/components/widgets/base/WidgetMetricRow'
 
 interface Goal {
   id: number
@@ -113,7 +115,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
       try {
         setIsLoading(true)
         setError(null)
-        
+
         // Try to load from backend
         const apiGoals = await api.getPortfolioGoals(activePortfolioId, false)
         const mappedGoals: Goal[] = apiGoals.map(g => ({
@@ -135,7 +137,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
       } catch (err) {
         console.error('Failed to load goals:', err)
         setError('Failed to load goals')
-        
+
         // Fallback to localStorage on error
         const stored = localStorage.getItem(`portfolio-goals-${activePortfolioId}`)
         if (stored) {
@@ -267,8 +269,8 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           color: categoryConfig.color,
         })
 
-        setGoals(goals.map(g => 
-          g.id === editingGoal.id 
+        setGoals(goals.map(g =>
+          g.id === editingGoal.id
             ? {
                 id: updated.id,
                 title: updated.title,
@@ -339,7 +341,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
         setIsLoadingProjections(true)
         const projections = await api.getGoalProjections(activePortfolioId, goalId)
         setGoalProjections(projections)
-        
+
         // Show warning if target date is in the past
         if (projections.warning) {
           console.warn('Goal projection warning:', projections.warning)
@@ -354,7 +356,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
 
     loadProjections()
   }, [currentGoal?.id, currentGoal?.targetDate, currentGoal?.targetAmount, currentGoal?.monthlyContribution, activePortfolioId, isPreview])
-  
+
   const calculateGoalMetrics = (goal: Goal) => {
     const progress = goal.targetAmount > 0 ? Math.min((currentValue / goal.targetAmount) * 100, 100) : 0
     const remaining = Math.max(goal.targetAmount - currentValue, 0)
@@ -374,13 +376,13 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
     if (!isGoalReached && remaining > 0) {
       // Use median scenario from API projections if available
       const medianScenario = scenarios.find(s => s.label === 'Median')
-      
+
       if (medianScenario && medianScenario.projected_months > 0) {
         // Use the projected months from the median scenario
         const months = medianScenario.projected_months
         const years = Math.floor(months / 12)
         const remainingMonths = Math.round(months % 12)
-        
+
         if (years === 0) {
           timeToGoal = `${Math.round(months)} ${Math.round(months) === 1 ? 'month' : 'months'}`
         } else if (remainingMonths === 0) {
@@ -388,27 +390,27 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
         } else {
           timeToGoal = `${years}y ${remainingMonths}m`
         }
-        
+
         projectedValue = medianScenario.projected_amount
       } else {
         // Fallback to simple calculation if projections not available
         const monthlyRate = historicalReturn / 12
-        
+
         if (goal.monthlyContribution > 0) {
           // Future value with contributions
           let months = 0
           let value = currentValue
           const maxMonths = 600 // 50 years max
-          
+
           while (value < goal.targetAmount && months < maxMonths) {
             value = value * (1 + monthlyRate) + goal.monthlyContribution
             months++
           }
-          
+
           if (months < maxMonths) {
             const years = Math.floor(months / 12)
             const remainingMonths = months % 12
-            
+
             if (years === 0) {
               timeToGoal = `${months} ${months === 1 ? 'month' : 'months'}`
             } else if (remainingMonths === 0) {
@@ -420,7 +422,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
         } else {
           // No contributions, just growth
           const yearsToGoal = Math.log(goal.targetAmount / currentValue) / Math.log(1 + historicalReturn)
-          
+
           if (yearsToGoal < 1) {
             timeToGoal = `${Math.ceil(yearsToGoal * 12)} months`
           } else {
@@ -435,7 +437,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           const targetDate = new Date(goal.targetDate)
           const now = new Date()
           const monthsToTarget = Math.max(0, (targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30.44))
-          
+
           let value = currentValue
           for (let i = 0; i < monthsToTarget; i++) {
             value = value * (1 + monthlyRate) + goal.monthlyContribution
@@ -459,100 +461,22 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
     }
   }
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="card h-full flex flex-col items-center justify-center p-5">
-        <Loader2 className="animate-spin text-emerald-600 dark:text-emerald-400" size={32} />
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-3">
-          {t('common.loading')}...
-        </p>
-      </div>
-    )
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="card h-full flex flex-col p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Target className="text-red-600 dark:text-red-400" size={18} />
-            </div>
-            <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-              {t('dashboard.widgets.goalTracker.name')}
-            </h3>
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center py-8">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
-          >
-            {t('common.tryAgain')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (goals.length === 0 && !showGoalForm) {
-    // Empty state
-    return (
-      <div className="card h-full flex flex-col p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Target className="text-emerald-600 dark:text-emerald-400" size={18} />
-            </div>
-            <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-              {t('dashboard.widgets.goalTracker.name')}
-            </h3>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center py-8">
-          <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
-            <Target className="text-neutral-400" size={32} />
-          </div>
-          <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-            {t('dashboard.widgets.goalTracker.noGoals')}
-          </h4>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center mb-6 max-w-xs">
-            {t('dashboard.widgets.goalTracker.noGoalsDescription')}
-          </p>
-          <button
-            onClick={handleAddGoal}
-            disabled={isPreview}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} />
-            {t('dashboard.widgets.goalTracker.addFirstGoal')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   const goalMetrics = currentGoal ? calculateGoalMetrics(currentGoal) : null
   const categoryConfig = currentGoal ? getCategoryConfig(currentGoal.category) : null
   const CategoryIcon = categoryConfig?.icon || Target
 
-  // Goal form modal
-  if (showGoalForm) {
+  // Error state retry
+  const handleRetry = () => window.location.reload()
+
+  // Goal form mode
+  if (!isLoading && !error && showGoalForm) {
     return (
-      <div className="card h-full flex flex-col p-5 overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Target className="text-emerald-600 dark:text-emerald-400" size={18} />
-            </div>
-            <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-              {editingGoal ? t('dashboard.widgets.goalTracker.editGoal') : t('dashboard.widgets.goalTracker.addGoal')}
-            </h3>
-          </div>
+      <BaseWidget
+        title={editingGoal ? 'dashboard.widgets.goalTracker.editGoal' : 'dashboard.widgets.goalTracker.addGoal'}
+        icon={Target}
+        iconColor="text-emerald-600 dark:text-emerald-400"
+        iconBgColor="bg-emerald-50 dark:bg-emerald-900/20"
+        actions={
           <button
             onClick={() => {
               setShowGoalForm(false)
@@ -562,9 +486,23 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           >
             {t('common.cancel')}
           </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-4">
+        }
+        contentClassName="pf-card--content"
+        footer={
+          <button
+            onClick={handleSaveGoal}
+            disabled={isSaving || !formTitle.trim() || !formTargetAmount || parseFloat(formTargetAmount) <= 0}
+            className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            {isSaving && <Loader2 className="animate-spin" size={16} />}
+            {isSaving
+              ? t('common.saving')
+              : editingGoal ? t('common.save') : t('dashboard.widgets.goalTracker.createGoal')
+            }
+          </button>
+        }
+      >
+        <div className="space-y-4">
           {/* Goal Title */}
           <div>
             <label className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 block">
@@ -653,93 +591,100 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
             </p>
           </div>
         </div>
-
-        {/* Save Button */}
-        <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
-          <button
-            onClick={handleSaveGoal}
-            disabled={isSaving || !formTitle.trim() || !formTargetAmount || parseFloat(formTargetAmount) <= 0}
-            className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            {isSaving && <Loader2 className="animate-spin" size={16} />}
-            {isSaving 
-              ? t('common.saving') 
-              : editingGoal ? t('common.save') : t('dashboard.widgets.goalTracker.createGoal')
-            }
-          </button>
-        </div>
-      </div>
+      </BaseWidget>
     )
   }
 
   return (
-    <div className="card h-full flex flex-col p-5 overflow-y-auto scrollbar-hide">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className={`w-9 h-9 bg-${categoryConfig?.color}-50 dark:bg-${categoryConfig?.color}-900/20 rounded-lg flex items-center justify-center flex-shrink-0`}>
-            <CategoryIcon className={`text-${categoryConfig?.color}-600 dark:text-${categoryConfig?.color}-400`} size={18} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 truncate">
-              {currentGoal?.title || t('dashboard.widgets.goalTracker.name')}
-            </h3>
-            {goals.length > 1 && (
-              <p className="text-xs text-neutral-400">
-                {currentGoalIndex + 1} {t('common.of')} {goals.length}
-              </p>
-            )}
-          </div>
+    <BaseWidget
+      title={currentGoal?.title || 'dashboard.widgets.goalTracker.name'}
+      icon={currentGoal ? CategoryIcon : Target}
+      iconColor={currentGoal ? `text-${categoryConfig?.color}-600 dark:text-${categoryConfig?.color}-400` : 'text-emerald-600 dark:text-emerald-400'}
+      iconBgColor={currentGoal ? `bg-${categoryConfig?.color}-50 dark:bg-${categoryConfig?.color}-900/20` : 'bg-emerald-50 dark:bg-emerald-900/20'}
+      description={goals.length > 1 ? `${currentGoalIndex + 1} ${t('common.of')} ${goals.length}` : undefined}
+      isLoading={isLoading}
+      error={error ? new Error(error) : null}
+      onRetry={handleRetry}
+      isEmpty={goals.length === 0}
+      emptyMessage="dashboard.widgets.goalTracker.noGoals"
+      emptyDescription="dashboard.widgets.goalTracker.noGoalsDescription"
+      emptyIconSlot={
+        <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center">
+          <Target className="text-neutral-400" size={32} />
         </div>
-        
-        <div className="flex items-center gap-1">
-          {goals.length > 1 && (
-            <>
-              <button
-                onClick={handlePreviousGoal}
-                className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                title={t('common.previous')}
-              >
-                <ChevronLeft size={16} className="text-neutral-500" />
-              </button>
-              <button
-                onClick={handleNextGoal}
-                className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
-                title={t('common.next')}
-              >
-                <ChevronRight size={16} className="text-neutral-500" />
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => currentGoal && handleEditGoal(currentGoal)}
-            disabled={isPreview}
-            className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors disabled:opacity-50"
-            title={t('common.edit')}
-          >
-            <Edit2 size={14} className="text-neutral-500" />
-          </button>
-          <button
-            onClick={() => currentGoal && handleDeleteGoal(currentGoal.id)}
-            disabled={isPreview}
-            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
-            title={t('common.delete')}
-          >
-            <Trash2 size={14} className="text-red-500" />
-          </button>
+      }
+      contentClassName="pf-card--content"
+      actions={
+        !isLoading && !error && goals.length > 0 ? (
+          <div className="flex items-center gap-1">
+            {goals.length > 1 && (
+              <>
+                <button
+                  onClick={handlePreviousGoal}
+                  className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                  title={t('common.previous')}
+                >
+                  <ChevronLeft size={16} className="text-neutral-500" />
+                </button>
+                <button
+                  onClick={handleNextGoal}
+                  className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors"
+                  title={t('common.next')}
+                >
+                  <ChevronRight size={16} className="text-neutral-500" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => currentGoal && handleEditGoal(currentGoal)}
+              disabled={isPreview}
+              className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors disabled:opacity-50"
+              title={t('common.edit')}
+            >
+              <Edit2 size={14} className="text-neutral-500" />
+            </button>
+            <button
+              onClick={() => currentGoal && handleDeleteGoal(currentGoal.id)}
+              disabled={isPreview}
+              className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
+              title={t('common.delete')}
+            >
+              <Trash2 size={14} className="text-red-500" />
+            </button>
+            <button
+              onClick={handleAddGoal}
+              disabled={isPreview}
+              className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 rounded transition-colors disabled:opacity-50"
+              title={t('dashboard.widgets.goalTracker.addGoal')}
+            >
+              <Plus size={14} className="text-emerald-600 dark:text-emerald-400" />
+            </button>
+          </div>
+        ) : goals.length === 0 ? (
           <button
             onClick={handleAddGoal}
             disabled={isPreview}
-            className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 rounded transition-colors disabled:opacity-50"
-            title={t('dashboard.widgets.goalTracker.addGoal')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
           >
-            <Plus size={14} className="text-emerald-600 dark:text-emerald-400" />
+            <Plus size={16} />
+            {t('dashboard.widgets.goalTracker.addFirstGoal')}
           </button>
-        </div>
-      </div>
-
+        ) : undefined
+      }
+      footer={
+        !isLoading && !error && goals.length > 0 ? (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
+            {goalMetrics?.isGoalReached
+              ? t('dashboard.widgets.goalTracker.congratulations')
+              : currentGoal?.monthlyContribution
+              ? t('dashboard.widgets.goalTracker.goalInfo')
+              : t('dashboard.widgets.goalTracker.addContribution')}
+          </p>
+        ) : undefined
+      }
+    >
       {/* Progress Circle */}
-      <div className="flex-1 flex flex-col items-center justify-center py-3">
+      <div className="flex flex-col items-center py-3">
         <div className="relative w-28 h-28 mb-3">
           {/* Background Circle */}
           <svg className="w-full h-full transform -rotate-90">
@@ -781,94 +726,54 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
 
         {/* Stats */}
         <div className="w-full space-y-2">
-          {/* Current Value */}
-          <div className="flex items-center justify-between p-2.5 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
-            <div className="flex items-center gap-2">
-              <DollarSign size={14} className="text-neutral-500" />
-              <span className="text-xs text-neutral-600 dark:text-neutral-400">{t('dashboard.widgets.goalTracker.current')}</span>
-            </div>
-            <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              {formatCurrency(currentValue, portfolioCurrency)}
-            </span>
-          </div>
+          <WidgetMetricRow
+            icon={DollarSign}
+            label={t('dashboard.widgets.goalTracker.current')}
+            value={formatCurrency(currentValue, portfolioCurrency)}
+            tone="neutral"
+          />
 
-          {/* Goal Amount */}
-          <div className={`flex items-center justify-between p-2.5 bg-${categoryConfig?.color}-50 dark:bg-${categoryConfig?.color}-900/20 rounded-lg`}>
-            <div className="flex items-center gap-2">
-              <Target size={14} className={`text-${categoryConfig?.color}-600 dark:text-${categoryConfig?.color}-400`} />
-              <span className={`text-xs text-${categoryConfig?.color}-700 dark:text-${categoryConfig?.color}-400`}>{t('dashboard.widgets.goalTracker.goal')}</span>
-            </div>
-            <span className={`text-sm font-semibold text-${categoryConfig?.color}-900 dark:text-${categoryConfig?.color}-100`}>
-              {currentGoal && formatCurrency(currentGoal.targetAmount, portfolioCurrency)}
-            </span>
-          </div>
+          <WidgetMetricRow
+            icon={Target}
+            label={t('dashboard.widgets.goalTracker.goal')}
+            value={currentGoal && formatCurrency(currentGoal.targetAmount, portfolioCurrency)}
+            tone="accent"
+          />
 
           {!goalMetrics?.isGoalReached && (
             <>
-              {/* Remaining */}
-              <div className="flex items-center justify-between p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <TrendingUp size={14} className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs text-blue-700 dark:text-blue-400">{t('dashboard.widgets.goalTracker.toGo')}</span>
-                </div>
-                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                  {goalMetrics && formatCurrency(goalMetrics.remaining, portfolioCurrency)}
-                </span>
-              </div>
+              <WidgetMetricRow
+                icon={TrendingUp}
+                label={t('dashboard.widgets.goalTracker.toGo')}
+                value={goalMetrics && formatCurrency(goalMetrics.remaining, portfolioCurrency)}
+                tone="accent"
+              />
 
-              {/* Monthly Contribution */}
               {currentGoal && currentGoal.monthlyContribution > 0 && (
-                <div className="flex items-center justify-between p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-amber-600 dark:text-amber-400" />
-                    <span className="text-xs text-amber-700 dark:text-amber-400">{t('dashboard.widgets.goalTracker.monthly')}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                    {formatCurrency(currentGoal.monthlyContribution, portfolioCurrency)}
-                  </span>
-                </div>
+                <WidgetMetricRow
+                  icon={Calendar}
+                  label={t('dashboard.widgets.goalTracker.monthly')}
+                  value={formatCurrency(currentGoal.monthlyContribution, portfolioCurrency)}
+                  tone="warning"
+                />
               )}
 
-              {/* Time Estimate */}
               {goalMetrics?.timeToGoal && (
-                <div className="flex items-center justify-between p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-purple-600 dark:text-purple-400" />
-                    <span className="text-xs text-purple-700 dark:text-purple-400">{t('dashboard.widgets.goalTracker.estTime')}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-purple-900 dark:text-purple-100">
-                    {goalMetrics.timeToGoal}
-                  </span>
-                </div>
+                <WidgetMetricRow
+                  icon={Calendar}
+                  label={t('dashboard.widgets.goalTracker.estTime')}
+                  value={goalMetrics.timeToGoal}
+                  tone="accent"
+                />
               )}
 
-              {/* Target Date */}
               {currentGoal?.targetDate && (
-                <div className={`flex items-center justify-between p-2.5 rounded-lg ${
-                  goalProjections?.is_past_target_date 
-                    ? 'bg-amber-50 dark:bg-amber-900/20' 
-                    : 'bg-indigo-50 dark:bg-indigo-900/20'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className={
-                      goalProjections?.is_past_target_date 
-                        ? 'text-amber-600 dark:text-amber-400' 
-                        : 'text-indigo-600 dark:text-indigo-400'
-                    } />
-                    <span className={`text-xs ${
-                      goalProjections?.is_past_target_date 
-                        ? 'text-amber-700 dark:text-amber-400' 
-                        : 'text-indigo-700 dark:text-indigo-400'
-                    }`}>{t('dashboard.widgets.goalTracker.targetDate')}</span>
-                  </div>
-                  <span className={`text-sm font-semibold ${
-                    goalProjections?.is_past_target_date 
-                      ? 'text-amber-900 dark:text-amber-100' 
-                      : 'text-indigo-900 dark:text-indigo-100'
-                  }`}>
-                    {new Date(currentGoal.targetDate).toLocaleDateString()}
-                  </span>
-                </div>
+                <WidgetMetricRow
+                  icon={Calendar}
+                  label={t('dashboard.widgets.goalTracker.targetDate')}
+                  value={new Date(currentGoal.targetDate).toLocaleDateString()}
+                  tone={goalProjections?.is_past_target_date ? 'warning' : 'accent'}
+                />
               )}
             </>
           )}
@@ -929,7 +834,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
               {(goalMetrics.overallProbability * 100).toFixed(0)}%
             </span>
           </div>
-          
+
           {/* Probability Bar */}
           <div className="relative w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
             <div
@@ -941,7 +846,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
               style={{ width: `${goalMetrics.overallProbability * 100}%` }}
             />
           </div>
-          
+
           <div className="flex items-center gap-1 mt-2">
             {goalMetrics.overallProbability >= 0.7 ? (
               <Target size={12} className="text-emerald-600 dark:text-emerald-400" />
@@ -968,7 +873,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
             <TrendingUp size={14} className="text-blue-600 dark:text-blue-400" />
             <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">{t('dashboard.widgets.goalTracker.projectionsScenarios')}</span>
           </div>
-          
+
           <div className="space-y-2">
             {goalMetrics.scenarios.map((scenario) => (
               <div key={scenario.label} className="space-y-1">
@@ -990,7 +895,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
                     {formatCurrency(scenario.projected_amount, portfolioCurrency)}
                   </span>
                 </div>
-                
+
                 {/* Visual bar showing if target is met */}
                 <div className="relative w-full h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
                   <div
@@ -1003,7 +908,7 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
               </div>
             ))}
           </div>
-          
+
           <div className="mt-3 pt-2 border-t border-neutral-200 dark:border-neutral-700">
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {t('dashboard.widgets.goalTracker.basedOnVolatility', {
@@ -1014,17 +919,6 @@ export default function GoalTrackerWidget({ metrics, isPreview = false }: GoalTr
           </div>
         </div>
       )}
-
-      {/* Info */}
-      <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
-          {goalMetrics?.isGoalReached
-            ? t('dashboard.widgets.goalTracker.congratulations')
-            : currentGoal?.monthlyContribution
-            ? t('dashboard.widgets.goalTracker.goalInfo')
-            : t('dashboard.widgets.goalTracker.addContribution')}
-        </p>
-      </div>
-    </div>
+    </BaseWidget>
   )
 }

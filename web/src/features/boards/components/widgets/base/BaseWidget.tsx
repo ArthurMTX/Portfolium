@@ -1,8 +1,9 @@
 import { BaseWidgetWrapperProps } from '@/features/boards/components/types'
 import { WidgetHeader } from '@/features/boards/components/widgets/base/WidgetHeader'
-import { WidgetLoader } from '@/features/boards/components/widgets/base/WidgetLoader'
+import { WidgetLoadingState } from '@/features/boards/components/widgets/base/WidgetLoadingState'
 import { WidgetEmptyState } from '@/features/boards/components/widgets/base/WidgetEmptyState'
-import { WidgetError } from '@/features/boards/components/widgets/base/WidgetError'
+import { WidgetErrorState } from '@/features/boards/components/widgets/base/WidgetErrorState'
+import { WidgetFooter } from '@/features/boards/components/widgets/base/WidgetFooter'
 
 /**
  * Base widget wrapper component that provides consistent structure
@@ -13,15 +14,21 @@ export function BaseWidget({
   icon,
   iconColor,
   iconBgColor,
+  description,
   isLoading = false,
   error = null,
+  onRetry,
   isEmpty = false,
   emptyMessage,
-  emptyIcon,
+  emptyDescription,
+  emptyIconSlot,
   actions,
+  subHeader,
   children,
   className = '',
+  contentClassName = '',
   scrollable = true,
+  footer,
 }: BaseWidgetWrapperProps) {
   return (
     <div className={`card h-full flex flex-col ${className}`}>
@@ -30,17 +37,21 @@ export function BaseWidget({
         icon={icon}
         iconColor={iconColor}
         iconBgColor={iconBgColor}
+        description={description}
         actions={actions}
+        subHeader={subHeader}
       />
 
-      <div className={`flex-1 ${scrollable ? 'overflow-y-auto scrollbar-hide' : 'overflow-hidden'}`}>
-        {isLoading && <WidgetLoader />}
-        {error && <WidgetError error={error} />}
+      <div className={`flex-1 ${scrollable ? 'overflow-y-auto scrollbar-hide' : 'overflow-hidden'} ${contentClassName}`}>
+        {isLoading && <WidgetLoadingState />}
+        {error && <WidgetErrorState error={error} retry={onRetry} />}
         {isEmpty && !isLoading && !error && (
-          <WidgetEmptyState message={emptyMessage} icon={emptyIcon} />
+          <WidgetEmptyState message={emptyMessage} description={emptyDescription} icon={emptyIconSlot} />
         )}
         {!isLoading && !error && !isEmpty && children}
       </div>
+
+      {footer && <WidgetFooter>{footer}</WidgetFooter>}
     </div>
   )
 }

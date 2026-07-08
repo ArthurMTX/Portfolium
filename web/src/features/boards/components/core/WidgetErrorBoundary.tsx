@@ -1,5 +1,5 @@
 import { Component, ReactNode } from 'react'
-import { WidgetError } from '@/features/boards/components/widgets/base/WidgetError'
+import { WidgetErrorState } from '@/features/boards/components/widgets/base/WidgetErrorState'
 
 interface WidgetErrorBoundaryProps {
   widgetId: string
@@ -36,7 +36,7 @@ export class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, Wid
     if (this.state.error) {
       return (
         <div className="card h-full flex flex-col">
-          <WidgetError error={this.state.error} />
+          <WidgetErrorState error={this.state.error} />
         </div>
       )
     }

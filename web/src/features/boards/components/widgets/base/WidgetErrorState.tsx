@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { StateBlock } from '@/shared/components/StatePrimitives'
 
-interface WidgetErrorProps {
+interface WidgetErrorStateProps {
   error: Error
   retry?: () => void
 }
@@ -9,7 +9,7 @@ interface WidgetErrorProps {
 /**
  * Standardized widget error state
  */
-export function WidgetError({ error, retry }: WidgetErrorProps) {
+export function WidgetErrorState({ error, retry }: WidgetErrorStateProps) {
   const { t } = useTranslation()
 
   return (

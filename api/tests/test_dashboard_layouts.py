@@ -56,6 +56,7 @@ class TestDashboardLayoutCRUD:
         layout = crud.create_layout(test_db, layout_create, user.id)
         
         assert layout.id is not None
+        assert layout.uuid is not None
         assert layout.user_id == user.id
         assert layout.name == "My Custom Layout"
         assert layout.description == "A test layout"
@@ -136,9 +137,48 @@ class TestDashboardLayoutCRUD:
         
         # Try to get with wrong user
         retrieved = crud.get_layout_by_id(test_db, layout.id, user2.id)
-        
+
         assert retrieved is None
-    
+
+    def test_get_layout_by_uuid(self, test_db):
+        """Test retrieving a layout by its public uuid"""
+        user = UserFactory.create()
+        test_db.commit()
+
+        created_layout = crud.create_layout(
+            test_db,
+            DashboardLayoutCreate(
+                name="Test Layout",
+                layout_config=sample_layout_config()
+            ),
+            user.id
+        )
+
+        retrieved_layout = crud.get_layout_by_uuid(test_db, created_layout.uuid, user.id)
+
+        assert retrieved_layout is not None
+        assert retrieved_layout.id == created_layout.id
+        assert retrieved_layout.name == "Test Layout"
+
+    def test_get_layout_by_uuid_wrong_user_returns_none(self, test_db):
+        """A board's uuid must not be accessible by a different user (cross-user access prevention)"""
+        user1 = UserFactory.create()
+        user2 = UserFactory.create()
+        test_db.commit()
+
+        layout = crud.create_layout(
+            test_db,
+            DashboardLayoutCreate(
+                name="User 1 Layout",
+                layout_config=sample_layout_config()
+            ),
+            user1.id
+        )
+
+        retrieved = crud.get_layout_by_uuid(test_db, layout.uuid, user2.id)
+
+        assert retrieved is None
+
     def test_get_user_layouts(self, test_db):
         """Test getting all layouts for a user"""
         user = UserFactory.create()
@@ -212,8 +252,8 @@ class TestDashboardLayoutCRUD:
             name="Updated Name",
             description="Updated Description"
         )
-        
-        updated_layout = crud.update_layout(test_db, layout.id, user.id, update)
+
+        updated_layout = crud.update_layout(test_db, layout.uuid, user.id, update)
         
         assert updated_layout is not None
         assert updated_layout.name == "Updated Name"
@@ -249,7 +289,7 @@ class TestDashboardLayoutCRUD:
         # Update layout2 to be default
         crud.update_layout(
             test_db,
-            layout2.id,
+            layout2.uuid,
             user.id,
             DashboardLayoutUpdate(is_default=True)
         )
@@ -275,10 +315,10 @@ class TestDashboardLayoutCRUD:
         )
         
         # Delete the layout
-        success = crud.delete_layout(test_db, layout.id, user.id)
-        
+        success = crud.delete_layout(test_db, layout.uuid, user.id)
+
         assert success is True
-        
+
         # Verify it's gone
         deleted = crud.get_layout_by_id(test_db, layout.id, user.id)
         assert deleted is None
@@ -302,7 +342,7 @@ class TestDashboardLayoutCRUD:
         # Duplicate the layout
         duplicate = crud.duplicate_layout(
             test_db,
-            original.id,
+            original.uuid,
             user.id,
             "Duplicated Layout"
         )
@@ -367,22 +407,44 @@ class TestDashboardLayoutAPI:
         )
         
         response = client.get(
-            f"/dashboard-layouts/{layout.id}",
+            f"/dashboard-layouts/{layout.uuid}",
             headers=auth_headers
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == layout.id
+        assert data["uuid"] == layout.uuid
         assert data["name"] == "Test Layout"
-    
+
     def test_get_layout_not_found(self, client, auth_headers):
         """Test getting non-existent layout returns 404"""
         response = client.get(
-            "/dashboard-layouts/99999",
+            "/dashboard-layouts/00000000-0000-0000-0000-000000000000",
             headers=auth_headers
         )
-        
+
+        assert response.status_code == 404
+
+    def test_get_layout_wrong_user_via_api_returns_404(self, client, auth_headers, test_db):
+        """A different user's board uuid must 404, not leak the board's data"""
+        other_user = UserFactory.create()
+        test_db.commit()
+
+        other_users_layout = crud.create_layout(
+            test_db,
+            DashboardLayoutCreate(
+                name="Someone Else's Board",
+                layout_config=sample_layout_config()
+            ),
+            other_user.id
+        )
+
+        response = client.get(
+            f"/dashboard-layouts/{other_users_layout.uuid}",
+            headers=auth_headers
+        )
+
         assert response.status_code == 404
     
     def test_update_layout_via_api(self, client, auth_headers, test_db, test_user):
@@ -404,7 +466,7 @@ class TestDashboardLayoutAPI:
         }
         
         response = client.put(
-            f"/dashboard-layouts/{layout.id}",
+            f"/dashboard-layouts/{layout.uuid}",
             json=update_data,
             headers=auth_headers
         )
@@ -428,15 +490,15 @@ class TestDashboardLayoutAPI:
         
         # Delete it
         response = client.delete(
-            f"/dashboard-layouts/{layout.id}",
+            f"/dashboard-layouts/{layout.uuid}",
             headers=auth_headers
         )
-        
+
         assert response.status_code == 204
-        
+
         # Verify it's gone
         get_response = client.get(
-            f"/dashboard-layouts/{layout.id}",
+            f"/dashboard-layouts/{layout.uuid}",
             headers=auth_headers
         )
         assert get_response.status_code == 404
@@ -455,7 +517,7 @@ class TestDashboardLayoutAPI:
         
         # Duplicate it
         response = client.post(
-            f"/dashboard-layouts/{layout.id}/duplicate?new_name=Duplicated",
+            f"/dashboard-layouts/{layout.uuid}/duplicate?new_name=Duplicated",
             headers=auth_headers
         )
         
@@ -501,7 +563,7 @@ class TestDashboardLayoutAPI:
         )
         
         response = client.get(
-            f"/dashboard-layouts/{layout.id}/export",
+            f"/dashboard-layouts/{layout.uuid}/export",
             headers=auth_headers
         )
         

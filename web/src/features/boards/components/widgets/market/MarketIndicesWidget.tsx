@@ -6,6 +6,9 @@ import { getFlagUrl } from '@/shared/lib/countryUtils'
 import { useWidgetVisibility } from '@/features/boards/context/BoardContext'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 import { useTranslation } from 'react-i18next'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
 
 interface MarketIndex {
   symbol: string
@@ -48,7 +51,7 @@ export default function MarketIndicesWidget({ isPreview = false, batchData }: Ma
   // Get data from batch if available
   const hasBatchData = !!batchData?.market_indices
 
-  const { data: queryData, isLoading: queryLoading, error } = useQuery({
+  const { data: queryData, isLoading: queryLoading, error, refetch } = useQuery({
     queryKey: ['market-indices'],
     queryFn: () => getMarketIndices(),
     refetchInterval: isPreview ? false : 60000,
@@ -117,95 +120,72 @@ export default function MarketIndicesWidget({ isPreview = false, batchData }: Ma
     const change = data?.percent_change ?? data?.daily_change_pct
 
     return (
-      <div
+      <WidgetListItem
         key={index.symbol}
-        className="flex items-center justify-between rounded-md bg-neutral-50 px-2.5 py-2 transition-colors hover:bg-neutral-100 dark:bg-neutral-800/40 dark:hover:bg-neutral-800/60"
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        leading={
           <img
             src={getFlagUrl(index.country, 'w40') || ''}
             alt={index.country}
             className="h-3.5 w-5 flex-shrink-0 rounded-sm object-cover"
           />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
-              {index.name}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              {formatPrice(price)}
-            </div>
-          </div>
-        </div>
-
-        <div className="ml-2 flex items-center gap-1.5">
-          {getChangeIcon(change)}
-          <span className={`text-sm font-semibold ${getChangeColor(change)}`}>
-            {formatChange(change)}
+        }
+        title={index.name}
+        subtitle={formatPrice(price)}
+        trailing={
+          <span className="flex items-center gap-1.5">
+            {getChangeIcon(change)}
+            <span className={`text-sm font-semibold ${getChangeColor(change)}`}>
+              {formatChange(change)}
+            </span>
           </span>
-        </div>
-      </div>
+        }
+      />
     )
   }
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-9 h-9 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <TrendingUp className="text-indigo-600 dark:text-indigo-400" size={18} />
+    <BaseWidget
+      title="dashboard.widgets.marketIndices.name"
+      icon={TrendingUp}
+      iconColor="text-indigo-600 dark:text-indigo-400"
+      iconBgColor="bg-indigo-50 dark:bg-indigo-900/20"
+      isLoading={isLoading}
+      error={error instanceof Error ? error : null}
+      onRetry={() => refetch()}
+    >
+      <div className="space-y-3">
+        <div>
+          <h4 className="mb-2 px-5 text-xs font-semibold uppercase text-neutral-400 dark:text-neutral-500">
+            {t('dashboard.widgets.marketIndices.keyMarkets')}
+          </h4>
+          <WidgetList variant="compact">
+            {priorityIndices.map(renderIndexRow)}
+          </WidgetList>
         </div>
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          {t('dashboard.widgets.marketIndices.name')}
-        </h3>
-      </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 flex-1">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-8 flex-1">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {t('dashboard.widgets.marketIndices.failedToLoad')}
-          </p>
-          <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
-            {error instanceof Error ? error.message : String(error)}
-          </p>
-        </div>
-      ) : (
-        <div className="flex-1 space-y-3 overflow-y-auto scrollbar-hide">
-          <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase text-neutral-400 dark:text-neutral-500">
-              {t('dashboard.widgets.marketIndices.keyMarkets')}
+        <button
+          onClick={() => setShowAllMarkets(prev => !prev)}
+          className="flex w-full items-center justify-between px-5 py-2 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+        >
+          <span>
+            {showAllMarkets
+              ? t('dashboard.widgets.marketIndices.hideMoreMarkets')
+              : t('dashboard.widgets.marketIndices.showMoreMarkets', { count: secondaryIndices.length })}
+          </span>
+          <ChevronDown size={14} className={`transition-transform ${showAllMarkets ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showAllMarkets && Object.entries(groupedSecondaryIndices).map(([regionKey, regionIndices]) => (
+          <div key={regionKey}>
+            <h4 className="mb-2 px-5 text-xs font-semibold uppercase text-neutral-400 dark:text-neutral-500">
+              {t(regionKey)}
             </h4>
-            <div className="space-y-1.5">
-              {priorityIndices.map(renderIndexRow)}
-            </div>
+            <WidgetList variant="compact">
+              {regionIndices.map(renderIndexRow)}
+            </WidgetList>
           </div>
-
-          <button
-            onClick={() => setShowAllMarkets(prev => !prev)}
-            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          >
-            <span>
-              {showAllMarkets
-                ? t('dashboard.widgets.marketIndices.hideMoreMarkets')
-                : t('dashboard.widgets.marketIndices.showMoreMarkets', { count: secondaryIndices.length })}
-            </span>
-            <ChevronDown size={14} className={`transition-transform ${showAllMarkets ? 'rotate-180' : ''}`} />
-          </button>
-
-          {showAllMarkets && Object.entries(groupedSecondaryIndices).map(([regionKey, regionIndices]) => (
-            <div key={regionKey}>
-              <h4 className="mb-2 text-xs font-semibold uppercase text-neutral-400 dark:text-neutral-500">
-                {t(regionKey)}
-              </h4>
-              <div className="space-y-1.5">
-                {regionIndices.map(renderIndexRow)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+        ))}
+      </div>
+    </BaseWidget>
   )
 }

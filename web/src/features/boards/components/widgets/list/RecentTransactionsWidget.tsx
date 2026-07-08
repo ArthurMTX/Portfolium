@@ -8,6 +8,9 @@ import { enUS, fr } from 'date-fns/locale'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { useWidgetVisibility } from '@/features/boards/context/BoardContext'
 import { useTranslation } from 'react-i18next'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
 
 interface ApiTransaction {
   id: number
@@ -246,37 +249,21 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
     }
   }
 
-  if (!isPreview && (isLoading || !transactions)) {
-    return (
-      <div className="card h-full flex items-center justify-center p-5">
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('common.loading')}</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-9 h-9 bg-sky-50 dark:bg-sky-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <Clock className="text-sky-600 dark:text-sky-400" size={18} />
-        </div>
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          {t('dashboard.widgets.recentTransactions.name')}
-        </h3>
-      </div>
-
-      {displayTransactions.length === 0 ? (
-        <p className="text-neutral-500 dark:text-neutral-400 text-sm text-center py-8">
-          {t('dashboard.widgets.recentTransactions.noTransactions')}
-        </p>
-      ) : (
-        <div className="space-y-2.5 flex-1 overflow-y-auto scrollbar-hide">
-          {displayTransactions.map((transaction) => (
-            <div
-              key={transaction.id}
-              className="flex items-start gap-3 p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            >
-              {/* Asset Logo */}
+    <BaseWidget
+      title="dashboard.widgets.recentTransactions.name"
+      icon={Clock}
+      iconColor="text-sky-600 dark:text-sky-400"
+      iconBgColor="bg-sky-50 dark:bg-sky-900/20"
+      isLoading={!isPreview && (isLoading || !transactions)}
+      isEmpty={displayTransactions.length === 0}
+      emptyMessage="dashboard.widgets.recentTransactions.noTransactions"
+    >
+      <WidgetList variant="cards">
+        {displayTransactions.map((transaction) => (
+          <WidgetListItem
+            key={transaction.id}
+            leading={
               <AssetLogo
                 symbol={transaction.asset?.symbol || 'UNKNOWN'}
                 assetType={transaction.asset?.asset_type || 'STOCK'}
@@ -284,70 +271,70 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
                 alt={transaction.asset?.symbol || 'Unknown'}
                 className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
               />
+            }
+          >
+            <div className="flex-1 min-w-0">
+              {/* Header: Symbol + Type Badge + Price */}
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 truncate">
+                    {transaction.asset?.symbol || 'Unknown'}
+                  </p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeBgColor(transaction.type)} ${getTypeTextColor(transaction.type)} font-medium flex-shrink-0`}>
+                    {getTypeLabel(transaction.type)}
+                  </span>
+                </div>
+                <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex-shrink-0">
+                  {transaction.type.toUpperCase() === 'SPLIT'
+                    ? (transaction.metadata?.split || '-')
+                    : formatCurrency(transaction.quantity * transaction.price, portfolioCurrency)
+                  }
+                </span>
+              </div>
 
-              <div className="flex-1 min-w-0">
-                {/* Header: Symbol + Type Badge + Price */}
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <p className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 truncate">
-                      {transaction.asset?.symbol || 'Unknown'}
-                    </p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeBgColor(transaction.type)} ${getTypeTextColor(transaction.type)} font-medium flex-shrink-0`}>
-                      {getTypeLabel(transaction.type)}
-                    </span>
-                  </div>
-                  <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex-shrink-0">
-                    {transaction.type.toUpperCase() === 'SPLIT' 
-                      ? (transaction.metadata?.split || '-')
-                      : formatCurrency(transaction.quantity * transaction.price, portfolioCurrency)
+              {/* Asset Name + Date */}
+              <div className="flex items-center justify-between gap-2 mb-1">
+                {transaction.asset?.name ? (
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                    {transaction.asset.name}
+                  </p>
+                ) : (
+                  <span></span>
+                )}
+                <div className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+                  <Clock size={11} />
+                  <span>
+                    {transaction.tx_date
+                      ? format(new Date(transaction.tx_date), 'MMM d')
+                      : 'N/A'
+                    }
+                  </span>
+                  <span>
+                    -
+                  </span>
+                  <span>
+                    {transaction.tx_date
+                      ? formatDistanceToNow(new Date(transaction.tx_date), { addSuffix: true, locale: getDateLocale() })
+                      : ''
                     }
                   </span>
                 </div>
+              </div>
 
-                {/* Asset Name + Date */}
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  {transaction.asset?.name ? (
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                      {transaction.asset.name}
-                    </p>
-                  ) : (
-                    <span></span>
-                  )}
-                  <div className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 flex-shrink-0">
-                    <Clock size={11} />
-                    <span>
-                      {transaction.tx_date 
-                        ? format(new Date(transaction.tx_date), 'MMM d')
-                        : 'N/A'
-                      }
-                    </span>
-                    <span>
-                      - 
-                    </span>
-                    <span>
-                      {transaction.tx_date 
-                        ? formatDistanceToNow(new Date(transaction.tx_date), { addSuffix: true, locale: getDateLocale() })
-                        : ''
-                      }
-                    </span>
-                  </div>
-                </div>
-
-                {/* Transaction Details */}
-                <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                  {transaction.type.toUpperCase() === 'SPLIT' 
-                    ? (transaction.metadata?.split || 'Split ratio not available')
-                    : `${Number(transaction.quantity).toLocaleString(undefined, { 
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 8
-                      })} @ ${formatCurrency(transaction.price, portfolioCurrency)}`
-                  }
-                </div>
+              {/* Transaction Details */}
+              <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                {transaction.type.toUpperCase() === 'SPLIT'
+                  ? (transaction.metadata?.split || 'Split ratio not available')
+                  : `${Number(transaction.quantity).toLocaleString(undefined, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 8
+                    })} @ ${formatCurrency(transaction.price, portfolioCurrency)}`
+                }
               </div>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+          </WidgetListItem>
+        ))}
+      </WidgetList>
+    </BaseWidget>
   )
 }

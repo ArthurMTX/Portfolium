@@ -4,6 +4,9 @@ import { getMarketStatus } from '@/api'
 import { useWidgetVisibility } from '@/features/boards/context/BoardContext'
 import { BaseWidgetProps } from '@/features/boards/components/types'
 import { useTranslation } from 'react-i18next'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
 
 interface MarketRegion {
   name: string
@@ -60,7 +63,7 @@ export default function MarketStatusWidget({ isPreview = false }: MarketStatusWi
           return t('market.status.unknown')
       }
     }
-    
+
     // For other regions, simple open/closed
     switch (status) {
       case 'open':
@@ -80,45 +83,28 @@ export default function MarketStatusWidget({ isPreview = false }: MarketStatusWi
   }
 
   return (
-    <div className="card h-full flex flex-col p-5">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-9 h-9 bg-sky-50 dark:bg-sky-900/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <Globe className="text-sky-600 dark:text-sky-400" size={18} />
-        </div>
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          {t('common.marketStatus')}
-        </h3>
-      </div>
+    <BaseWidget
+      title="common.marketStatus"
+      icon={Globe}
+      iconColor="text-sky-600 dark:text-sky-400"
+      iconBgColor="bg-sky-50 dark:bg-sky-900/20"
+      isLoading={isLoading}
+    >
+      <WidgetList variant="cards">
+        {regions.map((region) => {
+          const status = getRegionStatus(region.key)
+          const isUS = region.key === 'us'
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 flex-1">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-        </div>
-      ) : (
-        <div className="space-y-3 flex-1 overflow-y-auto scrollbar-hide">
-          {regions.map((region) => {
-            const status = getRegionStatus(region.key)
-            const isUS = region.key === 'us'
-            
-            return (
-              <div 
-                key={region.key}
-                className="flex items-center justify-between p-3.5 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${getStatusColor(status)}`} />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                    {t(`market.regions.${region.key}`)}
-                  </span>
-                </div>
-                <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                  {getStatusLabel(status, isUS)}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
+          return (
+            <WidgetListItem
+              key={region.key}
+              leading={<div className={`w-3 h-3 rounded-full ${getStatusColor(status)}`} />}
+              title={t(`market.regions.${region.key}`)}
+              trailing={<span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{getStatusLabel(status, isUS)}</span>}
+            />
+          )
+        })}
+      </WidgetList>
+    </BaseWidget>
   )
 }

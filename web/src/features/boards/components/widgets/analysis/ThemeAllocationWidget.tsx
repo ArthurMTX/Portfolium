@@ -153,7 +153,7 @@ export default function ThemeAllocationWidget({ isPreview = false, batchData }: 
         iconBgColor="bg-indigo-50 dark:bg-indigo-900/20"
         isEmpty={themeAllocation.length === 0}
         emptyMessage="dashboard.widgets.themeAllocation.empty"
-        emptyIcon={Layers}
+        emptyIconSlot={<Layers size={48} className="text-neutral-300 dark:text-neutral-700" />}
         actions={headerAction}
         scrollable={false}
       >
