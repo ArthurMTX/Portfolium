@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api, {
+  type AssetEtfCompositionDTO,
   type AssetResearchBusinessDTO,
   type AssetResearchFundamentalsDTO,
   type AssetResearchMetadataDTO,
@@ -65,6 +66,13 @@ export function useAssetResearchView(symbol: string) {
     queryKey: ['asset-research-business', normalizedSymbol],
     queryFn: () => api.getAssetResearchBusiness(normalizedSymbol),
     enabled: Boolean(assetId && !isEtf),
+    staleTime: 24 * 60 * 60 * 1000,
+  })
+
+  const etfCompositionQuery = useQuery<AssetEtfCompositionDTO>({
+    queryKey: ['asset-etf-composition', normalizedSymbol, activePortfolioId, dataVersion],
+    queryFn: () => api.getAssetEtfComposition(normalizedSymbol, activePortfolioId),
+    enabled: Boolean(assetId && isEtf),
     staleTime: 24 * 60 * 60 * 1000,
   })
 
@@ -146,6 +154,7 @@ export function useAssetResearchView(symbol: string) {
     summaryQuery,
     fundamentalsQuery,
     businessQuery,
+    etfCompositionQuery,
     themesQuery,
     riskQuery,
     performanceQuery,

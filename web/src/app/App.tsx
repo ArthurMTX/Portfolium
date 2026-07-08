@@ -23,7 +23,6 @@ const Transactions = lazy(() => import('@/features/transactions/pages/Transactio
 const TransactionMetrics = lazy(() => import('@/features/transactions/pages/TransactionMetrics'))
 const Allocation = lazy(() => import('@/features/allocation/pages/Allocation'))
 const Assets = lazy(() => import('@/features/assets/pages/Assets'))
-const AssetResearch = lazy(() => import('@/features/assets/pages/AssetResearch'))
 const AssetResearchView = lazy(() => import('@/features/asset-research/pages/AssetResearchView'))
 const AssetResearchSearch = lazy(() => import('@/features/asset-research/pages/AssetResearchSearch'))
 const Watchlist = lazy(() => import('@/features/watchlist/pages/Watchlist'))
@@ -184,7 +183,6 @@ function App() {
                 <Route path="assets" element={<Assets />} />
                 <Route path="assets/research" element={<AssetResearchSearch />} />
                 <Route path="assets/:symbol/research" element={<AssetResearchView />} />
-                <Route path="assets/:symbol" element={<AssetResearch />} />
                 <Route path="watchlist" element={<Watchlist />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="settings" element={<Settings />} />

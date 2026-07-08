@@ -690,6 +690,7 @@
   "assetResearchView": {
     "kicker": "Asset Research",
     "back": "Back",
+    "weight": "Weight",
     "tabs": {
       "overview": "Overview",
       "financials": "Financials",
@@ -758,6 +759,7 @@
     },
     "whatIsKnown": "What is known",
     "whatIsThisAsset": "What is this asset?",
+    "howIsThisAssetBuilt": "How is this fund built?",
     "classifiedAsDescription": "{{name}} is classified as {{type}}{{sectorSuffix}}. A verified business description is not currently available.",
     "inSector": " in {{sector}}",
     "founded": "Founded",

@@ -690,6 +690,7 @@
   "assetResearchView": {
     "kicker": "Recherche d'actif",
     "back": "Retour",
+    "weight": "Poids",
     "tabs": {
       "overview": "Aperçu",
       "financials": "Finances",
@@ -758,6 +759,7 @@
     },
     "whatIsKnown": "Ce qui est connu",
     "whatIsThisAsset": "Qu'est-ce que cet actif ?",
+    "howIsThisAssetBuilt": "Comment ce fonds est-il construit ?",
     "classifiedAsDescription": "{{name}} est classé comme {{type}}{{sectorSuffix}}. Une description vérifiée de l'entreprise n'est pas disponible actuellement.",
     "inSector": " dans le secteur {{sector}}",
     "founded": "Fondée en",
