@@ -113,6 +113,7 @@ export function OverviewSection({
               <EvidenceValue
                 label={t('assetResearchView.netMargin')}
                 value={formatResearchPercent(fundamentals.profit_margins * 100)}
+                tone={valueTone(fundamentals?.profit_margins)}
               />
             )}
           {fundamentals?.pe_ratio !== null && fundamentals?.pe_ratio !== undefined && (
@@ -132,6 +133,7 @@ export function OverviewSection({
               <EvidenceValue
                 label={t('assetResearchView.impliedUpside')}
                 value={formatResearchPercent(fundamentals.implied_upside_pct)}
+                tone={valueTone(fundamentals?.implied_upside_pct)}
               />
             )}
         </div>
