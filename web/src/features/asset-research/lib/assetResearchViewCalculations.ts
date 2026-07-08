@@ -47,6 +47,15 @@ export function calculatePositionTotalReturn(position: PositionDTO | null | unde
   return null
 }
 
+export function calculatePositionTotalReturnPct(position: PositionDTO | null | undefined): number | null {
+  if (!position) return null
+  const totalReturn = calculatePositionTotalReturn(position)
+  if (totalReturn === null) return null
+  const totalCostBasis = researchNumber(position.cost_basis) + researchNumber(position.realized_cost_basis)
+  if (totalCostBasis <= 0) return null
+  return (totalReturn / totalCostBasis) * 100
+}
+
 export function calculateTransactionAmount(transaction: AssetResearchViewTransaction): number {
   const gross = researchNumber(transaction.quantity) * researchNumber(transaction.price)
   const fees = researchNumber(transaction.fees)

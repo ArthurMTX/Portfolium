@@ -742,7 +742,7 @@
     "portfolioWeight": "Poids dans le portefeuille",
     "ofPortfolioName": "de {{name}}",
     "lifetimePnl": "P&L total",
-    "classification": "Classification",
+    "lifetimePnlPct": "P&L total %",
     "sectionsLabel": "Sections de recherche d'actif",
     "partialFailuresNotice": "Certaines données n'ont pas pu être chargées : {{items}}. Les données disponibles restent visibles et aucune valeur manquante n'a été déduite.",
     "partialFailures": {

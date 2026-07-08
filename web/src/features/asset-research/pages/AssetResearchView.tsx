@@ -46,6 +46,7 @@ import {
   calculatePortfolioWeight,
   calculatePositionDailyContribution,
   calculatePositionTotalReturn,
+  calculatePositionTotalReturnPct,
   calculatePriceChangeAmount,
   researchNumber,
   sumTransactionType,
@@ -53,6 +54,7 @@ import {
 import {
   getTabs,
   signedCurrency,
+  signedPercent,
   valueTone,
 } from '@/features/asset-research/lib/assetResearchViewFormatting'
 import type { AssetResearchViewTab } from '@/features/asset-research/types'
@@ -115,6 +117,7 @@ export default function AssetResearchView() {
   const dailyAmount = calculatePriceChangeAmount(quote?.price, quote?.daily_change_pct)
   const portfolioWeight = calculatePortfolioWeight(position, portfolioMetrics?.total_value)
   const totalReturn = calculatePositionTotalReturn(position)
+  const totalReturnPct = calculatePositionTotalReturnPct(position)
   const dailyContribution = calculatePositionDailyContribution(position)
   const hasTransactions = transactions.length > 0
   const hasRelationship = Boolean(position || hasTransactions)
@@ -388,9 +391,9 @@ export default function AssetResearchView() {
             tone={totalReturn !== null ? (totalReturn > 0 ? 'positive' : totalReturn < 0 ? 'negative' : 'neutral') : 'neutral'}
           />
           <PageMetric
-            label={t('assetResearchView.classification')}
-            value={asset.sector || formatAssetType(asset.asset_type || asset.class)}
-            detail={asset.industry || undefined}
+            label={t('assetResearchView.lifetimePnlPct')}
+            value={totalReturnPct !== null ? signedPercent(totalReturnPct) : '—'}
+            tone={totalReturnPct !== null ? (totalReturnPct > 0 ? 'positive' : totalReturnPct < 0 ? 'negative' : 'neutral') : 'neutral'}
           />
         </PageMetricStrip>
       )}

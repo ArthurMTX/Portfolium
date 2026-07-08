@@ -742,7 +742,7 @@
     "portfolioWeight": "Portfolio weight",
     "ofPortfolioName": "of {{name}}",
     "lifetimePnl": "Lifetime P&L",
-    "classification": "Classification",
+    "lifetimePnlPct": "Lifetime P&L %",
     "sectionsLabel": "Asset Research sections",
     "partialFailuresNotice": "Some evidence could not be loaded: {{items}}. Available evidence remains visible and no missing value has been inferred.",
     "partialFailures": {
