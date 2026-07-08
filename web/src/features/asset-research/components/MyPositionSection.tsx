@@ -357,7 +357,7 @@ function PositionNote({
             {t('assetResearchView.personalReasoningNote')}
           </p>
         </div>
-        <button type="button" onClick={onEdit}>
+        <button type="button" className="asset-research__accent-button" onClick={onEdit}>
           {hasContent ? t('assetResearchView.editThesis') : t('assetResearchView.addThesis')}
         </button>
       </div>
@@ -428,7 +428,7 @@ function PositionTransactions({
           <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.ownershipHistory')}</p>
           <h2>{t('assetResearchView.transactions')}</h2>
         </div>
-        <button type="button" onClick={onRecordTransaction}>
+        <button type="button" className="asset-research__accent-button" onClick={onRecordTransaction}>
           {t('assetResearchView.recordTransaction')}
         </button>
       </div>

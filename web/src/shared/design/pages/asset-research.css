@@ -262,6 +262,10 @@
   color: var(--asset-research-rose);
 }
 
+.asset-research__section-heading > button.asset-research__accent-button {
+  color: var(--asset-research-rose);
+}
+
 .asset-research__periods button {
   border: 0;
   border-bottom: 2px solid transparent;
@@ -285,7 +289,7 @@
 }
 
 .asset-research__tabs button.is-position {
-  margin-left: 0.6rem;
+  
 }
 
 .asset-research__partial-error {
