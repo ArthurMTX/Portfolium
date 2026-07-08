@@ -371,4 +371,14 @@
       padding: 1.25rem;
     }
   }
+
+  @media (max-width: 640px) {
+    .pf-metric-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pf-metric-strip > div:nth-child(2n) {
+      border-left: 0;
+    }
+  }
 }

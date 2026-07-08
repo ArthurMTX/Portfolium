@@ -22,7 +22,8 @@
   }
 
   .pf-nav {
-    @apply hidden items-center gap-1 lg:flex;
+    @apply hidden flex-wrap items-center gap-1 lg:flex;
+    min-width: 0;
   }
 
   .pf-nav-link,
@@ -89,7 +90,7 @@
   }
 
   .pf-nav-label {
-    @apply hidden xl:inline;
+    @apply hidden 2xl:inline;
     font-size: 0.78rem;
   }
 

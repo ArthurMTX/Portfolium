@@ -262,6 +262,8 @@
   color: var(--asset-research-rose);
 }
 
+.asset-research__accent-button,
+.asset-research__hero-actions .asset-research__accent-button,
 .asset-research__section-heading > button.asset-research__accent-button {
   color: var(--asset-research-rose);
 }
@@ -289,7 +291,15 @@
 }
 
 .asset-research__tabs button.is-position {
-  
+  margin-left: auto;
+  border-color: var(--asset-research-rose);
+  color: var(--asset-research-rose);
+}
+
+.asset-research__tabs button.is-position:hover,
+.asset-research__tabs button.is-position.is-active {
+  background: var(--pf-accent-soft);
+  color: var(--asset-research-rose);
 }
 
 .asset-research__partial-error {
@@ -679,7 +689,7 @@
 
 .asset-research__asset-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin: 1.4rem 0 0;
   border-top: 1px solid var(--asset-research-line);

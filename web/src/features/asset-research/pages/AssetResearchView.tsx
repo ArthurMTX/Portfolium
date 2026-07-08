@@ -298,6 +298,7 @@ export default function AssetResearchView() {
             <div className="pf-page-actions asset-research__hero-actions">
               <button
                 type="button"
+                className="asset-research__accent-button"
                 onClick={() => addToWatchlistMutation.mutate()}
                 disabled={
                   research.watchlistQuery.isLoading ||
@@ -312,7 +313,10 @@ export default function AssetResearchView() {
                     ? t('assetResearchView.adding')
                     : t('assetResearchView.addToWatchlist')}
               </button>
-              <Link to={`/transactions?symbol=${encodeURIComponent(asset.symbol)}`}>
+              <span className="asset-research__value--neutral">
+                  ·
+              </span>
+              <Link className="asset-research__accent-button" to={`/transactions?symbol=${encodeURIComponent(asset.symbol)}`}>
                 {t('assetResearchView.recordTransaction')}
               </Link>
             </div>
