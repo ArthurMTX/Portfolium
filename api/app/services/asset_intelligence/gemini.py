@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any, Dict
 
@@ -10,6 +11,13 @@ import requests
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+_KEY_PARAM_RE = re.compile(r"([?&]key=)[^&\s]+")
+
+
+def _redact_api_key(message: str) -> str:
+    """Strip API key values from URLs embedded in error messages."""
+    return _KEY_PARAM_RE.sub(r"\1<redacted>", message)
 
 
 class GeminiError(RuntimeError):
@@ -85,7 +93,7 @@ class GeminiService:
                     status="timeout"
                     if isinstance(exc, requests.Timeout)
                     else "failed",
-                    error=str(exc),
+                    error=_redact_api_key(str(exc)),
                 )
                 if attempt >= self.max_retries:
                     break
@@ -101,8 +109,9 @@ class GeminiService:
                     },
                 )
 
-        logger.warning("Gemini generation failed after retries: %s", last_error)
-        raise GeminiError(str(last_error) if last_error else "Gemini generation failed")
+        last_error_message = _redact_api_key(str(last_error)) if last_error else None
+        logger.warning("Gemini generation failed after retries: %s", last_error_message)
+        raise GeminiError(last_error_message or "Gemini generation failed")
 
     def _record_timing_attempt(
         self,
