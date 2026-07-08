@@ -24,6 +24,7 @@ interface Asset {
   id: number
   symbol: string
   name: string | null
+  isin: string | null
   currency: string
   class: string | null
   asset_type: string | null
@@ -50,6 +51,7 @@ type SortKey =
   | 'id'
   | 'symbol'
   | 'name'
+  | 'isin'
   | 'asset_type'
   | 'currency'
   | 'sector'
@@ -91,6 +93,7 @@ export default function AssetsList() {
         (asset) =>
           asset.symbol.toLowerCase().includes(query) ||
           asset.name?.toLowerCase().includes(query) ||
+          asset.isin?.toLowerCase().includes(query) ||
           asset.sector?.toLowerCase().includes(query) ||
           asset.industry?.toLowerCase().includes(query) ||
           getThemeSortValue(asset.themes).toLowerCase().includes(query)
@@ -328,7 +331,7 @@ export default function AssetsList() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by symbol, name, sector, industry, or theme..."
+                placeholder="Search by symbol, name, ISIN, sector, industry, or theme..."
               />
             </label>
             <select
@@ -399,6 +402,7 @@ export default function AssetsList() {
               <SortButton column="id">ID</SortButton>
               <SortButton column="symbol">Symbol</SortButton>
               <SortButton column="name">Name</SortButton>
+              <SortButton column="isin">ISIN</SortButton>
               <SortButton column="asset_type">Type</SortButton>
               <SortButton column="currency">Currency</SortButton>
               <SortButton column="sector">Sector</SortButton>
@@ -440,6 +444,11 @@ export default function AssetsList() {
                       <div className="mt-1 break-words text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         {asset.name || '-'}
                       </div>
+                      {asset.isin && (
+                        <div className="mt-1 font-mono text-xs text-neutral-500 dark:text-neutral-400">
+                          {asset.isin}
+                        </div>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
                           {asset.asset_type || '-'}

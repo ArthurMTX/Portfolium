@@ -1294,6 +1294,7 @@ def get_asset_database_list(
             "id": asset.id,
             "symbol": asset.symbol,
             "name": asset.name,
+            "isin": asset.isin,
             "currency": asset.currency,
             "class": asset.class_.value if asset.class_ else None,
             "sector": asset.sector,
