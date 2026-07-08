@@ -15,8 +15,9 @@ import Layout from '@/app/layout/Layout'
 import NotFound from '@/app/routing/NotFound'
 import { PageStateSkeleton } from '@/shared/components/StatePrimitives'
 
-const Dashboard = lazy(() => import('@/features/dashboard/pages/Dashboard'))
 const DashboardOverview = lazy(() => import('@/features/dashboard-overview/pages/DashboardOverview'))
+const BoardsList = lazy(() => import('@/features/boards/pages/BoardsList'))
+const BoardDetail = lazy(() => import('@/features/boards/pages/BoardDetail'))
 const Portfolios = lazy(() => import('@/features/portfolios/pages/Portfolios'))
 const Charts = lazy(() => import('@/features/charts/pages/Charts'))
 const Transactions = lazy(() => import('@/features/transactions/pages/Transactions'))
@@ -172,7 +173,8 @@ function App() {
               >
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardOverview />} />
-                <Route path="dashboard/widgets" element={<Dashboard />} />
+                <Route path="boards" element={<BoardsList />} />
+                <Route path="boards/:id" element={<BoardDetail />} />
                 <Route path="portfolios" element={<Portfolios />} />
                 <Route path="charts" element={<Charts />} />
                 <Route path="calendar" element={<Calendar />} />

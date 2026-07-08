@@ -22,7 +22,7 @@ import api, {
   type PositionDTO,
   type ThemeDistributionItemDTO,
 } from '@/api'
-import { useDashboardBatch } from '@/features/dashboard/hooks/useDashboardBatch'
+import { useDashboardBatch } from '@/features/boards/hooks/useDashboardBatch'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { formatCurrency, formatQuantity } from '@/shared/lib/formatUtils'

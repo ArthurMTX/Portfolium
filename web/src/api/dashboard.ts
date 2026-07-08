@@ -1,5 +1,5 @@
 import { request } from '@/api/client'
-import type { DashboardLayoutCreate, DashboardLayoutDTO, DashboardLayoutExport, DashboardLayoutUpdate } from '@/features/dashboard/types'
+import type { DashboardLayoutCreate, DashboardLayoutDTO, DashboardLayoutExport, DashboardLayoutUpdate } from '@/features/boards/types'
 
 // ============================================================================
 // Dashboard Layouts

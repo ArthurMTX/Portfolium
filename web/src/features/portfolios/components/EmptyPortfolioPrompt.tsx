@@ -5,7 +5,7 @@ import { StateBlock } from '@/shared/components/StatePrimitives'
 import { PageShell } from '@/shared/components/PageLayout'
 
 interface EmptyPortfolioPromptProps {
-  pageType?: 'dashboard' | 'insights' | 'transactions' | 'assets' | 'watchlist' | 'charts' | 'calendar'
+  pageType?: 'dashboard' | 'insights' | 'transactions' | 'assets' | 'watchlist' | 'charts' | 'calendar' | 'boards'
 }
 
 export default function EmptyPortfolioPrompt({ pageType = 'dashboard' }: EmptyPortfolioPromptProps) {

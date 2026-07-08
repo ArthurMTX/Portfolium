@@ -14,8 +14,8 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react'
-import { getAllWidgets, getWidgetsGroupedByCategory } from '@/features/dashboard/components/widgets/registry'
-import { WidgetConfig, WidgetCategory } from '@/features/dashboard/components/types'
+import { getAllWidgets, getWidgetsGroupedByCategory } from '@/features/boards/components/widgets/registry'
+import { WidgetConfig, WidgetCategory } from '@/features/boards/components/types'
 import { PositionDTO } from '@/api'
 import {
   PageControls,

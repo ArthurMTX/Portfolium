@@ -114,6 +114,10 @@
       "title": "No Calendar Data",
       "message": "Create a portfolio and add transactions to track your daily performance and see upcoming earnings."
     },
+    "boards": {
+      "title": "No Portfolio to Build Boards For",
+      "message": "Create a portfolio first, then build custom boards to monitor it your way."
+    },
     "createButton": "Create Your First Portfolio",
     "gettingStartedLabel": "Getting Started:",
     "gettingStartedMessage": "A portfolio is a container for your investments. You can create multiple portfolios to organize different investment strategies."

@@ -1,0 +1,641 @@
+/* ==========================================================================
+   Boards list (/boards)
+   ========================================================================== */
+
+.boards-list__grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.boards-list__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-lg);
+  background: var(--pf-surface);
+  transition: border-color var(--pf-transition-fast), background var(--pf-transition-fast);
+}
+
+.boards-list__card:hover {
+  border-color: var(--pf-accent-border);
+}
+
+.boards-list__card-open {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1.1rem 1.25rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border-radius: inherit;
+}
+
+.boards-list__card-open:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: -2px;
+}
+
+.boards-list__card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+  flex-shrink: 0;
+}
+
+.boards-list__card-main {
+  min-width: 0;
+}
+
+.boards-list__card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.boards-list__card-title-row h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--pf-ink);
+}
+
+.boards-list__card-main p {
+  margin: 0.2rem 0 0;
+  color: var(--pf-muted);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boards-list__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--pf-radius-pill);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.boards-list__card-facts {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.boards-list__card-facts dt {
+  margin: 0;
+  color: var(--pf-subtle);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.boards-list__card-facts dd {
+  margin: 0.2rem 0 0;
+  color: var(--pf-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.boards-list__card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0 1.25rem 0.9rem;
+}
+
+.boards-list__card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: var(--pf-radius-sm);
+  background: transparent;
+  color: var(--pf-muted);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--pf-transition-fast), background var(--pf-transition-fast);
+}
+
+.boards-list__card-actions button:hover {
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.boards-list__card-actions button:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 1px;
+}
+
+.boards-list__card-actions svg.is-active {
+  color: var(--pf-accent);
+  fill: var(--pf-accent);
+}
+
+/* ==========================================================================
+   Board detail (/boards/:id)
+   ========================================================================== */
+
+.board-detail__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.board-detail__mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-pill);
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+
+.board-detail__mode-toggle button {
+  border: 0;
+  border-radius: var(--pf-radius-pill);
+  background: transparent;
+  color: var(--pf-muted);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background var(--pf-transition-fast), color var(--pf-transition-fast);
+}
+
+.board-detail__mode-toggle button.is-active {
+  background: var(--pf-accent);
+  color: white;
+}
+
+.board-detail__mode-toggle button:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 2px;
+}
+
+.board-detail__more-menu {
+  position: relative;
+}
+
+.board-detail__more-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 40;
+  min-width: 12rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-surface-raised);
+  box-shadow: var(--pf-shadow-menu);
+  padding: 0.35rem;
+}
+
+.board-detail__more-menu-panel button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  border: 0;
+  border-radius: var(--pf-radius-sm);
+  background: transparent;
+  color: var(--pf-ink);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-detail__more-menu-panel button:hover {
+  background: var(--pf-inset);
+}
+
+.board-detail__more-menu-panel button.is-danger {
+  color: var(--pf-danger);
+}
+
+.board-detail__edit-hint {
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--pf-accent-border);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   Board grid — widget canvas chrome
+   ========================================================================== */
+
+.board-grid__layout {
+  width: 100% !important;
+}
+
+.board-widget-item {
+  position: relative;
+  height: 100%;
+}
+
+.board-widget-item > .card {
+  height: 100%;
+}
+
+/* View mode: zero editing chrome, widgets read as plain panels. */
+.board-grid:not(.board-grid--edit) * {
+  user-select: auto;
+}
+
+/* Edit mode affordances */
+.board-grid--edit .react-grid-item {
+  border: 1px dashed transparent;
+  border-radius: var(--pf-radius-lg);
+  transition: border-color var(--pf-transition-fast);
+}
+
+.board-grid--edit .react-grid-item:hover {
+  border-color: var(--pf-accent-border);
+}
+
+.board-grid--edit * {
+  user-select: none;
+}
+
+.board-grid--edit .react-grid-item.react-draggable-dragging * {
+  user-select: none;
+  cursor: grabbing;
+}
+
+.board-widget__drag-handle {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface-raised);
+  color: var(--pf-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--pf-transition-fast), color var(--pf-transition-fast);
+}
+
+.board-widget__drag-handle:active {
+  cursor: grabbing;
+}
+
+.board-widget-item:hover .board-widget__drag-handle,
+.board-widget__drag-handle:focus-visible {
+  opacity: 1;
+}
+
+.board-widget__drag-handle:hover,
+.board-widget__drag-handle:focus-visible {
+  color: var(--pf-accent);
+  border-color: var(--pf-accent-border);
+}
+
+.board-widget__drag-handle:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 2px;
+}
+
+.board-widget__move-controls {
+  position: absolute;
+  top: 0.5rem;
+  left: 2.5rem;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, 1.5rem);
+  gap: 0.15rem;
+  opacity: 0;
+  transition: opacity var(--pf-transition-fast);
+}
+
+.board-widget-item:hover .board-widget__move-controls,
+.board-widget__move-controls:focus-within {
+  opacity: 1;
+}
+
+.board-widget__move-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface-raised);
+  color: var(--pf-muted);
+  cursor: pointer;
+  transition: color var(--pf-transition-fast), border-color var(--pf-transition-fast);
+}
+
+.board-widget__move-controls button:hover,
+.board-widget__move-controls button:focus-visible {
+  color: var(--pf-accent);
+  border-color: var(--pf-accent-border);
+}
+
+.board-widget__move-controls button:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 1px;
+}
+
+.board-widget__remove-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface-raised);
+  color: var(--pf-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--pf-transition-fast), color var(--pf-transition-fast), border-color var(--pf-transition-fast);
+}
+
+.board-widget-item:hover .board-widget__remove-button,
+.board-widget__remove-button:focus-visible {
+  opacity: 1;
+}
+
+.board-widget__remove-button:hover,
+.board-widget__remove-button:focus-visible {
+  color: var(--pf-danger);
+  border-color: var(--pf-danger-border);
+  background: var(--pf-danger-soft);
+}
+
+.board-widget__remove-button:focus-visible {
+  outline: 2px solid var(--pf-danger);
+  outline-offset: 2px;
+}
+
+.board-grid--edit .react-grid-item.react-grid-placeholder {
+  background: var(--pf-accent);
+  opacity: 0.12;
+  border-radius: var(--pf-radius-lg);
+  transition-duration: 100ms;
+}
+
+.board-grid .react-grid-item > .react-resizable-handle::after {
+  border-right: 2px solid var(--pf-accent-border) !important;
+  border-bottom: 2px solid var(--pf-accent-border) !important;
+}
+
+.board-grid .react-grid-item {
+  transition: none;
+}
+
+.board-grid .react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 100;
+  opacity: 0.85;
+}
+
+.board-grid .react-grid-item.resizing {
+  transition: none;
+  z-index: 100;
+}
+
+/* ==========================================================================
+   Create board modal
+   ========================================================================== */
+
+.board-create__starters {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.board-create__starter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-md);
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  transition: border-color var(--pf-transition-fast), background var(--pf-transition-fast);
+}
+
+.board-create__starter input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.board-create__starter.is-selected {
+  border-color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.board-create__starter-title {
+  font-size: 0.9rem;
+  font-weight: 750;
+  color: var(--pf-ink);
+}
+
+.board-create__starter-description {
+  font-size: 0.8rem;
+  color: var(--pf-muted);
+}
+
+/* ==========================================================================
+   Add widget modal
+   ========================================================================== */
+
+.board-add-widget__filters {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--pf-line);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.board-add-widget__search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pf-subtle);
+}
+
+.board-add-widget__search-input {
+  width: 100%;
+  padding: 0.7rem 1rem 0.7rem 2.75rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-surface);
+  color: var(--pf-ink);
+}
+
+.board-add-widget__search-input:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 1px;
+}
+
+.board-add-widget__categories {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.board-add-widget__category-tab {
+  flex-shrink: 0;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-pill);
+  background: transparent;
+  color: var(--pf-muted);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--pf-transition-fast), color var(--pf-transition-fast), border-color var(--pf-transition-fast);
+}
+
+.board-add-widget__category-tab.is-active {
+  background: var(--pf-accent);
+  border-color: var(--pf-accent);
+  color: white;
+}
+
+.board-add-widget__category-tab:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 1px;
+}
+
+.board-add-widget__view-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.board-add-widget__view-button {
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: transparent;
+  color: var(--pf-muted);
+  padding: 0.4rem;
+  cursor: pointer;
+}
+
+.board-add-widget__view-button.is-active {
+  background: var(--pf-accent);
+  border-color: var(--pf-accent);
+  color: white;
+}
+
+.board-add-widget__view-button:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 1px;
+}
+
+.board-add-widget__preview-panel {
+  width: 24rem;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--pf-line);
+  background: var(--pf-canvas-muted);
+}
+
+.board-add-widget__detail-card {
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface-raised);
+  padding: 0.6rem;
+}
+
+.board-add-widget__detail-label {
+  color: var(--pf-subtle);
+  font-size: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.board-add-widget__detail-value {
+  color: var(--pf-ink);
+  font-weight: 700;
+}
+
+.board-add-widget__preview-frame {
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-surface-raised);
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.board-add-widget__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--pf-line);
+  background: var(--pf-canvas-muted);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .boards-list__card-open {
+    grid-template-columns: auto 1fr;
+  }
+
+  .boards-list__card-facts {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+
+  .boards-list__card-facts dd {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .board-add-widget__preview-panel {
+    width: 100%;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+  }
+}

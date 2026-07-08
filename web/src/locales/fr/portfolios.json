@@ -114,6 +114,10 @@
       "title": "Aucune donnée de calendrier",
       "message": "Créez un portefeuille et ajoutez des transactions pour suivre vos performances quotidiennes et voir les résultats à venir."
     },
+    "boards": {
+      "title": "Aucun portefeuille pour créer des tableaux",
+      "message": "Créez d'abord un portefeuille, puis construisez des tableaux personnalisés pour le suivre à votre façon."
+    },
     "createButton": "Créer votre premier portefeuille",
     "gettingStartedLabel": "Pour commencer :",
     "gettingStartedMessage": "Un portefeuille est un conteneur pour vos investissements. Vous pouvez créer plusieurs portefeuilles pour organiser différentes stratégies d'investissement."

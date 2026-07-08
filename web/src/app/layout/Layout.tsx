@@ -9,6 +9,7 @@ import {
   Folder,
   GitCompare,
   Home,
+  LayoutGrid,
   LineChart,
   LogOut,
   Menu,
@@ -43,6 +44,10 @@ interface NavItem {
 
 function isAssetResearchPath(pathname: string) {
   return pathname === '/assets/research' || /^\/assets\/[^/]+\/research$/.test(pathname)
+}
+
+function isBoardsPath(pathname: string) {
+  return pathname === '/boards' || pathname.startsWith('/boards/')
 }
 
 export default function Layout() {
@@ -120,7 +125,13 @@ export default function Layout() {
       to: '/dashboard',
       label: t('navigation.dashboard'),
       icon: Home,
-      isActive: (pathname) => pathname === '/dashboard' || pathname === '/dashboard/widgets',
+      isActive: (pathname) => pathname === '/dashboard',
+    },
+    {
+      to: '/boards',
+      label: t('boards.nav'),
+      icon: LayoutGrid,
+      isActive: isBoardsPath,
     },
     {
       to: '/portfolios',
