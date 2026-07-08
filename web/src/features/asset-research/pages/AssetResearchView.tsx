@@ -431,19 +431,7 @@ export default function AssetResearchView() {
           </div>
         )}
         {activeTab === 'overview' && (
-          <OverviewSection
-            asset={asset}
-            business={business}
-            fundamentals={fundamentals}
-            currency={quoteCurrency}
-            themes={themes}
-            themesLoading={research.themesQuery.isLoading}
-            loading={
-              research.businessQuery.isLoading ||
-              research.fundamentalsQuery.isLoading ||
-              research.themesQuery.isLoading
-            }
-          >
+          <>
             <AssetResearchPriceChart
               assetId={asset.id}
               symbol={asset.symbol}
@@ -454,15 +442,29 @@ export default function AssetResearchView() {
               currentAverageCost={position?.avg_cost ?? null}
               currentAverageCostCurrency={position?.currency ?? null}
             />
-            {research.isEtf && (
-              <EtfCompositionSection
-                data={research.etfCompositionQuery.data}
-                loading={research.etfCompositionQuery.isLoading}
-                error={research.etfCompositionQuery.error}
-                symbol={asset.symbol}
-              />
-            )}
-          </OverviewSection>
+            <OverviewSection
+              asset={asset}
+              business={business}
+              fundamentals={fundamentals}
+              currency={quoteCurrency}
+              themes={themes}
+              themesLoading={research.themesQuery.isLoading}
+              loading={
+                research.businessQuery.isLoading ||
+                research.fundamentalsQuery.isLoading ||
+                research.themesQuery.isLoading
+              }
+            >
+              {research.isEtf && (
+                <EtfCompositionSection
+                  data={research.etfCompositionQuery.data}
+                  loading={research.etfCompositionQuery.isLoading}
+                  error={research.etfCompositionQuery.error}
+                  symbol={asset.symbol}
+                />
+              )}
+            </OverviewSection>
+          </>
         )}
 
         {activeTab === 'financials' && (
