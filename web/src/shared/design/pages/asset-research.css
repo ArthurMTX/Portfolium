@@ -253,6 +253,10 @@
   border-bottom: 1px solid var(--asset-research-line);
 }
 
+.asset-research__relationship-empty-text {
+  margin-bottom: 0;
+}
+
 .asset-research__relationship > button {
   flex: 0 0 auto;
   color: var(--asset-research-rose);

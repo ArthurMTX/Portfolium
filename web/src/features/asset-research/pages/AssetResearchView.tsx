@@ -331,40 +331,44 @@ export default function AssetResearchView() {
       >
         <div>
           <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.myRelationship')}</p>
-          <h2 id="relationship-heading">
-            {ownsAsset
-              ? t('assetResearchView.youOwn', { amount: formatCurrency(position?.market_value ?? 0, portfolioCurrency, locale), symbol: asset.symbol })
-              : hasTransactions
-                ? t('assetResearchView.haveHistoricalActivity', { symbol: asset.symbol })
-                : t('assetResearchView.doNotOwn')}
-          </h2>
-          {ownsAsset && position ? (
+          {hasRelationship ? (
             <>
-              <p className="asset-research__relationship-equation">
-                = {t('assetResearchView.sharesOf', { quantity: formatQuantity(position.quantity) })}
-                {portfolioWeight !== null
-                  ? t('assetResearchView.percentOfPortfolio', { percent: portfolioWeight.toFixed(1), portfolio: activePortfolio?.name || t('assetResearchView.yourPortfolio') })
-                  : ''}
-              </p>
-              {totalReturn !== null && (
-                <p className={valueTone(totalReturn)}>
-                  {t('assetResearchView.lifetimePnlSinceFirstBuy', { amount: signedCurrency(totalReturn, portfolioCurrency, locale) })}
+              <h2 id="relationship-heading">
+                {ownsAsset
+                  ? t('assetResearchView.youOwn', { amount: formatCurrency(position?.market_value ?? 0, portfolioCurrency, locale), symbol: asset.symbol })
+                  : t('assetResearchView.haveHistoricalActivity', { symbol: asset.symbol })}
+              </h2>
+              {ownsAsset && position ? (
+                <>
+                  <p className="asset-research__relationship-equation">
+                    = {t('assetResearchView.sharesOf', { quantity: formatQuantity(position.quantity) })}
+                    {portfolioWeight !== null
+                      ? t('assetResearchView.percentOfPortfolio', { percent: portfolioWeight.toFixed(1), portfolio: activePortfolio?.name || t('assetResearchView.yourPortfolio') })
+                      : ''}
+                  </p>
+                  {totalReturn !== null && (
+                    <p className={valueTone(totalReturn)}>
+                      {t('assetResearchView.lifetimePnlSinceFirstBuy', { amount: signedCurrency(totalReturn, portfolioCurrency, locale) })}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>
+                  {t('assetResearchView.positionClosedHistory')}
                 </p>
               )}
             </>
-          ) : !hasTransactions ? (
-            <p>
-              {t('assetResearchView.addToWatchlistOrRecord')}
-            </p>
           ) : (
-            <p>
-              {t('assetResearchView.positionClosedHistory')}
+            <p id="relationship-heading" className="asset-research__relationship-empty-text">
+              {t('assetResearchView.addToWatchlistOrRecord')}
             </p>
           )}
         </div>
-        <button type="button" onClick={() => setActiveTab('position')}>
-          {hasRelationship ? t('assetResearchView.inspectMyPosition') : t('assetResearchView.reviewRelationship')}
-        </button>
+        {hasRelationship && (
+          <button type="button" onClick={() => setActiveTab('position')}>
+            {t('assetResearchView.inspectMyPosition')}
+          </button>
+        )}
       </section>
 
       {hasRelationship && (
