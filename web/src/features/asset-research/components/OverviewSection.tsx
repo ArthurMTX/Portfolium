@@ -39,8 +39,14 @@ export function OverviewSection({
   children: ReactNode
 }) {
   const { t } = useTranslation()
+  const hasClassification = Boolean(asset.sector || asset.industry || themes.length > 0)
+  const showAside = themesLoading || hasClassification
   return (
-    <div className="pf-main-grid asset-research__overview-grid">
+    <div
+      className={`pf-main-grid asset-research__overview-grid ${
+        showAside ? '' : 'pf-main-grid--single'
+      }`}
+    >
       <div className="pf-main-col asset-research__overview-main">
         <section aria-labelledby="known-heading">
           <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.whatIsKnown')}</p>
@@ -58,105 +64,100 @@ export function OverviewSection({
                   })}
               </p>
               <dl className="asset-research__asset-facts">
-                <div>
-                  <dt>{t('assetResearchView.founded')}</dt>
-                  <dd>{business?.founded || t('assetResearchView.unknown')}</dd>
-                </div>
-                <div>
-                  <dt>{t('assetResearchView.employees')}</dt>
-                  <dd>
-                    {business?.employees ? formatWithSeparators(business.employees) : t('assetResearchView.unknown')}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t('assetResearchView.headquarters')}</dt>
-                  <dd>{business?.headquarters || t('assetResearchView.unknown')}</dd>
-                </div>
-                <div>
-                  <dt>{t('assetResearchView.isin')}</dt>
-                  <dd>{asset.isin || t('assetResearchView.unknown')}</dd>
-                </div>
+                {business?.founded && (
+                  <div>
+                    <dt>{t('assetResearchView.founded')}</dt>
+                    <dd>{business.founded}</dd>
+                  </div>
+                )}
+                {business?.employees && (
+                  <div>
+                    <dt>{t('assetResearchView.employees')}</dt>
+                    <dd>{formatWithSeparators(business.employees)}</dd>
+                  </div>
+                )}
+                {business?.headquarters && (
+                  <div>
+                    <dt>{t('assetResearchView.headquarters')}</dt>
+                    <dd>{business.headquarters}</dd>
+                  </div>
+                )}
+                {asset.isin && (
+                  <div>
+                    <dt>{t('assetResearchView.isin')}</dt>
+                    <dd>{asset.isin}</dd>
+                  </div>
+                )}
               </dl>
             </>
           )}
         </section>
 
         <div className="asset-research__evidence-grid">
-          <EvidenceValue
-            label={t('assetResearchView.marketCapitalisation')}
-            value={
-              fundamentals?.market_cap
-                ? `${formatLargeNumber(fundamentals.market_cap, 2)} ${currency}`
-                : t('assetResearchView.unavailable')
-            }
-          />
-          <EvidenceValue
-            label={t('assetResearchView.revenueGrowth')}
-            value={
-              fundamentals?.revenue_growth !== null &&
-              fundamentals?.revenue_growth !== undefined
-                ? formatResearchPercent(fundamentals.revenue_growth * 100)
-                : t('assetResearchView.unavailable')
-            }
-            tone={valueTone(fundamentals?.revenue_growth)}
-          />
-          <EvidenceValue
-            label={t('assetResearchView.netMargin')}
-            value={
-              fundamentals?.profit_margins !== null &&
-              fundamentals?.profit_margins !== undefined
-                ? formatResearchPercent(fundamentals.profit_margins * 100)
-                : t('assetResearchView.unavailable')
-            }
-          />
-          <EvidenceValue
-            label={t('assetResearchView.peRatio')}
-            value={
-              fundamentals?.pe_ratio !== null && fundamentals?.pe_ratio !== undefined
-                ? `${formatNumber(fundamentals.pe_ratio, 1)}×`
-                : t('assetResearchView.unavailable')
-            }
-          />
-          <EvidenceValue
-            label={t('assetResearchView.analystTarget')}
-            value={formatCurrency(fundamentals?.target_mean ?? null, currency)}
-          />
-          <EvidenceValue
-            label={t('assetResearchView.impliedUpside')}
-            value={
-              fundamentals?.implied_upside_pct !== null &&
-              fundamentals?.implied_upside_pct !== undefined
-                ? formatResearchPercent(fundamentals.implied_upside_pct)
-                : t('assetResearchView.unavailable')
-            }
-          />
+          {fundamentals?.market_cap && (
+            <EvidenceValue
+              label={t('assetResearchView.marketCapitalisation')}
+              value={`${formatLargeNumber(fundamentals.market_cap, 2)} ${currency}`}
+            />
+          )}
+          {fundamentals?.revenue_growth !== null &&
+            fundamentals?.revenue_growth !== undefined && (
+              <EvidenceValue
+                label={t('assetResearchView.revenueGrowth')}
+                value={formatResearchPercent(fundamentals.revenue_growth * 100)}
+                tone={valueTone(fundamentals?.revenue_growth)}
+              />
+            )}
+          {fundamentals?.profit_margins !== null &&
+            fundamentals?.profit_margins !== undefined && (
+              <EvidenceValue
+                label={t('assetResearchView.netMargin')}
+                value={formatResearchPercent(fundamentals.profit_margins * 100)}
+              />
+            )}
+          {fundamentals?.pe_ratio !== null && fundamentals?.pe_ratio !== undefined && (
+            <EvidenceValue
+              label={t('assetResearchView.peRatio')}
+              value={`${formatNumber(fundamentals.pe_ratio, 1)}×`}
+            />
+          )}
+          {fundamentals?.target_mean !== null && fundamentals?.target_mean !== undefined && (
+            <EvidenceValue
+              label={t('assetResearchView.analystTarget')}
+              value={formatCurrency(fundamentals.target_mean, currency)}
+            />
+          )}
+          {fundamentals?.implied_upside_pct !== null &&
+            fundamentals?.implied_upside_pct !== undefined && (
+              <EvidenceValue
+                label={t('assetResearchView.impliedUpside')}
+                value={formatResearchPercent(fundamentals.implied_upside_pct)}
+              />
+            )}
         </div>
 
         {children}
       </div>
 
-      <aside className="pf-aside-col asset-research__overview-context">
-        <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.inferredClassification')}</p>
-        <h2>{t('assetResearchView.howClassified')}</h2>
-        {asset.sector && (
-          <ClassificationLine kind="sector" label={asset.sector} />
-        )}
-        {asset.industry && <ClassificationLine kind="industry" label={asset.industry} />}
-        {themesLoading && themes.length === 0 && (
-          <StateBlock
-            tone="info"
-            title={t('assetResearchView.classificationLoading')}
-            description={t('assetResearchView.classificationLoadingDescription')}
-            className="mt-3"
-          />
-        )}
-        {themes.length > 0 && <ThemeClassificationTree themes={themes} />}
-        {!themesLoading && !asset.sector && !asset.industry && themes.length === 0 && (
-          <div className="asset-research__quiet-state">
-            {t('assetResearchView.classificationUnknown')}
-          </div>
-        )}
-      </aside>
+      {showAside && (
+        <aside className="pf-aside-col asset-research__overview-context">
+          <p className="pf-section-kicker asset-research__section-label">{t('assetResearchView.inferredClassification')}</p>
+          <h2>{t('assetResearchView.howClassified')}</h2>
+          {asset.sector && (
+            <ClassificationLine kind="sector" label={asset.sector} />
+          )}
+          {asset.industry && <ClassificationLine kind="industry" label={asset.industry} />}
+          {themesLoading && themes.length === 0 && (
+            <StateBlock
+              tone="info"
+              title={t('assetResearchView.classificationLoading')}
+              description={t('assetResearchView.classificationLoadingDescription')}
+              className="mt-3"
+            />
+          )}
+          {themes.length > 0 && <ThemeClassificationTree themes={themes} />}
+        </aside>
+      )}
     </div>
   )
 }
