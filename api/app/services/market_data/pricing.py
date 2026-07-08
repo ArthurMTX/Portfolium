@@ -832,11 +832,18 @@ class PricingService:
 
         return symbol_data.dropna(how="all")
 
+    # NUMERIC(20,8) columns reject values >= 10^12; yfinance's auto_adjust can
+    # blow up to ~1e35 when Yahoo's raw Adj Close feed contains "Infinity"
+    # strings for old/illiquid symbols, so guard well under that ceiling.
+    _MAX_PLAUSIBLE_PRICE = Decimal("1000000000")
+
     def _decimal_from_history_value(self, row: pd.Series, column: str) -> Optional[Decimal]:
         if column not in row or pd.isna(row.get(column)):
             return None
         value = Decimal(str(float(row.get(column))))
-        return value if value > 0 else None
+        if value <= 0 or value >= self._MAX_PLAUSIBLE_PRICE:
+            return None
+        return value
 
     def _is_completed_daily_bar(
         self,

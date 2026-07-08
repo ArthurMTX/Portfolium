@@ -42,6 +42,7 @@ class AssetResearchService:
     async def get_summary(self, symbol: str) -> Dict[str, Any]:
         """Return the fast data needed to paint the page shell."""
         asset = self._get_or_create_asset(symbol.strip().upper())
+        self._ensure_full_price_history(asset)
         quote = await self._get_quote(asset.symbol)
         return {
             "asset": asset,
@@ -184,6 +185,29 @@ class AssetResearchService:
 
         logger.info("Creating asset from research lookup: %s", symbol)
         return crud_assets.create_asset(self.db, AssetCreate(symbol=symbol))
+
+    # Below this many stored price rows, treat an asset as needing a full
+    # historical backfill (e.g. only live-quote snapshots exist so far).
+    _MIN_PRICE_ROWS_FOR_FULL_HISTORY = 30
+
+    def _ensure_full_price_history(self, asset: Asset) -> None:
+        """Backfill all-time price history the first few times an asset is researched."""
+        existing_rows = (
+            self.db.query(Price)
+            .filter(Price.asset_id == asset.id)
+            .count()
+        )
+        if existing_rows >= self._MIN_PRICE_ROWS_FOR_FULL_HISTORY:
+            return
+
+        try:
+            self.pricing_service.ensure_historical_prices(
+                asset,
+                datetime(1900, 1, 1),
+                datetime.utcnow(),
+            )
+        except Exception as exc:
+            logger.warning("Asset research price history backfill failed for %s: %s", asset.symbol, exc)
 
     def _ensure_market_metadata(self, asset: Asset) -> None:
         if asset.ath_price is not None and asset.atl_price is not None:
