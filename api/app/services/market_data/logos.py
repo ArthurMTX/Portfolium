@@ -634,7 +634,7 @@ def fetch_logo_by_brand_id(brand_id: str) -> Optional[bytes]:
         return None
 
 
-def generate_etf_logo(ticker: str) -> str:
+def generate_svg_logo(ticker: str) -> str:
     """
     Generate an SVG logo with pink gradient background and ticker letters.
     
@@ -693,7 +693,7 @@ def fetch_logo_with_source(ticker: str, company_name: Optional[str] = None, asse
     # For ETFs, generate SVG logo immediately to avoid incorrect brand matches
     if asset_type and asset_type.upper() == 'ETF':
         logger.info(f"Asset type is ETF for {ticker}, generating SVG logo")
-        svg_logo = generate_etf_logo(ticker)
+        svg_logo = generate_svg_logo(ticker)
         return svg_logo.encode('utf-8'), LOGO_SOURCE_GENERATED
 
     # Check if cryptocurrency to skip company/ticker searches
@@ -741,7 +741,7 @@ def fetch_logo_with_source(ticker: str, company_name: Optional[str] = None, asse
 
     # Strategy 4: Generate SVG logo as final fallback
     logger.info(f"No logo found for {ticker}, generating SVG fallback")
-    svg_logo = generate_etf_logo(ticker)
+    svg_logo = generate_svg_logo(ticker)
     return svg_logo.encode('utf-8'), LOGO_SOURCE_GENERATED
 
 

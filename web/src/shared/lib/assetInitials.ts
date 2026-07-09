@@ -3,7 +3,7 @@
  *
  * Standardizes on the symbol-first, 3-char, alphanumeric-stripped algorithm
  * already used by InsightsShared's `initialsFor` and the backend's
- * `generate_etf_logo` (rather than EtfCompositionSection's 2-char,
+ * `generate_svg_logo` (rather than EtfCompositionSection's 2-char,
  * name-word-splitting variant), so every fallback badge in the app looks
  * the same.
  */

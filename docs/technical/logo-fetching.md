@@ -99,8 +99,7 @@ companies with the same ticker text).
 
 ## Generated fallback
 
-`generate_etf_logo()` (despite the name, used as the universal last resort, not
-just for ETFs) builds a 200x200 SVG with a pink gradient background and the
+`generate_svg_logo()` builds a 200x200 SVG with a pink gradient background and the
 ticker's first three letters — no network call, always succeeds.
 
 ## Stickiness
