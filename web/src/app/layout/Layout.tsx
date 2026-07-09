@@ -1,3 +1,4 @@
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeftRight,
@@ -27,13 +28,13 @@ import {
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/app/providers/AuthContext'
 import { useTranslation } from 'react-i18next'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import LanguageSwitcher from '@/app/layout/LanguageSwitcher'
 import { VERSION } from '@/app/version'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
+import { PageStateSkeleton } from '@/shared/components/StatePrimitives'
 import api from '@/api'
 
 interface NavItem {
@@ -524,7 +525,9 @@ export default function Layout() {
       </header>
 
       <main className="pf-app-main">
-        <Outlet />
+        <Suspense fallback={<PageStateSkeleton label={t('common.loading')} />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <footer className="mt-8 border-t border-neutral-200 bg-white py-3 dark:border-neutral-800 dark:bg-neutral-950">
