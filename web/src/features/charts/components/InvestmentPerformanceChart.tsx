@@ -361,6 +361,7 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
             >
               <Line data={chartData} options={chartOptions} />
             </div>
+            <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
             {performanceSummary && (
               <div className="charts-observations">
                 <p>{t('investmentPerformanceChart.performanceSummary')}</p>
@@ -399,8 +400,6 @@ export default function InvestmentPerformanceChart({ portfolioId }: Props) {
           </div>
         )}
       </div>
-      
-      <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
     </section>
   )
 }

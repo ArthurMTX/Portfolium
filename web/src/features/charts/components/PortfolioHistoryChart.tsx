@@ -312,6 +312,7 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
             >
               <Line data={chartData} options={chartOptions} />
             </div>
+            <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
             {summary && (
               <div className="charts-observations">
                 <p>{t('portfolioHistoryChart.duringThisPeriod')}</p>
@@ -350,8 +351,6 @@ export default function PortfolioHistoryChart({ portfolioId }: Props) {
           </div>
         )}
       </div>
-      
-      <ChartPeriodButtons period={period} onChange={setPeriod} t={t} />
     </section>
   )
 }
