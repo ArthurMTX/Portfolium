@@ -8,7 +8,7 @@ interface WidgetDescriptionProps {
 /** Standardized secondary line under a widget title */
 export function WidgetDescription({ children, className = '' }: WidgetDescriptionProps) {
   return (
-    <p className={`text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate ${className}`.trim()}>
+    <p className={`pf-widget-description ${className}`.trim()}>
       {children}
     </p>
   )

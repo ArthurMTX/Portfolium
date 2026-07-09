@@ -23,8 +23,6 @@ interface WidgetHeaderProps {
 export function WidgetHeader({
   title,
   icon: Icon,
-  iconColor,
-  iconBgColor,
   description,
   actions,
   subHeader,
@@ -36,13 +34,13 @@ export function WidgetHeader({
   const displayDescription = description && (description.includes('.') ? t(description) : description)
 
   return (
-    <div className="flex flex-col gap-1 flex-shrink-0">
-      <div className="px-5 pt-5 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`w-9 h-9 ${iconBgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-            <Icon className={iconColor} size={18} />
+    <div className="pf-widget-header-shell">
+      <div className="pf-widget-header">
+        <div className="pf-widget-header__identity">
+          <div className="pf-widget-icon">
+            <Icon className="pf-widget-icon__glyph" size={17} />
           </div>
-          <div className="min-w-0">
+          <div className="pf-widget-header__copy">
             <WidgetTitle>{displayTitle}</WidgetTitle>
             {displayDescription && <WidgetDescription>{displayDescription}</WidgetDescription>}
           </div>

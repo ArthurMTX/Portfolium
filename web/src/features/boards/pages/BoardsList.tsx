@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Copy, LayoutGrid, PlusCircle, Star, StarOff, Trash2 } from 'lucide-react'
+import { Copy, PlusCircle, Star, StarOff, Trash2 } from 'lucide-react'
 import api from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
@@ -166,9 +166,6 @@ export default function BoardsList() {
                   onClick={() => navigate(`/boards/${board.uuid}`)}
                   aria-label={`${t('boards.list.open')} ${board.name}`}
                 >
-                  <div className="boards-list__card-icon" aria-hidden="true">
-                    <LayoutGrid size={18} />
-                  </div>
                   <div className="boards-list__card-main">
                     <div className="boards-list__card-title-row">
                       <h2>{board.name}</h2>

@@ -99,11 +99,6 @@ export function formatResearchPercent(value: number | null | undefined, decimals
   return `${value >= 0 ? '+' : ''}${formatNumber(value, decimals)}%`
 }
 
-export function formatOwnershipPercent(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '-'
-  return `${formatNumber(value * 100, 1)}%`
-}
-
 export function formatAllocationPercent(weight: number, decimals = 1): string {
   return `${formatNumber(weight * 100, decimals)}%`
 }

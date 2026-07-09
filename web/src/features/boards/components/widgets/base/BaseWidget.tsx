@@ -31,7 +31,7 @@ export function BaseWidget({
   footer,
 }: BaseWidgetWrapperProps) {
   return (
-    <div className={`card h-full flex flex-col ${className}`}>
+    <div className={`card pf-widget-card ${className}`.trim()}>
       <WidgetHeader
         title={title}
         icon={icon}
@@ -42,7 +42,9 @@ export function BaseWidget({
         subHeader={subHeader}
       />
 
-      <div className={`flex-1 ${scrollable ? 'overflow-y-auto scrollbar-hide' : 'overflow-hidden'} ${contentClassName}`}>
+      <div
+        className={`pf-widget-content ${scrollable ? 'pf-widget-content--scrollable scrollbar-hide' : 'pf-widget-content--clipped'} ${contentClassName}`.trim()}
+      >
         {isLoading && <WidgetLoadingState />}
         {error && <WidgetErrorState error={error} retry={onRetry} />}
         {isEmpty && !isLoading && !error && (

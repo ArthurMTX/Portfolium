@@ -46,7 +46,7 @@ export default function BestWorstTodayWidget({ positions }: BestWorstTodayWidget
                 assetType={best.asset_type}
                 assetName={best.name}
                 alt={`${best.symbol} logo`}
-                className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
+                className="w-10 h-10 object-contain flex-shrink-0"
               />
             }
             className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30"
@@ -70,7 +70,7 @@ export default function BestWorstTodayWidget({ positions }: BestWorstTodayWidget
                 assetType={worst.asset_type}
                 assetName={worst.name}
                 alt={`${worst.symbol} logo`}
-                className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
+                className="w-10 h-10 object-contain flex-shrink-0"
               />
             }
             className="bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30"

@@ -67,7 +67,7 @@ export default function PerformerListWidget({
                     assetType={performer.asset_type || 'STOCK'}
                     assetName={name}
                     alt={performer.symbol || 'Unknown'}
-                    className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
+                    className="w-10 h-10 object-contain flex-shrink-0"
                   />
                 </>
               }

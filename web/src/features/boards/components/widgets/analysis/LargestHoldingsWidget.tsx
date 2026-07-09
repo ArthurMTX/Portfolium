@@ -52,7 +52,7 @@ export default function LargestHoldingsWidget({ positions }: LargestHoldingsWidg
                     assetType={position.asset_type || 'STOCK'}
                     assetName={position.name}
                     alt={position.symbol || 'Unknown'}
-                    className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
+                    className="w-10 h-10 object-contain flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">

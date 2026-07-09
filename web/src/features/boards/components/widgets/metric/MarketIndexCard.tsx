@@ -48,7 +48,7 @@ export default function MarketIndexCard({
         change={change}
         changePositiveClass={changePositiveClass}
         changeNegativeClass={changeNegativeClass}
-        secondaryLine={<p className={`text-sm font-semibold mt-1 ${valueClass}`}>{level}</p>}
+        secondaryLine={<p className="pf-widget-metric__secondary">{level}</p>}
       />
     </BaseWidget>
   )

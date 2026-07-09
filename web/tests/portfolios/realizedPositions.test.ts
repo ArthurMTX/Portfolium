@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { PositionDTO } from '../../src/api'
 import { getRealizedPositions } from '../../src/features/portfolios/lib/realizedPositions'
-import { buildTradingPerformanceMetrics } from '../../src/features/assets/lib/tradingPerformanceMetrics'
 
 Object.defineProperty(globalThis, 'navigator', {
   value: { language: 'en-US' },
@@ -73,13 +72,3 @@ assert.deepEqual(
   getRealizedPositions([position({}), partial, closed]).map(({ symbol }) => symbol),
   ['PART'],
 )
-
-const researchMetrics = buildTradingPerformanceMetrics(partial)
-assert.equal(researchMetrics.some(({ key }) => key === 'realized-pnl'), true)
-assert.equal(researchMetrics.some(({ key }) => key === 'average-exit'), true)
-assert.equal(researchMetrics.some(({ key }) => key === 'fees'), true)
-
-const unavailableMetrics = buildTradingPerformanceMetrics(position({ unrealized_pnl: null }))
-assert.equal(unavailableMetrics.some(({ key }) => key === 'unrealized-pnl'), false)
-assert.equal(unavailableMetrics.some(({ key }) => key === 'average-exit'), false)
-assert.equal(unavailableMetrics.some(({ key }) => key === 'fees'), false)

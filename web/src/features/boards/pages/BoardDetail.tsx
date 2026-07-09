@@ -31,7 +31,7 @@ import {
 import BoardGrid from '@/features/boards/components/core/BoardGrid'
 import AddWidgetModal from '@/features/boards/components/core/AddWidgetModal'
 import { useDashboardBatch } from '@/features/boards/hooks/useDashboardBatch'
-import { starterLayouts } from '@/features/boards/components/utils/starterLayout'
+import { reconcileLayoutConstraints, starterLayouts } from '@/features/boards/components/utils/starterLayout'
 import { cleanLayout } from '@/features/boards/components/utils/layoutCompaction'
 import type { Layout } from 'react-grid-layout'
 import type { LayoutConfig } from '@/features/boards/types'
@@ -113,9 +113,9 @@ export default function BoardDetail() {
     // Backend serializes unset minW/minH/maxW/maxH as null; react-grid-layout
     // requires those keys to be either a finite number or entirely absent.
     return {
-      lg: cleanLayout(source.lg),
-      md: cleanLayout(source.md),
-      sm: cleanLayout(source.sm),
+      lg: reconcileLayoutConstraints(cleanLayout(source.lg)),
+      md: reconcileLayoutConstraints(cleanLayout(source.md)),
+      sm: reconcileLayoutConstraints(cleanLayout(source.sm)),
     }
   }, [localLayoutConfig, board?.layout_config])
 

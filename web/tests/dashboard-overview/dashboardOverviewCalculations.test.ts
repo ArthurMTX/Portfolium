@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import type { TFunction } from 'i18next'
 import type { DistributionItemDTO, PositionDTO, ThemeDistributionItemDTO } from '../../src/api'
 import {
   buildDailyAttribution,
@@ -9,6 +10,8 @@ import {
   calculateTransactionAmount,
   numberValue,
 } from '../../src/features/dashboard-overview/lib/dashboardOverviewCalculations'
+
+const translate = ((key: string) => key) as TFunction
 
 const position = (overrides: Partial<PositionDTO> = {}): PositionDTO => ({
   asset_id: 1,
@@ -58,10 +61,11 @@ const attribution = buildDailyAttribution(
     position({ asset_id: 2, symbol: 'BBB', market_value: 500, daily_change_pct: -5 }),
   ],
   70,
+  translate,
   1,
 )
 assert.equal(attribution[0].label, 'AAA')
-assert.equal(attribution[1].label, 'Other positions and market effects')
+assert.equal(attribution[1].label, 'dashboardOverview.otherPositionsAndMarketEffects')
 assert.ok(Math.abs(attribution.reduce((sum, item) => sum + item.value, 0) - 70) < 0.0001)
 
 const standardExposure: DistributionItemDTO[] = [
@@ -86,7 +90,7 @@ const standardExposure: DistributionItemDTO[] = [
     asset_ids: [3],
   },
 ]
-assert.equal(buildExposure(standardExposure, 'standard').isCompleteWhole, true)
+assert.equal(buildExposure(standardExposure, 'standard', translate).isCompleteWhole, true)
 
 const overlappingThemes: ThemeDistributionItemDTO[] = [
   {
@@ -108,7 +112,7 @@ const overlappingThemes: ThemeDistributionItemDTO[] = [
     assets: [],
   },
 ]
-assert.equal(buildExposure(overlappingThemes, 'theme').isCompleteWhole, false)
+assert.equal(buildExposure(overlappingThemes, 'theme', translate).isCompleteWhole, false)
 
 const concentration = calculateConcentration([
   position({ asset_id: 1, symbol: 'AAA', market_value: 600 }),

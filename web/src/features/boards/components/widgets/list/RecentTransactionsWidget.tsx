@@ -269,7 +269,7 @@ export default function RecentTransactionsWidget({ isPreview = false, batchData 
                 assetType={transaction.asset?.asset_type || 'STOCK'}
                 assetName={transaction.asset?.name}
                 alt={transaction.asset?.symbol || 'Unknown'}
-                className="w-10 h-10 object-contain bg-white dark:bg-neutral-900 flex-shrink-0"
+                className="w-10 h-10 object-contain flex-shrink-0"
               />
             }
           >

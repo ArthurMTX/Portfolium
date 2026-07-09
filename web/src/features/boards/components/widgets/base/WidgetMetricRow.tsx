@@ -28,11 +28,11 @@ export function WidgetMetricRow({ icon: Icon, label, value, tone = 'neutral' }: 
 
   return (
     <div className="pf-widget-metric-row" style={{ background: style.background }}>
-      <span className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+      <span className="pf-widget-metric-row__label">
         {Icon && <Icon size={14} style={style.color ? { color: style.color } : undefined} />}
         {label}
       </span>
-      <strong className="text-sm font-semibold" style={style.color ? { color: style.color } : undefined}>
+      <strong className="pf-widget-metric-row__value" style={style.color ? { color: style.color } : undefined}>
         {value}
       </strong>
     </div>

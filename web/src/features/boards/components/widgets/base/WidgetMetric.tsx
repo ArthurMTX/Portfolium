@@ -21,11 +21,20 @@ interface WidgetMetricProps {
 }
 
 const SIZE_CLASSES: Record<NonNullable<WidgetMetricProps['size']>, string> = {
-  md: 'text-xl',
-  lg: 'text-3xl',
+  md: 'pf-widget-metric__value--md',
+  lg: 'pf-widget-metric__value--lg',
 }
 
 const defaultChangeFormatter = (change: number) => `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
+
+function metricToneClass(className?: string): string {
+  if (!className) return ''
+  if (/(rose|red)/.test(className)) return 'is-negative'
+  if (/(emerald|green)/.test(className)) return 'is-positive'
+  if (/(amber|orange|yellow)/.test(className)) return 'is-warning'
+  if (/(blue|cyan|sky|indigo|purple|fuchsia)/.test(className)) return 'is-accent'
+  return ''
+}
 
 /**
  * The single-big-number pattern shared by metric widgets and market index cards.
@@ -48,13 +57,15 @@ export function WidgetMetric({
   }
 
   return (
-    <div className={`flex-1 flex flex-col ${align === 'center' ? 'justify-center' : ''} ${centerText ? 'items-center text-center' : ''}`}>
-      <div className={`flex items-baseline gap-2 ${centerText ? 'justify-center' : ''}`}>
-        <strong className={`tabular-nums font-semibold tracking-tight ${SIZE_CLASSES[size]} ${valueColor}`}>
+    <div className={`pf-widget-metric ${align === 'center' ? 'pf-widget-metric--center' : ''} ${centerText ? 'pf-widget-metric--text-center' : ''}`.trim()}>
+      <div className="pf-widget-metric__line">
+        <strong className={`pf-widget-metric__value ${SIZE_CLASSES[size]} ${metricToneClass(valueColor)}`.trim()}>
           {value}
         </strong>
         {change !== undefined && change !== null && (
-          <span className={`text-xs font-medium ${change >= 0 ? changePositiveClass : changeNegativeClass}`}>
+          <span
+            className={`pf-widget-metric__change ${metricToneClass(change >= 0 ? changePositiveClass : changeNegativeClass)}`.trim()}
+          >
             {changeFormatter(change)}
           </span>
         )}

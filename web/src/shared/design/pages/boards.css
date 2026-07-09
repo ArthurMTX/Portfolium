@@ -23,7 +23,7 @@
 
 .boards-list__card-open {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 1rem;
   width: 100%;
@@ -617,10 +617,6 @@
    ========================================================================== */
 
 @media (max-width: 900px) {
-  .boards-list__card-open {
-    grid-template-columns: auto 1fr;
-  }
-
   .boards-list__card-facts {
     grid-column: 1 / -1;
     justify-content: space-between;

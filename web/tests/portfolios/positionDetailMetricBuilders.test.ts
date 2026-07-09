@@ -164,7 +164,7 @@ assert.deepEqual(tradingZoneFallback, [
   {
     kind: 'empty',
     key: 'distance-to-ath-empty',
-    label: 'dashboard.positionDetail.distanceToATH',
+    label: 'portfolios.positionDetail.distanceToATH',
     message: 'No data available',
   },
 ])
@@ -201,6 +201,6 @@ assert.deepEqual(buildRelativePerformanceMetrics(basePosition, relativeMetrics, 
     color: 'text-green-600 dark:text-green-400',
     icon: 'trendingUp',
     subtitle: 'ACME: +8.00% | XLK: +4.50%',
-    conclusion: 'dashboard.conclusions.performance.inLineWithBenchmark',
+    conclusion: 'assets.conclusions.performance.inLineWithBenchmark',
   },
 ])
