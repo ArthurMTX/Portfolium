@@ -347,3 +347,108 @@ def test_ato_pa_resolves_to_atos_not_atmos_energy(test_db, monkeypatch):
     # Atmos Energy share no anchor token) and the name-based fallback finds
     # the correct company under its actual Adanos ticker ("AEXAF").
     assert al.lookup_adanos_isin(test_db, "ATO.PA", name="Atos SE") == "FR001400X2S4"
+
+
+# --- Real-world regression: elided-article names ("L'Air Liquide") ---------
+
+def test_normalize_company_name_strips_leading_elided_article():
+    # "L'Air Liquide" tokenizes (after punctuation-stripping) to a spurious
+    # leading "l" token from the elided French article -- it must be dropped
+    # the same way trailing single-char tokens already are, or it becomes a
+    # useless anchor token and blocks the name-based fallback entirely.
+    assert al._normalize_company_name("L'Air Liquide S.A.") == ["air", "liquide"]
+
+
+def test_lookup_air_liquide_pa_resolves_despite_elided_article_in_name(test_db, monkeypatch):
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        "LSE::0NWF,0NWF,LSE,Air Liquide SA,Stock,Materials,,France,FR,FR0000120073,air liquide\n"
+        "XETRA::AIL,AIL,XETRA,Air Liquide SA,Stock,Materials,,France,FR,FR0000120073,\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    # Yahoo's ticker "AI.PA" has no equivalent in Adanos at all (real-world:
+    # Adanos files this company under "0NWF"/"AIL", unrelated ticker
+    # strings) -- so this only resolves via the name-based fallback, which
+    # depends on "L'Air Liquide S.A." normalizing to a usable anchor token.
+    assert al.lookup_adanos_isin(test_db, "AI.PA", name="L'Air Liquide S.A.") == "FR0000120073"
+
+
+# --- Real-world regression: TotalEnergies SE (name-prefix collision with
+# distinct regional marketing subsidiaries that have their own ISINs) ------
+
+def test_total_energies_pa_prefers_exact_name_match_over_subsidiary_prefix_match(test_db, monkeypatch):
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        "XETRA::TOTB,TOTB,XETRA,TotalEnergies SE,Stock,Energy,,France,FR,FR0000120271,\n"
+        "NYSE::TTE,TTE,NYSE,TotalEnergies SE Ordinary Shares,Stock,Energy,,France,FR,,\n"
+        "NGX::TOTAL,TOTAL,NGX,TOTALENERGIES MARKETING NIGERIA PLC,Stock,Energy,,Nigeria,NG,NGTOTAL00001,\n"
+        "CSE_MA::TOTALENERG,TOTALENERG,CSE_MA,TOTALENERGIES MARKETING MAROC,Stock,Energy,,Morocco,MA,MA0000012262,\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    # Ticker "TTE" exists in Adanos but without an ISIN, so the ticker stage
+    # finds nothing and this only resolves via the name-based fallback.
+    # Without the exact-match tiebreak, "TotalEnergies SE" would be a
+    # whole-token prefix of both regional subsidiaries too, producing 3
+    # distinct ISINs and a refusal to guess.
+    assert al.lookup_adanos_isin(test_db, "TTE.PA", name="TotalEnergies SE") == "FR0000120271"
+
+
+def test_lookup_by_name_still_refuses_when_multiple_exact_matches_disagree(test_db, monkeypatch):
+    # Two *equally* exact name matches (same normalized tokens) with
+    # different ISINs and no primary/secondary exchange signal to break the
+    # tie -- must still refuse rather than guess.
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        "NYSE::ACM1,ACM1,NYSE,Acme Rockets Inc,Stock,Industrials,,United States,US,US26740W1099,\n"
+        "NASDAQ::ACM2,ACM2,NASDAQ,Acme Rockets Inc,Stock,Industrials,,United States,US,US67066G1040,\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    assert al.lookup_adanos_isin(test_db, "UNRELATEDTICKER", name="Acme Rockets Inc") is None
+
+
+# --- Real-world regression: Airbus (ordinary EU share vs. US OTC listing
+# under a slightly different legal name) ------------------------------------
+
+def test_airbus_pa_prefers_primary_listing_over_otc_listing(test_db, monkeypatch):
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        "LSE::0KVV,0KVV,LSE,Airbus Group SE,Stock,Industrials,,Netherlands,NL,NL0000235190,airbus group\n"
+        "OTC::EADSF,EADSF,OTC,Airbus Group SE,Stock,Industrials,,Netherlands,NL,NL0000235190,\n"
+        "OTC::EADSY,EADSY,OTC,Airbus Group NV,Stock,Industrials,,Netherlands,NL,US0092791005,airbus\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    # Ticker "AIR" doesn't exist for this company in Adanos at all (real-world:
+    # filed under "0KVV"), so this only resolves via the name-based fallback.
+    # "Airbus Group SE" and "Airbus Group NV" both normalize to the same
+    # exact token match ("airbus") once corporate-suffix tokens ("group",
+    # "se", "nv") are stripped, and they carry two different ISINs -- the
+    # ordinary NL-ISIN share (also listed on LSE, a primary exchange) must
+    # win over the US-ISIN listing that is OTC-only.
+    assert al.lookup_adanos_isin(test_db, "AIR.PA", name="Airbus SE") == "NL0000235190"
+
+
+def test_primary_listing_tiebreak_does_not_apply_when_both_sides_have_primary_listings(test_db, monkeypatch):
+    # Two exact name matches with different ISINs, but *both* have a
+    # non-OTC listing -- there's no reliable signal for which is "more
+    # primary", so this must remain unresolved rather than guess.
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        "LSE::DUP1,DUP1,LSE,Duplico Group SE,Stock,Industrials,,United Kingdom,GB,GB0002374006,duplico group\n"
+        "NASDAQ::DUP2,DUP2,NASDAQ,Duplico Group NV,Stock,Industrials,,United States,US,US0092791005,duplico\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    assert al.lookup_adanos_isin(test_db, "UNRELATEDTICKER", name="Duplico SE") is None
+
+
+def test_no_manual_override_map_exists():
+    # Explicit guardrail: fixing known problem symbols (Airbus, Air Liquide,
+    # TotalEnergies, ...) must go through the generic matching algorithm,
+    # never a hardcoded symbol/ISIN override table.
+    assert not hasattr(al, "MANUAL_ISIN_OVERRIDES")
+    assert not hasattr(al, "SYMBOL_ISIN_OVERRIDES")
+    assert not hasattr(al, "ISIN_OVERRIDES")

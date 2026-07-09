@@ -147,6 +147,14 @@ _CORPORATE_SUFFIX_TOKENS = {
 
 _NAME_FIRST_TOKEN_MIN_LEN = 3
 
+# Adanos exchange labels considered secondary/non-primary venues: OTC desks
+# and their regional variants list foreign companies' shares (often as an
+# unsponsored ADR-like arrangement) alongside the company's real, primary
+# listing. When two exact name matches disagree on ISIN, a non-OTC exchange
+# is preferred over these -- conservatively, only when it uniquely
+# disambiguates (exactly one non-OTC candidate remains).
+_SECONDARY_MARKET_EXCHANGES = {"OTC", "OTC US", "OTC MARKETS", "PINK", "GREY MARKET"}
+
 # Markers for depositary-receipt / derivative products (SDRs, ADRs, GDRs,
 # warrants, ratio-converted certificates, etc.). These frequently share a
 # company's name prefix (e.g. "Xiaomi HK SDR 2to1") but represent a
@@ -176,6 +184,11 @@ def _normalize_company_name(name: Optional[str]) -> List[str]:
     never meaningful parts of a company's distinctive name, and without
     dropping them they can block the corporate-suffix strip from ever
     reaching a real suffix token earlier in the trailing run.
+
+    Leading single-character tokens are dropped for the same reason -- an
+    elided article like "L'Air Liquide" otherwise tokenizes to a spurious
+    leading "l" token, which becomes the (too-short, useless) anchor token
+    instead of "air".
     """
     if not name:
         return []
@@ -184,6 +197,8 @@ def _normalize_company_name(name: Optional[str]) -> List[str]:
     tokens = [t for t in text.split() if t]
     while tokens and (tokens[-1] in _CORPORATE_SUFFIX_TOKENS or len(tokens[-1]) <= 1):
         tokens.pop()
+    while tokens and len(tokens[0]) <= 1:
+        tokens.pop(0)
     return tokens
 
 
@@ -234,7 +249,11 @@ def _lookup_by_name(db: Session, name: str) -> Optional[str]:
 
     Only returns a result when exactly one distinct ISIN qualifies across
     the whole candidate set -- otherwise refuses to guess, same as the
-    ticker-based path.
+    ticker-based path. Exception: if exactly one candidate is an *exact*
+    token-for-token name match (as opposed to only a prefix-relation
+    match), that candidate wins even when other, unrelated companies whose
+    name is a superset of the target's also matched via the prefix rule
+    (e.g. "TotalEnergies SE" vs. "TotalEnergies Marketing Nigeria PLC").
     """
     target_tokens = _normalize_company_name(name)
     if not target_tokens:
@@ -257,7 +276,8 @@ def _lookup_by_name(db: Session, name: str) -> Optional[str]:
         .all()
     )
 
-    matched_isins = {}
+    matched_isins: Dict[str, List[AdanosListing]] = defaultdict(list)
+    exact_isins: Dict[str, List[AdanosListing]] = defaultdict(list)
     for candidate in candidates:
         if _is_derivative_product_name(candidate.name):
             continue
@@ -265,13 +285,57 @@ def _lookup_by_name(db: Session, name: str) -> Optional[str]:
             candidate_tokens = _normalize_company_name(candidate_name)
             if not candidate_tokens:
                 continue
+            if candidate_tokens == target_tokens:
+                matched_isins[candidate.isin].append(candidate)
+                exact_isins[candidate.isin].append(candidate)
+                break
             if _is_token_prefix(target_tokens, candidate_tokens) or _is_token_prefix(candidate_tokens, target_tokens):
-                matched_isins[candidate.isin] = candidate
+                matched_isins[candidate.isin].append(candidate)
                 break
 
+    # An exact token-for-token name match is strong evidence of being the
+    # right company even when a *different* company's name happens to have
+    # the target as a proper prefix (e.g. "TotalEnergies SE" is an exact
+    # match, while "TotalEnergies Marketing Nigeria PLC" is only a
+    # prefix-superset match for a distinct regional subsidiary with its own
+    # ISIN). Only trust this tiebreak when it is itself unambiguous -- i.e.
+    # exactly one distinct ISIN achieves an exact match -- otherwise fall
+    # through to the general "exactly one distinct ISIN overall" rule.
+    if len(exact_isins) == 1:
+        return normalize_isin(next(iter(exact_isins.values()))[0].isin)
+
+    if len(exact_isins) > 1:
+        primary = _primary_listing_isin(exact_isins)
+        if primary is not None:
+            return normalize_isin(primary)
+
     if len(matched_isins) == 1:
-        return normalize_isin(next(iter(matched_isins.values())).isin)
+        return normalize_isin(next(iter(matched_isins.values()))[0].isin)
     return None  # no match, or matched more than one distinct company -- refuse to guess
+
+
+def _primary_listing_isin(isin_groups: Dict[str, List[AdanosListing]]) -> Optional[str]:
+    """
+    Last-resort, conservative tiebreak between multiple *exact* name matches
+    that resolved to different ISINs (e.g. a European company's ordinary
+    share vs. a separate US OTC listing under a slightly different legal
+    name, such as Airbus Group SE's NL-ISIN ordinary share vs. "Airbus
+    Group NV"'s US-ISIN OTC listing).
+
+    Prefers the ISIN group that has at least one row on a primary (non-OTC)
+    exchange over a group whose every row is OTC-only -- but only when
+    exactly one ISIN group qualifies as "has a primary listing". If every
+    group has a primary listing, or none do, this refuses to pick (returns
+    None) rather than guess between two normal primary listings.
+    """
+    has_primary = {
+        isin: any((row.exchange or "").upper() not in _SECONDARY_MARKET_EXCHANGES for row in rows)
+        for isin, rows in isin_groups.items()
+    }
+    primary_isins = [isin for isin, is_primary in has_primary.items() if is_primary]
+    if len(primary_isins) == 1:
+        return primary_isins[0]
+    return None
 
 
 def lookup_adanos_isin(
