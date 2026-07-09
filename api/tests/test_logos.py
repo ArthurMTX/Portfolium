@@ -57,10 +57,10 @@ def _flat_color_silhouette_png() -> bytes:
     return buf.getvalue()
 
 
-def test_crypto_logo_uses_brandfetch_crypto_namespace(monkeypatch):
+def test_crypto_logo_uses_logo_dev_crypto_namespace(monkeypatch):
     calls = []
 
-    monkeypatch.setattr(settings, "BRANDFETCH_API_KEY", "test-client-id")
+    monkeypatch.setattr(settings, "LOGO_DEV_API_KEY", "test-logo-dev-token")
     monkeypatch.setattr(logos, "is_valid_image", lambda image_data: True)
     monkeypatch.setattr(logos, "resize_and_optimize_image", lambda image_data: b"optimized")
 
@@ -73,14 +73,14 @@ def test_crypto_logo_uses_brandfetch_crypto_namespace(monkeypatch):
     result = logos.fetch_logo_with_validation("BTC-USD", asset_type="CRYPTOCURRENCY")
 
     assert result == b"optimized"
-    assert calls == [("https://cdn.brandfetch.io/crypto/BTC", {"c": "test-client-id"})]
+    assert calls == [("https://img.logo.dev/crypto/btc", {"token": "test-logo-dev-token", "fallback": "404"})]
 
 
-def test_crypto_logo_falls_back_to_generated_when_brandfetch_crypto_misses(monkeypatch):
-    monkeypatch.setattr(settings, "BRANDFETCH_API_KEY", "test-client-id")
+def test_crypto_logo_falls_back_to_generated_when_logo_dev_crypto_misses(monkeypatch):
+    monkeypatch.setattr(settings, "LOGO_DEV_API_KEY", "test-logo-dev-token")
 
     def fake_get(url, params=None, headers=None, timeout=None):
-        return FakeResponse(status_code=404, content=b"", content_type="text/plain")
+        return FakeResponse(status_code=404, content=b'{"err":"not found"}', content_type="application/json")
 
     monkeypatch.setattr(logos.requests, "get", fake_get)
 
