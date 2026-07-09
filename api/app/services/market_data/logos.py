@@ -1,6 +1,7 @@
 """
 Logo fetching service using Brandfetch API
 """
+import hashlib
 import io
 import logging
 import re
@@ -18,6 +19,13 @@ BRANDFETCH_SEARCH_URL = "https://api.brandfetch.io/v2/search/{identifier}"
 BRANDFETCH_CDN_URL = "https://cdn.brandfetch.io/{brand_id}"
 BRANDFETCH_CRYPTO_CDN_URL = "https://cdn.brandfetch.io/crypto/{ticker}"
 
+# logo.dev API configuration (ticker-based lookup, used as a fallback when
+# Brandfetch's direct/company-name lookups fail). Brandfetch's own ticker
+# search does loose substring matching and can attach an unrelated
+# company's real logo to an obscure ticker (e.g. VPG matching "Vertical
+# Playground" via the vpg.no domain), so it isn't used for ticker search.
+LOGO_DEV_TICKER_URL = "https://img.logo.dev/ticker/{ticker}"
+
 # Request headers for CDN requests (Brandfetch requires browser-like User-Agent)
 CDN_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -29,6 +37,13 @@ MIN_VALID_IMAGE_SIZE = 200  # bytes
 # Minimum dimensions for a valid logo
 MIN_VALID_WIDTH = 16
 MIN_VALID_HEIGHT = 16
+
+# SHA-256 hashes of Brandfetch's generic "B" placeholder image, returned for
+# unmatched brand IDs/tickers instead of a 404. Confirmed identical bytes for
+# e.g. DIANATEA.BO and PLBL. Reject any fetch that matches one of these.
+BRANDFETCH_PLACEHOLDER_HASHES = {
+    "95834f990aa9ee7de720095f1b578f67816b53903131b6404aadf526f36cfe8f",
+}
 
 
 def _candidate_names(company_name: str) -> Iterator[str]:
@@ -142,7 +157,13 @@ def is_valid_image(image_data: bytes) -> bool:
     if len(image_data) < MIN_VALID_IMAGE_SIZE:
         logger.debug(f"Image too small: {len(image_data)} bytes")
         return False
-    
+
+    # Reject Brandfetch's generic "B" placeholder, served for unmatched
+    # brand IDs/tickers instead of a 404 (e.g. DIANATEA.BO, PLBL)
+    if hashlib.sha256(image_data).hexdigest() in BRANDFETCH_PLACEHOLDER_HASHES:
+        logger.debug("Image is Brandfetch's generic placeholder logo")
+        return False
+
     try:
         # Try to open and validate the image
         img = Image.open(io.BytesIO(image_data))
@@ -154,6 +175,9 @@ def is_valid_image(image_data: bytes) -> bool:
             return False
 
         # If the image has an alpha channel, ensure it's not fully or almost fully transparent
+        # and check whether the alpha channel itself carries shape (e.g. a flat-color
+        # silhouette logo like Ethereum's solid-black diamond on a transparent background).
+        alpha_has_shape = False
         try:
             img_rgba = img.convert('RGBA')
             alpha = img_rgba.getchannel('A')
@@ -171,19 +195,27 @@ def is_valid_image(image_data: bytes) -> bool:
             if opacity_ratio < 0.01:  # less than 1% pixels are visible
                 logger.debug(f"Image nearly fully transparent (opaque ratio: {opacity_ratio:.5f})")
                 return False
+            # If alpha itself varies (not uniformly opaque/transparent), the image
+            # has a real shape even if its visible color is completely flat.
+            alpha_extrema = alpha.getextrema()
+            alpha_has_shape = alpha_extrema[0] != alpha_extrema[1]
         except Exception:
             # If alpha handling fails, continue with RGB checks below
             pass
 
-        # Check if the image is essentially blank (all pixels same color)
-        # Convert to RGB (drops alpha) and test extrema
-        extrema = img.convert('RGB').getextrema()
-        # extrema returns ((min_r, max_r), (min_g, max_g), (min_b, max_b))
-        # If all channels have same min and max, it's a solid color
-        is_solid_color = all(min_val == max_val for min_val, max_val in extrema)
-        if is_solid_color:
-            logger.debug("Image is solid color (likely empty)")
-            return False
+        # Check if the image is essentially blank (all pixels same color).
+        # Skip this for images whose alpha channel already proved they have a
+        # real shape (e.g. a flat-color silhouette logo on transparent background)
+        # -- convert('RGB') below would flatten alpha onto black and falsely
+        # read such logos as a "solid color".
+        if not alpha_has_shape:
+            extrema = img.convert('RGB').getextrema()
+            # extrema returns ((min_r, max_r), (min_g, max_g), (min_b, max_b))
+            # If all channels have same min and max, it's a solid color
+            is_solid_color = all(min_val == max_val for min_val, max_val in extrema)
+            if is_solid_color:
+                logger.debug("Image is solid color (likely empty)")
+                return False
 
         return True
 
@@ -337,6 +369,55 @@ def fetch_crypto_logo_direct(ticker: str) -> Optional[bytes]:
         return None
 
 
+def fetch_logo_from_logo_dev(ticker: str) -> Optional[bytes]:
+    """
+    Fetch a logo from logo.dev's ticker-based lookup.
+
+    Uses fallback=404 so unmatched tickers return an HTTP 404 with a JSON
+    error body instead of a generated placeholder image, giving an
+    unambiguous signal (unlike Brandfetch, whose ticker search can match
+    unrelated companies and whose direct CDN fetch returns a generic "B"
+    placeholder image with HTTP 200 for unmatched brand IDs).
+    """
+    if not settings.LOGO_DEV_API_KEY:
+        logger.debug("LOGO_DEV_API_KEY not configured, skipping logo.dev fetch")
+        return None
+
+    normalized_ticker = _normalize_ticker_for_search(ticker)
+    if not normalized_ticker:
+        return None
+
+    try:
+        url = LOGO_DEV_TICKER_URL.format(ticker=normalized_ticker)
+        params = {"token": settings.LOGO_DEV_API_KEY, "fallback": "404"}
+        response = requests.get(url, params=params, timeout=5)
+
+        if response.status_code == 200:
+            content_type = response.headers.get('Content-Type', '').lower()
+            if not content_type.startswith('image/'):
+                logger.debug(f"logo.dev returned non-image content type for {ticker}: {content_type}")
+                return None
+
+            if is_valid_image(response.content):
+                optimized = resize_and_optimize_image(response.content)
+                if optimized:
+                    logger.info(f"Successfully fetched and optimized logo for {ticker} via logo.dev")
+                    return optimized
+
+                logger.info(f"Successfully fetched logo for {ticker} via logo.dev (optimization failed)")
+                return response.content
+
+            logger.warning(f"logo.dev returned empty/invalid image for ticker {ticker}")
+            return None
+
+        logger.debug(f"logo.dev fetch failed for {ticker}: HTTP {response.status_code}")
+        return None
+
+    except requests.RequestException as e:
+        logger.warning(f"Failed to fetch logo for {ticker} via logo.dev: {e}")
+        return None
+
+
 def brandfetch_search(identifier: str) -> List[Dict[str, Any]]:
     """
     Search Brandfetch API for brands matching the identifier.
@@ -368,56 +449,114 @@ def brandfetch_search(identifier: str) -> List[Dict[str, Any]]:
         return []
 
 
-def pick_best_brand(results: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+# Minimum quality score required to accept a brand match. Brandfetch returns
+# loosely-matched results (e.g. domains that merely contain the search term
+# as a substring) even for obscure/unrelated companies, so unclaimed,
+# unverified, low-quality matches must be rejected rather than picked as
+# "best of a bad bunch".
+MIN_BRAND_QUALITY_SCORE = 0.6
+
+# Word-ish characters used to check that a search identifier appears as a
+# whole token in a brand's name/domain, not merely as a substring inside an
+# unrelated word (e.g. "plbl" inside "plblending.com").
+_WORD_CHARS_RE = re.compile(r"[a-z0-9]+")
+
+
+def _identifier_matches_brand(identifier: str, brand: Dict[str, Any]) -> bool:
+    """Check whether a search identifier plausibly refers to this brand.
+
+    Requires every word of the identifier to appear as a whole alnum token
+    inside the brand's name or domain (not just anywhere as a raw
+    substring), so a ticker like "PLBL" won't match domains such as
+    "plblending.com" or "plblaw.com" that merely happen to contain the same
+    letters, while a multi-word company name like "Eli Lilly" still matches
+    a brand named "Eli Lilly and Company".
+    """
+    identifier_words = _WORD_CHARS_RE.findall(identifier.strip().lower())
+    if not identifier_words:
+        return False
+
+    name = (brand.get('name') or '').lower()
+    domain = (brand.get('domain') or '').lower()
+
+    name_tokens = set(_WORD_CHARS_RE.findall(name))
+    domain_tokens = set(_WORD_CHARS_RE.findall(domain.split('.')[0])) if domain else set()
+    available_tokens = name_tokens | domain_tokens
+
+    return all(word in available_tokens for word in identifier_words)
+
+
+def pick_best_brand(results: List[Dict[str, Any]], identifier: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Pick the best brand from Brandfetch search results.
-    
+
     Scoring criteria:
     - Verified brands get bonus points
     - Claimed brands get bonus points
     - Higher quality score is better
     - Shorter domain name is preferred (likely the main brand)
-    
+
     Args:
         results: List of brand results from Brandfetch
-        
+        identifier: The search term used to obtain these results. When
+            provided, candidates whose name/domain don't actually contain
+            the identifier as a whole token are discarded, and a minimum
+            quality bar is enforced, to avoid attaching an unrelated
+            company's logo to the wrong asset.
+
     Returns:
         Best matching brand or None if no suitable match
     """
     if not results:
         return None
-    
+
+    candidates = results
+    if identifier:
+        candidates = [b for b in results if _identifier_matches_brand(identifier, b)]
+        if not candidates:
+            logger.debug(f"No brand result plausibly matches identifier '{identifier}'")
+            return None
+
     def score_brand(brand: Dict[str, Any]) -> float:
         """Calculate score for a brand"""
         score = 0.0
-        
+
         # Quality score is the base
         score += brand.get('qualityScore', 0.0)
-        
+
         # Verified gets significant bonus
         if brand.get('verified', False):
             score += 2.0
-        
+
         # Claimed gets moderate bonus
         if brand.get('claimed', False):
             score += 1.0
-        
+
         # Prefer shorter domains (main brand vs subdomain)
         domain = brand.get('domain', '')
         if domain:
             # Penalize long domains slightly
             domain_penalty = len(domain) * 0.01
             score -= domain_penalty
-        
+
         return score
-    
+
     # Score all brands and pick the highest
-    scored = [(score_brand(brand), brand) for brand in results]
+    scored = [(score_brand(brand), brand) for brand in candidates]
     scored.sort(key=lambda x: x[0], reverse=True)
-    
+
     best_score, best_brand = scored[0]
+
+    if identifier and not (best_brand.get('verified') or best_brand.get('claimed')) \
+            and best_brand.get('qualityScore', 0.0) < MIN_BRAND_QUALITY_SCORE:
+        logger.debug(
+            f"Best brand for '{identifier}' ({best_brand.get('name')}) is unverified, "
+            f"unclaimed, and below quality threshold (score: {best_score:.2f}); rejecting"
+        )
+        return None
+
     logger.debug(f"Best brand: {best_brand.get('name')} (score: {best_score:.2f})")
-    
+
     return best_brand
 
 
@@ -436,7 +575,7 @@ def find_logo_path(company_name: str) -> Optional[str]:
     for candidate in _candidate_names(company_name):
         results = brandfetch_search(candidate)
         if results:
-            best = pick_best_brand(results)
+            best = pick_best_brand(results, identifier=candidate)
             if best and best.get('brandId'):
                 logger.info(f"Found logo for '{company_name}' via search '{candidate}': {best['brandId']}")
                 return best['brandId']
@@ -523,49 +662,56 @@ def generate_etf_logo(ticker: str) -> str:
     return svg
 
 
-def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, asset_type: Optional[str] = None) -> Optional[bytes]:
+# Provider labels returned by fetch_logo_with_source, identifying which
+# upstream service actually supplied the logo bytes.
+LOGO_SOURCE_BRANDFETCH = "brandfetch"
+LOGO_SOURCE_LOGO_DEV = "logo_dev"
+LOGO_SOURCE_GENERATED = "generated"
+
+
+def fetch_logo_with_source(ticker: str, company_name: Optional[str] = None, asset_type: Optional[str] = None) -> tuple[bytes, str]:
     """
-    Fetch and validate a logo for a ticker.
-    
+    Fetch and validate a logo for a ticker, reporting which provider supplied it.
+
     Strategy:
     1. If asset_type is 'ETF', generate SVG logo immediately (skip brand search)
     2. For cryptocurrencies, try Brandfetch's crypto CDN namespace
-    3. For other assets, try direct CDN fetch using ticker as brand ID
-    4. If direct ticker returns empty/invalid, try searching by ticker (API search)
-    5. If that fails, try searching by company name
+    3. For other assets, try direct CDN fetch using ticker as brand ID (Brandfetch)
+    4. If that fails and a company name is provided, search Brandfetch by company name
+    5. If that fails, try logo.dev's ticker-based lookup (fallback=404 for a clean signal)
     6. If all else fails, generate an SVG logo with the ticker
     7. Validate all fetched images to ensure they're not empty
-    
+
     Args:
         ticker: Stock ticker symbol
         company_name: Optional company name for fallback search
         asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO')
-        
+
     Returns:
-        Valid logo image bytes (or SVG string as bytes)
+        Tuple of (valid logo image bytes, or SVG string as bytes; provider label)
     """
     # For ETFs, generate SVG logo immediately to avoid incorrect brand matches
     if asset_type and asset_type.upper() == 'ETF':
         logger.info(f"Asset type is ETF for {ticker}, generating SVG logo")
         svg_logo = generate_etf_logo(ticker)
-        return svg_logo.encode('utf-8')
-    
+        return svg_logo.encode('utf-8'), LOGO_SOURCE_GENERATED
+
     # Check if cryptocurrency to skip company/ticker searches
     is_crypto = asset_type and asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
 
     if is_crypto:
         logo_data = fetch_crypto_logo_direct(ticker)
         if logo_data:
-            return logo_data
-    
+            return logo_data, LOGO_SOURCE_BRANDFETCH
+
     # Strategy 1: Direct fetch by ticker (skip for cryptocurrencies)
     if not is_crypto:
         logo_data = fetch_logo_direct(ticker)
         if logo_data:
-            return logo_data
+            return logo_data, LOGO_SOURCE_BRANDFETCH
     else:
         logger.info(f"Skipping generic direct CDN fetch for cryptocurrency {ticker}")
-    
+
     # Strategy 2: Search by company name FIRST if provided (more reliable than ticker search)
     # Ticker search can return wrong companies
     if company_name and not is_crypto:
@@ -575,31 +721,40 @@ def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, 
             logo_data = fetch_logo_by_brand_id(brand_id)
             if logo_data:
                 logger.info(f"Successfully fetched logo via company name search for {ticker}")
-                return logo_data
+                return logo_data, LOGO_SOURCE_BRANDFETCH
     elif company_name:
         logger.info(f"Skipping company name search for cryptocurrency {ticker}")
-    
-    # Strategy 3: Search API using normalized ticker as search term (fallback if no company name)
-    # Skip ticker search for cryptocurrencies to avoid matching company tickers (e.g., BTC matching companies named BTC)
+
+    # Strategy 3: logo.dev ticker-based lookup (fallback if no company name match)
+    # Brandfetch's own ticker search does loose substring matching and can attach an
+    # unrelated company's logo (e.g. VPG matching "Vertical Playground" via vpg.no), so
+    # logo.dev is used instead with fallback=404 for an unambiguous match/no-match signal.
+    # Skip for cryptocurrencies to avoid matching company tickers (e.g., BTC matching companies named BTC)
     if not is_crypto:
-        logger.info(f"Company name search failed for {ticker}, trying API search by ticker")
-        normalized_ticker = _normalize_ticker_for_search(ticker)
-        if normalized_ticker:
-            results = brandfetch_search(normalized_ticker)
-            best = pick_best_brand(results) if results else None
-            brand_id = best.get('brandId') if best else None
-            if brand_id and brand_id != ticker:
-                logo_data = fetch_logo_by_brand_id(brand_id)
-                if logo_data:
-                    logger.info(f"Successfully fetched logo via ticker search for {ticker}")
-                    return logo_data
+        logger.info(f"Company name search failed for {ticker}, trying logo.dev by ticker")
+        logo_data = fetch_logo_from_logo_dev(ticker)
+        if logo_data:
+            logger.info(f"Successfully fetched logo via logo.dev for {ticker}")
+            return logo_data, LOGO_SOURCE_LOGO_DEV
     else:
-        logger.info(f"Skipping ticker search for cryptocurrency {ticker}")
-    
+        logger.info(f"Skipping logo.dev ticker lookup for cryptocurrency {ticker}")
+
     # Strategy 4: Generate SVG logo as final fallback
     logger.info(f"No logo found for {ticker}, generating SVG fallback")
     svg_logo = generate_etf_logo(ticker)
-    return svg_logo.encode('utf-8')
+    return svg_logo.encode('utf-8'), LOGO_SOURCE_GENERATED
 
 
-# Note: placeholder generation and brand ID-only helpers were removed.
+def fetch_logo_with_validation(ticker: str, company_name: Optional[str] = None, asset_type: Optional[str] = None) -> Optional[bytes]:
+    """
+    Fetch and validate a logo for a ticker.
+
+    Thin backward-compatible wrapper around fetch_logo_with_source for
+    callers that only need the image bytes and don't care which provider
+    supplied them (e.g. PDF report generation).
+
+    Returns:
+        Valid logo image bytes (or SVG string as bytes)
+    """
+    logo_bytes, _source = fetch_logo_with_source(ticker, company_name=company_name, asset_type=asset_type)
+    return logo_bytes

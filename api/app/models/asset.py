@@ -58,7 +58,7 @@ class Asset(Base):
     logo_data = Column(LargeBinary)  # Binary logo data (WebP or SVG)
     logo_content_type = Column(String)  # MIME type (image/webp, image/svg+xml)
     logo_fetched_at = Column(DateTime)  # When logo was last fetched/resolved
-    logo_provider = Column(String(32))  # 'trade_republic' | 'brandfetch' | 'generated'
+    logo_provider = Column(String(32))  # 'trade_republic' | 'brandfetch' | 'logo_dev' | 'generated'
     logo_url = Column(String)  # canonical default logo URL (theme-agnostic)
     logo_light_url = Column(String)  # light-theme logo URL (Trade Republic)
     logo_dark_url = Column(String)  # dark-theme logo URL (Trade Republic)

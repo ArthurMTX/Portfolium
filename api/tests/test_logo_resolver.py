@@ -8,6 +8,7 @@ from app.services.market_data import logo_resolver
 ISIN = "US0378331005"
 GENERATED_SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><text>AAP</text></svg>'
 BRANDFETCH_BYTES = b"\x89PNG\r\n\x1a\nfakebytes"
+LOGO_DEV_BYTES = b"\x89PNG\r\n\x1a\nlogodevbytes"
 
 
 def _make_asset(db, **overrides):
@@ -67,8 +68,8 @@ def test_isin_present_tr_empty_falls_back_to_brandfetch(monkeypatch, test_db):
     monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: BRANDFETCH_BYTES,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (BRANDFETCH_BYTES, "brandfetch"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=False)
@@ -79,13 +80,35 @@ def test_isin_present_tr_empty_falls_back_to_brandfetch(monkeypatch, test_db):
     assert asset.logo_data == BRANDFETCH_BYTES
 
 
+def test_isin_present_tr_empty_falls_back_to_logo_dev(monkeypatch, test_db):
+    """Regression test: when fetch_logo_with_source reports "logo_dev" as
+    the winning provider (e.g. VPG, whose logo only Brandfetch's direct CDN
+    misses and logo.dev's ticker lookup finds), the asset must be persisted
+    with logo_provider="logo_dev", not silently mislabeled as "brandfetch"."""
+    asset = _make_asset(test_db, symbol="VPG", asset_type="EQUITY", isin=ISIN)
+
+    monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
+    monkeypatch.setattr(
+        logo_resolver,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (LOGO_DEV_BYTES, "logo_dev"),
+    )
+
+    result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=False)
+
+    assert result.provider == "logo_dev"
+    assert result.logo_bytes == LOGO_DEV_BYTES
+    assert asset.logo_provider == "logo_dev"
+    assert asset.logo_data == LOGO_DEV_BYTES
+
+
 def test_etf_without_isin_falls_back_to_generated(monkeypatch, test_db):
     asset = _make_asset(test_db, symbol="SPY", asset_type="ETF")
 
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=False)
@@ -128,8 +151,8 @@ def test_force_true_reresolves_existing_trade_republic_logo(monkeypatch, test_db
     monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, force=True, allow_isin_lookup=False)
@@ -152,8 +175,8 @@ def test_crypto_asset_never_triggers_isin_or_trade_republic(monkeypatch, test_db
     monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", fail_tr)
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)
@@ -172,8 +195,8 @@ def test_get_isin_exception_does_not_break_resolution(monkeypatch, test_db):
     )
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)
@@ -207,8 +230,8 @@ def test_adanos_isin_resolved_before_yahoo_is_ever_called(monkeypatch, test_db):
     monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)
@@ -241,7 +264,7 @@ def test_sibling_trade_republic_logo_is_reused_across_exchanges(monkeypatch, tes
     def fail_brandfetch(*_args, **_kwargs):
         pytest.fail("Should reuse the sibling's Trade Republic logo instead of falling back to Brandfetch")
 
-    monkeypatch.setattr(logo_resolver, "fetch_logo_with_validation", fail_brandfetch)
+    monkeypatch.setattr(logo_resolver, "fetch_logo_with_source", fail_brandfetch)
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=False)
 
@@ -267,8 +290,8 @@ def test_sibling_logo_not_reused_for_crypto(monkeypatch, test_db):
 
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)
@@ -297,8 +320,8 @@ def test_force_lets_adanos_correct_a_wrong_existing_isin(monkeypatch, test_db):
     monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     logo_resolver.resolve_asset_logo(test_db, asset, force=True, allow_isin_lookup=True)
@@ -323,8 +346,8 @@ def test_force_keeps_existing_isin_when_adanos_has_nothing(monkeypatch, test_db)
     monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: GENERATED_SVG,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (GENERATED_SVG, "generated"),
     )
 
     logo_resolver.resolve_asset_logo(test_db, asset, force=True, allow_isin_lookup=True)
@@ -337,8 +360,8 @@ def test_no_sibling_falls_through_to_brandfetch(monkeypatch, test_db):
 
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: BRANDFETCH_BYTES,
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (BRANDFETCH_BYTES, "brandfetch"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=False)

@@ -1913,7 +1913,7 @@ async def resolve_logo(
     - variant: Optional theme variant ('light' or 'dark') for Trade Republic logos.
     """
     # Lazy imports to avoid import-time issues
-    from app.services.market_data.logos import fetch_logo_with_validation
+    from app.services.market_data.logos import fetch_logo_with_source
     from app.services.market_data.logo_resolver import resolve_asset_logo
     from app.crud import assets as crud_assets
     from fastapi.responses import Response
@@ -1959,7 +1959,7 @@ async def resolve_logo(
     # (resolve_asset_logo runs that unconditionally now), so a persisted
     # asset that simply hasn't been backfilled yet still gets a shot at
     # Trade Republic instead of being stuck requiring a pre-existing ISIN.
-    if db_asset and db_asset.logo_provider not in ("trade_republic", "brandfetch"):
+    if db_asset and db_asset.logo_provider not in ("trade_republic", "brandfetch", "logo_dev"):
         resolution = resolve_asset_logo(
             db,
             db_asset,
@@ -2033,7 +2033,7 @@ async def resolve_logo(
 
         # Fetch logo using the consolidated validation function
         # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
-        logo_data = fetch_logo_with_validation(symbol, company_name=effective_name, asset_type=effective_asset_type)
+        logo_data, logo_source = fetch_logo_with_source(symbol, company_name=effective_name, asset_type=effective_asset_type)
 
         # Determine content type based on data
         is_svg_fallback = logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml')
@@ -2042,7 +2042,7 @@ async def resolve_logo(
         # Only cache real logos in database, not SVG fallbacks
         # SVG fallbacks should be regenerated so they can be replaced with real logos later
         if db_asset and not skip_cache and not is_svg_fallback:
-            crud_assets.cache_logo(db, db_asset.id, logo_data, content_type, provider="brandfetch")
+            crud_assets.cache_logo(db, db_asset.id, logo_data, content_type, provider=logo_source)
 
     # Return the logo
     return image_response(logo_data, content_type, is_svg_fallback=is_svg_fallback)

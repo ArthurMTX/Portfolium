@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     # Brandfetch API (for fetching company logos)
     BRANDFETCH_API_KEY: str = ""  # Optional: Leave empty to disable logo fetching
 
+    # logo.dev API (fallback ticker-based logo lookup, more reliable than Brandfetch's
+    # ticker search which can match unrelated companies sharing similar names/domains)
+    LOGO_DEV_API_KEY: str = ""  # Optional: Leave empty to disable logo.dev fallback
+
     # Asset theme classification
     ASSET_THEME_CLASSIFIER_MODE: str = "minilm"
     GEMINI_API_KEY: str = ""

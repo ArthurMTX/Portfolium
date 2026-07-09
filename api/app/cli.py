@@ -127,9 +127,10 @@ def refresh_themes(symbol: Optional[str], force: bool) -> None:
 
 def backfill_logos(symbol: Optional[str], force: bool, sleep_seconds: float) -> None:
     """
-    Backfill ISIN + logo (Trade Republic -> Brandfetch -> generated) for
-    existing assets. Safe to run repeatedly: already-resolved Trade
-    Republic/Brandfetch logos are left untouched unless --force is passed.
+    Backfill ISIN + logo (Trade Republic -> Brandfetch -> logo.dev ->
+    generated) for existing assets. Safe to run repeatedly: already-resolved
+    Trade Republic/Brandfetch/logo.dev logos are left untouched unless
+    --force is passed.
     """
     from app.services.market_data.logo_resolver import resolve_asset_logo
 
@@ -151,6 +152,7 @@ def backfill_logos(symbol: Optional[str], force: bool, sleep_seconds: float) -> 
             "isin_resolved": 0,
             "trade_republic": 0,
             "brandfetch": 0,
+            "logo_dev": 0,
             "generated": 0,
             "unchanged": 0,
             "failed": 0,

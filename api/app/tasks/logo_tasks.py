@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def backfill_asset_logos(asset_id: Optional[int] = None, force: bool = False) -> dict:
     """
     Opportunistically resolve ISIN + logo (Trade Republic -> Brandfetch ->
-    generated) for one asset or all assets.
+    logo.dev -> generated) for one asset or all assets.
 
     Args:
         asset_id: Optional asset ID to backfill. If None, backfills all assets.
@@ -29,6 +29,7 @@ def backfill_asset_logos(asset_id: Optional[int] = None, force: bool = False) ->
             - isin_resolved: int
             - trade_republic: int
             - brandfetch: int
+            - logo_dev: int
             - generated: int
             - unchanged: int
             - errors: list of error messages
@@ -48,6 +49,7 @@ def backfill_asset_logos(asset_id: Optional[int] = None, force: bool = False) ->
             "isin_resolved": 0,
             "trade_republic": 0,
             "brandfetch": 0,
+            "logo_dev": 0,
             "generated": 0,
             "unchanged": 0,
         }
@@ -67,10 +69,11 @@ def backfill_asset_logos(asset_id: Optional[int] = None, force: bool = False) ->
                 errors.append(error_msg)
 
         logger.info(
-            "Logo/ISIN backfill complete: %s processed, %s trade_republic, %s brandfetch, %s generated",
+            "Logo/ISIN backfill complete: %s processed, %s trade_republic, %s brandfetch, %s logo_dev, %s generated",
             counters["processed"],
             counters["trade_republic"],
             counters["brandfetch"],
+            counters["logo_dev"],
             counters["generated"],
         )
 
@@ -83,6 +86,7 @@ def backfill_asset_logos(asset_id: Optional[int] = None, force: bool = False) ->
             "isin_resolved": 0,
             "trade_republic": 0,
             "brandfetch": 0,
+            "logo_dev": 0,
             "generated": 0,
             "unchanged": 0,
             "errors": [str(e)],

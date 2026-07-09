@@ -152,8 +152,8 @@ def test_resolve_asset_logo_resolves_isin_via_adanos_before_trying_yahoo(test_db
     _seed_adanos(test_db, "NYSE::QBTS", "QBTS", "NYSE", "US26740W1099")
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: b'<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)
@@ -171,8 +171,8 @@ def test_resolve_asset_logo_falls_back_to_yahoo_when_adanos_has_nothing(test_db,
     )
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: b'<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "generated"),
     )
 
     result = logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)
@@ -195,8 +195,8 @@ def test_resolve_asset_logo_never_touches_existing_isin(test_db, monkeypatch):
     )
     monkeypatch.setattr(
         logo_resolver,
-        "fetch_logo_with_validation",
-        lambda ticker, company_name=None, asset_type=None: b'<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        "fetch_logo_with_source",
+        lambda ticker, company_name=None, asset_type=None: (b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "generated"),
     )
 
     logo_resolver.resolve_asset_logo(test_db, asset, allow_isin_lookup=True)

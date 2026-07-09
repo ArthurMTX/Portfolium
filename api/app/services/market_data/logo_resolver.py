@@ -5,15 +5,17 @@ Priority chain:
   1. Trade Republic (via ISIN) -- for all listed instrument types (stocks,
      ETFs, funds, ETCs, ETNs) since Trade Republic has clean SVGs for
      financial instruments that Brandfetch usually cannot resolve.
-  2. Brandfetch -- unchanged, existing behavior (mainly effective for
-     equities/companies with a reliable domain; ETFs already skip straight
-     to the generated fallback inside fetch_logo_with_validation).
+  2. Brandfetch / logo.dev -- see fetch_logo_with_source for the internal
+     strategy order (direct CDN, company-name search, then logo.dev's
+     ticker lookup as a more reliable alternative to Brandfetch's own
+     ticker search, which can match unrelated companies); ETFs already skip
+     straight to the generated fallback inside fetch_logo_with_source.
   3. Generated ticker-initials fallback -- unchanged, existing behavior.
 
-A Trade Republic or Brandfetch resolution is "sticky": once set, it is never
-silently downgraded to a worse fallback. A "generated" resolution is
-deliberately NOT sticky, matching the pre-existing behavior where SVG
-fallbacks can be superseded by a real logo on a later attempt.
+A Trade Republic, Brandfetch, or logo.dev resolution is "sticky": once set,
+it is never silently downgraded to a worse fallback. A "generated"
+resolution is deliberately NOT sticky, matching the pre-existing behavior
+where SVG fallbacks can be superseded by a real logo on a later attempt.
 """
 import logging
 from dataclasses import dataclass
@@ -30,7 +32,7 @@ from app.services.market_data.trade_republic_logos import (
     build_trade_republic_logo_url,
     fetch_trade_republic_logos,
 )
-from app.services.market_data.logos import fetch_logo_with_validation
+from app.services.market_data.logos import fetch_logo_with_source
 from app.services.reference_data.adanos_listings import strip_yahoo_suffix
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,7 @@ _CRYPTO_ASSET_TYPES = {"CRYPTO", "CRYPTOCURRENCY"}
 
 @dataclass
 class LogoResolutionResult:
-    provider: str  # "trade_republic" | "brandfetch" | "generated" | "unchanged"
+    provider: str  # "trade_republic" | "brandfetch" | "logo_dev" | "generated" | "unchanged"
     isin_resolved: bool = False
     logo_bytes: Optional[bytes] = None
     logo_content_type: Optional[str] = None
@@ -235,19 +237,19 @@ def resolve_asset_logo(
 
     effective_name = asset.name or name_hint
     effective_type = asset.asset_type or asset_type_hint
-    logo_bytes = fetch_logo_with_validation(asset.symbol, company_name=effective_name, asset_type=effective_type)
+    logo_bytes, logo_source = fetch_logo_with_source(asset.symbol, company_name=effective_name, asset_type=effective_type)
     is_svg = logo_bytes.startswith(b"<svg") or logo_bytes.startswith(b"<?xml")
     content_type = "image/svg+xml" if is_svg else "image/webp"
 
     if not is_svg:
         from app.crud.assets import cache_logo
 
-        cache_logo(db, asset.id, logo_bytes, content_type, provider="brandfetch")
+        cache_logo(db, asset.id, logo_bytes, content_type, provider=logo_source)
         logger.info(
-            "Brandfetch logo used as fallback",
-            extra={"event": "fallback_brandfetch", "symbol": asset.symbol},
+            f"{logo_source} logo used as fallback",
+            extra={"event": "fallback_brandfetch", "symbol": asset.symbol, "source": logo_source},
         )
-        provider_result = "brandfetch"
+        provider_result = logo_source
     else:
         # Not sticky: leave room for a later attempt to supersede this with a
         # real Trade Republic/Brandfetch logo, matching existing behavior.

@@ -50,7 +50,7 @@ YFINANCE_FAILURES = Counter(
 LOGO_RESOLUTION = Counter(
     "portfolium_logo_resolution_total",
     "Asset logo resolution outcomes by provider.",
-    ("provider",),  # trade_republic | brandfetch | generated | unchanged
+    ("provider",),  # trade_republic | brandfetch | logo_dev | generated | unchanged
 )
 TRADE_REPUBLIC_LOGO_VALIDATION = Counter(
     "portfolium_trade_republic_logo_validation_total",
