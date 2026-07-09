@@ -452,3 +452,51 @@ def test_no_manual_override_map_exists():
     assert not hasattr(al, "MANUAL_ISIN_OVERRIDES")
     assert not hasattr(al, "SYMBOL_ISIN_OVERRIDES")
     assert not hasattr(al, "ISIN_OVERRIDES")
+
+
+# --- Real-world regression: Rio Tinto (genuine dual-listed company -- three
+# distinct ISINs, each with its own legitimate primary-exchange listing) ----
+
+def test_rio_l_resolves_to_lse_listing_via_suffix_exchange_tiebreak(test_db, monkeypatch):
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        # Yahoo's "RIO.L" means the LSE-listed Rio Tinto plc ordinary share,
+        # but Adanos files that exact listing under ticker "0KWZ", not
+        # "RIO" -- so ticker matching alone (even after exchange
+        # disambiguation) can't find it; only the name-based fallback,
+        # narrowed by the ".L" -> "LSE" suffix mapping, can.
+        "LSE::0KWZ,0KWZ,LSE,Rio Tinto Group,Stock,Materials,,United Kingdom,GB,US7672041008,\n"
+        "NYSE::RIO,RIO,NYSE,Rio Tinto plc,Stock,Materials,,United Kingdom,GB,US7672041008,rio tinto\n"
+        # A genuinely different security for the same corporate family --
+        # Rio Tinto Limited, the ASX-listed, Australian-incorporated half
+        # of the dual-listed structure, with its own distinct ISIN.
+        "ASX::RIO,RIO,ASX,RIO TINTO LIMITED,Stock,Materials,,Australia,AU,AU000000RIO1,\n"
+        # A third distinct ISIN/listing (e.g. a depositary-style line)
+        # sharing the same exact normalized name -- without the exchange
+        # tiebreak this would be 3-way ambiguous.
+        "XETRA::RIO1,RIO1,XETRA,Rio Tinto Group,Stock,Materials,,United Kingdom,GB,GB0007188757,\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    assert al.lookup_adanos_isin(test_db, "RIO.L", name="Rio Tinto plc") == "US7672041008"
+
+
+def test_lookup_by_name_does_not_apply_exchange_tiebreak_without_allowed_exchanges(test_db, monkeypatch):
+    # Regression guard for _lookup_by_name directly: when no exchange
+    # narrowing signal is passed at all (allowed_exchanges=None -- what
+    # lookup_adanos_isin passes for a bare ticker with no Yahoo suffix),
+    # two exact-name matches on different, equally "primary" exchanges must
+    # remain ambiguous rather than have one arbitrarily picked.
+    csv_text = (
+        "listing_key,ticker,exchange,name,asset_type,stock_sector,etf_category,country,country_code,isin,aliases\n"
+        "ASX::RTL,RTL,ASX,RIO TINTO LIMITED,Stock,Materials,,Australia,AU,AU000000RIO1,\n"
+        "NYSE::RTP,RTP,NYSE,Rio Tinto plc,Stock,Materials,,United Kingdom,GB,US7672041008,rio tinto\n"
+    )
+    _seed(test_db, monkeypatch, csv_text)
+
+    assert al._lookup_by_name(test_db, "Rio Tinto plc", allowed_exchanges=None) is None
+    # A no-suffix bare-ticker lookup_adanos_isin call must not leak the
+    # ticker-stage's US_NO_SUFFIX_ADANOS_EXCHANGES set into the name
+    # fallback's exchange tiebreak (that set is only a valid signal for
+    # disambiguating same-ticker collisions, not "this company is US-listed").
+    assert al.lookup_adanos_isin(test_db, "UNRELATEDTICKER", name="Rio Tinto plc") is None

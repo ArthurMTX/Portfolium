@@ -239,7 +239,9 @@ def _candidate_matches_name(candidate: AdanosListing, target_tokens: List[str]) 
     return False
 
 
-def _lookup_by_name(db: Session, name: str) -> Optional[str]:
+def _lookup_by_name(
+    db: Session, name: str, allowed_exchanges: Optional[set] = None
+) -> Optional[str]:
     """
     Bounded, conservative name/alias fallback: normalizes the target name,
     prefilters Adanos candidates via a SQL ILIKE on the first significant
@@ -254,6 +256,15 @@ def _lookup_by_name(db: Session, name: str) -> Optional[str]:
     match), that candidate wins even when other, unrelated companies whose
     name is a superset of the target's also matched via the prefix rule
     (e.g. "TotalEnergies SE" vs. "TotalEnergies Marketing Nigeria PLC").
+
+    `allowed_exchanges` (the Adanos exchange(s) mapped from the caller's
+    Yahoo suffix, e.g. ".L" -> {"LSE"}) is used as a further tiebreak for
+    genuinely multi-ISIN companies -- real dual-/multi-listed structures
+    (e.g. Rio Tinto plc vs. Rio Tinto Limited, distinct ISINs each with
+    their own legitimate primary listing) where the OTC-vs-primary
+    tiebreak in `_primary_listing_isin` alone can't disambiguate because
+    every candidate ISIN has *some* primary listing. Only applied when
+    exactly one exact-match ISIN group has a row on an allowed exchange.
     """
     target_tokens = _normalize_company_name(name)
     if not target_tokens:
@@ -305,6 +316,15 @@ def _lookup_by_name(db: Session, name: str) -> Optional[str]:
         return normalize_isin(next(iter(exact_isins.values()))[0].isin)
 
     if len(exact_isins) > 1:
+        if allowed_exchanges:
+            on_allowed_exchange = [
+                isin
+                for isin, rows in exact_isins.items()
+                if any((row.exchange or "") in allowed_exchanges for row in rows)
+            ]
+            if len(on_allowed_exchange) == 1:
+                return normalize_isin(on_allowed_exchange[0])
+
         primary = _primary_listing_isin(exact_isins)
         if primary is not None:
             return normalize_isin(primary)
@@ -367,10 +387,21 @@ def lookup_adanos_isin(
     lookups but is not used in filtering today (reserved for future use).
     """
     target_tokens = _normalize_company_name(name) if name else []
+    # Only a *specific* Yahoo suffix (e.g. ".L" -> {"LSE"}) is a strong
+    # enough signal to narrow the name-based fallback by exchange. The
+    # no-suffix case (bare US tickers) is deliberately excluded here: unlike
+    # a real suffix, "no suffix at all" doesn't mean "this instrument is
+    # US-listed" -- it's also what a not-yet-classified/unrelated symbol
+    # looks like, and treating it as a US-exchange signal would let an
+    # unrelated same-name-prefix company on NASDAQ/NYSE win a tiebreak it
+    # has no real claim to.
+    name_fallback_allowed_exchanges: Optional[set] = None
 
     if symbol:
         bare_ticker, suffix = strip_yahoo_suffix(symbol)
         ticker_variants = _ticker_search_variants(bare_ticker, suffix)
+        ticker_allowed_exchanges = SUFFIX_TO_ADANOS_EXCHANGES.get(suffix) if suffix else US_NO_SUFFIX_ADANOS_EXCHANGES
+        name_fallback_allowed_exchanges = SUFFIX_TO_ADANOS_EXCHANGES.get(suffix) if suffix else None
 
         candidates = (
             db.query(AdanosListing)
@@ -381,17 +412,17 @@ def lookup_adanos_isin(
         matched_candidate: Optional[AdanosListing] = None
         if len(candidates) == 1:
             matched_candidate = candidates[0]
-        elif len(candidates) > 1:
-            allowed_exchanges = SUFFIX_TO_ADANOS_EXCHANGES.get(suffix) if suffix else US_NO_SUFFIX_ADANOS_EXCHANGES
-            if allowed_exchanges:
-                filtered = [c for c in candidates if c.exchange in allowed_exchanges]
-                if len(filtered) == 1:
-                    matched_candidate = filtered[0]
+        elif len(candidates) > 1 and ticker_allowed_exchanges:
+            filtered = [c for c in candidates if c.exchange in ticker_allowed_exchanges]
+            if len(filtered) == 1:
+                matched_candidate = filtered[0]
 
         if matched_candidate is not None and _candidate_matches_name(matched_candidate, target_tokens):
             return normalize_isin(matched_candidate.isin)
 
-    return _lookup_by_name(db, name) if name else None
+    if not name:
+        return None
+    return _lookup_by_name(db, name, allowed_exchanges=name_fallback_allowed_exchanges)
 
 
 # ---------------------------------------------------------------------------
