@@ -53,6 +53,15 @@ def normalize_asset_type(asset_type: Optional[str]) -> str:
     return _ASSET_TYPE_SYNONYMS.get(normalized, normalized)
 
 
+def normalized_asset_type_or_none(asset_type: Optional[str]) -> Optional[str]:
+    """Like normalize_asset_type, but preserves None for unset/unknown values
+    instead of coercing them to the literal "Unknown" string, so callers that
+    persist asset_type don't write that sentinel into the database."""
+    if not asset_type or asset_type.strip().lower() == "unknown":
+        return None
+    return normalize_asset_type(asset_type)
+
+
 def update_asset_market_cap_from_info(asset: Asset, info: Any) -> bool:
     """Persist provider market-cap metadata on an asset when available."""
     if not isinstance(info, dict):
@@ -209,7 +218,7 @@ def create_asset(db: Session, asset: AssetCreate) -> Asset:
 
     sector = info.get('sector')
     industry = info.get('industry')
-    asset_type = info.get('quoteType') or asset.asset_type  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
+    asset_type = normalized_asset_type_or_none(info.get('quoteType') or asset.asset_type)  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
     country = info.get('country')
     # Get currency from yfinance if available
     currency = info.get('currency') or asset.currency
@@ -260,7 +269,7 @@ def update_asset(db: Session, asset_id: int, asset: AssetCreate) -> Optional[Ass
     db_asset.class_ = asset.class_
     db_asset.sector = asset.sector
     db_asset.industry = asset.industry
-    db_asset.asset_type = asset.asset_type
+    db_asset.asset_type = normalized_asset_type_or_none(asset.asset_type)
     db_asset.country = asset.country
     if asset.market_cap is not None:
         db_asset.market_cap = asset.market_cap
@@ -308,7 +317,7 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
         if not db_asset.industry:
             db_asset.industry = info.get('industry')
         if not db_asset.asset_type:
-            db_asset.asset_type = info.get('quoteType')
+            db_asset.asset_type = normalized_asset_type_or_none(info.get('quoteType'))
         if not db_asset.country:
             db_asset.country = info.get('country')
         # ISIN: never overwrite an already-valid one. Adanos is checked first
@@ -399,7 +408,7 @@ def enrich_all_assets(db: Session) -> dict:
                 asset.industry = info.get('industry')
                 updated = True
             if not asset.asset_type and info.get('quoteType'):
-                asset.asset_type = info.get('quoteType')
+                asset.asset_type = normalized_asset_type_or_none(info.get('quoteType'))
                 updated = True
             if not asset.country and info.get('country'):
                 asset.country = info.get('country')
