@@ -86,6 +86,16 @@
       "noTransactionMatches": "No transactions match your search.",
       "noTransactionMatchesInfo": "Try searching with a different symbol or name, or",
       "noTransactionMatchesClear": "clear your search to view all transactions."
+    },
+    "ownership": {
+      "openedPosition": "Opened position with {{quantity}} shares.",
+      "positionIncreased": "Position increased from {{before}} to {{after}} shares.",
+      "positionClosed": "Position fully closed.",
+      "positionReduced": "Position reduced from {{before}} to {{after}} shares.",
+      "shareCountChangedWithAmounts": "Share count changed from {{before}} to {{after}}.",
+      "shareCountChanged": "Share count changed.",
+      "cashAdded": "{{amount}} added to cash.",
+      "cashPaid": "{{amount}} paid from cash."
     }
   },
   "transactionHistory": {

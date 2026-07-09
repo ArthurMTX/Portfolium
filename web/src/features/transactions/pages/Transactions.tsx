@@ -995,32 +995,45 @@ export default function Transactions() {
         case 'CONVERSION_IN':
           after = before + quantity
           sentence = before <= 0
-            ? `Opened position with ${formatQuantity(after)} shares.`
-            : `Position increased from ${formatQuantity(before)} to ${formatQuantity(after)} shares.`
+            ? t('transactions.ownership.openedPosition', { quantity: formatQuantity(after) })
+            : t('transactions.ownership.positionIncreased', {
+              before: formatQuantity(before),
+              after: formatQuantity(after),
+            })
           break
         case 'SELL':
         case 'TRANSFER_OUT':
         case 'CONVERSION_OUT':
           after = Math.max(0, before - quantity)
           sentence = after <= 0 && before > 0
-            ? 'Position fully closed.'
-            : `Position reduced from ${formatQuantity(before)} to ${formatQuantity(after)} shares.`
+            ? t('transactions.ownership.positionClosed')
+            : t('transactions.ownership.positionReduced', {
+              before: formatQuantity(before),
+              after: formatQuantity(after),
+            })
           break
         case 'SPLIT': {
           const multiplier = parseSplitMultiplier(transaction.metadata?.split)
           after = multiplier ? before * multiplier : null
           sentence = after !== null
-            ? `Share count changed from ${formatQuantity(before)} to ${formatQuantity(after)}.`
-            : 'Share count changed.'
+            ? t('transactions.ownership.shareCountChangedWithAmounts', {
+              before: formatQuantity(before),
+              after: formatQuantity(after),
+            })
+            : t('transactions.ownership.shareCountChanged')
           break
         }
         case 'DIVIDEND':
           after = before
-          sentence = `${formatCurrency(Math.abs(getTransactionAmountInPortfolioCurrency(transaction)), portfolioCurrency, currentLocale)} added to cash.`
+          sentence = t('transactions.ownership.cashAdded', {
+            amount: formatCurrency(Math.abs(getTransactionAmountInPortfolioCurrency(transaction)), portfolioCurrency, currentLocale),
+          })
           break
         case 'FEE':
           after = before
-          sentence = `${formatCurrency(Math.abs(getTransactionAmountInPortfolioCurrency(transaction)), portfolioCurrency, currentLocale)} paid from cash.`
+          sentence = t('transactions.ownership.cashPaid', {
+            amount: formatCurrency(Math.abs(getTransactionAmountInPortfolioCurrency(transaction)), portfolioCurrency, currentLocale),
+          })
           break
         default:
           after = before
@@ -1031,7 +1044,7 @@ export default function Transactions() {
     }
 
     return ownership
-  }, [currentLocale, getTransactionAmountInPortfolioCurrency, portfolioCurrency, transactions])
+  }, [currentLocale, getTransactionAmountInPortfolioCurrency, portfolioCurrency, t, transactions])
 
   // Get human-readable label for sort key
   const getSortLabel = (key: SortKey): string => t(`transactionsPage.sortLabels.${key}`)
