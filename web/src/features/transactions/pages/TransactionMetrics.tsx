@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { ArrowLeft, ArrowUpDown, ChevronUp, ChevronDown, BarChart3, LineChart as LineChartIcon, Table2 } from 'lucide-react'
+import { ArrowUpDown, ChevronUp, ChevronDown, BarChart3, LineChart as LineChartIcon, Table2 } from 'lucide-react'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api from '@/api'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
@@ -73,7 +72,6 @@ interface MetricsResponse {
 }
 
 export default function TransactionMetrics() {
-  const navigate = useNavigate()
   const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
   const portfolios = usePortfolioStore((state) => state.portfolios)
   const currentPortfolio = portfolios.find((p) => p.id === activePortfolioId)
