@@ -99,7 +99,15 @@ export default function AssetResearchPriceChart({
   const [hiddenIndicatorKinds, setHiddenIndicatorKinds] = useState<TransactionIndicatorKind[]>([])
   const historyQuery = useQuery({
     queryKey: ['asset-price-history', assetId, period],
-    queryFn: () => api.getAssetPriceHistory(assetId, period),
+    queryFn: async () => {
+      const priceData = await api.getAssetPriceHistory(assetId, period)
+      const needsAllTimeBackfill =
+        period === 'ALL' &&
+        (priceData.data_points < 30 || !priceData.prices.some((point) => point.source === 'yfinance_history'))
+      if (!needsAllTimeBackfill) return priceData
+      await api.backfillAssetPrices(assetId, { allTime: true })
+      return api.getAssetPriceHistory(assetId, period)
+    },
     staleTime: 5 * 60 * 1000,
   })
 

@@ -198,7 +198,19 @@ class AssetResearchService:
             .count()
         )
         if existing_rows >= self._MIN_PRICE_ROWS_FOR_FULL_HISTORY:
-            return
+            # A held asset's price rows are usually anchored to
+            # first_transaction_date (backfilled on transaction creation), which
+            # hides pre-ownership history from research charts. Only skip the
+            # all-time refetch once we've confirmed history predates ownership.
+            earliest_price = (
+                self.db.query(func.min(Price.asof))
+                .filter(Price.asset_id == asset.id)
+                .scalar()
+            )
+            if not asset.first_transaction_date or (
+                earliest_price and earliest_price.date() < asset.first_transaction_date
+            ):
+                return
 
         try:
             self.pricing_service.ensure_historical_prices(
