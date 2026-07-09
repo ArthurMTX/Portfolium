@@ -40,6 +40,246 @@
   color: var(--pf-ink);
 }
 
+.transactions-pending-dividends {
+  border-top: 1px solid var(--pf-line);
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.transactions-pending-dividends__panel {
+  display: grid;
+}
+
+.transactions-pending-dividends__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 1rem 0;
+  color: inherit;
+  text-align: left;
+}
+
+.transactions-pending-dividends__header[role="button"] {
+  cursor: pointer;
+}
+
+.transactions-pending-dividends__header[role="button"]:focus {
+  outline: 2px solid var(--pf-focus-ring);
+  outline-offset: 0.35rem;
+}
+
+.transactions-pending-dividends__title,
+.transactions-pending-dividends__summary,
+.transactions-pending-dividends__asset,
+.transactions-pending-dividends__actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.transactions-pending-dividends__title {
+  gap: 0.85rem;
+}
+
+.transactions-pending-dividends__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  color: var(--pf-warning);
+}
+
+.transactions-pending-dividends h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: 0.98rem;
+  font-weight: 820;
+  letter-spacing: -0.02em;
+}
+
+.transactions-pending-dividends h3 span {
+  border: 1px solid color-mix(in srgb, var(--pf-warning) 42%, var(--pf-line));
+  border-radius: 999px;
+  color: var(--pf-warning);
+  padding: 0.05rem 0.46rem;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.transactions-pending-dividends p {
+  margin: 0.18rem 0 0;
+  color: var(--pf-muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.transactions-pending-dividends__summary {
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.transactions-pending-dividends__total {
+  display: grid;
+  justify-items: end;
+  min-width: 7.5rem;
+}
+
+.transactions-pending-dividends__total span {
+  color: var(--pf-subtle);
+  font-size: 0.72rem;
+}
+
+.transactions-pending-dividends__total strong {
+  color: var(--pf-ink);
+  font-size: 1rem;
+  font-weight: 830;
+}
+
+.transactions-pending-dividends__chevron {
+  display: inline-flex;
+  color: var(--pf-muted);
+}
+
+.transactions-pending-dividends__list {
+  border-top: 1px solid var(--pf-line);
+}
+
+.transactions-pending-dividends__item {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.1fr) minmax(360px, 1.35fr) auto;
+  gap: clamp(0.9rem, 2vw, 1.5rem);
+  align-items: center;
+  position: relative;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.transactions-pending-dividends__item:last-child {
+  border-bottom: 0;
+}
+
+.transactions-pending-dividends__asset {
+  gap: 0.8rem;
+}
+
+.transactions-pending-dividends__logo {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.transactions-pending-dividends__asset span {
+  display: grid;
+  min-width: 0;
+  gap: 0.16rem;
+}
+
+.transactions-pending-dividends__asset strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: var(--pf-ink);
+  font-size: 0.96rem;
+  font-weight: 790;
+}
+
+.transactions-pending-dividends__asset em {
+  overflow: hidden;
+  color: var(--pf-subtle);
+  font-size: 0.78rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transactions-pending-dividends__details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.transactions-pending-dividends__details div {
+  min-width: 0;
+}
+
+.transactions-pending-dividends__details dt {
+  color: var(--pf-subtle);
+  font-size: 0.66rem;
+  font-weight: 820;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.transactions-pending-dividends__details dd {
+  overflow: hidden;
+  margin: 0.18rem 0 0;
+  color: var(--pf-ink);
+  font-size: 0.86rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transactions-pending-dividends__details dd.is-amount {
+  color: var(--pf-warning);
+  font-weight: 850;
+}
+
+.transactions-pending-dividends__actions {
+  gap: 0.45rem;
+}
+
+.transactions-pending-dividends__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pf-muted);
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease, opacity 140ms ease;
+}
+
+.transactions-pending-dividends__action:hover {
+  background: var(--pf-inset);
+}
+
+.transactions-pending-dividends__action.is-accept {
+  color: var(--pf-success);
+}
+
+.transactions-pending-dividends__action.is-reject {
+  color: var(--pf-danger);
+}
+
+.transactions-pending-dividends__action:disabled,
+.transactions-pending-dividends__refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.transactions-pending-dividends__detected {
+  grid-column: 2 / -1;
+  margin-top: -0.35rem;
+  color: var(--pf-subtle);
+  font-size: 0.74rem;
+}
+
 .transactions-timeline {
   margin-top: 0.85rem;
 }
@@ -443,6 +683,10 @@
     justify-content: flex-start;
   }
 
+  .transactions-pending-dividends__item {
+    grid-template-columns: minmax(190px, 0.9fr) minmax(320px, 1.1fr) auto;
+  }
+
   .transactions-event-main {
     grid-template-columns: 1fr;
     align-items: start;
@@ -455,6 +699,42 @@
 }
 
 @media (max-width: 780px) {
+  .transactions-pending-dividends__header,
+  .transactions-pending-dividends__summary {
+    align-items: flex-start;
+  }
+
+  .transactions-pending-dividends__header {
+    flex-direction: column;
+  }
+
+  .transactions-pending-dividends__summary {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .transactions-pending-dividends__total {
+    justify-items: start;
+  }
+
+  .transactions-pending-dividends__item {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+
+  .transactions-pending-dividends__details,
+  .transactions-pending-dividends__detected {
+    grid-column: 1 / -1;
+  }
+
+  .transactions-pending-dividends__details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transactions-pending-dividends__actions {
+    align-self: start;
+  }
+
   .transactions-group {
     grid-template-columns: 1fr;
     gap: 1rem;

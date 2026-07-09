@@ -196,33 +196,28 @@ export default function PendingDividends({
   // Don't show the section if no pending dividends
   if (pendingDividends.length === 0 && !loading) {
     return (
-      <div className="mb-6">
-        <div className="card p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                <DollarSign size={20} className="text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-neutral-900 dark:text-white">
-                  {t('pendingDividends.title')}
-                </h3>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {t('pendingDividends.noPending')}
-                </p>
-              </div>
+      <section className="transactions-pending-dividends is-empty">
+        <div className="transactions-pending-dividends__header">
+          <div className="transactions-pending-dividends__title">
+            <span className="transactions-pending-dividends__icon" aria-hidden="true">
+              <DollarSign size={18} />
+            </span>
+            <div>
+              <h3>{t('pendingDividends.title')}</h3>
+              <p>{t('pendingDividends.noPending')}</p>
             </div>
-            <button
-              onClick={handleFetchDividends}
-              disabled={fetching}
-              className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-            >
-              <RefreshCw size={16} className={fetching ? 'animate-spin' : ''} />
-              {fetching ? t('common.loading') : t('pendingDividends.checkForDividends')}
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={handleFetchDividends}
+            disabled={fetching}
+            className="pf-button pf-button--secondary"
+          >
+            <RefreshCw size={16} className={fetching ? 'animate-spin' : ''} />
+            {fetching ? t('common.loading') : t('pendingDividends.checkForDividends')}
+          </button>
         </div>
-        
+
         {toast && (
           <Toast
             type={toast.type}
@@ -230,72 +225,68 @@ export default function PendingDividends({
             onClose={() => setToast(null)}
           />
         )}
-      </div>
+      </section>
     )
   }
 
   return (
-    <div className="mb-6">
-      <div className="card overflow-hidden">
-        {/* Header */}
-        <div 
-          className="cursor-pointer border-b border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20"
+    <section className="transactions-pending-dividends">
+      <div className="transactions-pending-dividends__panel">
+        <div
+          className="transactions-pending-dividends__header"
           onClick={toggleExpanded}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              toggleExpanded()
+            }
+          }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
-                <DollarSign size={20} className="text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-                  {t('pendingDividends.title')}
-                  <span className="px-2 py-0.5 text-xs font-medium bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-full">
-                    {pendingDividends.length}
-                  </span>
-                </h3>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  {t('pendingDividends.description')}
-                </p>
-              </div>
+          <div className="transactions-pending-dividends__title">
+            <span className="transactions-pending-dividends__icon" aria-hidden="true">
+              <DollarSign size={18} />
+            </span>
+            <div>
+              <h3>
+                {t('pendingDividends.title')}
+                <span>{pendingDividends.length}</span>
+              </h3>
+              <p>{t('pendingDividends.description')}</p>
             </div>
-            
-            <div className="flex items-center gap-3">
-              {pendingDividends.length > 0 && (
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    {t('pendingDividends.totalPending')}
-                  </p>
-                  <p className="font-semibold text-amber-600 dark:text-amber-400">
-                    {formatCurrency(convertedTotal, portfolioCurrency)}
-                  </p>
-                </div>
-              )}
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleFetchDividends()
-                }}
-                disabled={fetching}
-                className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-              >
-                <RefreshCw size={16} className={fetching ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">{t('pendingDividends.refresh')}</span>
-              </button>
-              
-              {expanded ? (
-                <ChevronUp size={20} className="text-neutral-500" />
-              ) : (
-                <ChevronDown size={20} className="text-neutral-500" />
-              )}
-            </div>
+          </div>
+
+          <div className="transactions-pending-dividends__summary">
+            {pendingDividends.length > 0 && (
+              <div className="transactions-pending-dividends__total">
+                <span>{t('pendingDividends.totalPending')}</span>
+                <strong>{formatCurrency(convertedTotal, portfolioCurrency)}</strong>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleFetchDividends()
+              }}
+              disabled={fetching}
+              className="pf-button pf-button--secondary transactions-pending-dividends__refresh"
+            >
+              <RefreshCw size={16} className={fetching ? 'animate-spin' : ''} />
+              <span>{t('pendingDividends.refresh')}</span>
+            </button>
+
+            <span className="transactions-pending-dividends__chevron" aria-hidden="true">
+              {expanded ? <ChevronUp size={19} /> : <ChevronDown size={19} />}
+            </span>
           </div>
         </div>
 
         {/* Pending Dividends List */}
         {expanded && (
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
+          <div className="transactions-pending-dividends__list">
             {pendingDividends.map((dividend) => {
               const grossAmount = Number(dividend.gross_amount)
               const sharesHeld = Number(dividend.shares_held)
@@ -305,99 +296,69 @@ export default function PendingDividends({
               return (
                 <div 
                   key={dividend.id}
-                  className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+                  className="transactions-pending-dividends__item"
                 >
-                  <div className="flex items-center gap-4">
-                    {/* Asset Logo */}
-                    <div className="flex-shrink-0">
-                      <AssetLogo
-                        symbol={dividend.asset_symbol || ''}
-                        assetName={dividend.asset_name}
-                        alt={dividend.asset_symbol || ''}
-                        className="w-10 h-10 p-1"
-                      />
-                    </div>
-                    
-                    {/* Asset Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-neutral-900 dark:text-white">
-                          {dividend.asset_symbol}
-                        </span>
+                  <div className="transactions-pending-dividends__asset">
+                    <AssetLogo
+                      symbol={dividend.asset_symbol || ''}
+                      assetName={dividend.asset_name}
+                      alt={dividend.asset_symbol || ''}
+                      className="transactions-pending-dividends__logo"
+                    />
+                    <span>
+                      <strong>
+                        {dividend.asset_symbol}
                         {getStatusIcon(dividend.status)}
-                      </div>
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                      </strong>
+                      <em>
                         {dividend.asset_name || dividend.asset_symbol}
-                      </p>
-                    </div>
-                    
-                    {/* Dividend Details */}
-                    <div className="hidden md:block text-right">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {t('pendingDividends.exDate')}
-                      </p>
-                      <p className="font-medium text-neutral-900 dark:text-white">
-                        {new Date(dividend.ex_dividend_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    
-                    <div className="hidden sm:block text-right">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {t('pendingDividends.shares')}
-                      </p>
-                      <p className="font-medium text-neutral-900 dark:text-white">
-                        {parseFloat(sharesHeld.toFixed(8)).toString()}
-                      </p>
-                    </div>
-                    
-                    <div className="hidden sm:block text-right">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {t('pendingDividends.perShare')}
-                      </p>
-                      <p className="font-medium text-neutral-900 dark:text-white">
-                        {formatCurrency(divPerShare, dividend.currency || portfolioCurrency, undefined, true)}
-                      </p>
-                    </div>
-                    
-                    <div className="text-right">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {t('pendingDividends.grossAmount')}
-                      </p>
-                      <p className="font-semibold text-amber-600 dark:text-amber-400">
-                        {formatCurrency(grossAmount, dividend.currency || portfolioCurrency)}
-                      </p>
-                    </div>
-                    
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => openAcceptModal(dividend)}
-                        disabled={isProcessing}
-                        className="p-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-800/50 text-green-700 dark:text-green-400 rounded-lg transition-colors disabled:opacity-50"
-                        title={t('pendingDividends.accept')}
-                      >
-                        <Check size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleReject(dividend)}
-                        disabled={isProcessing}
-                        className="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-800/50 text-red-700 dark:text-red-400 rounded-lg transition-colors disabled:opacity-50"
-                        title={t('pendingDividends.reject')}
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
+                      </em>
+                    </span>
                   </div>
-                  
-                  {/* Mobile details */}
-                  <div className="mt-3 flex flex-wrap gap-4 text-xs text-neutral-500 dark:text-neutral-400 sm:hidden">
-                    <span>{t('pendingDividends.exDate')}: {new Date(dividend.ex_dividend_date).toLocaleDateString()}</span>
-                    <span>{t('pendingDividends.shares')}: {parseFloat(sharesHeld.toFixed(8)).toString()}</span>
-                    <span>{t('pendingDividends.perShare')}: {formatCurrency(divPerShare, dividend.currency || portfolioCurrency, undefined, true)}</span>
+
+                  <dl className="transactions-pending-dividends__details">
+                    <div>
+                      <dt>{t('pendingDividends.exDate')}</dt>
+                      <dd>{new Date(dividend.ex_dividend_date).toLocaleDateString()}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('pendingDividends.shares')}</dt>
+                      <dd>{parseFloat(sharesHeld.toFixed(8)).toString()}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('pendingDividends.perShare')}</dt>
+                      <dd>{formatCurrency(divPerShare, dividend.currency || portfolioCurrency, undefined, true)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('pendingDividends.grossAmount')}</dt>
+                      <dd className="is-amount">{formatCurrency(grossAmount, dividend.currency || portfolioCurrency)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="transactions-pending-dividends__actions">
+                    <button
+                      type="button"
+                      onClick={() => openAcceptModal(dividend)}
+                      disabled={isProcessing}
+                      className="transactions-pending-dividends__action is-accept"
+                      title={t('pendingDividends.accept')}
+                      aria-label={t('pendingDividends.accept')}
+                    >
+                      <Check size={17} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReject(dividend)}
+                      disabled={isProcessing}
+                      className="transactions-pending-dividends__action is-reject"
+                      title={t('pendingDividends.reject')}
+                      aria-label={t('pendingDividends.reject')}
+                    >
+                      <X size={17} />
+                    </button>
                   </div>
-                  
-                  {/* Fetched info */}
-                  <div className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
+
+                  <div className="transactions-pending-dividends__detected">
                     {t('pendingDividends.detected')} {formatDistanceToNow(new Date(dividend.fetched_at), { addSuffix: true })}
                   </div>
                 </div>
@@ -564,6 +525,6 @@ export default function PendingDividends({
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </section>
   )
 }
