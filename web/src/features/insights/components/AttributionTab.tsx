@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Activity, Award, Coins, Globe2, Layers, PieChart, Target, TrendingDown, TrendingUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ContributionItemDTO } from '@/api'
@@ -13,6 +13,7 @@ import {
   formatCurrencyValue,
   formatNumber,
   formatPercent,
+  toNumber,
   valueColor,
 } from '@/features/insights/components/InsightsShared'
 import { useAttributionInsights } from '@/features/insights/components/useInsightQueries'
@@ -184,6 +185,8 @@ function GroupContributionBlock({
 function ConcentrationBlock({ query }: { query: AttributionQuery }) {
   const { t } = useTranslation()
   const data = query.data?.concentration
+  const largestWeight = toNumber(data?.largest_position?.portfolio_weight ?? data?.largest_position_weight)
+  const largestWeightWidth = Math.min(Math.max(largestWeight, 0), 100)
 
   return (
     <InsightBlock
@@ -198,23 +201,42 @@ function ConcentrationBlock({ query }: { query: AttributionQuery }) {
       onRetry={() => void query.refetch()}
       skeleton={<BarsSkeleton rows={5} />}
     >
-      <div className="grid grid-cols-2 gap-5 md:grid-cols-5">
-        <SummaryStat label={t('insights.attribution.concentration.largestPosition')} value={formatPercent(data?.largest_position_weight, 1)} />
-        <SummaryStat label={t('insights.attribution.concentration.top3Weight')} value={formatPercent(data?.top_3_weight, 1)} />
-        <SummaryStat label={t('insights.attribution.concentration.top5Weight')} value={formatPercent(data?.top_5_weight, 1)} />
-        <SummaryStat label={t('insights.attribution.concentration.effectivePositions')} value={formatNumber(data?.effective_positions, 1)} />
-        <SummaryStat label={t('insights.attribution.concentration.diversification')} value={formatNumber(data?.diversification_score, 0)} />
-      </div>
-      {data?.largest_position && (
-        <div className="mt-5 rounded-lg bg-neutral-50 p-4 text-sm dark:bg-neutral-800/70">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{t('insights.attribution.concentration.largestHolding')}</p>
-          <ContributionIdentity item={data.largest_position} kind="asset" />
-          <p className="mt-3 text-neutral-600 dark:text-neutral-400">
-            {t('insights.attribution.concentration.ofPortfolioValue', { percent: formatPercent(data.largest_position.portfolio_weight, 1) })}
-          </p>
+      <div className="insights-concentration">
+        <div className="insights-concentration__metrics">
+          <ConcentrationMetric label={t('insights.attribution.concentration.largestPosition')} value={formatPercent(data?.largest_position_weight, 1)} emphasis />
+          <ConcentrationMetric label={t('insights.attribution.concentration.top3Weight')} value={formatPercent(data?.top_3_weight, 1)} />
+          <ConcentrationMetric label={t('insights.attribution.concentration.top5Weight')} value={formatPercent(data?.top_5_weight, 1)} />
+          <ConcentrationMetric label={t('insights.attribution.concentration.effectivePositions')} value={formatNumber(data?.effective_positions, 1)} />
+          <ConcentrationMetric label={t('insights.attribution.concentration.diversification')} value={formatNumber(data?.diversification_score, 0)} />
         </div>
-      )}
+        {data?.largest_position && (
+          <div className="insights-concentration__holding">
+            <div className="insights-concentration__holding-main">
+              <div className="insights-concentration__holding-copy">
+                <p>{t('insights.attribution.concentration.largestHolding')}</p>
+                <ContributionIdentity item={data.largest_position} kind="asset" />
+              </div>
+              <strong>{formatPercent(data.largest_position.portfolio_weight, 1)}</strong>
+            </div>
+            <div className="insights-concentration__rail" aria-hidden="true">
+              <span style={{ '--insights-concentration-width': `${largestWeightWidth}%` } as CSSProperties} />
+            </div>
+            <p className="insights-concentration__note">
+              {t('insights.attribution.concentration.ofPortfolioValue', { percent: formatPercent(data.largest_position.portfolio_weight, 1) })}
+            </p>
+          </div>
+        )}
+      </div>
     </InsightBlock>
+  )
+}
+
+function ConcentrationMetric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <div className={`insights-concentration__metric ${emphasis ? 'is-emphasis' : ''}`.trim()}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
