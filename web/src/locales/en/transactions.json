@@ -118,8 +118,12 @@
     }
   },
   "transactionMetrics": {
+    "kicker": "Transaction Metrics",
     "title": "Transaction Metrics",
     "description": "Analyze your buying and selling activity over time",
+    "netDifferenceLead": "{{amount}} net difference.",
+    "contextLabel": "Transaction metrics context",
+    "controlsLabel": "Transaction metrics controls",
     "loadingMessage": "Loading transaction metrics...",
     "backToTransactions": "Back to Transactions",
     "transactions": "transactions",

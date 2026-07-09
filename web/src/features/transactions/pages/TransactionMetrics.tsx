@@ -1,14 +1,30 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { ArrowLeft, Calendar, TrendingUp, TrendingDown, DollarSign, ArrowUpDown, ChevronUp, ChevronDown, Receipt, BarChart3, LineChart as LineChartIcon, Table2, Percent, Scale, Activity } from 'lucide-react'
+import { ArrowLeft, ArrowUpDown, ChevronUp, ChevronDown, BarChart3, LineChart as LineChartIcon, Table2 } from 'lucide-react'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api from '@/api'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import EmptyTransactionsPrompt from '@/features/transactions/components/EmptyTransactionsPrompt'
 import AssetLogo from '@/shared/components/AssetLogo'
 import SharedSortIcon from '@/shared/components/SortIcon'
+import { ChartSkeleton, TableSkeleton } from '@/shared/components/StatePrimitives'
+import {
+  PageControls,
+  PageHeader,
+  PageMainColumn,
+  PageMainGrid,
+  PageMetric,
+  PageMetricStrip,
+  PageSection,
+  PageSectionHeader,
+  PageShell,
+  PageSummaryPanel,
+  PageTabs,
+  PageTitleBlock,
+} from '@/shared/components/PageLayout'
 import { useTranslation } from 'react-i18next'
+import '@/shared/design/pages/transaction-metrics.css'
 
 type GroupingType = 'monthly' | 'yearly'
 type SortKey = 'period' | 'tx_count' | 'buy_sum' | 'buy_count' | 'buy_avg' | 'buy_fees' | 'sell_sum' | 'sell_count' | 'sell_avg' | 'sell_fees' | 'diff'
@@ -434,224 +450,142 @@ export default function TransactionMetrics() {
     return <EmptyPortfolioPrompt pageType="transactions" />
   }
 
+  if (metricsData && metricsData.metrics.length === 0) {
+    return (
+      <EmptyTransactionsPrompt
+        pageType="metrics"
+        portfolioName={currentPortfolio?.name || 'your portfolio'}
+      />
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header - Only show if there are metrics */}
-      {metricsData && metricsData.metrics.length > 0 && (
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <button
-              onClick={() => navigate('/transactions')}
-              className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-              title={t('transactionMetrics.backToTransactions')}
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
-              <Calendar className="text-pink-600" size={28} />
+    <PageShell className="transaction-metrics-page">
+      <PageHeader>
+        <PageTitleBlock
+          kicker={t('transactionMetrics.kicker')}
+          title={
+            <span className="transaction-metrics-title">
+              <button
+                type="button"
+                className="transaction-metrics-back"
+                onClick={() => navigate('/transactions')}
+                aria-label={t('transactionMetrics.backToTransactions')}
+              >
+                <ArrowLeft size={20} />
+              </button>
               {t('transactionMetrics.title')}
-            </h1>
-          </div>
-          <p className="text-neutral-600 dark:text-neutral-400 text-sm sm:text-base ml-14">
-            {t('transactionMetrics.description')}
-          </p>
-        </div>
-        
-        {/* Grouping Toggle */}
-        <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
-          <button
-            onClick={() => setGrouping('monthly')}
-            className={`px-4 py-2 rounded-md transition-all ${
-              grouping === 'monthly'
-                ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm font-medium'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
-          >
-            {t('transactionMetrics.viewModes.monthly')}
-          </button>
-          <button
-            onClick={() => setGrouping('yearly')}
-            className={`px-4 py-2 rounded-md transition-all ${
-              grouping === 'yearly'
-                ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm font-medium'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
-          >
-            {t('transactionMetrics.viewModes.yearly')}
-          </button>
-        </div>
-      </div>
-      )}
-
-      {/* Empty State */}
-      {metricsData && metricsData.metrics.length === 0 ? (
-        <EmptyTransactionsPrompt 
-          pageType="metrics"
-          portfolioName={currentPortfolio?.name || 'your portfolio'} 
+            </span>
+          }
         />
-      ) : (
-        <>
-      {/* Summary Cards */}
-      <div className="space-y-4">
-        {/* Primary Metrics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
-              <span>{t('transactionMetrics.totalPurchases')}</span>
-            </div>
-            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              {formatCurrency(totals.totalBuySum)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {totals.totalBuyCount} {t('transactionMetrics.transactions')}
-            </div>
-          </div>
+        <PageSummaryPanel
+          lead={t('transactionMetrics.netDifferenceLead', { amount: `${totals.netDifference >= 0 ? '+' : ''}${formatCurrency(totals.netDifference)}` })}
+          description={t('transactionMetrics.description')}
+        />
+      </PageHeader>
 
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
-              <span>{t('transactionMetrics.totalSales')}</span>
-            </div>
-            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              {formatCurrency(totals.totalSellSum)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {totals.totalSellCount} {t('transactionMetrics.transactions')}
-            </div>
-          </div>
+      <PageMetricStrip className="transaction-metrics-headline-metrics" label={t('transactionMetrics.contextLabel')}>
+        <PageMetric
+          label={t('transactionMetrics.totalPurchases')}
+          value={formatCurrency(totals.totalBuySum)}
+          detail={`${totals.totalBuyCount} ${t('transactionMetrics.transactions')}`}
+        />
+        <PageMetric
+          label={t('transactionMetrics.totalSales')}
+          value={formatCurrency(totals.totalSellSum)}
+          detail={`${totals.totalSellCount} ${t('transactionMetrics.transactions')}`}
+        />
 
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <DollarSign size={16} />
-              <span>{t('transactionMetrics.netDifference')}</span>
-            </div>
-            <div className={`text-2xl font-bold ${
-              totals.netDifference >= 0 
-                ? 'text-green-600 dark:text-green-400' 
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              {totals.netDifference >= 0 ? '+' : ''}{formatCurrency(totals.netDifference)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.buyMinusSell')}
-            </div>
-          </div>
+        <PageMetric
+          label={t('transactionMetrics.netDifference')}
+          value={`${totals.netDifference >= 0 ? '+' : ''}${formatCurrency(totals.netDifference)}`}
+          detail={t('transactionMetrics.buyMinusSell')}
+          tone={totals.netDifference >= 0 ? 'positive' : 'negative'}
+        />
+        <PageMetric
+          label={t('transactionMetrics.totalFees')}
+          value={formatCurrency(totals.totalFees)}
+          detail={`${t('transaction.types.buy')}: ${formatCurrency(totals.totalBuyFees)} · ${t('transaction.types.sell')}: ${formatCurrency(totals.totalSellFees)}`}
+        />
+      </PageMetricStrip>
+
+      <section className="transaction-metrics-supporting-metrics" aria-label={t('transactionMetrics.contextLabel')}>
+        <div>
+          <span>{t('transactionMetrics.avgPurchase')}</span>
+          <strong>{formatCurrency(totals.totalBuyCount > 0 ? totals.totalBuySum / totals.totalBuyCount : 0)}</strong>
+          <em>{t('transactionMetrics.perTransaction')}</em>
         </div>
-
-        {/* Secondary Metrics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
-              <span>{t('transactionMetrics.avgPurchase')}</span>
-            </div>
-            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              {formatCurrency(totals.totalBuyCount > 0 ? totals.totalBuySum / totals.totalBuyCount : 0)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.perTransaction')}
-            </div>
-          </div>
-
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
-              <span>{t('transactionMetrics.avgSale')}</span>
-            </div>
-            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-              {formatCurrency(totals.totalSellCount > 0 ? totals.totalSellSum / totals.totalSellCount : 0)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.perTransaction')}
-            </div>
-          </div>
-
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <Receipt size={16} className="text-orange-600 dark:text-orange-400" />
-              <span>{t('transactionMetrics.totalFees')}</span>
-            </div>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {formatCurrency(totals.totalFees)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transaction.types.buy')}: {formatCurrency(totals.totalBuyFees)} · {t('transaction.types.sell')}: {formatCurrency(totals.totalSellFees)}
-            </div>
-          </div>
-
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <Percent size={16} className="text-red-600 dark:text-red-400" />
-              <span>{t('transactionMetrics.feeEfficiency')}</span>
-            </div>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              {totals.feePercentage.toFixed(2)}%
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.ofTotalVolume')}
-            </div>
-          </div>
-
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <Scale size={16} className="text-indigo-600 dark:text-indigo-400" />
-              <span>{t('transactionMetrics.buySellRatio')}</span>
-            </div>
-            {totals.totalSellSum === 0 ? (
-              <div className="flex flex-col justify-center h-[52px]">
-                <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                  {t('transactionMetrics.noSales')}
-                </div>
-                <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
-                  {t('transactionMetrics.onlyBuying')}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                  {totals.buyVsSellRatio.toFixed(2)}
-                </div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {totals.buyVsSellRatio > 1 ? t('transactionMetrics.netAccumulating') : t('transactionMetrics.netDistributing')}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              <Activity size={16} className="text-cyan-600 dark:text-cyan-400" />
-              <span>{t('transactionMetrics.avgFrequency')}</span>
-            </div>
-            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
-              {totals.avgTransactionsPerPeriod.toFixed(1)}
-            </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {t('transactionMetrics.transactionsPer', { period: grouping === 'monthly' ? t('transactionMetrics.periods.month') : t('transactionMetrics.periods.year') })}
-            </div>
-          </div>
+        <div>
+          <span>{t('transactionMetrics.avgSale')}</span>
+          <strong>{formatCurrency(totals.totalSellCount > 0 ? totals.totalSellSum / totals.totalSellCount : 0)}</strong>
+          <em>{t('transactionMetrics.perTransaction')}</em>
         </div>
-      </div>
+        <div>
+          <span>{t('transactionMetrics.feeEfficiency')}</span>
+          <strong>{totals.feePercentage.toFixed(2)}%</strong>
+          <em>{t('transactionMetrics.ofTotalVolume')}</em>
+        </div>
+        <div>
+          <span>{t('transactionMetrics.buySellRatio')}</span>
+          <strong>{totals.totalSellSum === 0 ? t('transactionMetrics.noSales') : totals.buyVsSellRatio.toFixed(2)}</strong>
+          <em>
+            {totals.totalSellSum === 0
+              ? t('transactionMetrics.onlyBuying')
+              : totals.buyVsSellRatio > 1
+                ? t('transactionMetrics.netAccumulating')
+                : t('transactionMetrics.netDistributing')}
+          </em>
+        </div>
+        <div>
+          <span>{t('transactionMetrics.avgFrequency')}</span>
+          <strong>{totals.avgTransactionsPerPeriod.toFixed(1)}</strong>
+          <em>{t('transactionMetrics.transactionsPer', { period: grouping === 'monthly' ? t('transactionMetrics.periods.month') : t('transactionMetrics.periods.year') })}</em>
+        </div>
+      </section>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <PageControls
+        label={t('transactionMetrics.controlsLabel')}
+        start={
+          <PageTabs label={t('transactionMetrics.controlsLabel')} role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={grouping === 'monthly'}
+              className={grouping === 'monthly' ? 'is-active' : undefined}
+              onClick={() => setGrouping('monthly')}
+            >
+              {t('transactionMetrics.viewModes.monthly')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={grouping === 'yearly'}
+              className={grouping === 'yearly' ? 'is-active' : undefined}
+              onClick={() => setGrouping('yearly')}
+            >
+              {t('transactionMetrics.viewModes.yearly')}
+            </button>
+          </PageTabs>
+        }
+      />
+
+      <PageMainGrid single>
+      <PageMainColumn className="transaction-metrics-charts-column">
+      <div className="transaction-metrics-charts">
         {/* Buy vs Sell Chart */}
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold mb-4 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <BarChart3 size={20} className="text-pink-600 dark:text-pink-400" />
-            {t('transactionMetrics.buyVsSellVolume')}
-          </h3>
+        <PageSection className="transaction-metrics-chart-card">
+          <PageSectionHeader
+            title={
+              <span className="transaction-metrics-section-title">
+                <BarChart3 size={20} />
+                {t('transactionMetrics.buyVsSellVolume')}
+              </span>
+            }
+          />
           {loading ? (
-            <div className="h-80 flex items-center justify-center">
-              <div className="animate-pulse space-y-4 w-full">
-                <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4"></div>
-                <div className="h-64 bg-neutral-200 dark:bg-neutral-800 rounded"></div>
-              </div>
-            </div>
+            <ChartSkeleton label={t('transactionMetrics.loadingMessage')} />
           ) : chartData.length === 0 ? (
-            <div className="h-80 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
+            <div className="transaction-metrics-chart-empty">
               {t('transactionMetrics.empty.noTransactionData')}
             </div>
           ) : (
@@ -695,46 +629,45 @@ export default function TransactionMetrics() {
               </BarChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </PageSection>
 
         {/* Net Difference Chart */}
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold mb-4 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <LineChartIcon size={20} className="text-purple-600 dark:text-purple-400" />
-            {t('transactionMetrics.netDifferenceTrend')}
-          </h3>
+        <PageSection className="transaction-metrics-chart-card">
+          <PageSectionHeader
+            title={
+              <span className="transaction-metrics-section-title">
+                <LineChartIcon size={20} />
+                {t('transactionMetrics.netDifferenceTrend')}
+              </span>
+            }
+          />
           {loading ? (
-            <div className="h-80 flex items-center justify-center">
-              <div className="animate-pulse space-y-4 w-full">
-                <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4"></div>
-                <div className="h-64 bg-neutral-200 dark:bg-neutral-800 rounded"></div>
-              </div>
-            </div>
+            <ChartSkeleton label={t('transactionMetrics.loadingMessage')} />
           ) : chartData.length === 0 ? (
-            <div className="h-80 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
+            <div className="transaction-metrics-chart-empty">
               {t('transactionMetrics.empty.noTransactionData')}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-700" />
-                <XAxis 
-                  dataKey="period" 
+                <XAxis
+                  dataKey="period"
                   className="text-xs fill-neutral-600 dark:fill-neutral-400"
                   angle={-45}
                   textAnchor="end"
                   height={80}
                 />
-                <YAxis 
+                <YAxis
                   className="text-xs fill-neutral-600 dark:fill-neutral-400"
-                  label={{ 
-                    value: `${t('transactionMetrics.amount')} (${metricsData?.currency || 'USD'})`, 
-                    angle: -90, 
+                  label={{
+                    value: `${t('transactionMetrics.amount')} (${metricsData?.currency || 'USD'})`,
+                    angle: -90,
                     position: 'insideLeft',
                     style: { textAnchor: 'middle' }
                   }}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{
                     backgroundColor: '#1f2937',
                     border: '1px solid #374151',
@@ -750,194 +683,145 @@ export default function TransactionMetrics() {
                   formatter={(value: number) => formatCurrency(value)}
                 />
                 <Legend />
-                <Line 
-                  type="monotone" 
+                <Line
+                  type="monotone"
                   dataKey="netDifference"
                   name={t('transactionMetrics.netDifference')}
-                  stroke="#ec4899" 
+                  stroke="#ec4899"
                   strokeWidth={2}
                   dot={{ fill: '#ec4899', r: 4 }}
                 />
               </LineChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </PageSection>
       </div>
+      </PageMainColumn>
 
-      {/* Detailed Table */}
-      <div className="card overflow-hidden">
-        <div className="p-6 pb-0">
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
-            <Table2 size={20} className="text-blue-600 dark:text-blue-400" />
-            {t('transactionMetrics.detailedBreakdown')}
-          </h3>
-        </div>
-        
-        <div className="overflow-x-auto">
+      <PageSection className="transaction-metrics-table-section">
+        <PageSectionHeader
+          title={
+            <span className="transaction-metrics-section-title">
+              <Table2 size={20} />
+              {t('transactionMetrics.detailedBreakdown')}
+            </span>
+          }
+        />
+
+        <div className="transaction-metrics-table-scroll transaction-metrics-ledger-scroll">
           {loading ? (
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('insights.period')}</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.txCount')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase border-l-2 border-neutral-300 dark:border-neutral-600">{t('transactionMetrics.buySum')}</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.buyCount')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.buyAvg')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.buyFees')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase border-l-2 border-neutral-300 dark:border-neutral-600">{t('transactionMetrics.sellSum')}</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.sellCount')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.sellAvg')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t('transactionMetrics.sellFees')}</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase border-l-2 border-neutral-300 dark:border-neutral-600">{t('transactionMetrics.difference')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-6 py-4"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-center"><div className="h-4 w-8 bg-neutral-200 dark:bg-neutral-700 rounded mx-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-center"><div className="h-4 w-8 bg-neutral-200 dark:bg-neutral-700 rounded mx-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-20 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                    <td className="px-6 py-4 text-right"><div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded ml-auto"></div></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <TableSkeleton rows={5} columns={8} label={t('transactionMetrics.loadingMessage')} />
           ) : sortedMetrics.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+            <div className="transaction-metrics-table-empty">
               <p>{t('transactionMetrics.empty.noTransactionData')}</p>
-              <p className="text-sm mt-2">{t('transactionMetrics.empty.startAddingTransactions')}</p>
+              <p>{t('transactionMetrics.empty.startAddingTransactions')}</p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-neutral-50 dark:bg-neutral-800/50">
+            <table className="transaction-metrics-ledger">
+              <colgroup>
+                <col style={{ width: '13%' }} />
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '4%' }} />
+              </colgroup>
+              <thead>
                 <tr>
-                  <th 
-                    onClick={() => handleSort('period')}
-                    className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('period')} className="is-left">
                     {t('insights.period')} <SharedSortIcon column="period" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('tx_count')}
-                    className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('tx_count')} className="is-center">
                     {t('transactionMetrics.txCount')} <SharedSortIcon column="tx_count" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('buy_sum')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-2 border-neutral-300 dark:border-neutral-600"
-                  >
+                  <th onClick={() => handleSort('buy_sum')} className="is-right has-divider">
                     {t('transactionMetrics.buySum')} <SharedSortIcon column="buy_sum" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('buy_count')}
-                    className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('buy_count')} className="is-center">
                     {t('transactionMetrics.buyCount')} <SharedSortIcon column="buy_count" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('buy_avg')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('buy_avg')} className="is-right">
                     {t('transactionMetrics.buyAvg')} <SharedSortIcon column="buy_avg" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('buy_fees')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('buy_fees')} className="is-right">
                     {t('transactionMetrics.buyFees')} <SharedSortIcon column="buy_fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('sell_sum')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-2 border-neutral-300 dark:border-neutral-600"
-                  >
+                  <th onClick={() => handleSort('sell_sum')} className="is-right has-divider">
                     {t('transactionMetrics.sellSum')} <SharedSortIcon column="sell_sum" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('sell_count')}
-                    className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('sell_count')} className="is-center">
                     {t('transactionMetrics.sellCount')} <SharedSortIcon column="sell_count" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('sell_avg')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('sell_avg')} className="is-right">
                     {t('transactionMetrics.sellAvg')} <SharedSortIcon column="sell_avg" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('sell_fees')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
+                  <th onClick={() => handleSort('sell_fees')} className="is-right">
                     {t('transactionMetrics.sellFees')} <SharedSortIcon column="sell_fees" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th 
-                    onClick={() => handleSort('diff')}
-                    className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-2 border-neutral-300 dark:border-neutral-600"
-                  >
+                  <th onClick={() => handleSort('diff')} className="is-right has-divider">
                     {t('transactionMetrics.difference')} <SharedSortIcon column="diff" activeColumn={sortKey} direction={sortDir} />
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                  <th className="is-center">
                     {t('transactionMetrics.details')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+              <tbody>
                 {sortedMetrics.map((metric, idx) => {
-                  const periodKey = grouping === 'yearly' 
-                    ? `${metric.year}` 
+                  const periodKey = grouping === 'yearly'
+                    ? `${metric.year}`
                     : `${metric.year}-${metric.month}`
                   const isExpanded = expandedRows.has(periodKey)
                   const transactions = periodTransactions.get(periodKey) || []
-                  
+
                   return (
                     <React.Fragment key={idx}>
-                      <tr className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      <tr>
+                        <td className="is-left is-emphasis">
                           {formatPeriod(metric)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-neutral-900 dark:text-neutral-100">
+                        <td className="is-center">
                           {metric.buy_count + metric.sell_count}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-green-600 dark:text-green-400 border-l-2 border-neutral-200 dark:border-neutral-700">
+                        <td className="is-right is-positive has-divider">
                           {formatCurrency(metric.buy_sum_total_price)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-neutral-900 dark:text-neutral-100">
+                        <td className="is-center">
                           {metric.buy_count}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-600 dark:text-neutral-400">
+                        <td className="is-right is-muted">
                           {formatCurrency(metric.buy_avg_total_price)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-orange-600 dark:text-orange-400">
+                        <td className="is-right is-fee">
                           {formatCurrency(metric.buy_sum_fees)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-red-600 dark:text-red-400 border-l-2 border-neutral-200 dark:border-neutral-700">
+                        <td className="is-right is-negative has-divider">
                           {formatCurrency(metric.sell_sum_total_price)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-neutral-900 dark:text-neutral-100">
+                        <td className="is-center">
                           {metric.sell_count}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-neutral-600 dark:text-neutral-400">
+                        <td className="is-right is-muted">
                           {formatCurrency(metric.sell_avg_total_price)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-orange-600 dark:text-orange-400">
+                        <td className="is-right is-fee">
                           {formatCurrency(metric.sell_sum_fees)}
                         </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold border-l-2 border-neutral-200 dark:border-neutral-700 ${
-                          metric.diff_buy_sell >= 0 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
+                        <td className={`is-right is-emphasis has-divider ${metric.diff_buy_sell >= 0 ? 'is-positive' : 'is-negative'}`}>
                           {metric.diff_buy_sell >= 0 ? '+' : ''}{formatCurrency(metric.diff_buy_sell)}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="is-center">
                           <button
+                            type="button"
+                            className="transaction-metrics-expand-button"
                             onClick={() => toggleRow(metric)}
-                            className="text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 transition-colors"
+                            aria-label={t('transactionMetrics.details')}
                           >
                             {isExpanded ? (
                               <ChevronUp size={18} />
@@ -948,60 +832,60 @@ export default function TransactionMetrics() {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr key={`${idx}-details`}>
-                          <td colSpan={12} className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50">
-                            <div className="space-y-2">
-                              <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
+                        <tr key={`${idx}-details`} className="transaction-metrics-expanded-row">
+                          <td colSpan={12}>
+                            <div className="transaction-metrics-expanded">
+                              <h4>
                                 {t('transactionMetrics.transactionsIn', { period: formatPeriod(metric) })}
                               </h4>
                               {transactions.length === 0 ? (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">
+                                <p className="transaction-metrics-expanded-empty">
                                   {t('transactionMetrics.loadingMessage')}
                                 </p>
                               ) : (
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full">
+                                <div className="transaction-metrics-table-scroll">
+                                  <table className="transaction-metrics-tx-table">
                                     <thead>
-                                      <tr className="border-b border-neutral-200 dark:border-neutral-700">
-                                        <th 
+                                      <tr>
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'date')}
-                                          className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-left"
                                         >
                                           {t('fields.date')} <TxSortIcon periodKey={periodKey} col="date" />
                                         </th>
-                                        <th 
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'asset')}
-                                          className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-left"
                                         >
                                           {t('fields.asset')} <TxSortIcon periodKey={periodKey} col="asset" />
                                         </th>
-                                        <th 
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'type')}
-                                          className="px-3 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-left"
                                         >
                                           {t('fields.type')} <TxSortIcon periodKey={periodKey} col="type" />
                                         </th>
-                                        <th 
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'quantity')}
-                                          className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-right"
                                         >
                                           {t('fields.quantity')} <TxSortIcon periodKey={periodKey} col="quantity" />
                                         </th>
-                                        <th 
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'price')}
-                                          className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-right"
                                         >
                                           {t('fields.price')} <TxSortIcon periodKey={periodKey} col="price" />
                                         </th>
-                                        <th 
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'fees')}
-                                          className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-right"
                                         >
                                           {t('fields.fees')} <TxSortIcon periodKey={periodKey} col="fees" />
                                         </th>
-                                        <th 
+                                        <th
                                           onClick={() => handleTxSort(periodKey, 'total')}
-                                          className="px-3 py-2 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                          className="is-right"
                                         >
                                           {t('fields.total')} <TxSortIcon periodKey={periodKey} col="total" />
                                         </th>
@@ -1013,52 +897,48 @@ export default function TransactionMetrics() {
                                         const price = typeof tx.price === 'string' ? parseFloat(tx.price) : tx.price
                                         const fees = typeof tx.fees === 'string' ? parseFloat(tx.fees) : tx.fees
                                         const total = tx.type === 'SELL' ? (quantity * price - fees) : (quantity * price + fees)
-                                        
+
                                         return (
-                                          <tr key={tx.id} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-white dark:hover:bg-neutral-900 transition-colors">
-                                            <td className="px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100">
+                                          <tr key={tx.id}>
+                                            <td className="is-left">
                                               {formatDate(tx.tx_date)}
                                             </td>
-                                            <td className="px-3 py-2">
-                                              <div className="flex items-center gap-2">
+                                            <td className="is-left">
+                                              <div className="transaction-metrics-tx-asset">
                                                 <AssetLogo
                                                   symbol={tx.asset.symbol}
                                                   assetType={tx.asset.asset_type}
                                                   assetName={tx.asset.name}
                                                   alt={`${tx.asset.symbol} logo`}
-                                                  className="w-5 h-5 object-cover"
+                                                  className="transaction-metrics-tx-logo"
                                                 />
                                                 <div>
-                                                  <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                                                  <div className="transaction-metrics-tx-symbol">
                                                     {tx.asset.symbol}
                                                   </div>
                                                   {tx.asset.name && (
-                                                    <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-xs">
+                                                    <div className="transaction-metrics-tx-name">
                                                       {tx.asset.name}
                                                     </div>
                                                   )}
                                                 </div>
                                               </div>
                                             </td>
-                                            <td className="px-3 py-2">
-                                              <span className={`text-xs font-medium px-2 py-1 rounded ${
-                                                tx.type === 'BUY' 
-                                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                              }`}>
+                                            <td className="is-left">
+                                              <span className={`transaction-metrics-tx-type ${tx.type === 'BUY' ? 'is-buy' : 'is-sell'}`}>
                                                 {getTranslatedType(tx.type)}
                                               </span>
                                             </td>
-                                            <td className="px-3 py-2 text-right text-sm text-neutral-900 dark:text-neutral-100">
+                                            <td className="is-right">
                                               {formatQuantity(tx.quantity)}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-sm text-neutral-900 dark:text-neutral-100">
+                                            <td className="is-right">
                                               {formatCurrency(price)}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-sm text-neutral-600 dark:text-neutral-400">
+                                            <td className="is-right is-muted">
                                               {formatCurrency(fees)}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                                            <td className="is-right is-emphasis">
                                               {formatCurrency(total)}
                                             </td>
                                           </tr>
@@ -1079,9 +959,8 @@ export default function TransactionMetrics() {
             </table>
           )}
         </div>
-      </div>
-      </>
-      )}
-    </div>
+      </PageSection>
+      </PageMainGrid>
+    </PageShell>
   )
 }

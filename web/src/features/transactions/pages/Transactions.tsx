@@ -1219,6 +1219,30 @@ export default function Transactions() {
         <PageSummaryPanel
           lead={t('transactionsPage.investedLead', { amount: formatCurrency(investedCapital, portfolioCurrency, currentLocale) })}
           description={t('transactionsPage.pageDescription')}
+          actions={
+            <>
+              <button className="pf-button pf-button--secondary" type="button" onClick={() => navigate('/transactions/metrics')}>
+                <BarChart3 size={15} />
+                {t('transactionsPage.metrics')}
+              </button>
+              <button className="pf-button pf-button--secondary" type="button" onClick={handleImportClick} disabled={importLoading}>
+                <Upload size={15} />
+                {importLoading ? t('common.importing') : t('common.import')}
+              </button>
+              <button className="pf-button pf-button--secondary" type="button" onClick={handleExportClick}>
+                <Download size={15} />
+                {t('common.export')}
+              </button>
+              <button className="pf-button pf-button--secondary" type="button" onClick={() => setShowConversionModal(true)}>
+                <RefreshCw size={15} />
+                {t('conversion.convert')}
+              </button>
+              <button className="pf-button pf-button--primary is-primary" type="button" onClick={openAddModal}>
+                <PlusCircle size={15} />
+                {t('transactionsPage.recordTransaction')}
+              </button>
+            </>
+          }
         />
       </PageHeader>
 
@@ -1280,26 +1304,6 @@ export default function Transactions() {
           <button onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}>
             {sortDir === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             {sortDir === 'asc' ? t('transactionsPage.ascending') : t('transactionsPage.descending')}
-          </button>
-          <button onClick={() => navigate('/transactions/metrics')}>
-            <BarChart3 size={16} />
-            {t('transactionsPage.metrics')}
-          </button>
-          <button onClick={handleImportClick} disabled={importLoading}>
-            <Upload size={16} />
-            {importLoading ? t('common.importing') : t('common.import')}
-          </button>
-          <button onClick={handleExportClick}>
-            <Download size={16} />
-            {t('common.export')}
-          </button>
-          <button onClick={() => setShowConversionModal(true)}>
-            <RefreshCw size={16} />
-            {t('conversion.convert')}
-          </button>
-          <button className="is-primary" onClick={openAddModal}>
-            <PlusCircle size={16} />
-            {t('transactionsPage.recordTransaction')}
           </button>
         </div>
         }

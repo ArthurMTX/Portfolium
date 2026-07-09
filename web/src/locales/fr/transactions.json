@@ -118,8 +118,12 @@
     }
   },
   "transactionMetrics": {
+    "kicker": "Métriques des transactions",
     "title": "Métriques des transactions",
     "description": "Analysez votre activité d'achat et de vente au fil du temps",
+    "netDifferenceLead": "{{amount}} de différence nette.",
+    "contextLabel": "Contexte des métriques de transactions",
+    "controlsLabel": "Contrôles des métriques de transactions",
     "loadingMessage": "Chargement des métriques de vos transactions...",
     "backToTransactions": "Retour aux transactions",
     "transactions": "transactions",
