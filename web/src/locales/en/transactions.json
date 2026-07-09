@@ -17,8 +17,6 @@
     "title": "Transactions",
     "description": "Track all your buy, sell, and dividend transactions",
     "loadingMessage": "Loading your transactions...",
-    "viewMetrics": "View Metrics",
-    "metrics": "Metrics",
     "addTransaction": "Add Transaction",
     "editTransaction": "Edit Transaction",
     "deleteTransaction": "Delete Transaction",
@@ -118,8 +116,8 @@
     }
   },
   "transactionMetrics": {
-    "kicker": "Transaction Metrics",
-    "title": "Transaction Metrics",
+    "kicker": "Activity Analysis",
+    "title": "Transaction Analysis",
     "description": "Analyze your buying and selling activity over time",
     "netDifferenceLead": "{{amount}} net difference.",
     "contextLabel": "Transaction metrics context",
@@ -376,7 +374,6 @@
     "sort": "Sort",
     "ascending": "Ascending",
     "descending": "Descending",
-    "metrics": "Metrics",
     "recordTransaction": "Record transaction",
     "showingOfCapitalEvents": "Showing <strong>{{shown}}</strong> of <strong>{{total}}</strong> capital events.",
     "capitalHistoryLabel": "Capital history",

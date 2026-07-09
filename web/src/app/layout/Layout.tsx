@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeftRight,
+  BarChart3,
   BookText,
   Briefcase,
   Calendar,
@@ -188,6 +189,12 @@ export default function Layout() {
       isActive: (pathname) => pathname === '/calendar',
     },
     {
+      to: '/analysis/transactions',
+      label: t('navigation.transactionAnalysis'),
+      icon: BarChart3,
+      isActive: (pathname) => pathname === '/analysis/transactions',
+    },
+    {
       to: '/watchlist',
       label: t('navigation.watchlist'),
       icon: Eye,
@@ -203,10 +210,11 @@ export default function Layout() {
     analyzeItems[2],
     analyzeItems[0],
     analyzeItems[1],
+    analyzeItems[3],
     navigationItems[2],
     navigationItems[3],
     navigationItems[4],
-    analyzeItems[3],
+    analyzeItems[4],
     navigationItems[5],
   ]
 

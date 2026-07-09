@@ -180,7 +180,8 @@ function App() {
                 <Route path="calendar" element={<Calendar />} />
                 <Route path="insights" element={<Insights />} />
                 <Route path="transactions" element={<Transactions />} />
-                <Route path="transactions/metrics" element={<TransactionMetrics />} />
+                <Route path="transactions/metrics" element={<Navigate to="/analysis/transactions" replace />} />
+                <Route path="analysis/transactions" element={<TransactionMetrics />} />
                 <Route path="allocation" element={<Allocation />} />
                 <Route path="assets" element={<Assets />} />
                 <Route path="assets/research" element={<AssetResearchSearch />} />

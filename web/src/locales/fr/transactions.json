@@ -17,8 +17,6 @@
     "title": "Transactions",
     "description": "Suivez toutes vos transactions d'achat, de vente et de dividende",
     "loadingMessage": "Chargement de vos transactions...",
-    "viewMetrics": "Voir les métriques",
-    "metrics": "Métriques",
     "addTransaction": "Ajouter une transaction",
     "editTransaction": "Modifier la transaction",
     "deleteTransaction": "Supprimer la transaction",
@@ -118,8 +116,8 @@
     }
   },
   "transactionMetrics": {
-    "kicker": "Métriques des transactions",
-    "title": "Métriques des transactions",
+    "kicker": "Analyse de l'activité",
+    "title": "Analyse des transactions",
     "description": "Analysez votre activité d'achat et de vente au fil du temps",
     "netDifferenceLead": "{{amount}} de différence nette.",
     "contextLabel": "Contexte des métriques de transactions",
@@ -376,7 +374,6 @@
     "sort": "Trier",
     "ascending": "Croissant",
     "descending": "Décroissant",
-    "metrics": "Indicateurs",
     "recordTransaction": "Enregistrer une transaction",
     "showingOfCapitalEvents": "Affichage de <strong>{{shown}}</strong> sur <strong>{{total}}</strong> événements de capital.",
     "capitalHistoryLabel": "Historique du capital",

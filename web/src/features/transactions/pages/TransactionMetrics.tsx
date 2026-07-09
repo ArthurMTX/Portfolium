@@ -466,14 +466,6 @@ export default function TransactionMetrics() {
           kicker={t('transactionMetrics.kicker')}
           title={
             <span className="transaction-metrics-title">
-              <button
-                type="button"
-                className="transaction-metrics-back"
-                onClick={() => navigate('/transactions')}
-                aria-label={t('transactionMetrics.backToTransactions')}
-              >
-                <ArrowLeft size={20} />
-              </button>
               {t('transactionMetrics.title')}
             </span>
           }

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import api, { type CsvImportPreviewResultDTO } from '@/api'
-import { PlusCircle, Upload, Download, X, Search, BarChart3, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { PlusCircle, Upload, Download, X, Search, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import SplitHistory from '@/features/assets/components/SplitHistory'
 import EmptyPortfolioPrompt from '@/features/portfolios/components/EmptyPortfolioPrompt'
 import ImportReviewModal from '@/features/transactions/components/ImportReviewModal'
@@ -1221,10 +1221,6 @@ export default function Transactions() {
           description={t('transactionsPage.pageDescription')}
           actions={
             <>
-              <button className="pf-button pf-button--secondary" type="button" onClick={() => navigate('/transactions/metrics')}>
-                <BarChart3 size={15} />
-                {t('transactionsPage.metrics')}
-              </button>
               <button className="pf-button pf-button--secondary" type="button" onClick={handleImportClick} disabled={importLoading}>
                 <Upload size={15} />
                 {importLoading ? t('common.importing') : t('common.import')}
