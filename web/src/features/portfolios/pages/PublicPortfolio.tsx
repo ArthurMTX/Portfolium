@@ -29,6 +29,7 @@ import {
     getIndustryColor
 } from '@/shared/lib/sectorIndustryUtils'
 import AssetLogo from '@/shared/components/AssetLogo'
+import '@/shared/design/pages/public-portfolio.css'
 
 const LANGUAGES = [
     { code: 'en', name: 'English', country: 'GB' },
@@ -141,16 +142,16 @@ const PublicPortfolio: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-6">
-                    <div className="relative w-16 h-16">
-                        <div className="absolute inset-0 rounded-full border-2 border-neutral-200 dark:border-neutral-800" />
-                        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-pink-500 animate-spin" />
-                        <div className="absolute inset-3 rounded-full bg-pink-500 flex items-center justify-center">
-                            <BarChart3 className="w-5 h-5 text-white" />
+            <div className="public-portfolio-state">
+                <div className="public-portfolio-state-inner">
+                    <div className="public-portfolio-spinner">
+                        <div className="public-portfolio-spinner-track" />
+                        <div className="public-portfolio-spinner-arc" />
+                        <div className="public-portfolio-spinner-icon">
+                            <BarChart3 className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-neutral-600 dark:text-neutral-400 text-sm">{t('publicPortfolio.loading')}</p>
+                    <p>{t('publicPortfolio.loading')}</p>
                 </div>
             </div>
         )
@@ -158,22 +159,22 @@ const PublicPortfolio: React.FC = () => {
 
     if (error || !data) {
         return (
-            <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
-                <div className="text-center px-6 max-w-lg">
-                    <div className="w-16 h-16 mx-auto mb-6 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center">
-                        <AlertTriangle className="h-8 w-8 text-amber-500 dark:text-amber-400" />
+            <div className="public-portfolio-state">
+                <div className="public-portfolio-error">
+                    <div className="public-portfolio-error-icon">
+                        <AlertTriangle className="h-8 w-8" />
                     </div>
-                    <h2 className="text-2xl font-bold mb-4 text-neutral-900 dark:text-white">{t('publicPortfolio.unavailable')}</h2>
-                    <p className="text-neutral-600 dark:text-neutral-400 mb-8 leading-relaxed">
+                    <h2>{t('publicPortfolio.unavailable')}</h2>
+                    <p>
                         {error || t('publicPortfolio.notFoundMessage')}
                     </p>
                     <Link
                         to="/register"
-                        className="group inline-flex items-center gap-3 px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors"
+                        className="pf-button pf-button--primary"
                     >
                         <UserPlus size={20} />
                         {t('publicPortfolio.createYourOwn')}
-                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight size={18} />
                     </Link>
                 </div>
             </div>
@@ -209,38 +210,37 @@ const PublicPortfolio: React.FC = () => {
     const marketsCount = data.geographic_allocation?.length || 0
 
     return (
-        <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white overflow-x-hidden">
+        <div className="public-portfolio-page">
 
             {/* Floating ticker bar */}
-            <div className="relative bg-white dark:bg-neutral-900/80 border-b border-neutral-200 dark:border-neutral-800 overflow-hidden">
-                <div className="animate-ticker flex whitespace-nowrap py-2">
+            <div className="public-portfolio-ticker">
+                <div className="public-portfolio-ticker-track">
                     {[...data.holdings, ...data.holdings, ...data.holdings].map((h, i) => (
-                        <span key={i} className="inline-flex items-center gap-2 mx-6 text-sm">
-                            <span className="text-pink-600 dark:text-pink-400 font-mono font-semibold">{h.symbol}</span>
-                            <span className="text-neutral-400 dark:text-neutral-500">•</span>
-                            <span className="text-neutral-600 dark:text-neutral-400">{formatNumber(h.weight_pct, 1)}%</span>
+                        <span key={i} className="public-portfolio-ticker-item">
+                            <span className="public-portfolio-ticker-symbol">{h.symbol}</span>
+                            <span className="public-portfolio-ticker-dot">•</span>
+                            <span className="public-portfolio-ticker-weight">{formatNumber(h.weight_pct, 1)}%</span>
                         </span>
                     ))}
                 </div>
             </div>
 
             {/* Header */}
-            <header className="relative sticky top-0 z-50">
-                <div className="absolute inset-0 bg-white/80 dark:bg-neutral-950/70 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800/50" />
-                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <img src="/favicon.svg" alt="Portfolium" className="w-9 h-9" />
-                        <span className="text-xl font-bold tracking-tight">
+            <header className="public-portfolio-header">
+                <div className="public-portfolio-header-inner">
+                    <div className="public-portfolio-brand">
+                        <img src="/favicon.svg" alt="Portfolium" />
+                        <span>
                             Portfolium
                         </span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="public-portfolio-header-actions">
                         {/* Language Switcher */}
-                        <div className="relative" ref={langMenuRef}>
+                        <div className="public-portfolio-lang-menu" ref={langMenuRef}>
                             <button
                                 onClick={() => setLangMenuOpen(!langMenuOpen)}
-                                className="flex items-center gap-2 p-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800/50 dark:hover:bg-neutral-700/50 border border-neutral-200 dark:border-neutral-700/50 transition-all duration-200"
+                                className="public-portfolio-icon-button"
                                 aria-label={t('navigation.changeLanguage')}
                             >
                                 <img
@@ -248,20 +248,16 @@ const PublicPortfolio: React.FC = () => {
                                     alt={currentLanguage.name}
                                     className="w-5 h-4 object-cover rounded-sm"
                                 />
-                                <ChevronDown size={14} className={`text-neutral-500 transition-transform ${langMenuOpen ? 'rotate-180' : ''}`} />
+                                <ChevronDown size={14} style={{ transform: langMenuOpen ? 'rotate(180deg)' : undefined, transition: 'transform 160ms ease' }} />
                             </button>
-                            
+
                             {langMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-lg overflow-hidden z-50">
+                                <div className="public-portfolio-lang-dropdown">
                                     {LANGUAGES.map((lang) => (
                                         <button
                                             key={lang.code}
                                             onClick={() => changeLanguage(lang.code)}
-                                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                                                i18n.language === lang.code
-                                                    ? 'bg-pink-50 dark:bg-pink-950/50 text-pink-600 dark:text-pink-400'
-                                                    : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'
-                                            }`}
+                                            className={`public-portfolio-lang-option ${i18n.language === lang.code ? 'is-active' : ''}`}
                                         >
                                             <img
                                                 src={getFlagUrl(lang.country, 'w20') || ''}
@@ -278,15 +274,15 @@ const PublicPortfolio: React.FC = () => {
                         {/* Theme Toggle */}
                         <button
                             onClick={toggleDarkMode}
-                            className="p-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800/50 dark:hover:bg-neutral-700/50 border border-neutral-200 dark:border-neutral-700/50 transition-all duration-200"
+                            className="public-portfolio-icon-button"
                             aria-label={t('navigation.toggleDarkMode')}
                         >
-                            {darkMode ? <Sun size={18} className="text-amber-500" /> : <Moon size={18} className="text-neutral-600" />}
+                            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                         </button>
                         {user ? (
                             <Link
                                 to="/"
-                                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors text-sm"
+                                className="public-portfolio-cta-link pf-button pf-button--primary"
                             >
                                 <LayoutDashboard size={16} />
                                 {t('publicPortfolio.goToDashboard')}
@@ -294,7 +290,7 @@ const PublicPortfolio: React.FC = () => {
                         ) : (
                             <Link
                                 to="/register"
-                                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors text-sm"
+                                className="public-portfolio-cta-link pf-button pf-button--primary"
                             >
                                 <UserPlus size={16} />
                                 {t('publicPortfolio.signUp')}
@@ -304,131 +300,127 @@ const PublicPortfolio: React.FC = () => {
                 </div>
             </header>
 
-            <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+            <main className="public-portfolio-main">
                 {/* Hero Section - Asymmetric layout */}
                 <section>
-                    <div className="grid lg:grid-cols-5 gap-8 items-start">
-                        {/* Left content - takes 3 cols */}
-                        <div className="lg:col-span-3 space-y-8">
+                    <div className="public-portfolio-hero">
+                        {/* Left content */}
+                        <div className="public-portfolio-hero-content">
                             {/* Badges */}
-                            <div className="flex flex-wrap items-center gap-3">
-                                <span className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full bg-pink-100 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-200 dark:border-pink-500/20">
+                            <div className="public-portfolio-badges">
+                                <span className="public-portfolio-badge is-accent">
                                     <Eye size={12} />
                                     {t('publicPortfolio.publicSnapshot')}
                                 </span>
-                                <span className="inline-flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                <span className="public-portfolio-badge is-muted">
                                     <Lock size={12} />
                                     {t('publicPortfolio.amountsHidden')}
                                 </span>
                             </div>
 
-                            {/* Portfolio name with gradient */}
+                            {/* Portfolio name */}
                             <div>
-                                <p className="text-neutral-500 text-sm mb-2 flex items-center gap-2">
-                                    {t('publicPortfolio.sharedBy')} <span className="text-pink-600 dark:text-pink-400 font-medium">{data.owner_username}</span>
+                                <p className="public-portfolio-shared-by">
+                                    {t('publicPortfolio.sharedBy')} <strong>{data.owner_username}</strong>
                                 </p>
-                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                                    <span className="bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-500 dark:from-white dark:via-white dark:to-neutral-400 bg-clip-text text-transparent">
-                                        {data.portfolio_name}
-                                    </span>
+                                <h1 className="public-portfolio-title">
+                                    {data.portfolio_name}
                                 </h1>
                             </div>
 
                             {/* Description */}
-                            <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-xl">
+                            <p className="public-portfolio-description">
                                 <Trans
                                     i18nKey="publicPortfolio.description"
                                     values={{ user: data.owner_username }}
-                                    components={{ 1: <span className="text-neutral-900 dark:text-white" /> }}
+                                    components={{ 1: <strong /> }}
                                 />
                             </p>
 
                             {/* Stats row with animated counters */}
-                            <div className="flex flex-wrap gap-6">
+                            <div className="public-portfolio-stats">
                                 <StatCounter value={holdingsCount} label={t('publicPortfolio.positions')} suffix="" />
                                 <StatCounter value={sectorsCount} label={t('insights.sectorAllocation')} suffix="" />
                                 <StatCounter value={marketsCount} label={t('insights.geographicAllocation')} suffix="" />
                             </div>
 
                             {/* CTA buttons */}
-                            <div className="flex flex-wrap items-center gap-4 pt-4">
+                            <div className="public-portfolio-cta-row">
                                 {user ? (
                                     <Link
                                         to="/"
-                                        className="group inline-flex items-center gap-3 px-7 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors"
+                                        className="pf-button pf-button--primary"
                                     >
                                         <LayoutDashboard size={20} />
                                         {t('publicPortfolio.goToDashboard')}
-                                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                        <ArrowRight size={18} />
                                     </Link>
                                 ) : (
                                     <Link
                                         to="/register"
-                                        className="group inline-flex items-center gap-3 px-7 py-4 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-lg transition-colors"
+                                        className="pf-button pf-button--primary"
                                     >
                                         <Zap size={20} />
                                         {t('publicPortfolio.createYourOwn')}
-                                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                        <ArrowRight size={18} />
                                     </Link>
                                 )}
                             </div>
                         </div>
 
                         {/* Right sidebar - Quick overview card */}
-                        <div className="lg:col-span-2">
-                            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('publicPortfolio.quickOverview')}</h3>
-                                        <BarChart3 size={16} className="text-pink-500 dark:text-pink-400" />
-                                    </div>
-
-                                    {/* Top sector */}
-                                    {topSector && (
-                                        <div className="space-y-3">
-                                            <p className="text-xs text-neutral-500 uppercase tracking-wider">{t('publicPortfolio.topSector')}</p>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    {(() => {
-                                                        const Icon = getSectorIcon(topSector.sector)
-                                                        return <Icon className={`w-5 h-5 ${getSectorColor(topSector.sector)}`} />
-                                                    })()}
-                                                    <span className="font-medium">{t(`sectors.${topSector.sector}`, topSector.sector)}</span>
-                                                </div>
-                                                <span className="text-pink-600 dark:text-pink-400 font-mono font-bold">{formatNumber(topSector.percentage, 1)}%</span>
-                                            </div>
-                                            <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                                                <div 
-                                                    className="h-full rounded-full bg-gradient-to-r from-pink-500 to-pink-400 transition-all duration-1000 ease-out"
-                                                    style={{ width: `${topSector.percentage}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Top country */}
-                                    {topCountry && (
-                                        <div className="space-y-3">
-                                            <p className="text-xs text-neutral-500 uppercase tracking-wider">{t('publicPortfolio.mainExposure')}</p>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    {getFlagUrl(topCountry.country) ? (
-                                                        <img src={getFlagUrl(topCountry.country) || ''} className="w-6 h-4 rounded object-cover" alt={topCountry.country} />
-                                                    ) : (
-                                                        <Globe size={18} className="text-neutral-400" />
-                                                    )}
-                                                    <span className="font-medium">{topCountry.country}</span>
-                                                </div>
-                                                <span className="text-pink-600 dark:text-pink-400 font-mono font-bold">{formatNumber(topCountry.percentage, 1)}%</span>
-                                            </div>
-                                            <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                                                <div 
-                                                    className="h-full rounded-full bg-gradient-to-r from-pink-500 to-pink-400 transition-all duration-1000 ease-out"
-                                                    style={{ width: `${topCountry.percentage}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
+                        <div className="public-portfolio-overview-card">
+                            <div className="public-portfolio-overview-header">
+                                <h3>{t('publicPortfolio.quickOverview')}</h3>
+                                <BarChart3 size={16} />
                             </div>
+
+                            {/* Top sector */}
+                            {topSector && (
+                                <div className="public-portfolio-overview-block">
+                                    <p className="public-portfolio-overview-label">{t('publicPortfolio.topSector')}</p>
+                                    <div className="public-portfolio-overview-row">
+                                        <div className="public-portfolio-overview-entity">
+                                            {(() => {
+                                                const Icon = getSectorIcon(topSector.sector)
+                                                return <Icon className={`w-5 h-5 ${getSectorColor(topSector.sector)}`} />
+                                            })()}
+                                            <span>{t(`sectors.${topSector.sector}`, topSector.sector)}</span>
+                                        </div>
+                                        <span className="public-portfolio-overview-value">{formatNumber(topSector.percentage, 1)}%</span>
+                                    </div>
+                                    <div className="public-portfolio-meter">
+                                        <div
+                                            className="public-portfolio-meter-fill"
+                                            style={{ width: `${topSector.percentage}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Top country */}
+                            {topCountry && (
+                                <div className="public-portfolio-overview-block">
+                                    <p className="public-portfolio-overview-label">{t('publicPortfolio.mainExposure')}</p>
+                                    <div className="public-portfolio-overview-row">
+                                        <div className="public-portfolio-overview-entity">
+                                            {getFlagUrl(topCountry.country) ? (
+                                                <img src={getFlagUrl(topCountry.country) || ''} alt={topCountry.country} />
+                                            ) : (
+                                                <Globe size={18} />
+                                            )}
+                                            <span>{topCountry.country}</span>
+                                        </div>
+                                        <span className="public-portfolio-overview-value">{formatNumber(topCountry.percentage, 1)}%</span>
+                                    </div>
+                                    <div className="public-portfolio-meter">
+                                        <div
+                                            className="public-portfolio-meter-fill"
+                                            style={{ width: `${topCountry.percentage}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -440,34 +432,28 @@ const PublicPortfolio: React.FC = () => {
                         title={t('publicPortfolio.sectorAllocation')}
                         subtitle={`${data.sector_allocation.length} ${t('insights.assets')}`}
                         icon={PieChart}
-                        iconBg="from-blue-500/20 to-blue-600/10"
-                        iconColor="text-blue-400"
                     >
-                        <div className="space-y-5">
-                            {data.sector_allocation.map((item, index) => {
+                        <div className="public-portfolio-allocation-rows">
+                            {data.sector_allocation.map((item) => {
                                 const SectorIcon = getSectorIcon(item.sector)
                                 return (
-                                    <div 
-                                        key={item.sector} 
-                                        className="group space-y-2"
-                                        style={{ animationDelay: `${index * 100}ms` }}
+                                    <div
+                                        key={item.sector}
+                                        className="public-portfolio-allocation-row"
                                     >
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">
+                                        <div className="public-portfolio-allocation-line">
+                                            <span className="public-portfolio-allocation-label">
                                                 <SectorIcon className={`w-4 h-4 ${getSectorColor(item.sector)}`} />
                                                 {t(`sectors.${item.sector}`, item.sector)}
                                             </span>
-                                            <span className="font-mono font-semibold text-neutral-900 dark:text-white">
+                                            <span className="public-portfolio-allocation-value">
                                                 {formatNumber(item.percentage, 1)}%
                                             </span>
                                         </div>
-                                        <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                        <div className="public-portfolio-meter">
                                             <div
-                                                className="h-full rounded-full bg-gradient-to-r from-pink-600 to-pink-400 group-hover:from-pink-500 group-hover:to-pink-300 transition-all duration-500"
-                                                style={{ 
-                                                    width: `${item.percentage}%`,
-                                                    transition: 'width 1s ease-out'
-                                                }}
+                                                className="public-portfolio-meter-fill"
+                                                style={{ width: `${item.percentage}%` }}
                                             />
                                         </div>
                                     </div>
@@ -481,38 +467,32 @@ const PublicPortfolio: React.FC = () => {
                         title={t('publicPortfolio.geographicAllocation')}
                         subtitle={`${data.geographic_allocation.length} ${t('insights.assets')}`}
                         icon={Globe}
-                        iconBg="from-emerald-500/20 to-emerald-600/10"
-                        iconColor="text-emerald-400"
                     >
-                        <div className="space-y-5">
-                            {data.geographic_allocation.map((item, index) => {
+                        <div className="public-portfolio-allocation-rows">
+                            {data.geographic_allocation.map((item) => {
                                 const flagUrl = getFlagUrl(item.country)
                                 return (
-                                    <div 
-                                        key={item.country} 
-                                        className="group space-y-2"
-                                        style={{ animationDelay: `${index * 100}ms` }}
+                                    <div
+                                        key={item.country}
+                                        className="public-portfolio-allocation-row"
                                     >
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">
+                                        <div className="public-portfolio-allocation-line">
+                                            <span className="public-portfolio-allocation-label">
                                                 {flagUrl ? (
-                                                    <img src={flagUrl} alt={item.country} className="w-5 h-4 object-cover rounded" />
+                                                    <img src={flagUrl} alt={item.country} />
                                                 ) : (
-                                                    <Globe size={16} className="text-neutral-500" />
+                                                    <Globe size={16} />
                                                 )}
                                                 {item.country}
                                             </span>
-                                            <span className="font-mono font-semibold text-neutral-900 dark:text-white">
+                                            <span className="public-portfolio-allocation-value">
                                                 {formatNumber(item.percentage, 1)}%
                                             </span>
                                         </div>
-                                        <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                                        <div className="public-portfolio-meter">
                                             <div
-                                                className="h-full rounded-full bg-gradient-to-r from-pink-600 to-pink-400 group-hover:from-pink-500 group-hover:to-pink-300 transition-all duration-500"
-                                                style={{ 
-                                                    width: `${item.percentage}%`,
-                                                    transition: 'width 1s ease-out'
-                                                }}
+                                                className="public-portfolio-meter-fill"
+                                                style={{ width: `${item.percentage}%` }}
                                             />
                                         </div>
                                     </div>
@@ -524,108 +504,101 @@ const PublicPortfolio: React.FC = () => {
 
                 {/* Holdings Table */}
                 <section>
-                    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden">
-                        <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="public-portfolio-table-card">
+                        <div className="public-portfolio-table-header">
                             <div>
-                                <h3 className="text-xl font-semibold text-neutral-900 dark:text-white flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-pink-600/10 flex items-center justify-center border border-pink-200 dark:border-pink-500/20">
-                                        <TrendingUp size={18} className="text-pink-500 dark:text-pink-400" />
+                                <h3 className="public-portfolio-table-title">
+                                    <div className="public-portfolio-card-icon">
+                                        <TrendingUp size={18} />
                                     </div>
                                     {t('publicPortfolio.topHoldings')}
                                 </h3>
                             </div>
-                            <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                            <span className="public-portfolio-card-badge">
                                 {data.holdings.length} {t('publicPortfolio.assets')}
                             </span>
                         </div>
                         
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-neutral-50 dark:bg-neutral-900/80 border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wider">
+                        <div className="public-portfolio-table-scroll">
+                            <table className="public-portfolio-table">
+                                <thead>
                                     <tr>
-                                        <th className="px-6 py-4 font-medium">{t('publicPortfolio.asset')}</th>
-                                        <th className="px-6 py-4 font-medium hidden lg:table-cell">{t('publicPortfolio.country')}</th>
-                                        <th className="px-6 py-4 font-medium hidden sm:table-cell">{t('publicPortfolio.sector')}</th>
-                                        <th className="px-6 py-4 font-medium hidden md:table-cell">{t('publicPortfolio.industry')}</th>
-                                        <th className="px-6 py-4 font-medium text-right">{t('publicPortfolio.weight')}</th>
+                                        <th>{t('publicPortfolio.asset')}</th>
+                                        <th className="hidden lg:table-cell">{t('publicPortfolio.country')}</th>
+                                        <th className="hidden sm:table-cell">{t('publicPortfolio.sector')}</th>
+                                        <th className="hidden md:table-cell">{t('publicPortfolio.industry')}</th>
+                                        <th className="is-right">{t('publicPortfolio.weight')}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/50">
-                                    {data.holdings.map((holding, index) => {
+                                <tbody>
+                                    {data.holdings.map((holding) => {
                                         const SectorIcon = getSectorIcon(holding.sector)
                                         const IndustryIcon = getIndustryIcon(holding.industry)
                                         return (
-                                            <tr
-                                                key={holding.symbol}
-                                                className="group hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                            >
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="relative">
-                                                            <AssetLogo
-                                                                symbol={holding.symbol}
-                                                                assetType={holding.asset_type}
-                                                                assetName={holding.name}
-                                                                alt={holding.symbol}
-                                                                className="w-10 h-10 object-cover"
-                                                            />
-                                                        </div>
+                                            <tr key={holding.symbol}>
+                                                <td>
+                                                    <div className="public-portfolio-holding-asset">
+                                                        <AssetLogo
+                                                            symbol={holding.symbol}
+                                                            assetType={holding.asset_type}
+                                                            assetName={holding.name}
+                                                            alt={holding.symbol}
+                                                            className="public-portfolio-holding-logo"
+                                                        />
                                                         <div>
-                                                            <p className="font-semibold text-neutral-900 dark:text-white group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                                                            <p className="public-portfolio-holding-symbol">
                                                                 {holding.symbol}
                                                             </p>
-                                                            <p className="text-xs text-neutral-500">
+                                                            <p className="public-portfolio-holding-name">
                                                                 {holding.name}
                                                             </p>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 hidden lg:table-cell">
+                                                <td className="hidden lg:table-cell">
                                                     {holding.country ? (
-                                                        <span className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
+                                                        <span className="public-portfolio-holding-meta">
                                                             {getFlagUrl(holding.country) && (
                                                                 <img
                                                                     src={getFlagUrl(holding.country, 'w20') || ''}
                                                                     alt={holding.country}
-                                                                    className="w-5 h-auto rounded-sm"
                                                                 />
                                                             )}
                                                             <span>{holding.country}</span>
                                                         </span>
                                                     ) : (
-                                                        <span className="text-neutral-400 dark:text-neutral-600">—</span>
+                                                        <span className="public-portfolio-holding-dash">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 hidden sm:table-cell">
+                                                <td className="hidden sm:table-cell">
                                                     {holding.sector ? (
-                                                        <span className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
+                                                        <span className="public-portfolio-holding-meta">
                                                             <SectorIcon className={`w-4 h-4 ${getSectorColor(holding.sector)}`} />
                                                             <span>{t(`sectors.${holding.sector}`, holding.sector)}</span>
                                                         </span>
                                                     ) : (
-                                                        <span className="text-neutral-400 dark:text-neutral-600">—</span>
+                                                        <span className="public-portfolio-holding-dash">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 hidden md:table-cell">
+                                                <td className="hidden md:table-cell">
                                                     {holding.industry ? (
-                                                        <span className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
+                                                        <span className="public-portfolio-holding-meta">
                                                             <IndustryIcon className={`w-4 h-4 ${getIndustryColor(holding.industry)}`} />
                                                             <span>{t(`industries.${holding.industry}`, holding.industry)}</span>
                                                         </span>
                                                     ) : (
-                                                        <span className="text-neutral-400 dark:text-neutral-600">—</span>
+                                                        <span className="public-portfolio-holding-dash">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="inline-flex items-center gap-3">
-                                                        <div className="w-16 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden hidden sm:block">
+                                                <td className="is-right">
+                                                    <div className="public-portfolio-weight-cell">
+                                                        <div className="public-portfolio-weight-bar">
                                                             <div
-                                                                className="h-full rounded-full bg-gradient-to-r from-pink-500 to-pink-400"
+                                                                className="public-portfolio-weight-bar-fill"
                                                                 style={{ width: `${Math.min(holding.weight_pct * 2, 100)}%` }}
                                                             />
                                                         </div>
-                                                        <span className="font-mono font-bold text-neutral-900 dark:text-white min-w-[60px] text-right">
+                                                        <span className="public-portfolio-weight-value">
                                                             {formatNumber(holding.weight_pct, 2)}%
                                                         </span>
                                                     </div>
@@ -640,17 +613,17 @@ const PublicPortfolio: React.FC = () => {
                 </section>
 
                 {/* Bottom CTA Section */}
-                <section className="py-12">
-                    <div className="relative bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-8 sm:p-12 lg:p-16 overflow-hidden">
+                <section>
+                    <div className="public-portfolio-promo">
                         {/* Decorative background with floating asset cards */}
-                        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+                        <div className="public-portfolio-promo-decor">
                             {/* Left side floating cards */}
                             <div className="absolute -left-20 top-1/2 -translate-y-1/2 flex flex-col gap-4 -rotate-12">
                                 {data.holdings.slice(0, 5).map((h, i) => {
                                     return (
                                         <div
                                             key={`left-${i}`}
-                                            className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 opacity-60"
+                                            className="public-portfolio-floating-card"
                                             style={{
                                                 transform: `translateX(${i % 2 === 0 ? '20px' : '0px'})`,
                                             }}
@@ -660,11 +633,10 @@ const PublicPortfolio: React.FC = () => {
                                                 assetType={h.asset_type}
                                                 assetName={h.name}
                                                 alt={h.symbol}
-                                                className="w-10 h-10 rounded-lg object-cover bg-neutral-100 dark:bg-neutral-700"
                                             />
-                                            <div className="text-left">
-                                                <p className="font-bold text-neutral-900 dark:text-white text-sm">{h.symbol}</p>
-                                                <p className="text-xs text-neutral-500 truncate max-w-[100px]">{h.name}</p>
+                                            <div>
+                                                <p>{h.symbol}</p>
+                                                <p>{h.name}</p>
                                             </div>
                                         </div>
                                     )
@@ -677,7 +649,7 @@ const PublicPortfolio: React.FC = () => {
                                     return (
                                         <div
                                             key={`right-${i}`}
-                                            className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 opacity-60"
+                                            className="public-portfolio-floating-card"
                                             style={{
                                                 transform: `translateX(${i % 2 === 0 ? '-20px' : '0px'})`,
                                             }}
@@ -687,11 +659,10 @@ const PublicPortfolio: React.FC = () => {
                                                 assetType={h.asset_type}
                                                 assetName={h.name}
                                                 alt={h.symbol}
-                                                className="w-10 h-10 rounded-lg object-cover bg-neutral-100 dark:bg-neutral-700"
                                             />
-                                            <div className="text-left">
-                                                <p className="font-bold text-neutral-900 dark:text-white text-sm">{h.symbol}</p>
-                                                <p className="text-xs text-neutral-500 truncate max-w-[100px]">{h.name}</p>
+                                            <div>
+                                                <p>{h.symbol}</p>
+                                                <p>{h.name}</p>
                                             </div>
                                         </div>
                                     )
@@ -704,7 +675,7 @@ const PublicPortfolio: React.FC = () => {
                                     return (
                                         <div
                                             key={`top-${i}`}
-                                            className="w-12 h-12 rounded-xl bg-white dark:bg-neutral-800 shadow-lg border border-neutral-200 dark:border-neutral-700 flex items-center justify-center opacity-40"
+                                            className="public-portfolio-floating-logo"
                                             style={{
                                                 transform: `rotate(${(i - 4) * 5}deg) translateY(${Math.abs(i - 3.5) * 8}px)`,
                                             }}
@@ -714,7 +685,6 @@ const PublicPortfolio: React.FC = () => {
                                                 assetType={h.asset_type}
                                                 assetName={h.name}
                                                 alt={h.symbol}
-                                                className="w-8 h-8 rounded-lg object-cover"
                                             />
                                         </div>
                                     )
@@ -727,7 +697,7 @@ const PublicPortfolio: React.FC = () => {
                                     return (
                                         <div
                                             key={`bottom-${i}`}
-                                            className="w-12 h-12 rounded-xl bg-white dark:bg-neutral-800 shadow-lg border border-neutral-200 dark:border-neutral-700 flex items-center justify-center opacity-40"
+                                            className="public-portfolio-floating-logo"
                                             style={{
                                                 transform: `rotate(${(i - 4) * -5}deg) translateY(${-Math.abs(i - 3.5) * 8}px)`,
                                             }}
@@ -737,73 +707,70 @@ const PublicPortfolio: React.FC = () => {
                                                 assetType={h.asset_type}
                                                 assetName={h.name}
                                                 alt={h.symbol}
-                                                className="w-8 h-8 rounded-lg object-cover"
                                             />
                                         </div>
                                     )
                                 })}
                             </div>
 
-                            {/* Subtle radial gradient overlay */}
-                            <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-white/80 dark:to-neutral-900/80" />
+                            {/* Subtle radial fade overlay */}
+                            <div className="public-portfolio-promo-fade" />
                         </div>
 
-                        <div className="relative max-w-3xl mx-auto text-center">
+                        <div className="public-portfolio-promo-content">
                             {/* Icon */}
-                            <div className="w-16 h-16 mx-auto mb-8 bg-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/25">
-                                <Zap className="text-white" size={28} />
+                            <div className="public-portfolio-promo-icon">
+                                <Zap size={28} />
                             </div>
-                            
-                            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
-                                <span className="bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-500 dark:from-white dark:via-white dark:to-neutral-400 bg-clip-text text-transparent">
-                                    {t('publicPortfolio.buildYourStory')}
-                                </span>
+
+                            <h2 className="public-portfolio-promo-title">
+                                {t('publicPortfolio.buildYourStory')}
                             </h2>
-                            
-                            <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+
+                            <p className="public-portfolio-promo-description">
                                 {t('publicPortfolio.trackInvestments')}
                             </p>
-                            
+
                             {/* Feature grid */}
-                            <div className="grid sm:grid-cols-3 gap-6 mb-12">
-                                <FeatureCard 
+                            <div className="public-portfolio-feature-grid">
+                                <FeatureCard
                                     icon={TrendingUp}
                                     title={t('publicPortfolio.featureRealtime')}
                                     description=""
-                                    color="emerald"
+                                    color="success"
                                 />
-                                <FeatureCard 
+                                <FeatureCard
                                     icon={Shield}
                                     title={t('publicPortfolio.featureDiversification')}
                                     description=""
-                                    color="purple"
+                                    color="accent"
                                 />
-                                <FeatureCard 
+                                <FeatureCard
                                     icon={Eye}
                                     title={t('publicPortfolio.featurePrivacy')}
                                     description=""
-                                    color="blue"
+                                    color="info"
                                 />
                             </div>
-                            
+
                             {/* CTA button */}
                             {user ? (
                                 <Link
                                     to="/"
-                                    className="group inline-flex items-center gap-3 px-8 py-4 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-lg transition-colors text-lg"
+                                    className="pf-button pf-button--primary"
                                 >
                                     <LayoutDashboard size={24} />
                                     {t('publicPortfolio.goToDashboard')}
-                                    <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                    <ChevronRight size={20} />
                                 </Link>
                             ) : (
                                 <Link
                                     to="/register"
-                                    className="group inline-flex items-center gap-3 px-8 py-4 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-lg transition-colors text-lg"
+                                    className="pf-button pf-button--primary"
                                 >
                                     <UserPlus size={24} />
                                     {t('publicPortfolio.getStarted')}
-                                    <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                    <ChevronRight size={20} />
                                 </Link>
                             )}
                         </div>
@@ -812,47 +779,29 @@ const PublicPortfolio: React.FC = () => {
             </main>
 
             {/* Footer */}
-            <footer className="relative border-t border-neutral-200 dark:border-neutral-800 py-8 mt-12">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <img src="/favicon.svg" alt="Portfolium" className="w-7 h-7" />
-                            <span className="font-bold">Portfolium</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <a
-                                href="https://github.com/ArthurMTX/Portfolium"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
-                                aria-label="GitHub"
-                            >
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                                </svg>
-                            </a>
-                            <p className="text-sm text-neutral-500">
-                                {t('publicPortfolio.disclaimer')} • {t('publicPortfolio.notAdvice')}
-                            </p>
-                        </div>
+            <footer className="public-portfolio-footer">
+                <div className="public-portfolio-footer-inner">
+                    <div className="public-portfolio-footer-brand">
+                        <img src="/favicon.svg" alt="Portfolium" />
+                        <span>Portfolium</span>
+                    </div>
+                    <div className="public-portfolio-footer-meta">
+                        <a
+                            href="https://github.com/ArthurMTX/Portfolium"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="GitHub"
+                        >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                            </svg>
+                        </a>
+                        <p>
+                            {t('publicPortfolio.disclaimer')} • {t('publicPortfolio.notAdvice')}
+                        </p>
                     </div>
                 </div>
             </footer>
-
-            {/* Custom CSS for animations */}
-            <style>{`
-                @keyframes ticker {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-33.33%); }
-                }
-                .animate-ticker {
-                    animation: ticker 30s linear infinite;
-                }
-                @keyframes float {
-                    0%, 100% { transform: translateY(0) rotate(0deg); }
-                    50% { transform: translateY(-20px) rotate(5deg); }
-                }
-            `}</style>
         </div>
     )
 }
@@ -861,11 +810,11 @@ const PublicPortfolio: React.FC = () => {
 const StatCounter: React.FC<{ value: number; label: string; suffix: string }> = ({ value, label, suffix }) => {
     const { count, ref } = useAnimatedCounter(value, 1200)
     return (
-        <div ref={ref} className="text-center">
-            <p className="text-3xl font-bold text-neutral-900 dark:text-white font-mono">
+        <div ref={ref} className="public-portfolio-stat">
+            <strong>
                 {count}{suffix}
-            </p>
-            <p className="text-sm text-neutral-500 mt-1">{label}</p>
+            </strong>
+            <span>{label}</span>
         </div>
     )
 }
@@ -875,19 +824,17 @@ const AllocationCard: React.FC<{
     title: string
     subtitle: string
     icon: React.ElementType
-    iconBg: string
-    iconColor: string
     children: React.ReactNode
-}> = ({ title, subtitle, icon: Icon, iconBg, iconColor, children }) => (
-    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 sm:p-8 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-        <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${iconBg} flex items-center justify-center border border-neutral-200 dark:border-neutral-700/50`}>
-                    <Icon size={18} className={iconColor} />
+}> = ({ title, subtitle, icon: Icon, children }) => (
+    <div className="public-portfolio-card">
+        <div className="public-portfolio-card-header">
+            <div className="public-portfolio-card-heading">
+                <div className="public-portfolio-card-icon">
+                    <Icon size={18} />
                 </div>
-                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">{title}</h3>
+                <h3>{title}</h3>
             </div>
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+            <span className="public-portfolio-card-badge">
                 {subtitle}
             </span>
         </div>
@@ -900,24 +847,15 @@ const FeatureCard: React.FC<{
     icon: React.ElementType
     title: string
     description: string
-    color: 'emerald' | 'purple' | 'blue'
-}> = ({ icon: Icon, title, description, color }) => {
-    const colorClasses = {
-        emerald: 'from-emerald-500/20 to-emerald-600/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
-        purple: 'from-purple-500/20 to-purple-600/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20',
-        blue: 'from-blue-500/20 to-blue-600/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
-    }
-    const classes = colorClasses[color]
-    
-    return (
-        <div className="text-left p-5 rounded-xl bg-neutral-50 dark:bg-neutral-800/30 border border-neutral-200 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600/50 transition-colors">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${classes} flex items-center justify-center mb-3 border`}>
-                <Icon size={18} />
-            </div>
-            <h4 className="font-semibold text-neutral-900 dark:text-white mb-1">{title}</h4>
-            <p className="text-sm text-neutral-500">{description}</p>
+    color: 'success' | 'accent' | 'info'
+}> = ({ icon: Icon, title, description, color }) => (
+    <div className="public-portfolio-feature-card">
+        <div className={`public-portfolio-feature-icon is-${color}`}>
+            <Icon size={18} />
         </div>
-    )
-}
+        <h4>{title}</h4>
+        <p>{description}</p>
+    </div>
+)
 
 export default PublicPortfolio
