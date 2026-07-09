@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useMemo, useState, type KeyboardEvent
 import {
   Activity,
   Archive,
-  BarChart3,
   BookOpen,
   ChevronDown,
   ChevronUp,
@@ -784,12 +783,6 @@ export default function Assets() {
                 <button onClick={() => setShowSold(!showSold)}>
                   <Archive size={16} />
                   {showSold ? t('assets.hideSold') : t('assets.showSold')}
-                </button>
-                <button
-                  onClick={() => navigate('/allocation')}
-                >
-                  <BarChart3 size={16} />
-                  {t('assetsPage.allocation')}
                 </button>
                 <button onClick={handleEnrichAll} disabled={enriching}>
                   <RefreshCw size={16} className={enriching ? 'animate-spin' : ''} />
