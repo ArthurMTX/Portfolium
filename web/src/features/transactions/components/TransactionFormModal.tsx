@@ -1,5 +1,5 @@
 import type { ChangeEvent, FormEvent } from 'react'
-import { RefreshCw, X } from 'lucide-react'
+import { RefreshCw, Search, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import AssetLogo from '@/shared/components/AssetLogo'
 import { InlineLoading } from '@/shared/components/StatePrimitives'
@@ -133,42 +133,64 @@ export default function TransactionFormModal({
               <label className="pf-modal-label">
                 {t('transactions.ticker')}
               </label>
-              <input
-                type="text"
-                value={ticker}
-                onChange={onTickerChange}
-                className="pf-modal-input"
-                placeholder={t('transactions.tickerSearchPlaceholder')}
-              />
-              {searchResults.length > 0 && (
-                <ul className="mt-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {searchResults.map((item: TickerInfo) => (
-                    <li
-                      key={item.symbol}
-                      className="p-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0"
-                      onClick={() => onSelectTicker(item)}
-                    >
-                      <div className="font-semibold text-blue-600 dark:text-blue-400">{item.symbol}</div>
-                      <div className="text-sm text-neutral-600 dark:text-neutral-400">{item.name}</div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="pf-modal-combobox">
+                <Search className="pf-modal-input-icon" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={ticker}
+                  onChange={onTickerChange}
+                  className="pf-modal-input pf-modal-input--with-icon"
+                  placeholder={t('transactions.tickerSearchPlaceholder')}
+                  aria-autocomplete="list"
+                  aria-expanded={searchResults.length > 0}
+                />
+                {searchResults.length > 0 && (
+                  <div className="pf-modal-suggestions" role="listbox" aria-label={t('transactions.ticker')}>
+                    {searchResults.map((item: TickerInfo) => {
+                      const assetType = item.asset_type || item.type || null
+
+                      return (
+                        <button
+                          key={item.symbol}
+                          type="button"
+                          className="pf-modal-suggestion"
+                          onClick={() => onSelectTicker(item)}
+                          role="option"
+                          aria-selected={selectedTicker?.symbol === item.symbol}
+                        >
+                          <AssetLogo
+                            symbol={item.symbol}
+                            assetType={assetType}
+                            assetName={item.name}
+                            alt={`${item.symbol} logo`}
+                            className="pf-modal-suggestion__logo"
+                          />
+                          <span className="pf-modal-suggestion__body">
+                            <span className="pf-modal-suggestion__symbol">{item.symbol}</span>
+                            <span className="pf-modal-suggestion__name">{item.name}</span>
+                          </span>
+                          {assetType && <span className="pf-modal-suggestion__type">{assetType}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
               {selectedTicker && (
-                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-3">
+                <div className="pf-modal-selected-asset">
                   <AssetLogo
                     symbol={selectedTicker.symbol}
                     assetType={selectedTickerAssetType}
                     assetName={selectedTicker.name}
                     alt={`${selectedTicker.symbol} logo`}
-                    className="w-10 h-10 flex-shrink-0 object-cover"
+                    className="pf-modal-selected-asset__logo"
                   />
-                  <div>
-                    <div className="font-semibold text-blue-700 dark:text-blue-300">
+                  <div className="pf-modal-selected-asset__body">
+                    <div className="pf-modal-selected-asset__symbol">
                       {selectedTicker.symbol}
                     </div>
 
-                    <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                    <div className="pf-modal-selected-asset__name">
                       {selectedTicker.name}
                     </div>
                   </div>

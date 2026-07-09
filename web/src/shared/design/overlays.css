@@ -142,6 +142,83 @@
     @apply min-h-20 py-2.5;
   }
 
+  .pf-modal-combobox {
+    @apply relative;
+  }
+
+  .pf-modal-input--with-icon {
+    @apply pl-10;
+  }
+
+  .pf-modal-input-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-600;
+  }
+
+  .pf-modal-suggestions {
+    @apply absolute left-0 right-0 z-30 mt-1.5 max-h-64 overflow-y-auto border bg-neutral-950 p-1;
+    border-color: #262228;
+    border-radius: var(--pf-radius-lg);
+    box-shadow: var(--pf-shadow-modal);
+  }
+
+  .pf-modal-suggestion {
+    @apply flex w-full items-center gap-3 px-2.5 py-2 text-left text-sm transition-colors;
+    border-radius: var(--pf-radius-md);
+  }
+
+  .pf-modal-suggestion:hover,
+  .pf-modal-suggestion:focus-visible,
+  .pf-modal-suggestion[aria-selected='true'] {
+    @apply bg-neutral-900 outline-none;
+  }
+
+  .pf-modal-suggestion:focus-visible {
+    box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.35);
+  }
+
+  .pf-modal-suggestion__logo {
+    @apply h-8 w-8 shrink-0 object-contain;
+  }
+
+  .pf-modal-suggestion__body {
+    @apply grid min-w-0 flex-1 gap-0.5;
+  }
+
+  .pf-modal-suggestion__symbol {
+    @apply truncate text-sm font-semibold text-neutral-100;
+  }
+
+  .pf-modal-suggestion__name {
+    @apply truncate text-xs text-neutral-500;
+  }
+
+  .pf-modal-suggestion__type {
+    @apply max-w-28 shrink-0 truncate rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-neutral-500;
+    border-color: #262228;
+  }
+
+  .pf-modal-selected-asset {
+    @apply mt-2 flex items-center gap-3 border bg-neutral-900/40 p-3;
+    border-color: #262228;
+    border-radius: var(--pf-radius-lg);
+  }
+
+  .pf-modal-selected-asset__logo {
+    @apply h-10 w-10 shrink-0 object-contain;
+  }
+
+  .pf-modal-selected-asset__body {
+    @apply min-w-0;
+  }
+
+  .pf-modal-selected-asset__symbol {
+    @apply text-sm font-semibold text-neutral-100;
+  }
+
+  .pf-modal-selected-asset__name {
+    @apply truncate text-sm text-neutral-500;
+  }
+
   .pf-modal-section {
     @apply space-y-4;
   }
