@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-09
+
+### Features
+
+* add push notification support with service worker and custom hook ([9408652](https://github.com/ArthurMTX/Portfolium/commit/9408652))
+* add All-Time High (ATH) and All-Time Low (ATL) tracking and notifications ([69f67cb](https://github.com/ArthurMTX/Portfolium/commit/69f67cb))
+* add support for ATH/ATL and push notification settings in user profile update ([7327930](https://github.com/ArthurMTX/Portfolium/commit/7327930))
+* replace user-specific daily change threshold with asset-based thresholds ([39919d6](https://github.com/ArthurMTX/Portfolium/commit/39919d6))
+* prevent duplicate notifications for assets held across multiple portfolios ([9ae5907](https://github.com/ArthurMTX/Portfolium/commit/9ae5907))
+* implement DividendService for auto-fetching and managing dividends from yfinance ([6bdd771](https://github.com/ArthurMTX/Portfolium/commit/6bdd771))
+* enhance transaction handling and validation for dividends ([dbea039](https://github.com/ArthurMTX/Portfolium/commit/dbea039))
+* add calendar page to track daily performance and upcoming earnings ([a8d6b54](https://github.com/ArthurMTX/Portfolium/commit/a8d6b54))
+* add earnings dates fetching and caching functionality ([7d8e6f3](https://github.com/ArthurMTX/Portfolium/commit/7d8e6f3))
+* include watchlist stocks in earnings calendar and refresh functionality ([6707c7c](https://github.com/ArthurMTX/Portfolium/commit/6707c7c))
+* implement Today Brief widget and API endpoint for daily portfolio summary ([c8d2e9e](https://github.com/ArthurMTX/Portfolium/commit/c8d2e9e))
+* add realized P&L metrics and tables for portfolio positions ([22afe25](https://github.com/ArthurMTX/Portfolium/commit/22afe25))
+* add AssetResearch page with comprehensive asset metrics and analysis, later rebuilt with a dedicated ownership, business, and ETF composition view ([ddd3936](https://github.com/ArthurMTX/Portfolium/commit/ddd3936), [ee4608c](https://github.com/ArthurMTX/Portfolium/commit/ee4608c))
+* enhance ETF composition functionality with theme exposure and portfolio overlap features ([ec9b039](https://github.com/ArthurMTX/Portfolium/commit/ec9b039))
+* add asset investment notes functionality ([a3197ec](https://github.com/ArthurMTX/Portfolium/commit/a3197ec))
+* add ISIN field to asset details and update search functionality ([e426083](https://github.com/ArthurMTX/Portfolium/commit/e426083))
+* refactor asset themes to introduce a hierarchical structure with subthemes, evidence, and weights ([0a080a9](https://github.com/ArthurMTX/Portfolium/commit/0a080a9), [dfb02ce](https://github.com/ArthurMTX/Portfolium/commit/dfb02ce))
+* add asset theme classification service with MiniLM and Gemini integration, two-pass classification, and admin taxonomy management ([ce63e17](https://github.com/ArthurMTX/Portfolium/commit/ce63e17), [8167113](https://github.com/ArthurMTX/Portfolium/commit/8167113), [a26e7ba](https://github.com/ArthurMTX/Portfolium/commit/a26e7ba))
+* implement theme allocation feature with widget integration and caching ([5886edb](https://github.com/ArthurMTX/Portfolium/commit/5886edb))
+* add customizable widget workspaces (boards) ([ccadcc1](https://github.com/ArthurMTX/Portfolium/commit/ccadcc1))
+* add Data Freshness Indicator component for improved data reliability visibility ([84fb581](https://github.com/ArthurMTX/Portfolium/commit/84fb581))
+* update logo fetching service to integrate logo.dev API and improve crypto and Trade Republic logo handling ([e047963](https://github.com/ArthurMTX/Portfolium/commit/e047963), [4653d49](https://github.com/ArthurMTX/Portfolium/commit/4653d49))
+* enhance authentication UI and profile page with new branding and layout ([933208e](https://github.com/ArthurMTX/Portfolium/commit/933208e), [f4ebf51](https://github.com/ArthurMTX/Portfolium/commit/f4ebf51))
+* add CSV review preview before transaction import ([aa2118d](https://github.com/ArthurMTX/Portfolium/commit/aa2118d))
+* add asset health check and backfill functionality to admin endpoints and UI ([176cc3d](https://github.com/ArthurMTX/Portfolium/commit/176cc3d))
+* enhance PWA support and update web manifest ([ed5bef1](https://github.com/ArthurMTX/Portfolium/commit/ed5bef1))
+* i18n: full English/French app translation coverage ([95764f7](https://github.com/ArthurMTX/Portfolium/commit/95764f7))
+* enhance market data caching with Redis integration, background refresh, and stale handling for improved reliability ([fe369d8](https://github.com/ArthurMTX/Portfolium/commit/fe369d8), [69a653b](https://github.com/ArthurMTX/Portfolium/commit/69a653b))
+* implement Yahoo Finance resilience helpers and refactor integration through a market data provider ([8c1673b](https://github.com/ArthurMTX/Portfolium/commit/8c1673b), [9851b05](https://github.com/ArthurMTX/Portfolium/commit/9851b05))
+* implement bulk upsert for price records and startup backfill for recent closing prices ([96c213e](https://github.com/ArthurMTX/Portfolium/commit/96c213e), [ab21b8b](https://github.com/ArthurMTX/Portfolium/commit/ab21b8b))
+* add price gap detection and backfilling for historical prices ([f3e2948](https://github.com/ArthurMTX/Portfolium/commit/f3e2948))
+* add structured logs, Prometheus monitoring, and production observability dashboards ([2952698](https://github.com/ArthurMTX/Portfolium/commit/2952698), [470f222](https://github.com/ArthurMTX/Portfolium/commit/470f222))
+* enhance application startup process with bootstrap module and health checks for services ([37a797d](https://github.com/ArthurMTX/Portfolium/commit/37a797d))
+* enhance observability with Redis-backed health signals ([0eba674](https://github.com/ArthurMTX/Portfolium/commit/0eba674))
+* harden security and performance baseline ([d32f093](https://github.com/ArthurMTX/Portfolium/commit/d32f093))
+* redact API keys from error messages for enhanced security ([7384c4c](https://github.com/ArthurMTX/Portfolium/commit/7384c4c))
+
+### Bug Fixes
+
+* make daily gain reliable using official historical closes ([1db7fc9](https://github.com/ArthurMTX/Portfolium/commit/1db7fc9))
+* initialize database and cache locks to prevent concurrent access issues ([66cffe9](https://github.com/ArthurMTX/Portfolium/commit/66cffe9))
+* ensure date object validation before holiday comparison in MarketCalendarService ([a977e3b](https://github.com/ArthurMTX/Portfolium/commit/a977e3b))
+* handle optional background_tasks parameter in get_held_assets endpoint ([4920488](https://github.com/ArthurMTX/Portfolium/commit/4920488))
+* update template directory paths for email and PDF report services ([1a20a7e](https://github.com/ArthurMTX/Portfolium/commit/1a20a7e))
+* streamline recent searches handling in AssetResearchSearch component ([0163479](https://github.com/ArthurMTX/Portfolium/commit/0163479))
+* remove unnecessary classes from asset logo image ([9740651](https://github.com/ArthurMTX/Portfolium/commit/9740651))
+
+### Refactor
+
+* unify V3 layout and design system ([237cbbc](https://github.com/ArthurMTX/Portfolium/commit/237cbbc))
+* reorganize frontend and backend modules ([0b77f44](https://github.com/ArthurMTX/Portfolium/commit/0b77f44))
+* remove AssetResearch component and its related legacy logic from the codebase ([b125f59](https://github.com/ArthurMTX/Portfolium/commit/b125f59))
+* split asset research presentation and builders ([f1b3c39](https://github.com/ArthurMTX/Portfolium/commit/f1b3c39))
+* split position detail modal ([1aaf7a6](https://github.com/ArthurMTX/Portfolium/commit/1aaf7a6))
+* extract transaction form logic and split transaction page presentation ([e405f11](https://github.com/ArthurMTX/Portfolium/commit/e405f11), [480b29d](https://github.com/ArthurMTX/Portfolium/commit/480b29d))
+* change async endpoints to synchronous for improved performance and reliability ([a9c6aef](https://github.com/ArthurMTX/Portfolium/commit/a9c6aef))
+* share asset logo rendering and common chart helpers across components ([c3d4795](https://github.com/ArthurMTX/Portfolium/commit/c3d4795), [e2dae12](https://github.com/ArthurMTX/Portfolium/commit/e2dae12))
+* consolidate asset debug JSON panels ([9d4eaf7](https://github.com/ArthurMTX/Portfolium/commit/9d4eaf7))
+* improve API root detection and streamline Alembic configuration retrieval ([f890cbd](https://github.com/ArthurMTX/Portfolium/commit/f890cbd))
+
 ## [0.3.1] - 2025-12-11
 
 ### Features

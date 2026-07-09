@@ -4,7 +4,7 @@ This file can be updated automatically by CI/CD
 """
 
 __version__ = "0.3.2"
-__build_date__ = "2025-12-11"
+__build_date__ = "2026-07-09"
 __git_commit__ = "local"
 
 def get_version_info() -> dict:
