@@ -15,6 +15,7 @@ import {
   Menu,
   Moon,
   Package,
+  PlusCircle,
   Search,
   Settings,
   ShieldCheck,
@@ -56,10 +57,12 @@ export default function Layout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false)
+  const [analyzeMenuOpen, setAnalyzeMenuOpen] = useState(false)
   const [pendingThemeSuggestions, setPendingThemeSuggestions] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const portfolioMenuRef = useRef<HTMLDivElement>(null)
+  const analyzeMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
   const { t } = useTranslation()
   const { portfolios, activePortfolioId, setActivePortfolio } = usePortfolioStore()
@@ -82,6 +85,10 @@ export default function Layout() {
 
       if (portfolioMenuRef.current && !portfolioMenuRef.current.contains(target)) {
         setPortfolioMenuOpen(false)
+      }
+
+      if (analyzeMenuRef.current && !analyzeMenuRef.current.contains(target)) {
+        setAnalyzeMenuOpen(false)
       }
 
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
@@ -108,6 +115,7 @@ export default function Layout() {
     setMobileMenuOpen(false)
     setPortfolioMenuOpen(false)
     setUserMenuOpen(false)
+    setAnalyzeMenuOpen(false)
   }, [location.pathname])
 
   const toggleDarkMode = () => {
@@ -134,28 +142,10 @@ export default function Layout() {
       isActive: isBoardsPath,
     },
     {
-      to: '/portfolios',
-      label: t('navigation.portfolios'),
-      icon: Briefcase,
-      isActive: (pathname) => pathname === '/portfolios',
-    },
-    {
-      to: '/charts',
-      label: t('navigation.charts'),
-      icon: LineChart,
-      isActive: (pathname) => pathname === '/charts',
-    },
-    {
-      to: '/calendar',
-      label: t('navigation.calendar'),
-      icon: Calendar,
-      isActive: (pathname) => pathname === '/calendar',
-    },
-    {
-      to: '/insights',
-      label: t('navigation.insights'),
-      icon: TrendingUp,
-      isActive: (pathname) => pathname === '/insights',
+      to: '/assets',
+      label: t('navigation.assets'),
+      icon: Package,
+      isActive: (pathname) => (pathname === '/assets' || pathname.startsWith('/assets/')) && !isAssetResearchPath(pathname),
     },
     {
       to: '/transactions',
@@ -170,10 +160,31 @@ export default function Layout() {
       isActive: (pathname) => pathname === '/allocation',
     },
     {
-      to: '/assets',
-      label: t('navigation.assets'),
-      icon: Package,
-      isActive: (pathname) => (pathname === '/assets' || pathname.startsWith('/assets/')) && !isAssetResearchPath(pathname),
+      to: '/assets/research',
+      label: t('navigation.research'),
+      icon: Search,
+      isActive: isAssetResearchPath,
+    },
+  ]
+
+  const analyzeItems: NavItem[] = [
+    {
+      to: '/insights',
+      label: t('navigation.insights'),
+      icon: TrendingUp,
+      isActive: (pathname) => pathname === '/insights',
+    },
+    {
+      to: '/charts',
+      label: t('navigation.charts'),
+      icon: LineChart,
+      isActive: (pathname) => pathname === '/charts',
+    },
+    {
+      to: '/calendar',
+      label: t('navigation.calendar'),
+      icon: Calendar,
+      isActive: (pathname) => pathname === '/calendar',
     },
     {
       to: '/watchlist',
@@ -181,12 +192,21 @@ export default function Layout() {
       icon: Eye,
       isActive: (pathname) => pathname === '/watchlist',
     },
-    {
-      to: '/assets/research',
-      label: t('navigation.research'),
-      icon: Search,
-      isActive: isAssetResearchPath,
-    },
+  ]
+
+  const isAnalyzeActive = analyzeItems.some((item) => item.isActive(location.pathname))
+
+  const mobileNavigationItems: NavItem[] = [
+    navigationItems[0],
+    navigationItems[1],
+    analyzeItems[2],
+    analyzeItems[0],
+    analyzeItems[1],
+    navigationItems[2],
+    navigationItems[3],
+    navigationItems[4],
+    analyzeItems[3],
+    navigationItems[5],
   ]
 
   const renderNavLink = ({ to, label, icon: Icon, isActive: itemIsActive }: NavItem, mobile = false) => {
@@ -220,6 +240,45 @@ export default function Layout() {
 
           <nav className="pf-nav" aria-label={t('navigation.main', 'Main navigation')}>
             {navigationItems.map((item) => renderNavLink(item))}
+
+            <div className="pf-nav-dropdown" ref={analyzeMenuRef}>
+              <button
+                type="button"
+                className={`pf-nav-link pf-nav-link--dropdown ${isAnalyzeActive ? 'is-active' : ''}`}
+                onClick={() => setAnalyzeMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={analyzeMenuOpen}
+              >
+                <TrendingUp aria-hidden="true" />
+                <span className="pf-nav-label">{t('navigation.analyze', 'Analyze')}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`pf-nav-dropdown__chevron transition-transform ${analyzeMenuOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {analyzeMenuOpen && (
+                <div className="pf-menu pf-nav-dropdown__menu" role="menu" aria-label={t('navigation.analyze', 'Analyze')}>
+                  <div className="pf-menu-section">
+                    {analyzeItems.map(({ to, label, icon: Icon, isActive: itemIsActive }) => {
+                      const active = itemIsActive(location.pathname)
+                      return (
+                        <Link
+                          key={to}
+                          to={to}
+                          className={`pf-menu-item ${active ? 'is-active' : ''}`}
+                          onClick={() => setAnalyzeMenuOpen(false)}
+                          role="menuitem"
+                        >
+                          <Icon aria-hidden="true" />
+                          <span>{label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </nav>
 
           <div className="pf-topbar-actions">
@@ -283,6 +342,15 @@ export default function Layout() {
                     >
                       <Briefcase aria-hidden="true" />
                       <span>{t('navigation.managePortfolios', 'Manage portfolios')}</span>
+                    </Link>
+                    <Link
+                      to="/portfolios"
+                      className="pf-menu-item"
+                      onClick={() => setPortfolioMenuOpen(false)}
+                      role="menuitem"
+                    >
+                      <PlusCircle aria-hidden="true" />
+                      <span>{t('navigation.createPortfolio', 'Create portfolio')}</span>
                     </Link>
                   </div>
                 )}
@@ -441,11 +509,15 @@ export default function Layout() {
                       <Briefcase aria-hidden="true" />
                       <span>{t('navigation.managePortfolios', 'Manage portfolios')}</span>
                     </Link>
+                    <Link to="/portfolios" className="pf-menu-item rounded-lg px-3">
+                      <PlusCircle aria-hidden="true" />
+                      <span>{t('navigation.createPortfolio', 'Create portfolio')}</span>
+                    </Link>
                   </div>
                 </div>
               )}
 
-              {navigationItems.map((item) => renderNavLink(item, true))}
+              {mobileNavigationItems.map((item) => renderNavLink(item, true))}
             </nav>
           </div>
         )}

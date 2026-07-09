@@ -22,7 +22,7 @@
   }
 
   .pf-nav {
-    @apply hidden flex-wrap items-center gap-1 lg:flex;
+    @apply hidden items-center gap-1 lg:flex;
     min-width: 0;
   }
 
@@ -92,6 +92,26 @@
   .pf-nav-label {
     @apply hidden 2xl:inline;
     font-size: 0.78rem;
+  }
+
+  .pf-nav-dropdown {
+    @apply relative;
+  }
+
+  .pf-nav-link--dropdown {
+    @apply cursor-pointer border-0 bg-transparent;
+  }
+
+  .pf-nav-dropdown__chevron {
+    @apply hidden 2xl:inline-flex;
+    width: 0.85rem;
+    height: 0.85rem;
+    flex: 0 0 0.85rem;
+    margin-left: -0.15rem;
+  }
+
+  .pf-nav-dropdown__menu {
+    @apply left-0 mt-2 w-52;
   }
 
   .pf-topbar-actions {
