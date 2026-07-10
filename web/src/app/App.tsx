@@ -37,6 +37,8 @@ const AssetDebug = lazy(() => import('@/features/assets/pages/AssetDebug'))
 const AssetsList = lazy(() => import('@/features/assets/pages/AssetsList'))
 const WidgetDebug = lazy(() => import('@/features/devtools/pages/WidgetDebug'))
 const PublicPortfolio = lazy(() => import('@/features/portfolios/pages/PublicPortfolio'))
+const Terms = lazy(() => import('@/features/legal/pages/Terms'))
+const Privacy = lazy(() => import('@/features/legal/pages/Privacy'))
 const Calendar = lazy(() => import('@/features/calendar/pages/Calendar'))
 const AdminThemeTaxonomy = lazy(() => import('@/features/admin/pages/AdminThemeTaxonomy'))
 const AdminClassificationBenchmark = lazy(
@@ -161,6 +163,8 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/p/:shareToken" element={<PublicPortfolio />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
 
               {/* Protected routes */}
               <Route

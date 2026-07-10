@@ -163,9 +163,9 @@ export default function Login() {
 
       <p className="auth-terms">
         {t('login.termsPrefix')}{' '}
-        <a href="#">{t('login.termsOfService')}</a>{' '}
+        <Link to="/terms">{t('login.termsOfService')}</Link>{' '}
         {t('login.and')}{' '}
-        <a href="#">{t('login.privacyPolicy')}</a>
+        <Link to="/privacy">{t('login.privacyPolicy')}</Link>
       </p>
     </AuthPageShell>
   )
