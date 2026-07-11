@@ -123,3 +123,152 @@ def test_logo_without_isin_uses_legacy_generated_fallback(client, test_db, monke
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/svg+xml"
     assert b"<svg" in response.content
+
+
+WEBP_BYTES = b"RIFF....WEBPVP8 fake-image-bytes"
+
+
+class _FakeCache:
+    """In-memory stand-in for CacheService (tests run with REDIS_ENABLED=false)."""
+
+    def __init__(self):
+        self.store = {}
+
+    def exists(self, key):
+        return key in self.store
+
+    def set(self, key, value, ttl=None, nx=False):
+        self.store[key] = value
+        return True
+
+
+@pytest.fixture
+def fake_logo_cache(monkeypatch):
+    from app.routers import assets as assets_router
+
+    fake = _FakeCache()
+    monkeypatch.setattr(assets_router, "CacheService", fake)
+    return fake
+
+
+def test_etf_logo_served_from_db_cache_without_external_fetch(client, test_db, fake_logo_cache, monkeypatch):
+    """ETFs no longer bypass the server cache: a provider-supplied cached logo is returned as-is."""
+    from app.services.market_data import logos as logos_module
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("external logo fetch must not run for a cached ETF logo")
+
+    monkeypatch.setattr(logos_module, "fetch_logo_with_source", _fail)
+
+    _make_asset(
+        test_db,
+        symbol="VOO",
+        asset_type="ETF",
+        logo_provider="brandfetch",
+        logo_data=WEBP_BYTES,
+        logo_content_type="image/webp",
+    )
+
+    response = client.get("/assets/logo/VOO", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert response.content == WEBP_BYTES
+
+
+def test_crypto_logo_served_from_db_cache_without_external_fetch(client, test_db, fake_logo_cache, monkeypatch):
+    from app.services.market_data import logos as logos_module
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("external logo fetch must not run for a cached crypto logo")
+
+    monkeypatch.setattr(logos_module, "fetch_logo_with_source", _fail)
+
+    _make_asset(
+        test_db,
+        symbol="BTC-USD",
+        asset_type="CRYPTO",
+        logo_provider="brandfetch",
+        logo_data=WEBP_BYTES,
+        logo_content_type="image/webp",
+    )
+
+    response = client.get("/assets/logo/BTC-USD", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert response.content == WEBP_BYTES
+
+
+def test_generated_placeholder_bytes_never_served_from_db_cache(client, test_db, fake_logo_cache):
+    """Legacy rows can hold image bytes under logo_provider='generated' (wrong-brand era); reject them."""
+    _make_asset(
+        test_db,
+        symbol="VT",
+        asset_type="ETF",
+        logo_provider="generated",
+        logo_data=b"legacy-wrong-brand-webp",
+        logo_content_type="image/webp",
+    )
+
+    response = client.get("/assets/logo/VT", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert response.content != b"legacy-wrong-brand-webp"
+    assert response.headers["content-type"] == "image/svg+xml"  # generated fallback
+
+
+def test_failed_resolution_is_negative_cached_and_not_retried(client, test_db, fake_logo_cache, monkeypatch):
+    from app.services.market_data import logo_resolver
+    from app.services.market_data.logo_resolver import LogoResolutionResult
+
+    calls = []
+
+    def fake_resolve(db, asset, **kwargs):
+        calls.append(asset.symbol)
+        return LogoResolutionResult(
+            provider="generated",
+            logo_bytes=b"<svg>fallback</svg>",
+            logo_content_type="image/svg+xml",
+        )
+
+    monkeypatch.setattr(logo_resolver, "resolve_asset_logo", fake_resolve)
+    _make_asset(test_db, symbol="NOLOGO", asset_type="EQUITY")
+
+    first = client.get("/assets/logo/NOLOGO", follow_redirects=False)
+    assert first.status_code == 200
+    assert calls == ["NOLOGO"]
+    assert fake_logo_cache.exists("logo:neg:NOLOGO")
+
+    second = client.get("/assets/logo/NOLOGO", follow_redirects=False)
+    assert second.status_code == 200
+    assert second.headers["content-type"] == "image/svg+xml"
+    assert calls == ["NOLOGO"], "resolution must not re-run during the negative-cache cooldown"
+
+
+def test_transient_resolution_failure_is_not_negative_cached(client, test_db, fake_logo_cache, monkeypatch):
+    from app.services.market_data import logo_resolver
+    from app.services.market_data.logo_resolver import LogoResolutionResult
+
+    calls = []
+
+    def flaky_resolve(db, asset, **kwargs):
+        calls.append(asset.symbol)
+        if len(calls) == 1:
+            raise RuntimeError("provider unreachable")
+        return LogoResolutionResult(
+            provider="generated",
+            logo_bytes=b"<svg>fallback</svg>",
+            logo_content_type="image/svg+xml",
+        )
+
+    monkeypatch.setattr(logo_resolver, "resolve_asset_logo", flaky_resolve)
+    _make_asset(test_db, symbol="FLAKY", asset_type="EQUITY")
+
+    with pytest.raises(RuntimeError):
+        client.get("/assets/logo/FLAKY", follow_redirects=False)
+
+    assert not fake_logo_cache.exists("logo:neg:FLAKY"), "exceptions must not be negative-cached"
+
+    second = client.get("/assets/logo/FLAKY", follow_redirects=False)
+    assert second.status_code == 200
+    assert calls == ["FLAKY", "FLAKY"], "resolution must be retried after a transient failure"

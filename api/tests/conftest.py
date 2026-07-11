@@ -262,7 +262,10 @@ def test_user(test_db: Session) -> User:
         username="testuser",
         email="test@example.com",
         hashed_password=get_password_hash("testpassword123"),
-        is_active=True
+        is_active=True,
+        # A fully onboarded user: login must keep working even in
+        # configurations where ENABLE_EMAIL requires verified accounts.
+        is_verified=True
     )
     test_db.add(user)
     test_db.commit()
@@ -277,10 +280,13 @@ def auth_headers(client: ASGITestClient, test_user: User) -> dict:
         "/auth/login",
         data={"username": "test@example.com", "password": "testpassword123"}
     )
-    if response.status_code == 200:
-        token = response.json()["access_token"]
-        return {"Authorization": f"Bearer {token}"}
-    return {}
+    # Fail loudly here: silently returning {} used to convert any login
+    # breakage into dozens of confusing 401s in downstream tests.
+    assert response.status_code == 200, (
+        f"auth_headers fixture could not log in the test user: "
+        f"{response.status_code} {response.text}"
+    )
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 @pytest.fixture

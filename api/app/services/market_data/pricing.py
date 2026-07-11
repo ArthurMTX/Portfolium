@@ -130,6 +130,11 @@ _STALE_CRYPTO_PRICE_TTL = timedelta(minutes=30)
 _STALE_PRICE_REDIS_TTL_SECONDS = 60
 _REFRESH_DEDUP_TTL_SECONDS = 60
 _BATCH_MISS_INDIVIDUAL_FALLBACK_LIMIT = 3
+# Total provider wait allowed inside one interactive request (batch download
+# plus individual fallbacks). Matches the pre-existing 20s batch cap: a warm
+# batch fetch measures ~2s, the provider timeout is 8-15s, and anything
+# slower is served by the stale-price fallback + Celery refresh instead.
+_INTERACTIVE_PROVIDER_BUDGET_SECONDS = 20.0
 
 
 def _cleanup_stale_tasks():
@@ -218,7 +223,7 @@ def _enqueue_price_refresh(symbols: List[str], reason: str) -> None:
     Best-effort async refresh through Celery.
     Deduplicated in Redis so stale reads do not create refresh storms.
     """
-    if not symbols or is_rate_limited():
+    if not symbols or not settings.ENABLE_BACKGROUND_TASKS or is_rate_limited():
         return
 
     unique_symbols = sorted({symbol.upper() for symbol in symbols if symbol})
@@ -439,15 +444,16 @@ class PricingService:
             self._refresh_recent_historical_ohlc(asset)
             
             # Trigger ATH update in background
-            try:
-                from app.tasks.ath_tasks import update_asset_ath
-                update_asset_ath.delay(
-                    asset_id=asset.id,
-                    current_price=float(price["price"]),
-                    price_date=price["asof"].isoformat() if price["asof"] else None
-                )
-            except Exception as e:
-                logger.warning(f"Failed to trigger ATH update for {symbol}: {e}")
+            if settings.ENABLE_BACKGROUND_TASKS:
+                try:
+                    from app.tasks.ath_tasks import update_asset_ath
+                    update_asset_ath.delay(
+                        asset_id=asset.id,
+                        current_price=float(price["price"]),
+                        price_date=price["asof"].isoformat() if price["asof"] else None
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to trigger ATH update for {symbol}: {e}")
             
             return PriceQuote(
                 symbol=symbol,
@@ -537,13 +543,20 @@ class PricingService:
             return results
         
         logger.info(f"Need to fetch {len(symbols_to_fetch)}/{len(symbols)} symbols via batch download")
-        
-        # Phase 2: Batch fetch all missing symbols
+
+        # Phase 2: Batch fetch all missing symbols.
+        # One total budget covers the batch attempt AND the per-symbol
+        # fallbacks below. Previously each stage had its own timeout
+        # (20s batch + 3x10s fallbacks ~= 50s worst case; 33s observed in
+        # production logs); now the interactive wait can never exceed the
+        # budget. Celery warmups retry on their next scheduled run, so a
+        # timed-out refresh is recovered in the background.
+        deadline = time.monotonic() + _INTERACTIVE_PROVIDER_BUDGET_SECONDS
         batch_refresh_started = time.monotonic()
         try:
             batch_results = await asyncio.wait_for(
                 asyncio.to_thread(self._batch_fetch_from_yfinance, symbols_to_fetch),
-                timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
+                timeout=min(yahoo_timeout_seconds(default=15.0) + 5.0, _INTERACTIVE_PROVIDER_BUDGET_SECONDS),
             )
             record_price_refresh(
                 time.monotonic() - batch_refresh_started,
@@ -571,11 +584,18 @@ class PricingService:
                 f" and skipping {skipped_count}" if skipped_count else "",
             )
             for symbol in fallback_symbols:
+                remaining_budget = deadline - time.monotonic()
+                if remaining_budget < 2.0:
+                    logger.warning(
+                        "provider=yahoo action=individual_fallback skipped=true reason=budget_exhausted symbol=%s",
+                        symbol,
+                    )
+                    continue
                 fallback_started = time.monotonic()
                 try:
                     fallback_price = await asyncio.wait_for(
                         asyncio.to_thread(self._fetch_from_yfinance, symbol),
-                        timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
+                        timeout=min(yahoo_timeout_seconds(default=8.0) + 2.0, remaining_budget),
                     )
                     record_price_refresh(
                         time.monotonic() - fallback_started,

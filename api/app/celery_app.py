@@ -492,6 +492,22 @@ celery_app.conf.task_routes = {
         "queue": "low",
         "priority": 1,
     },
+    "app.tasks.cache_tasks.refresh_market_movers": {
+        "queue": "high",
+        "priority": 7,
+    },
+    "app.tasks.insights_tasks.calculate_insights_all_periods": {
+        "queue": "default",
+        "priority": 5,
+    },
+    "tasks.update_asset_ath": {
+        "queue": "low",
+        "priority": 2,
+    },
+    "tasks.backfill_asset_logos": {
+        "queue": "low",
+        "priority": 2,
+    },
 }
 
 # Task annotations - add rate limits to prevent task flooding

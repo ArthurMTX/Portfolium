@@ -24,6 +24,7 @@ _CONTEXT_FIELDS = (
     "method",
     "status_code",
     "duration_ms",
+    "response_bytes",
     "task_name",
     "provider",
     "operation",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api, {
   type AssetThemeDTO,
@@ -172,7 +172,16 @@ export default function Allocation() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Portfolio id currently being fetched. Bootstrapping (setPortfolios /
+  // setActivePortfolio below) changes this callback's dependencies and
+  // re-fires the effect while the first fetch is still in flight, which
+  // used to duplicate all eight allocation requests on cold sessions.
+  const inFlightPortfolioRef = useRef<number | null>(null)
+
   const loadAllocation = useCallback(async () => {
+    // When the fetch below is already running for the same portfolio, leave
+    // the first run in charge of loading/error state and data updates.
+    let dedupedIntoRunningFetch = false
     try {
       setLoading(true)
       setError(null)
@@ -187,6 +196,12 @@ export default function Allocation() {
       if (!activePortfolioId && resolvedPortfolioId) {
         setActivePortfolio(resolvedPortfolioId)
       }
+
+      if (resolvedPortfolioId && inFlightPortfolioRef.current === resolvedPortfolioId) {
+        dedupedIntoRunningFetch = true
+        return
+      }
+      inFlightPortfolioRef.current = resolvedPortfolioId
 
       if (!resolvedPortfolioId) {
         setHeldAssets([])
@@ -226,7 +241,10 @@ export default function Allocation() {
       console.error('Failed to load allocation:', err)
       setError(t('allocation.loadError'))
     } finally {
-      setLoading(false)
+      if (!dedupedIntoRunningFetch) {
+        inFlightPortfolioRef.current = null
+        setLoading(false)
+      }
     }
   }, [activePortfolioId, portfolios, setActivePortfolio, setPortfolios])
 

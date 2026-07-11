@@ -1,6 +1,7 @@
 """
 Portfolio insights and analytics service
 """
+import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
@@ -451,16 +452,21 @@ class InsightsService:
         ).scalar()
         last_txn_str = last_txn.isoformat() if last_txn else None
         
-        # Use smart cache
+        # Use smart cache. On a miss the calculator runs historical queries,
+        # numeric aggregation, and (via beta) a possible yfinance backfill --
+        # run it in a worker thread so the event loop keeps serving requests.
+        # The request-scoped session is only touched by this one thread while
+        # the coroutine is suspended, so there is no concurrent session use.
         def calculator():
             return self._calculate_risk_metrics(portfolio_id, period)
-        
-        return get_cached_analytics(
+
+        return await asyncio.to_thread(
+            get_cached_analytics,
             cache_key=f'risk_metrics_{period}',
             portfolio_id=portfolio_id,
             positions=positions,
             last_transaction_date=last_txn_str,
-            calculator=calculator
+            calculator=calculator,
         )
     
     def _calculate_risk_metrics(self, portfolio_id: int, period: str) -> RiskMetrics:
@@ -638,16 +644,19 @@ class InsightsService:
         ).scalar()
         last_txn_str = last_txn.isoformat() if last_txn else None
         
-        # Use smart cache
+        # Use smart cache. On a miss the calculator fetches benchmark history
+        # (yfinance network call via ensure_historical_prices) -- run it in a
+        # worker thread so the event loop keeps serving unrelated requests.
         def calculator():
             return self._calculate_benchmark_comparison(portfolio_id, benchmark_symbol, period)
-        
-        return get_cached_analytics(
+
+        return await asyncio.to_thread(
+            get_cached_analytics,
             cache_key=f'benchmark_{benchmark_symbol}_{period}',
             portfolio_id=portfolio_id,
             positions=positions,
             last_transaction_date=last_txn_str,
-            calculator=calculator
+            calculator=calculator,
         )
     
     def _calculate_benchmark_comparison(
@@ -2064,9 +2073,13 @@ class InsightsService:
     ) -> PerformanceInsightsDomain:
         snapshot = await self.build_portfolio_insights_snapshot(portfolio_id)
         logger.debug("Building performance insights domain portfolio_id=%s period=%s", portfolio_id, period)
+        # Daily-value reconstruction is DB/CPU heavy (seconds for long
+        # histories) -- keep it off the event loop. Runs sequentially with
+        # the risk calculation, so the session never sees concurrent use.
+        performance = await asyncio.to_thread(self.get_performance_metrics, portfolio_id, period)
         return PerformanceInsightsDomain(
             summary=self._summary_from_snapshot(snapshot, period),
-            performance=self.get_performance_metrics(portfolio_id, period),
+            performance=performance,
             risk=await self.get_risk_metrics(portfolio_id, period, positions=snapshot.positions),
         )
 

@@ -225,14 +225,21 @@ async def calculate_goal_projections(
             if position.market_value:
                 current_value += float(position.market_value)
     
-    # Calculate projections
+    # Calculate projections. The Monte Carlo simulation (1,000 iterations over
+    # a mark-to-market time series) is CPU/DB heavy -- run it in a worker
+    # thread so it cannot stall the event loop for other requests. The
+    # request-scoped session is only used by this one thread while the
+    # coroutine is suspended.
+    import asyncio
+
     service = GoalProjectionsService(db)
-    projections = service.calculate_goal_projections(
+    projections = await asyncio.to_thread(
+        service.calculate_goal_projections,
         portfolio_id=portfolio_id,
         current_value=current_value,
         target_amount=float(goal.target_amount),
         monthly_contribution=float(goal.monthly_contribution),
-        target_date=goal.target_date
+        target_date=goal.target_date,
     )
-    
+
     return projections

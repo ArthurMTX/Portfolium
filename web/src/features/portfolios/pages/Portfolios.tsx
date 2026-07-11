@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Edit2, Globe, GlobeLock, Link2, PlusCircle, Trash2, X } from 'lucide-react'
 import api, { type PortfolioMetricsDTO } from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
@@ -112,7 +112,19 @@ export default function Portfolios() {
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
-  const fetchPortfolios = useCallback(async () => {
+  // True while a fetchPortfolios run is in flight (used by effect dedupe).
+  const fetchInFlightRef = useRef(false)
+
+  const fetchPortfolios = useCallback(async (options?: { dedupe?: boolean }) => {
+    // Effect-driven loads dedupe against an in-flight load: setActivePortfolio
+    // below (and i18n's `t` settling) change this callback's dependencies and
+    // re-fire the mount effect mid-fetch, which used to duplicate the
+    // portfolios + per-portfolio metrics/sectors requests on cold sessions.
+    // Manual refresh/mutation callers skip the guard so they always refetch.
+    if (options?.dedupe === true && fetchInFlightRef.current) {
+      return
+    }
+    fetchInFlightRef.current = true
     setLoading(true)
     setLoadError(null)
     try {
@@ -166,12 +178,13 @@ export default function Portfolios() {
       console.error('Failed to fetch portfolios:', error)
       setLoadError(error instanceof Error ? error.message : t('portfoliosPage.loadFailedGeneric'))
     } finally {
+      fetchInFlightRef.current = false
       setLoading(false)
     }
   }, [activePortfolioId, setActivePortfolio, setPortfolios, t])
 
   useEffect(() => {
-    fetchPortfolios()
+    fetchPortfolios({ dedupe: true })
   }, [fetchPortfolios])
 
   useEffect(() => {

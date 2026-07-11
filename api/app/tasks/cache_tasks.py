@@ -288,3 +288,30 @@ def get_cache_statistics() -> dict:
     except Exception as e:
         logger.error(f"Error getting cache statistics: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
+
+
+@celery_app.task(bind=True, name="app.tasks.cache_tasks.refresh_market_movers")
+def refresh_market_movers(self) -> dict:
+    """
+    Refresh the market movers cache in the background.
+
+    Triggered by GET /assets/market-movers when the fresh cache has expired
+    but a stale payload was served. The endpoint acquires the refresh lock
+    before enqueueing, so at most one refresh runs per lock window; the lock
+    is released here (with the Redis TTL as a backstop if the worker dies).
+    """
+    from app.routers.assets import refresh_market_movers_cache, _MARKET_MOVERS_LOCK_KEY
+
+    try:
+        movers = refresh_market_movers_cache()
+        counts = {key: len(items) for key, items in movers.items()}
+        logger.info(
+            f"Task {self.request.id}: refreshed market movers {counts}",
+            extra={"event": "market_movers_refreshed"},
+        )
+        return {"status": "success", "counts": counts, "task_id": self.request.id}
+    except Exception as e:
+        logger.error(f"Error refreshing market movers: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+    finally:
+        CacheService.delete(_MARKET_MOVERS_LOCK_KEY)

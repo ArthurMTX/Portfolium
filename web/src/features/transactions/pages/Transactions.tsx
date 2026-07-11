@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
+import { invalidatePortfolioQueries } from '@/features/portfolios/lib/invalidatePortfolioQueries'
 import api, { type CsvImportPreviewResultDTO } from '@/api'
 import { PlusCircle, Upload, Download, X, Search, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import SplitHistory from '@/features/assets/components/SplitHistory'
@@ -127,13 +128,15 @@ export default function Transactions() {
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
 
-  // Helper to invalidate all portfolio-related caches
+  // Helper to invalidate the transaction-derived caches of this portfolio.
+  // Targeted on purpose: the previous queryClient.removeQueries() dropped the
+  // entire query cache, forcing unrelated pages (boards, watchlist, market
+  // data, research) to refetch everything on their next visit.
   const invalidatePortfolioData = useCallback(async () => {
-    // Remove all queries from cache to force fresh fetch
-    queryClient.removeQueries()
+    await invalidatePortfolioQueries(queryClient, activePortfolioId)
     // Increment data version to trigger useEffect re-fetches in widgets
     incrementDataVersion()
-  }, [queryClient, incrementDataVersion])
+  }, [queryClient, activePortfolioId, incrementDataVersion])
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)

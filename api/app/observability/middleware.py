@@ -48,14 +48,21 @@ class ObservabilityMiddleware:
         method = scope.get("method", "UNKNOWN")
         started = time.monotonic()
         status_code = 500
+        response_bytes = 0
 
         async def send_with_context(message: dict[str, Any]) -> None:
-            nonlocal status_code
+            nonlocal status_code, response_bytes
             if message["type"] == "http.response.start":
                 status_code = int(message["status"])
                 headers = list(message.get("headers", []))
                 headers.append((b"x-request-id", request_id.encode("ascii")))
+                process_time_ms = round((time.monotonic() - started) * 1000, 2)
+                headers.append(
+                    (b"x-process-time-ms", str(process_time_ms).encode("ascii"))
+                )
                 message["headers"] = headers
+            elif message["type"] == "http.response.body":
+                response_bytes += len(message.get("body", b""))
             await send(message)
 
         try:
@@ -102,6 +109,7 @@ class ObservabilityMiddleware:
                         "method": method,
                         "status_code": status_code,
                         "duration_ms": duration_ms,
+                        "response_bytes": response_bytes,
                     },
                 )
         finally:

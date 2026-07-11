@@ -83,6 +83,7 @@ def test_asset_investment_note_is_user_scoped(client, auth_headers, test_db, sam
         email="other@example.com",
         hashed_password=get_password_hash("testpassword123"),
         is_active=True,
+        is_verified=True,
     )
     test_db.add(other_user)
     test_db.commit()
@@ -91,6 +92,7 @@ def test_asset_investment_note_is_user_scoped(client, auth_headers, test_db, sam
         "/auth/login",
         data={"username": "other@example.com", "password": "testpassword123"},
     )
+    assert login_response.status_code == 200, login_response.text
     other_headers = {"Authorization": f"Bearer {login_response.json()['access_token']}"}
 
     get_response = client.get(f"/assets/{sample_asset.id}/investment-note", headers=other_headers)

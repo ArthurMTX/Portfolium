@@ -41,7 +41,11 @@ export default function Charts() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<ChartTab>('heatmap')
   const [hasTransactions, setHasTransactions] = useState<boolean | null>(null)
-  const [checkingTransactions, setCheckingTransactions] = useState(false)
+  // Start in the "checking" state: the first render used to show the full
+  // page for one frame, mount every chart (each firing its fetches), then
+  // swap to the skeleton when this flag flipped, and mount everything again
+  // after the check - duplicating positions/history/transactions requests.
+  const [checkingTransactions, setCheckingTransactions] = useState(true)
   const [heroHistory, setHeroHistory] = useState<PortfolioHistoryPointDTO[]>([])
 
   useEffect(() => {

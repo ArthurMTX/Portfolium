@@ -801,11 +801,46 @@ def _fetch_trending_tickers() -> list[dict]:
 
 
 def _fetch_market_movers() -> dict[str, list[dict]]:
-    return {
-        "trending": _fetch_screener_tickers("most_actives", count=10),
-        "gainers": _fetch_screener_tickers("day_gainers", count=10),
-        "losers": _fetch_screener_tickers("day_losers", count=10),
-    }
+    # The three screener queries are independent network calls (~2s each);
+    # run them concurrently so a cache miss costs one round-trip, not three.
+    from concurrent.futures import ThreadPoolExecutor
+
+    screeners = {"trending": "most_actives", "gainers": "day_gainers", "losers": "day_losers"}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {
+            key: pool.submit(_fetch_screener_tickers, query, count=10)
+            for key, query in screeners.items()
+        }
+        return {key: future.result() for key, future in futures.items()}
+
+
+# Market movers stale-while-revalidate:
+# - fresh key keeps the existing 15-minute freshness semantics
+# - stale key retains the last good payload for a day so expiry never makes
+#   an interactive request wait ~3s on Yahoo screeners
+# - the lock ensures only one process (API worker or Celery) refreshes at a time
+_MARKET_MOVERS_CACHE_KEY = "market_movers:US"
+_MARKET_MOVERS_STALE_KEY = "market_movers:US:stale"
+_MARKET_MOVERS_TTL_SECONDS = 900
+_MARKET_MOVERS_STALE_TTL_SECONDS = 24 * 3600
+_MARKET_MOVERS_LOCK_KEY = "lock:market_movers_refresh"
+_MARKET_MOVERS_LOCK_TTL_SECONDS = 120
+_MARKET_MOVERS_COLD_POLL_ATTEMPTS = 20
+_MARKET_MOVERS_COLD_POLL_INTERVAL_SECONDS = 0.2
+
+
+def refresh_market_movers_cache() -> dict[str, list[dict]]:
+    """Fetch movers from Yahoo and populate both cache generations.
+
+    Empty results (provider outage) are returned but not cached, so a failed
+    refresh never pins empty lists for the full TTL; the refresh lock still
+    bounds retry pressure to one attempt per lock window.
+    """
+    movers = _fetch_market_movers()
+    if any(movers.values()):
+        CacheService.set(_MARKET_MOVERS_CACHE_KEY, movers, ttl=_MARKET_MOVERS_TTL_SECONDS)
+        CacheService.set(_MARKET_MOVERS_STALE_KEY, movers, ttl=_MARKET_MOVERS_STALE_TTL_SECONDS)
+    return movers
 
 
 @router.get("/trending")
@@ -821,9 +856,49 @@ def get_trending_assets():
 def get_market_movers():
     """
     Lightweight discovery lists from Yahoo screeners.
-    Cached for 15 minutes since composition doesn't need per-request freshness.
+
+    Fresh for 15 minutes. On expiry the last known payload (up to a day old)
+    is served immediately while a single background Celery refresh runs;
+    only a truly cold cache performs the provider fetch in-request, deduped
+    across workers by a short Redis lock.
     """
-    return CacheService.get_or_set("market_movers:US", _fetch_market_movers, ttl=900)
+    fresh = CacheService.get(_MARKET_MOVERS_CACHE_KEY)
+    if fresh is not None:
+        return fresh
+
+    stale = CacheService.get(_MARKET_MOVERS_STALE_KEY)
+    if stale is not None:
+        if CacheService.set(_MARKET_MOVERS_LOCK_KEY, True, ttl=_MARKET_MOVERS_LOCK_TTL_SECONDS, nx=True):
+            try:
+                from app.tasks.cache_tasks import refresh_market_movers
+
+                refresh_market_movers.delay()
+            except Exception:
+                # Don't strand the lock if the broker is unavailable; the next
+                # request after the TTL can try again.
+                CacheService.delete(_MARKET_MOVERS_LOCK_KEY)
+                logger.warning(
+                    "Failed to enqueue market movers refresh",
+                    extra={"event": "market_movers_refresh_enqueue_failed"},
+                )
+        return stale
+
+    # Truly cold cache: one process fetches, concurrent requests briefly poll
+    # for its result instead of stampeding Yahoo with duplicate screener calls.
+    if CacheService.set(_MARKET_MOVERS_LOCK_KEY, True, ttl=_MARKET_MOVERS_LOCK_TTL_SECONDS, nx=True):
+        try:
+            return refresh_market_movers_cache()
+        finally:
+            CacheService.delete(_MARKET_MOVERS_LOCK_KEY)
+
+    for _ in range(_MARKET_MOVERS_COLD_POLL_ATTEMPTS):
+        time.sleep(_MARKET_MOVERS_COLD_POLL_INTERVAL_SECONDS)
+        fresh = CacheService.get(_MARKET_MOVERS_CACHE_KEY)
+        if fresh is not None:
+            return fresh
+
+    # Degraded but well-formed: same shape a full screener outage produces.
+    return {"trending": [], "gainers": [], "losers": []}
 
 
 @router.get("/by-symbol/{symbol}", response_model=Asset)
@@ -1462,21 +1537,21 @@ def create_asset(
     
     new_asset = crud.create_asset(db, asset)
     
-    # Trigger ATH fetch for the new asset in the background
-    try:
-        from app.tasks.ath_tasks import backfill_ath_from_yfinance
-        backfill_ath_from_yfinance.delay(asset_id=new_asset.id)
-        logger.info(f"Triggered ATH backfill for new asset: {new_asset.symbol}")
-    except Exception as e:
-        logger.warning(f"Failed to trigger ATH backfill for {new_asset.symbol}: {e}")
+    # Trigger ATH fetch + ISIN/logo enrichment for the new asset in the background
+    if settings.ENABLE_BACKGROUND_TASKS:
+        try:
+            from app.tasks.ath_tasks import backfill_ath_from_yfinance
+            backfill_ath_from_yfinance.delay(asset_id=new_asset.id)
+            logger.info(f"Triggered ATH backfill for new asset: {new_asset.symbol}")
+        except Exception as e:
+            logger.warning(f"Failed to trigger ATH backfill for {new_asset.symbol}: {e}")
 
-    # Trigger ISIN + logo enrichment for the new asset in the background
-    try:
-        from app.tasks.logo_tasks import backfill_asset_logos
-        backfill_asset_logos.delay(asset_id=new_asset.id)
-        logger.info(f"Triggered logo/ISIN backfill for new asset: {new_asset.symbol}")
-    except Exception as e:
-        logger.warning(f"Failed to trigger logo backfill for {new_asset.symbol}: {e}")
+        try:
+            from app.tasks.logo_tasks import backfill_asset_logos
+            backfill_asset_logos.delay(asset_id=new_asset.id)
+            logger.info(f"Triggered logo/ISIN backfill for new asset: {new_asset.symbol}")
+        except Exception as e:
+            logger.warning(f"Failed to trigger logo backfill for {new_asset.symbol}: {e}")
 
     return new_asset
 
@@ -1885,8 +1960,14 @@ def enrich_asset(asset_id: int, db: Session = Depends(get_db)):
     return enriched
 
 
+# Cooldown for symbols whose full logo resolution found no provider logo.
+# Short on purpose: a transiently unreachable provider must get another
+# chance soon, while render-path requests stop hammering external APIs.
+_LOGO_NEGATIVE_CACHE_TTL_SECONDS = 6 * 3600
+
+
 @router.get("/logo/{symbol}")
-async def resolve_logo(
+def resolve_logo(
     symbol: str,
     name: Optional[str] = None,
     asset_type: Optional[str] = None,
@@ -1899,11 +1980,13 @@ async def resolve_logo(
     Strategy:
     1. If the asset has a persisted ISIN, try Trade Republic first (proxied
        through this API) -- covers stocks, ETFs, funds, ETCs, ETNs alike.
-    2. For ETFs and Cryptocurrencies, skip cache and generate/fetch logo to avoid incorrect brand logos
-    3. For other assets, check database cache first for previously fetched logos
-    4. Try direct ticker fetch and cache result
-    5. Try API search with company name and cache result
-    6. If all else fails, generate SVG fallback
+    2. Check database cache for previously fetched provider logos (only
+       trusted providers; 'generated' placeholders are never served from cache)
+    3. Try direct ticker fetch and cache result
+    4. Try API search with company name and cache result
+    5. If all else fails, generate SVG fallback and negative-cache the
+       resolution for a few hours so external providers are not re-queried
+       on every render
 
     Returns the image data directly with aggressive caching headers.
 
@@ -1944,13 +2027,19 @@ async def resolve_logo(
     if not effective_name and db_asset:
         effective_name = db_asset.name
 
-    # For ETFs and Cryptocurrencies, skip cache to avoid incorrect brand logos
-    is_etf = effective_asset_type and effective_asset_type.upper() == 'ETF'
-    is_crypto = effective_asset_type and effective_asset_type.upper() in ['CRYPTO', 'CRYPTOCURRENCY']
-    skip_cache = is_etf or is_crypto
+    is_crypto = bool(effective_asset_type) and effective_asset_type.upper() in ('CRYPTO', 'CRYPTOCURRENCY')
 
     normalized_variant = "dark" if variant == "dark" else "light"
     resolution = None
+
+    # Negative cache: when a completed resolution recently ended with no
+    # provider logo (generated fallback), skip all external provider calls
+    # for a cooldown period and serve the locally generated SVG instead.
+    # Exceptions propagate without setting the key, so transient provider
+    # failures are never negative-cached; only a completed "no logo found"
+    # resolution is, and only for the short TTL below.
+    negative_cache_key = f"logo:neg:{symbol.upper()}"
+    resolution_cooldown = CacheService.exists(negative_cache_key)
 
     # Lazily resolve Trade Republic/Brandfetch/generated once per asset. This
     # never triggers the synchronous ISIN scrape (allow_isin_lookup=False) --
@@ -1959,7 +2048,7 @@ async def resolve_logo(
     # (resolve_asset_logo runs that unconditionally now), so a persisted
     # asset that simply hasn't been backfilled yet still gets a shot at
     # Trade Republic instead of being stuck requiring a pre-existing ISIN.
-    if db_asset and db_asset.logo_provider not in ("trade_republic", "brandfetch", "logo_dev"):
+    if db_asset and not resolution_cooldown and db_asset.logo_provider not in ("trade_republic", "brandfetch", "logo_dev"):
         resolution = resolve_asset_logo(
             db,
             db_asset,
@@ -1968,6 +2057,8 @@ async def resolve_logo(
             asset_type_hint=asset_type,
         )
         db.refresh(db_asset)
+        if resolution.provider == "generated":
+            CacheService.set(negative_cache_key, True, ttl=_LOGO_NEGATIVE_CACHE_TTL_SECONDS)
 
     if db_asset and db_asset.logo_provider == "trade_republic" and (db_asset.logo_light_url or db_asset.logo_dark_url):
         cached_tr_logo_data = crud_assets.get_cached_trade_republic_logo_variant(db_asset, normalized_variant)
@@ -1995,7 +2086,7 @@ async def resolve_logo(
     # added anywhere) -- there's nothing to cache an ISIN/logo onto, but we
     # can still try Trade Republic for this one response via the same fast,
     # local Adanos lookup, instead of skipping straight to Brandfetch/generated.
-    if not db_asset and not is_crypto:
+    if not db_asset and not is_crypto and not resolution_cooldown:
         try:
             from app.services.reference_data.adanos_listings import lookup_adanos_isin
             from app.services.market_data.trade_republic_logos import (
@@ -2020,9 +2111,11 @@ async def resolve_logo(
         content_type = resolution.logo_content_type or "image/webp"
         is_svg_fallback = content_type == "image/svg+xml"
     else:
-        # Check database cache first (but skip for ETFs and cryptocurrencies)
+        # Check database cache first. Only trust logos that a real provider
+        # supplied; legacy rows can carry image bytes under a 'generated'
+        # provider from the era when ticker search could match the wrong brand.
         cached = None
-        if db_asset and not skip_cache:
+        if db_asset and db_asset.logo_provider in ("trade_republic", "brandfetch", "logo_dev"):
             cached = crud_assets.get_cached_logo(db, db_asset.id)
         if cached:
             cached_logo_data, cached_content_type = cached
@@ -2031,9 +2124,19 @@ async def resolve_logo(
             if not is_cached_svg:
                 return image_response(cached_logo_data, cached_content_type)
 
-        # Fetch logo using the consolidated validation function
-        # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
-        logo_data, logo_source = fetch_logo_with_source(symbol, company_name=effective_name, asset_type=effective_asset_type)
+        if resolution_cooldown:
+            # A recent completed resolution found no provider logo: serve the
+            # locally generated fallback without touching external providers.
+            from app.services.market_data.logos import generate_svg_logo, LOGO_SOURCE_GENERATED
+
+            logo_data = generate_svg_logo(symbol).encode('utf-8')
+            logo_source = LOGO_SOURCE_GENERATED
+        else:
+            # Fetch logo using the consolidated validation function
+            # For ETFs/Cryptocurrencies, this will skip ticker search and use appropriate fallback
+            logo_data, logo_source = fetch_logo_with_source(symbol, company_name=effective_name, asset_type=effective_asset_type)
+            if logo_source == "generated":
+                CacheService.set(negative_cache_key, True, ttl=_LOGO_NEGATIVE_CACHE_TTL_SECONDS)
 
         # Determine content type based on data
         is_svg_fallback = logo_data.startswith(b'<svg') or logo_data.startswith(b'<?xml')
@@ -2041,7 +2144,7 @@ async def resolve_logo(
 
         # Only cache real logos in database, not SVG fallbacks
         # SVG fallbacks should be regenerated so they can be replaced with real logos later
-        if db_asset and not skip_cache and not is_svg_fallback:
+        if db_asset and not is_svg_fallback:
             crud_assets.cache_logo(db, db_asset.id, logo_data, content_type, provider=logo_source)
 
     # Return the logo

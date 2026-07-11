@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, Eye } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { api, DailyPerformanceDay, EarningsEvent, MarketHolidaysResponse } from '@/api'
@@ -139,6 +139,10 @@ export default function Calendar() {
 
   // Cache for loaded months to enable lazy loading
   const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set())
+  // Months currently being fetched: the effect below re-fires when its deps
+  // change identity (e.g. `t` after i18n finishes loading) before the first
+  // fetch resolves, which used to duplicate all three calendar requests.
+  const inFlightMonthsRef = useRef<Set<string>>(new Set())
 
   // Load calendar data for a specific month range (lazy loading)
   const loadMonthData = useCallback(async (targetDate: Date, showRefreshing = false) => {
@@ -146,9 +150,10 @@ export default function Calendar() {
 
     // Calculate month key for caching
     const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`
-    
-    // Skip if already loaded
-    if (loadedMonths.has(monthKey) && !showRefreshing) return
+
+    // Skip if already loaded or currently loading
+    if ((loadedMonths.has(monthKey) || inFlightMonthsRef.current.has(monthKey)) && !showRefreshing) return
+    inFlightMonthsRef.current.add(monthKey)
 
     if (showRefreshing) {
       setRefreshing(true)
@@ -217,6 +222,7 @@ export default function Calendar() {
       console.error('Failed to load calendar data:', err)
       setError(err instanceof Error ? err.message : t('calendar.loadFailedGeneric'))
     } finally {
+      inFlightMonthsRef.current.delete(monthKey)
       setLoading(false)
       setRefreshing(false)
     }

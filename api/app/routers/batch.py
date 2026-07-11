@@ -78,12 +78,17 @@ def _make_json_serializable(obj, _seen=None):
         if isinstance(obj, (list, tuple)):
             return [_make_json_serializable(item, _seen) for item in obj]
         
-        # Handle SQLAlchemy models (have __table__ attribute)
+        # Handle SQLAlchemy models (have __table__ attribute).
+        # Read values via the mapped attribute key, not the column name:
+        # for renamed columns like Notification.meta_data = Column("metadata", ...),
+        # getattr(obj, column.name) would return Base.metadata (the SQLAlchemy
+        # MetaData registry, ~66KB serialized) instead of the column value.
         if hasattr(obj, '__table__'):
+            from sqlalchemy import inspect as sa_inspect
             result = {}
-            for column in obj.__table__.columns:
-                value = getattr(obj, column.name)
-                result[column.name] = _make_json_serializable(value, _seen)
+            for attr in sa_inspect(obj).mapper.column_attrs:
+                value = getattr(obj, attr.key)
+                result[attr.columns[0].name] = _make_json_serializable(value, _seen)
             return result
         
         # Handle dictionaries

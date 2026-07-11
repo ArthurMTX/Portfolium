@@ -4,6 +4,7 @@ Asset research service - asset-level analytics that do not require ownership.
 import logging
 import copy
 import re
+import time
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
@@ -30,6 +31,14 @@ class AssetResearchService:
     """Build an asset research payload without relying on portfolio transactions."""
 
     ETF_COMPOSITION_CACHE_TTL_SECONDS = 24 * 60 * 60
+
+    # Shared provider info payload (see _get_company_info)
+    COMPANY_INFO_CACHE_PREFIX = "asset_research:info:"
+    COMPANY_INFO_CACHE_TTL_SECONDS = 900
+    COMPANY_INFO_NEGATIVE_TTL_SECONDS = 120
+    COMPANY_INFO_LOCK_TTL_SECONDS = 15
+    COMPANY_INFO_POLL_ATTEMPTS = 40
+    COMPANY_INFO_POLL_INTERVAL_SECONDS = 0.2
 
     def __init__(self, db: Session):
         self.db = db
@@ -271,11 +280,45 @@ class AssetResearchService:
             return None
 
     def _get_company_info(self, symbol: str) -> Dict[str, Any]:
+        """Provider info payload shared by every research tab, cached in Redis.
+
+        The research page requests all of its tab endpoints concurrently and
+        each one derives its data from the same provider info payload, so
+        without this cache one page view meant ~8 identical Yahoo `get_info`
+        calls (~1.5s each). Single-flight: the first request fetches while
+        concurrent ones briefly poll for its result; exceptions are never
+        cached, so a transient provider failure is retried on the next call.
+        """
+        cache_key = f"{self.COMPANY_INFO_CACHE_PREFIX}{symbol}"
+        cached = self.cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+        lock_key = f"lock:asset_research_info:{symbol}"
+        acquired = CacheService.set(lock_key, True, ttl=self.COMPANY_INFO_LOCK_TTL_SECONDS, nx=True)
+        if not acquired:
+            for _ in range(self.COMPANY_INFO_POLL_ATTEMPTS):
+                time.sleep(self.COMPANY_INFO_POLL_INTERVAL_SECONDS)
+                cached = self.cache_service.get(cache_key)
+                if cached is not None:
+                    return cached
+            # The fetching request may have failed; fall through and fetch.
+
         try:
-            return FundamentalsService.fetch_info(symbol, action="asset_research_info")
+            info = FundamentalsService.fetch_info(symbol, action="asset_research_info")
+            if info:
+                self.cache_service.set(cache_key, info, ttl=self.COMPANY_INFO_CACHE_TTL_SECONDS)
+            else:
+                # Negative-cache "provider answered but has nothing" briefly so
+                # unknown symbols don't trigger a provider call per tab.
+                self.cache_service.set(cache_key, {}, ttl=self.COMPANY_INFO_NEGATIVE_TTL_SECONDS)
+            return info or {}
         except Exception as exc:
             logger.warning("Asset research company info failed for %s: %s", symbol, exc)
             return {}
+        finally:
+            if acquired:
+                CacheService.delete(lock_key)
 
     def _get_fundamentals(self, symbol: str, company_info: Dict[str, Any]) -> Dict[str, Any]:
         try:

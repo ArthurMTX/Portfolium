@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Activity,
   Archive,
@@ -195,7 +195,17 @@ export default function Assets() {
   const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
   const locale = navigator.language
 
-  const loadAssets = useCallback(async () => {
+  // Portfolio key ('all' or an id) currently being fetched by loadAssets.
+  const inFlightLoadKeyRef = useRef<string | null>(null)
+
+  const loadAssets = useCallback(async (options?: { dedupe?: boolean }) => {
+    // Effect-driven loads dedupe against an identical in-flight load:
+    // bootstrapping (setPortfolios / setActivePortfolio below) changes this
+    // callback's dependencies and re-fires the mount effect while the first
+    // fetch is still running, which used to duplicate every request on cold
+    // sessions. Manual refresh calls skip the guard so they always refetch.
+    const dedupe = options?.dedupe === true
+    let dedupedIntoRunningFetch = false
     try {
       setLoading(true)
       setHeldAssets([])
@@ -214,6 +224,13 @@ export default function Assets() {
       if (!activePortfolioId && resolvedPortfolioId) {
         setActivePortfolio(resolvedPortfolioId)
       }
+
+      const loadKey = String(resolvedPortfolioId ?? 'all')
+      if (dedupe && inFlightLoadKeyRef.current === loadKey) {
+        dedupedIntoRunningFetch = true
+        return
+      }
+      inFlightLoadKeyRef.current = loadKey
 
       const portfolioIds = resolvedPortfolioId ? [resolvedPortfolioId] : portfolioSource.map((portfolio) => portfolio.id)
       const currentPositionsPromise = portfolioIds.length > 0
@@ -249,12 +266,15 @@ export default function Assets() {
       setError(t('assetsPage.loadFailed'))
       console.error('Error loading holdings:', err)
     } finally {
-      setLoading(false)
+      if (!dedupedIntoRunningFetch) {
+        inFlightLoadKeyRef.current = null
+        setLoading(false)
+      }
     }
   }, [activePortfolioId, portfolios, setActivePortfolio, setPortfolios, t])
 
   useEffect(() => {
-    loadAssets()
+    loadAssets({ dedupe: true })
   }, [loadAssets])
 
   useEffect(() => {
