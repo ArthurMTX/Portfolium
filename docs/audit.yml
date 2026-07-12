@@ -233,30 +233,6 @@ pages:
     owner: operations
     source: ["docker-compose.yml", "api/app/observability", "monitoring"]
 
-  - path: "docs/backup-and-restore.md"
-    status: current
-    action: keep
-    owner: operations
-    source: ["docker-compose.yml", "db", "api/alembic/versions"]
-
-  - path: "docs/operations-runbook.md"
-    status: current
-    action: keep
-    owner: operations
-    source: ["docker-compose.yml", "api/app/observability", "api/app/celery_app.py"]
-
-  - path: "docs/deployment-checklist.md"
-    status: current
-    action: keep
-    owner: operations
-    source: ["docker-compose.yml", ".github/workflows", "api/alembic/versions"]
-
-  - path: "docs/release-readiness.md"
-    status: current
-    action: keep
-    owner: operations
-    source: [".github/workflows", "docker-compose.yml", "api", "web"]
-
   - path: "docs/technical/overview.md"
     status: current
     action: keep
