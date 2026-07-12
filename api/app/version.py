@@ -3,7 +3,7 @@ Version information for Portfolium API
 This file can be updated automatically by CI/CD
 """
 
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 __build_date__ = "2026-07-09"
 __git_commit__ = "local"
 
