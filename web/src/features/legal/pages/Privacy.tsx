@@ -25,8 +25,8 @@ function PrivacyEn() {
         specific instance you are using, operated by whoever deployed it (the{' '}
         <strong>operator</strong>) — not by a central Portfolium company. This policy describes
         what the Portfolium software itself collects and does with data by default. The operator
-        of your instance is responsible for completing the bracketed sections below and for any
-        additional processing they configure.
+        of your instance is responsible for the contact details below and for any additional
+        processing they configure.
       </p>
 
       <h2>1. What data Portfolium collects</h2>
@@ -194,8 +194,8 @@ function PrivacyFr() {
         données de l’instance spécifique que vous utilisez, exploitée par la personne ou
         l’organisation qui l’a déployée, appelée l’<strong>opérateur</strong> — et non par une
         société Portfolium centrale. Cette politique décrit ce que le logiciel Portfolium collecte
-        et fait des données par défaut. L’opérateur de votre instance est responsable de compléter
-        les sections entre crochets ci-dessous et de tout traitement supplémentaire qu’il configure.
+        et fait des données par défaut. L’opérateur de votre instance est responsable des
+        coordonnées de contact ci-dessous et de tout traitement supplémentaire qu’il configure.
       </p>
 
       <h2>1. Données collectées par Portfolium</h2>

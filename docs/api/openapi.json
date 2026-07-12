@@ -3706,11 +3706,16 @@
           "user_id": {
             "title": "User Id",
             "type": "integer"
+          },
+          "uuid": {
+            "title": "Uuid",
+            "type": "string"
           }
         },
         "required": [
           "name",
           "id",
+          "uuid",
           "user_id",
           "layout_config",
           "created_at",
@@ -10351,7 +10356,7 @@
     },
     "/assets/logo/{symbol}": {
       "get": {
-        "description": "Fetch and return the best available logo for a symbol.\n\nStrategy:\n1. If the asset has a persisted ISIN, try Trade Republic first (proxied\n   through this API) -- covers stocks, ETFs, funds, ETCs, ETNs alike.\n2. For ETFs and Cryptocurrencies, skip cache and generate/fetch logo to avoid incorrect brand logos\n3. For other assets, check database cache first for previously fetched logos\n4. Try direct ticker fetch and cache result\n5. Try API search with company name and cache result\n6. If all else fails, generate SVG fallback\n\nReturns the image data directly with aggressive caching headers.\n\nQuery params:\n- name: Optional company name to improve search quality.\n- asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') to determine if generic logo should be used.\n- variant: Optional theme variant ('light' or 'dark') for Trade Republic logos.",
+        "description": "Fetch and return the best available logo for a symbol.\n\nStrategy:\n1. If the asset has a persisted ISIN, try Trade Republic first (proxied\n   through this API) -- covers stocks, ETFs, funds, ETCs, ETNs alike.\n2. Check database cache for previously fetched provider logos (only\n   trusted providers; 'generated' placeholders are never served from cache)\n3. Try direct ticker fetch and cache result\n4. Try API search with company name and cache result\n5. If all else fails, generate SVG fallback and negative-cache the\n   resolution for a few hours so external providers are not re-queried\n   on every render\n\nReturns the image data directly with aggressive caching headers.\n\nQuery params:\n- name: Optional company name to improve search quality.\n- asset_type: Optional asset type (e.g., 'ETF', 'EQUITY', 'CRYPTO') to determine if generic logo should be used.\n- variant: Optional theme variant ('light' or 'dark') for Trade Republic logos.",
         "operationId": "resolve_logo_assets_logo__symbol__get",
         "parameters": [
           {
@@ -10440,7 +10445,7 @@
     },
     "/assets/market-movers": {
       "get": {
-        "description": "Lightweight discovery lists from Yahoo screeners.\nCached for 15 minutes since composition doesn't need per-request freshness.",
+        "description": "Lightweight discovery lists from Yahoo screeners.\n\nFresh for 15 minutes. On expiry the last known payload (up to a day old)\nis served immediately while a single background Celery refresh runs;\nonly a truly cold cache performs the provider fetch in-request, deduped\nacross workers by a short Redis lock.",
         "operationId": "get_market_movers_assets_market_movers_get",
         "responses": {
           "200": {
@@ -13681,18 +13686,18 @@
         ]
       }
     },
-    "/dashboard-layouts/{layout_id}": {
+    "/dashboard-layouts/{layout_uuid}": {
       "delete": {
         "description": "Delete a dashboard layout",
-        "operationId": "delete_layout_dashboard_layouts__layout_id__delete",
+        "operationId": "delete_layout_dashboard_layouts__layout_uuid__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "layout_id",
+            "name": "layout_uuid",
             "required": true,
             "schema": {
-              "title": "Layout Id",
-              "type": "integer"
+              "title": "Layout Uuid",
+              "type": "string"
             }
           }
         ],
@@ -13723,16 +13728,16 @@
         ]
       },
       "get": {
-        "description": "Get a specific dashboard layout by ID",
-        "operationId": "get_layout_dashboard_layouts__layout_id__get",
+        "description": "Get a specific dashboard layout by its public UUID",
+        "operationId": "get_layout_dashboard_layouts__layout_uuid__get",
         "parameters": [
           {
             "in": "path",
-            "name": "layout_id",
+            "name": "layout_uuid",
             "required": true,
             "schema": {
-              "title": "Layout Id",
-              "type": "integer"
+              "title": "Layout Uuid",
+              "type": "string"
             }
           }
         ],
@@ -13771,15 +13776,15 @@
       },
       "put": {
         "description": "Update an existing dashboard layout",
-        "operationId": "update_layout_dashboard_layouts__layout_id__put",
+        "operationId": "update_layout_dashboard_layouts__layout_uuid__put",
         "parameters": [
           {
             "in": "path",
-            "name": "layout_id",
+            "name": "layout_uuid",
             "required": true,
             "schema": {
-              "title": "Layout Id",
-              "type": "integer"
+              "title": "Layout Uuid",
+              "type": "string"
             }
           }
         ],
@@ -13827,18 +13832,18 @@
         ]
       }
     },
-    "/dashboard-layouts/{layout_id}/duplicate": {
+    "/dashboard-layouts/{layout_uuid}/duplicate": {
       "post": {
         "description": "Duplicate an existing layout with a new name",
-        "operationId": "duplicate_layout_dashboard_layouts__layout_id__duplicate_post",
+        "operationId": "duplicate_layout_dashboard_layouts__layout_uuid__duplicate_post",
         "parameters": [
           {
             "in": "path",
-            "name": "layout_id",
+            "name": "layout_uuid",
             "required": true,
             "schema": {
-              "title": "Layout Id",
-              "type": "integer"
+              "title": "Layout Uuid",
+              "type": "string"
             }
           },
           {
@@ -13885,18 +13890,18 @@
         ]
       }
     },
-    "/dashboard-layouts/{layout_id}/export": {
+    "/dashboard-layouts/{layout_uuid}/export": {
       "get": {
         "description": "Export a dashboard layout as JSON for sharing or backup.\nThis format can be imported by any user.",
-        "operationId": "export_layout_dashboard_layouts__layout_id__export_get",
+        "operationId": "export_layout_dashboard_layouts__layout_uuid__export_get",
         "parameters": [
           {
             "in": "path",
-            "name": "layout_id",
+            "name": "layout_uuid",
             "required": true,
             "schema": {
-              "title": "Layout Id",
-              "type": "integer"
+              "title": "Layout Uuid",
+              "type": "string"
             }
           }
         ],
@@ -15982,6 +15987,16 @@
               "title": "Period",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "accept-language",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "title": "Accept-Language",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -16029,6 +16044,16 @@
             "schema": {
               "title": "Portfolio Id",
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "accept-language",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "title": "Accept-Language",
+              "type": "string"
             }
           }
         ],
@@ -16081,6 +16106,16 @@
             "schema": {
               "title": "Portfolio Id",
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "accept-language",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "title": "Accept-Language",
+              "type": "string"
             }
           }
         ],

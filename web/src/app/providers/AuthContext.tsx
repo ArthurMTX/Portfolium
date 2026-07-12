@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { api } from '@/api'
+import { ApiRequestError } from '@/api/client'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 
 export interface User {
@@ -64,7 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
     } catch (error) {
       console.error('Failed to fetch user:', error)
-      logout()
+      // Only drop the stored session when the API explicitly rejected the
+      // token. Aborted or failed requests (page navigation while /auth/me is
+      // in flight, brief network loss) must not log the user out — the next
+      // load retries with the same token.
+      if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+        logout()
+      }
     } finally {
       setLoading(false)
     }

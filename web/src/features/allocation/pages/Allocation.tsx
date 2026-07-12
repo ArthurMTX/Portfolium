@@ -246,7 +246,7 @@ export default function Allocation() {
         setLoading(false)
       }
     }
-  }, [activePortfolioId, portfolios, setActivePortfolio, setPortfolios])
+  }, [activePortfolioId, portfolios, setActivePortfolio, setPortfolios, t])
 
   useEffect(() => {
     loadAllocation()

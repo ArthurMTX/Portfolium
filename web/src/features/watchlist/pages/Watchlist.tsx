@@ -172,15 +172,15 @@ export default function Watchlist() {
     }
   }, [])
 
-  const getErrorMessage = (err: unknown, fallback = t('watchlistPage.unexpectedError')) => {
+  const getErrorMessage = useCallback((err: unknown, fallback?: string) => {
     if (err instanceof Error) return err.message
     if (typeof err === 'string') return err
     try {
       return JSON.stringify(err)
     } catch {
-      return fallback
+      return fallback ?? t('watchlistPage.unexpectedError')
     }
-  }
+  }, [t])
 
   const toNumber = (val: unknown): number | null => {
     if (val === null || val === undefined) return null
@@ -208,7 +208,7 @@ export default function Watchlist() {
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [t, getErrorMessage])
 
   const loadTags = useCallback(async () => {
     try {

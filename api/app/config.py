@@ -264,6 +264,19 @@ class Settings(BaseSettings):
                     "ADMIN_PASSWORD must be at least 8 characters. "
                     f"Current length: {len(self.ADMIN_PASSWORD)}"
                 )
+            elif self.ENVIRONMENT.lower() == "production" and self.ADMIN_PASSWORD.lower() in {
+                "admin123",
+                "password",
+                "password1",
+                "changeme",
+                "change-this",
+                "change-this-admin-password",
+                "administrator",
+            }:
+                errors.append(
+                    "ADMIN_PASSWORD is a known default/weak value. "
+                    "Set a unique admin password before running in production."
+                )
         
         # 5. Validate database configuration
         if not self.POSTGRES_DB:

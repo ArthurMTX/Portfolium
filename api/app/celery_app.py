@@ -73,6 +73,11 @@ celery_app.conf.update(
     worker_send_task_events=True,
     task_send_sent_event=True,
     
+    # Any task without an explicit task_routes entry must still land in a queue
+    # the workers consume (-Q default,high,low); Celery's built-in default is
+    # an unconsumed "celery" queue.
+    task_default_queue="default",
+
     # Task behavior
     task_acks_late=True,  # Acknowledge tasks after completion (safer for crashes)
     task_reject_on_worker_lost=True,  # Reject tasks if worker crashes
@@ -453,6 +458,18 @@ celery_app.conf.task_routes = {
     "app.tasks.calendar_tasks.refresh_earnings_cache": {
         "queue": "default",
         "priority": 3,
+    },
+    "app.tasks.calendar_tasks.refresh_user_earnings_cache": {
+        "queue": "default",
+        "priority": 5,  # user-requested from the Calendar page
+    },
+    "app.tasks.metrics_tasks.warmup_metrics_cache": {
+        "queue": "default",
+        "priority": 4,
+    },
+    "app.tasks.insights_tasks.warmup_insights_cache": {
+        "queue": "default",
+        "priority": 4,
     },
     "app.tasks.report_tasks.send_daily_reports": {
         "queue": "default",

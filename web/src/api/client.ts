@@ -10,6 +10,18 @@ interface ApiError {
   detail: string | { errors: string[]; imported: number }
 }
 
+/** Error thrown for non-2xx API responses; carries the HTTP status so callers
+ * can distinguish auth rejections from transient network failures. */
+export class ApiRequestError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiRequestError'
+    this.status = status
+  }
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('auth_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -64,10 +76,11 @@ export async function request<T>(
       const error: ApiError = await response.json().catch(() => ({
         detail: 'An error occurred',
       }))
-      throw new Error(
+      throw new ApiRequestError(
         typeof error.detail === 'string'
           ? error.detail
-          : JSON.stringify(error.detail)
+          : JSON.stringify(error.detail),
+        response.status
       )
     }
 

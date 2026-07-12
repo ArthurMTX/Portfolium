@@ -137,7 +137,17 @@ def test_enrich_asset_metadata_does_not_overwrite_existing_valid_isin(test_db, m
 
 # --- logo_resolver.resolve_asset_logo -------------------------------------
 
+def _block_trade_republic(monkeypatch):
+    """Keep the resolver off the live Trade Republic CDN in unit tests.
+
+    Returning no logos exercises the same fall-through to fetch_logo_with_source
+    that a live miss produces, without depending on network availability.
+    """
+    monkeypatch.setattr(logo_resolver, "fetch_trade_republic_logos", lambda isin: {})
+
+
 def test_resolve_asset_logo_resolves_isin_via_adanos_before_trying_yahoo(test_db, monkeypatch):
+    _block_trade_republic(monkeypatch)
     asset = _make_asset(test_db, symbol="QBTS", name="D-Wave Quantum Inc.", asset_type="EQUITY", isin=None)
 
     def fail_get_isin(*_args, **_kwargs):
@@ -163,6 +173,7 @@ def test_resolve_asset_logo_resolves_isin_via_adanos_before_trying_yahoo(test_db
 
 
 def test_resolve_asset_logo_falls_back_to_yahoo_when_adanos_has_nothing(test_db, monkeypatch):
+    _block_trade_republic(monkeypatch)
     asset = _make_asset(test_db, symbol="QBTS", name="D-Wave Quantum Inc.", asset_type="EQUITY", isin=None)
     provider = FakeProvider(isin_by_symbol={"QBTS": "US26740W1099"})  # no Adanos row seeded at all
     monkeypatch.setattr(
@@ -182,6 +193,7 @@ def test_resolve_asset_logo_falls_back_to_yahoo_when_adanos_has_nothing(test_db,
 
 
 def test_resolve_asset_logo_never_touches_existing_isin(test_db, monkeypatch):
+    _block_trade_republic(monkeypatch)
     asset = _make_asset(test_db, symbol="QBTS", asset_type="EQUITY", isin="US26740W1099")
     provider = FakeProvider()
 
