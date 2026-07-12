@@ -8,7 +8,17 @@ import factory
 from factory.alchemy import SQLAlchemyModelFactory
 from faker import Faker
 
-from app.models import User, Portfolio, Asset, Transaction, TransactionType, Price, AssetClass
+from app.models import (
+    User,
+    Portfolio,
+    Asset,
+    Transaction,
+    TransactionType,
+    Price,
+    AssetClass,
+    CashMovement,
+    CashMovementType,
+)
 
 fake = Faker()
 
@@ -88,6 +98,21 @@ class PriceFactory(SQLAlchemyModelFactory):
     volume = factory.LazyFunction(lambda: fake.random_int(min=1000000, max=100000000))
 
 
+class CashMovementFactory(SQLAlchemyModelFactory):
+    """Factory for creating CashMovement instances (raw ledger rows)"""
+
+    class Meta:
+        model = CashMovement
+        sqlalchemy_session = None
+        sqlalchemy_session_persistence = "commit"
+
+    portfolio_id = None  # Must be set when using
+    currency = "USD"
+    type = CashMovementType.DEPOSIT
+    amount = factory.LazyFunction(lambda: Decimal("1000.00"))
+    occurred_on = factory.LazyFunction(date.today)
+
+
 def setup_factories(session):
     """Configure all factories to use the given database session"""
     UserFactory._meta.sqlalchemy_session = session
@@ -95,3 +120,4 @@ def setup_factories(session):
     AssetFactory._meta.sqlalchemy_session = session
     TransactionFactory._meta.sqlalchemy_session = session
     PriceFactory._meta.sqlalchemy_session = session
+    CashMovementFactory._meta.sqlalchemy_session = session

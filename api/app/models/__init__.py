@@ -1,7 +1,7 @@
 """
 SQLAlchemy ORM models - organized by domain
 """
-from app.models.enums import AssetClass, TransactionType, NotificationType
+from app.models.enums import AssetClass, TransactionType, NotificationType, CashMode, CashMovementType
 from app.models.user import User
 from app.models.asset import (
     Asset,
@@ -11,6 +11,7 @@ from app.models.asset import (
     AssetThemeTaxonomySuggestion,
 )
 from app.models.portfolio import Portfolio, Transaction
+from app.models.cash import CashAccount, CashMovement
 from app.models.price import Price
 from app.models.watchlist import Watchlist, WatchlistTag, watchlist_item_tags
 from app.models.notification import Notification
@@ -26,6 +27,8 @@ __all__ = [
     "AssetClass",
     "TransactionType",
     "NotificationType",
+    "CashMode",
+    "CashMovementType",
     "PendingDividendStatus",
     # Models
     "User",
@@ -36,6 +39,8 @@ __all__ = [
     "AssetThemeTaxonomySuggestion",
     "Portfolio",
     "Transaction",
+    "CashAccount",
+    "CashMovement",
     "Price",
     "Watchlist",
     "WatchlistTag",
