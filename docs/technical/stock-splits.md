@@ -72,7 +72,7 @@ The split ratio is stored in the `meta_data` JSON field:
 
 ### Ratio Parsing
 
-Located in `app/services/metrics.py`:
+Located in `api/app/services/portfolio_analytics/metrics.py`:
 
 ```python
 def _parse_split_ratio(self, split_str: str) -> Decimal:
@@ -577,7 +577,7 @@ def test_split_chronological_order():
 
 - [Transactions User Guide](../user-guide/transactions.md) - User instructions for recording splits
 - [Data Models](data-models.md) - Transaction model schema
-- [Pricing Service](pricing-service.md) - How splits affect price history
+- [Pricing](pricing.md) - How splits affect price history
 
 ## References
 

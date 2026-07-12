@@ -1,121 +1,80 @@
 # Detailed Metrics Overview
 
-Portfolium provides a wide set of advanced metrics to help you understand the fundamentals, performance, risk, and valuation of each asset in your portfolio.  
-These metrics appear mainly in the **Position Detail modal**, accessible from the Dashboard or the Portfolio view.
+Portfolium provides a wide set of advanced metrics to help you understand the fundamentals, performance, risk, and valuation of each asset in your portfolio.
+
+These metrics appear mainly in the **Position Detail** view, accessible from the Dashboard or the Portfolio view, and in **Asset Research** for assets you haven't necessarily bought yet.
 
 This section explains **each metric individually**, including:
 
-- **What It Shows**  
-- **How It's Calculated**  
-- **Example**  
-- **When To Use It**  
-- **Notes & Caveats**
+- **What It Shows**
+- **How It's Calculated**
+- **Example**
+- **When To Use It**
+- **Notes & Limitations**
 
-Each metric has its own page so you can quickly refer to it when needed.
+Each metric has its own page so you can quickly refer to it whenever you see it inside the app.
 
 ---
 
 ## Categories of Metrics
 
-The metrics are grouped in the same categories used inside Portfolium:
+The metrics below are grouped the same way they appear in Portfolium.
 
 ### Fundamentals & Liquidity
-Covers the core financial strength and trading characteristics of an asset.
+Core financial size and trading characteristics of an asset.
 
-- Market Cap
-- Volume & Average Volume  
-- P/E Ratio  
-- EPS  
-- Liquidity Score  
-
-These metrics help evaluate company size, value, liquidity, and short-term tradability.
-
----
+- [Market Cap](market-cap.md)
+- [Volume](volume.md)
+- [P/E Ratio](pe-ratio.md)
+- [EPS](eps.md)
+- [Liquidity Score](liquidity-score.md)
 
 ### Growth & Profitability
-Shows how quickly the company is expanding its revenue and profits.
+How quickly the company is expanding its revenue and profits, and how efficiently it converts sales into earnings.
 
-- Revenue Growth  
-- Earnings Growth  
-- Net Margin  
-- Operating Margin  
-- Return on Equity (ROE)  
-
-These metrics are useful for evaluating long-term business performance.
-
----
+- [Revenue Growth](revenue-growth.md)
+- [Earnings Growth](earnings-growth.md)
+- [Net Margin](net-margin.md)
+- [Operating Margin](operating-margin.md)
+- [ROE](roe.md)
 
 ### Balance Sheet Health
-Measures a company's financial stability and debt levels.
+A company's financial stability, debt levels, and ability to cover short-term obligations.
 
-- Net Cash Position  
-- Debt-to-Equity  
-- Current Ratio  
-- Quick Ratio  
-
-Crucial for assessing financial risk and survivability.
-
----
+- [Net Cash](net-cash.md)
+- [Debt-to-Equity](debt-to-equity.md)
+- [Current Ratio](current-ratio.md)
+- [Quick Ratio](quick-ratio.md)
 
 ### Analyst View & Valuation
-Based on Wall Street analysts' expectations and price targets.
+Wall Street analysts' ratings and price targets, and how they compare to the current price.
 
-- Analyst Consensus  
-- Number of Analysts  
-- Target Mean / High / Low  
-- Implied Upside  
-
-Useful for comparing your view with the market's expectations.
-
----
+- [Analyst Consensus](analyst-consensus.md)
+- [Implied Upside](implied-upside.md)
 
 ### Performance Metrics
-Tracks gains/losses and market behavior over different timeframes.
+Tracks your personal gains, losses, and recovery needs on a position.
 
-- Unrealized PnL  
-- Personal Drawdown  
-- Daily Change  
-- Break-even Gain Needed  
-
-Helps you understand your position's profitability relative to your cost basis.
-
----
+- [Gain to Breakeven](gain-to-breakeven.md)
+- [Personal Drawdown](personal-drawdown.md)
 
 ### Trading Zones
-Gives actionable indicators around the price history and optimal buying zones.
+Actionable indicators around price history, your own cost basis, and how the asset is behaving versus its sector.
 
-- Average Buy Zone  
-- Cost to Average Down  
-- Distance to ATH  
-
-These metrics highlight opportunities or risks based on price movements.
-
----
-
-### Relative Performance vs Sector
-Compares the asset with its sector ETF over multiple periods.
-
-- 1M / 3M / YTD / 1Y  
-- Sector ETF used  
-- Relative Performance conclusions  
-
-Useful for determining whether the stock is outperforming its peers.
-
----
+- [Distance to ATH](distance-to-ath.md)
+- [Avg Buy Zone](avg-buy-zone.md)
+- [Relative Performance](relative-performance.md)
+- [Cost to Average Down](cost-to-average-down.md)
 
 ### Risk Metrics
-Shows volatility, correlation, and overall risk contribution.
+Volatility, market correlation, and overall risk contribution.
 
-- 30D / 90D Volatility  
-- Beta  
-- Risk Score  
-- Volatility Contribution  
-
-Essential for portfolio construction and diversification.
+- [Volatility](volatility.md)
+- [Beta](beta.md)
+- [Risk Score](risk-score.md)
 
 ---
 
 ## How to Use This Section
 
-Each metric has its own dedicated page.  
-Use this section whenever you see a metric inside the app that you want to understand more deeply.
+Each metric has its own dedicated page with the exact formula, thresholds, and examples used inside Portfolium. Use this section whenever you see a metric inside the app that you want to understand more deeply.

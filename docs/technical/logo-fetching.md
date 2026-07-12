@@ -1,760 +1,198 @@
 # Logo Fetching
 
-Technical documentation for the company logo fetching and caching system.
+Technical reference for how Portfolium resolves and caches asset logos.
 
 ## Overview
 
-Portfolium automatically fetches and displays company logos for assets using a multi-strategy approach with fallbacks. Logos are fetched from the Brandfetch API, validated, optimized, and cached in the database.
+Logo resolution is orchestrated by `resolve_asset_logo()` in
+`api/app/services/market_data/logo_resolver.py`. It tries providers in a fixed
+priority order and persists the result on the `Asset` row so later requests are
+served from the database instead of re-resolving:
 
-## Architecture
+1. **Trade Republic** (via ISIN) — for all listed instrument types (stocks,
+   ETFs, funds, ETCs, ETNs).
+2. **Sibling reuse** — if another asset with a different ticker/exchange suffix
+   (e.g. `ASML` vs `ASML.AS`) already resolved a Trade Republic logo, reuse its
+   image bytes without a new lookup.
+3. **Brandfetch** — company/brand search and CDN fetch, mainly effective for
+   equities with a resolvable domain. ETFs and cryptocurrencies skip straight to
+   step 4.
+4. **Generated SVG fallback** — a gradient square with the ticker's first three
+   letters, built locally with no external calls.
 
-### Service Location
+Brandfetch is **not** the first provider anymore — Trade Republic is tried
+first for any non-crypto asset that has (or can get) an ISIN.
 
-`api/app/services/logos.py`
+## Resolving an ISIN
 
-### Key Components
+Trade Republic's CDN is keyed by ISIN, not ticker, so an asset needs an ISIN
+before it can be tried. `resolve_asset_logo()` resolves a missing ISIN itself,
+in order:
 
-1. **Brandfetch API Integration**: Primary logo source
-2. **Image Validation**: Ensure logos are not empty or corrupted
-3. **Image Optimization**: Resize and convert to WebP format
-4. **Database Caching**: Store logos in `assets.logo_data`
-5. **SVG Fallback**: Generate pink gradient logos when fetch fails
+1. **Adanos reference data** (`lookup_adanos_isin`, a local, indexed Postgres
+   query against synced listings — see the reference-data sync task) — tried
+   first because it's been more reliable than yfinance's scrape for some
+   symbols, and it's cheap enough to run on the request path.
+2. **Yahoo Finance's experimental ISIN scrape** (`provider.get_isin(...)`) —
+   only used as a fallback when Adanos has nothing, and only outside the
+   request path (`allow_isin_lookup=True`, i.e. the Celery backfill task or
+   CLI). The synchronous HTTP logo endpoint always passes
+   `allow_isin_lookup=False` so a slow/fragile scrape never blocks a response.
 
-## Logo Fetching Strategies
+Cryptocurrency assets (`asset_type` in `CRYPTO`/`CRYPTOCURRENCY`) skip ISIN
+resolution and Trade Republic entirely and go straight to Brandfetch's crypto
+CDN namespace.
 
-### Strategy 1: Direct CDN Fetch
+A `force=True` re-resolution (used by admin/backfill flows) re-checks the ISIN
+even if one is already stored, since it can correct a lower-confidence ISIN
+that came from the Yahoo scrape. Yahoo's scrape itself never overwrites an
+existing ISIN, even under `force` — it's the least-trusted of the two sources
+and only ever fills a true gap.
 
-**Endpoint**: `https://cdn.brandfetch.io/{ticker}?c={api_key}`
+## Trade Republic provider
 
-Attempts to fetch logo directly using the ticker symbol as brand ID:
-
-```python
-def fetch_logo_direct(ticker: str) -> Optional[bytes]:
-    """
-    Fetch logo directly from Brandfetch CDN using ticker as brand ID.
-    
-    Returns:
-        Optimized logo image bytes if valid logo found, None otherwise
-    """
-    url = BRANDFETCH_CDN_URL.format(brand_id=ticker)
-    params = {"c": settings.BRANDFETCH_API_KEY}
-    response = requests.get(url, params=params, headers=CDN_HEADERS, timeout=5)
-    
-    if response.status_code == 200:
-        if is_valid_image(response.content):
-            return resize_and_optimize_image(response.content)
-    return None
-```
-
-**Works for**:
-
-- Tickers that match brand domains (e.g., `AAPL`, `MSFT`, `GOOGL`)
-- Companies with simple brand IDs
-- Common stocks with well-known tickers
-
-**Fails for**:
-
-- Exchange-suffixed tickers (e.g., `CAVENO.OL`)
-- Less common companies
-- Crypto pairs (e.g., `BTC-USD`)
-
-### Strategy 2: API Search by Ticker
-
-**Endpoint**: `https://api.brandfetch.io/v2/search/{ticker}?c={api_key}`
-
-Searches Brandfetch database using normalized ticker:
-
-```python
-def brandfetch_search(identifier: str) -> List[Dict[str, Any]]:
-    """
-    Search Brandfetch API for brands matching the identifier.
-    
-    Returns:
-        List of brand results from Brandfetch API
-    """
-    encoded = quote(identifier, safe="")
-    url = BRANDFETCH_SEARCH_URL.format(identifier=encoded)
-    params = {"c": settings.BRANDFETCH_API_KEY}
-    
-    response = requests.get(url, params=params, timeout=10)
-    data = response.json()
-    return data if isinstance(data, list) else []
-```
-
-**Ticker Normalization**:
-
-```python
-def _normalize_ticker_for_search(ticker: str) -> str:
-    """
-    Normalize exchange-suffixed tickers for Brandfetch search.
-    
-    Examples:
-        "CAVENO.OL" -> "CAVENO"
-        "RIO.L" -> "RIO"
-        "BRK-B" -> "BRK-B" (keep hyphen)
-    """
-    return ticker.split('.')[0]
-```
-
-Removes exchange suffixes (`.OL`, `.L`, `.TO`, `.HK`, etc.) for better search results.
-
-### Strategy 3: API Search by Company Name
-
-**Fallback**: Search using the company name instead of ticker
-
-```python
-def find_logo_path(company_name: str) -> Optional[str]:
-    """
-    Find the Brandfetch brand ID for a company.
-    
-    Tries multiple candidate names and returns the brand ID of the best match.
-    """
-    for candidate in _candidate_names(company_name):
-        results = brandfetch_search(candidate)
-        if results:
-            best = pick_best_brand(results)
-            if best and best.get('brandId'):
-                return best['brandId']
-    return None
-```
-
-**Company Name Candidates**:
-
-```python
-def _candidate_names(company_name: str) -> Iterator[str]:
-    """
-    Generate candidate search names from a company name.
-    
-    Examples:
-        "Apple Inc." -> ["Apple Inc.", "Apple"]
-        "Microsoft Corporation" -> ["Microsoft Corporation", "Microsoft"]
-        "Eli Lilly and Company" -> ["Eli Lilly and Company", "Eli Lilly"]
-    """
-    yield company_name  # Try full name first
-    
-    # Remove common suffixes
-    suffixes = [
-        " Inc.", " Inc", " Corporation", " Corp.", " Corp",
-        " Ltd.", " Ltd", " Limited", " LLC", " L.L.C.",
-        " PLC", " P.L.C.", " AG", " S.A.", " S.A",
-        " N.V.", " NV", " GmbH", " Co.", " and Company", " & Co.",
-        " ASA", " A.S.A.", " AS", " Ab", " AB", " Oyj",
-        " S.p.A.", " SpA", " SA", " SE"
-    ]
-    
-    for suffix in suffixes:
-        if company_name.endswith(suffix):
-            base_name = company_name[:-len(suffix)].strip()
-            if base_name:
-                yield base_name
-            break  # Only remove one suffix
-```
-
-Strips common corporate suffixes to improve search accuracy.
-
-### Strategy 4: SVG Fallback Generation
-
-**Final fallback**: Generate a pink gradient SVG with ticker letters
-
-```python
-def generate_etf_logo(ticker: str) -> str:
-    """
-    Generate an SVG logo with pink gradient background and ticker letters.
-    
-    Returns:
-        SVG string with gradient background and ticker text
-    """
-    text = ticker[:3].upper()  # First 3 letters
-    
-    svg = f'''<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#f472b6;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#db2777;stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="200" height="200" fill="url(#grad)" />
-      <text x="100" y="100" text-anchor="middle" dominant-baseline="central" 
-            font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="bold" 
-            fill="white">{text}</text>
-    </svg>'''
-    
-    return svg
-```
-
-**Result**: Pink gradient square with white ticker text (e.g., "AAP" for AAPL)
-
-## Brand Selection Logic
-
-When API search returns multiple brands, pick the best match:
-
-```python
-def pick_best_brand(results: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """
-    Pick the best brand from Brandfetch search results.
-    
-    Scoring criteria:
-    - Verified brands get +2.0 bonus
-    - Claimed brands get +1.0 bonus
-    - Higher quality score is better
-    - Shorter domain name preferred (less penalty)
-    """
-    def score_brand(brand: Dict[str, Any]) -> float:
-        score = brand.get('qualityScore', 0.0)  # Base score
-        
-        if brand.get('verified', False):
-            score += 2.0  # Significant bonus
-        
-        if brand.get('claimed', False):
-            score += 1.0  # Moderate bonus
-        
-        domain = brand.get('domain', '')
-        if domain:
-            score -= len(domain) * 0.01  # Penalize long domains
-        
-        return score
-    
-    # Pick highest scoring brand
-    scored = [(score_brand(brand), brand) for brand in results]
-    scored.sort(key=lambda x: x[0], reverse=True)
-    
-    return scored[0][1] if scored else None
-```
-
-**Scoring Example**:
+`api/app/services/market_data/trade_republic_logos.py` fetches SVGs from:
 
 ```
-Brand A: example.com, verified=True, qualityScore=8.0
-Score: 8.0 + 2.0 - (11 * 0.01) = 9.89
-
-Brand B: subdomain.example.com, verified=False, claimed=True, qualityScore=9.0
-Score: 9.0 + 1.0 - (22 * 0.01) = 9.78
-
-Winner: Brand A (higher score despite lower qualityScore)
+https://assets.traderepublic.com/img/logos/{isin}/v2/{variant}.min.svg
 ```
 
-## Image Validation
-
-Ensures fetched images are not empty, transparent, or corrupted:
-
-```python
-def is_valid_image(image_data: bytes) -> bool:
-    """
-    Check if the image data represents a valid, non-empty logo image.
-    
-    Detects:
-    - Empty or very small PNG files (<200 bytes)
-    - Images with dimensions too small (<16x16px)
-    - Fully or nearly fully transparent images
-    - Solid color (blank) images
-    - Corrupted image data
-    """
-    # Size check
-    if len(image_data) < MIN_VALID_IMAGE_SIZE:  # 200 bytes
-        return False
-    
-    try:
-        img = Image.open(io.BytesIO(image_data))
-        
-        # Dimension check
-        width, height = img.size
-        if width < MIN_VALID_WIDTH or height < MIN_VALID_HEIGHT:  # 16x16
-            return False
-        
-        # Transparency check (alpha channel)
-        img_rgba = img.convert('RGBA')
-        alpha = img_rgba.getchannel('A')
-        hist = alpha.histogram()
-        
-        total_pixels = width * height
-        transparent_pixels = hist[0] if len(hist) > 0 else 0
-        opaque_pixels = total_pixels - transparent_pixels
-        opacity_ratio = opaque_pixels / float(total_pixels)
-        
-        if opacity_ratio < 0.01:  # Less than 1% visible
-            return False
-        
-        # Solid color check
-        extrema = img.convert('RGB').getextrema()
-        is_solid_color = all(min_val == max_val for min_val, max_val in extrema)
-        if is_solid_color:
-            return False
-        
-        return True
-        
-    except Exception:
-        return False
-```
-
-**Validation Steps**:
-
-1. **Size**: Minimum 200 bytes (empty PNGs are ~100 bytes)
-2. **Dimensions**: Minimum 16×16 pixels (tiny images unusable)
-3. **Opacity**: At least 1% of pixels must be visible (not transparent)
-4. **Color variance**: Must have different pixel colors (not blank)
-
-## Image Optimization
-
-Reduces file size while maintaining quality:
-
-```python
-def resize_and_optimize_image(image_data: bytes, max_size: int = 64) -> Optional[bytes]:
-    """
-    Resize and optimize an image to reduce file size.
-    
-    Args:
-        image_data: Raw image bytes
-        max_size: Maximum width/height in pixels (default 64px)
-        
-    Returns:
-        Optimized image bytes in WebP format
-    """
-    img = Image.open(io.BytesIO(image_data))
-    
-    # Resize if larger than max_size
-    if img.width > max_size or img.height > max_size:
-        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-    
-    # Save as WebP with high quality compression
-    output = io.BytesIO()
-    img.save(output, format='WEBP', quality=85, method=6)
-    optimized_data = output.getvalue()
-    
-    # Log size reduction
-    reduction = ((len(image_data) - len(optimized_data)) / len(image_data)) * 100
-    logger.debug(f"Image optimized: {len(image_data)} -> {len(optimized_data)} bytes ({reduction:.1f}% reduction)")
-    
-    return optimized_data
-```
-
-**Optimization Steps**:
-
-1. **Resize**: Thumbnail to 64×64 max (maintains aspect ratio)
-2. **Format**: Convert to WebP (better compression than PNG/JPEG)
-3. **Quality**: 85% quality (good balance of size vs. quality)
-4. **Method**: Compression method 6 (slowest but best compression)
-
-**Typical Results**:
-
-- PNG 50KB → WebP 5KB (90% reduction)
-- JPEG 30KB → WebP 4KB (87% reduction)
-- SVG 2KB → WebP 3KB (minimal change, but raster)
-
-## Database Caching
-
-Logos are stored directly in the database:
-
-### Schema
-
-```python
-class Asset(Base):
-    # ... other fields ...
-    
-    logo_data = Column(LargeBinary)         # Binary logo data
-    logo_content_type = Column(String)      # MIME type
-    logo_fetched_at = Column(DateTime)      # Cache timestamp
-```
-
-**Fields**:
-
-- `logo_data`: Raw bytes of WebP or SVG image
-- `logo_content_type`: `image/webp` or `image/svg+xml`
-- `logo_fetched_at`: When logo was last fetched/cached
-
-### Caching Logic
-
-```python
-# In asset router (app/routers/assets.py)
-
-if asset.logo_data and asset.logo_content_type:
-    # Serve from cache
-    return Response(
-        content=asset.logo_data,
-        media_type=asset.logo_content_type
-    )
-else:
-    # Fetch, validate, optimize, cache
-    logo_data = fetch_logo_with_validation(
-        ticker=symbol,
-        company_name=asset.name,
-        asset_type=asset.asset_type
-    )
-    
-    if logo_data:
-        # Determine content type
-        if logo_data.startswith(b'<svg'):
-            content_type = 'image/svg+xml'
-        else:
-            content_type = 'image/webp'
-        
-        # Save to database
-        asset.logo_data = logo_data
-        asset.logo_content_type = content_type
-        asset.logo_fetched_at = datetime.utcnow()
-        db.commit()
-        
-        return Response(content=logo_data, media_type=content_type)
-```
-
-**Cache Behavior**:
-
-- **Hit**: Serve from `logo_data` immediately
-- **Miss**: Fetch, optimize, save, then serve
-- **No expiration**: Logos cached indefinitely (corporate logos rarely change)
-- **Manual refresh**: Delete `logo_data` to force re-fetch
-
-## API Endpoint
-
-### Get Asset Logo
-
-`GET /api/assets/logo/{symbol}`
-
-**Query Parameters**:
-
-- `name` (optional): Company name for fallback search
-- `asset_type` (optional): Asset type (e.g., 'ETF', 'EQUITY')
-
-**Response**:
-
-- **Content-Type**: `image/webp` or `image/svg+xml`
-- **Body**: Binary image data
-- **Status**: 200 OK (even for generated SVG fallback)
-
-**Example**:
-
-```http
-GET /api/assets/logo/AAPL?name=Apple%20Inc.&asset_type=EQUITY
-```
-
-**Response Headers**:
-
-```
-Content-Type: image/webp
-Content-Length: 4532
-Cache-Control: public, max-age=86400
-```
-
-## Frontend Integration
-
-### Image Tag
-
-```tsx
-<img
-  src={`/logos/${symbol}${asset_type === 'ETF' ? '?asset_type=ETF' : ''}`}
-  alt={`${symbol} logo`}
-  className="w-8 h-8 object-cover"
-  onError={(e) => {
-    // Fallback: try API endpoint with name
-    const img = e.currentTarget
-    const params = new URLSearchParams()
-    if (name) params.set('name', name)
-    if (asset_type) params.set('asset_type', asset_type)
-    
-    fetch(`/api/assets/logo/${symbol}?${params.toString()}`)
-      .then(res => res.blob())
-      .then(blob => {
-        img.src = URL.createObjectURL(blob)
-      })
-      .catch(() => {
-        img.style.display = 'none'  // Hide on failure
-      })
-  }}
-/>
-```
-
-**Error Handling**:
-
-1. Try static `/logos/{symbol}` route first (nginx serves from filesystem)
-2. On 404, fetch from API `/api/assets/logo/{symbol}` with company name
-3. API returns either fetched logo or generated SVG
-4. Cache blob URL in browser
-5. Hide image if all strategies fail (rare)
-
-### Logo Validation on Frontend
-
-```tsx
-onLoad={(e) => {
-  const img = e.currentTarget
-  
-  // Create canvas to check if image is empty
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  canvas.width = img.naturalWidth
-  canvas.height = img.naturalHeight
-  ctx.drawImage(img, 0, 0)
-  
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const pixels = imageData.data
-  
-  // Check if mostly transparent
-  let opaquePixels = 0
-  for (let i = 0; i < pixels.length; i += 4) {
-    if (pixels[i + 3] > 8) opaquePixels++  // Alpha > 8
-  }
-  
-  const totalPixels = pixels.length / 4
-  if (opaquePixels / totalPixels < 0.01) {
-    // Image is empty, trigger error handler
-    img.dispatchEvent(new Event('error'))
-  }
-}}
-```
-
-Double-checks that loaded image isn't empty (catches edge cases backend missed).
-
-## Configuration
-
-### Environment Variables
-
-```env
-# Brandfetch API Key (optional but recommended)
-BRANDFETCH_API_KEY=your-api-key-here
-```
-
-**Without API Key**:
-
-- Logo fetching still works
-- API calls return fewer/lower quality results
-- More reliance on SVG fallback
-
-**With API Key** (recommended):
-
-- Better search results
-- Higher quality logos
-- More coverage for less-known companies
-
-### API Rate Limits
-
-Brandfetch limits (vary by plan):
-
-- **Free tier**: ~100 requests/month
-- **Paid tiers**: Higher limits
-
-**Mitigation**:
-
-- Database caching reduces API calls drastically
-- Only fetch once per asset
-- Logos rarely change (long cache lifetime)
-
-## Performance Considerations
-
-### Database Storage
-
-**Typical logo sizes**:
-
-- WebP optimized: 2-8 KB each
-- SVG fallback: 1-2 KB each
-- Average: ~5 KB per asset
-
-**100 assets**: ~500 KB total
-**1,000 assets**: ~5 MB total
-
-Negligible database impact.
-
-### Network Performance
-
-**First request** (cache miss):
-
-- Brandfetch API call: 200-500ms
-- Image optimization: 50-100ms
-- Database save: 10-20ms
-- **Total**: 260-620ms
-
-**Subsequent requests** (cache hit):
-
-- Database query: 5-10ms
-- Binary data transfer: 10-20ms
-- **Total**: 15-30ms
-
-95%+ of requests are cache hits.
-
-### Frontend Caching
-
-Browser caches logos:
-
-```
-Cache-Control: public, max-age=86400  # 24 hours
-```
-
-After first load, logos served from browser cache (0ms).
-
-## Troubleshooting
-
-### Logo Not Appearing
-
-**Check 1: API Key**
-
-```bash
-# In .env file
-BRANDFETCH_API_KEY=your-key-here
-```
-
-Without key, many logos won't fetch.
-
-**Check 2: Database**
-
-```sql
-SELECT symbol, logo_data IS NOT NULL as has_logo, logo_content_type 
-FROM portfolio.assets 
-WHERE symbol = 'AAPL';
-```
-
-If `has_logo` is FALSE, logo fetch failed or hasn't been attempted.
-
-**Check 3: Backend Logs**
-
-```bash
-docker compose logs api | grep -i logo
-```
-
-Look for errors like:
-
-- `Brandfetch returned non-image content type`
-- `Image too small: X bytes`
-- `Image is fully transparent`
-
-**Check 4: Manual Fetch**
-
-```bash
-curl "http://localhost:8000/api/assets/logo/AAPL?name=Apple%20Inc."
-```
-
-Should return image/webp or image/svg+xml.
-
-### Empty/Transparent Logos
-
-**Cause**: Brandfetch sometimes returns placeholder images
-
-**Solution**: Image validation catches these and falls back to SVG
-
-**Manual fix**: Delete cached logo to force re-fetch
-
-```sql
-UPDATE portfolio.assets 
-SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
-WHERE symbol = 'AAPL';
-```
-
-### SVG Fallback Showing Instead of Real Logo
-
-**Cause**: All fetch strategies failed
-
-**Debugging**:
-
-1. Check company name is set correctly
-2. Try searching Brandfetch website manually for the ticker
-3. Verify API key is valid
-4. Check rate limits aren't exceeded
-
-**Workaround**: Manually upload logo via database or use custom logo service
+for `variant` in `light` and `dark`. This is an unofficial, undocumented CDN:
+a missing logo can come back as an HTTP 200 with an XML `AccessDenied` body
+instead of a normal error status. `validate_trade_republic_logo_response()`
+therefore inspects the response body itself — rejecting non-2xx status, bodies
+outside a 20-byte–2MB sane size range, bodies whose first real XML tag isn't
+`<svg>`, and bodies containing `AccessDenied`/`<Error` markers — rather than
+trusting the status code alone.
+
+`fetch_trade_republic_logos(isin)` fetches both variants independently and
+never raises; a variant that fails validation or the network call is simply
+omitted from the result dict, so an asset can end up with only a light or only
+a dark logo.
+
+## Brandfetch provider
+
+`api/app/services/market_data/logos.py` implements the Brandfetch fallback,
+tried only when Trade Republic yields nothing (or for assets that skip Trade
+Republic, like ETFs by design — Brandfetch's own generic-brand-match risk means
+ETFs bypass brand search and go straight to the generated fallback):
+
+1. Direct CDN fetch using the ticker itself as the brand ID.
+2. Company-name search (tries the full name, then progressively strips common
+   legal suffixes like `Inc.`, `Corporation`, `Ltd`, `AG`, `SE`, etc.) and
+   scores candidate brands by quality score, verified/claimed status, and
+   domain length.
+3. API search using a normalized ticker (exchange suffix stripped) as a last
+   resort.
+
+Every fetched image is validated with `is_valid_image()` — minimum byte size,
+minimum 16x16 dimensions, rejecting fully/near-fully transparent images and
+solid-color placeholders — then resized to a 64px WebP via
+`resize_and_optimize_image()` before caching. Brandfetch requires
+`BRANDFETCH_API_KEY`; without it, all Brandfetch calls short-circuit to `None`
+and resolution falls through to the generated SVG.
+
+Cryptocurrencies use a separate Brandfetch crypto CDN path
+(`cdn.brandfetch.io/crypto/{ticker}`) and skip the name/ticker search
+strategies (which are tuned for equities and would risk matching unrelated
+companies with the same ticker text).
+
+## Generated fallback
+
+`generate_svg_logo()` builds a 200x200 SVG with a pink gradient background and the
+ticker's first three letters — no network call, always succeeds.
+
+## Stickiness
+
+A resolution result records its provider on `Asset.logo_provider`
+(`'trade_republic'`, `'brandfetch'`, or `'generated'`):
+
+- **Trade Republic and Brandfetch resolutions are sticky** — once set, later
+  calls to `resolve_asset_logo()` short-circuit immediately
+  (`LogoResolutionResult(provider="unchanged")`) rather than re-fetching, unless
+  `force=True`.
+- **Generated resolutions are not sticky** — an asset stuck with the SVG
+  fallback keeps getting a real chance at Trade Republic/Brandfetch on
+  subsequent resolution attempts (e.g. once an ISIN becomes available).
+
+## HTTP endpoint
+
+`GET /assets/logo/{symbol}` (`api/app/routers/assets.py`) serves the actual
+image bytes for the frontend `<img>` tag. Query params: `name`, `asset_type`
+(hints when the asset isn't in the DB yet), and `variant` (`light` or `dark`,
+for Trade Republic theme-aware logos).
+
+Response caching headers differ by source:
+
+| Source | `Cache-Control` |
+| --- | --- |
+| Real logo (Trade Republic / Brandfetch) | `public, max-age=2592000, immutable` (30 days) |
+| Generated SVG fallback | `public, max-age=300, must-revalidate` (5 minutes, so a real logo can supersede it soon) |
+
+An `ETag` (MD5 of the image bytes) is set on every response.
+
+For an asset that isn't persisted yet (e.g. a ticker the user is searching but
+hasn't added), the endpoint still attempts a one-off Trade Republic lookup via
+the local Adanos ISIN table before falling through to Brandfetch/generated, so
+first-time searches don't miss out on a real logo just because there's no
+`Asset` row yet to cache it on.
+
+## Trade Republic variant caching
+
+Trade Republic SVGs are cached in two places on `Asset`:
+
+- `logo_light_url` / `logo_dark_url` — the canonical CDN URL for each theme
+  variant (set by `resolve_asset_logo`).
+- `logo_light_data` / `logo_dark_data` — the actual SVG bytes for each variant
+  (added by migration `20260705_1000_add_trade_republic_logo_variant_cache.py`).
+
+Caching the bytes, not just the URL, means the `/assets/logo/{symbol}` endpoint
+proxies the SVG through Portfolium's own API instead of hot-linking or
+redirecting to Trade Republic's CDN on every page view — the second and
+subsequent requests for the same symbol/variant are served straight from
+Postgres via `get_cached_trade_republic_logo_variant()`, which also does
+cross-theme fallback (dark asked for but only light cached, and vice versa)
+rather than returning nothing.
+
+`cache_trade_republic_logo_variant()` (`api/app/crud/assets.py`) writes one
+variant at a time and bumps `logo_fetched_at`, so a first Trade Republic
+resolution that only found a light variant can later have its dark variant
+filled in on demand without re-resolving the whole asset.
+
+Non-Trade-Republic logos (Brandfetch results and, implicitly, the ISIN/provider
+metadata) use the older single-variant columns:
+
+| Column | Purpose |
+| --- | --- |
+| `logo_data` | Cached Brandfetch image bytes (WebP) |
+| `logo_content_type` | MIME type (`image/webp` or `image/svg+xml`) |
+| `logo_url` | Canonical, theme-agnostic logo URL |
+| `logo_provider` | `'trade_republic'` \| `'brandfetch'` \| `'generated'` |
+| `logo_fetched_at` | Last resolution/cache-write timestamp |
+
+## Background backfill
+
+New assets trigger an async backfill task
+(`app.tasks.logo_tasks.backfill_asset_logos`) right after creation
+(`POST /assets`), so ISIN/logo resolution — including the slower Yahoo ISIN
+scrape, which is disallowed on the request path — happens off the request
+path. See [Background Jobs](background-jobs.md) once published for the task
+queue/retry details.
 
 ## Testing
 
-### Unit Tests
+`api/tests/test_logo_resolver.py` covers the provider chain end-to-end,
+including: ISIN resolution then Trade Republic success; falling back to
+Brandfetch when Trade Republic has no ISIN match; ETFs without an ISIN going
+straight to the generated fallback; existing Trade Republic logos not being
+re-resolved without `force`; `force=True` re-checking and correcting a wrong
+ISIN via Adanos; crypto assets never triggering ISIN lookup or Trade Republic;
+sibling-logo reuse across exchange listings (and its exclusion for crypto); and
+that an ISIN lookup exception never breaks resolution (it just falls through to
+the next provider).
 
-```python
-def test_parse_split_ratio():
-    """Test ticker normalization"""
-    assert _normalize_ticker_for_search("AAPL") == "AAPL"
-    assert _normalize_ticker_for_search("CAVENO.OL") == "CAVENO"
-    assert _normalize_ticker_for_search("BRK-B") == "BRK-B"
+## Related documentation
 
-def test_candidate_names():
-    """Test company name suffix removal"""
-    names = list(_candidate_names("Apple Inc."))
-    assert "Apple Inc." in names
-    assert "Apple" in names
-    
-    names = list(_candidate_names("Microsoft Corporation"))
-    assert "Microsoft" in names
-
-def test_image_validation():
-    """Test empty image detection"""
-    # Empty PNG (transparent 1x1)
-    empty_png = b'\x89PNG\r\n\x1a\n...'  # Minimal PNG
-    assert not is_valid_image(empty_png)
-    
-    # Valid image
-    valid_image = open('test_logo.png', 'rb').read()
-    assert is_valid_image(valid_image)
-
-def test_svg_generation():
-    """Test fallback SVG generation"""
-    svg = generate_etf_logo("AAPL")
-    assert svg.startswith('<svg')
-    assert 'AAP' in svg  # First 3 letters
-    assert 'linearGradient' in svg
-```
-
-### Integration Tests
-
-```python
-@pytest.mark.integration
-def test_logo_fetch_and_cache():
-    """Test full logo fetch workflow"""
-    # Clear cache
-    asset = db.query(Asset).filter_by(symbol="AAPL").first()
-    asset.logo_data = None
-    db.commit()
-    
-    # Fetch logo
-    response = client.get("/api/assets/logo/AAPL?name=Apple Inc.")
-    assert response.status_code == 200
-    assert response.headers['content-type'] in ['image/webp', 'image/svg+xml']
-    
-    # Verify cached
-    db.refresh(asset)
-    assert asset.logo_data is not None
-    assert asset.logo_content_type is not None
-    
-    # Second request should be faster (from cache)
-    response2 = client.get("/api/assets/logo/AAPL")
-    assert response2.status_code == 200
-    assert response2.content == response.content
-```
-
-## Best Practices
-
-### For Developers
-
-1. **Always validate images**: Check for empty/transparent before caching
-2. **Optimize before storing**: Resize and convert to WebP
-3. **Handle failures gracefully**: Always have SVG fallback
-4. **Log fetch results**: Help debug issues
-5. **Don't retry indefinitely**: Cache failures to avoid rate limit exhaustion
-
-### For Users
-
-1. **Provide company names**: Improves logo fetch success rate
-2. **Accept SVG fallbacks**: Better than no logo
-3. **Report missing logos**: Help improve the system
-4. **Don't expect perfection**: Some logos simply aren't available
-
-## Future Improvements
-
-### Potential Enhancements
-
-1. **Multiple logo sources**: Add Alpha Vantage, Clearbit, or Logo.dev
-2. **Manual logo upload**: Allow users to upload custom logos
-3. **Logo refresh**: Periodic re-fetch to catch updated branding
-4. **CDN serving**: Serve logos from CDN instead of database
-5. **Lazy loading**: Only fetch logos for visible assets
-
-### Known Limitations
-
-1. **New companies**: Recently IPO'd companies may not have logos yet
-2. **International exchanges**: Non-US tickers may have lower success rates
-3. **Crypto**: Crypto pair logos (BTC-USD) often fail (use BTC instead)
-4. **Private companies**: No public logos available
-
-## Related Documentation
-
-- [Assets User Guide](../user-guide/assets.md) - User perspective on logos
-- [Data Models](data-models.md) - Asset model schema
-- [Pricing Service](pricing-service.md) - Related asset enrichment
-
-## References
-
-- [Brandfetch API Documentation](https://docs.brandfetch.com/)
-- [Pillow (PIL) Documentation](https://pillow.readthedocs.io/)
-- [WebP Format Specification](https://developers.google.com/speed/webp)
+- [Data Models](data-models.md) — full `Asset` column reference.
+- [Reference Data / ISIN](reference-data-isin.md) — the Adanos listings sync, once published.
+- [Asset Metadata Overrides](asset-metadata-overrides.md) — user-specific classification, a related but separate override system.

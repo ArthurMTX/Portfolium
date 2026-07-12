@@ -1,6 +1,7 @@
 """
 Market data endpoints - Sentiment, indices, etc.
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Literal, Tuple, Any
@@ -17,35 +18,148 @@ from app.errors import (
     TNXDataFetchError,
     VIXDataFetchError,
 )
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.platform.cache import CacheService
+from app.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/market", tags=["market"])
 
-# In-memory cache for market data (endpoint -> (data, timestamp))
-_market_cache: Dict[str, Tuple[Any, datetime]] = {}
-_CACHE_TTL = timedelta(minutes=5)  # Cache for 5 minutes
+# Local fallback cache used only when Redis is unavailable.
+_market_memory_cache: Dict[str, Tuple[Any, datetime]] = {}
+_CACHE_TTL = timedelta(minutes=5)  # Sentiment changes slowly; 5 minutes avoids external API churn.
+_INDEX_CACHE_TTL = timedelta(seconds=60)
+_STALE_CACHE_TTL = timedelta(minutes=30)
+_STALE_CACHE_TTL_SECONDS = int(_STALE_CACHE_TTL.total_seconds())
+_REFRESH_LOCK_TTL_SECONDS = 60
+_market_refresh_tasks: set[str] = set()
 
 
-def _get_cached_or_fetch(cache_key: str, fetch_func):
+def _redis_available() -> bool:
+    return get_redis() is not None
+
+
+def _build_market_cache_key(cache_key: str) -> str:
+    return f"market:data:{cache_key}"
+
+
+def _build_refresh_lock_key(redis_key: str) -> str:
+    return f"market:refresh:{redis_key}"
+
+
+def _read_market_cache(redis_key: str) -> tuple[Any, datetime, str] | None:
+    if _redis_available():
+        cached = CacheService.get(redis_key)
+        if cached:
+            try:
+                return cached["data"], datetime.fromisoformat(cached["cached_at"]), "redis"
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.warning("market_cache invalid Redis payload key=%s error=%s", redis_key, exc)
+        return None
+
+    cached_memory = _market_memory_cache.get(redis_key)
+    if cached_memory:
+        return cached_memory[0], cached_memory[1], "memory"
+    return None
+
+
+def _write_market_cache(redis_key: str, data: Any) -> None:
+    cached_at = datetime.now()
+    payload = {
+        "cached_at": cached_at.isoformat(),
+        "data": data,
+    }
+    if CacheService.set(redis_key, payload, ttl=_STALE_CACHE_TTL_SECONDS):
+        logger.debug("market_cache Redis set key=%s ttl=%ss", redis_key, _STALE_CACHE_TTL_SECONDS)
+        return
+
+    _market_memory_cache[redis_key] = (data, cached_at)
+    logger.warning("market_cache Redis unavailable, using local memory fallback key=%s", redis_key)
+
+
+def _try_acquire_refresh_lock(redis_key: str) -> bool:
+    lock_key = _build_refresh_lock_key(redis_key)
+    if CacheService.set(lock_key, {"created_at": datetime.now().isoformat()}, ttl=_REFRESH_LOCK_TTL_SECONDS, nx=True):
+        return True
+
+    if _redis_available():
+        return False
+
+    if redis_key in _market_refresh_tasks:
+        return False
+    _market_refresh_tasks.add(redis_key)
+    return True
+
+
+def _release_memory_refresh_lock(redis_key: str) -> None:
+    if not _redis_available():
+        _market_refresh_tasks.discard(redis_key)
+
+
+async def _refresh_market_cache_async(cache_key: str, fetch_func) -> None:
+    """Best-effort background refresh for stale market data, deduplicated via Redis."""
+    redis_key = _build_market_cache_key(cache_key)
+    if not _try_acquire_refresh_lock(redis_key):
+        return
+
+    try:
+        data = await asyncio.wait_for(
+            asyncio.to_thread(fetch_func),
+            timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
+        )
+        _write_market_cache(redis_key, data)
+        logger.info("market_cache refreshed cache_key=%s", cache_key)
+    except Exception as exc:
+        logger.warning("market_cache refresh_failed cache_key=%s error=%s", cache_key, exc)
+    finally:
+        _release_memory_refresh_lock(redis_key)
+
+
+async def _get_cached_or_fetch_async(cache_key: str, fetch_func, ttl: timedelta = _CACHE_TTL):
     """
-    Generic cache wrapper for market data endpoints
-    Returns cached data if fresh, otherwise fetches new data
+    Async wrapper that only offloads the blocking external fetch to a worker thread.
+    Cache bookkeeping is shared through Redis, with local memory fallback if Redis is unavailable.
     """
     now = datetime.now()
-    
-    # Check cache
-    if cache_key in _market_cache:
-        data, timestamp = _market_cache[cache_key]
-        if now - timestamp < _CACHE_TTL:
-            logger.debug(f"Cache hit for {cache_key}")
+    redis_key = _build_market_cache_key(cache_key)
+
+    stale_data = None
+    cached = _read_market_cache(redis_key)
+    if cached:
+        data, timestamp, cache_source = cached
+        stale_data = data
+        age = now - timestamp
+        if age < ttl:
+            logger.debug("market_cache hit cache_key=%s source=%s", cache_key, cache_source)
             return data
-    
-    # Cache miss or stale - fetch new data
+        if age < _STALE_CACHE_TTL:
+            logger.info(
+                "market_cache stale_hit cache_key=%s source=%s age_seconds=%.1f action=return_stale enqueue_refresh=true",
+                cache_key,
+                cache_source,
+                age.total_seconds(),
+            )
+            asyncio.create_task(_refresh_market_cache_async(cache_key, fetch_func))
+            return data
+
     logger.debug(f"Cache miss for {cache_key}, fetching fresh data")
-    data = fetch_func()
-    _market_cache[cache_key] = (data, now)
-    return data
+    try:
+        data = await asyncio.wait_for(
+            asyncio.to_thread(fetch_func),
+            timeout=yahoo_timeout_seconds(default=8.0) + 2.0,
+        )
+        _write_market_cache(redis_key, data)
+        return data
+    except Exception as exc:
+        if stale_data is not None:
+            logger.warning(
+                "provider=external cache_key=%s fallback=expired_stale_shared_cache error=%s",
+                cache_key,
+                exc,
+            )
+            return stale_data
+        raise
 
 
 @router.get("/sentiment/stock")
@@ -73,7 +187,7 @@ async def get_stock_market_sentiment():
                 "Origin": "https://www.cnn.com",
             }
             
-            with httpx.Client(timeout=10.0, headers=headers) as client:
+            with httpx.Client(timeout=5.0, headers=headers) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 data = response.json()
@@ -93,7 +207,7 @@ async def get_stock_market_sentiment():
             logger.error(f"Unexpected error fetching stock sentiment: {e}")
             raise ExternalServiceError("stock market sentiment", str(e))
     
-    return _get_cached_or_fetch("sentiment_stock", fetch_stock_sentiment)
+    return await _get_cached_or_fetch_async("sentiment_stock", fetch_stock_sentiment)
 
 
 @router.get("/sentiment/crypto")
@@ -117,7 +231,7 @@ async def get_crypto_market_sentiment():
                 "Accept": "application/json",
             }
             
-            with httpx.Client(timeout=10.0, headers=headers) as client:
+            with httpx.Client(timeout=5.0, headers=headers) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 data = response.json()
@@ -141,7 +255,7 @@ async def get_crypto_market_sentiment():
             logger.error(f"Unexpected error fetching crypto sentiment: {e}")
             raise ExternalServiceError("crypto market sentiment", str(e))
     
-    return _get_cached_or_fetch("sentiment_crypto", fetch_crypto_sentiment)
+    return await _get_cached_or_fetch_async("sentiment_crypto", fetch_crypto_sentiment)
 
 
 @router.get("/sentiment/{market_type}")
@@ -176,11 +290,13 @@ async def get_vix_index():
     """
     def fetch_vix():
         try:
-            import yfinance as yf
-            
             # Fetch VIX data
-            vix = yf.Ticker("^VIX")
-            info = vix.info
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                "^VIX",
+                action="market_index_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             current_price = info.get("regularMarketPrice") or info.get("currentPrice")
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
@@ -206,7 +322,7 @@ async def get_vix_index():
             logger.error(f"Failed to fetch VIX data: {e}")
             raise VIXDataFetchError(str(e))
     
-    return _get_cached_or_fetch("index_vix", fetch_vix)
+    return await _get_cached_or_fetch_async("index_vix", fetch_vix, ttl=_INDEX_CACHE_TTL)
 
 
 @router.get("/tnx")
@@ -222,11 +338,13 @@ async def get_tnx_index():
     """
     def fetch_tnx():
         try:
-            import yfinance as yf
-            
             # Fetch TNX data
-            tnx = yf.Ticker("^TNX")
-            info = tnx.info
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                "^TNX",
+                action="market_index_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             current_price = info.get("regularMarketPrice") or info.get("currentPrice")
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
@@ -252,7 +370,7 @@ async def get_tnx_index():
             logger.error(f"Failed to fetch TNX data: {e}")
             raise TNXDataFetchError(str(e))
     
-    return _get_cached_or_fetch("index_tnx", fetch_tnx)
+    return await _get_cached_or_fetch_async("index_tnx", fetch_tnx, ttl=_INDEX_CACHE_TTL)
 
 
 @router.get("/dxy")
@@ -268,11 +386,13 @@ async def get_dxy_index():
     """
     def fetch_dxy():
         try:
-            import yfinance as yf
-            
             # Fetch DXY data
-            dxy = yf.Ticker("DX-Y.NYB")
-            info = dxy.info
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                "DX-Y.NYB",
+                action="market_index_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             
             current_price = info.get("regularMarketPrice") or info.get("currentPrice")
             previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
@@ -298,4 +418,4 @@ async def get_dxy_index():
             logger.error(f"Failed to fetch DXY data: {e}")
             raise DXYDataFetchError(str(e))
     
-    return _get_cached_or_fetch("index_dxy", fetch_dxy)
+    return await _get_cached_or_fetch_async("index_dxy", fetch_dxy, ttl=_INDEX_CACHE_TTL)

@@ -1,5 +1,6 @@
 import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import fs from 'fs'
 
@@ -55,7 +56,49 @@ const isDocker = process.env.DOCKER_ENV === 'true'
 const apiTarget = isDocker ? 'http://api:8000' : 'http://127.0.0.1:8000'
 
 export default defineConfig({
-  plugins: [react(), docsPlugin()],
+  plugins: [
+    react(), 
+    docsPlugin(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'favicon.svg'],
+      // Use injectManifest to use our custom service worker with push support
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectRegister: 'auto', // Auto-register the service worker
+      manifest: {
+        name: 'Portfolium - Investment Tracking',
+        short_name: 'Portfolium',
+        description: 'Track and analyze your investment portfolio',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/web-app-manifest-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: '/web-app-manifest-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+      devOptions: {
+        enabled: true, // Enable PWA in dev mode for testing push notifications
+        type: 'module',
+      }
+    })
+  ],
   publicDir: 'public',
   server: {
     host: true,
@@ -77,6 +120,7 @@ export default defineConfig({
       '/api': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
         secure: false,
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
@@ -95,6 +139,7 @@ export default defineConfig({
       '/logos': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/logos/, '/assets/logo'),
         timeout: 30000,

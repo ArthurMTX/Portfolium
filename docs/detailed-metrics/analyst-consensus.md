@@ -73,7 +73,7 @@ Portfolium classifies this as **Strong Buy**.
 ---
 
 #### Example 2 — Hold
-- Ratings: 3, 3, 4$  
+- Ratings: $3, 3, 4$  
 - Mean: $\frac{3 + 3 + 4}{3} = 3.33$
 
 Portfolium classifies this as **Hold**.

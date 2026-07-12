@@ -1,0 +1,384 @@
+@layer components {
+  .pf-page {
+    color: var(--pf-ink);
+    width: 100%;
+    max-width: 1480px;
+    min-height: 100%;
+    margin-inline: auto;
+    padding: clamp(1.15rem, 2.1vw, 2.25rem);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .pf-app-main {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .pf-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.42fr);
+    gap: clamp(1rem, 2.8vw, 2.25rem);
+    align-items: end;
+    padding-bottom: clamp(0.9rem, 2vw, 1.45rem);
+  }
+
+  .pf-page-title-block {
+    display: grid;
+    gap: 0.55rem;
+    justify-items: start;
+    align-content: end;
+    min-width: 0;
+  }
+
+  .pf-page-context {
+    display: grid;
+    gap: 0.55rem;
+    justify-items: start;
+  }
+
+  .pf-page-context {
+    border-left: 1px solid var(--pf-line);
+    padding-left: clamp(0.9rem, 2vw, 1.4rem);
+  }
+
+  .pf-page-summary {
+    color: var(--pf-ink);
+    font-size: clamp(1rem, 1.5vw, 1.22rem);
+    line-height: 1.35;
+    letter-spacing: -0.035em;
+  }
+
+  .pf-page-actions,
+  .pf-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .pf-section {
+    border-top: 1px solid var(--pf-line);
+    padding-top: 0.8rem;
+  }
+
+  .pf-section--spacious {
+    padding-block: clamp(1.15rem, 2.5vw, 2.1rem);
+  }
+
+  .pf-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.25rem;
+  }
+
+  .pf-section-header--grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.34fr);
+    gap: 0.75rem 1.25rem;
+    align-items: end;
+  }
+
+  .pf-section-header--spacious {
+    margin-bottom: clamp(0.75rem, 1.7vw, 1.2rem);
+  }
+
+  .pf-section-header__aside {
+    display: grid;
+    gap: 0.45rem;
+    justify-self: end;
+    justify-items: end;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .pf-content-stack {
+    display: grid;
+    gap: clamp(0.85rem, 1.6vw, 1.15rem);
+  }
+
+  .pf-content-grid {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .pf-grid {
+    display: grid;
+    gap: clamp(0.9rem, 2.2vw, 1.45rem);
+  }
+
+  .pf-panel {
+    border-top: 1px solid var(--pf-line);
+    padding-block: clamp(1.05rem, 2.4vw, 1.75rem);
+  }
+
+  .pf-page-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    border-top: 1px solid var(--pf-line);
+    border-bottom: 1px solid var(--pf-line);
+    background: var(--pf-canvas);
+    padding-block: 0.55rem;
+  }
+
+  .pf-page-controls__start,
+  .pf-page-controls__end {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
+  .pf-page-controls__start {
+    flex: 1 1 18rem;
+  }
+
+  .pf-page-controls .pf-tabs {
+    border: 0;
+    background: transparent;
+    padding-block: 0;
+  }
+
+  .pf-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: min(100%, 380px);
+    color: var(--pf-subtle);
+  }
+
+  .pf-search svg {
+    position: absolute;
+    left: 0;
+  }
+
+  .pf-search input {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--pf-line);
+    border-radius: 0;
+    background: transparent;
+    padding: 0.55rem 2rem 0.55rem 1.75rem;
+    color: var(--pf-ink);
+    outline: none;
+  }
+
+  .pf-search input:focus {
+    border-bottom-color: var(--pf-accent);
+  }
+
+  .pf-search button {
+    position: absolute;
+    right: 0;
+    display: inline-flex;
+    color: var(--pf-muted);
+  }
+
+  .pf-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.42fr);
+    gap: clamp(1rem, 2.8vw, 2.25rem);
+    align-items: start;
+  }
+
+  .pf-main-grid--single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-main-col {
+    min-width: 0;
+    display: grid;
+    gap: clamp(0.85rem, 1.8vw, 1.25rem);
+    align-content: start;
+  }
+
+  .pf-aside-col {
+    min-width: 0;
+    display: grid;
+    gap: 0.55rem;
+    align-content: start;
+    justify-items: start;
+    border-left: 1px solid var(--pf-line);
+    padding-left: clamp(0.9rem, 2vw, 1.4rem);
+  }
+
+  .pf-control-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .pf-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    border-top: 1px solid var(--pf-line);
+    border-bottom: 1px solid var(--pf-line);
+    background: var(--pf-canvas);
+    padding-block: 0.55rem;
+  }
+
+  .pf-tabs > button,
+  .pf-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: var(--pf-control-height);
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-pill);
+    background: transparent;
+    color: var(--pf-muted);
+    padding: 0.45rem 0.8rem;
+    font-size: 0.84rem;
+    font-weight: 850;
+    cursor: pointer;
+    transition: border-color var(--pf-transition-fast), color var(--pf-transition-fast), background var(--pf-transition-fast), opacity var(--pf-transition-fast);
+  }
+
+  .pf-tabs > button:hover,
+  .pf-tabs > button.is-active,
+  .pf-tab:hover,
+  .pf-tab.is-active {
+    color: var(--pf-accent);
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-metric-strip,
+  .pf-metric-row {
+    display: grid;
+    gap: clamp(0.75rem, 1.6vw, 1.2rem);
+    border-top: 1px solid var(--pf-line);
+    padding-block: clamp(0.85rem, 1.8vw, 1.25rem);
+  }
+
+  .pf-metric-strip {
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  }
+
+  .pf-metric-strip > div,
+  .pf-metric-row > div,
+  .pf-summary-panel {
+    min-width: 0;
+  }
+
+  .pf-metric-strip > div {
+    display: grid;
+    align-content: start;
+    gap: 0.4rem;
+    border-left: 1px solid var(--pf-line);
+    padding-left: clamp(0.8rem, 1.6vw, 1.1rem);
+  }
+
+  .pf-metric-strip span,
+  .pf-metric-row dt,
+  .pf-metric-label {
+    display: block;
+    color: var(--pf-subtle);
+    font-size: 0.7rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .pf-metric-strip strong,
+  .pf-metric-row dd,
+  .pf-metric-figure {
+    margin: 0;
+    color: var(--pf-ink);
+    font-size: clamp(1.12rem, 1.7vw, 1.55rem);
+    font-weight: 850;
+    letter-spacing: -0.05em;
+    line-height: 1.05;
+  }
+
+  .pf-metric-strip strong.is-positive,
+  .pf-metric-row dd.is-positive,
+  .pf-metric-figure.is-positive,
+  .pf-metric-strip em.is-positive,
+  .pf-metric-detail.is-positive {
+    color: var(--pf-success);
+  }
+
+  .pf-metric-strip strong.is-negative,
+  .pf-metric-row dd.is-negative,
+  .pf-metric-figure.is-negative,
+  .pf-metric-strip em.is-negative,
+  .pf-metric-detail.is-negative {
+    color: var(--pf-danger);
+  }
+
+  .pf-metric-strip em,
+  .pf-metric-detail {
+    color: var(--pf-muted);
+    font-size: 0.82rem;
+    font-style: normal;
+    line-height: 1.35;
+  }
+
+  .pf-summary-panel {
+    border-left: 1px solid var(--pf-line);
+    padding-left: clamp(0.9rem, 2vw, 1.4rem);
+  }
+
+  .pf-page-flow {
+    display: grid;
+    gap: clamp(0.85rem, 1.8vw, 1.25rem);
+  }
+
+  .pf-page-flow > .pf-tabs,
+  .pf-page-flow > .pf-page-controls,
+  .pf-page-flow > .pf-section {
+    margin-top: 0;
+  }
+
+  @media (max-width: 900px) {
+    .pf-page-header,
+    .pf-section-header,
+    .pf-section-header--grid,
+    .pf-main-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pf-section-header {
+      display: grid;
+    }
+
+    .pf-section-header__aside {
+      justify-self: start;
+      justify-items: start;
+      text-align: left;
+    }
+
+    .pf-page-context,
+    .pf-summary-panel,
+    .pf-aside-col {
+      border-left: 0;
+      border-top: 1px solid var(--pf-line);
+      padding-left: 0;
+      padding-top: 0.8rem;
+    }
+  }
+
+  @media (max-width: 780px) {
+    .pf-page {
+      padding: 1.25rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pf-metric-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pf-metric-strip > div:nth-child(2n) {
+      border-left: 0;
+    }
+  }
+}

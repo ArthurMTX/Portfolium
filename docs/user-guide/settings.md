@@ -422,6 +422,7 @@ Different settings use different storage methods:
 
 ## Next Steps
 
+- [Manage Profile & Security](profile-security.md) for your name, password, and two-factor authentication
 - [Configure Notifications](notifications.md) in detail
 - [Review Portfolio](portfolios.md) after changing settings
 - [Check Transactions](transactions.md) if validation was adjusted

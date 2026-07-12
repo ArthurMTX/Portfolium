@@ -1,13 +1,156 @@
 """
 CRUD operations for assets
 """
-from typing import List, Optional
+import logging
+import re
+from decimal import Decimal
+from typing import Any, List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
+from app.errors import InvalidAssetSymbolError
 from app.models import Asset
-from app.schemas import AssetCreate
+from app.schemas import AssetCreate, AssetInvestmentNoteUpdate
+
+logger = logging.getLogger(__name__)
+
+
+_CRYPTO_CURRENCY_SUFFIX_RE = re.compile(
+    r"\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$",
+    flags=re.IGNORECASE,
+)
+
+
+def _strip_crypto_currency_suffix(name: str) -> str:
+    return _CRYPTO_CURRENCY_SUFFIX_RE.sub("", name)
+
+
+def _decimal_or_none(value: Any) -> Optional[Decimal]:
+    if value is None:
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except Exception:
+        return None
+    return parsed if parsed > 0 else None
+
+
+_ASSET_TYPE_SYNONYMS = {
+    "STOCK": "EQUITY",
+    "MUTUAL FUND": "MUTUAL_FUND",
+}
+
+
+def normalize_asset_type(asset_type: Optional[str]) -> str:
+    """Canonicalize an asset type string (e.g. provider `quoteType` values or
+    the legacy `class` enum) so equivalent types group/compare consistently
+    regardless of casing or synonym (e.g. "stock" and "EQUITY" both become
+    "EQUITY")."""
+    if not asset_type:
+        return "Unknown"
+    normalized = asset_type.strip().upper()
+    return _ASSET_TYPE_SYNONYMS.get(normalized, normalized)
+
+
+def normalized_asset_type_or_none(asset_type: Optional[str]) -> Optional[str]:
+    """Like normalize_asset_type, but preserves None for unset/unknown values
+    instead of coercing them to the literal "Unknown" string, so callers that
+    persist asset_type don't write that sentinel into the database."""
+    if not asset_type or asset_type.strip().lower() == "unknown":
+        return None
+    return normalize_asset_type(asset_type)
+
+
+def update_asset_market_cap_from_info(asset: Asset, info: Any) -> bool:
+    """Persist provider market-cap metadata on an asset when available."""
+    if not isinstance(info, dict):
+        return False
+
+    market_cap = _decimal_or_none(info.get("marketCap"))
+    if market_cap is None:
+        return False
+
+    market_cap_currency = (
+        info.get("financialCurrency")
+        or info.get("currency")
+        or getattr(asset, "currency", None)
+        or "USD"
+    )
+    market_cap_currency = str(market_cap_currency).upper()[:3]
+    market_cap_usd = market_cap if market_cap_currency == "USD" else None
+
+    if market_cap_currency != "USD":
+        try:
+            from app.services.market_data.currency import CurrencyService
+
+            converted = CurrencyService.convert(market_cap, market_cap_currency, "USD")
+            if converted is not None:
+                market_cap_usd = converted
+        except Exception as exc:
+            logger.warning(
+                "Failed to convert market cap for %s from %s to USD: %s",
+                getattr(asset, "symbol", None),
+                market_cap_currency,
+                exc,
+            )
+
+    asset.market_cap = market_cap
+    asset.market_cap_currency = market_cap_currency
+    asset.market_cap_usd = market_cap_usd
+    asset.market_cap_fetched_at = datetime.utcnow()
+    return True
+
+
+def is_valid_provider_info(symbol: str, info: Any) -> bool:
+    """
+    Return whether Yahoo returned enough metadata to trust asset creation.
+
+    yfinance may raise on 404s, but some bad symbols can return sparse placeholder
+    dictionaries. Do not create an asset unless the provider gives an identity
+    field that real instruments normally have.
+    """
+    if not isinstance(info, dict) or not info:
+        return False
+
+    quote_type = str(info.get("quoteType") or "").strip().upper()
+    if quote_type and quote_type not in {"NONE", "UNKNOWN"}:
+        return True
+
+    for name_field in ("longName", "shortName"):
+        name = info.get(name_field)
+        if isinstance(name, str) and name.strip():
+            return True
+
+    provider_symbol = info.get("symbol")
+    if isinstance(provider_symbol, str) and provider_symbol.strip():
+        return any(
+            info.get(field) is not None
+            for field in ("regularMarketPrice", "previousClose", "currency")
+        )
+
+    return False
+
+
+def _invalid_symbol_reason(exc: Exception) -> str:
+    message = str(exc).strip()
+    if not message:
+        message = exc.__class__.__name__
+    return f"Yahoo Finance did not return usable metadata ({message})"
+
+
+def is_provider_not_found_error(exc: Exception) -> bool:
+    """Best-effort detection for provider-confirmed missing symbols."""
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "404",
+            "not found",
+            "quote not found",
+            "symbol may be delisted",
+        )
+    )
 
 
 def get_asset(db: Session, asset_id: int) -> Optional[Asset]:
@@ -51,49 +194,63 @@ def get_assets(
 
 def create_asset(db: Session, asset: AssetCreate) -> Asset:
     """Create new asset with enriched data from yfinance"""
-    import yfinance as yf
-    import re
+    from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+    from app.services.reference_data.adanos_listings import lookup_adanos_isin
+    from app.utils.isin import normalize_isin
+
+    symbol = asset.symbol.strip().upper()
     
     # Fetch additional info from yfinance
-    ticker = yf.Ticker(asset.symbol)
     try:
-        info = ticker.info
-        sector = info.get('sector')
-        industry = info.get('industry')
-        asset_type = info.get('quoteType')  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
-        country = info.get('country')
-        # Get currency from yfinance if available
-        currency = info.get('currency') or asset.currency
-        # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
-        if not asset.name or asset.name == asset.symbol:
-            name = info.get('longName') or info.get('shortName') or asset.symbol
-        else:
-            name = asset.name
-        # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
-        if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
-            name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
-    except Exception:
-        # If yfinance fails, use provided values
-        sector = None
-        industry = None
-        asset_type = asset.asset_type  # Use passed asset_type if yfinance fails
-        country = None
-        currency = asset.currency
-        name = asset.name or asset.symbol
-        # Strip currency suffixes from cryptocurrency names even in exception path
-        if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
-            name = re.sub(r'\s+(USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|USDT|BUSD)$', '', name, flags=re.IGNORECASE)
-    
+        provider = get_market_data_provider()
+        info = provider.get_info(
+            symbol,
+            action="asset_create_info",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
+    except Exception as exc:
+        logger.warning("Rejecting asset creation for %s: provider lookup failed: %s", symbol, exc)
+        raise InvalidAssetSymbolError(symbol, _invalid_symbol_reason(exc))
+
+    if not is_valid_provider_info(symbol, info):
+        logger.warning("Rejecting asset creation for %s: provider returned sparse info: %s", symbol, info)
+        raise InvalidAssetSymbolError(symbol, "Yahoo Finance returned no usable metadata")
+
+    sector = info.get('sector')
+    industry = info.get('industry')
+    asset_type = normalized_asset_type_or_none(info.get('quoteType') or asset.asset_type)  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
+    country = info.get('country')
+    # Get currency from yfinance if available
+    currency = info.get('currency') or asset.currency
+    # Prioritize yfinance data for name if asset.name is not provided or is just the symbol
+    if not asset.name or asset.name.strip().upper() == symbol:
+        name = info.get('longName') or info.get('shortName') or symbol
+    else:
+        name = asset.name
+    # Strip currency suffixes from cryptocurrency names (e.g., "Bitcoin USD" -> "Bitcoin")
+    if asset_type and asset_type.upper() in ['CRYPTOCURRENCY', 'CRYPTO']:
+        name = _strip_crypto_currency_suffix(name)
+
+    # ISIN: Adanos is checked first -- it has proven more reliable than
+    # yfinance's ISIN scrape for some symbols (e.g. yfinance returns a
+    # Canadian ISIN for GOOGL where Adanos has the correct US one). Yahoo's
+    # 'isin' field (rarely populated, defensive check only) is a fallback.
+    isin = lookup_adanos_isin(db, symbol, asset_type=asset_type, name=name)
+    if not isin:
+        isin = normalize_isin(info.get('isin'))
+
     db_asset = Asset(
-        symbol=asset.symbol.upper(),
+        symbol=symbol,
         name=name,
         currency=currency,
         class_=asset.class_,
         sector=sector,
         industry=industry,
         asset_type=asset_type,
-        country=country
+        country=country,
+        isin=isin,
     )
+    update_asset_market_cap_from_info(db_asset, info)
     db.add(db_asset)
     db.commit()
     db.refresh(db_asset)
@@ -112,7 +269,13 @@ def update_asset(db: Session, asset_id: int, asset: AssetCreate) -> Optional[Ass
     db_asset.class_ = asset.class_
     db_asset.sector = asset.sector
     db_asset.industry = asset.industry
-    db_asset.asset_type = asset.asset_type
+    db_asset.asset_type = normalized_asset_type_or_none(asset.asset_type)
+    db_asset.country = asset.country
+    if asset.market_cap is not None:
+        db_asset.market_cap = asset.market_cap
+        db_asset.market_cap_currency = asset.market_cap_currency or db_asset.currency
+        db_asset.market_cap_usd = asset.market_cap_usd
+        db_asset.market_cap_fetched_at = asset.market_cap_fetched_at or datetime.utcnow()
     
     db.commit()
     db.refresh(db_asset)
@@ -132,25 +295,41 @@ def delete_asset(db: Session, asset_id: int) -> bool:
 
 def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
     """Enrich asset with metadata from yfinance"""
-    import yfinance as yf
     import re
-    
+    from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+    from app.services.reference_data.adanos_listings import lookup_adanos_isin
+    from app.utils.isin import normalize_isin
+
     db_asset = get_asset(db, asset_id)
     if not db_asset:
         return None
     
     try:
-        ticker = yf.Ticker(db_asset.symbol)
-        info = ticker.info
+        provider = get_market_data_provider()
+        info = provider.get_info(
+            db_asset.symbol,
+            action="asset_enrich_info",
+            timeout_seconds=yahoo_timeout_seconds(),
+        )
         # Update metadata ONLY if not already set
         if not db_asset.sector:
             db_asset.sector = info.get('sector')
         if not db_asset.industry:
             db_asset.industry = info.get('industry')
         if not db_asset.asset_type:
-            db_asset.asset_type = info.get('quoteType')
+            db_asset.asset_type = normalized_asset_type_or_none(info.get('quoteType'))
         if not db_asset.country:
             db_asset.country = info.get('country')
+        # ISIN: never overwrite an already-valid one. Adanos is checked first
+        # (more reliable than yfinance's ISIN scrape for some symbols), then
+        # Yahoo's info dict defensively as a fallback.
+        if not normalize_isin(db_asset.isin):
+            candidate_isin = lookup_adanos_isin(
+                db, db_asset.symbol, asset_type=db_asset.asset_type, name=db_asset.name
+            ) or normalize_isin(info.get('isin'))
+            if candidate_isin:
+                db_asset.isin = candidate_isin
+        update_asset_market_cap_from_info(db_asset, info)
         # Update currency from yfinance if available (always update to correct currency from source)
         yf_currency = info.get('currency')
         if yf_currency:
@@ -189,8 +368,8 @@ def enrich_asset_metadata(db: Session, asset_id: int) -> Optional[Asset]:
 
 def enrich_all_assets(db: Session) -> dict:
     """Enrich all assets with metadata from yfinance"""
-    import yfinance as yf
     import re
+    from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
     
     assets = db.query(Asset).all()
     enriched = 0
@@ -210,11 +389,15 @@ def enrich_all_assets(db: Session) -> dict:
             
             # Skip if already has all metadata and name doesn't need updating
             if (asset.sector and asset.industry and asset.asset_type and 
-                asset.country and not needs_name_update and not is_crypto_with_suffix):
+                asset.country and asset.market_cap and not needs_name_update and not is_crypto_with_suffix):
                 continue
             
-            ticker = yf.Ticker(asset.symbol)
-            info = ticker.info
+            provider = get_market_data_provider()
+            info = provider.get_info(
+                asset.symbol,
+                action="asset_enrich_all_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             updated = False
             
             # Only update fields if they're not set
@@ -225,10 +408,12 @@ def enrich_all_assets(db: Session) -> dict:
                 asset.industry = info.get('industry')
                 updated = True
             if not asset.asset_type and info.get('quoteType'):
-                asset.asset_type = info.get('quoteType')
+                asset.asset_type = normalized_asset_type_or_none(info.get('quoteType'))
                 updated = True
             if not asset.country and info.get('country'):
                 asset.country = info.get('country')
+                updated = True
+            if update_asset_market_cap_from_info(asset, info):
                 updated = True
             # Update currency from yfinance if available (always update to correct currency from source)
             yf_currency = info.get('currency')
@@ -260,32 +445,37 @@ def enrich_all_assets(db: Session) -> dict:
 
 
 def cache_logo(
-    db: Session, 
-    asset_id: int, 
-    logo_data: bytes, 
-    content_type: str
+    db: Session,
+    asset_id: int,
+    logo_data: bytes,
+    content_type: str,
+    provider: Optional[str] = None,
 ) -> Optional[Asset]:
     """
     Cache logo data in the database for an asset
-    
+
     Args:
         db: Database session
         asset_id: Asset ID
         logo_data: Logo image bytes
         content_type: MIME type (e.g., 'image/webp', 'image/svg+xml')
-        
+        provider: Optional logo provider label (e.g. 'brandfetch'). When
+            given, also sets Asset.logo_provider; omit to leave it untouched.
+
     Returns:
         Updated asset or None if not found
     """
     db_asset = get_asset(db, asset_id)
     if not db_asset:
         return None
-    
+
     # Store binary data directly
     db_asset.logo_data = logo_data
     db_asset.logo_content_type = content_type
     db_asset.logo_fetched_at = datetime.utcnow()
-    
+    if provider is not None:
+        db_asset.logo_provider = provider
+
     db.commit()
     db.refresh(db_asset)
     return db_asset
@@ -307,6 +497,38 @@ def get_cached_logo(db: Session, asset_id: int) -> Optional[tuple[bytes, str]]:
         return None
     
     return (db_asset.logo_data, db_asset.logo_content_type or 'image/webp')
+
+
+def cache_trade_republic_logo_variant(
+    db: Session,
+    asset_id: int,
+    variant: str,
+    logo_data: bytes,
+) -> Optional[Asset]:
+    """Cache one Trade Republic SVG variant for an asset."""
+    db_asset = get_asset(db, asset_id)
+    if not db_asset:
+        return None
+
+    if variant == "dark":
+        db_asset.logo_dark_data = logo_data
+    else:
+        db_asset.logo_light_data = logo_data
+
+    db_asset.logo_fetched_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_asset)
+    return db_asset
+
+
+def get_cached_trade_republic_logo_variant(
+    db_asset: Asset,
+    variant: str,
+) -> Optional[bytes]:
+    """Return the requested cached Trade Republic SVG variant, with cross-theme fallback."""
+    if variant == "dark":
+        return db_asset.logo_dark_data or db_asset.logo_light_data
+    return db_asset.logo_light_data or db_asset.logo_dark_data
 
 
 def get_user_asset_override(db: Session, user_id: int, asset_id: int):
@@ -454,3 +676,56 @@ def get_effective_asset_metadata(db: Session, asset: Asset, user_id: int) -> dic
         "industry_override": override.industry_override if override else None,
         "country_override": override.country_override if override else None,
     }
+
+
+def get_asset_investment_note(db: Session, user_id: int, asset_id: int):
+    """Get a user's investment note for an asset."""
+    from app.models import AssetInvestmentNote
+
+    return (
+        db.query(AssetInvestmentNote)
+        .filter(
+            AssetInvestmentNote.user_id == user_id,
+            AssetInvestmentNote.asset_id == asset_id,
+        )
+        .first()
+    )
+
+
+def upsert_asset_investment_note(
+    db: Session,
+    user_id: int,
+    asset_id: int,
+    note: AssetInvestmentNoteUpdate,
+):
+    """Create or update a user's investment note for an asset."""
+    from app.models import AssetInvestmentNote
+
+    db_asset = get_asset(db, asset_id)
+    if not db_asset:
+        return None
+
+    db_note = get_asset_investment_note(db, user_id, asset_id)
+    update_data = note.model_dump()
+
+    if db_note is None:
+        db_note = AssetInvestmentNote(user_id=user_id, asset_id=asset_id, **update_data)
+        db.add(db_note)
+    else:
+        for field, value in update_data.items():
+            setattr(db_note, field, value)
+
+    db.commit()
+    db.refresh(db_note)
+    return db_note
+
+
+def delete_asset_investment_note(db: Session, user_id: int, asset_id: int) -> bool:
+    """Delete a user's investment note for an asset."""
+    db_note = get_asset_investment_note(db, user_id, asset_id)
+    if not db_note:
+        return False
+
+    db.delete(db_note)
+    db.commit()
+    return True

@@ -1,0 +1,138 @@
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Clock, Trash2 } from 'lucide-react'
+import { useNotificationStore } from '@/features/notifications/store/useNotificationStore'
+import { formatDistanceToNow } from 'date-fns'
+import { getNotificationIcon } from '@/features/notifications/lib/notificationUtils'
+import { translateNotification } from '@/features/notifications/lib/notificationTranslation'
+import { useTranslation } from 'react-i18next'
+import { useWidgetVisibility } from '@/features/boards/context/BoardContext'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { ViewAllButton } from '@/features/boards/components/widgets/base/ViewAllButton'
+import { WidgetList } from '@/features/boards/components/widgets/base/WidgetList'
+import { WidgetListItem } from '@/features/boards/components/widgets/base/WidgetListItem'
+import { BaseWidgetProps } from '@/features/boards/components/types'
+
+interface NotificationsWidgetProps extends BaseWidgetProps {}
+
+// Mock notifications for preview mode
+const mockNotifications = [
+  {
+    id: 1,
+    type: 'price_alert',
+    title: 'AAPL Price Alert',
+    message: 'Apple reached your target price of $175',
+    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    is_read: false,
+  },
+  {
+    id: 2,
+    type: 'daily_change',
+    title: 'Portfolio Up 3.46%',
+    message: 'Your portfolio gained €373.98 today',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    is_read: false,
+  },
+  {
+    id: 3,
+    type: 'transaction',
+    title: 'Dividend Received',
+    message: 'MSFT paid dividend of €15.50',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    is_read: true,
+  },
+]
+
+export default function NotificationsWidget({ isPreview = false }: NotificationsWidgetProps) {
+  const navigate = useNavigate()
+  const { notifications: storeNotifications, loading, fetchNotifications, markAsRead, deleteNotification } = useNotificationStore()
+  const { t } = useTranslation()
+  const shouldLoad = useWidgetVisibility('notifications')
+
+  // Use mock data in preview mode, otherwise use store data
+  const notifications = isPreview ? (mockNotifications as typeof storeNotifications) : storeNotifications
+
+  useEffect(() => {
+    // Skip loading in preview mode or if widget not visible
+    if (isPreview || !shouldLoad) {
+      return
+    }
+
+    fetchNotifications()
+  }, [fetchNotifications, shouldLoad, isPreview])
+
+  const handleNotificationClick = async (notificationId: number, isRead: boolean) => {
+    if (!isRead) {
+      await markAsRead(notificationId)
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, notificationId: number) => {
+    e.stopPropagation()
+    await deleteNotification(notificationId)
+  }
+
+  const handleViewAll = () => {
+    navigate('/notifications')
+  }
+
+  const recentNotifications = notifications.slice(0, 5)
+
+  // View all action button
+  const viewAllAction = notifications.length > 0 && !isPreview ? (
+    <ViewAllButton onClick={handleViewAll} label={t('notifications.viewAll')} />
+  ) : null
+
+  return (
+    <BaseWidget
+      title="notifications.title"
+      icon={Bell}
+      iconColor="text-sky-600 dark:text-sky-400"
+      iconBgColor="bg-sky-50 dark:bg-sky-900/20"
+      isLoading={loading && !isPreview}
+      isEmpty={recentNotifications.length === 0}
+      emptyMessage="notifications.noNotifications"
+      emptyIconSlot={<Clock size={48} className="text-neutral-300 dark:text-neutral-700" />}
+      actions={viewAllAction}
+    >
+      <WidgetList variant="divide">
+        {recentNotifications.map((notification) => {
+          const { title, message } = translateNotification(notification, t)
+
+          return (
+            <WidgetListItem
+              key={notification.id}
+              onClick={() => handleNotificationClick(notification.id, notification.is_read)}
+              isUnread={!notification.is_read}
+              leading={<div className="mt-1">{getNotificationIcon(notification.type, 14)}</div>}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-xs font-medium text-neutral-900 dark:text-white truncate">
+                    {title}
+                  </h4>
+                  <button
+                    onClick={(e) => handleDelete(e, notification.id)}
+                    className="flex-shrink-0 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                    title={t('common.delete')}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
+                  {message}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                </p>
+              </div>
+              {!notification.is_read && (
+                <div className="w-2 h-2 bg-fuchsia-600 rounded-full flex-shrink-0 mt-2" />
+              )}
+            </WidgetListItem>
+          )
+        })}
+      </WidgetList>
+    </BaseWidget>
+  )
+}

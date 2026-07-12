@@ -11,7 +11,7 @@ from app.schemas import PortfolioGoal, PortfolioGoalCreate, PortfolioGoalUpdate
 from app.crud import goals as crud
 from app.auth import get_current_user, verify_portfolio_access
 from app.models import User, Portfolio
-from app.services.goal_projections import GoalProjectionsService, GoalProjectionResult
+from app.services.portfolio_analytics.goal_projections import GoalProjectionsService, GoalProjectionResult
 
 router = APIRouter()
 
@@ -206,7 +206,7 @@ async def calculate_goal_projections(
         raise GoalNotBelongsToPortfolioError(goal_id, portfolio_id)
     
     # Get current portfolio value by calculating from positions
-    from app.services.metrics import MetricsService
+    from app.services.portfolio_analytics.metrics import MetricsService
     metrics_service = MetricsService(db)
     
     try:
@@ -225,14 +225,21 @@ async def calculate_goal_projections(
             if position.market_value:
                 current_value += float(position.market_value)
     
-    # Calculate projections
+    # Calculate projections. The Monte Carlo simulation (1,000 iterations over
+    # a mark-to-market time series) is CPU/DB heavy -- run it in a worker
+    # thread so it cannot stall the event loop for other requests. The
+    # request-scoped session is only used by this one thread while the
+    # coroutine is suspended.
+    import asyncio
+
     service = GoalProjectionsService(db)
-    projections = service.calculate_goal_projections(
+    projections = await asyncio.to_thread(
+        service.calculate_goal_projections,
         portfolio_id=portfolio_id,
         current_value=current_value,
         target_amount=float(goal.target_amount),
         monthly_contribution=float(goal.monthly_contribution),
-        target_date=goal.target_date
+        target_date=goal.target_date,
     )
-    
+
     return projections

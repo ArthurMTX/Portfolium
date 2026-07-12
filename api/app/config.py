@@ -4,7 +4,7 @@ Application configuration
 import os
 from typing import List, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator, model_validator
+from pydantic import field_validator, model_validator
 from typing_extensions import Self
 
 
@@ -28,11 +28,50 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     API_KEY: str = "dev-key-12345"
+
+    # Observability
+    ENVIRONMENT: str = "development"
+    TESTING: bool = False
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "auto"  # auto, json, or readable
+    LOG_FILE_ENABLED: bool = True
+    LOG_FILE_PATH: str = "logs/app.log"
+    LOG_FILE_MAX_BYTES: int = 5 * 1024 * 1024
+    LOG_FILE_BACKUP_COUNT: int = 5
     
     # JWT Authentication
     SECRET_KEY: str = "your-secret-key-change-this-in-production-min-32-chars"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    # Sensitive endpoint rate limiting
+    AUTH_RATE_LIMIT_ENABLED: bool = True
+    AUTH_LOGIN_RATE_LIMIT: int = 10
+    AUTH_LOGIN_RATE_WINDOW_SECONDS: int = 300
+    AUTH_REGISTER_RATE_LIMIT: int = 5
+    AUTH_REGISTER_RATE_WINDOW_SECONDS: int = 3600
+    AUTH_RECOVERY_RATE_LIMIT: int = 5
+    AUTH_RECOVERY_RATE_WINDOW_SECONDS: int = 3600
+    AUTH_TOKEN_RATE_LIMIT: int = 20
+    AUTH_TOKEN_RATE_WINDOW_SECONDS: int = 3600
+    AUTH_2FA_RATE_LIMIT: int = 10
+    AUTH_2FA_RATE_WINDOW_SECONDS: int = 600
+
+    # Browser security headers
+    SECURITY_HEADERS_ENABLED: bool = True
+    CONTENT_SECURITY_POLICY: str = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "img-src 'self' data: blob: https:; "
+        "font-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline' https:; "
+        "script-src 'self' 'unsafe-inline' https:; "
+        "connect-src 'self' https: wss:"
+    )
+    HSTS_MAX_AGE_SECONDS: int = 31536000
     
     # User Registration
     ALLOW_REGISTRATION: bool = True  # Set to False to disable new user registration
@@ -50,16 +89,41 @@ class Settings(BaseSettings):
     # Frontend URL (for email links)
     FRONTEND_URL: str = "http://localhost:5173"
     
-    # Price caching
-    PRICE_CACHE_TTL_SECONDS: int = 300
+    # Price caching and rate limiting
+    PRICE_CACHE_TTL_SECONDS: int = 300  # 5 minutes default - increase to reduce API calls
+    PRICE_BATCH_MIN_INTERVAL: float = 2.0  # Minimum seconds between batch API requests
+    PRICE_MAX_BACKOFF_SECONDS: float = 120.0  # Max backoff on rate limiting
     
     # Transaction validation
     VALIDATE_SELL_QUANTITY: bool = True  # Check if selling more shares than owned
+
+    # yfinance cache configuration
+    YFINANCE_TZ_CACHE_DIR: str = os.path.join("/tmp", "portfolium", "py-yfinance")
     
     # Brandfetch API (for fetching company logos)
     BRANDFETCH_API_KEY: str = ""  # Optional: Leave empty to disable logo fetching
+
+    # logo.dev API (fallback ticker-based logo lookup, more reliable than Brandfetch's
+    # ticker search which can match unrelated companies sharing similar names/domains)
+    LOGO_DEV_API_KEY: str = ""  # Optional: Leave empty to disable logo.dev fallback
+
+    # Asset theme classification
+    ASSET_THEME_CLASSIFIER_MODE: str = "minilm"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
+    GEMINI_TIMEOUT_SECONDS: int = 20
+    GEMINI_MAX_RETRIES: int = 2
+    ASSET_THEME_GEMINI_STRATEGY: str = "one_pass"
+    ASSET_THEME_TWO_PASS_CLASSIFICATION: bool = False
+    ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED: bool = False
+
+    # Local MiniLM theme benchmark/runtime
+    THEME_MINILM_MODEL_PATH: str = ""
+    THEME_MINILM_AUTO_DOWNLOAD: bool = True
+    THEME_MINILM_TOP_K: int = 15
     
     # Redis Configuration
+    REDIS_ENABLED: bool = True
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
@@ -76,14 +140,28 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 300  # 5 minutes max per task
     CELERY_WORKER_PREFETCH_MULTIPLIER: int = 4
     CELERY_WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    CELERY_METRICS_PORT: int = 9809
     
     # Background Task Configuration
     ENABLE_BACKGROUND_TASKS: bool = True  # Set to False to disable background task scheduling
     METRICS_REFRESH_INTERVAL_MINUTES: int = 5  # How often to refresh metrics
     INSIGHTS_REFRESH_INTERVAL_MINUTES: int = 10  # How often to refresh insights
-    CACHE_WARMUP_ON_STARTUP: bool = True  # Pre-calculate metrics on startup
     MARKET_HOURS_START: int = 9  # Market opens at 9 AM
     MARKET_HOURS_END: int = 16  # Market closes at 4 PM
+
+    # Notifications
+    NOTIFICATIONS_RETENTION_DAYS: int = 30  # Delete notifications older than N days (0 disables cleanup)
+    
+    # Web Push Notifications (VAPID)
+    # Generate keys using: pywebpush --gen-vapid (or use the /admin/push/generate-vapid-keys endpoint)
+    VAPID_PUBLIC_KEY: str = ""  # Base64 encoded public key
+    VAPID_PRIVATE_KEY: str = ""  # Base64 encoded private key
+    VAPID_CLAIMS_EMAIL: str = "mailto:admin@example.com"  # Required for VAPID claims
+
+    # Reverse-proxy / client IP handling
+    # Comma-separated list (or list) of trusted proxy IPs/CIDRs.
+    # Only when the immediate peer is in this list will X-Forwarded-For/X-Real-IP be trusted.
+    TRUSTED_PROXY_IPS: Union[List[str], str] = ""
     
     # CORS - can be comma-separated string or list
     CORS_ORIGINS: Union[List[str], str] = "http://localhost:5173,http://localhost:3000,http://localhost:8080"
@@ -104,6 +182,34 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(',') if origin.strip()]
         return v
+
+    @field_validator('TRUSTED_PROXY_IPS', mode='before')
+    @classmethod
+    def parse_trusted_proxy_ips(cls, v):
+        """Parse TRUSTED_PROXY_IPS from comma-separated string or list"""
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [ip.strip() for ip in v.split(',') if ip.strip()]
+        return v
+
+    @field_validator('ASSET_THEME_CLASSIFIER_MODE')
+    @classmethod
+    def validate_asset_theme_classifier_mode(cls, v):
+        """Validate asset theme classifier mode."""
+        mode = (v or "minilm").strip().lower()
+        if mode not in {"minilm", "gemini"}:
+            raise ValueError("ASSET_THEME_CLASSIFIER_MODE must be 'minilm' or 'gemini'")
+        return mode
+
+    @field_validator('ASSET_THEME_GEMINI_STRATEGY')
+    @classmethod
+    def validate_asset_theme_gemini_strategy(cls, v):
+        """Validate Gemini asset theme classification strategy."""
+        strategy = (v or "one_pass").strip().lower()
+        if strategy not in {"one_pass", "two_pass"}:
+            raise ValueError("ASSET_THEME_GEMINI_STRATEGY must be 'one_pass' or 'two_pass'")
+        return strategy
     
     @model_validator(mode='after')
     def validate_settings(self) -> Self:
@@ -158,6 +264,19 @@ class Settings(BaseSettings):
                     "ADMIN_PASSWORD must be at least 8 characters. "
                     f"Current length: {len(self.ADMIN_PASSWORD)}"
                 )
+            elif self.ENVIRONMENT.lower() == "production" and self.ADMIN_PASSWORD.lower() in {
+                "admin123",
+                "password",
+                "password1",
+                "changeme",
+                "change-this",
+                "change-this-admin-password",
+                "administrator",
+            }:
+                errors.append(
+                    "ADMIN_PASSWORD is a known default/weak value. "
+                    "Set a unique admin password before running in production."
+                )
         
         # 5. Validate database configuration
         if not self.POSTGRES_DB:
@@ -189,6 +308,25 @@ class Settings(BaseSettings):
                 f"({self.ACCESS_TOKEN_EXPIRE_MINUTES / 60 / 24:.0f} days). "
                 "This is very long and may pose a security risk."
             )
+
+        rate_limit_values = {
+            "AUTH_LOGIN_RATE_LIMIT": self.AUTH_LOGIN_RATE_LIMIT,
+            "AUTH_REGISTER_RATE_LIMIT": self.AUTH_REGISTER_RATE_LIMIT,
+            "AUTH_RECOVERY_RATE_LIMIT": self.AUTH_RECOVERY_RATE_LIMIT,
+            "AUTH_TOKEN_RATE_LIMIT": self.AUTH_TOKEN_RATE_LIMIT,
+            "AUTH_2FA_RATE_LIMIT": self.AUTH_2FA_RATE_LIMIT,
+            "AUTH_LOGIN_RATE_WINDOW_SECONDS": self.AUTH_LOGIN_RATE_WINDOW_SECONDS,
+            "AUTH_REGISTER_RATE_WINDOW_SECONDS": self.AUTH_REGISTER_RATE_WINDOW_SECONDS,
+            "AUTH_RECOVERY_RATE_WINDOW_SECONDS": self.AUTH_RECOVERY_RATE_WINDOW_SECONDS,
+            "AUTH_TOKEN_RATE_WINDOW_SECONDS": self.AUTH_TOKEN_RATE_WINDOW_SECONDS,
+            "AUTH_2FA_RATE_WINDOW_SECONDS": self.AUTH_2FA_RATE_WINDOW_SECONDS,
+        }
+        for name, value in rate_limit_values.items():
+            if value < 1:
+                errors.append(f"{name} must be at least 1")
+
+        if self.HSTS_MAX_AGE_SECONDS < 0:
+            errors.append("HSTS_MAX_AGE_SECONDS cannot be negative")
         
         # 8. Validate cache TTL
         if self.PRICE_CACHE_TTL_SECONDS < 0:
@@ -196,7 +334,10 @@ class Settings(BaseSettings):
                 "PRICE_CACHE_TTL_SECONDS cannot be negative. "
                 f"Current: {self.PRICE_CACHE_TTL_SECONDS}"
             )
-        
+
+        if self.LOG_FORMAT.lower() not in {"auto", "json", "readable"}:
+            errors.append("LOG_FORMAT must be one of: auto, json, readable")
+
         # 9. Validate CORS origins
         if not self.CORS_ORIGINS:
             print("WARNING: CORS_ORIGINS is empty. API will not accept requests from any frontend.")

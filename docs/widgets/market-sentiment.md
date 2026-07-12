@@ -1,112 +1,62 @@
-# Market Sentiment
+## Market Sentiment
 
-The **Market Sentiment** widget visualizes the current **fear vs. greed** level in the market on a **0–100 scale**.  
-In its default configuration, it tracks **stock market sentiment** using the **CNN Fear & Greed Index**.
+### What It Shows
 
-It is a contextual indicator: it does **not** depend on your portfolio, but on **overall market mood**.
+Market Sentiment is a fear-versus-greed gauge for the **overall stock market** — it tells you the broader mood investors are in right now, independent of what you personally hold. It displays:
 
----
+- a **semicircular gauge from 0 to 100**, with a needle pointing at the current reading;
+- a **text label** for the current zone: Extreme Fear, Fear, Neutral, Greed, or Extreme Greed;
+- a small **change indicator** versus the previous reading (e.g. $+4$ in green, $-5$ in red).
 
-## What It Shows
+This is the stock-market variant of the sentiment gauge; a separate [Crypto Sentiment](crypto-sentiment.md) widget covers digital assets using a different underlying index. Both share the same gauge design but pull from different sources.
 
-The widget displays:
+### How It's Calculated
 
-- A **gauge from 0 to 100** showing the current sentiment score  
-- A **text label** describing the sentiment (e.g. *Extreme Fear*, *Fear*, *Neutral*, *Greed*, *Extreme Greed*)  
-- A **small change indicator** vs. the previous reading (e.g. `+2`, `-5`)  
+For stocks, Portfolium sources the score from the **CNN Fear & Greed Index**, fetched from CNN's public data feed and cached server-side for about five minutes to avoid hammering the external API. The score already arrives pre-computed on a $0$–$100$ scale, along with a text rating and the previous day's close.
 
-Sentiment zones:
+The gauge is split into five color-coded zones:
 
-- **0–25** – *Extreme Fear*  
-- **25–45** – *Fear*  
-- **45–55** – *Neutral*  
-- **55–75** – *Greed*  
-- **75–100** – *Extreme Greed*  
+- **Extreme Fear:** $0$–$25$
+- **Fear:** $25$–$45$
+- **Neutral:** $45$–$55$
+- **Greed:** $55$–$75$
+- **Extreme Greed:** $75$–$100$
 
-Coloring on the gauge follows these zones, from red (**fear**) to green (**greed**).
+The zone label shown under the gauge comes directly from CNN's own rating field (matched case-insensitively against "extreme fear," "fear," "neutral," "greed," "extreme greed"), not recomputed from the score independently — so the label and the gauge position should always agree.
 
-This widget answers the question:  
-> "Is the market currently fearful, neutral, or greedy?"
-
----
-
-## How It Works
-
-### Data source
-
-For **stock** market sentiment, Portfolium uses the **CNN Fear & Greed Index** via an official data endpoint:
-
-- The backend calls a CNN dataviz API for **today's data**
-- A browser-like user agent and headers are used to ensure reliable access
-- Results are cached server-side to avoid unnecessary external calls
-
-The API returns:
-
-- `score` – current sentiment score (0–100)  
-- `rating` – textual rating (e.g. `extreme fear`, `fear`, `neutral`, `greed`, `extreme greed`)  
-- `previous_close` – previous day's score  
-- `timestamp` – when the data was recorded  
-
-### Widget logic
-
-On the frontend, the raw values are mapped to:
-
-   - `score` – current index value (0–100)  
-   - `rating` – used to compute a translated label (*Extreme Fear*, *Fear*, *Neutral*, *Greed*, *Extreme Greed*)  
-   - `previousScore` – `previous_close` or `previous_value`  
-
-The **change** vs. previous value is:
+The change indicator is simply:
 
 $$
-\Delta = \text{Score}_{\text{today}} - \text{Score}_{\text{previous}}
+\Delta = \text{score}_{\text{today}} - \text{score}_{\text{previous close}}
 $$
 
-- If $\Delta > 0$ → change is shown as **`+Δ`** in green  
-- If $\Delta < 0$ → change is shown as **`-Δ`** in red  
-- If data is missing, no change indicator is shown  
+shown as $+\Delta$ in green when the market has gotten greedier, or $-\Delta$ in red when it's gotten more fearful.
 
----
+### Example
 
-## Example
+Suppose today's reading comes back as:
 
-Suppose today's CNN Fear & Greed data returns:
+| Field | Value |
+|---|---|
+| Score | $72$ |
+| Rating | Greed |
+| Previous close | $68$ |
 
-- `score = 72`  
-- `rating = "greed"`  
-- `previous_close = 68`  
+The gauge needle sits at $72$, inside the "Greed" band ($55$–$75$), the label reads **Greed**, and the change indicator shows **+4** in green.
 
-The widget will show:
+### When To Use It
 
-- Gauge pointer around **72** in the **"Greed"** (light green) zone  
-- Text label: **Greed**  
-- Change indicator: **`+4`** in green  
+Use Market Sentiment when you want to:
 
-If the API cannot be reached or returns invalid data:
+- get a quick sense of overall market risk appetite before deciding to add or trim exposure;
+- add context to a portfolio swing — a broad market at "Extreme Fear" explains a lot more than an isolated news headline;
+- avoid herd behavior — extreme readings in either direction are often flagged as a caution sign rather than a reason to chase the crowd.
 
-- The gauge falls back to **0**, and labels may show **Unknown**  
-- The widget may appear without a change indicator or with degraded information, depending on available fields
+It pairs well with [Beta](../detailed-metrics/beta.md), [Volatility](volatility.md), and [Value at Risk](value-at-risk.md) for a fuller risk picture.
 
----
+### Notes & Limitations
 
-## When To Use It
-
-The Market Sentiment widget is useful for:
-
-- Gauging overall **risk appetite** in the market at a glance  
-- Providing macro context for **buying, selling, or hedging decisions**  
-- Complementing metrics like **Volatility**, **Drawdown**, and **Beta**  
-- Helping you avoid overreacting during **extreme fear** or **extreme greed** periods  
-
-It's especially helpful when:
-
-- You want to compare your portfolio behavior to **broader market mood**  
-- You are considering adding risk during **fear** or reducing exposure during **greed**
-
----
-
-## Notes
-
-- By default, this widget is configured for the **stock market** using the CNN Fear & Greed Index  
-- Data is **cached** and periodically refreshed to avoid excessive external requests  
-- Values range from **0 (maximum fear)** to **100 (maximum greed)**  
-- This widget is **informational** and does not directly interact with your positions or portfolio metrics  
+- **Market-wide, not personal.** The gauge reflects overall stock-market mood and has no connection to your specific holdings or performance.
+- **Third-party data.** The score comes from CNN's Fear & Greed Index; if that feed is unreachable, the widget may show stale cached data or fail to update.
+- **Refreshes periodically**, not in real time — expect the reading to lag slightly behind intraday swings.
+- Related page: [Crypto Sentiment](crypto-sentiment.md) for the digital-asset equivalent.

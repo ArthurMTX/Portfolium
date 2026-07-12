@@ -1,0 +1,677 @@
+.watchlist button,
+.watchlist select {
+  font: inherit;
+}
+
+.watchlist__empty p {
+  margin: 0 0 0.75rem;
+  color: var(--pf-subtle);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+}
+
+.dark .watchlist__empty p {
+  color: var(--pf-muted);
+}
+
+.watchlist__muted {
+  color: var(--pf-muted);
+  line-height: 1.6;
+}
+
+.dark .watchlist__muted {
+  color: var(--pf-muted);
+}
+
+.watchlist__sort,
+.watchlist__filters,
+.watchlist__row-actions,
+.watchlist__row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.watchlist__empty button,
+.watchlist__sort button,
+.watchlist__sort select,
+.watchlist__manage-tags,
+.watchlist__tag-filter,
+.watchlist__clear-filter,
+.watchlist__tag-mode button,
+.watchlist__row-tags button,
+.watchlist__research-link,
+.watchlist__overflow-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pf-ink);
+  padding: 0.58rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease, opacity 160ms ease;
+}
+
+.dark .watchlist__empty button,
+.dark .watchlist__sort button,
+.dark .watchlist__sort select,
+.dark .watchlist__manage-tags,
+.dark .watchlist__tag-filter,
+.dark .watchlist__clear-filter,
+.dark .watchlist__tag-mode button,
+.dark .watchlist__row-tags button,
+.dark .watchlist__research-link,
+.dark .watchlist__overflow-trigger {
+  border-color: var(--pf-line);
+  color: var(--pf-ink);
+}
+
+.watchlist__empty button:hover,
+.watchlist__sort button:hover,
+.watchlist__manage-tags:hover,
+.watchlist__clear-filter:hover,
+.watchlist__research-link:hover,
+.watchlist__overflow-trigger:hover,
+.watchlist__tag-filter:hover,
+.watchlist__row-tags button:hover {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.dark .watchlist__empty button:hover,
+.dark .watchlist__sort button:hover,
+.dark .watchlist__manage-tags:hover,
+.dark .watchlist__clear-filter:hover,
+.dark .watchlist__research-link:hover,
+.dark .watchlist__overflow-trigger:hover,
+.dark .watchlist__tag-filter:hover,
+.dark .watchlist__row-tags button:hover {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.watchlist__error {
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.watchlist__filters {
+  gap: 0.5rem;
+}
+
+.watchlist__toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--pf-subtle);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dark .watchlist__toolbar-label {
+  color: var(--pf-muted);
+}
+
+.watchlist__tag-filter,
+.watchlist__row-tags button {
+  --watchlist-tag-color: var(--pf-subtle);
+  border-color: color-mix(in srgb, var(--watchlist-tag-color) 34%, transparent);
+  color: var(--watchlist-tag-color);
+  padding-block: 0.42rem;
+  font-size: 0.76rem;
+}
+
+.watchlist__row-tags button {
+  padding: 0.24rem 0.42rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.watchlist__tag-filter.is-active,
+.watchlist__row-tags button.is-active {
+  background: color-mix(in srgb, var(--watchlist-tag-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--watchlist-tag-color) 62%, transparent);
+}
+
+.watchlist__clear-filter {
+  padding-block: 0.42rem;
+  color: var(--pf-muted);
+}
+
+.watchlist__tag-mode {
+  display: inline-flex;
+  border-left: 1px solid var(--pf-line);
+  margin-left: 0.25rem;
+  padding-left: 0.75rem;
+  gap: 0.35rem;
+}
+
+.dark .watchlist__tag-mode {
+  border-color: var(--pf-line);
+}
+
+.watchlist__tag-mode button {
+  padding-block: 0.42rem;
+}
+
+.watchlist__tag-mode button.is-active {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+}
+
+.dark .watchlist__tag-mode button.is-active {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+}
+
+.watchlist__sort {
+  justify-content: end;
+  gap: 0.5rem;
+}
+
+.watchlist__sort label {
+  color: var(--pf-subtle);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dark .watchlist__sort label {
+  color: var(--pf-muted);
+}
+
+.watchlist__sort select {
+  appearance: none;
+  min-width: 9.5rem;
+  padding-right: 1.2rem;
+  background: var(--pf-canvas);
+  color: var(--pf-ink);
+  color-scheme: light;
+}
+
+.watchlist__sort select option {
+  background: var(--pf-canvas);
+  color: var(--pf-ink);
+}
+
+.dark .watchlist__sort select {
+  background: var(--pf-canvas);
+  color: var(--pf-ink);
+  color-scheme: dark;
+}
+
+.dark .watchlist__sort select option {
+  background: var(--pf-surface);
+  color: var(--pf-ink);
+}
+
+.watchlist__ledger {
+  display: grid;
+  border-top: 1px solid var(--pf-line);
+}
+
+.dark .watchlist__ledger {
+  border-color: var(--pf-line);
+}
+
+.watchlist__table-header,
+.watchlist__item {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1.6fr) minmax(7.5rem, 0.58fr) minmax(6.5rem, 0.45fr) minmax(8.5rem, 0.62fr) minmax(8rem, 0.58fr) max-content;
+  gap: clamp(0.75rem, 2vw, 1.8rem);
+}
+
+.watchlist__table-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  align-items: center;
+  border-bottom: 1px solid var(--pf-line);
+  background: var(--pf-canvas);
+  padding-block: 0.62rem;
+  color: var(--pf-subtle);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dark .watchlist__table-header {
+  border-color: var(--pf-line);
+  background: var(--pf-canvas);
+  color: var(--pf-muted);
+}
+
+.watchlist__table-header span:last-child {
+  text-align: right;
+}
+
+.watchlist__item {
+  position: relative;
+  align-items: center;
+  border-bottom: 1px solid var(--pf-line);
+  padding-block: clamp(0.72rem, 1.25vw, 0.95rem);
+  cursor: pointer;
+  outline: none;
+  transition: background 160ms ease;
+}
+
+.dark .watchlist__item {
+  border-color: var(--pf-line);
+}
+
+.watchlist__item::before {
+  content: '';
+  position: absolute;
+  inset-block: 0.8rem;
+  inset-inline-start: -1rem;
+  width: 2px;
+  background: transparent;
+}
+
+.watchlist__item.is-urgent::before {
+  background: var(--pf-accent);
+}
+
+.watchlist__item.is-attention::before {
+  background: #bf7b38;
+}
+
+.dark .watchlist__item.is-urgent::before {
+  background: var(--pf-accent);
+}
+
+.dark .watchlist__item.is-attention::before {
+  background: var(--pf-warning);
+}
+
+.watchlist__item:hover,
+.watchlist__item:focus-visible {
+  background: var(--pf-inset);
+}
+
+.dark .watchlist__item:hover,
+.dark .watchlist__item:focus-visible {
+  background: var(--pf-inset);
+}
+
+.watchlist__identity {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.watchlist__logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+}
+
+.watchlist__identity span,
+.watchlist__price span,
+.watchlist__move span,
+.watchlist__target span,
+.watchlist__status span {
+  display: block;
+  margin-bottom: 0.28rem;
+  color: var(--pf-subtle);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dark .watchlist__identity span,
+.dark .watchlist__price span,
+.dark .watchlist__move span,
+.dark .watchlist__target span,
+.dark .watchlist__status span {
+  color: var(--pf-muted);
+}
+
+.watchlist__identity h2,
+.watchlist__price strong,
+.watchlist__move strong,
+.watchlist__target strong,
+.watchlist__status strong {
+  display: block;
+  margin: 0;
+  color: inherit;
+  font-weight: 850;
+  letter-spacing: -0.045em;
+}
+
+.watchlist__identity h2 {
+  font-size: clamp(1.1rem, 1.45vw, 1.45rem);
+  line-height: 1;
+}
+
+.watchlist__identity p,
+.watchlist__price small,
+.watchlist__move small,
+.watchlist__target small,
+.watchlist__target em,
+.watchlist__status small {
+  color: var(--pf-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.dark .watchlist__identity p,
+.dark .watchlist__price small,
+.dark .watchlist__move small,
+.dark .watchlist__target small,
+.dark .watchlist__target em,
+.dark .watchlist__status small {
+  color: var(--pf-muted);
+}
+
+.watchlist__identity p {
+  margin: 0.22rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchlist__price strong,
+.watchlist__move strong,
+.watchlist__target strong,
+.watchlist__status strong {
+  font-size: clamp(0.98rem, 1.25vw, 1.18rem);
+  line-height: 1.05;
+}
+
+.watchlist__status strong {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  padding: 0.28rem 0.52rem;
+  font-size: 0.78rem;
+  letter-spacing: -0.015em;
+}
+
+.dark .watchlist__status strong {
+  border-color: var(--pf-line);
+}
+
+.watchlist__item.is-urgent .watchlist__status strong {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.watchlist__item.is-attention .watchlist__status strong {
+  border-color: var(--pf-warning-border);
+  color: var(--pf-warning);
+  background: var(--pf-warning-soft);
+}
+
+.watchlist__item.is-quiet .watchlist__status strong {
+  border-color: var(--pf-line);
+  color: var(--pf-muted);
+}
+
+.dark .watchlist__item.is-urgent .watchlist__status strong {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.dark .watchlist__item.is-attention .watchlist__status strong {
+  border-color: var(--pf-warning-border);
+  color: var(--pf-warning);
+  background: var(--pf-warning-soft);
+}
+
+.dark .watchlist__item.is-quiet .watchlist__status strong {
+  border-color: var(--pf-line);
+  color: var(--pf-muted);
+}
+
+.watchlist__price small,
+.watchlist__move small,
+.watchlist__target small,
+.watchlist__target em,
+.watchlist__status small {
+  display: block;
+  margin-top: 0.22rem;
+  font-style: normal;
+}
+
+.watchlist__price .is-positive,
+.watchlist__move .is-positive,
+.watchlist__target .is-positive {
+  color: var(--pf-success);
+}
+
+.watchlist__price .is-negative,
+.watchlist__move .is-negative {
+  color: var(--pf-danger);
+}
+
+.watchlist__target .is-attention {
+  color: var(--pf-warning);
+}
+
+.dark .watchlist__price .is-positive,
+.dark .watchlist__move .is-positive,
+.dark .watchlist__target .is-positive {
+  color: var(--pf-success);
+}
+
+.dark .watchlist__price .is-negative,
+.dark .watchlist__move .is-negative {
+  color: var(--pf-danger);
+}
+
+.dark .watchlist__target .is-attention {
+  color: var(--pf-warning);
+}
+
+.watchlist__row-tags {
+  gap: 0.32rem;
+  margin-top: 0.45rem;
+}
+
+.watchlist__row-tags > span {
+  color: var(--pf-subtle);
+  font-size: 0.74rem;
+}
+
+.dark .watchlist__row-tags > span {
+  color: var(--pf-muted);
+}
+
+.watchlist__row-actions {
+  justify-content: end;
+  gap: 0.42rem;
+}
+
+.watchlist__research-link {
+  border-color: transparent;
+  padding-inline: 0.25rem;
+  white-space: nowrap;
+}
+
+.watchlist__overflow {
+  position: relative;
+}
+
+.watchlist__overflow-trigger {
+  width: 2rem;
+  height: 2rem;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+}
+
+.watchlist__item:hover .watchlist__overflow-trigger,
+.watchlist__overflow-trigger[aria-expanded='true'],
+.watchlist__item:focus-within .watchlist__overflow-trigger {
+  opacity: 1;
+}
+
+.watchlist__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  display: grid;
+  min-width: 12.5rem;
+  border: 1px solid var(--pf-line);
+  background: var(--pf-canvas);
+  box-shadow: 0 18px 45px rgba(18, 15, 21, 0.12);
+  padding: 0.35rem;
+}
+
+.dark .watchlist__menu {
+  border-color: var(--pf-line);
+  background: var(--pf-surface);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+}
+
+.watchlist__menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: transparent;
+  color: var(--pf-ink);
+  padding: 0.62rem 0.75rem;
+  text-align: left;
+  font-size: 0.86rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.dark .watchlist__menu button {
+  color: var(--pf-ink);
+}
+
+.watchlist__menu button:hover {
+  background: var(--pf-inset);
+}
+
+.dark .watchlist__menu button:hover {
+  background: var(--pf-inset);
+}
+
+.watchlist__menu button.is-danger {
+  color: var(--pf-danger);
+}
+
+.dark .watchlist__menu button.is-danger {
+  color: var(--pf-danger);
+}
+
+.watchlist__empty,
+.watchlist__loading {
+  padding-block: clamp(1.5rem, 3.5vw, 2.5rem);
+}
+
+.watchlist__empty h2 {
+  max-width: 780px;
+  margin: 0;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+}
+
+.watchlist__empty span {
+  display: block;
+  max-width: 640px;
+  margin-top: 1rem;
+  color: var(--pf-muted);
+  line-height: 1.65;
+}
+
+.dark .watchlist__empty span {
+  color: var(--pf-muted);
+}
+
+.watchlist__empty button {
+  margin-top: 1.8rem;
+}
+
+.watchlist__loading {
+  display: grid;
+}
+
+.watchlist__loading span {
+  display: block;
+  height: 8rem;
+  border-bottom: 1px solid var(--pf-line);
+  background: var(--pf-inset);
+  animation: pfPulse 1.4s ease-in-out infinite;
+}
+
+.dark .watchlist__loading span {
+  border-color: var(--pf-line);
+  background: var(--pf-inset);
+}
+
+@media (hover: none) {
+  .watchlist__overflow-trigger {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1180px) {
+  .watchlist__item {
+    grid-template-columns: minmax(0, 1.2fr) minmax(12rem, 0.8fr) minmax(16rem, 1fr);
+  }
+
+  .watchlist__target,
+  .watchlist__status {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .watchlist__item,
+  .watchlist__footer {
+    grid-template-columns: 1fr;
+  }
+
+  .watchlist__table-header {
+    display: none;
+  }
+
+  .watchlist__sort,
+  .watchlist__row-actions {
+    justify-content: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .watchlist__sort,
+  .watchlist__row-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .watchlist__sort select,
+  .watchlist__sort button,
+  .watchlist__manage-tags,
+  .watchlist__research-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .watchlist__identity {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+  }
+}

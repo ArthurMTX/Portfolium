@@ -1,103 +1,73 @@
-# Positions
+## Positions
 
-The **Positions** widget shows a detailed table of your portfolio holdings directly on the Dashboard.  
-It lets you review both your **current positions** and your **sold positions** in one place, with sortable columns and quick access to more details.
+### What It Shows
 
----
+Positions is your full holdings table right on the dashboard — the detailed, sortable view behind the summary widgets. It's split into three tabs:
 
-## What It Shows
+- **Current** — everything you still hold, in full;
+- **Realized** — positions you've **partially** sold (you still hold some quantity, but part of it has already been sold and booked as realized gain/loss);
+- **Sold** — positions you've **fully** closed out (zero quantity remaining).
 
-The widget is split into two tabs:
+**Current** positions show, per row: quantity held, average cost per share, current price, daily change %, market value, % of your total portfolio ("% of Wallet"), and unrealized P&L in both currency and percentage.
 
-- **Current Positions** - all assets you still hold  
-- **Sold Positions** - assets you have fully sold (closed positions)
+**Realized** positions show: quantity sold vs. quantity remaining, realized P&L and P&L %, and lifetime P&L (realized plus unrealized combined).
 
-For **current positions**, the table typically includes:
+**Sold** positions show: average cost basis, average proceeds (average sale price), realized P&L, and realized P&L %.
 
-- **Logo** of the asset (or symbol if logo unavailable)
-- **Symbol** and **Name** of the asset  
-- **Quantity** held  
-- **Average cost per share**  
-- **Current price**  
-- **Daily change (%)**  
-- **Market value** (current value of the position)  
-- **% of Wallet** (share of this position in your portfolio)  
-- **P&L** and **P&L %** (unrealized profit and loss)
-
-For **sold positions**, the table focuses on realized performance:
-
-- **Logo** of the asset (or symbol if logo unavailable)
-- **Symbol** and **Name**  
-- **Average cost basis**  
-- **Average proceeds** (average sale price)  
-- **Realized P&L**  
-- **Realized P&L %**
-
-Each row gives you a compact summary of how a position is performing (or performed) and how important it is in your portfolio.
+Every column header is clickable to sort by that column, ascending or descending. On mobile, rows collapse into cards with the same information grouped together. Clicking any row opens a detail modal with deeper metrics for that asset (drawdown, breakeven distance, volatility contribution, and more).
 
 ---
 
-## How It Works
+### How It's Built
 
-- Use the tabs at the top of the widget to switch between:
-  - **Current Positions**
-  - **Sold Positions**
-- Each column can be **sorted** by clicking on its header (e.g. sort by symbol, market value, P&L, etc.).  
-- Positive P&L values are shown in **green**; negative ones in **red**.
-- On **desktop**, the widget appears as a full table.  
-- On **mobile**, positions are displayed as **cards** with the most important information grouped together.
+For **current** positions in a loss, an extra line appears under the P&L percentage showing the **breakeven gain needed** — how far the price would need to rise from here to get you back to your average cost:
 
-Clicking on a position opens a **detail modal**, where you can see more metrics for that asset (such as drawdown, breakeven information, contribution to volatility, etc.).
+$$
+\text{breakeven gain} = \frac{\text{average cost} - \text{current price}}{\text{current price}} \times 100
+$$
 
-For current positions that are in loss, the widget also shows a **breakeven helper**:
+A position's **% of Wallet** is its share of your total current market value:
 
-- When unrealized P&L is **negative**, a small extra line appears under the P&L %  
-- It shows the **percentage gain required to reach your average cost again** (e.g. `↗ +156.27%`)  
-- This tells you how far the asset would need to climb from the current price to return to **breakeven**
+$$
+\text{\% of wallet} = \frac{\text{position market value}}{\text{total market value of all current positions}} \times 100
+$$
 
-If no positions are available for the selected tab, the widget shows an empty state with a short explanation.
+The **Realized** tab includes any position where you still hold a positive quantity but have also sold part of it at some point (a partial exit) — it sits between "still fully held" and "fully closed."
+
+By default, current positions sort by market value (largest first), and realized/sold positions sort by realized P&L (largest gain first). You can change the sort at any time by clicking a column header.
 
 ---
 
-## Example
+### Example
 
-In the **Current Positions** tab, an entry might look like:
+**Current** tab:
 
-- Symbol: **AAPL**  
-- Quantity: **15**  
-- Average Cost: **$150.00**  
-- Current Price: **$190.00**  
-- Market Value: **$2,850.00**  
-- P&L: **+$600.00** (**+26.67%**)  
-- % of Wallet: **12.50%**
+| Symbol | Quantity | Avg Cost | Current Price | Market Value | % of Wallet | P&L |
+|---|---|---|---|---|---|---|
+| AAPL | $15$ | $\$150.00$ | $\$190.00$ | $\$2{,}850.00$ | $12.5\%$ | $+\$600.00$ ($+26.67\%$) |
 
-In the **Sold Positions** tab, an entry might look like:
+**Sold** tab:
 
-- Symbol: **TSLA**  
-- Average Cost Basis: **€180.00**  
-- Average Proceeds: **€230.00**  
-- Realized P&L: **+€500.00**  
-- Realized P&L %: **+27.78%**
-
-This allows you to quickly see which positions are driving your current portfolio and which trades have contributed most to your realized performance.
+| Symbol | Avg Cost Basis | Avg Proceeds | Realized P&L | Realized P&L % |
+|---|---|---|---|---|
+| TSLA | $€180.00$ | $€230.00$ | $+€500.00$ | $+27.78\%$ |
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Positions widget is useful for:
+Use Positions when you want to:
 
-- Monitoring all your **active holdings** at a glance  
-- Checking which assets take the largest share of your portfolio  
-- Identifying positions with strong gains or deep losses  
-- Reviewing how your **closed trades** have performed over time  
-- Exploring position details without leaving the Dashboard
+- see everything you hold in one sortable, detailed table instead of scanning multiple summary widgets;
+- check exactly how much of your portfolio a single holding represents;
+- review how a fully or partially closed trade actually performed;
+- dig into a specific asset's breakeven point or other detail metrics via the row modal.
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- The data shown in the widget is based on your recorded **transactions** and the latest **market prices**.  
-- P&L values match the definitions used in the **Unrealized P&L** and **Realized P&L** widgets.  
-- Sorting and totals are specific to the **currently selected portfolio**.  
-- For detailed analytics beyond the table, you can combine this widget with **Insights**, **Charts**, and other Dashboard widgets.
+- Figures are built from your recorded **transactions** combined with the latest **market prices** — if a price hasn't refreshed recently, market value and P&L reflect the last known price.
+- The **Realized** and **Sold** tabs use the same realized P&L definitions used elsewhere in Portfolium, so numbers stay consistent across widgets.
+- Empty tabs show a short explanatory message rather than a blank table.
+- For a quick top-N view instead of the full table, see [Largest Holdings](largest-holdings.md), [Top Performers](top-performers.md), or [Worst Performers](worst-performers.md).

@@ -1,0 +1,519 @@
+@layer components {
+  .pf-topbar {
+    @apply sticky top-0 z-50 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950;
+  }
+
+  .pf-topbar__inner {
+    @apply mx-auto flex items-center justify-between gap-2 px-4;
+    min-height: var(--pf-nav-height);
+    max-width: 100rem;
+  }
+
+  .pf-brand {
+    @apply flex shrink-0 items-center gap-2 text-neutral-950 dark:text-neutral-50;
+  }
+
+  .pf-brand__logo {
+    @apply h-7 w-7;
+  }
+
+  .pf-brand__name {
+    @apply hidden text-sm font-semibold tracking-tight sm:block;
+  }
+
+  .pf-nav {
+    @apply hidden items-center gap-1 lg:flex;
+    min-width: 0;
+  }
+
+  .pf-nav-link,
+  .pf-nav-button,
+  .pf-icon-button {
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-semibold outline-none transition-colors;
+    min-height: 2rem;
+    color: var(--pf-muted);
+  }
+
+  .pf-nav-link {
+    @apply gap-1.5 px-2;
+  }
+
+  .pf-nav-link svg,
+  .pf-menu-item svg,
+  .pf-icon-button svg,
+  .pf-workspace-trigger svg,
+  .pf-mobile-nav-link svg {
+    width: var(--pf-icon-size);
+    height: var(--pf-icon-size);
+    flex: 0 0 var(--pf-icon-size);
+    stroke-width: 2;
+  }
+
+  .pf-nav-link:hover,
+  .pf-nav-button:hover,
+  .pf-icon-button:hover,
+  .pf-workspace-trigger:hover,
+  .pf-menu-item:hover,
+  .pf-mobile-nav-link:hover {
+    color: var(--pf-ink);
+    background: var(--pf-inset);
+  }
+
+  .dark .pf-nav-link:hover,
+  .dark .pf-nav-button:hover,
+  .dark .pf-icon-button:hover,
+  .dark .pf-workspace-trigger:hover,
+  .dark .pf-menu-item:hover,
+  .dark .pf-mobile-nav-link:hover {
+    background: var(--pf-inset);
+  }
+
+  .pf-nav-link:focus-visible,
+  .pf-nav-button:focus-visible,
+  .pf-icon-button:focus-visible,
+  .pf-workspace-trigger:focus-visible,
+  .pf-menu-item:focus-visible,
+  .pf-mobile-nav-link:focus-visible {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .pf-nav-link.is-active,
+  .pf-mobile-nav-link.is-active {
+    color: var(--pf-accent);
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-nav-link.is-active::before {
+    @apply h-1.5 w-1.5 rounded-full;
+    content: '';
+    background: var(--pf-accent);
+  }
+
+  .pf-nav-label {
+    @apply hidden 2xl:inline;
+    font-size: 0.78rem;
+  }
+
+  .pf-nav-dropdown {
+    @apply relative;
+  }
+
+  .pf-nav-link--dropdown {
+    @apply cursor-pointer border-0 bg-transparent;
+  }
+
+  .pf-nav-dropdown__chevron {
+    @apply hidden 2xl:inline-flex;
+    width: 0.85rem;
+    height: 0.85rem;
+    flex: 0 0 0.85rem;
+    margin-left: -0.15rem;
+  }
+
+  .pf-nav-dropdown__menu {
+    @apply left-0 mt-2 w-52;
+  }
+
+  .pf-topbar-actions {
+    @apply flex shrink-0 items-center gap-1.5;
+  }
+
+  .pf-icon-button {
+    @apply relative p-0;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .pf-icon-button svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-basis: 1.125rem;
+  }
+
+  .pf-workspace {
+    @apply relative hidden lg:block;
+    width: clamp(9.5rem, 13vw, 14rem);
+  }
+
+  .pf-workspace-trigger {
+    @apply flex h-9 w-full items-center gap-2 rounded-lg border px-2.5 text-left outline-none transition-colors;
+    border-color: var(--pf-line);
+    background: var(--pf-surface);
+    color: var(--pf-ink);
+  }
+
+  .pf-workspace-trigger__label {
+    @apply block truncate text-[0.68rem] font-bold uppercase leading-none;
+    color: var(--pf-subtle);
+    letter-spacing: 0.11em;
+  }
+
+  .pf-workspace-trigger__name {
+    @apply block truncate text-xs font-semibold leading-tight;
+    color: var(--pf-ink);
+  }
+
+  .pf-workspace-menu,
+  .pf-menu {
+    @apply absolute right-0 z-50 overflow-hidden rounded-xl border;
+    background: var(--pf-surface-raised);
+    border-color: var(--pf-line);
+    box-shadow: var(--pf-shadow-menu);
+  }
+
+  .pf-workspace-menu {
+    @apply mt-2 w-72;
+  }
+
+  .pf-menu {
+    @apply mt-2 w-60;
+  }
+
+  .pf-menu-header {
+    @apply border-b px-4 py-3;
+    border-color: var(--pf-line);
+  }
+
+  .pf-menu-title {
+    @apply truncate text-sm font-semibold;
+    color: var(--pf-ink);
+  }
+
+  .pf-menu-subtitle {
+    @apply truncate text-xs;
+    color: var(--pf-muted);
+  }
+
+  .pf-menu-section {
+    @apply py-1;
+  }
+
+  .pf-menu-divider {
+    border-top: 1px solid var(--pf-line);
+  }
+
+  .pf-menu-item {
+    @apply flex w-full items-center gap-2 px-4 py-2 text-left text-sm outline-none transition-colors;
+    color: var(--pf-muted);
+  }
+
+  .pf-menu-item.is-active {
+    color: var(--pf-accent);
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-menu-item__check {
+    @apply ml-auto h-1.5 w-1.5 rounded-full;
+    background: var(--pf-accent);
+  }
+
+  .pf-notification-menu {
+    z-index: 60;
+    display: flex;
+    max-height: min(calc(100vh - 5rem), 34rem);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-md);
+    background: var(--pf-canvas);
+    box-shadow: var(--pf-shadow-menu);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .pf-notification-menu__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 0.28fr);
+    gap: 0.9rem;
+    align-items: end;
+    padding: 1rem 1rem 0.85rem;
+  }
+
+  .pf-notification-menu__title-block {
+    gap: 0.28rem;
+    min-width: 0;
+  }
+
+  .pf-notification-menu .pf-page-kicker {
+    margin: 0;
+  }
+
+  .pf-notification-menu__title {
+    margin: 0;
+    overflow: hidden;
+    font-size: 1.05rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__summary-panel {
+    gap: 0.2rem;
+    padding-left: 0.8rem;
+  }
+
+  .pf-notification-menu__summary-panel .pf-metric-figure {
+    font-size: 1.2rem;
+  }
+
+  .pf-notification-menu__controls {
+    margin: 0 1rem;
+    padding-block: 0.5rem;
+  }
+
+  .pf-notification-menu__description {
+    max-width: none;
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .pf-notification-menu__mark-read {
+    min-height: 1.9rem;
+    padding-inline: 0.65rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__mark-read svg,
+  .pf-notification-menu__delete svg,
+  .pf-notification-menu__footer-action svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .pf-notification-menu__list {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  .pf-notification-menu__items {
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0.75rem 1rem 1rem;
+    list-style: none;
+  }
+
+  .pf-notification-menu__item {
+    position: relative;
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-sm);
+    background: var(--pf-surface);
+    color: var(--pf-ink);
+    transition: border-color var(--pf-transition-fast), background-color var(--pf-transition-fast);
+  }
+
+  .pf-notification-menu__item:hover,
+  .pf-notification-menu__item:focus-within {
+    border-color: var(--pf-accent-border);
+    background: var(--pf-inset);
+  }
+
+  .pf-notification-menu__item:focus-within {
+    box-shadow: 0 0 0 2px var(--pf-focus-ring);
+  }
+
+  .pf-notification-menu__item.is-unread {
+    border-color: var(--pf-accent-border);
+    background: color-mix(in srgb, var(--pf-accent) 7%, var(--pf-surface));
+  }
+
+  .pf-notification-menu__item.is-unread:hover,
+  .pf-notification-menu__item.is-unread:focus-within {
+    background: color-mix(in srgb, var(--pf-accent) 10%, var(--pf-surface));
+  }
+
+  .pf-notification-menu__item-main {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.8rem;
+    padding: 0.72rem 2.7rem 0.72rem 0.8rem;
+    color: inherit;
+    text-align: left;
+    outline: none;
+  }
+
+  .pf-notification-menu__item-icon,
+  .pf-notification-menu__state-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border: 1px solid var(--pf-line);
+    background: var(--pf-canvas);
+    color: var(--pf-muted);
+  }
+
+  .pf-notification-menu__item-icon {
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: var(--pf-radius-sm);
+  }
+
+  .pf-notification-menu__item-body {
+    min-width: 0;
+  }
+
+  .pf-notification-menu__meta,
+  .pf-notification-menu__item-title-row,
+  .pf-notification-menu__footer-action {
+    display: flex;
+    align-items: center;
+  }
+
+  .pf-notification-menu__meta {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.28rem;
+  }
+
+  .pf-notification-menu__type {
+    max-width: 62%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__time {
+    overflow: hidden;
+    color: var(--pf-subtle);
+    font-size: 0.68rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__item-title-row {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .pf-notification-menu__item-title {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: var(--pf-ink);
+    font-size: 0.86rem;
+    font-weight: 720;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-notification-menu__delete {
+    position: absolute;
+    right: 0.42rem;
+    top: 1.9rem;
+    flex: 0 0 auto;
+    width: 1.8rem;
+    height: 1.8rem;
+    min-height: 1.8rem;
+    color: var(--pf-subtle);
+    opacity: 0;
+  }
+
+  .pf-notification-menu__item:hover .pf-notification-menu__delete,
+  .pf-notification-menu__item:focus-within .pf-notification-menu__delete {
+    opacity: 1;
+  }
+
+  .pf-notification-menu__delete:hover {
+    color: var(--pf-danger);
+    background: var(--pf-danger-soft);
+  }
+
+  .pf-notification-menu__delete:focus-visible {
+    opacity: 1;
+  }
+
+  .pf-notification-menu__message {
+    display: -webkit-box;
+    margin: 0.18rem 0 0;
+    overflow: hidden;
+    color: var(--pf-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .pf-notification-menu__unread-dot {
+    position: absolute;
+    right: 0.62rem;
+    top: 0.62rem;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: var(--pf-radius-pill);
+    background: var(--pf-accent);
+  }
+
+  @media (hover: none) {
+    .pf-notification-menu__delete {
+      opacity: 1;
+    }
+  }
+
+  .pf-notification-menu__state {
+    display: grid;
+    justify-items: center;
+    gap: 0.55rem;
+    margin: 0.75rem 1rem 1rem;
+    padding: 1.6rem 1rem;
+    text-align: center;
+    color: var(--pf-muted);
+    font-size: 0.84rem;
+  }
+
+  .pf-notification-menu__state p {
+    margin: 0;
+  }
+
+  .pf-notification-menu__state-icon {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: var(--pf-radius-sm);
+  }
+
+  .pf-notification-menu__footer {
+    border-top: 1px solid var(--pf-line);
+    padding: 0.55rem 1rem;
+  }
+
+  .pf-notification-menu__footer-action {
+    width: 100%;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: var(--pf-radius-sm);
+    padding: 0.58rem 0.8rem;
+    color: var(--pf-accent);
+    font-size: 0.82rem;
+    font-weight: 700;
+    outline: none;
+    transition: background-color var(--pf-transition-fast), color var(--pf-transition-fast);
+  }
+
+  .pf-notification-menu__footer-action:hover,
+  .pf-notification-menu__footer-action:focus-visible {
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-mobile-panel {
+    @apply border-t bg-white dark:bg-neutral-950;
+    border-color: var(--pf-line);
+  }
+
+  .pf-mobile-nav {
+    @apply mx-auto flex flex-col gap-1 px-4 py-4;
+  }
+
+  .pf-mobile-nav-link {
+    @apply flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold outline-none transition-colors;
+    color: var(--pf-muted);
+  }
+
+  .pf-mobile-workspace {
+    @apply mb-2 border-b px-4 pb-4;
+    border-color: var(--pf-line);
+  }
+}

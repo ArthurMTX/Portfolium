@@ -84,7 +84,7 @@ def generate_reset_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-async def get_current_user(
+def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
@@ -111,7 +111,7 @@ async def get_current_user(
     return user
 
 
-async def get_current_active_user(
+def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """Get current active user"""
@@ -120,7 +120,7 @@ async def get_current_active_user(
     return current_user
 
 
-async def get_current_verified_user(
+def get_current_verified_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """Get current verified user"""
@@ -129,7 +129,7 @@ async def get_current_verified_user(
     return current_user
 
 
-async def get_current_superuser(
+def get_current_superuser(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """Get current superuser"""
@@ -139,7 +139,7 @@ async def get_current_superuser(
 
 
 # Admin dependency
-async def get_current_admin_user(
+def get_current_admin_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """Get current admin user"""
@@ -149,7 +149,7 @@ async def get_current_admin_user(
 
 
 # Portfolio access verification dependency
-async def verify_portfolio_access(
+def verify_portfolio_access(
     portfolio_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
 
-from app.models import Watchlist, WatchlistTag
+from app.models import Asset, Watchlist, WatchlistTag
 from app.schemas import WatchlistItemCreate, WatchlistItemUpdate, WatchlistTagCreate, WatchlistTagUpdate
 
 
@@ -34,7 +34,7 @@ def get_watchlist_items_by_user(
                   "all" returns items matching ALL tags (AND)
     """
     query = db.query(Watchlist).options(
-        joinedload(Watchlist.asset),
+        joinedload(Watchlist.asset).joinedload(Asset.theme_classification),
         joinedload(Watchlist.tags)
     ).filter(
         Watchlist.user_id == user_id

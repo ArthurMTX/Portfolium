@@ -1,82 +1,59 @@
-# Watchlist
+## Watchlist
 
-The **Watchlist** widget shows a compact view of the assets you are monitoring, without necessarily holding them in your portfolio.  
-It lets you keep an eye on key symbols and their daily moves directly from the Dashboard.
+### What It Shows
 
----
+The Watchlist widget is a compact view of assets you're keeping an eye on but don't necessarily hold — up to **5 symbols**, each showing:
 
-## What It Shows
+- the asset's **logo, symbol, and name**;
+- its **current price**, in the asset's own currency;
+- its **daily percentage change**, in green with an up arrow if positive, red with a down arrow if negative.
 
-For each asset on your watchlist, the widget displays:
+If a price isn't available for an asset, the widget shows **N/A** for that row instead of guessing.
 
-- **Symbol** (e.g. AAPL, AMZN, BTC-USD)  
-- **Name** of the asset  
-- **Current price**, in the asset's currency  
-- **Daily percentage change**  
-- The asset's **logo**, when it can be fetched (otherwise the symbol is shown)  
-
-Only a limited number of items are shown (up to 5), so the widget stays readable and compact.
-
-Each row gives you a quick summary of:
-
-> "What is this asset trading at right now, and how much did it move today?"
+It answers the question:
+> "What are the assets I'm tracking doing right now?"
 
 ---
 
-## How It Works
+### How It's Built
 
-- The widget retrieves the assets from your **main Watchlist** (same as the Watchlist page)  
-- Prices and daily changes are updated regularly based on the latest market data  
-- Positive daily changes are shown in **green** with an upward arrow  
-- Negative daily changes are shown in **red** with a downward arrow  
-- If the current price is unavailable, the widget displays **N/A** for that asset  
+The widget shows the first **5 items** from your full Watchlist (the same list managed on the dedicated Watchlist page), refreshed regularly so prices and daily changes stay current.
 
-Clicking anywhere on a row opens the full **Watchlist** page, where you can:
+- Prices refresh automatically roughly **once a minute** while the dashboard is open and the widget is visible.
+- Daily change is shown with a directional arrow: an upward arrow and green text for gains, a downward arrow and red text for losses.
+- Clicking anywhere on a row opens the full Watchlist page.
+- The widget only loads data once it's actually visible on your dashboard, to avoid unnecessary requests.
 
-- See the complete list of watchlist assets  
-- Manage which symbols are tracked  
-- View more detailed information
-
-When there are no watchlist items, the widget shows an empty state message instead of an asset list.
+Unlike your positions, watchlist assets carry no quantity or cost basis — this widget is purely about price and daily movement, not performance since purchase (since you haven't purchased them).
 
 ---
 
-## Example
+### Example
 
-For a typical watchlist, you might see entries like:
-
-- **AMZN - Amazon.com Inc.**
-
-    - Current price: $145.80  
-    - Daily change: **+2.34%** (green, up arrow)
-
-- **META - Meta Platforms Inc.**
-
-    - Current price: $325.60  
-    - Daily change: **-1.22%** (red, down arrow)
-
-- **NFLX - Netflix Inc.**
-
-    - Current price: $465.90  
-    - Daily change: **+3.78%** (green, up arrow)
-
-This allows you to quickly see which assets are moving the most during the day.
+| Symbol | Name | Price | Daily Change |
+|---|---|---|---|
+| AMZN | Amazon.com Inc. | $145.80 | $+2.34\%$ |
+| META | Meta Platforms Inc. | $325.60 | $-1.22\%$ |
+| NFLX | Netflix Inc. | $465.90 | $+3.78\%$ |
 
 ---
 
-## When To Use It
+### When To Use It
 
-The Watchlist widget is useful for:
+Check the Watchlist widget when you want to:
 
-- Monitoring assets you do **not** currently hold but are interested in  
-- Keeping track of potential opportunities or future trades  
-- Watching competitors or related assets alongside your portfolio  
-- Getting a quick sense of market direction for your favourite symbols
+- monitor assets you're **considering buying** without cluttering your actual holdings;
+- keep an eye on **competitors or related assets** alongside what you already own;
+- get a quick read on **market direction** for names you care about;
+- catch a big move on a stock you've been meaning to act on.
+
+For assets you already hold, see the Positions widget instead — Watchlist is specifically for things you're tracking, not owning.
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- The widget shows only a subset of your full Watchlist (most relevant or most recent items)
-- To add or remove assets from your watchlist, use the dedicated **Watchlist** page  
-- Prices and daily changes depend on market data availability and your refresh settings
+- **Only 5 items** are shown here, even if your full watchlist has more — open the Watchlist page for the complete list.
+- To add, remove, or reorder tracked symbols, use the dedicated **Watchlist** page; this widget is read-only.
+- **Empty is normal** — if you haven't added anything to your watchlist yet, the widget shows an empty state instead of a list.
+- Price and daily-change data depend on market data availability; illiquid or delisted assets may show stale or missing values.

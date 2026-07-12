@@ -1,0 +1,138 @@
+import { useState, useEffect } from 'react'
+import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react'
+import { BaseWidgetProps } from '@/features/boards/components/types'
+import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
+import api, { PortfolioHistoryPointDTO } from '@/api'
+import { useTranslation } from 'react-i18next'
+import { BaseWidget } from '@/features/boards/components/widgets/base/BaseWidget'
+import { WidgetMetricRow } from '@/features/boards/components/widgets/base/WidgetMetricRow'
+
+interface PerformanceMetricsWidgetProps extends BaseWidgetProps {
+  batchData?: { performance_history?: unknown }
+}
+
+export default function PerformanceMetricsWidget({ isPreview = false, batchData }: PerformanceMetricsWidgetProps) {
+  const { t } = useTranslation()
+  const activePortfolioId = usePortfolioStore((state) => state.activePortfolioId)
+  const dataVersion = usePortfolioStore((state) => state.dataVersion)
+  const [loading, setLoading] = useState(false)
+  const [metrics, setMetrics] = useState<{
+    weeklyReturn?: number
+    monthlyReturn?: number
+    ytdReturn?: number
+  }>({})
+
+  useEffect(() => {
+    // Use mock data in preview mode
+    if (isPreview) {
+      setMetrics({
+        weeklyReturn: 2.34,
+        monthlyReturn: 5.67,
+        ytdReturn: 17.16,
+      })
+      return
+    }
+
+    const calculatePeriodPerformance = (history: PortfolioHistoryPointDTO[]) => {
+      if (history.length === 0) return undefined
+
+      const firstPoint = history[0]
+      const lastPoint = history[history.length - 1]
+
+      // Calculate money-weighted return accounting for cash flows during the period
+      const startValue = firstPoint.value
+      const startInvested = firstPoint.invested || firstPoint.value
+      const endValue = lastPoint.value
+      const endInvested = lastPoint.invested || lastPoint.value
+
+      // Calculate net capital change (deposits - withdrawals)
+      const capitalChange = endInvested - startInvested
+
+      // If no starting value, can't calculate return
+      if (startValue <= 0) return undefined
+
+      // Period return = (End Value - Start Value - Net Deposits) / Start Value * 100
+      const valueChange = endValue - startValue - capitalChange
+      return (valueChange / startValue) * 100
+    }
+
+    if (!activePortfolioId) return
+
+    // Check if batch data is available (but always refetch when dataVersion changes)
+    if (batchData?.performance_history) {
+      const historyData = batchData.performance_history as Record<string, PortfolioHistoryPointDTO[]>
+      setMetrics({
+        weeklyReturn: historyData['1W'] ? calculatePeriodPerformance(historyData['1W']) : undefined,
+        monthlyReturn: historyData['1M'] ? calculatePeriodPerformance(historyData['1M']) : undefined,
+        ytdReturn: historyData['YTD'] ? calculatePeriodPerformance(historyData['YTD']) : undefined,
+      })
+      setLoading(false)
+      return
+    }
+
+    const fetchMetrics = async () => {
+      setLoading(true)
+      try {
+        // Fetch portfolio history for all three periods (same as the chart)
+        const [weekData, monthData, ytdData] = await Promise.all([
+          api.getPortfolioHistory(activePortfolioId, '1W'),
+          api.getPortfolioHistory(activePortfolioId, '1M'),
+          api.getPortfolioHistory(activePortfolioId, 'YTD'),
+        ])
+
+        setMetrics({
+          weeklyReturn: calculatePeriodPerformance(weekData),
+          monthlyReturn: calculatePeriodPerformance(monthData),
+          ytdReturn: calculatePeriodPerformance(ytdData),
+        })
+      } catch (error) {
+        console.error('Failed to fetch performance metrics:', error)
+        // Set to undefined on error to show N/A
+        setMetrics({})
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMetrics()
+  }, [activePortfolioId, isPreview, batchData, dataVersion])
+
+  const periods = [
+    { label: t('dashboard.widgets.performanceMetrics.weekly'), value: metrics.weeklyReturn, key: 'week' },
+    { label: t('dashboard.widgets.performanceMetrics.monthly'), value: metrics.monthlyReturn, key: 'month' },
+    { label: t('dashboard.widgets.performanceMetrics.ytd'), value: metrics.ytdReturn, key: 'ytd' },
+  ]
+
+  return (
+    <BaseWidget
+      title="dashboard.widgets.performanceMetrics.name"
+      icon={BarChart3}
+      iconColor="text-indigo-600 dark:text-indigo-400"
+      iconBgColor="bg-indigo-50 dark:bg-indigo-900/20"
+      isLoading={loading}
+      contentClassName="pf-card--content"
+    >
+      <div className="grid grid-cols-1 gap-3">
+        {periods.map((period) => {
+          const value = period.value
+          const isUndefined = value === undefined
+          const isPositive = value !== undefined && value > 0
+          const isNegative = value !== undefined && value < 0
+          const isZero = value !== undefined && value === 0
+          const Icon = isPositive ? TrendingUp : isNegative ? TrendingDown : BarChart3
+          const tone = isUndefined || isZero ? 'neutral' : isPositive ? 'success' : 'danger'
+
+          return (
+            <WidgetMetricRow
+              key={period.key}
+              icon={Icon}
+              label={period.label}
+              value={isUndefined ? 'N/A' : `${isPositive ? '+' : ''}${value.toFixed(2)}%`}
+              tone={tone}
+            />
+          )
+        })}
+      </div>
+    </BaseWidget>
+  )
+}

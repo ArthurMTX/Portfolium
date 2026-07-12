@@ -3,6 +3,7 @@ site_description: Documentation for Portfolium - Portfolio Management Platform
 site_author: ArthurMTX
 repo_url: https://github.com/ArthurMTX/Portfolium
 repo_name: ArthurMTX/Portfolium
+edit_uri: edit/main/docs/
 
 # Build directory (can be overridden with -d flag)
 site_dir: site
@@ -13,7 +14,7 @@ theme:
     # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: pink
+      primary: indigo
       accent: pink
       toggle:
         icon: material/brightness-7
@@ -21,7 +22,7 @@ theme:
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: pink
+      primary: indigo
       accent: pink
       toggle:
         icon: material/brightness-4
@@ -33,9 +34,13 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.indexes
+    - navigation.footer
     - navigation.top
+    - toc.follow
     - search.suggest
     - search.highlight
+    - content.action.edit
     - content.tabs.link
     - content.code.annotation
     - content.code.copy
@@ -75,8 +80,9 @@ nav:
   - User Guide:
       - Portfolios: user-guide/portfolios.md
       - Dashboard: user-guide/dashboard.md
-      - Example Layouts: user-guide/example-layouts.md
       - Charts: user-guide/charts.md
+      - Calendar: user-guide/calendar.md
+      - Allocation: user-guide/allocation.md
       - Transactions: user-guide/transactions.md
       - Crypto Conversions: user-guide/crypto-conversions.md
       - Assets: user-guide/assets.md
@@ -84,7 +90,10 @@ nav:
       - Insights: user-guide/insights.md
       - Notifications: user-guide/notifications.md
       - Daily Reports: user-guide/daily-reports.md
+      - Public Sharing: user-guide/public-sharing.md
+      - Asset Research: user-guide/asset-research.md
       - Settings: user-guide/settings.md
+      - Profile & Security: user-guide/profile-security.md
       - Gallery: user-guide/gallery.md
 
   - Widgets:
@@ -102,15 +111,15 @@ nav:
       - Data:
           - Positions: widgets/positions.md
           - Recent Notifications: widgets/notifications.md
-          - Recent Transactions: widgets/transactions.md
+          - Recent Transactions: widgets/recent-transactions.md
           - Watchlist: widgets/watchlist.md
 
       - Insights:
           - Alpha: widgets/alpha.md
           - Asset Allocation: widgets/asset-allocation.md
-          - Average Holding Period: widgets/average-holding-period.md
-          - Beta: widgets/beta.md
-          - Best and Worst Daily Performers: widgets/best-worst-daily.md
+          - Average Holding Period: widgets/avg-holding-period.md
+          - Beta & Correlation: widgets/beta-correlation.md
+          - Best and Worst Today: widgets/best-worst-today.md
           - Concentration Risk: widgets/concentration-risk.md
           - Diversification Score: widgets/diversification-score.md
           - Downside Deviation: widgets/downside-deviation.md
@@ -120,9 +129,11 @@ nav:
           - Performance Metrics: widgets/performance-metrics.md
           - R-Squared: widgets/r-squared.md
           - Sharpe Ratio: widgets/sharpe-ratio.md
+          - Theme Allocation: widgets/theme-allocation.md
+          - Today's Brief: widgets/today-brief.md
           - Top Performers: widgets/top-performers.md
           - Total Return: widgets/total-return.md
-          - Value at Risk: widgets/var.md
+          - Value at Risk: widgets/value-at-risk.md
           - Volatility: widgets/volatility.md
           - Worst Performers: widgets/worst-performers.md
 
@@ -137,7 +148,7 @@ nav:
 
       - Visual & Fun:
           - Bitcoin Pizza Index: widgets/bitcoin-pizza-index.md
-          - Heatmap: widgets/heatmap.md
+          - Portfolio Heatmap: widgets/portfolio-heatmap.md
 
   - Detailed Metrics:
       - Overview: detailed-metrics/index.md
@@ -186,22 +197,41 @@ nav:
       - Authentication: api/authentication.md
       - Endpoints: api/endpoints.md
 
+  - Admin:
+      - Email Configuration: admin/email-configuration.md
+
   - Technical Reference:
       - Overview: technical/overview.md
+      - Asset Metadata Overrides: technical/asset-metadata-overrides.md
+      - Asset Themes: technical/asset-themes.md
       - Stock Splits: technical/stock-splits.md
       - Logo Fetching: technical/logo-fetching.md
-      - Price Fetching: technical/price-fetching.md
+      - Pricing: technical/pricing.md
       - Currency Conversion: technical/currency-conversion.md
       - Data Models: technical/data-models.md
-      - Pricing Service: technical/pricing-service.md
+      - Background Jobs: technical/background-jobs.md
+      - Reference Data & ISIN: technical/reference-data-isin.md
+      - Push Notifications: technical/push-notifications.md
+      - Observability: technical/observability.md
+
+  - Operations:
+      - Backup & Restore: operations/backup-restore.md
+      - Reverse Proxy & HTTPS: operations/reverse-proxy-https.md
+      - Upgrades: operations/upgrades.md
+      - Troubleshooting: operations/troubleshooting.md
 
   - Development:
       - Architecture: development/architecture.md
       - Contributing: development/contributing.md
       - Testing: development/testing.md
+      - Documentation Workflow: development/documentation.md
+      - Content Audit: development/content-audit.md
+      - Documentation Coverage: development/docs-coverage.md
+      - MiniLM Theme Benchmark: development/theme-minilm-benchmark.md
 
 
 extra:
+  generator: false
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/ArthurMTX/Portfolium

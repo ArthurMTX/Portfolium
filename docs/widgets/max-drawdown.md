@@ -1,89 +1,50 @@
-# Maximum Drawdown
+## Max Drawdown
 
-The **Maximum Drawdown** widget measures the **largest peak-to-trough decline** your portfolio experienced during a selected period.  
-It represents the worst percentage drop from a previous high before a new high was reached.
+### What It Shows
 
-This metric highlights your **worst-case scenario** in terms of losses.
+Max Drawdown answers the question:
+> "From my portfolio's best moment, how far did it fall before recovering?"
 
----
+It's the largest **peak-to-trough decline** your portfolio experienced during the period — the deepest hole you were in at any point, measured from the highest value you'd reached up to that point. It's shown as a negative percentage (for example, $-12.30\%$) and highlighted in red, since it represents your worst-case stretch, not a typical day.
 
-## What It Shows
+This is one of the most intuitive risk numbers there is: it's literally "how bad did it get" in plain terms, independent of how quickly the portfolio bounced back afterward.
 
-The widget displays:
+### How It's Calculated
 
-- The **maximum drawdown (%)** over the selected period (default: **1 year**)  
-- Always expressed as a **negative percentage** (e.g., **-12.30%**)  
-- Color-coded in red to emphasize downside risk  
+Portfolium builds an equity curve from your portfolio's **daily value history over the past year** (adjusted for deposits and withdrawals, so cash flows don't get counted as gains or losses), then walks through it day by day:
 
-It also internally tracks the **date** when the maximum drawdown occurred.
-
-This metric answers:  
-> "How much did my portfolio fall from its highest point during this period?"
-
----
-
-## How It's Calculated
-
-Maximum drawdown compares the highest portfolio value (peak) with the lowest value that follows it (trough).
-
-**Formula**
+1. Track the highest point reached so far (the running peak).
+2. For every day, measure how far the current value has fallen from that peak.
+3. Keep the largest such decline — that's the maximum drawdown.
+4. Record the date it occurred (used internally, not shown on the card).
 
 $$
-\text{Max Drawdown} =
-\frac{\text{Peak Value} - \text{Trough Value}}{\text{Peak Value}} \times 100
+\text{Max Drawdown} = \frac{\text{Peak Value} - \text{Trough Value}}{\text{Peak Value}} \times 100
 $$
 
-Calculation steps in Portfolium:
+If there isn't enough daily history to build the curve, the widget shows **N/A**.
 
-1. Scan all daily portfolio values  
-2. Track the **highest value reached so far** (the peak)  
-3. For each day, compute how much the portfolio has fallen from that peak  
-4. Record the largest decline as the **maximum drawdown**  
-5. Store the date on which it occurred  
+### Example
 
-Notes:
+| Step | Value |
+|---|---|
+| Portfolio peak value | $10{,}000$ |
+| Subsequent trough value | $8{,}700$ |
+| Decline | $\frac{10{,}000 - 8{,}700}{10{,}000} \times 100 = 13\%$ |
 
-- The widget displays the percentage only; the date is not shown but stored internally  
-- If insufficient history exists, the value appears as **N/A**
+The widget would display **$-13.00\%$**.
 
----
+### When To Use It
 
-## Example
+Check Max Drawdown when you want to:
 
-Imagine your portfolio values over time reached:
+- understand the worst decline you'd have had to sit through in the past year;
+- stress-test your own tolerance for losses before increasing risk in your portfolio;
+- compare two strategies with similar returns but very different "pain" along the way.
 
-- **Peak:** €10,000  
-- **Trough:** €8,700  
+### Notes & Limitations
 
-Maximum drawdown:
-
-$$
-\text{Max Drawdown} = 
-\frac{10\,000 - 8\,700}{10\,000} \times 100
-= 13\%
-$$
-
-Displayed as:
-
-- **-13.00%**
-
----
-
-## When To Use It
-
-The Maximum Drawdown widget is useful for:
-
-- Evaluating **downside risk** and resilience  
-- Understanding the worst decline your portfolio suffered  
-- Comparing strategies with similar returns but different risk profiles  
-- Stress-testing your tolerance for losses  
-- Complementing volatility, Sharpe ratio, and Value at Risk  
-
----
-
-## Notes
-
-- Always shown as a **negative percentage**  
-- Based on your portfolio's **daily value history**  
-- Large drawdowns indicate high downside exposure  
-- Formatting follows your portfolio's display settings  
+- Always shown as a negative percentage; a deeper (more negative) number means a rougher ride.
+- Based on the portfolio's own daily value history over the default $1$-year window, not a single asset.
+- A shallow max drawdown doesn't guarantee safety going forward — it only describes what already happened during the selected period.
+- Works well alongside [Volatility](volatility.md), [Sharpe Ratio](sharpe-ratio.md), and [Value at Risk](value-at-risk.md) for a fuller risk picture.

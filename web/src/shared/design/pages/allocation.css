@@ -1,0 +1,419 @@
+.allocation-page button {
+  font: inherit;
+}
+
+.allocation-hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem clamp(1.25rem, 4vw, 3rem);
+  color: var(--pf-ink);
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.allocation-hero em {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--pf-muted);
+  font-size: 1rem;
+  font-style: normal;
+}
+
+.allocation-lenses {
+  margin-bottom: clamp(1rem, 2.4vw, 1.8rem);
+}
+
+.allocation-ranking {
+  display: grid;
+  gap: 0;
+}
+
+.allocation-ranking button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) minmax(9rem, max-content) minmax(4.8rem, max-content);
+  gap: clamp(0.7rem, 1.5vw, 1.5rem);
+  align-items: center;
+  min-height: 5.8rem;
+  border: 0;
+  border-top: 1px solid var(--pf-line);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.allocation-ranking button.has-mark {
+  grid-template-columns: 3.5rem 2.4rem minmax(0, 1fr) minmax(9rem, max-content) minmax(4.8rem, max-content);
+}
+
+.allocation-ranking button:last-child {
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.allocation-ranking button:hover,
+.allocation-ranking button:focus-visible,
+.allocation-ranking button.is-selected {
+  background: var(--pf-inset);
+}
+
+.allocation-rank {
+  color: var(--pf-subtle);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.allocation-mark {
+  --allocation-mark-color: var(--pf-subtle);
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--allocation-mark-color);
+  flex: 0 0 auto;
+}
+
+.allocation-mark-row {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+}
+
+.allocation-mark-hero {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+}
+
+.allocation-mark.is-icon {
+  border: 1px solid color-mix(in srgb, var(--allocation-mark-color) 45%, transparent);
+  background: color-mix(in srgb, var(--allocation-mark-color) 13%, transparent);
+}
+
+.allocation-mark.is-flag {
+  background: var(--pf-inset);
+  box-shadow: inset 0 0 0 1px var(--pf-line);
+}
+
+.allocation-mark.is-flag img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.allocation-mark.is-fallback {
+  border: 1px solid var(--pf-line);
+  background: var(--pf-inset);
+  color: var(--pf-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.allocation-rank-name {
+  color: var(--pf-ink);
+  font-size: clamp(1.05rem, 1.6vw, 1.45rem);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.allocation-ranking strong {
+  color: var(--pf-ink);
+  font-size: clamp(1rem, 1.55vw, 1.35rem);
+  font-weight: 850;
+  letter-spacing: -0.055em;
+  white-space: nowrap;
+}
+
+.allocation-ranking em {
+  color: var(--pf-muted);
+  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.allocation-ranking i {
+  position: absolute;
+  inset-inline-start: 3.5rem;
+  inset-block-end: -1px;
+  block-size: 1px;
+  max-inline-size: calc(100% - 3.5rem);
+  background: var(--pf-accent);
+  opacity: 0.72;
+}
+
+.allocation-ranking button.has-mark i {
+  inset-inline-start: calc(3.5rem + 2.4rem + clamp(0.7rem, 1.5vw, 1.5rem));
+  max-inline-size: calc(100% - 3.5rem - 2.4rem - clamp(0.7rem, 1.5vw, 1.5rem));
+}
+
+.allocation-explainer {
+  position: sticky;
+  top: 6.25rem;
+}
+
+.allocation-explainer-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.8rem;
+  color: var(--pf-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.allocation-explainer h3 {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: clamp(1.35rem, 2.3vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+}
+
+.allocation-explainer > strong {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--pf-accent);
+  font-size: 1.12rem;
+}
+
+.allocation-explainer > span {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--pf-muted);
+  line-height: 1.6;
+}
+
+.allocation-holdings {
+  display: grid;
+  margin-top: 2rem;
+}
+
+.allocation-holdings button {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) max-content max-content;
+  gap: 0.85rem;
+  align-items: center;
+  min-height: 4.6rem;
+  border: 0;
+  border-top: 1px solid var(--pf-line);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.allocation-holdings button:hover strong,
+.allocation-holdings button:focus-visible strong {
+  color: var(--pf-accent);
+}
+
+.allocation-holdings img {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.allocation-holdings span {
+  min-width: 0;
+}
+
+.allocation-holdings strong,
+.allocation-holdings em {
+  display: block;
+}
+
+.allocation-holdings strong {
+  color: var(--pf-ink);
+  font-size: 0.98rem;
+  transition: color 160ms ease;
+}
+
+.allocation-holdings em {
+  overflow: hidden;
+  color: var(--pf-muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.allocation-holdings b {
+  color: var(--pf-ink);
+  font-size: 0.98rem;
+  white-space: nowrap;
+}
+
+.allocation-holdings small {
+  color: var(--pf-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.allocation-unknown,
+.allocation-story,
+.allocation-future,
+.allocation-empty {
+  max-width: 980px;
+}
+
+.allocation-unknown h3 {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: clamp(1.35rem, 2.3vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+}
+
+.allocation-unknown p,
+.allocation-story p,
+.allocation-future p,
+.allocation-empty p {
+  margin: 1rem 0 0;
+  color: var(--pf-muted);
+  font-size: clamp(1.15rem, 2vw, 1.7rem);
+  line-height: 1.45;
+  letter-spacing: -0.035em;
+}
+
+.allocation-unknown div {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 2rem;
+  color: var(--pf-muted);
+}
+
+.allocation-unknown button,
+.allocation-empty button {
+  margin-top: 2rem;
+  border: 0;
+  background: transparent;
+  color: var(--pf-accent);
+  padding: 0;
+  font-size: 0.98rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.allocation-unknown.is-clear h3,
+.allocation-empty h2 {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: clamp(1.8rem, 3vw, 3rem);
+  letter-spacing: -0.05em;
+}
+
+.allocation-story {
+  display: grid;
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+}
+
+.allocation-story p {
+  margin: 0;
+  max-width: 900px;
+  color: var(--pf-ink);
+  font-size: clamp(1.75rem, 3vw, 3.15rem);
+  line-height: 1.14;
+}
+
+.allocation-story strong {
+  color: var(--pf-accent);
+  font-weight: 850;
+}
+
+.allocation-future {
+  border-left: 1px solid var(--pf-accent-border);
+  padding-left: clamp(1.2rem, 3vw, 2rem);
+}
+
+.allocation-future span {
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--pf-muted);
+  line-height: 1.65;
+}
+
+.allocation-loading {
+  display: grid;
+  gap: 0;
+}
+
+.allocation-loading span {
+  display: block;
+  height: 5.8rem;
+  border-top: 1px solid var(--pf-line);
+  background: var(--pf-inset);
+  animation: pfPulse 1.4s ease-in-out infinite;
+}
+
+@media (max-width: 1100px) {
+  .allocation-explainer {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .allocation-ranking button {
+    grid-template-columns: 2.35rem minmax(0, 1fr);
+    gap: 0.4rem 1rem;
+    padding-block: 1rem;
+    align-items: start;
+  }
+
+  .allocation-ranking button.has-mark {
+    grid-template-columns: 2.35rem 2.25rem minmax(0, 1fr);
+  }
+
+  .allocation-ranking strong,
+  .allocation-ranking em {
+    grid-column: 2;
+  }
+
+  .allocation-ranking button.has-mark strong,
+  .allocation-ranking button.has-mark em {
+    grid-column: 3;
+  }
+
+  .allocation-rank-name {
+    font-size: clamp(1.45rem, 7vw, 2.15rem);
+  }
+
+  .allocation-ranking strong {
+    margin-top: 0.2rem;
+    font-size: clamp(1.35rem, 6vw, 1.9rem);
+  }
+
+  .allocation-ranking em {
+    font-size: 1rem;
+  }
+
+  .allocation-ranking i {
+    inset-inline-start: 2.35rem;
+    max-inline-size: calc(100% - 2.35rem);
+  }
+
+  .allocation-ranking button.has-mark i {
+    inset-inline-start: calc(2.35rem + 2.25rem + 1rem);
+    max-inline-size: calc(100% - 2.35rem - 2.25rem - 1rem);
+  }
+
+  .allocation-holdings button {
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+
+  .allocation-holdings b,
+  .allocation-holdings small {
+    grid-column: 2;
+  }
+
+    }

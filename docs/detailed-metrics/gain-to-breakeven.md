@@ -1,6 +1,6 @@
-# Breakeven (Gain % & Target Price)
+## Breakeven (Gain % & Target Price)
 
-## What It Shows  
+### What It Shows  
 The Breakeven metrics tell you **how far a losing position needs to rise to get back to your average cost**.
 
 Portfolium shows two related values when a position is currently in loss:
@@ -16,7 +16,7 @@ These metrics are **only shown for positions that are currently underwater** (ne
 
 ---
 
-## How It's Calculated  
+### How It's Calculated  
 
 First, the position's **average cost** per share is computed (also called *cost basis per share*).  
 Conceptually:
@@ -108,7 +108,7 @@ A small loss is manageable; a huge drawdown becomes mathematically brutal to rec
 
 ---
 
-## Examples  
+### Examples  
 
 ### Example 1 — Moderate Loss
 
@@ -150,7 +150,7 @@ You need **almost +67%** from here just to **break even**. This highlights how p
 
 ---
 
-## When To Use It  
+### When To Use It  
 
 Breakeven metrics are helpful when you:
 
@@ -171,7 +171,7 @@ Particularly useful for:
 
 ---
 
-## Notes & Limitations  
+### Notes & Limitations  
 
 - **Only calculated for losing positions**  
   If your unrealized P&L is positive or zero, breakeven metrics are not shown, you are already at or above breakeven.

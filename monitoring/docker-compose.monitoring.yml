@@ -1,0 +1,75 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: portfolium-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - postgres-exporter
+      - redis-exporter
+      - celery-exporter
+    networks: [portfolium]
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: portfolium-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: db:5432/${POSTGRES_DB:-portfolium}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER:-portfolium}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:-portfolium}
+    networks: [portfolium]
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.74.0
+    container_name: portfolium-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
+    networks: [portfolium]
+
+  celery-exporter:
+    image: danihodovic/celery-exporter:0.12.2
+    container_name: portfolium-celery-exporter
+    restart: unless-stopped
+    environment:
+      CE_BROKER_URL: ${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-${SECRET_KEY}}@redis:6379/0}
+    networks: [portfolium]
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    container_name: portfolium-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks: [portfolium]
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  portfolium:
+    external: true
+    name: portfolium

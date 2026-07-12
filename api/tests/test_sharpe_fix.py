@@ -4,7 +4,7 @@ from datetime import date, timedelta, datetime
 from unittest.mock import Mock
 import math
 
-from app.services.insights import InsightsService
+from app.services.portfolio_analytics.insights import InsightsService
 from app.schemas import RiskMetrics
 
 class TestSharpeFix:

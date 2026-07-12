@@ -1,103 +1,64 @@
-# R-Squared (R² vs Benchmark)
+## R-Squared
 
-The **R-Squared (R²)** widget measures **how much of your portfolio's movements can be explained by the benchmark's movements**.  
-It is based on the **correlation** between your portfolio and the benchmark (by default **SPY - S&P 500**) and expressed as a **percentage between 0% and 100%**.
+### What It Shows
 
-A higher R² means your portfolio behaves more like the benchmark; a lower R² means it moves more independently.
+R-Squared tells you **how much of your portfolio's ups and downs can be explained by the broader market**, expressed as a percentage from $0\%$ to $100\%$.
 
----
+It answers the question:
 
-## What It Shows
+> "Does my portfolio move because of the market, or because of things specific to what I hold?"
 
-The widget displays:
+- A **high R²** (closer to $100\%$) means your portfolio behaves a lot like the benchmark — when it moves, your portfolio tends to move with it.
+- A **low R²** means your portfolio's returns are largely independent of the benchmark — driven more by your specific holdings than by overall market swings.
 
-- **R-Squared (%)** between your portfolio and the selected benchmark  
-- A single value, e.g. **85.40%**  
-- Calculated over the selected period (default: **1 year**)  
-- A subtitle that explains the interpretation relative to the benchmark
-
-Typical interpretation:
-
-- **0–40%** – low relationship: portfolio is largely independent from the benchmark  
-- **40–70%** – moderate relationship  
-- **70–100%** – strong relationship: portfolio closely tracks the benchmark  
-
-This metric answers the question:  
-> "To what extent does the benchmark explain my portfolio's returns?"
+By default, the benchmark is **SPY**, tracking the S&P 500.
 
 ---
 
-## How It's Calculated
+### How It's Calculated
 
-R-Squared is derived from the **correlation** between your portfolio and the benchmark:
+R² is derived from the **correlation** between your portfolio's daily performance and the benchmark's daily performance over the selected period (default: $1$ year).
 
-1. Portfolium calculates **daily performance series** for:
-   - Your **portfolio**
-   - The **benchmark** (e.g. SPY)
-
-2. It aligns both time series by date and computes the **correlation coefficient** $\rho$ between the two return series.
-
-3. R-Squared is then:
+1. Portfolium builds daily performance series for both your portfolio and the benchmark, aligned by date.
+2. It computes the correlation coefficient $\rho$ between the two series.
+3. R-Squared is simply the correlation squared, as a percentage:
 
 $$
 R^2 = \rho^2 \times 100
 $$
 
-Where:
+Since it's a squared value, R² is always between $0\%$ and $100\%$ regardless of whether the correlation itself was positive or negative — R² only measures the strength of the relationship, not its direction.
 
-- $\rho$ = correlation between portfolio and benchmark returns  
-- $R^2$ is expressed as a **percentage** from 0 to 100  
-
-Under the hood:
-
-- If the correlation is `corr`, $R^2 = corr^2 \times 100$
-
-If the correlation cannot be computed (e.g., insufficient data, zero variance):
-
-- R-Squared is set to **0** or the widget may show **N/A** depending on data availability.
+If there isn't enough aligned data to compute a correlation, the widget falls back to $0$ or shows **N/A**.
 
 ---
 
-## Example
+### Example
 
-Imagine that, over the last year:
-
-- The correlation between your portfolio and SPY is **0.92**
-
-R-Squared:
+Suppose the correlation between your portfolio and SPY over the past year works out to $\rho = 0.92$:
 
 $$
-R^2 = 0.92^2 \times 100 = 0.8464 \times 100 = 84.64\%
+R^2 = 0.92^2 \times 100 = 84.64\%
 $$
 
-The widget would display:
-
-- **84.64%**
-
-Interpretation:
-
-- About **85% of your portfolio's return variation** can be explained by movements in the benchmark (SPY).  
-- Your portfolio behaves very similarly to the index.
+The widget displays **$84.64\%$** — about $85\%$ of the variation in your portfolio's returns lines up with movements in SPY. Your portfolio behaves quite similarly to the broader market.
 
 ---
 
-## When To Use It
+### When To Use It
 
-The R-Squared widget is useful for:
+Check R-Squared when you want to:
 
-- Understanding how **benchmark-driven** your portfolio really is  
-- Checking whether an allegedly "active" portfolio is actually just **closely tracking an index**  
-- Evaluating diversification: a **low R²** can indicate more **idiosyncratic** or uncorrelated bets  
-- Complementing **Alpha** and **Beta**:
-    - High **alpha** with **high R²** → strong outperformance while still benchmark-like  
-    - High **alpha** with **low R²** → outperformance coming from differentiated positions  
+- confirm whether an "actively managed" portfolio is really behaving differently from an index, or is effectively just tracking it;
+- put [Alpha](alpha.md) in context — a high alpha with high R² suggests you're beating the market while still moving with it, while a high alpha with low R² suggests your outperformance comes from positions that march to their own beat;
+- gauge how much diversification benefit your specific holdings provide versus a plain index fund — a low R² can be a sign of genuinely differentiated exposure (or, alternatively, a mismatched benchmark).
 
 ---
 
-## Notes
+### Notes & Limitations
 
-- Default benchmark is **SPY (S&P 500)**, but the underlying system supports other symbols  
-- R-Squared is based on **performance series**, not raw prices  
-- Values range from **0%** (no linear relationship) to **100%** (perfect linear relationship)  
-- A **high R²** does *not* mean good performance by itself, it only measures how closely you track the benchmark  
-- Formatting follows your portfolio's display settings (percentage with two decimals)
+- **Direction-blind.** R² tells you how tightly your portfolio and the benchmark move together, not whether that movement is positive or negative — check [Beta & Market Correlation](beta-correlation.md) or [Alpha](alpha.md) for direction and magnitude.
+- **Not a quality signal by itself.** A high R² isn't "good" or "bad" on its own — it only measures how benchmark-like your returns are.
+- **Benchmark choice matters.** SPY may not be the most meaningful reference for a portfolio concentrated in crypto, bonds, or a single non-US market.
+- **Depends on price history.** Missing or misaligned price data for the portfolio or benchmark reduces the reliability of the correlation this is based on.
+- Best interpreted together with [Alpha](alpha.md) and [Beta & Market Correlation](beta-correlation.md), not in isolation.

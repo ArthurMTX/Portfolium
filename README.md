@@ -100,7 +100,7 @@ docker compose -f ./docker-compose.dev.yml up -d --build
 | 📖 API Docs | `http://localhost:8000/docs` | Swagger UI |
 | 🌸 Flower | `http://localhost:5555` | Task monitoring |
 
-✨ **That's it!** Default admin credentials are in your `.env` file.
+✨ **That's it!** Default admin credentials are in your `.env` file, and local MiniLM theme classification works without a Gemini API key.
 
 <details>
 <summary> <strong>Manual setup without Docker</strong></summary>

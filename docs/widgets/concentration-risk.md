@@ -1,114 +1,75 @@
-# Concentration Risk
+## Concentration Risk
 
-The **Concentration Risk** widget shows how much of your portfolio is concentrated in your **top three positions**.  
-It helps you see if a small number of assets represent a large share of your total portfolio value.
+### What It Shows
 
----
+Concentration Risk tells you how much of your portfolio's value rides on just a handful of positions — specifically, your **top $3$ holdings by market value**.
 
-## What It Shows
+It answers the question:
 
-- The **combined percentage** of your portfolio held in your **3 largest positions** (by market value)  
-- A visual risk indicator:
-
-    - **Green shield** if concentration is **60% or below**
-    - **Orange warning icon** if concentration is **above 60%** (high concentration risk)
-
-- A small list of your **Top 3 positions**, each with:
-
-    - Logo (when available)
-    - Symbol and name
-    - Individual **% of portfolio** for that position
-
-This widget answers the question:  
 > "How much of my portfolio depends on just a few positions?"
 
----
+You'll see:
 
-## How It's Calculated
-
-1. For each current position, compute its **market value** (quantity × current price).  
-2. Sum all market values to get the **total portfolio value**.  
-3. Sort positions by market value and take the **top 3**.  
-4. Sum the market values of these top 3 positions.  
-5. Divide by the total portfolio value and convert to a percentage.
-
-**Formula**
-
-Let:
-
-- $V_{\text{total}}$ = total portfolio market value (sum of all positions' market values)
-- $V_1, V_2, V_3$ = market values of the three largest positions  
-
-Then:
-
-$$
-\text{Concentration Risk (\%)} =
-\frac{V_1 + V_2 + V_3}{V_{\text{total}}} \times 100
-$$
-
-Risk level:
-
-- If Concentration Risk **> 60%** → **High concentration** (orange warning)  
-- Otherwise → **Moderate / diversified** (green shield)
-
-Additional notes:
-
-- Only positions with **positive market value** are included.  
-- If you have fewer than 3 positions, the widget uses whatever is available (1 or 2).
+- a single **combined percentage** for your top $3$ positions;
+- a color-coded risk indicator — a green shield when concentration is moderate, an orange warning icon when it's high;
+- a short list of those top $3$ positions, each with its own individual share of the portfolio.
 
 ---
 
-## Example
+### How It's Calculated
 
-Suppose your portfolio looks like this:
-
-- Position A: €6,000  
-- Position B: €3,000  
-- Position C: €1,000  
-- Position D: €2,000  
-
-Total portfolio value:
+1. Compute the current market value of every position you hold.
+2. Sum them to get your total portfolio value, $V_{\text{total}}$.
+3. Sort positions by market value and take the three largest: $V_1$, $V_2$, $V_3$.
+4. Concentration is their combined share of the total:
 
 $$
-V_{\text{total}} = 6\,000 + 3\,000 + 1\,000 + 2\,000 = 12\,000
+\text{Concentration Risk} = \frac{V_1 + V_2 + V_3}{V_{\text{total}}} \times 100
 $$
 
-Top 3 positions by value: A, B, D  
+The widget flags risk level using a single threshold:
 
-$$
-V_1 + V_2 + V_3 = 6\,000 + 3\,000 + 2\,000 = 11\,000
-$$
+- **Concentration $> 60\%$** → high concentration (orange warning icon)
+- **Concentration $\le 60\%$** → moderate / diversified (green shield)
 
-Concentration Risk:
-
-$$
-\text{Concentration Risk (\%)} = \frac{11\,000}{12\,000} \times 100 \approx 91.7
-$$
-
-The widget would display:
-
-- **91.7%** (in orange, high risk)  
-- A list of the top 3 positions with their individual shares, e.g.:
-
-    - A: 50.0%  
-    - B: 25.0%  
-    - D: 16.7%
+Only positions with a positive market value are considered. If you hold fewer than $3$ positions, the calculation simply uses however many you have.
 
 ---
 
-## When To Use It
+### Example
 
-The Concentration Risk widget is useful for:
+| Position | Market value |
+|---|---|
+| A | $\text{\euro}6{,}000$ |
+| B | $\text{\euro}3{,}000$ |
+| C | $\text{\euro}1{,}000$ |
+| D | $\text{\euro}2{,}000$ |
 
-- Checking if your portfolio is **overexposed** to a few names  
-- Identifying positions that may need **trimming** for diversification  
-- Monitoring how new trades affect your **overall risk profile**  
-- Complementing other risk tools (volatility, drawdown, sector exposure, etc.)
+Total portfolio value: $\text{\euro}12{,}000$. Top $3$ by value are A, B, and D:
+
+$$
+\text{Concentration Risk} = \frac{6{,}000 + 3{,}000 + 2{,}000}{12{,}000} \times 100 \approx 91.7\%
+$$
+
+The widget shows **$91.7\%$** in orange (high risk), with a breakdown of A ($50.0\%$), B ($25.0\%$), and D ($16.7\%$).
 
 ---
 
-## Notes
+### When To Use It
 
-- The widget focuses on **position size**, not performance: a losing but large position still increases concentration risk
-- Results change with **price movements** and **position size** (buys/sells) 
-- Concentration is calculated per **active portfolio**; switching portfolio changes the values
+Check Concentration Risk when you want to:
+
+- see quickly whether your portfolio's fate rests on just a few names;
+- identify a position that may be worth trimming for better diversification;
+- keep an eye on how new buys or price moves are shifting your overall risk profile — a stock that doubles in value also doubles its share of your concentration.
+
+It pairs naturally with [Asset Allocation](asset-allocation.md), which shows diversification by sector/type/country rather than by individual position.
+
+---
+
+### Notes & Limitations
+
+- **Position size, not performance.** A large losing position still counts fully toward concentration — this widget measures exposure, not quality.
+- **Changes with price and trade activity.** A rally in one holding can push it into the top $3$ and raise your concentration score even without any new trades.
+- **Per-portfolio.** Switching your active portfolio recalculates concentration for that portfolio only.
+- The $60\%$ threshold is a fixed rule of thumb built into the widget, not a personalized risk tolerance — treat it as a general warning line rather than a hard rule for your situation.

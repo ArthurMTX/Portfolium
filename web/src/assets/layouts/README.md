@@ -5,7 +5,7 @@ This folder contains the JSON definitions for all predefined dashboard layouts.
 ## Single Source of Truth
 
 These JSON files are the **single source of truth** for layout definitions. They are:
-- Automatically imported by `src/components/dashboard/utils/predefinedLayouts.ts`
+- Automatically imported by `src/features/dashboard/components/utils/predefinedLayouts.ts`
 - Used to generate TypeScript exports at build time
 - Maintained in one place to avoid duplication
 

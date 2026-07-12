@@ -1,95 +1,56 @@
-# Volatility
+## Volatility
 
-The **Volatility** widget measures how much your portfolio's value fluctuates over time.  
-It represents the **annualized standard deviation of daily returns**, showing how "risky" or "unstable" your portfolio is.
+### What It Shows
 
-Higher volatility means larger price swings — both upward and downward.
+Volatility answers the question:
+> "How much does my portfolio typically move, day to day?"
 
----
+It's the annualized measure of how much your portfolio's daily returns swing around their average — in both directions, up and down. A calmer portfolio has a lower number; a portfolio that regularly makes big moves (in either direction) has a higher one.
 
-## What It Shows
+Rough interpretation:
 
-The widget displays:
+- **Below $10\%$** — low volatility, a relatively calm portfolio.
+- **$10\%$ to $20\%$** — moderate volatility.
+- **Above $20\%$** — high volatility, expect noticeable swings.
 
-- Your portfolio's **annualized volatility (%)** over the selected period (default: **1 year**)  
-- A single numeric value, e.g., **18.50%**  
-- Higher values indicate **greater fluctuations** in daily performance
+Higher volatility isn't automatically bad — it just means bigger moves both when things go your way and when they don't.
 
-Rule-of-thumb interpretation:
+### How It's Calculated
 
-- **< 10%** – low volatility  
-- **10–20%** – moderate volatility  
-- **> 20%** – high volatility  
+Portfolium computes volatility from your portfolio's **daily returns over the past year**, adjusted for deposits and withdrawals so contributions aren't mistaken for gains:
 
-This metric answers the question:  
-> "How much does my portfolio typically move day to day?"
-
----
-
-## How It's Calculated
-
-Volatility is computed using the **standard deviation of daily returns**, then annualized.
-
-**Steps in Portfolium:**
-
-1. Compute daily returns from daily portfolio values  
-   $$
-   r_t = \frac{V_t - V_{t-1}}{V_{t-1}}
-   $$
-2. Calculate the variance of daily returns  
-3. Take the square root to obtain **daily volatility**  
-4. Annualize using 252 trading days  
-
-**Formula**
+1. Compute daily returns, $r_t = \dfrac{V_t - V_{t-1}}{V_{t-1}}$, from the daily portfolio value history.
+2. Calculate the variance of those daily returns around their mean.
+3. Take the square root to get daily volatility.
+4. Annualize by multiplying by $\sqrt{252}$ (the standard number of trading days in a year).
 
 $$
 \sigma_{\text{annual}} = \sqrt{\frac{1}{N}\sum_{t=1}^{N}(r_t - \bar{r})^2} \times \sqrt{252}
 $$
 
-Where:
+Where $r_t$ is a daily return, $\bar r$ is the average daily return, and $N$ is the number of days in the period. If there isn't enough daily history to compute this, the widget shows **N/A**.
 
-- $r_t$ = daily return  
-- $\bar{r}$ = average daily return  
-- $N$ = number of trading days in the period  
+### Example
 
-Additional notes:
+| Step | Value |
+|---|---|
+| Standard deviation of daily returns | $1.16\%$ |
+| Annualization factor ($\sqrt{252}$) | $\approx 15.87$ |
+| **Annualized volatility** | $0.0116 \times 15.87 \approx 18.40\%$ |
 
-- If daily return history is insufficient, the widget shows **N/A**
+The widget would display **$18.40\%$**.
 
----
+### When To Use It
 
-## Example
+Look at Volatility when you want to:
 
-Assume your portfolio had the following over the last year:
+- get a general sense of how "bumpy" your portfolio's ride has been;
+- compare the overall riskiness of different portfolios or allocations;
+- decide whether your current mix matches your comfort with fluctuation, before adding higher-risk positions.
 
-- Standard deviation of daily returns: **1.16%**  
-- Annualization factor: $\sqrt{252} \approx 15.87$
+### Notes & Limitations
 
-Annualized volatility:
-
-$$
-\sigma_{\text{annual}} = 0.0116 \times 15.87 \approx 0.184
-$$
-
-Displayed as:
-
-- **18.40%**
-
----
-
-## When To Use It
-
-The Volatility widget is useful for:
-
-- Understanding how stable or unstable your portfolio is  
-- Comparing risk levels across different portfolios or strategies  
-- Deciding your tolerance for drawdowns and fluctuations  
-- Complementing metrics like **Sharpe Ratio**, **Max Drawdown**, and **Beta**
-
----
-
-## Notes
-  
-- Expressed as a **percentage**, annualized  
-- Higher volatility does **not** necessarily mean worse performance—only higher variability  
-- Formatting follows your portfolio's display settings  
+- Counts both up and down swings equally — it doesn't distinguish "good" volatility (sharp gains) from "bad" volatility (sharp losses). For a downside-only view, see [Downside Deviation](downside-deviation.md).
+- Based on the default $1$-year window of daily portfolio values.
+- Backward-looking: it reflects what already happened, not a guarantee of future behavior.
+- Pairs well with [Sharpe Ratio](sharpe-ratio.md), [Max Drawdown](max-drawdown.md), and [Beta](beta-correlation.md) for a rounder risk picture.

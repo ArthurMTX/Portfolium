@@ -120,6 +120,52 @@ Consider these alternatives:
 - **Keep the portfolio** but don't add new transactions
 - **Create a new portfolio** instead of deleting the old one
 
+## Goals
+
+Set a target for a portfolio and track your progress toward it over time.
+
+### Creating a Goal
+
+1. Open the portfolio you want to set a goal for
+2. Go to the **Goals** section
+3. Enter:
+    - **Target amount** — the portfolio value you're aiming for
+    - **Target date** *(optional)* — when you'd like to reach it
+4. Save the goal
+
+Portfolium tracks your current value against the target and shows how much progress you've made. If you set a target date, it also projects whether you're on track to reach the goal in time based on your recent growth rate.
+
+### Managing Goals
+
+- **Deactivate** a goal to stop tracking it without deleting its history
+- **Update** the target amount or date at any time as your plans change
+- A portfolio can have more than one goal — useful for tracking short-term and long-term targets separately
+
+!!! tip "Realistic Targets"
+    Projections are based on past performance, not guarantees. Treat the "on track" indicator as a planning aid, not a promise.
+
+## Public Sharing
+
+Share a read-only view of a portfolio with anyone, without giving them access to your account.
+
+### Enabling Public Sharing
+
+1. Open the portfolio you want to share
+2. Click **Share**
+3. Toggle sharing **on** — Portfolium generates a unique link
+4. Copy the link and send it to whoever you want to view it
+
+Anyone with the link can see a read-only snapshot of that portfolio's performance and holdings — they cannot see your other portfolios, make changes, or access your account.
+
+### Managing a Shared Link
+
+- **Copy the link** again any time from the Share dialog
+- **Turn sharing off** to immediately invalidate the link — anyone who had it loses access
+- Turning sharing back on later generates a **new** link; the old one will not work again
+
+!!! warning "Anyone With the Link Can View It"
+    Treat a public sharing link like a password: only send it to people you're comfortable seeing your portfolio's performance and holdings.
+
 ## Portfolio Data and Privacy
 
 ### Data Ownership

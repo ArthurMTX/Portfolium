@@ -1,0 +1,15 @@
+@import './tokens.css';
+@import './typography.css';
+@import './layout.css';
+@import './navigation.css';
+@import './components.css';
+@import './forms.css';
+@import './tables.css';
+@import './charts.css';
+@import './overlays.css';
+@import './states.css';
+@import './widgets.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -5,6 +5,7 @@ import logging
 import json
 from typing import List, Optional
 from datetime import date, datetime
+from decimal import Decimal
 from fastapi import APIRouter, Depends, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -14,24 +15,51 @@ from app.errors import (
     CannotSplitWithoutBuyError,
     ImportTransactionsError, 
     PriceNotFoundError, 
-    TransactionNotFoundError
+    TransactionNotFoundError,
+    ValidationError
 )
 from app.db import get_db
-from app.schemas import Transaction, TransactionCreate, CsvImportResult, ConversionCreate, ConversionResponse
+from app.schemas import Transaction, TransactionCreate, CsvImportResult, CsvImportPreviewResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
 from app.models import TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
-from app.services.import_csv import get_csv_import_service, CsvImportService
-from app.services.notifications import notification_service
+from app.services.workflows.import_csv import get_csv_import_service, CsvImportService
+from app.services.communications.notifications import notification_service
 from app.auth import get_current_user, verify_portfolio_access
 from app.dependencies import PricingServiceDep
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-import yfinance as yf
+
+
+def _get_cached_close_for_date(db: Session, asset_id: int, target_date: date) -> Optional[Decimal]:
+    """Return the latest DB close near a transaction date, if available."""
+    from datetime import timedelta
+    from app.crud import prices as crud_prices
+
+    prices = crud_prices.get_prices(
+        db,
+        asset_id,
+        date_from=datetime.combine(target_date - timedelta(days=5), datetime.min.time()),
+        date_to=datetime.combine(target_date + timedelta(days=1), datetime.max.time()),
+        limit=20,
+    )
+    if not prices:
+        return None
+
+    preferred = [p for p in prices if p.source == "yfinance_history"]
+    selected = preferred[0] if preferred else prices[0]
+    logger.warning(
+        "provider=yahoo asset_id=%s fallback=stale_db_price tx_date=%s asof=%s",
+        asset_id,
+        target_date,
+        selected.asof,
+    )
+    return selected.price
 
 
 @router.get("/{portfolio_id}/fetch_price")
-async def fetch_price_for_date(
+def fetch_price_for_date(
     portfolio_id: int,
     ticker: str,
     tx_date: date,
@@ -45,11 +73,10 @@ async def fetch_price_for_date(
     """
     from datetime import timedelta
     from decimal import Decimal
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     from app.crud.assets import get_asset_by_symbol
     
-    # Fetch ticker info from yfinance
-    yf_ticker = yf.Ticker(ticker)
+    provider = get_market_data_provider()
     
     # Try to get existing asset to know its currency, otherwise fetch from yfinance
     asset = get_asset_by_symbol(db, ticker)
@@ -58,7 +85,11 @@ async def fetch_price_for_date(
     else:
         # Fetch currency from yfinance info
         try:
-            info = yf_ticker.info
+            info = provider.get_info(
+                ticker,
+                action="transaction_asset_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             asset_currency = info.get('currency', 'USD') or 'USD'
         except Exception:
             asset_currency = 'USD'
@@ -68,13 +99,25 @@ async def fetch_price_for_date(
     # Fetch price from yfinance
     start_date = tx_date - timedelta(days=5)  # Look back a few days in case of weekends/holidays
     end_date = tx_date + timedelta(days=1)
-    hist = yf_ticker.history(start=start_date, end=end_date)
+    try:
+        hist = provider.get_history(
+            ticker,
+            action="transaction_price_history",
+            timeout_seconds=yahoo_timeout_seconds(),
+            start=start_date,
+            end=end_date,
+        )
+    except Exception:
+        hist = None
     
-    if hist.empty:
-        raise PriceNotFoundError(ticker, tx_date)
-    
-    # Get the closest date's price
-    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    if hist is None or hist.empty:
+        cached_price = _get_cached_close_for_date(db, asset.id, tx_date) if asset else None
+        if cached_price is None:
+            raise PriceNotFoundError(ticker, tx_date)
+        price_in_asset_currency = cached_price.quantize(Decimal('0.00000001'))
+    else:
+        # Get the closest date's price
+        price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
     
     # Convert to portfolio currency if needed
     if asset_currency != portfolio_currency:
@@ -95,9 +138,97 @@ async def fetch_price_for_date(
     }
 
 
+@router.get("/{portfolio_id}/fx_rate")
+def get_fx_rate_for_date(
+    portfolio_id: int,
+    from_currency: str,
+    to_currency: str,
+    as_of_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access),
+):
+    """Get the FX conversion rate for a given date.
+
+    Returns the rate such that: amount_in_to = amount_in_from * rate.
+
+    Primarily used by the UI to display DIVIDEND totals in portfolio currency
+    while the dividend per-share is entered in the asset currency.
+    """
+    from decimal import Decimal
+    from fastapi import HTTPException
+    from app.services.market_data.currency import CurrencyService
+
+    src = (from_currency or "").upper().strip()
+    dst = (to_currency or "").upper().strip()
+
+    if not src or not dst:
+        raise HTTPException(status_code=400, detail="from_currency and to_currency are required")
+
+    if src == dst:
+        return {
+            "portfolio_id": portfolio_id,
+            "from_currency": src,
+            "to_currency": dst,
+            "as_of_date": as_of_date.isoformat(),
+            "rate": 1.0,
+            "converted": False,
+        }
+
+    rate = CurrencyService.convert_historical(
+        Decimal("1"),
+        from_currency=src,
+        to_currency=dst,
+        date=datetime.combine(as_of_date, datetime.min.time()),
+    )
+
+    if rate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"FX rate not found for {src}->{dst} on {as_of_date.isoformat()}",
+        )
+
+    return {
+        "portfolio_id": portfolio_id,
+        "from_currency": src,
+        "to_currency": dst,
+        "as_of_date": as_of_date.isoformat(),
+        "rate": float(rate),
+        "converted": True,
+    }
+
+
+@router.get("/{portfolio_id}/positions/{asset_id}/quantity_at_date")
+def get_position_quantity_at_date(
+    portfolio_id: int,
+    asset_id: int,
+    as_of_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """Get the number of shares/units held for an asset at a given date.
+
+    Used primarily to auto-fill DIVIDEND transactions with the shares held on the dividend date.
+    """
+    from app.crud.assets import get_asset
+
+    qty = crud.get_position_quantity_at_date(db, portfolio_id, asset_id, as_of_date)
+    asset = get_asset(db, asset_id)
+    asset_currency = asset.currency if asset and asset.currency else (portfolio.base_currency or "EUR")
+
+    return {
+        "portfolio_id": portfolio_id,
+        "asset_id": asset_id,
+        "as_of_date": as_of_date.isoformat(),
+        "quantity": qty,
+        "asset_currency": asset_currency,
+    }
+
+
 # Add position transaction with live price from yfinance
 @router.post("/{portfolio_id}/add_position_transaction", response_model=Transaction, status_code=status.HTTP_201_CREATED)
-async def add_position_transaction(
+def add_position_transaction(
     portfolio_id: int,
     ticker: str,
     tx_date: date,
@@ -120,14 +251,17 @@ async def add_position_transaction(
     from app.schemas import AssetCreate
     from app.models import AssetClass
     
-    # Fetch ticker info from yfinance first (we'll need it for price anyway)
-    yf_ticker = yf.Ticker(ticker)
+    provider = get_market_data_provider()
     
     asset = get_asset_by_symbol(db, ticker)
     if not asset:
         # Get currency from yfinance
         try:
-            info = yf_ticker.info
+            info = provider.get_info(
+                ticker,
+                action="transaction_asset_info",
+                timeout_seconds=yahoo_timeout_seconds(),
+            )
             asset_currency = info.get('currency', 'USD') or 'USD'
         except Exception:
             asset_currency = 'USD'
@@ -144,16 +278,29 @@ async def add_position_transaction(
     # Fetch price from yfinance for the given date
     from datetime import timedelta
     from decimal import Decimal
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     
     # Add a day buffer to ensure we get data
     start_date = tx_date - timedelta(days=1)
     end_date = tx_date + timedelta(days=1)
-    hist = yf_ticker.history(start=start_date, end=end_date)
-    if hist.empty:
-        raise PriceNotFoundError(ticker, tx_date)
-    # Get the closest date's price and round to 8 decimal places
-    price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
+    try:
+        hist = provider.get_history(
+            ticker,
+            action="transaction_price_history",
+            timeout_seconds=yahoo_timeout_seconds(),
+            start=start_date,
+            end=end_date,
+        )
+    except Exception:
+        hist = None
+    if hist is None or hist.empty:
+        cached_price = _get_cached_close_for_date(db, asset.id, tx_date)
+        if cached_price is None:
+            raise PriceNotFoundError(ticker, tx_date)
+        price_in_asset_currency = cached_price.quantize(Decimal('0.00000001'))
+    else:
+        # Get the closest date's price and round to 8 decimal places
+        price_in_asset_currency = Decimal(str(float(hist["Close"].iloc[-1]))).quantize(Decimal('0.00000001'))
     
     # Convert price from asset's currency to portfolio's base currency if different
     asset_currency = asset.currency or "USD"
@@ -219,8 +366,8 @@ async def add_position_transaction(
         logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -258,7 +405,7 @@ async def add_position_transaction(
 
 
 @router.post("/{portfolio_id}/conversions", response_model=ConversionResponse, status_code=status.HTTP_201_CREATED)
-async def create_conversion(
+def create_conversion(
     portfolio_id: int,
     conversion: ConversionCreate,
     pricing_service: PricingServiceDep,
@@ -439,8 +586,8 @@ async def create_conversion(
             logger.warning(f"Failed to auto-backfill prices for {to_asset.symbol}: {e}")
     
     # Invalidate caches
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -488,7 +635,7 @@ async def create_conversion(
 
 
 @router.get("/{portfolio_id}/transactions", response_model=List[Transaction])
-async def get_transactions(
+def get_transactions(
     portfolio_id: int,
     asset_id: Optional[int] = None,
     tx_type: Optional[TransactionType] = None,
@@ -523,7 +670,7 @@ async def get_transactions(
 
 
 @router.get("/{portfolio_id}/transactions/metrics")
-async def get_transaction_metrics(
+def get_transaction_metrics(
     portfolio_id: int,
     grouping: str = "monthly",  # "monthly" or "yearly"
     db: Session = Depends(get_db),
@@ -555,31 +702,34 @@ async def get_transaction_metrics(
         group_fields = [year_field, month_field]
         period_label = 'month'
     
-    # Calculate total price for each transaction (quantity * price + fees)
-    total_price = (TransactionModel.quantity * TransactionModel.price + TransactionModel.fees)
+    # Calculate total price for BUY transactions (quantity * price + fees)
+    buy_total_price = (TransactionModel.quantity * TransactionModel.price + TransactionModel.fees)
     
     # Build query for BUY transactions
     buy_query = db.query(
         *group_fields,
-        func.sum(total_price).label('buy_sum_total_price'),
+        func.sum(buy_total_price).label('buy_sum_total_price'),
         func.count(TransactionModel.id).label('buy_count'),
-        func.max(total_price).label('buy_max_total_price'),
-        func.min(total_price).label('buy_min_total_price'),
-        func.avg(total_price).label('buy_avg_total_price'),
+        func.max(buy_total_price).label('buy_max_total_price'),
+        func.min(buy_total_price).label('buy_min_total_price'),
+        func.avg(buy_total_price).label('buy_avg_total_price'),
         func.sum(TransactionModel.fees).label('buy_sum_fees')
     ).filter(
         TransactionModel.portfolio_id == portfolio_id,
         TransactionModel.type == TransactionType.BUY
     ).group_by(*group_fields)
     
+    # Calculate total price for SELL transactions (quantity * price - fees)
+    sell_total_price = (TransactionModel.quantity * TransactionModel.price - TransactionModel.fees)
+    
     # Build query for SELL transactions
     sell_query = db.query(
         *group_fields,
-        func.sum(total_price).label('sell_sum_total_price'),
+        func.sum(sell_total_price).label('sell_sum_total_price'),
         func.count(TransactionModel.id).label('sell_count'),
-        func.max(total_price).label('sell_max_total_price'),
-        func.min(total_price).label('sell_min_total_price'),
-        func.avg(total_price).label('sell_avg_total_price'),
+        func.max(sell_total_price).label('sell_max_total_price'),
+        func.min(sell_total_price).label('sell_min_total_price'),
+        func.avg(sell_total_price).label('sell_avg_total_price'),
         func.sum(TransactionModel.fees).label('sell_sum_fees')
     ).filter(
         TransactionModel.portfolio_id == portfolio_id,
@@ -664,7 +814,7 @@ async def get_transaction_metrics(
 
 
 @router.get("/{portfolio_id}/transactions/{transaction_id}", response_model=Transaction)
-async def get_transaction(
+def get_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
@@ -682,7 +832,7 @@ async def get_transaction(
     response_model=Transaction,
     status_code=status.HTTP_201_CREATED
 )
-async def create_transaction(
+def create_transaction(
     portfolio_id: int,
     transaction: TransactionCreate,
     pricing_service: PricingServiceDep,
@@ -738,6 +888,30 @@ async def create_transaction(
                     attempted_sell=float(transaction.quantity),
                     tx_date=transaction.tx_date
                 )
+
+    # Disallow DIVIDEND if user had no shares at the dividend date
+    if transaction.type == TransactionType.DIVIDEND:
+        if transaction.price is None or float(transaction.price) <= 0:
+            raise ValidationError(
+                field="price",
+                reason="Dividend per share must be greater than 0",
+            )
+
+        gross_amount = transaction.quantity * transaction.price
+        if transaction.fees is not None and transaction.fees > gross_amount:
+            raise ValidationError(
+                field="fees",
+                reason="Tax cannot exceed gross dividend amount",
+            )
+
+        position_at_date = crud.get_position_quantity_at_date(
+            db, portfolio_id, transaction.asset_id, transaction.tx_date
+        )
+        if position_at_date <= 0:
+            raise ValidationError(
+                field="tx_date",
+                reason="Cannot add a dividend when shares held at that date are 0",
+            )
     
     created = crud.create_transaction(db, portfolio_id, transaction)
     
@@ -766,8 +940,8 @@ async def create_transaction(
                 logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -805,7 +979,7 @@ async def create_transaction(
 
 
 @router.put("/{portfolio_id}/transactions/{transaction_id}", response_model=Transaction)
-async def update_transaction(
+def update_transaction(
     portfolio_id: int,
     transaction_id: int,
     transaction: TransactionCreate,
@@ -855,12 +1029,36 @@ async def update_transaction(
                     attempted_sell=float(transaction.quantity),
                     tx_date=transaction.tx_date
                 )
+
+    # Disallow DIVIDEND if user had no shares at the dividend date
+    if transaction.type == TransactionType.DIVIDEND:
+        if transaction.price is None or float(transaction.price) <= 0:
+            raise ValidationError(
+                field="price",
+                reason="Dividend per share must be greater than 0",
+            )
+
+        gross_amount = transaction.quantity * transaction.price
+        if transaction.fees is not None and transaction.fees > gross_amount:
+            raise ValidationError(
+                field="fees",
+                reason="Tax cannot exceed gross dividend amount",
+            )
+
+        position_at_date = crud.get_position_quantity_at_date(
+            db, portfolio_id, transaction.asset_id, transaction.tx_date
+        )
+        if position_at_date <= 0:
+            raise ValidationError(
+                field="tx_date",
+                reason="Cannot add a dividend when shares held at that date are 0",
+            )
     
     updated = crud.update_transaction(db, transaction_id, transaction)
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import CacheService
     cache_service = CacheService()
     
     invalidate_portfolio_analytics(portfolio_id)
@@ -899,7 +1097,7 @@ async def update_transaction(
     "/{portfolio_id}/transactions/{transaction_id}",
     status_code=status.HTTP_204_NO_CONTENT
 )
-async def delete_transaction(
+def delete_transaction(
     portfolio_id: int,
     transaction_id: int,
     db: Session = Depends(get_db),
@@ -949,8 +1147,8 @@ async def delete_transaction(
         crud.delete_transaction(db, linked_transaction.id)
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import CacheService
     cache_service = CacheService()
     
     invalidate_portfolio_analytics(portfolio_id)
@@ -1007,8 +1205,8 @@ async def import_csv_stream(
             
             # On completion, invalidate caches
             if update.get("type") == "complete":
-                from app.services.analytics_cache import invalidate_portfolio_analytics
-                from app.services.cache import invalidate_positions, CacheService
+                from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+                from app.services.platform.cache import invalidate_positions, CacheService
                 invalidate_portfolio_analytics(portfolio_id)
                 invalidate_positions(portfolio_id)
                 
@@ -1025,7 +1223,7 @@ async def import_csv_stream(
                     if settings.ENABLE_BACKGROUND_TASKS:
                         from app.tasks.metrics_tasks import calculate_portfolio_metrics
                         from app.tasks.insights_tasks import calculate_insights_all_periods
-                        calculate_portfolio_metrics.delay(portfolio_id)
+                        calculate_portfolio_metrics.delay(portfolio_id, user_id)
                         calculate_insights_all_periods.delay(portfolio_id, user_id)
                 except Exception as e:
                     logger.warning(f"Failed to queue background tasks: {e}")
@@ -1038,6 +1236,22 @@ async def import_csv_stream(
             "X-Accel-Buffering": "no"  # Disable nginx buffering
         }
     )
+
+
+@router.post("/import/csv/preview", response_model=CsvImportPreviewResult)
+async def preview_import_csv(
+    portfolio_id: int,
+    file: UploadFile = File(...),
+    csv_service: CsvImportService = Depends(get_csv_import_service),
+    current_user: User = Depends(get_current_user),
+    portfolio: PortfolioModel = Depends(verify_portfolio_access)
+):
+    """
+    Preview transactions from a CSV file without creating assets or transactions.
+    """
+    content = await file.read()
+    csv_content = content.decode("utf-8")
+    return csv_service.preview_csv(portfolio_id, csv_content)
 
 
 @router.post("/import/csv", response_model=CsvImportResult)
@@ -1075,8 +1289,8 @@ async def import_csv(
         raise ImportTransactionsError(result.errors, result.imported_count)
     
     # Invalidate all caches since portfolio data changed
-    from app.services.analytics_cache import invalidate_portfolio_analytics
-    from app.services.cache import invalidate_positions, CacheService
+    from app.services.platform.analytics_cache import invalidate_portfolio_analytics
+    from app.services.platform.cache import invalidate_positions, CacheService
     invalidate_portfolio_analytics(portfolio_id)
     invalidate_positions(portfolio_id)
     
@@ -1093,7 +1307,7 @@ async def import_csv(
         if settings.ENABLE_BACKGROUND_TASKS:
             from app.tasks.metrics_tasks import calculate_portfolio_metrics
             from app.tasks.insights_tasks import calculate_insights_all_periods
-            calculate_portfolio_metrics.delay(portfolio_id)
+            calculate_portfolio_metrics.delay(portfolio_id, current_user.id)
             calculate_insights_all_periods.delay(portfolio_id, current_user.id)
             logger.info(f"Queued background recalculation for portfolio {portfolio_id} after CSV import")
     except Exception as e:

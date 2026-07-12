@@ -1,8 +1,9 @@
 """
 Admin and maintenance endpoints
 """
+from datetime import date
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel, EmailStr
@@ -13,7 +14,7 @@ from app.auth import get_current_admin_user
 from app.models import User, NotificationType, Portfolio
 from app.schemas import AdminUserCreate, AdminUserUpdate, User as UserSchema
 from app.config import settings
-from app.tasks.scheduler import check_price_alerts, refresh_all_prices
+from app.services.portfolio_analytics.metrics import MetricsService
 from app.crud import notifications as crud_notifications
 from app.errors import ( 
     CannotDeactivateSuperAdminError, 
@@ -41,6 +42,32 @@ from app.errors import (
 )
 
 router = APIRouter(prefix="/admin")
+
+
+@router.get("/debug/portfolios/{portfolio_id}/daily-gain")
+async def debug_portfolio_daily_gain(
+    portfolio_id: int,
+    force_refresh: bool = Query(False, description="Invalidate position cache before building report"),
+    report_date: Optional[date] = Query(
+        None,
+        description="Valuation date for reproducing historical Daily Gain debug reports",
+    ),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Admin-only Daily Gain attribution report.
+
+    This endpoint is intentionally outside the normal dashboard path so the
+    production UI stays uncluttered while Daily Gain discrepancies remain
+    auditable.
+    """
+    service = MetricsService(db)
+    return await service.get_daily_gain_attribution_report(
+        portfolio_id=portfolio_id,
+        force_refresh=force_refresh,
+        report_date=report_date,
+    )
 
 
 @router.delete("/data")
@@ -138,7 +165,7 @@ def update_user_admin(
             pass
         first_admin = (
             db.query(User)
-            .filter((User.is_admin == True) | (User.is_superuser == True))
+            .filter(User.is_admin.is_(True) | User.is_superuser.is_(True))
             .order_by(User.id.asc())
             .first()
         )
@@ -190,7 +217,7 @@ def delete_user_admin(
             pass
         first_admin = (
             db.query(User)
-            .filter((User.is_admin == True) | (User.is_superuser == True))
+            .filter(User.is_admin.is_(True) | User.is_superuser.is_(True))
             .order_by(User.id.asc())
             .first()
         )
@@ -214,10 +241,13 @@ def trigger_price_alerts(
     for the scheduled interval. Useful for testing and debugging.
     """
     try:
-        check_price_alerts()
+        from app.tasks.maintenance_tasks import check_price_alerts
+
+        result = check_price_alerts.delay()
         return {
             "success": True,
-            "message": "Price alert check triggered successfully"
+            "message": "Price alert check queued successfully",
+            "task_id": result.id,
         }
     except Exception as e:
         raise PriceAlertTaskError(reason=str(e))
@@ -234,13 +264,237 @@ def trigger_refresh_prices(
     for the scheduled interval. Useful for testing and debugging.
     """
     try:
-        refresh_all_prices()
+        from app.tasks.cache_tasks import warmup_price_cache
+
+        result = warmup_price_cache.delay()
         return {
             "success": True,
-            "message": "Price refresh triggered successfully"
+            "message": "Price refresh queued successfully",
+            "task_id": result.id,
         }
     except Exception as e:
         raise PriceRefreshTaskError(reason=str(e))
+
+
+@router.post("/trigger/fill-price-gaps")
+async def trigger_fill_price_gaps(
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Manually trigger the price gap detection and auto-fill task
+    
+    This scans all assets for gaps in price history and backfills
+    missing data from yfinance. Useful after adding new assets or
+    when gaps are detected in charts.
+    """
+    try:
+        from app.tasks.maintenance_tasks import detect_and_fill_price_gaps
+
+        result = detect_and_fill_price_gaps.delay()
+        return {
+            "success": True,
+            "message": "Price gap detection and fill queued successfully",
+            "task_id": result.id,
+        }
+    except Exception as e:
+        raise PriceRefreshTaskError(reason=f"Gap fill failed: {str(e)}")
+
+
+@router.get("/assets/health-check")
+async def check_all_assets_health(
+    min_coverage_pct: float = 90.0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Check health status of all assets in the database.
+    
+    Returns a list of assets with their coverage statistics and identifies
+    which ones need backfilling (coverage below min_coverage_pct).
+    """
+    from app.models import Asset, Transaction
+    from app.crud import prices as crud_prices
+    from app.utils.exchange_calendars import calculate_coverage
+    from datetime import datetime, timedelta
+
+    # Get all unique assets that have transactions
+    asset_ids = db.query(Transaction.asset_id.distinct()).all()
+    asset_ids = [aid[0] for aid in asset_ids]
+    
+    results = []
+    needs_backfill = []
+    
+    for asset_id in asset_ids:
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            continue
+        
+        # Determine date range to check
+        end_date = datetime.utcnow()
+        one_year_ago = end_date - timedelta(days=365)
+        
+        if asset.first_transaction_date:
+            start_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
+            if start_date < one_year_ago:
+                start_date = one_year_ago
+        else:
+            start_date = one_year_ago
+        
+        # Get prices
+        prices = crud_prices.get_prices(
+            db,
+            asset_id,
+            date_from=start_date,
+            date_to=end_date,
+            limit=10000
+        )
+        
+        # Extract price dates as a set (asof is datetime, convert to date)
+        price_dates = {p.asof.date() if hasattr(p.asof, 'date') else p.asof for p in prices}
+        
+        # Calculate coverage
+        coverage = calculate_coverage(
+            symbol=asset.symbol,
+            start_date=start_date.date() if hasattr(start_date, 'date') else start_date,
+            end_date=end_date.date() if hasattr(end_date, 'date') else end_date,
+            price_dates=price_dates
+        )
+        
+        # Count missing days (limit to avoid huge lists)
+        missing_count = len(coverage["missing_days"])
+        
+        asset_info = {
+            "asset_id": asset.id,
+            "symbol": asset.symbol,
+            "name": asset.name,
+            "currency": asset.currency,
+            "asset_type": asset.asset_type,
+            "first_transaction_date": asset.first_transaction_date.isoformat() if asset.first_transaction_date else None,
+            "price_count": len(prices),
+            "expected_trading_days": coverage["expected_trading_days"],
+            "coverage_pct": coverage["coverage_pct"],
+            "missing_days": missing_count,
+            "needs_backfill": coverage["coverage_pct"] < min_coverage_pct
+        }
+        results.append(asset_info)
+        
+        if asset_info["needs_backfill"]:
+            needs_backfill.append(asset_info)
+    
+    return {
+        "total_assets": len(results),
+        "assets_needing_backfill": len(needs_backfill),
+        "min_coverage_threshold": min_coverage_pct,
+        "assets": sorted(results, key=lambda x: x["coverage_pct"]),
+        "summary": {
+            "excellent": len([a for a in results if a["coverage_pct"] >= 95]),
+            "good": len([a for a in results if 80 <= a["coverage_pct"] < 95]),
+            "fair": len([a for a in results if 50 <= a["coverage_pct"] < 80]),
+            "poor": len([a for a in results if a["coverage_pct"] < 50])
+        }
+    }
+
+
+@router.post("/assets/backfill-all")
+async def backfill_all_assets(
+    min_coverage_pct: float = 90.0,
+    days: int = 365,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Backfill price history for all assets that need it.
+    
+    This will:
+    1. Check coverage for all assets with transactions
+    2. Backfill prices for any assets below min_coverage_pct threshold
+    
+    - **min_coverage_pct**: Only backfill assets below this coverage (default 90%)
+    - **days**: Number of days to backfill (default 365)
+    """
+    from app.models import Asset, Transaction
+    from app.crud import prices as crud_prices
+    from app.utils.exchange_calendars import calculate_coverage
+    from app.services.market_data.pricing import PricingService
+    from datetime import datetime, timedelta
+
+    # Get all unique assets that have transactions
+    asset_ids = db.query(Transaction.asset_id.distinct()).all()
+    asset_ids = [aid[0] for aid in asset_ids]
+    
+    backfilled = []
+    errors = []
+    skipped = []
+    
+    pricing_service = PricingService(db)
+    
+    for asset_id in asset_ids:
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            continue
+        
+        # Determine date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        if asset.first_transaction_date:
+            first_tx_date = datetime.combine(asset.first_transaction_date, datetime.min.time())
+            if first_tx_date > start_date:
+                start_date = first_tx_date
+        
+        # Get current prices
+        prices = crud_prices.get_prices(
+            db,
+            asset_id,
+            date_from=start_date,
+            date_to=end_date,
+            limit=10000
+        )
+        
+        # Extract price dates as a set (asof is datetime, convert to date)
+        price_dates = {p.asof.date() if hasattr(p.asof, 'date') else p.asof for p in prices}
+        
+        # Calculate coverage
+        coverage = calculate_coverage(
+            symbol=asset.symbol,
+            start_date=start_date.date() if hasattr(start_date, 'date') else start_date,
+            end_date=end_date.date() if hasattr(end_date, 'date') else end_date,
+            price_dates=price_dates
+        )
+        
+        # Skip if coverage is good enough
+        if coverage["coverage_pct"] >= min_coverage_pct:
+            skipped.append({
+                "symbol": asset.symbol,
+                "coverage_pct": coverage["coverage_pct"],
+                "reason": "Coverage already sufficient"
+            })
+            continue
+        
+        # Backfill this asset
+        try:
+            count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
+            backfilled.append({
+                "asset_id": asset.id,
+                "symbol": asset.symbol,
+                "prices_added": count,
+                "previous_coverage": coverage["coverage_pct"]
+            })
+        except Exception as e:
+            errors.append({
+                "symbol": asset.symbol,
+                "error": str(e)
+            })
+    
+    return {
+        "success": True,
+        "message": f"Backfill completed: {len(backfilled)} assets updated, {len(skipped)} skipped, {len(errors)} errors",
+        "backfilled": backfilled,
+        "skipped_count": len(skipped),
+        "errors": errors,
+        "total_prices_added": sum(b["prices_added"] for b in backfilled)
+    }
 
 
 @router.get("/logo-cache/stats")
@@ -259,12 +513,31 @@ def get_logo_cache_stats(
         
         # Count cached logos
         cached_logos = db.execute(
-            text("SELECT COUNT(*) FROM portfolio.assets WHERE logo_data IS NOT NULL")
+            text("""
+                SELECT COUNT(*)
+                FROM portfolio.assets
+                WHERE logo_data IS NOT NULL
+                   OR logo_light_data IS NOT NULL
+                   OR logo_dark_data IS NOT NULL
+            """)
         ).scalar()
         
         # Calculate total cache size
         total_size = db.execute(
-            text("SELECT COALESCE(SUM(LENGTH(logo_data)), 0) FROM portfolio.assets WHERE logo_data IS NOT NULL")
+            text("""
+                SELECT COALESCE(
+                    SUM(
+                        COALESCE(LENGTH(logo_data), 0)
+                        + COALESCE(LENGTH(logo_light_data), 0)
+                        + COALESCE(LENGTH(logo_dark_data), 0)
+                    ),
+                    0
+                )
+                FROM portfolio.assets
+                WHERE logo_data IS NOT NULL
+                   OR logo_light_data IS NOT NULL
+                   OR logo_dark_data IS NOT NULL
+            """)
         ).scalar()
         
         # Get breakdown by content type
@@ -277,6 +550,16 @@ def get_logo_cache_stats(
                 FROM portfolio.assets 
                 WHERE logo_data IS NOT NULL
                 GROUP BY logo_content_type
+                UNION ALL
+                SELECT
+                    'image/svg+xml; variant=trade_republic' as logo_content_type,
+                    COUNT(*) as count,
+                    SUM(
+                        COALESCE(LENGTH(logo_light_data), 0)
+                        + COALESCE(LENGTH(logo_dark_data), 0)
+                    ) as total_size
+                FROM portfolio.assets
+                WHERE logo_light_data IS NOT NULL OR logo_dark_data IS NOT NULL
             """)
         ).fetchall()
         
@@ -316,17 +599,19 @@ def clear_logo_cache(
             # Clear specific symbol
             result = db.execute(
                 text("""
-                    UPDATE portfolio.assets 
-                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
+                    UPDATE portfolio.assets
+                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL,
+                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL,
+                        logo_light_data = NULL, logo_dark_data = NULL
                     WHERE symbol = :symbol
                 """),
                 {"symbol": symbol.upper()}
             )
             db.commit()
-            
+
             if result.rowcount == 0:
                 raise AssetNotFoundError(symbol)
-            
+
             return {
                 "success": True,
                 "message": f"Logo cache cleared for {symbol}",
@@ -336,9 +621,14 @@ def clear_logo_cache(
             # Clear all logos
             result = db.execute(
                 text("""
-                    UPDATE portfolio.assets 
-                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL 
+                    UPDATE portfolio.assets
+                    SET logo_data = NULL, logo_content_type = NULL, logo_fetched_at = NULL,
+                        logo_provider = NULL, logo_url = NULL, logo_light_url = NULL, logo_dark_url = NULL,
+                        logo_light_data = NULL, logo_dark_data = NULL
                     WHERE logo_data IS NOT NULL
+                       OR logo_light_data IS NOT NULL
+                       OR logo_dark_data IS NOT NULL
+                       OR logo_provider IS NOT NULL
                 """)
             )
             db.commit()
@@ -501,7 +791,7 @@ def update_email_config(
         db.commit()
     
     # Reload email service settings after updating config
-    from app.services.email import email_service
+    from app.services.communications.email import email_service
     email_service.reload_settings()
     
     # Get updated config from database
@@ -540,7 +830,7 @@ async def test_email_connection(
     if not settings.ENABLE_EMAIL:
         raise EmailSystemDisabledError()
     
-    from app.services.email import email_service
+    from app.services.communications.email import email_service
     
     # Reload settings before sending test email
     email_service.reload_settings()
@@ -603,7 +893,7 @@ async def test_email_connection(
                         <!-- Footer -->
                         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
                             <p style="margin: 0;">Portfolium - Portfolio Management Platform</p>
-                            <p style="margin: 5px 0 0 0;">© 2025 All rights reserved</p>
+                            <p style="margin: 5px 0 0 0;">© 2026 All rights reserved</p>
                         </div>
                     </div>
                 </div>
@@ -627,7 +917,7 @@ async def test_email_connection(
             
             ---
             Portfolium - Portfolio Management Platform
-            © 2025 All rights reserved
+            © 2026 All rights reserved
             """
             
             success = email_service._send_email(
@@ -672,8 +962,8 @@ async def test_email_connection(
                 # Use current admin user as fallback for generating test report
                 user = current_user
             
-            from app.services.pdf_reports import PDFReportService
-            from datetime import datetime, timedelta
+            from app.services.communications.pdf_reports import PDFReportService
+            from datetime import datetime
             from zoneinfo import ZoneInfo
             
             # Generate test report

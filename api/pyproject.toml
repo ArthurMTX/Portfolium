@@ -1,6 +1,6 @@
 [project]
 name = "portfolium-api"
-version = "0.3.1"
+version = "0.3.2"
 description = "Portfolium investment tracking API"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,12 +9,12 @@ dependencies = [
     "sqlalchemy>=2.0.25",
     "psycopg2-binary>=2.9.9",
     "pydantic>=2.5.3",
-    "pydantic-settings>=2.1.0",
+    "pydantic-settings>=2.14.2",
     "pydantic[email]>=2.5.3",
     "yfinance>=0.2.36",
     "python-multipart>=0.0.6",
     "pandas>=2.2.0",
-    "apscheduler>=3.10.4",
+    "lxml>=5.0.0",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",
     "scalar-fastapi>=1.4.0",
@@ -34,6 +34,12 @@ dependencies = [
     "flower>=2.0.0",
     "pyotp>=2.9.0",
     "qrcode[pil]>=7.4.0",
+    "pywebpush>=2.0.0",
+    "exchange-calendars>=4.5.0",
+    "numpy>=1.26.0",
+    "onnxruntime>=1.17.0",
+    "tokenizers>=0.15.0",
+    "prometheus-client>=0.20.0",
 ]
 
 [project.optional-dependencies]

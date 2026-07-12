@@ -1,0 +1,279 @@
+/* Shared widget presentation layer classes.
+   Structural chrome, typography, spacing, and tone mapping are token-driven here
+   so dashboard widgets follow the same visual system as refactored app pages. */
+
+@layer components {
+  .pf-widget-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border-color: var(--pf-line);
+    border-radius: var(--pf-radius-md);
+    background: var(--pf-surface);
+    box-shadow: none;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .pf-widget-header-shell {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .pf-widget-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.1rem 0.65rem;
+  }
+
+  .pf-widget-header__identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .pf-widget-header__copy {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+    padding-top: 0.05rem;
+  }
+
+  .pf-widget-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 2.25rem;
+    border: 1px solid var(--pf-line);
+    border-radius: var(--pf-radius-sm);
+    background: var(--pf-canvas);
+    color: var(--pf-accent);
+  }
+
+  .pf-widget-icon__glyph {
+    color: currentColor;
+    stroke-width: 2;
+  }
+
+  .pf-widget-title {
+    margin: 0;
+    overflow: hidden;
+    color: var(--pf-ink);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-widget-description {
+    margin: 0;
+    overflow: hidden;
+    color: var(--pf-muted);
+    font-size: 0.74rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pf-widget-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .pf-widget-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .pf-widget-content--scrollable {
+    overflow-y: auto;
+  }
+
+  .pf-widget-content--clipped {
+    overflow: hidden;
+  }
+
+  .pf-widget-content.pf-card--content {
+    padding: 0.45rem 1.1rem 1.1rem;
+  }
+
+  .pf-widget-metric {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 0.15rem;
+  }
+
+  .pf-widget-metric--center {
+    justify-content: center;
+  }
+
+  .pf-widget-metric--text-center {
+    align-items: center;
+    text-align: center;
+  }
+
+  .pf-widget-metric__line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .pf-widget-metric--text-center .pf-widget-metric__line {
+    justify-content: center;
+  }
+
+  .pf-widget-metric__value {
+    min-width: 0;
+    color: var(--pf-ink);
+    font-weight: 850;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+  }
+
+  .pf-widget-metric__value--md {
+    font-size: clamp(1.2rem, 1.45vw, 1.55rem);
+  }
+
+  .pf-widget-metric__value--lg {
+    font-size: clamp(1.45rem, 2vw, 2rem);
+  }
+
+  .pf-widget-metric__value.is-positive,
+  .pf-widget-metric__change.is-positive {
+    color: var(--pf-success);
+  }
+
+  .pf-widget-metric__value.is-negative,
+  .pf-widget-metric__change.is-negative {
+    color: var(--pf-danger);
+  }
+
+  .pf-widget-metric__value.is-warning,
+  .pf-widget-metric__change.is-warning {
+    color: var(--pf-warning);
+  }
+
+  .pf-widget-metric__value.is-accent,
+  .pf-widget-metric__change.is-accent {
+    color: var(--pf-accent);
+  }
+
+  .pf-widget-metric__change {
+    color: var(--pf-muted);
+    font-size: 0.76rem;
+    font-weight: 780;
+    line-height: 1.2;
+  }
+
+  .pf-widget-metric__secondary {
+    margin: 0.25rem 0 0;
+    color: var(--pf-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .pf-widget-list-item--divide {
+    @apply px-5 py-3.5;
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-widget-list-item--divide:last-child {
+    border-bottom: 0;
+  }
+
+  .pf-widget-list-item--cards {
+    @apply p-3.5 rounded-lg;
+    background: var(--pf-canvas-muted);
+  }
+
+  .pf-widget-list-item--compact {
+    @apply rounded-md px-2.5 py-2;
+    background: var(--pf-canvas-muted);
+  }
+
+  .pf-widget-list-item--unread {
+    background: var(--pf-accent-soft);
+  }
+
+  .pf-widget-subheader {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    overflow-x: auto;
+    flex-shrink: 0;
+    padding: 0.35rem 1.1rem 0;
+    border-bottom: 1px solid var(--pf-line);
+  }
+
+  .pf-widget-subheader-tab {
+    padding: 0 0.05rem 0.65rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--pf-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: border-color var(--pf-transition-fast), color var(--pf-transition-fast);
+  }
+
+  .pf-widget-subheader-tab:hover {
+    color: var(--pf-ink);
+  }
+
+  .pf-widget-subheader-tab--active {
+    border-color: var(--pf-accent);
+    color: var(--pf-accent);
+  }
+
+  .pf-widget-metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid transparent;
+    border-radius: var(--pf-radius-sm);
+  }
+
+  .pf-widget-metric-row__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    color: var(--pf-muted);
+    font-size: 0.8rem;
+    line-height: 1.25;
+  }
+
+  .pf-widget-metric-row__value {
+    color: var(--pf-ink);
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: right;
+  }
+
+  .pf-widget-footer {
+    flex-shrink: 0;
+    padding: 0.75rem 1.1rem;
+    border-top: 1px solid var(--pf-line);
+  }
+}

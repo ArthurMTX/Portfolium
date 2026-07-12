@@ -237,6 +237,27 @@ While watchlist doesn't support multi-select editing, you can:
 - Export → modify in spreadsheet → re-import
 - Use import/export for bulk updates
 
+## Organizing With Tags
+
+Group watchlist items with custom tags to organize large watchlists by theme, conviction, or anything else that makes sense to you.
+
+### Creating and Assigning Tags
+
+1. Open the **Tag Manager** from the Watchlist page
+2. Create a new tag with a name and color
+3. Assign it to one or more watchlist items
+
+**Example tags**: "High Conviction", "Earnings This Week", "Dip Watch", "Speculative"
+
+### Filtering by Tags
+
+Once you have tags set up, filter your watchlist view:
+
+- **Match any** — show items that have **at least one** of the selected tags
+- **Match all** — show only items that have **every** selected tag
+
+This is useful for narrowing a large watchlist down to just the group you care about right now, without losing track of everything else you're monitoring.
+
 ## Converting to Portfolio Transactions
 
 Turn watchlist items into actual investments:

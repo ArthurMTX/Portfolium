@@ -1,5 +1,7 @@
 # Portfolium Web
 
+Requires Node.js 22 or newer.
+
 Frontend application for Portfolium investment tracking.
 
 ## Development

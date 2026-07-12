@@ -106,10 +106,16 @@ class CannotGetPortfolioPricesError(PortfoliumException):
 class AssetNotFoundError(PortfoliumException):
     """Raised when an asset is not found by symbol or ID"""
     
-    def __init__(self, identifier: str | int):
+    def __init__(
+        self,
+        identifier: str | int | None = None,
+        *,
+        id: int | None = None,
+    ):
+        resolved_identifier = id if id is not None else identifier
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset '{identifier}' not found"
+            detail=f"Asset '{resolved_identifier}' not found"
         )
 
 
@@ -267,10 +273,10 @@ class LogoCacheClearError(PortfoliumException):
 class SearchTickerError(PortfoliumException):
     """Raised when searching for a ticker fails"""
     
-    def __init__(self, status: str):
+    def __init__(self, status_code: int):
         super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Yahoo Finance search failed with status: {status}"
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Yahoo Finance search failed with status: {status_code}"
         )
 
 
@@ -638,7 +644,7 @@ class WrongImportFormatError(PortfoliumException):
     def __init__(self):
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid watchlist import format. Must be a CSV."
+            detail="Invalid watchlist import format. Must be a CSV."
         )
 
 
@@ -726,8 +732,8 @@ class NotAuthorizedNotificationAccessError(PortfoliumException):
 # Dashboard-related errors
 class DashboardLayoutNotFoundError(PortfoliumException):
     """Raised when a dashboard layout is not found"""
-    
-    def __init__(self, layout_id: int):
+
+    def __init__(self, layout_id: int | str):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dashboard layout {layout_id} not found"
@@ -766,8 +772,8 @@ class FailedToImportDashboardLayoutError(PortfoliumException):
 
 class SourceLayoutNotFoundError(PortfoliumException):
     """Raised when the source layout for duplication is not found"""
-    
-    def __init__(self, source_layout_id: int):
+
+    def __init__(self, source_layout_id: int | str):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Source layout {source_layout_id} not found"

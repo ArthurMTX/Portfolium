@@ -1,339 +1,234 @@
 # Insights
 
-Discover powerful analytics and performance metrics for your investment portfolio.
+Understand not just how your portfolio is doing, but why, what it's exposed to, and what could go wrong.
 
 ## Overview
 
-The Insights page provides comprehensive analysis of your portfolio performance, risk metrics, asset allocation, and benchmark comparisons. Use these insights to make informed investment decisions and track your progress toward financial goals.
+The Insights page is Portfolium's analytics workspace. Where the Dashboard shows you live numbers and Charts shows you visual history, Insights answers deeper questions about your investing: which positions are actually driving your returns, what hidden exposures your holdings share, how risky your portfolio really is, and how it would hold up under a market shock.
 
-## Getting Started
+Insights is organized into five sections, each built around a different question:
 
-### Accessing Insights
+| Section | Question it answers |
+|---|---|
+| Performance | What happened? |
+| Attribution | Why did it happen? |
+| Exposure | What am I exposed to? |
+| Risk | What can go wrong? |
+| AI Insights | Reserved for future AI-generated portfolio narratives |
+
+## Accessing Insights
 
 1. Select a portfolio from the dropdown
-2. Navigate to the **Insights** page
-3. Insights are automatically calculated and displayed
+2. Click **Insights** in the main navigation
+3. Choose a section (Performance, Attribution, Exposure, Risk, or AI Insights)
+4. Adjust the time period and benchmark if the section supports them
 
 !!! note "Requirements"
-    You need at least one transaction in your portfolio to view insights. The more historical data you have, the more accurate and meaningful the insights become.
+    You need at least one open position in your portfolio to see insights. Add a buy transaction first if the page prompts you to.
 
 ### Time Period Selection
 
-Choose from multiple time periods to analyze:
+Most sections let you pick the window of history to analyze:
 
-- **1m**: Last month
-- **3m**: Last 3 months
-- **6m**: Last 6 months
-- **1y**: Last year (default)
-- **ytd**: Year-to-date
-- **all**: Since first transaction
+- **1M**: Last month
+- **3M**: Last 3 months
+- **6M**: Last 6 months
+- **YTD**: Year-to-date
+- **1Y**: Last year (default)
+- **All**: Since your first transaction
 
 ### Benchmark Selection
 
-Compare your portfolio against market indexes:
+Performance and Risk let you compare your portfolio against a market index:
 
-- **SPY**: S&P 500 (default)
-- **QQQ**: Nasdaq 100
-- **IWM**: Russell 2000
-- **DIA**: Dow Jones Industrial Average
-- **VTI**: Total US Stock Market
+- **S&P 500** (default)
+- **Nasdaq 100**
+- **Russell 2000**
+- **Dow Jones**
+- Total US market
 
-## Key Performance Indicators
+Attribution and Exposure are based on your current holdings, so they don't use the time period or benchmark selectors.
 
-At the top of the Insights page, you'll find four key metrics:
+## Performance
 
-### Total Return
+Performance summarizes what your portfolio actually did over the selected period, and how that compares to the market.
 
-- Shows total profit or loss in currency
-- Includes both realized and unrealized gains/losses
-- Percentage change displayed below
+**Headline metrics**
 
-### Annualized Return
+- **Total Return** — profit or loss over the period, in currency and percentage
+- **Annualized Return** — your return converted to a yearly rate, useful for comparing periods of different lengths
+- **Sharpe Ratio** — return earned per unit of risk taken; higher generally means a smoother ride to the same (or better) return
+- **Alpha vs benchmark** — how much you beat or lagged the selected index over the period
 
-- Your portfolio's average annual return rate
-- Useful for comparing with benchmark returns
-- Accounts for compounding over time
+**Performance vs Benchmark chart**
 
-### Win Rate
+An overlay of your portfolio's cumulative return against the benchmark's, so you can see at a glance whether you're keeping pace, pulling ahead, or falling behind. Below the chart:
 
-- Percentage of days with positive returns
-- Helps understand consistency of performance
-- Higher win rate indicates more stable growth
+- **Portfolio Return** and **Benchmark Return** — cumulative return for each over the period
+- **Alpha** — portfolio return minus benchmark return
+- **Correlation** — how closely your portfolio's day-to-day moves track the benchmark, from $-1$ (perfectly opposite) to $+1$ (perfectly in sync)
 
-### Diversification Score
+**Performance Statistics**
 
-- Measures how well-diversified your portfolio is (0-100)
-- Higher score = better diversification
-- Based on:
-    - Number of different holdings
-    - Distribution of assets (concentration)
+- **Best Day** / **Worst Day** — the single biggest daily swing in your performance, with the date
+- **Positive Days** / **Negative Days** — the split between good and bad days
+- **Win Rate** — the percentage of observed days that were positive
 
-!!! tip "Diversification Guidelines"
-    - **0-30**: Low diversification, high concentration risk
-    - **30-60**: Moderate diversification
-    - **60-80**: Well-diversified portfolio
-    - **80-100**: Highly diversified
+**Risk Summary**
 
-## Performance Metrics
+A compact preview of volatility, beta, maximum drawdown, and Value at Risk for the period — the full detail lives in the Risk section.
 
-### Total Return Analysis
+!!! tip "Reading annualized return"
+    Annualized return lets you compare a 3-month result to a 5-year result on equal footing. A strong 3-month period can look impressive in raw terms but translate to a much more modest annualized rate.
 
-View detailed return information:
+## Attribution
 
-- **Period Return**: Total gain/loss for selected period
-- **Percentage Return**: Performance as a percentage
-- **Annualized Return**: Average annual growth rate
-- **Start Value**: Portfolio value at period start
-- **End Value**: Current portfolio value
+Attribution breaks your returns down by source, so you can see which specific positions or groups of positions are actually responsible for your gains or losses — rather than just knowing the portfolio total moved.
 
-### Cash Flow Metrics
+**Why Does My Portfolio Move?**
 
-Track money movement in your portfolio:
+Shows which of your current holdings explain the most recent daily move in your portfolio, using each position's latest daily price change. You'll see:
 
-- **Total Invested**: New money added during period
-- **Total Withdrawn**: Money taken out during period
-- Shows capital additions vs withdrawals
+- Today's overall daily change, in percent and currency
+- The value explained by your current holdings
+- The 5 best and 5 worst movers of the day
 
-### Daily Performance
+**Top Contributors / Top Detractors**
 
-- **Best Day**: Highest single-day return (% and date)
-- **Worst Day**: Lowest single-day return (% and date)
-- **Positive Days**: Number of days with gains
-- **Negative Days**: Number of days with losses
+Ranks your open positions by total unrealized profit or loss (not just today's move) — the assets doing the most to help or hurt your overall return.
 
-## Benchmark Comparison
+**Contribution by Asset, Theme, Sector, Country, Currency**
 
-### Performance Chart
+Groups your current holdings by each of these dimensions and shows how much each group has contributed to your total unrealized return. This is where you can see, for example, that most of your gains actually came from one theme or sector rather than being spread evenly across the portfolio.
 
-Interactive chart comparing your portfolio to the benchmark:
+**Concentration Metrics**
 
-- **Blue line**: Your portfolio value over time
-- **Orange line**: Benchmark index value (normalized)
-- Hover to see exact values on specific dates
-- Both start at the same value for easy comparison
+Measures how much of your portfolio's value sits in a small number of positions:
 
-### Alpha (Excess Return)
+- **Largest Position** — the weight of your single biggest holding
+- **Top 3 Weight** / **Top 5 Weight** — combined weight of your largest few positions
+- **Effective Positions** — a concentration-adjusted count of holdings (a portfolio of 10 equally-sized positions has 10 effective positions; one dominated by a single stock has far fewer)
+- **Diversification** — a 0–100 score combining how many holdings you have and how evenly sized they are
 
-- Shows how much you outperformed or underperformed the benchmark
-- **Positive alpha**: You beat the benchmark
-- **Negative alpha**: Benchmark performed better
-- Displayed as percentage points difference
+!!! tip "Why effective positions matters more than holding count"
+    Two portfolios can both hold 20 assets, but if one position is 60% of the portfolio, you're really only diversified across a handful of "effective" positions. This metric captures that nuance better than a simple headcount.
 
-### Correlation
+## Exposure
 
-- Measures how closely your portfolio follows the benchmark
-- **1.0**: Perfect correlation (moves exactly with benchmark)
-- **0.0**: No correlation
-- **-1.0**: Perfect inverse correlation (moves opposite)
+Exposure shows what your current holdings are actually exposed to — beyond the label on the ticker — so you can spot risks that aren't obvious from looking at individual positions.
 
-!!! note "Understanding Correlation"
-    High correlation (0.7-1.0) means your portfolio moves similarly to the market. Lower correlation means you have unique positions that perform independently of the benchmark.
+**Exposure breakdowns**
 
-## Risk Metrics
+Each of the following shows the current market-value split of your holdings along one dimension:
 
-Understanding your portfolio's risk profile:
+- **Theme Exposure** — thematic tilts (e.g. artificial intelligence, clean energy) across your holdings
+- **Sector Exposure** — split across business sectors
+- **Country Exposure** — geographic exposure by country
+- **Currency Exposure** — which currencies your holdings are denominated in
+- **Market Cap Exposure** — split across mega, large, mid, small, and micro-cap companies, with funds, crypto, and holdings missing market-cap data grouped separately
 
-### Volatility
+**Portfolio DNA**
 
-- Annualized standard deviation of returns
-- Measures how much your portfolio value fluctuates
-- **Higher volatility**: More unpredictable, riskier
-- **Lower volatility**: More stable, less risky
-- Expressed as percentage
+A style summary of your portfolio built from your current holdings — concentration, dominant instrument type, geographic tilt, currency tilt, dominant theme, and breadth (effective position count). It's a quick way to describe your portfolio's overall character in a few traits rather than scrolling through every table.
 
-### Sharpe Ratio
+**Duplicate Exposure**
 
-- Risk-adjusted return metric
-- Higher is better (more return per unit of risk)
-- **< 1.0**: Poor risk-adjusted returns
-- **1.0-2.0**: Good risk-adjusted returns
-- **> 2.0**: Excellent risk-adjusted returns
-- Assumes 2% risk-free rate
+Flags categories where several different holdings may all be exposed to the same underlying driver — for example, three different tickers that are all really "US mega-cap tech" bets. Two positions that look diversified on paper can still move together if they share the same underlying exposure.
 
-### Maximum Drawdown
+**Hidden Concentration**
 
-- Largest peak-to-trough decline in portfolio value
-- Shows worst-case historical loss scenario
-- Date of maximum drawdown displayed
-- Helps understand downside risk
-- **Lower is better**: Less severe losses
+Highlights grouped exposure that's large as a group even though no single holding looks concentrated on its own — a risk that's easy to miss if you only look at individual position sizes.
 
-### Downside Deviation
+**Theme Evolution**
 
-- Volatility of negative returns only
-- Focuses on downside risk rather than all volatility
-- Useful for understanding loss potential
-- **Lower is better**: More protection against losses
+A chart tracking how your top theme exposures have shifted over the selected period, based on your transaction and cost-basis history. Useful for seeing whether a thematic tilt you didn't intend to build has crept in over time.
 
-### Value at Risk (VaR 95%)
+!!! note "Exposure reflects current holdings only"
+    Unlike Performance, the Exposure and Attribution sections describe your portfolio as it stands today — they don't use the time period selector (except Theme Evolution, which specifically tracks change over time).
 
-- Expected maximum loss on a bad day (95% confidence)
-- Answers: "How much could I lose on a very bad day?"
-- Expressed as percentage
-- Based on historical return distribution
+## Risk
 
-!!! warning "Risk Metrics Interpretation"
-    Risk metrics are based on historical data and don't guarantee future performance. Markets can behave differently than in the past.
+Risk quantifies how much your portfolio could move, in both typical and worst-case terms, and stress-tests it against hypothetical market shocks.
 
-## Asset Allocation
+**Volatility**
 
-### By Asset
+- **Annualized Volatility** — how much your returns typically fluctuate over a year
+- **Downside Deviation** — volatility measured using only negative return days, a better gauge of "bad" volatility than overall volatility
+- **Sharpe Ratio** — return earned per unit of volatility
 
-View top holdings by portfolio percentage:
+**Beta & Correlation**
 
-- Asset symbol and name
-- Percentage of total portfolio value
-- Dollar value of holding
-- Quantity owned
-- Asset type badge
+- **Beta** — how sensitive your portfolio is to moves in the selected benchmark; a beta above $1.0$ means your portfolio tends to amplify market moves, below $1.0$ means it tends to dampen them
+- **Correlation** — how closely your portfolio's returns track the benchmark's, from $-1$ to $+1$
+- **Alpha** — your return in excess of (or behind) the benchmark
 
-Visualized in a pie chart showing relative sizes of your positions.
+**Value at Risk**
 
-### By Sector
+Estimates how much you could lose on a bad day or month, based on your historical return distribution:
 
-See how your investments are distributed across sectors:
+- **VaR 95% (1-day)** and **VaR 99% (1-day)** — the loss threshold you'd expect to exceed only 5% or 1% of days, respectively
+- **CVaR 95%** — the average loss on the days that fall beyond the VaR 95% threshold (the "how bad is bad" complement to VaR)
+- **VaR 95% (1-month)** — the 1-day VaR scaled to a monthly horizon
 
-- Technology
-- Healthcare
-- Financial Services
-- Consumer Goods
-- Energy
-- And more...
+**Drawdown**
 
-Each sector shows:
-    - Percentage of portfolio
-    - Total value
-    - Number of holdings
+- **Maximum Drawdown** — the largest peak-to-trough decline in your portfolio's value over the selected period, with the date it occurred
+- **Tail Exposure** — how often your returns fall into extreme territory (roughly 3 standard deviations from your average), a signal of fat-tail risk beyond what volatility alone captures
 
-!!! tip "Sector Diversification"
-    Avoid over-concentration in any single sector. Aim for exposure across multiple sectors to reduce sector-specific risk.
+**Scenario Analysis**
 
-### By Geography
+Applies a set of predefined market scenarios (e.g. a rate shock, a tech selloff, a broad market correction) to your current exposure weights, estimating how much value each scenario would add or remove from your portfolio today.
 
-Understand your geographic exposure:
+**Stress Testing**
 
-- Country name with flag
-- Percentage of portfolio
-- Total value
-- Number of holdings
+Highlights the most severe shocks against your current exposures — the scenarios that would hurt the most if they happened — so you know where your biggest hidden vulnerabilities are.
 
-View pie chart showing geographic distribution of your investments.
+!!! warning "Risk metrics are historical, not predictive"
+    Volatility, VaR, beta, and drawdown are all calculated from past returns. They describe how your portfolio has behaved, not how it's guaranteed to behave in the future — markets can and do shift regime, especially around shocks and crises.
 
-## Top & Worst Performers
+## AI Insights
 
-### Top 5 Performers
-
-Assets with highest returns for the selected period:
-
-- Asset symbol and name
-- Return percentage (highlighted in green)
-- Current value
-- Unrealized profit/loss
-- Asset type
-
-### Worst 5 Performers
-
-Assets with lowest returns (or largest losses):
-
-- Asset symbol and name
-- Return percentage (highlighted in red)
-- Current value
-- Unrealized profit/loss
-- Asset type
-
-!!! note "Performance Context"
-    Individual asset performance should be viewed in context of your overall strategy. Some holdings may underperform temporarily while serving important portfolio roles.
-
-## Using Insights for Decision Making
-
-### Portfolio Health Check
-
-Regularly review these key indicators:
-
-1. **Return vs Benchmark**: Are you beating the market?
-2. **Diversification Score**: Is your portfolio well-diversified?
-3. **Risk Metrics**: Are you taking appropriate risk?
-4. **Sector Balance**: Any over-concentration?
-5. **Geographic Exposure**: Too much in one country?
-
-### Rebalancing Decisions
-
-Use insights to identify when to rebalance:
-
-- Assets that have grown too large (>20% of portfolio)
-- Sectors with over-concentration
-- Underperforming assets to consider selling
-- High volatility positions to reduce
-
-### Performance Tracking
-
-Monitor your progress:
-
-- Compare different time periods
-- Track annualized return trends
-- Monitor win rate consistency
-- Review risk metrics evolution
+Reserved for future AI-generated portfolio review: hidden risk detection, diversification gaps, opportunity analysis, and narrative explanations of your portfolio in plain language. Not yet available in this release.
 
 ## Troubleshooting
 
+### A section shows "no data available"
+
+- Each block needs a minimum amount of underlying data (holdings, price history, or benchmark history) to compute. If a block is empty, it usually means that requirement isn't met yet.
+- Add more transactions or wait for more price history to accumulate, then check back.
+- Use the refresh icon in the section header to retry after adding data.
+
 ### "No positions found in portfolio"
 
-- Add transactions to your portfolio first
-- Insights require at least one BUY transaction
-- Ensure you have current holdings
+- Insights are built from your current open positions. Add at least one buy transaction to your active portfolio.
+- If you've sold everything, insights won't have anything to analyze until you hold something again.
 
-### Loading Takes Too Long
+### Missing risk metrics or beta
 
-- First load may take longer while calculating metrics
-- Subsequent loads use 5-minute cache
-- Try reducing the time period (use "1y" instead of "all")
-- Ensure price data is available for your assets
+- Volatility, drawdown, and VaR need at least two days of historical portfolio value in the selected period — very new portfolios or very short periods may not qualify yet.
+- Beta specifically needs a substantial number of days where your portfolio's returns and the benchmark's returns can be aligned; if your portfolio or the benchmark is missing price history for stretches of the period, beta may show as unavailable.
+- Try a longer period (e.g. switch from 1M to 1Y) to give the calculation more data to work with.
 
-### Benchmark Chart Not Showing
+### Benchmark data not loading
 
-- Check that benchmark symbol is valid (SPY, QQQ, etc.)
-- Benchmark price data may be loading
-- Try refreshing the page
-- Some benchmarks may not have historical data for your period
+- Confirm you've selected a supported benchmark from the dropdown.
+- Benchmark price history is fetched from the market data provider in the background; if it was just requested for the first time, give it a moment and refresh.
+- Some benchmarks may not have complete history for very long "All time" periods.
 
-### Missing Risk Metrics
+### Sector, country, or theme data looks incomplete
 
-- Need at least 2 days of historical data
-- Ensure transactions span the selected period
-- Check that price data is available for dates
+- Exposure and Attribution group your holdings using each asset's classification data. If an asset is missing sector, country, or theme information, it may show up as "Unknown" or be excluded from a specific breakdown.
+- Visit the Assets page and run metadata enrichment to fill in missing classification data.
+- Funds, ETFs, and cryptocurrencies don't have a traditional sector, so they're expected to be grouped separately in some breakdowns (like Market Cap Exposure).
 
-### Incorrect Sector/Geographic Data
+### Numbers seem stale after making changes
 
-- Run **Enrich Metadata** on the Assets page
-- Some assets may not have sector/country data
-- ETFs and cryptocurrencies don't have sectors
-
-## Understanding Limitations
-
-### Historical Data
-
-- Insights are based on past performance
-- Past performance doesn't guarantee future results
-- Market conditions change over time
-- Use as one tool among many for decision-making
-
-### Data Accuracy
-
-- Insights depend on accurate transaction data
-- Price data comes from Yahoo Finance
-- Some assets may have incomplete data
-- Verify critical calculations manually
-
-### Cache Behavior
-
-- Insights are cached for 5 minutes
-- May not reflect very recent changes immediately
-- Refresh page or wait 5 minutes for updated data
-- Cache improves performance for complex calculations
+- Insights results are cached briefly to keep the page fast. After adding transactions or changing holdings, use the refresh icon on the affected section, or wait a few minutes for the cache to refresh automatically.
 
 ## Next Steps
 
-- [Review Assets](assets.md) for detailed asset information
-- [Check Portfolios](portfolios.md) to view current positions
-- [Set Notifications](notifications.md) for performance alerts
-- [Add Transactions](transactions.md) to keep data current
+- [Dashboard](dashboard.md) for real-time metrics and position tracking
+- [Charts](charts.md) for visual portfolio value history and performance charts
+- [Assets](assets.md) to enrich metadata and review individual asset details
+- [Portfolios](portfolios.md) to review current holdings
+- [Transactions](transactions.md) to keep your transaction history accurate and complete

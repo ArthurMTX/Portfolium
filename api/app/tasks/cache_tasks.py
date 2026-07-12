@@ -3,16 +3,15 @@ Background tasks for cache management and optimization.
 """
 import asyncio
 import logging
-from typing import List, Optional
-from celery import group
+from typing import List
 from datetime import datetime
 
 from app.celery_app import celery_app
 from app.db import get_db_context
 from app.models import Asset, Portfolio
-from app.services.cache import CacheService
-from app.services.pricing import PricingService
-from app.services.analytics_cache import invalidate_portfolio_analytics
+from app.services.platform.cache import CacheService
+from app.services.market_data.pricing import PricingService
+from app.services.platform.analytics_cache import invalidate_portfolio_analytics
 from app.tasks.decorators import singleton_task
 
 logger = logging.getLogger(__name__)
@@ -165,22 +164,26 @@ def cleanup_expired_cache(self) -> dict:
 
 
 @celery_app.task(bind=True, name="app.tasks.cache_tasks.warmup_specific_symbols")
-def warmup_specific_symbols(self, symbols: List[str]) -> dict:
+def warmup_specific_symbols(self, symbols: List[str], force_refresh: bool = False) -> dict:
     """
     Warm up price cache for specific symbols.
     
     Args:
         symbols: List of symbols to fetch and cache prices for
+        force_refresh: Bypass local stale cache when this task was triggered by a stale read
         
     Returns:
         dict with summary
     """
     try:
-        logger.info(f"Task {self.request.id}: Warming up prices for {len(symbols)} specific symbols")
+        logger.info(
+            f"Task {self.request.id}: Warming up prices for {len(symbols)} specific symbols "
+            f"(force_refresh={force_refresh})"
+        )
         
         with get_db_context() as db:
             pricing_service = PricingService(db)
-            results = asyncio.run(pricing_service.get_multiple_prices(symbols))
+            results = asyncio.run(pricing_service.get_multiple_prices(symbols, force_refresh=force_refresh))
             
             success_count = sum(1 for r in results.values() if r is not None)
             
@@ -215,13 +218,12 @@ def warmup_public_portfolios(self) -> dict:
         logger.info(f"Task {self.request.id}: Starting public portfolio cache warmup")
         
         with get_db_context() as db:
-            from app.crud import portfolios as crud_portfolios
             from app.routers.public import get_public_portfolio
             import asyncio
             
             # Get all public portfolios
             public_portfolios = db.query(Portfolio).filter(
-                Portfolio.is_public == True,
+                Portfolio.is_public.is_(True),
                 Portfolio.share_token.isnot(None)
             ).all()
             
@@ -238,9 +240,12 @@ def warmup_public_portfolios(self) -> dict:
                 try:
                     # Call the endpoint function directly to warm cache
                     # This will compute and cache the expensive insights
-                    result = asyncio.run(get_public_portfolio(portfolio.share_token, db))
+                    asyncio.run(get_public_portfolio(portfolio.share_token, db))
                     warmed_count += 1
-                    logger.info(f"Warmed public portfolio {portfolio.id} (token {portfolio.share_token[:8]}...)")
+                    logger.debug(
+                        "Warmed public portfolio",
+                        extra={"event": "public_portfolio_cache_warmed"},
+                    )
                 except Exception as e:
                     failed_count += 1
                     logger.error(f"Failed to warm public portfolio {portfolio.id}: {e}")
@@ -283,3 +288,30 @@ def get_cache_statistics() -> dict:
     except Exception as e:
         logger.error(f"Error getting cache statistics: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
+
+
+@celery_app.task(bind=True, name="app.tasks.cache_tasks.refresh_market_movers")
+def refresh_market_movers(self) -> dict:
+    """
+    Refresh the market movers cache in the background.
+
+    Triggered by GET /assets/market-movers when the fresh cache has expired
+    but a stale payload was served. The endpoint acquires the refresh lock
+    before enqueueing, so at most one refresh runs per lock window; the lock
+    is released here (with the Redis TTL as a backstop if the worker dies).
+    """
+    from app.routers.assets import refresh_market_movers_cache, _MARKET_MOVERS_LOCK_KEY
+
+    try:
+        movers = refresh_market_movers_cache()
+        counts = {key: len(items) for key, items in movers.items()}
+        logger.info(
+            f"Task {self.request.id}: refreshed market movers {counts}",
+            extra={"event": "market_movers_refreshed"},
+        )
+        return {"status": "success", "counts": counts, "task_id": self.request.id}
+    except Exception as e:
+        logger.error(f"Error refreshing market movers: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+    finally:
+        CacheService.delete(_MARKET_MOVERS_LOCK_KEY)

@@ -5,16 +5,15 @@ from fastapi import APIRouter, Query, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import os
-import re
 from typing import List, Optional
 
 from app.errors import LogFileNotFoundError
 from app.auth import get_current_admin_user
 from app.models import User
 from app.db import get_db
+from app.config import settings
 
-# Go up from app/routers/logs.py -> app/routers -> app -> api (project root), then to logs/app.log
-LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs', 'app.log')
+LOG_FILE = settings.LOG_FILE_PATH
 
 router = APIRouter()
 
@@ -34,7 +33,11 @@ def get_logs(
     logs: List[str] = []
     with open(LOG_FILE, encoding="utf-8") as f:
         for line in f:
-            if level and f"| {level.upper()} |" not in line:
+            if level and (
+                f"| {level.upper()}" not in line
+                and f'"level":"{level.upper()}"' not in line
+                and f'"level": "{level.upper()}"' not in line
+            ):
                 continue
             if search and search.lower() not in line.lower():
                 continue

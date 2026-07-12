@@ -93,7 +93,7 @@ def update_portfolio(
     db.refresh(db_portfolio)
     
     # Invalidate position cache since portfolio base_currency may have changed
-    from app.services.cache import invalidate_positions
+    from app.services.platform.cache import invalidate_positions
     invalidate_positions(portfolio_id)
     
     return db_portfolio
@@ -109,7 +109,7 @@ def delete_portfolio(db: Session, portfolio_id: int) -> bool:
     db.commit()
     
     # Invalidate position cache
-    from app.services.cache import invalidate_positions
+    from app.services.platform.cache import invalidate_positions
     invalidate_positions(portfolio_id)
     
     return True

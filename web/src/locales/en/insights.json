@@ -1,0 +1,262 @@
+{
+  "insights": {
+    "title": "Insights",
+    "description": "Analyze your investment performance and market trends",
+    "totalMarket": "Total Market",
+    "period": "Period",
+    "vs": "vs",
+    "alpha": "Alpha",
+    "volatility": "Volatility",
+    "sectorAllocation": "Sector Allocation",
+    "geographicAllocation": "Geography Allocation",
+    "assets": "assets",
+    "periods": {
+      "1M": "1 Month",
+      "3M": "3 Months",
+      "6M": "6 Months",
+      "1Y": "1 Year",
+      "YTD": "Year to Date",
+      "ALL": "All Time"
+    },
+    "shared": {
+      "moreInformation": "More information",
+      "formula": "Formula",
+      "refresh": "Refresh",
+      "refreshLabel": "Refresh {{title}}",
+      "detailsLabel": "{{title}} details",
+      "failedToLoad": "Failed to load this block.",
+      "unavailableEyebrow": "Insight unavailable",
+      "unavailableTitle": "This block could not load.",
+      "retry": "Retry",
+      "noDataEyebrow": "No data",
+      "noDataDefault": "No data available for this block.",
+      "noDataDescription": "This insight will appear when enough portfolio data is available.",
+      "currentHoldings": "Current holdings",
+      "selectedPeriod": "Selected period: {{period}}",
+      "allTime": "All time",
+      "loadingTable": "Loading insight table"
+    },
+    "risk": {
+      "volatility": {
+        "title": "Volatility",
+        "description": "Measures how much portfolio returns fluctuate over the selected period.",
+        "formula": "annualized volatility is the standard deviation of daily returns scaled to a year; downside deviation uses only negative returns.",
+        "annualizedVolatility": "Annualized Volatility",
+        "downsideDeviation": "Downside Deviation",
+        "sharpeRatio": "Sharpe Ratio"
+      },
+      "correlation": {
+        "title": "Beta & Correlation",
+        "description": "Compares portfolio behavior with the selected benchmark.",
+        "formula": "beta estimates sensitivity to benchmark moves; correlation ranges from -1 to +1 based on aligned return series.",
+        "beta": "Beta",
+        "correlationVs": "Correlation vs {{benchmark}}",
+        "alpha": "Alpha"
+      },
+      "var": {
+        "title": "Value at Risk",
+        "description": "Estimates downside loss thresholds from the selected-period return distribution.",
+        "formula": "VaR is the loss threshold at a confidence level; CVaR is the average loss beyond that threshold.",
+        "var95_1d": "VaR 95% 1D",
+        "var99_1d": "VaR 99% 1D",
+        "cvar95": "CVaR 95%",
+        "var95_1m": "VaR 95% 1M"
+      },
+      "drawdown": {
+        "title": "Drawdown",
+        "description": "Shows peak-to-trough losses and tail-event frequency for the selected period.",
+        "formula": "maximum drawdown is the largest percentage decline from a prior high to a later low.",
+        "maxDrawdown": "Maximum Drawdown",
+        "drawdownDate": "Drawdown Date",
+        "tailExposure": "Tail Exposure"
+      },
+      "scenario": {
+        "title": "Scenario Analysis",
+        "description": "Applies predefined market scenarios to current exposure weights.",
+        "formula": "estimated impact = exposure weight x scenario shock, summed across matched groups.",
+        "empty": "No scenario results are available."
+      },
+      "stress": {
+        "title": "Stress Testing",
+        "description": "Highlights severe current-exposure shocks that would have a large portfolio impact.",
+        "formula": "impact value = current exposed market value x stress shock percentage.",
+        "empty": "No stress test results are available."
+      },
+      "scope": "Current holdings / selected period: {{period}}",
+      "notAvailable": "N/A"
+    },
+    "attribution": {
+      "portfolioMove": {
+        "title": "Why Does My Portfolio Move?",
+        "scope": "Latest daily move",
+        "description": "Shows which current holdings explain today's portfolio move using the latest available daily change for each asset.",
+        "formula": "position market value x daily change %, then summed and divided by total portfolio value.",
+        "empty": "Daily change data is not available for the current holdings.",
+        "dailyChange": "Daily Change",
+        "estimatedMove": "Estimated Move",
+        "explainedByHoldings": "Explained By Holdings",
+        "bestAssets": "Best 5 assets",
+        "worstAssets": "Worst 5 assets",
+        "noPositiveMovers": "No positive daily movers.",
+        "noNegativeMovers": "No negative daily movers."
+      },
+      "topContributors": "Top Contributors",
+      "topDetractors": "Top Detractors",
+      "contributionDescription": "Ranks open positions by total unrealized P&L, not by today's move or the selected period.",
+      "contributionFormula": "market value minus cost basis for each open position.",
+      "byAsset": "Contribution by Asset",
+      "byTheme": "Contribution by Theme",
+      "bySector": "Contribution by Sector",
+      "byCountry": "Contribution by Country",
+      "byCurrency": "Contribution by Currency",
+      "groupDescription": "Groups current open positions and shows how much each group contributes to total unrealized return.",
+      "groupFormula": "sum unrealized P&L for the group / total portfolio cost basis.",
+      "concentration": {
+        "title": "Concentration Metrics",
+        "description": "Measures whether portfolio value is concentrated in a few positions.",
+        "formula": "effective positions = 1 / Herfindahl index; diversification combines holding count and concentration spread.",
+        "largestPosition": "Largest Position",
+        "top3Weight": "Top 3 Weight",
+        "top5Weight": "Top 5 Weight",
+        "effectivePositions": "Effective Positions",
+        "diversification": "Diversification",
+        "largestHolding": "Largest holding",
+        "ofPortfolioValue": "{{percent}} of portfolio value."
+      }
+    },
+    "exposure": {
+      "theme": {
+        "title": "Theme Exposure"
+      },
+      "sector": {
+        "title": "Sector Exposure"
+      },
+      "country": {
+        "title": "Country Exposure"
+      },
+      "currency": {
+        "title": "Currency Exposure"
+      },
+      "marketCap": {
+        "title": "Market Cap Exposure",
+        "scope": "Current holdings / available metadata",
+        "description": "Groups holdings by company market-cap bucket when market cap metadata is available. Funds, crypto, and missing market caps are shown separately.",
+        "formula": "sum current market value in each bucket / total portfolio value."
+      },
+      "genericDescription": "Shows the current market-value split for this exposure dimension.",
+      "genericFormula": "group current market value / total portfolio value.",
+      "duplicate": {
+        "title": "Duplicate Exposure",
+        "description": "Flags categories where multiple holdings may be exposed to the same underlying driver.",
+        "formula": "group weight is the sum of current market values for holdings sharing that exposure / total portfolio value.",
+        "empty": "No repeated high-weight exposure detected."
+      },
+      "hiddenConcentration": {
+        "title": "Hidden Concentration",
+        "description": "Highlights grouped exposure that may be less obvious than looking at individual assets.",
+        "formula": "sum grouped market value / total portfolio value; only high-weight grouped exposures are shown.",
+        "empty": "No grouped exposure above the concentration threshold."
+      },
+      "findingSubtitle": "{{type}} exposure · {{count}} holdings",
+      "themeEvolution": {
+        "title": "Theme Evolution",
+        "description": "Shows how top theme exposure changed over time from transactions and cost basis snapshots.",
+        "formula": "theme cost basis at each snapshot / total active cost basis at that snapshot.",
+        "empty": "Theme history is not available yet.",
+        "loading": "Loading theme evolution chart"
+      },
+      "portfolioDna": {
+        "title": "Portfolio DNA",
+        "description": "Summarizes the portfolio's style using current concentration, instrument, geography, currency, theme, and breadth metrics.",
+        "formula": "each trait is based on the dominant current exposure, except breadth, which uses effective positions."
+      },
+      "traitContext": {
+        "breadth": "Effective positions: {{value}}",
+        "concentration": "{{percent}} in largest holding",
+        "default": "{{percent}} of portfolio"
+      }
+    },
+    "performance": {
+      "totalReturn": "Total Return",
+      "totalReturnTooltip": "Total return is current portfolio value minus cost basis over the selected period.",
+      "annualizedReturn": "Annualized Return",
+      "annualizedReturnSubtitle": "Period: {{period}}",
+      "annualizedReturnTooltip": "Annualized return converts the selected-period return into a yearly rate.",
+      "sharpeRatio": "Sharpe Ratio",
+      "sharpeRatioSubtitle": "Risk-adjusted return",
+      "sharpeRatioTooltip": "Sharpe ratio compares excess return with volatility. Higher usually means better risk-adjusted performance.",
+      "vsBenchmark": "vs {{benchmark}}",
+      "alpha": "Alpha",
+      "alphaTooltip": "Alpha is portfolio return minus benchmark return for the selected period.",
+      "error": "Error",
+      "failedToLoad": "Failed to load",
+      "vsBenchmarkChart": {
+        "title": "Performance vs Benchmark",
+        "description": "Compares cumulative portfolio performance against the selected benchmark.",
+        "formula": "alpha = portfolio return - benchmark return; correlation compares the shape of both return series.",
+        "empty": "Benchmark history is not available for this period.",
+        "loading": "Loading benchmark chart",
+        "yAxisLabel": "Performance (%)",
+        "portfolio": "Portfolio"
+      },
+      "portfolioReturn": "Portfolio Return",
+      "benchmarkReturn": "Benchmark Return",
+      "correlation": "Correlation",
+      "statistics": {
+        "title": "Performance Statistics",
+        "description": "Summarizes daily performance changes within the selected period.",
+        "formula": "best/worst day use day-to-day changes in portfolio performance percentage.",
+        "bestDay": "Best Day",
+        "worstDay": "Worst Day",
+        "positiveDays": "Positive Days",
+        "negativeDaysSubtitle": "{{count}} negative days",
+        "winRate": "Win Rate",
+        "winRateSubtitle": "Positive days / observed days",
+        "noDateAvailable": "No date available"
+      },
+      "riskSummary": {
+        "title": "Risk Summary",
+        "description": "Shows volatility and downside metrics calculated from the selected-period return series.",
+        "formula": "volatility is annualized standard deviation; max drawdown is the largest peak-to-trough decline.",
+        "volatility": "Volatility",
+        "beta": "Beta",
+        "maxDrawdown": "Max Drawdown",
+        "var95": "Value at Risk 95%"
+      }
+    },
+    "kicker": "Insights",
+    "controls": {
+      "insightsControls": "Insights controls",
+      "insightsSections": "Insights sections",
+      "insightsPeriod": "Insights period",
+      "insightsBenchmark": "Insights benchmark"
+    },
+    "tabs": {
+      "performance": {
+        "label": "Performance",
+        "purpose": "What happened?"
+      },
+      "attribution": {
+        "label": "Attribution",
+        "purpose": "Why did it happen?"
+      },
+      "exposure": {
+        "label": "Exposure",
+        "purpose": "What am I exposed to?"
+      },
+      "risk": {
+        "label": "Risk",
+        "purpose": "What can go wrong?"
+      },
+      "ai": {
+        "label": "AI Insights",
+        "purpose": "Future"
+      }
+    },
+    "loadingMetrics": "Loading insights metrics",
+    "loadingChart": "Loading insights chart",
+    "future": "Future",
+    "aiInsights": "AI Insights",
+    "aiInsightsDescription": "Reserved for future AI-powered portfolio review, hidden risk detection, diversification gaps, opportunity analysis, and narrative explanations."
+  }
+}

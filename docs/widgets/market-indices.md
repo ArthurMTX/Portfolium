@@ -1,130 +1,52 @@
-# Market Indices
+## Market Indices
 
-The **Market Indices** widget shows the **main stock indices around the world** and how they are performing **today**.  
-It gives you a quick global snapshot of whether markets are **up or down** at index level.
+### What It Shows
 
----
+Market Indices gives you a global pulse check without leaving your dashboard: the level and daily move of the world's major stock indices, grouped by region. For each index you see:
 
-## What It Shows
+- the **index name** and a **country flag** for quick recognition;
+- the **current level**;
+- the **daily percentage change** versus the previous close;
+- a trend icon — up arrow in green, down arrow in red, or a grey dash if flat or unavailable.
 
-The widget is organized **by region** (e.g. US, Europe, Asia) and, for each index, displays:
+A "Key Markets" section always shows the S&P 500, Nasdaq, Dow Jones, FTSE 100, DAX, and Nikkei 225 up front. Everything else — TSX, CAC 40, FTSE MIB, Hang Seng, SSE Composite, ASX 200 — is grouped by region (Americas, Europe, Asia) behind a "show more" toggle.
 
-- The **index name** (e.g. S&P 500, CAC 40, Nikkei 225)  
-- A **country flag** for quick visual context  
-- The **latest index level** (current price)  
-- The **daily percentage change** (vs previous close)  
-- A small **trend icon**, color-coded:
+### How It's Built
 
-    - **Green + arrow up** → index is up on the day  
-    - **Red + arrow down** → index is down on the day  
-    - **Grey dash** → no change or data unavailable  
+Portfolium fetches quotes for a fixed list of index symbols in a single batch request — `^GSPC` (S&P 500), `^DJI` (Dow Jones), `^IXIC` (Nasdaq), `^GSPTSE` (TSX), `^FTSE` (FTSE 100), `^GDAXI` (DAX), `^FCHI` (CAC 40), `FTSEMIB.MI` (FTSE MIB), `^N225` (Nikkei 225), `^HSI` (Hang Seng), `000001.SS` (SSE Composite), and `^AXJO` (ASX 200) — batching them into one external API call rather than one per index, to stay well under rate limits.
 
-This makes it easy to see at a glance **which regions are rising and which are falling**.
+Each quote carries the latest price and the percentage change versus the previous close. Server-side, results are cached briefly (about a minute) so the dashboard doesn't refetch on every load; if fresh data can't be fetched in time, Portfolium serves the last known values rather than showing nothing. On the client, the whole widget also automatically refreshes about once a minute while visible.
 
-The widget currently tracks (non-exhaustive list):
+For display, changes get a leading `+` or `-` sign, and the trend icon/color simply reflects the sign of the change — positive is green with an up arrow, negative is red with a down arrow, and zero or missing data is a neutral grey dash.
 
-- **USA & North America**
+### Example
 
-    - S&P 500 (**^GSPC**)
-    - Dow Jones (**^DJI**)
-    - Nasdaq (**^IXIC**)
-    - TSX (**^GSPTSE**)
+On a typical trading day, the "Key Markets" section might read:
 
-- **Europe**
+| Index | Level | Change |
+|---|---|---|
+| S&P 500 | 4,750.32 | $+0.85\%$ |
+| Nasdaq | 15,220.55 | $+1.30\%$ |
+| Dow Jones | 38,120.10 | $+0.40\%$ |
+| FTSE 100 | 7,650.10 | $-0.15\%$ |
+| DAX | 15,950.80 | $-0.10\%$ |
+| Nikkei 225 | 33,100.50 | $+0.20\%$ |
 
-    - FTSE 100 (**^FTSE**)
-    - DAX (**^GDAXI**)
-    - CAC 40 (**^FCHI**)
-    - FTSE MIB (**FTSEMIB.MI**)
+At a glance: US and Japan are up, UK and Germany are down slightly.
 
-- **Asia / Oceania**
+### When To Use It
 
-    - Nikkei 225 (**^N225**)
-    - Hang Seng (**^HSI**)
-    - SSE Composite (**000001.SS**)
-    - ASX 200 (**^AXJO**)
+Check Market Indices when you want to:
 
----
+- get a quick macro read on whether it's a risk-on or risk-off day globally;
+- see whether your portfolio's move today is in line with, or diverging from, the broader market;
+- track which regions are leading or lagging before deciding to check individual holdings.
 
-## How It Works
+It pairs naturally with [Market Status](market-status.md) — indices only move meaningfully while their home market is actually open — and with your own [Daily Gain](daily-gain.md) or [Performance Metrics](performance-metrics.md) for comparison.
 
-Behind the scenes, the widget:
+### Notes & Limitations
 
-1. **Requests index data** from the pricing API for a fixed list of symbols  
-2. For each index, receives:
-    - A **current price** (latest index level)
-    - A **daily change percentage** (vs previous close)  
-3. Normalizes the data so it can display:
-    - The **level** (formatted with two decimals)
-    - The **change (%)** with a leading `+` when positive or `−` when negative 
-4. Chooses:
-    - A **trend icon**:
-        - Up arrow if daily change > 0  
-        - Down arrow if daily change < 0  
-        - Dash if daily change = 0 or missing  
-    - A **color**:
-        - Green for positive
-        - Red for negative
-        - Grey for neutral / missing
-
-If the API is still loading or temporarily fails:
-
-- A **loading spinner** is shown while fetching data  
-- A **friendly error message** is displayed if the request fails  
-
-Indices are grouped by **region label** (e.g. "US", "Europe", "Asia"), using translations so names follow your UI language.
-
----
-
-## Example
-
-On a typical day, you might see:
-
-**US**
-
-- **S&P 500** — `4,750.32` — **+0.85%** ✅  
-- **Dow Jones** — `38,120.10` — **+0.40%** ✅  
-- **Nasdaq** — `15,220.55` — **+1.30%** ✅  
-
-**Europe**
-
-- **CAC 40** — `7,250.20` — **−0.25%** 🔻  
-- **DAX** — `15,950.80` — **−0.10%** 🔻  
-
-**Asia**
-
-- **Nikkei 225** — `33,100.50` — **+0.20%** ✅  
-- **Hang Seng** — `17,950.00` — **−1.10%** 🔻  
-
-At a glance, you can tell:
-
-- US and Japan are **up**  
-- France, Germany and Hong Kong are **down**  
-- The exact daily move for each index in **%**  
-
----
-
-## When To Use It
-
-The Market Indices widget is useful for:
-
-- Getting a **macro view** of global markets without leaving your dashboard  
-- Checking whether **risk-on / risk-off** sentiment dominates the day  
-- Quickly seeing if your portfolio's moves are aligned with **major indices**  
-- Tracking which regions are **leading or lagging** in performance  
-
-It works especially well combined with:
-
-- **Market Status** (to know which regions are actually trading)  
-- **Total Value / Daily Gain / Performance Metrics** (to compare your portfolio vs markets)  
-
----
-
-## Notes
-
-- Price and change data are based on the **latest available quotes** from Yahoo Finance  
-- Percent changes are **relative to the previous close** for each index  
-- Some indices may occasionally show `—` when:
-    - Data is temporarily unavailable  
-    - The API does not return a valid price/change  
-- The list of tracked indices is **fixed** in the current version, but can be extended in future releases
+- Levels and changes reflect the **latest available quote**, which may lag slightly outside of exchange hours.
+- An index occasionally shows **—** when a fresh quote isn't available and no fallback value exists yet.
+- The tracked index list is currently **fixed**; there's no way to add or remove indices from the widget itself.
+- Related pages: [Market Status](market-status.md), [Volatility](volatility.md).

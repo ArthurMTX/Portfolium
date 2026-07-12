@@ -1,10 +1,11 @@
-FROM node:18-alpine AS development
+FROM node:22-alpine AS development
 
 WORKDIR /app
 
 # Install Python and MkDocs for building documentation
-RUN apk add --no-cache python3 py3-pip && \
-    pip3 install --no-cache-dir mkdocs mkdocs-material pymdown-extensions --break-system-packages
+RUN apk add --no-cache python3 py3-pip
+COPY docs/requirements.txt /tmp/docs-requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/docs-requirements.txt --break-system-packages
 
 # Copy package files
 COPY web/package*.json ./
@@ -29,13 +30,14 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host"]
 
 # Production build stage
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 # Install Python and MkDocs for building documentation
-RUN apk add --no-cache python3 py3-pip && \
-    pip3 install --no-cache-dir mkdocs mkdocs-material pymdown-extensions --break-system-packages
+RUN apk add --no-cache python3 py3-pip
+COPY docs/requirements.txt /tmp/docs-requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/docs-requirements.txt --break-system-packages
 
 # Copy package files and install dependencies
 COPY web/package*.json ./

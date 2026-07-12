@@ -2,11 +2,32 @@
 Asset models - financial instruments and metadata
 """
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, DateTime, Enum, LargeBinary, Date, ForeignKey, Numeric
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    Index,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from app.db import Base
 from app.models.enums import AssetClass
+
+
+def _default_theme_source(context):
+    method = (context.get_current_parameters().get("method") or "").lower()
+    return "manual" if method == "manual" else "gemini"
 
 
 class Asset(Base):
@@ -23,25 +44,58 @@ class Asset(Base):
     industry = Column(String)
     asset_type = Column(String)  # 'EQUITY', 'ETF', 'CRYPTO', etc.
     country = Column(String)
+    market_cap = Column(Numeric(24, 2))
+    market_cap_currency = Column(String(3))
+    market_cap_usd = Column(Numeric(24, 2))
+    market_cap_fetched_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # ISIN (ISO 6166), normalized uppercase, retrieved opportunistically via yfinance
+    isin = Column(String(12), index=True)
+
     # Logo caching
     logo_data = Column(LargeBinary)  # Binary logo data (WebP or SVG)
     logo_content_type = Column(String)  # MIME type (image/webp, image/svg+xml)
-    logo_fetched_at = Column(DateTime)  # When logo was last fetched
-    
+    logo_fetched_at = Column(DateTime)  # When logo was last fetched/resolved
+    logo_provider = Column(String(32))  # 'trade_republic' | 'brandfetch' | 'logo_dev' | 'generated'
+    logo_url = Column(String)  # canonical default logo URL (theme-agnostic)
+    logo_light_url = Column(String)  # light-theme logo URL (Trade Republic)
+    logo_dark_url = Column(String)  # dark-theme logo URL (Trade Republic)
+    logo_light_data = Column(LargeBinary)  # cached light-theme logo bytes (Trade Republic)
+    logo_dark_data = Column(LargeBinary)  # cached dark-theme logo bytes (Trade Republic)
+
     # Price history tracking
     first_transaction_date = Column(Date)  # Date of first transaction, used for historical price backfill
     
-    # All-Time High tracking
+    # All-Time High/Low tracking
     ath_price = Column(Numeric(20, 8))  # All-time high price
     ath_date = Column(DateTime)  # When ATH was reached
+    atl_price = Column(Numeric(20, 8))  # All-time low price
+    atl_date = Column(DateTime)  # When ATL was reached
     
     # Relationships
     transactions = relationship("Transaction", back_populates="asset")
     prices = relationship("Price", back_populates="asset", cascade="all, delete-orphan")
     metadata_overrides = relationship("AssetMetadataOverride", back_populates="asset", cascade="all, delete-orphan")
+    investment_notes = relationship("AssetInvestmentNote", back_populates="asset", cascade="all, delete-orphan")
+    theme_classification = relationship(
+        "AssetThemeClassification",
+        back_populates="asset",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    theme_taxonomy_suggestions = relationship(
+        "AssetThemeTaxonomySuggestion",
+        back_populates="asset",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def themes(self):
+        if not self.theme_classification:
+            return []
+        return self.theme_classification.themes or []
 
 
 class AssetMetadataOverride(Base):
@@ -63,3 +117,113 @@ class AssetMetadataOverride(Base):
     # Relationships
     user = relationship("User")
     asset = relationship("Asset", back_populates="metadata_overrides")
+
+
+class AssetInvestmentNote(Base):
+    """User-specific investment thesis for an asset."""
+    __tablename__ = "asset_investment_notes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "asset_id", name="uq_asset_investment_notes_user_asset"),
+        CheckConstraint(
+            "conviction IS NULL OR conviction IN ('low', 'medium', 'high')",
+            name="ck_asset_investment_notes_conviction",
+        ),
+        CheckConstraint(
+            "horizon IS NULL OR horizon IN ('short', 'medium', 'long')",
+            name="ck_asset_investment_notes_horizon",
+        ),
+        {"schema": "portfolio"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("portfolio.users.id", ondelete="CASCADE"), nullable=False)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    thesis = Column(Text)
+    conviction = Column(String(20))
+    risks = Column(Text)
+    target_price = Column(Numeric(20, 8))
+    target_text = Column(Text)
+    invalidation_thesis = Column(Text)
+    horizon = Column(String(20))
+    horizon_date = Column(Date)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+    asset = relationship("Asset", back_populates="investment_notes")
+
+
+class AssetThemeClassification(Base):
+    """Reusable global theme/exposure classifications for an asset."""
+    __tablename__ = "asset_theme_classifications"
+    __table_args__ = (
+        UniqueConstraint("asset_id", name="uq_asset_theme_classifications_asset"),
+        CheckConstraint(
+            "method IN ('keyword', 'gpt', 'manual')",
+            name="ck_asset_theme_classifications_method",
+        ),
+        CheckConstraint(
+            "source IN ('minilm', 'gemini', 'manual')",
+            name="ck_asset_theme_classifications_source",
+        ),
+        {"schema": "portfolio"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    themes = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    method = Column(String(20), nullable=False)
+    model = Column(String, nullable=True)
+    source = Column(
+        String(20),
+        nullable=False,
+        default=_default_theme_source,
+        server_default=text("'gemini'"),
+    )
+    model_name = Column(String, nullable=True)
+    source_hash = Column(String(64), nullable=True)
+    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    asset = relationship("Asset", back_populates="theme_classification")
+
+
+class AssetThemeTaxonomySuggestion(Base):
+    """LLM-proposed taxonomy gap for admin review only."""
+    __tablename__ = "asset_theme_taxonomy_suggestions"
+    __table_args__ = (
+        UniqueConstraint(
+            "asset_id",
+            "summary_hash",
+            "suggested_theme",
+            name="uq_asset_theme_taxonomy_suggestions_asset_hash_theme",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'rejected', 'ignored')",
+            name="ck_asset_theme_taxonomy_suggestions_status",
+        ),
+        Index("idx_asset_theme_taxonomy_suggestions_status", "status"),
+        Index("idx_asset_theme_taxonomy_suggestions_symbol", "symbol"),
+        Index("idx_asset_theme_taxonomy_suggestions_theme", "suggested_theme"),
+        {"schema": "portfolio"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("portfolio.assets.id", ondelete="CASCADE"), nullable=False)
+    symbol = Column(String, nullable=False)
+    company_name = Column(String, nullable=True)
+    sector = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    summary_hash = Column(String(64), nullable=False)
+    summary_excerpt = Column(Text, nullable=True)
+    suggested_theme = Column(String, nullable=False)
+    suggested_subthemes = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    reason = Column(Text, nullable=False)
+    confidence = Column(Numeric(5, 4), nullable=False)
+    status = Column(String(20), nullable=False, default="pending", server_default=text("'pending'"))
+    reviewer_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    asset = relationship("Asset", back_populates="theme_taxonomy_suggestions")

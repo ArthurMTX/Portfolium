@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta
 
 from app.models import TransactionType
-from app.services.metrics import MetricsService
+from app.services.portfolio_analytics.metrics import MetricsService
 from tests.factories import (
     UserFactory, PortfolioFactory, AssetFactory, 
     TransactionFactory, PriceFactory

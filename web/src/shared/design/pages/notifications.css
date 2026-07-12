@@ -1,0 +1,216 @@
+.notifications-page__section {
+  padding-top: clamp(1rem, 2vw, 1.45rem);
+}
+
+.notifications-page .pf-tabs > button span {
+  display: inline-flex;
+  min-width: 1.35rem;
+  justify-content: center;
+  border-left: 1px solid var(--pf-line);
+  padding-left: 0.45rem;
+  color: var(--pf-subtle);
+  font-size: 0.74rem;
+}
+
+.notifications-page .pf-tabs > button.is-active span {
+  border-left-color: var(--pf-accent-border);
+  color: var(--pf-accent);
+}
+
+.notifications-page__list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notifications-page__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: start;
+  min-height: 5.8rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-surface);
+  padding: 0.85rem 0.9rem;
+  transition: border-color var(--pf-transition-fast), background-color var(--pf-transition-fast);
+}
+
+.notifications-page__row:hover,
+.notifications-page__row:focus-within {
+  border-color: var(--pf-accent-border);
+  background: var(--pf-inset);
+}
+
+.notifications-page__row.is-unread {
+  border-color: var(--pf-accent-border);
+  background: color-mix(in srgb, var(--pf-accent) 7%, var(--pf-surface));
+}
+
+.notifications-page__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-canvas);
+}
+
+.notifications-page__body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.notifications-page__meta,
+.notifications-page__title-line,
+.notifications-page__actions,
+.notifications-page__metadata div {
+  display: flex;
+  align-items: center;
+}
+
+.notifications-page__meta {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.notifications-page__type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-page__meta time {
+  flex: 0 0 auto;
+  color: var(--pf-subtle);
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.notifications-page__title-line {
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.notifications-page__title-line h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--pf-ink);
+  font-size: 1rem;
+  font-weight: 820;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-page__title-line span {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: var(--pf-radius-pill);
+  background: var(--pf-accent);
+}
+
+.notifications-page__body > p {
+  margin: 0;
+  color: var(--pf-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.notifications-page__metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.45rem 0.75rem;
+  margin: 0.25rem 0 0;
+  border-top: 1px solid var(--pf-line);
+  padding-top: 0.55rem;
+}
+
+.notifications-page__metadata div {
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.notifications-page__metadata dt,
+.notifications-page__metadata dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-page__metadata dt {
+  color: var(--pf-subtle);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.notifications-page__metadata dd {
+  color: var(--pf-ink);
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.notifications-page__actions {
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.notifications-page__actions .pf-button {
+  min-height: 2rem;
+  padding-inline: 0.7rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.notifications-page__delete {
+  color: var(--pf-subtle);
+}
+
+.notifications-page__delete:hover {
+  color: var(--pf-danger);
+  background: var(--pf-danger-soft);
+}
+
+@media (max-width: 820px) {
+  .notifications-page__row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .notifications-page__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 620px) {
+  .notifications-page__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .notifications-page__icon {
+    display: none;
+  }
+
+  .notifications-page__actions {
+    grid-column: auto;
+  }
+
+  .notifications-page__meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

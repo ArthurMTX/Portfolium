@@ -1,183 +1,156 @@
 ## Risk Score
 
 ### What It Shows
-The **Risk Score** is a composite indicator (from **0 to 100**) that summarizes the overall risk profile of an asset by combining:
+The **Risk Score** is a composite indicator (from **0 to 100**) that summarizes the overall risk profile of a position by combining several signals into a single number:
 
-- volatility (short- & medium-term),
-- market sensitivity (beta),
-- liquidity,
-- profitability,
-- leverage & solvency,
-- growth stability,
-- drawdowns and price behavior.
+- recent price volatility (short- and medium-term),
+- market sensitivity (Beta),
+- how far the price is from its all-time high,
+- how far the price is from the peak you personally experienced (your Personal Drawdown),
+- short-term momentum versus the sector,
+- long-term momentum versus the sector.
 
-It serves as a **high-level risk indicator**, allowing you to compare assets at a glance and identify positions that may require more caution.
+A higher score means the position carries **more combined risk** across these dimensions. It's a **relative, at-a-glance indicator** designed to let you compare positions quickly, not a precise probability of loss.
 
 ---
 
 ### How It's Calculated
-Portfolium builds the Risk Score from a **weighted combination** of the most relevant risk-related metrics.
+Portfolium normalizes each underlying factor onto a common $0$–$1$ scale, then combines them using fixed weights.
 
-To make the computation transparent, we express it using a generalized formula:
+#### 1. Normalizing each factor
 
-### **Composite Formula**
+| Factor | Normalization | Notes |
+|---|---|---|
+| Volatility | $\text{clamp}\left(\dfrac{\sigma}{80}, 0, 1\right)$ | Uses 30-day volatility if available, otherwise 90-day. $80\%$ annualized volatility is treated as "maximum risk." |
+| Beta | $\text{clamp}\left(\dfrac{\beta - 0.8}{1.2}, 0, 1\right)$ | Beta of $0.8$ or below contributes no risk; Beta of $2.0$ or above saturates at maximum risk. |
+| Distance to ATH | $\text{clamp}\left(\dfrac{\lvert d \rvert}{60}, 0, 1\right)$ | $d$ is the Distance to ATH percentage. Risk saturates once the price is $60\%$ or more below its all-time high. |
+| Personal Drawdown | $\text{clamp}\left(\dfrac{\lvert pd \rvert}{50}, 0, 1\right)$ | $pd$ is the Personal Drawdown percentage. Saturates at a $50\%$ drop from your personal peak. |
+| Short-term momentum (30d) | $\text{clamp}\left(\dfrac{-r_{30d}}{30}, 0, 1\right)$ | $r_{30d}$ is Relative Performance vs. sector over 30 days. A $30\%$ or worse underperformance is treated as maximum risk; outperformance contributes no risk. |
+| Long-term momentum (1y) | $\text{clamp}\left(\dfrac{\lvert r_{1y} \rvert}{100}, 0, 1\right)$ | $r_{1y}$ is Relative Performance vs. sector over 1 year. Both **severe underperformance** and **extreme outperformance** (e.g. speculative mania) add risk. |
 
-We define each normalized component on a $0–100$ scale:
+Where $\text{clamp}(x, 0, 1)$ keeps the value between $0$ and $1$. Any factor that is missing data is treated as **neutral** ($0.5$), so a lack of data doesn't push the score to an extreme.
 
-- $V_{30}$ : 30-day volatility score  
-- $V_{90}$ : 90-day volatility score  
-- $\beta_s$ : beta score  
-- $L_s$ : liquidity score  
-- $M_s$ : margin & profitability score  
-- $G_s$ : growth stability score  
-- $D_s$ : drawdown & price-behavior score  
-- $B_s$ : balance-sheet strength score  
-
-Each of these is transformed into a risk contribution.
-
-The **Risk Score** is then:
+#### 2. Weighting the factors
 
 $$
-\text{RiskScore} =
-w_V \cdot \underbrace{\left(0.6 V_{90} + 0.4 V_{30}\right)}_{\text{Volatility}} +
-w_\beta \cdot \beta_s +
-w_L \cdot (100 - L_s) +
-w_M \cdot M_s +
-w_G \cdot G_s +
-w_D \cdot D_s +
-w_B \cdot B_s
+\text{Risk}_{0-1} =
+0.30\,V +
+0.25\,\beta_n +
+0.15\,D +
+0.10\,PD +
+0.15\,M_{30} +
+0.05\,M_{1y}
 $$
 
 Where:
 
-- $w_V, w_\beta, w_L, w_M, w_G, w_D, w_B$ are normalized weights that sum to 1.
-- Volatility uses a blend of short-term and medium-term instability.
-- Liquidity reduces risk (illiquid = risky), hence $100 - L_s$.
-- All other components increase the score when conditions deteriorate.
+- $V$ = normalized volatility
+- $\beta_n$ = normalized Beta
+- $D$ = normalized distance to ATH
+- $PD$ = normalized personal drawdown
+- $M_{30}$ = normalized short-term momentum
+- $M_{1y}$ = normalized long-term momentum
 
-A typical weight allocation is:
+The weights are fixed and sum to $1.0$:
 
-| Component | Weight |
-|----------|--------|
-| Volatility | $w_V = 0.35$ |
-| Beta | $w_\beta = 0.15$ |
-| Liquidity | $w_L = 0.15$ |
-| Margins & Profitability | $w_M = 0.10$ |
-| Growth Stability | $w_G = 0.10$ |
-| Drawdowns | $w_D = 0.10$ |
-| Balance Sheet | $w_B = 0.05$ |
+| Factor | Weight |
+|---|---|
+| Volatility | 30% |
+| Beta | 25% |
+| Distance to ATH | 15% |
+| Personal Drawdown | 10% |
+| Short-term momentum (30d) | 15% |
+| Long-term momentum (1y) | 5% |
 
-This produces a final value in the $[0, 100]$ range:
+#### 3. Converting to the final 0–100 score
 
 $$
-\text{RiskScore}_{\text{final}} = \min\left(100,\ \max\left(0,\ \text{RiskScore}\right)\right)
+\text{Risk Score} = \text{Risk}_{0-1} \times 100
 $$
+
+Rounded to one decimal place. If **no** underlying metric is available at all, the Risk Score is not shown.
+
+Portfolium then classifies the score into bands:
+
+- **Very Low:** $\text{score} < 20$
+- **Low:** $20 \le \text{score} < 40$
+- **Moderate:** $40 \le \text{score} < 60$
+- **High:** $60 \le \text{score} < 80$
+- **Extreme:** $\text{score} \ge 80$
 
 ---
 
 ### Example
 
-#### Example 1 — Risky Growth Stock
+#### Example 1 — High-Risk Growth Stock
 
-- $V_{30} = 55$ means high short-term volatility
-- $V_{90} = 72$ means very high medium-term volatility
-- $\beta_s = 80$ indicates strong market sensitivity
-- $L_s = 30$ means low liquidity
-- $M_s = 60$ indicates moderate profitability
-- $G_s = 40$ means unstable growth
-- $D_s = 70$ means significant drawdowns
-- $B_s = 50$ indicates moderate balance-sheet strength
-
-Plugging values:
+- 30d volatility: $65\%$ → $V = \text{clamp}(65/80, 0, 1) = 0.8125$
+- Beta: $1.9$ → $\beta_n = \text{clamp}((1.9-0.8)/1.2, 0, 1) = 0.9167$
+- Distance to ATH: $-45\%$ → $D = \text{clamp}(45/60, 0, 1) = 0.75$
+- Personal Drawdown: $-30\%$ → $PD = \text{clamp}(30/50, 0, 1) = 0.6$
+- Relative performance 30d: $-18\%$ → $M_{30} = \text{clamp}(18/30, 0, 1) = 0.6$
+- Relative performance 1y: $+70\%$ → $M_{1y} = \text{clamp}(70/100, 0, 1) = 0.7$
 
 $$
-\text{Volatility} = 0.6(72) + 0.4(55) = 65.8
+\text{Risk}_{0-1} = 0.30(0.8125) + 0.25(0.9167) + 0.15(0.75) + 0.10(0.6) + 0.15(0.6) + 0.05(0.7)
 $$
 
 $$
-\text{RiskScore} =
-0.35(65.8) +
-0.15(80) +
-0.15(100 - 30) +
-0.10(60) +
-0.10(40) +
-0.10(70) +
-0.05(50)
+\text{Risk}_{0-1} \approx 0.7594 \;\Rightarrow\; \text{Risk Score} \approx 75.9
 $$
 
-$$
-\text{RiskScore} = 81.1
-$$
-
-→ **High Risk (80–100)**
+Portfolium classifies this as **High** risk.
 
 ---
 
 #### Example 2 — Stable Blue-Chip
 
-- $V_{30} = 12$ means low short-term volatility
-- $V_{90} = 18$ means low medium-term volatility
-- $\beta_s = 25$ indicates low market sensitivity
-- $L_s = 90$ means high liquidity
-- $M_s = 15$ indicates strong profitability
-- $G_s = 20$ means stable growth
-- $D_s = 10$ means minimal drawdowns
-- $B_s = 15$ indicates strong balance-sheet strength
-
-Plugging values:
+- 30d volatility: $14\%$ → $V = \text{clamp}(14/80, 0, 1) = 0.175$
+- Beta: $0.9$ → $\beta_n = \text{clamp}((0.9-0.8)/1.2, 0, 1) \approx 0.083$
+- Distance to ATH: $-6\%$ → $D = \text{clamp}(6/60, 0, 1) = 0.10$
+- Personal Drawdown: $-4\%$ → $PD = \text{clamp}(4/50, 0, 1) = 0.08$
+- Relative performance 30d: $+2\%$ → $M_{30} = \text{clamp}(-2/30, 0, 1) = 0$
+- Relative performance 1y: $+8\%$ → $M_{1y} = \text{clamp}(8/100, 0, 1) = 0.08$
 
 $$
-\text{Volatility} = 0.6(18) + 0.4(12) = 15.6
+\text{Risk}_{0-1} = 0.30(0.175) + 0.25(0.083) + 0.15(0.10) + 0.10(0.08) + 0.15(0) + 0.05(0.08)
 $$
 
 $$
-\text{RiskScore} =
-0.35(15.6) +
-0.15(25) +
-0.15(100 - 90) +
-0.10(15) +
-0.10(20) +
-0.10(10) +
-0.05(15)
+\text{Risk}_{0-1} \approx 0.0938 \;\Rightarrow\; \text{Risk Score} \approx 9.4
 $$
 
-$$
-\text{RiskScore} \approx 23.3
-$$
-
-→ **Low Risk (20–39)**
+Portfolium classifies this as **Very Low** risk.
 
 ---
 
 ### When To Use It
-The risk score is especially useful when you want to:
+The Risk Score is especially useful when you want to:
 
-- quickly compare high-risk vs low-risk assets,
-- identify dangerous outliers in your portfolio,
-- avoid overweighting very volatile or leveraged stocks,
-- evaluate whether a new position fits your risk tolerance.
+- quickly compare risk across positions in your portfolio,
+- identify outliers that deserve closer attention or a smaller allocation,
+- sanity-check a new position against your existing risk tolerance,
+- see, at a glance, whether a position's risk comes mainly from volatility, market sensitivity, or price behavior.
 
-It is most important during:
+It is most useful during:
 
-- portfolio rebalancing,
-- screening speculative assets,
-- market downturns,
-- diversification planning.
+- portfolio reviews and rebalancing,
+- screening before opening a new position,
+- market downturns, when distance-to-ATH and drawdown components tend to dominate the score.
 
 ---
 
 ### Notes & Limitations
 
 - **Not predictive**  
-  It does *not* forecast future crashes or rallies, only measures statistical and financial risk characteristics.
-
-- **Data-dependent**  
-  Missing or outdated fundamentals reduce score precision.
-
+  It does not forecast crashes or rallies — it only summarizes current statistical and price-behavior characteristics.
+- **Missing data is treated as neutral**  
+  If a factor (e.g. Beta or volatility) can't be computed, it contributes a neutral $0.5$ rather than being excluded, which can pull the score toward the middle for assets with sparse data.
 - **Best used comparatively**  
-  Absolute values are less relevant than relative ranking between assets.
-
+  The absolute number matters less than how it ranks against your other holdings.
 - **Backward-looking**  
-  Uses historical volatility, margins, and fundamentals.
+  Every input (volatility, Beta, drawdowns, relative performance) is based on historical prices.
+- **Not a fundamentals or valuation score**  
+  Profitability, margins, and balance-sheet health are not part of this calculation — pair the Risk Score with those metrics for a fuller picture.
 
-The Risk Score is a **powerful synthetic indicator**, but it should always be considered **alongside the individual metrics** that feed into it.
+The Risk Score is a **powerful synthetic indicator**, but it should always be read alongside the individual metrics that feed into it — Volatility, Beta, Distance to ATH, Personal Drawdown, and Relative Performance.

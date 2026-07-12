@@ -27,6 +27,9 @@ def create_notification(
     db.add(notification)
     db.commit()
     db.refresh(notification)
+    from app.observability.metrics import NOTIFICATIONS_CREATED
+
+    NOTIFICATIONS_CREATED.inc()
     return notification
 
 
@@ -41,12 +44,39 @@ def get_user_notifications(
     query = db.query(Notification).filter(Notification.user_id == user_id)
     
     if unread_only:
-        query = query.filter(Notification.is_read == False)
+        query = query.filter(Notification.is_read.is_(False))
     
     query = query.order_by(desc(Notification.created_at))
     query = query.offset(skip).limit(limit)
     
     return query.all()
+
+
+def daily_change_notification_exists(
+    db: Session,
+    user_id: int,
+    asset_id: int,
+    session_id: str,
+) -> bool:
+    """Check daily-change deduplication keys without database-specific JSON SQL."""
+    notifications = (
+        db.query(Notification)
+        .filter(Notification.user_id == user_id)
+        .filter(
+            Notification.type.in_(
+                [
+                    NotificationType.DAILY_CHANGE_UP,
+                    NotificationType.DAILY_CHANGE_DOWN,
+                ]
+            )
+        )
+        .all()
+    )
+    return any(
+        notification.meta_data.get("asset_id") == asset_id
+        and notification.meta_data.get("session_id") == session_id
+        for notification in notifications
+    )
 
 
 def get_notification(db: Session, notification_id: int) -> Optional[Notification]:
@@ -58,7 +88,7 @@ def get_unread_count(db: Session, user_id: int) -> int:
     """Get count of unread notifications for a user"""
     return db.query(Notification).filter(
         Notification.user_id == user_id,
-        Notification.is_read == False
+        Notification.is_read.is_(False)
     ).count()
 
 
@@ -76,7 +106,7 @@ def mark_all_as_read(db: Session, user_id: int) -> int:
     """Mark all notifications as read for a user"""
     count = db.query(Notification).filter(
         Notification.user_id == user_id,
-        Notification.is_read == False
+        Notification.is_read.is_(False)
     ).update({"is_read": True})
     db.commit()
     return count

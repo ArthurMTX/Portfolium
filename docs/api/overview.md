@@ -1,189 +1,101 @@
 # API Overview
 
-Portfolium provides a comprehensive REST API built with FastAPI, enabling programmatic access to all features.
+Portfolium exposes a FastAPI REST API for the web application and external integrations. The API handles authentication, portfolios, transactions, assets, market data, dashboard layouts, insights, notifications, administrative operations, and background task controls.
 
 ## Base URL
 
-```
+Local Docker development:
+
+```text
 http://localhost:8000
 ```
 
-For production, use your deployed API URL.
+Production deployments should use the public API origin configured for your instance.
+
+## Interactive References
+
+FastAPI generates interactive references from the application schema:
+
+| UI | Local URL |
+| --- | --- |
+| Swagger UI | `http://localhost:8000/docs` |
+| ReDoc | `http://localhost:8000/redoc` |
+| Scalar | `http://localhost:8000/scalar` |
+| OpenAPI JSON | `http://localhost:8000/openapi.json` |
+
+The repository also stores a generated copy at [openapi.json](openapi.json). Regenerate it after route or schema changes:
+
+```bash
+python scripts/export_openapi.py
+```
 
 ## Authentication
 
-Portfolium uses JWT (JSON Web Tokens) for authentication.
+Most endpoints require a JWT bearer token.
 
-### Obtaining a Token
-
-**Endpoint**: `POST /auth/login`
-
-**Request**:
-```json
-{
-  "username": "your_username",
-  "password": "your_password"
-}
+```bash
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin@example.com" \
+  -d "password=your-password"
 ```
 
-**Response**:
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer",
-  "user": {
-    "id": 1,
-    "username": "your_username",
-    "email": "your@email.com",
-    "full_name": "Your Name",
-    "is_active": true,
-    "is_admin": false
-  }
-}
-```
-
-### Using the Token
-
-Include the token in the `Authorization` header:
-
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-## Interactive Documentation
-
-Portfolium includes auto-generated interactive API documentation:
-
-- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-
-## API Endpoints
-
-### Health Check
+Then pass the token:
 
 ```http
-GET /health
+Authorization: Bearer <access_token>
 ```
 
-Returns API health status.
+See [Authentication](authentication.md) for registration, current user, password recovery, 2FA, and rate-limit details.
 
-### Authentication
+## Primary Route Families
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/register` | Register new user |
-| POST | `/auth/login` | Login and get token |
-| POST | `/auth/refresh` | Refresh access token |
-| POST | `/auth/forgot-password` | Request password reset |
-| POST | `/auth/reset-password` | Reset password with token |
+| Area | Routes |
+| --- | --- |
+| Health and version | `/`, `/health`, `/health/redis`, `/health/core`, `/version` |
+| Authentication | `/auth/register`, `/auth/login`, `/auth/me`, `/auth/2fa/*`, password recovery routes |
+| Portfolios | `/portfolios`, `/portfolios/{portfolio_id}`, positions, metrics, history, goals, reports |
+| Transactions | `/portfolios/{portfolio_id}/transactions`, CSV import, conversions, price/FX helpers |
+| Assets | `/assets`, search, research, themes, logos, metadata overrides, distributions, price history |
+| Prices | `/prices`, `/prices/quote/{symbol}`, `/prices/indices`, `/prices/refresh` |
+| Dashboard layouts | `/dashboard-layouts`, default layout, duplicate, import/export |
+| Insights | `/insights/{portfolio_id}`, performance, attribution, exposure, risk, benchmark, scenarios |
+| Watchlist | `/watchlist`, tags, CSV import/export, price refresh, convert to buy |
+| Notifications | `/notifications`, unread count, read state, deletion |
+| Push | `/push/vapid-public-key`, subscriptions, test push |
+| Market | `/market/sentiment/*`, `/market/vix`, `/market/tnx`, `/market/dxy` |
+| Admin and tasks | `/admin/*`, `/tasks/*`, `/batch/*` |
 
-### Users
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/users/me` | Get current user profile |
-| PUT | `/users/me` | Update current user |
-| DELETE | `/users/me` | Delete account |
-
-### Portfolios
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/portfolios` | List all portfolios |
-| POST | `/portfolios` | Create portfolio |
-| GET | `/portfolios/{id}` | Get portfolio details |
-| PUT | `/portfolios/{id}` | Update portfolio |
-| DELETE | `/portfolios/{id}` | Delete portfolio |
-| GET | `/portfolios/{id}/value` | Get current value |
-| GET | `/portfolios/{id}/history` | Get historical values |
-
-### Transactions
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/portfolios/{id}/transactions` | List transactions |
-| POST | `/portfolios/{id}/transactions` | Add transaction |
-| PUT | `/transactions/{id}` | Update transaction |
-| DELETE | `/transactions/{id}` | Delete transaction |
-| POST | `/transactions/import` | Bulk import from CSV |
-
-### Assets
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/assets` | Search assets |
-| GET | `/assets/{symbol}` | Get asset details |
-| GET | `/assets/{symbol}/price` | Get current price |
-| GET | `/assets/{symbol}/history` | Get price history |
-| GET | `/assets/logo/{symbol}` | Get asset logo |
-
-### Watchlist
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/watchlist` | Get watchlist |
-| POST | `/watchlist` | Add to watchlist |
-| DELETE | `/watchlist/{symbol}` | Remove from watchlist |
-
-### Notifications
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/notifications` | List notifications |
-| PUT | `/notifications/{id}/read` | Mark as read |
-| DELETE | `/notifications/{id}` | Delete notification |
-
-### Insights
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/insights/portfolio/{id}` | Get portfolio insights |
-| GET | `/insights/performance` | Get performance metrics |
-
-## Rate Limiting
-
-Currently, no rate limiting is enforced. In production, consider implementing rate limiting for security.
+For the detailed map, see [Endpoints](endpoints.md).
 
 ## Error Handling
 
-The API uses standard HTTP status codes:
+Portfolium uses standard HTTP status codes:
 
-| Code | Description |
-|------|-------------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 422 | Validation Error |
-| 500 | Internal Server Error |
+| Code | Meaning |
+| --- | --- |
+| `200` | Successful request |
+| `201` | Resource created |
+| `204` | Successful request with no response body |
+| `400` | Invalid domain request |
+| `401` | Missing or invalid authentication |
+| `403` | Authenticated but not allowed, unverified, inactive, or blocked by 2FA requirements |
+| `404` | Resource not found |
+| `422` | FastAPI/Pydantic validation error |
+| `500` | Unexpected server error |
 
-**Error Response Format**:
+Typical error response:
+
 ```json
 {
   "detail": "Error message describing what went wrong"
 }
 ```
 
-## Pagination
+## Operational Notes
 
-List endpoints support pagination with query parameters:
-
-```
-?skip=0&limit=100
-```
-
-## Examples
-
-See [Authentication](authentication.md) and [Endpoints](endpoints.md) for detailed examples.
-
-## WebSocket Support
-
-(Coming soon) Real-time price updates via WebSocket connections.
-
-## Next Steps
-
-- [Authentication Guide](authentication.md)
-- [Endpoint Reference](endpoints.md)
-- [API Integration Examples](endpoints.md#examples)
+- API configuration is environment-driven through `api/app/config.py`.
+- CORS origins must include the frontend origin used by browsers.
+- Price and market data endpoints may use Redis-backed cache entries.
+- Expensive refreshes may enqueue Celery tasks or rely on Celery beat schedules.
+- `/metrics` exposes Prometheus-compatible metrics and is intentionally excluded from OpenAPI.

@@ -1,59 +1,99 @@
-# Welcome to Portfolium
+# Portfolium Documentation
 
-**Portfolium** is a modern, full-featured portfolio management platform that helps you track and analyze your investment portfolio with ease.
+<section class="pf-hero">
+  <div class="pf-hero__eyebrow">Self-hosted portfolio management</div>
+  <h1 class="pf-hero__title">Track portfolios, market data, analytics, and reports from one private workspace.</h1>
+  <p class="pf-hero__body">
+    Portfolium is an open source platform for managing stocks, ETFs, crypto positions, dashboards,
+    watchlists, notifications, and daily reports. This documentation covers installation, product
+    workflows, API usage, and the internal services that keep market data current.
+  </p>
+  <div class="pf-hero__actions">
+    <a class="md-button md-button--primary" href="getting-started/quick-start/">Start quickly</a>
+    <a class="md-button" href="getting-started/installation/">Install Portfolium</a>
+    <a class="md-button" href="api/overview/">Use the API</a>
+  </div>
+</section>
 
-## Features
+## Choose Your Path
 
-- 📊 **Portfolio Management** - Track multiple portfolios with detailed analytics
-- 💹 **Real-time Price Updates** - Get live market data for your assets
-- 📈 **Advanced Charts** - Visualize your portfolio performance with interactive charts
-- 📄 **Daily PDF Reports** - Receive beautiful PDF reports via email every weekday at market close
-- 🔔 **Smart Notifications** - Stay informed with customizable alerts and delivery confirmations
-- 💼 **Multi-Asset Support** - Stocks, ETFs, and more
-- 📱 **Responsive Design** - Beautiful interface that works on all devices
-- 🔐 **Secure Authentication** - JWT-based authentication with user management
-- 🎨 **Modern UI** - Built with React and Tailwind CSS with a beautiful pink theme
+<div class="pf-grid">
+  <a class="pf-card" href="getting-started/installation/">
+    <h3>Install and operate</h3>
+    <p>Run Portfolium with Docker, configure environment variables, and expose the web/API services.</p>
+  </a>
+  <a class="pf-card" href="user-guide/portfolios/">
+    <h3>Use the product</h3>
+    <p>Create portfolios, add transactions, customize dashboards, review assets, and manage alerts.</p>
+  </a>
+  <a class="pf-card" href="widgets/">
+    <h3>Understand widgets</h3>
+    <p>Explore dashboard cards for P&L, allocation, market status, risk metrics, and watchlists.</p>
+  </a>
+  <a class="pf-card" href="api/overview/">
+    <h3>Integrate with the API</h3>
+    <p>Authenticate, inspect generated OpenAPI docs, and understand route groups.</p>
+  </a>
+  <a class="pf-card" href="technical/overview/">
+    <h3>Read internals</h3>
+    <p>Follow pricing, logo resolution, currency conversion, observability, and data model behavior.</p>
+  </a>
+  <a class="pf-card" href="operations/backup-restore/">
+    <h3>Run it in production</h3>
+    <p>Back up your data, put it behind HTTPS, upgrade safely, and troubleshoot common issues.</p>
+  </a>
+  <a class="pf-card" href="development/architecture/">
+    <h3>Contribute safely</h3>
+    <p>Learn the architecture, tests, documentation checks, and contribution workflow.</p>
+  </a>
+</div>
 
-## Tech Stack
+## Platform Overview
 
-### Frontend
-- **React** with TypeScript
-- **Vite** for blazing fast development
-- **Tailwind CSS** for styling
-- **Zustand** for state management
-- **Recharts** for data visualization
+<div class="pf-status">
+  <div class="pf-status__item">
+    <span class="pf-status__label">Frontend</span>
+    <span class="pf-status__value">React + Vite</span>
+  </div>
+  <div class="pf-status__item">
+    <span class="pf-status__label">Backend</span>
+    <span class="pf-status__value">FastAPI</span>
+  </div>
+  <div class="pf-status__item">
+    <span class="pf-status__label">Storage</span>
+    <span class="pf-status__value">PostgreSQL</span>
+  </div>
+  <div class="pf-status__item">
+    <span class="pf-status__label">Async work</span>
+    <span class="pf-status__value">Celery + Redis</span>
+  </div>
+</div>
 
-### Backend
-- **FastAPI** (Python) for high-performance REST API
-- **PostgreSQL** for data persistence
-- **SQLAlchemy** for ORM
-- **APScheduler** for background tasks
-- **WeasyPrint** for PDF generation
-- **JWT** for authentication
+Portfolium is composed of a web application, an API, a PostgreSQL database, Redis-backed caching/queues,
+and Celery workers for market data refreshes, reports, insights, reference data, notifications, and
+maintenance tasks.
 
-### Infrastructure
-- **Docker** & Docker Compose for containerization
-- **Nginx** for production serving
-- **MkDocs Material** for documentation
+## Core Features
 
-## Quick Links
+| Area | What it covers |
+| --- | --- |
+| Portfolios and transactions | Multiple portfolios, buy/sell/dividend flows, realized and unrealized performance. |
+| Market data | Yahoo Finance pricing, market calendars, stock splits, fundamentals, and currency conversion. |
+| Dashboards | Persistent grid layouts with widgets for value, P&L, allocation, risk, watchlists, and macro signals. |
+| Asset intelligence | Themes, subthemes, notes, logos, metadata overrides, research views, and provider validation. |
+| Notifications | Price, daily change, ATH/ATL, reports, web push, email delivery, and retention controls. |
+| Operations | Docker deployment, Redis cache, Celery workers, Flower, Prometheus metrics, structured logs, and security headers. |
 
-- [Installation Guide](getting-started/installation.md) - Get started with Portfolium
-- [User Guide](user-guide/portfolios.md) - Learn how to use the platform
-- [API Reference](api/overview.md) - Integrate with the API
-- [Development Guide](development/architecture.md) - Contribute to the project
+## Maintenance
 
-## Screenshots
+The documentation is built with MkDocs Material and is served from the web image at `/docs`.
 
-!!! tip "Beautiful Interface"
-    Portfolium features a clean, modern interface with a distinctive pink theme that makes portfolio management a pleasure.
+Use these commands before shipping documentation changes:
 
-## Getting Help
+```bash
+pip install -r docs/requirements.txt -e ./api
+make docs-check
+```
 
-- 📖 Check out the [User Guide](user-guide/portfolios.md)
-- 🐛 Report issues on [GitHub](https://github.com/ArthurMTX/Portfolium/issues)
-- 💬 Ask questions in [Discussions](https://github.com/ArthurMTX/Portfolium/discussions)
-
-## License
-
-This project is licensed under the terms specified in the [LICENSE](https://github.com/ArthurMTX/Portfolium/blob/main/LICENSE) file.
+The docs health checks export the FastAPI OpenAPI schema, fail on placeholder markers, and run
+`mkdocs build --strict` so broken links and invalid navigation are caught early.

@@ -4,10 +4,9 @@ Ensures users are greeted with instant data when they visit their dashboard
 """
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import List, Optional, Set, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, func
+from datetime import datetime
+from typing import List, Optional
+from sqlalchemy import and_
 
 from app.celery_app import celery_app
 from app.db import get_db_context
@@ -27,14 +26,16 @@ from app.routers.batch import (
     _fetch_asset_allocation,
     _fetch_sector_allocation,
     _fetch_country_allocation,
+    _fetch_theme_allocation,
     _fetch_performance_history,
     _fetch_transactions,
     _make_json_serializable,
 )
-from app.services.metrics import MetricsService
-from app.services.insights import InsightsService
-from app.services.cache import CacheService
-from app.tasks.decorators import singleton_task, deduplicate_task
+from app.services.portfolio_analytics.metrics import MetricsService
+from app.services.platform.cache import CacheService
+from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key
+from app.tasks.decorators import deduplicate_task
+from app.observability.metrics import observe_operation
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ _DASHBOARD_WARMUP_CACHE_TTL = 300
 
 @celery_app.task(bind=True, name="dashboard.warmup_user_dashboard")
 @deduplicate_task(ttl=30)
+@observe_operation("dashboard_generation")
 def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Optional[List[str]] = None):
     """
     Pre-warm dashboard cache for a specific user's portfolio
@@ -72,7 +74,7 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
                 and_(
                     DashboardLayout.user_id == user_id,
                     DashboardLayout.portfolio_id == portfolio_id,
-                    DashboardLayout.is_default == True
+                    DashboardLayout.is_default.is_(True)
                 )
             ).first()
             
@@ -84,7 +86,7 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
                 widget_ids = [
                     'total-value', 'daily-gain', 'unrealized-pnl', 'realized-pnl',
                     'positions-table', 'watchlist', 'market-indices',
-                    'asset-allocation', 'recent-transactions'
+                    'asset-allocation', 'theme-allocation', 'recent-transactions'
                 ]
         
         logger.info(f"Warming dashboard for user {user_id}, portfolio {portfolio_id} with {len(widget_ids)} widgets")
@@ -94,7 +96,6 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         
         # Initialize services with db session
         metrics_service = MetricsService(db)
-        insights_service = InsightsService(db)
         
         # Fetch user object once (needed by multiple data fetchers)
         user = db.query(User).filter(User.id == user_id).first()
@@ -158,6 +159,10 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
             if 'country_allocation' in required_data:
                 tasks['country_allocation'] = _fetch_country_allocation(portfolio_id, db, metrics_service, user)
                 task_names.append('country_allocation')
+
+            if 'theme_allocation' in required_data:
+                tasks['theme_allocation'] = _fetch_theme_allocation(portfolio_id, db, metrics_service, user)
+                task_names.append('theme_allocation')
             
             if 'performance_history' in required_data:
                 tasks['performance_history'] = _fetch_performance_history(portfolio_id, db)
@@ -199,21 +204,17 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         # Make response JSON serializable
         response = _make_json_serializable(response)
         
-        # Cache the response in Redis using the same key format as batch endpoint
+        # Cache the response in Redis using the same key format as the batch endpoint.
         cache = CacheService()
-        widget_key = ','.join(sorted(widget_ids))
-        cache_key = f"dashboard_batch:{portfolio_id}:{hash(widget_key)}"
+        cache_key = build_dashboard_batch_cache_key(portfolio_id, widget_ids)
         cache.set(cache_key, response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
         
         # ALSO warm up the price batch cache (used by auto-refresh)
         price_batch_warmed = False
         try:
-            from app.routers.portfolios import get_batch_prices
-            from fastapi import Request
-            
             # Import the batch prices functionality
-            from app.services.pricing import PricingService
-            from app.services.currency import CurrencyService
+            from app.services.market_data.pricing import PricingService
+            from app.services.market_data.currency import CurrencyService
             from app.models import Asset, Transaction
             from decimal import Decimal
             
@@ -232,7 +233,6 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
             if asset_ids:
                 assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
                 symbols = [asset.symbol for asset in assets]
-                asset_map = {asset.id: asset for asset in assets}
                 
                 pricing_service = PricingService(db)
                 price_quotes = asyncio.run(pricing_service.get_multiple_prices(symbols))
@@ -310,9 +310,6 @@ def warmup_active_dashboards(self):
     Runs every 5 minutes during market hours, every 30 minutes off-hours.
     """
     with get_db_context() as db:
-        # Find users active in the last hour
-        cutoff_time = datetime.utcnow() - timedelta(hours=1)
-        
         # Get distinct users with portfolios who were recently active
         active_users = db.query(
             User.id,
@@ -320,7 +317,7 @@ def warmup_active_dashboards(self):
         ).join(
             Portfolio, User.id == Portfolio.user_id
         ).filter(
-            User.is_active == True
+            User.is_active.is_(True)
         ).limit(50).all()  # Limit to 50 most recent to avoid overload
         
         if not active_users:

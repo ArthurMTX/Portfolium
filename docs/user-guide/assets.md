@@ -1,292 +1,165 @@
 # Assets
 
-Learn about your investment assets and how Portfolium tracks them.
+See every investment you hold, dig into the details of any single position, and keep the information behind it accurate.
 
 ## Overview
 
-Assets are the individual investments in your portfolios - stocks, ETFs, cryptocurrencies, and other financial instruments. Portfolium automatically enriches asset data with information from Yahoo Finance, including company details, sector classification, and current market data.
+Every stock, ETF, cryptocurrency, or other instrument you record a transaction against becomes an asset in Portfolium. The Assets page gives you a portfolio-wide ledger of everything you hold, while each asset's own page gives you a deep, single-position view: price history, ETF composition, ownership record, and a place to keep your own research and notes.
 
-## What is an Asset?
+Portfolium enriches each asset automatically with company details, sector, industry, and country information from its market data provider. When that data is missing or wrong, you can correct it yourself.
 
-An asset represents a unique financial instrument that you can trade. Each asset has:
+## Browsing Your Holdings
 
-- **Symbol**: Ticker symbol (e.g., AAPL, BTC-USD)
-- **Name**: Full company or asset name
-- **Class**: Asset classification (Stock, ETF, Crypto, Cash)
-- **Type**: Specific type (Equity, ETF, Cryptocurrency, etc.)
-- **Currency**: Trading currency
-- **Sector**: Industry sector (for stocks)
-- **Industry**: Specific industry classification
-- **Country**: Country of origin or primary listing
+The Assets page lists every position across your active portfolio (or across all portfolios, depending on your selection):
 
-## Viewing Your Assets
+1. Log in and click **Assets** in the main navigation
+2. Review the summary strip at the top — total value, number of positions, sectors, and countries represented
+3. Use the search box to filter by symbol or company name
+4. Use the **Sort** dropdown to order the list by value, portfolio weight, today's impact, lifetime return, symbol, name, class, country, type, sector, industry, quantity, or number of portfolios holding it
+5. Click the sort direction button to flip between ascending and descending
 
-The Assets page shows all assets across your portfolios:
+Each row shows the asset's logo, symbol, name, type, sector, and country, alongside four key figures:
 
-### Asset Table
+- **Value** — current market value and the number of shares/units you hold
+- **Portfolio weight** — this position's share of your total portfolio value
+- **Today's impact** — how much this position moved your portfolio today, in currency and percent
+- **Lifetime return** — total gain or loss since you first bought it, in currency and percent
 
-View detailed information about each asset:
+!!! tip "Show Sold Positions"
+    By default, positions you've fully exited are still listed with a "Sold" label and reduced emphasis. Use the **Show Sold / Hide Sold** toggle to include or exclude them. Sold positions are kept so your historical performance and transaction record stay intact — nothing is deleted when you sell out of a position.
 
-- **Symbol & Logo**: Company ticker and brand logo
-- **Name**: Full company or asset name
-- **Class**: Asset classification badge
-- **Type**: Detailed asset type
-- **Country**: Country flag and name
-- **Sector**: Business sector
-- **Industry**: Industry classification
-- **Quantity**: Total shares held across all portfolios
-- **Portfolios**: Number of portfolios holding this asset
+### Opening a Position's Ledger
 
-### Sorting Assets
+Click the **Open** button on any row to expand an inline ledger with three sections:
 
-Click any column header to sort by that field:
+- **Cost and price** — average cost, current price, cost basis, and quantity owned
+- **Ownership record** — number of transactions, number of stock splits, number of portfolios holding it, how long you've held it, and whether it's still open or sold
+- **Classification** — asset class, type, sector, industry, and country, with the country's flag shown when recognized
 
-- Symbol (alphabetically)
-- Name
-- Class
-- Type
-- Country
-- Sector
-- Industry
-- Quantity (total holdings)
-- Portfolio count
+From this expanded ledger you can jump straight into any of the position's detail views:
 
-!!! tip "Quick Navigation"
-    Click column headers again to reverse the sort order. The arrow icon shows the current sort direction.
+- **Transactions** — full buy/sell history for this asset (only shown if there are transactions to view)
+- **Splits** — stock split history (only shown if the asset has had splits)
+- **Price chart** — historical price chart with your transactions and splits marked on it
+- **Asset research** — the full research page for this asset (see below)
+- **Note** — your personal investment note for this asset
+- **Metadata** — only appears when sector, industry, or country is missing, letting you fill it in yourself
 
-## Asset Types
+Clicking anywhere else on a row takes you straight to that asset's research page.
 
-Portfolium automatically classifies assets into types:
+## The Asset Research Page
 
-### Stocks
-- **Equity**: Common stocks
-- **Preferred Stock**: Preferred shares
-- **ADR**: American Depositary Receipts
-- **REIT**: Real Estate Investment Trusts
+Clicking into an asset opens its dedicated research page — the single place to understand everything about that position. At the top you'll find the asset's logo, name, current price, daily change, and quick actions to add it to your watchlist or record a new transaction.
 
-### Funds
-- **ETF**: Exchange-Traded Funds
-- **Mutual Fund**: Mutual funds
-- **Index Fund**: Index-tracking funds
+The page is organized into tabs:
 
-### Other
-- **Cryptocurrency**: Digital currencies (e.g., BTC-USD, ETH-USD)
-- **Derivative**: Options, futures, warrants
+- **Overview** — key stats, your investment note, your trading performance on this asset, its theme classifications, business profile, ETF composition (if applicable), the full price chart, and its all-time high/low
+- **Fundamentals** — market cap, volume, valuation ratios, growth, profitability, and balance-sheet health (for stocks; hidden for ETFs and crypto)
+- **Performance** — how the asset has performed relative to a matching sector benchmark over the last month, three months, year-to-date, and one year
+- **Risk** — volatility, beta, a composite risk score, and distance from its all-time high
+- **Analyst / Valuation** — analyst recommendations and price targets, where available
 
-## Held vs Sold Assets
+!!! note "Data Availability Varies by Asset Type"
+    Sections like Fundamentals, Business, and Ownership only make sense for individual stocks and are hidden for ETFs and cryptocurrencies. ETFs instead show their composition breakdown; some sections may also show "no data available" if your market data provider doesn't cover that particular asset.
 
-### Held Assets
+### Price Chart
 
-Assets you currently own (quantity > 0):
+The price chart on an asset's page shows historical prices over a period you choose (from one month up to the full history available). On top of the price line, Portfolium marks:
 
-- Displayed at the top of the list
-- Full opacity
-- Shows current quantity
+- **Buy and sell transactions** — green markers for buys, red for sells, with quantity and price shown on hover
+- **Transfers and conversions** — cyan and indigo markers for transfers and currency/asset conversions
+- **Stock splits** — purple markers showing the split ratio and whether it was a forward or reverse split
 
-### Sold Assets
+Hovering over the chart updates the price and percentage-change figures shown above it, so you can check performance as of any point in time, not just today.
 
-Assets you previously owned but have fully sold (quantity = 0):
+### ETF Composition
 
-1. Click **Show Sold** button to view
-2. Sold assets appear with reduced opacity and "Sold" badge
-3. Click **Hide Sold** to filter them out
+For ETFs, the research page replaces stock-specific fundamentals with a composition breakdown:
 
-!!! note "Why Keep Sold Assets?"
-    Sold assets remain in your database to preserve historical transaction data and performance metrics. You can still view their complete transaction history.
+- **Top holdings** — the ETF's largest underlying positions, with a flag showing which ones you also own directly elsewhere in your portfolio, and how much overlap that represents
+- **Theme exposure** — which investment themes (for example, artificial intelligence or clean energy) the fund's holdings fall into, along with how much of the fund that classification actually covers
+- **Sector allocation** — the fund's weighting across business sectors
+- **Asset allocation** — the split between stocks, bonds, cash, and other instruments inside the fund
 
-## Asset Metadata Enrichment
+!!! note "Partial Coverage Is Flagged"
+    If only some of a fund's holdings could be classified into themes, Portfolium tells you so rather than presenting an incomplete picture as if it were the whole fund.
 
-Portfolium automatically fetches asset metadata from Yahoo Finance:
+### Transaction History for This Asset
 
-### Automatic Enrichment
+Opening **Transactions** from an asset's ledger shows every buy and sell you've made in that asset, across all portfolios that hold it. You get:
 
-When you add a new asset (through transactions), Portfolium automatically enriches it with:
+- Buy and sell totals with quantities
+- Split-adjusted quantities alongside the original recorded quantities, when the asset has had a stock split
+- Price, fees, and portfolio name for every transaction
+- Any notes you added when recording the transaction
+- A running summary of your net position change
 
-- Full company name
-- Correct trading currency
-- Sector and industry classification
-- Asset type (Equity, ETF, etc.)
-- Country of origin
+You can sort the table by date, type, quantity, price, fees, or total.
 
-### Manual Enrichment
+### Split History
 
-To update metadata for existing assets:
+Opening **Splits** shows every stock split recorded for the asset: the ratio (for example $2:1$), whether it was a forward split (share count increases) or a reverse split (share count decreases), the date, and any notes. This is what Portfolium uses to keep your quantities and cost basis consistent across a split — the split-adjusted figures you see in your transaction history come directly from this record.
 
-1. Click the **Enrich Metadata** button
-2. Portfolium fetches latest data for all assets
-3. Missing information is filled in
-4. Outdated names are updated
+## Investment Notes
 
-!!! tip "When to Enrich"
-    Run enrichment after importing old data or if asset names appear incorrect. This ensures you have the most accurate and complete information.
+Investment notes let you keep your own reasoning about a position attached to that asset, separate from the automatically fetched market data. Use them to record why you bought something and what would change your mind.
 
-## Asset Distribution Charts
+To add or edit a note, click **Note** from an asset's ledger (or the note card near the top of its research page) and fill in any of:
 
-At the bottom of the Assets page, view visual breakdowns:
+- **Thesis** — why you invested in this asset
+- **Conviction** — low, medium, or high
+- **Target price and target description** — where you think the price is headed, in numbers or in words
+- **Risks** — what could go wrong
+- **Invalidation thesis** — the condition that would make you sell or reconsider
+- **Horizon** — short, medium, or long term, optionally with a target date
 
-### Asset Class Distribution
+All fields are optional — fill in as much or as little as helps you. Your note is shown as a summary card on the asset's research page and can be edited or deleted at any time.
 
-Pie chart showing your holdings by class:
+!!! tip "Use Notes to Stay Disciplined"
+    Writing down your invalidation thesis when you buy makes it much easier to recognize, later, whether the reason you bought still holds — instead of rationalizing a losing position after the fact.
 
-- Stocks
-- ETFs
-- Cryptocurrencies
-- Other classes
+## Correcting Asset Information
 
-### Sector Allocation
+Portfolium fills in sector, industry, and country automatically from its market data provider. Occasionally that data is missing — commonly for newer listings, small or thinly-traded companies, or less common asset types.
 
-See how your investments are distributed across sectors:
+When Portfolium has no sector, industry, or country on file for an asset, a **Metadata** button appears in its ledger. Opening it lets you set the missing fields yourself:
 
-- Technology
-- Healthcare
-- Financial Services
-- And more
+1. Open the asset's ledger and click **Metadata**
+2. For each field that's missing, choose a value from the dropdown (industries are filtered to match the sector you pick)
+3. Click **Save**
 
-### Geographic Distribution
+!!! note "You Can Only Fill In What's Missing"
+    If Portfolium already has a value for a field from its market data provider, that field is shown as read-only and cannot be overridden — only genuinely missing fields are editable. This keeps your corrections limited to filling real gaps rather than second-guessing verified data.
 
-View your holdings by country:
-
-- United States
-- Canada
-- International markets
-- Emerging markets
-
-!!! note "Chart Data"
-    Charts show only currently held assets (quantity > 0). Sold assets are excluded from distribution calculations.
-
-## Transaction & Split History
-
-### View Transaction History
-
-For assets with buy/sell transactions:
-
-1. Look for the **transaction count** badge with up arrow icon
-2. Click the badge to view complete transaction history
-3. See all buy and sell transactions across all portfolios
-4. View split-adjusted quantities
-
-The transaction history shows:
-
-- Transaction dates
-- Buy or sell type
-- Original quantities
-- Split-adjusted quantities (if applicable)
-- Prices and fees
-- Portfolio names
-- Transaction notes
-
-### View Split History
-
-For assets with stock splits:
-
-1. Look for the **split count** badge with shuffle icon
-2. Click the badge to view all stock splits
-3. See split ratios and dates
-4. Understand how splits affected your position
-
-## Asset Details
-
-### Symbol Format
-
-Assets use Yahoo Finance ticker symbols:
-
-- **US Stocks**: `AAPL`, `MSFT`, `GOOGL`
-- **Cryptocurrencies**: `BTC-USD`, `ETH-USD`, `ADA-USD`
-- **Foreign Stocks**: May include exchange suffix
-- **Indexes**: `^GSPC` (S&P 500), `^DJI` (Dow Jones)
-
-### Currency
-
-Each asset trades in a specific currency:
-
-- **USD**: US Dollars (most common)
-- **EUR**: Euros
-- **GBP**: British Pounds
-- **CAD**: Canadian Dollars
-- And others
-
-!!! note "Portfolio Currency vs Asset Currency"
-    Your portfolio's base currency can differ from an asset's trading currency. Portfolium handles currency conversions automatically for valuation.
-
-## Search & Filter
-
-While there's no dedicated search on the Assets page, you can:
-
-1. Use browser search (Ctrl+F / Cmd+F)
-2. Sort by symbol or name
-3. Toggle sold assets on/off
-4. View specific portfolios for filtered asset lists
-
-## Understanding Asset Data
-
-### Why Some Fields Are Empty
-
-Not all assets have complete data:
-
-- **Sector/Industry**: Only applicable to stocks, not ETFs or crypto
-- **Country**: May not be available for all asset types
-- **Type**: Some assets may have generic types
-
-### Data Accuracy
-
-Asset data comes from Yahoo Finance:
-
-- Generally accurate and up-to-date
-- May occasionally have gaps or errors
-- Enrichment updates data from the source
-- You can manually verify critical information
+Your correction is stored as an override and is used everywhere that field appears — the assets list, distribution charts, and the research page — until the underlying data source provides its own value.
 
 ## Best Practices
 
-### Keep Assets Updated
-
-- Run **Enrich Metadata** periodically
-- Verify asset names after import
-- Check symbols are correct for your intended assets
-
-### Asset Tracking
-
-- Review asset distribution regularly
-- Check for over-concentration in sectors
-- Monitor geographic diversification
-- Track which portfolios hold which assets
-
-### Sold Assets
-
-- Keep **Show Sold** enabled to see full history
-- Review sold assets periodically for performance analysis
-- Don't delete sold assets - they preserve your history
+- Run metadata correction shortly after adding a new or unusual asset, so your sector and country breakdowns stay accurate
+- Write an investment note when you first buy a position, while your reasoning is still fresh
+- Keep **Show Sold** enabled if you want to review closed positions when analyzing past performance
+- Check the split history after a corporate action to confirm your quantities and cost basis updated correctly
 
 ## Troubleshooting
 
-### Asset Name Shows Symbol Only
+### Sector, Industry, or Country Is Missing
 
-- Run **Enrich Metadata** to fetch the full name
-- Yahoo Finance may not have data for this symbol
-- Verify the ticker symbol is correct
+Open the asset's ledger and use the **Metadata** button to fill in the missing field yourself. This option only appears when the field genuinely has no data.
 
-### Missing Sector or Industry
+### An Asset Shows the Wrong Currency, Name, or Classification
 
-- Only stocks have sector/industry data
-- ETFs and cryptocurrencies don't have sectors
-- Some stocks may not be classified yet
-- Try enrichment to fetch latest data
+Fields sourced from the market data provider cannot be overridden manually because they're expected to be authoritative. If one looks wrong, it usually means the provider has incorrect or stale data for that ticker; double-check that you're tracking the correct symbol.
 
-### Logo Not Displaying
+### ETF Composition Section Is Empty
 
-- Logos are cached for performance
-- Some assets may not have logos available
-- Generic fallback logos are used when needed
-- Refresh the page if logo appears broken
+Composition data (holdings, sector weightings, theme exposure) depends on your market data provider having coverage for that fund. Smaller or less common ETFs may not have this data available, in which case the section is hidden rather than shown empty.
 
-### Incorrect Currency
+### A Section on the Research Page Shows an Error
 
-- Run **Enrich Metadata** to update from Yahoo Finance
-- Yahoo Finance is the authoritative source
-- Currency is determined by the asset's primary listing
+Each section of the research page (fundamentals, business profile, ownership, risk, performance) loads independently. If one section fails to load, the rest of the page still works — try reopening the asset, and if the problem persists, it usually means the market data provider is temporarily unavailable for that section.
 
 ## Next Steps
 
-- [Add Transactions](transactions.md) to track purchases and sales
-- [View Portfolios](portfolios.md) to see which assets are in each portfolio
-- [Explore Insights](insights.md) for deeper analysis of your holdings
+- [Add Transactions](transactions.md) to keep your holdings and history up to date
+- [View Portfolios](portfolios.md) to see which assets are grouped into each portfolio
+- [Explore Insights](insights.md) for portfolio-wide analysis built on top of your asset data

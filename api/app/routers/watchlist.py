@@ -2,7 +2,7 @@
 Watchlist router - Track assets without owning them
 """
 import logging
-from typing import List, Dict, Any, Generator
+from typing import List, Dict, Any, Generator, Optional
 from decimal import Decimal
 from datetime import datetime, timedelta
 import json
@@ -126,6 +126,7 @@ async def get_watchlist(
             daily_change_pct=daily_change_pct,
             currency=asset.currency,
             asset_type=asset.asset_type,
+            themes=asset.themes,
             last_updated=last_updated,
             created_at=item.created_at,
             tags=tags_response
@@ -204,6 +205,20 @@ async def create_watchlist_item_by_symbol(
         created_item = crud.get_watchlist_item(db, created_item.id)
     
     return created_item
+
+
+@router.get("/by-asset/{asset_id}", response_model=Optional[WatchlistItem])
+async def get_watchlist_item_by_asset(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get the current user's watchlist item for an asset, if it exists."""
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise AssetNotFoundInDatabaseError(asset_id)
+
+    return crud.get_watchlist_item_by_user_and_asset(db, current_user.id, asset_id)
 
 
 # ============================================================================

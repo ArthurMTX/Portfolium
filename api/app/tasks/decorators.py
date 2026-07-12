@@ -5,7 +5,7 @@ import functools
 import hashlib
 import logging
 from typing import Callable, Any
-from app.services.cache import CacheService
+from app.services.platform.cache import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,8 @@ def singleton_task(timeout: int = 300):
             
             if not lock_acquired:
                 logger.info(
-                    f"Task {task_name} with args {args[:2] if args else '()'}... "
-                    f"is already running, skipping"
+                    "Task already running; skipping duplicate execution",
+                    extra={"event": "celery_task_deduplicated", "task_name": task_name},
                 )
                 return {
                     "status": "skipped",
@@ -91,8 +91,8 @@ def deduplicate_task(ttl: int = 60):
             cached_result = CacheService.get(cache_key)
             if cached_result is not None:
                 logger.info(
-                    f"Task {task_name} with args {args[:2] if args else '()'}... "
-                    f"was recently executed, returning cached result"
+                    "Returning recently cached task result",
+                    extra={"event": "celery_task_deduplicated", "task_name": task_name},
                 )
                 return cached_result
             

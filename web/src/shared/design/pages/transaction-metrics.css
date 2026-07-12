@@ -1,0 +1,383 @@
+.transaction-metrics-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.transaction-metrics-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pf-muted);
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.transaction-metrics-back:hover {
+  border-color: var(--pf-accent-border);
+  color: var(--pf-ink);
+}
+
+.transaction-metrics-headline-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+}
+
+.transaction-metrics-headline-metrics > div {
+  min-height: 6.1rem;
+  padding-right: clamp(1rem, 1.8vw, 1.4rem);
+}
+
+.transaction-metrics-headline-metrics strong {
+  font-size: clamp(1.35rem, 2.1vw, 2rem);
+}
+
+.transaction-metrics-headline-metrics em {
+  max-width: 13rem;
+}
+
+.transaction-metrics-supporting-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0 0 clamp(0.2rem, 0.8vw, 0.45rem);
+}
+
+.transaction-metrics-supporting-metrics > div {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+  border: 1px solid var(--pf-line);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--pf-inset) 54%, transparent);
+  padding: 0.72rem 0.85rem;
+}
+
+.transaction-metrics-supporting-metrics span {
+  overflow: hidden;
+  color: var(--pf-subtle);
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.transaction-metrics-supporting-metrics strong {
+  overflow: hidden;
+  color: var(--pf-ink);
+  font-size: 1rem;
+  font-weight: 820;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-metrics-supporting-metrics em {
+  color: var(--pf-muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+.transaction-metrics-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.transaction-metrics-chart-card canvas,
+.transaction-metrics-chart-card svg {
+  overflow: visible;
+}
+
+.transaction-metrics-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.transaction-metrics-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20rem;
+  color: var(--pf-subtle);
+}
+
+.transaction-metrics-table-section {
+  min-width: 0;
+}
+
+.transaction-metrics-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.transaction-metrics-ledger-scroll {
+  overflow-x: hidden;
+}
+
+.transaction-metrics-table-empty {
+  display: grid;
+  gap: 0.35rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--pf-subtle);
+}
+
+.transaction-metrics-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.transaction-metrics-ledger thead {
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.transaction-metrics-ledger th {
+  padding: 0.7rem 0.58rem;
+  color: var(--pf-subtle);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.transaction-metrics-ledger th.is-left,
+.transaction-metrics-ledger td.is-left {
+  text-align: left;
+}
+
+.transaction-metrics-ledger th.is-center,
+.transaction-metrics-ledger td.is-center {
+  text-align: center;
+}
+
+.transaction-metrics-ledger th.is-right,
+.transaction-metrics-ledger td.is-right {
+  text-align: right;
+}
+
+.transaction-metrics-ledger th.has-divider,
+.transaction-metrics-ledger td.has-divider {
+  border-left: 1px solid var(--pf-line);
+}
+
+.transaction-metrics-ledger tbody tr {
+  border-bottom: 1px solid var(--pf-line);
+  transition: background-color 140ms ease;
+}
+
+.transaction-metrics-ledger tbody tr:hover {
+  background: var(--pf-inset);
+}
+
+.transaction-metrics-ledger td {
+  overflow: hidden;
+  padding: 0.9rem 0.58rem;
+  color: var(--pf-ink);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.transaction-metrics-ledger td.is-emphasis {
+  font-weight: 780;
+}
+
+.transaction-metrics-ledger td.is-muted {
+  color: var(--pf-muted);
+}
+
+.transaction-metrics-ledger td.is-fee {
+  color: var(--pf-warning);
+}
+
+.transaction-metrics-ledger td.is-positive {
+  color: var(--pf-success);
+}
+
+.transaction-metrics-ledger td.is-negative {
+  color: var(--pf-danger);
+}
+
+.transaction-metrics-expand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--pf-accent);
+}
+
+.transaction-metrics-expanded-row {
+  background: var(--pf-inset);
+}
+
+.transaction-metrics-expanded-row td {
+  padding: 0;
+}
+
+.transaction-metrics-expanded {
+  padding: 1.25rem 1.5rem 1.5rem 4.6rem;
+  border-left: 1px solid var(--pf-accent-border);
+}
+
+.transaction-metrics-expanded h4 {
+  margin: 0 0 0.85rem;
+  color: var(--pf-subtle);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.transaction-metrics-expanded-empty {
+  margin: 0;
+  padding: 1rem 0;
+  text-align: center;
+  color: var(--pf-subtle);
+  font-size: 0.88rem;
+}
+
+.transaction-metrics-tx-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.transaction-metrics-tx-table th {
+  padding: 0.55rem 0.75rem;
+  color: var(--pf-subtle);
+  font-size: 0.68rem;
+  font-weight: 780;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.transaction-metrics-tx-table th.is-left,
+.transaction-metrics-tx-table td.is-left {
+  text-align: left;
+}
+
+.transaction-metrics-tx-table th.is-right,
+.transaction-metrics-tx-table td.is-right {
+  text-align: right;
+}
+
+.transaction-metrics-tx-table tbody tr {
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.transaction-metrics-tx-table td {
+  padding: 0.55rem 0.75rem;
+  color: var(--pf-ink);
+  font-size: 0.85rem;
+}
+
+.transaction-metrics-tx-table td.is-muted {
+  color: var(--pf-muted);
+}
+
+.transaction-metrics-tx-table td.is-emphasis {
+  font-weight: 720;
+}
+
+.transaction-metrics-tx-asset {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.transaction-metrics-tx-logo {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.transaction-metrics-tx-symbol {
+  color: var(--pf-ink);
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+.transaction-metrics-tx-name {
+  max-width: 14rem;
+  overflow: hidden;
+  color: var(--pf-subtle);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-metrics-tx-type {
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.transaction-metrics-tx-type.is-buy {
+  background: var(--pf-success-soft);
+  color: var(--pf-success);
+}
+
+.transaction-metrics-tx-type.is-sell {
+  background: var(--pf-danger-soft);
+  color: var(--pf-danger);
+}
+
+@media (max-width: 980px) {
+  .transaction-metrics-headline-metrics,
+  .transaction-metrics-supporting-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transaction-metrics-headline-metrics > div:nth-child(2n) {
+    border-left: 0;
+  }
+
+  .transaction-metrics-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-metrics-expanded {
+    padding-left: 1.5rem;
+  }
+
+  .transaction-metrics-ledger-scroll {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .transaction-metrics-headline-metrics,
+  .transaction-metrics-supporting-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-metrics-headline-metrics > div {
+    min-height: 0;
+    border-left: 0;
+    padding-left: 0;
+  }
+}

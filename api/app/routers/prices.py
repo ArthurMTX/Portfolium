@@ -5,18 +5,191 @@ from typing import List, Dict
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
+from datetime import timedelta
 from decimal import Decimal
-import yfinance as yf
 import asyncio
+import logging
 
 from app.errors import InvalidPriceRequestError, PortfolioNotFoundError
 from app.db import get_db
 from app.schemas import PriceQuote
-from app.services.pricing import get_pricing_service, PricingService
+from app.services.market_data.pricing import get_pricing_service, PricingService, is_rate_limited, get_rate_limit_remaining
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.services.platform.cache import CacheService
+from app.redis_client import get_redis
 from app.crud import portfolios as portfolio_crud
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+_indices_memory_cache: Dict[str, tuple[Dict[str, PriceQuote], datetime]] = {}
+_INDICES_CACHE_TTL = timedelta(seconds=60)
+_INDICES_STALE_TTL = timedelta(minutes=30)
+_INDICES_STALE_TTL_SECONDS = int(_INDICES_STALE_TTL.total_seconds())
+_REFRESH_LOCK_TTL_SECONDS = 60
+_indices_refresh_tasks: set[str] = set()
 
+
+def _redis_available() -> bool:
+    return get_redis() is not None
+
+
+def _build_indices_cache_key(symbols: List[str]) -> str:
+    normalized_symbols = sorted({symbol.strip().upper() for symbol in symbols if symbol.strip()})
+    return f"market:indices:{','.join(normalized_symbols)}"
+
+
+def _build_refresh_lock_key(cache_key: str) -> str:
+    return f"market:refresh:{cache_key}"
+
+
+def _read_indices_cache(cache_key: str) -> tuple[Dict[str, PriceQuote], datetime, str] | None:
+    if _redis_available():
+        cached = CacheService.get(cache_key)
+        if cached:
+            try:
+                cached_at = datetime.fromisoformat(cached["cached_at"])
+                data = {
+                    symbol: PriceQuote(**quote)
+                    for symbol, quote in cached["data"].items()
+                }
+                return data, cached_at, "redis"
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.warning("indices_cache invalid Redis payload key=%s error=%s", cache_key, exc)
+        return None
+
+    cached_memory = _indices_memory_cache.get(cache_key)
+    if cached_memory:
+        return cached_memory[0], cached_memory[1], "memory"
+    return None
+
+
+def _write_indices_cache(cache_key: str, prices: Dict[str, PriceQuote]) -> None:
+    cached_at = datetime.utcnow()
+    payload = {
+        "cached_at": cached_at.isoformat(),
+        "data": {symbol: quote.model_dump() for symbol, quote in prices.items()},
+    }
+    if CacheService.set(cache_key, payload, ttl=_INDICES_STALE_TTL_SECONDS):
+        logger.debug("indices_cache Redis set key=%s ttl=%ss", cache_key, _INDICES_STALE_TTL_SECONDS)
+        return
+
+    _indices_memory_cache[cache_key] = (prices, cached_at)
+    logger.warning("indices_cache Redis unavailable, using local memory fallback key=%s", cache_key)
+
+
+def _try_acquire_refresh_lock(cache_key: str) -> bool:
+    lock_key = _build_refresh_lock_key(cache_key)
+    if CacheService.set(lock_key, {"created_at": datetime.utcnow().isoformat()}, ttl=_REFRESH_LOCK_TTL_SECONDS, nx=True):
+        return True
+
+    if _redis_available():
+        return False
+
+    if cache_key in _indices_refresh_tasks:
+        return False
+    _indices_refresh_tasks.add(cache_key)
+    return True
+
+
+def _release_memory_refresh_lock(cache_key: str) -> None:
+    if not _redis_available():
+        _indices_refresh_tasks.discard(cache_key)
+
+
+def _batch_fetch_indices(symbols: List[str]) -> Dict[str, PriceQuote]:
+    """Batch fetch all indices in a single provider call."""
+    prices = {}
+    try:
+        provider = get_market_data_provider()
+        df = provider.download(
+            symbols,
+            action="market_indices_download",
+            timeout_seconds=yahoo_timeout_seconds(default=15.0),
+            period="2d",
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+
+        if df is None or df.empty:
+            logger.warning("No data returned for market indices batch fetch")
+            return {}
+
+        now = datetime.utcnow()
+
+        if len(symbols) == 1:
+            symbol = symbols[0]
+            if 'Close' in df.columns:
+                closes = df['Close'].dropna()
+                if len(closes) >= 1:
+                    current_price = Decimal(str(float(closes.iloc[-1])))
+                    prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                    daily_change_pct = None
+                    if prev_close and prev_close > 0:
+                        daily_change_pct = (current_price - prev_close) / prev_close * 100
+
+                    prices[symbol] = PriceQuote(
+                        symbol=symbol,
+                        price=current_price,
+                        asof=now,
+                        currency="USD",
+                        daily_change_pct=daily_change_pct
+                    )
+        else:
+            for symbol in symbols:
+                try:
+                    if symbol in df.columns.get_level_values(0):
+                        symbol_data = df[symbol]
+                        if 'Close' in symbol_data.columns:
+                            closes = symbol_data['Close'].dropna()
+                            if len(closes) >= 1:
+                                current_price = Decimal(str(float(closes.iloc[-1])))
+                                prev_close = Decimal(str(float(closes.iloc[-2]))) if len(closes) >= 2 else None
+                                daily_change_pct = None
+                                if prev_close and prev_close > 0:
+                                    daily_change_pct = (current_price - prev_close) / prev_close * 100
+
+                                prices[symbol] = PriceQuote(
+                                    symbol=symbol,
+                                    price=current_price,
+                                    asof=now,
+                                    currency="USD",
+                                    daily_change_pct=daily_change_pct
+                                )
+                except Exception as e:
+                    logger.warning(f"Failed to parse index data for {symbol}: {e}")
+
+        logger.info(f"Fetched {len(prices)}/{len(symbols)} market indices via batch download")
+        return prices
+
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "rate" in error_msg or "limit" in error_msg or "429" in error_msg or "too many" in error_msg:
+            from app.services.market_data.pricing import set_rate_limited
+            set_rate_limited(60)
+        logger.warning(f"Failed to fetch market indices: {e}")
+        return {}
+
+
+async def _refresh_indices_cache_async(cache_key: str, symbols: List[str]) -> None:
+    """Best-effort background refresh for stale market indices cache, deduplicated via Redis."""
+    if not _try_acquire_refresh_lock(cache_key):
+        return
+
+    try:
+        prices = await asyncio.wait_for(
+            asyncio.to_thread(_batch_fetch_indices, symbols),
+            timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
+        )
+        if prices:
+            _write_indices_cache(cache_key, prices)
+            logger.info("indices_cache refreshed symbols=%s", len(symbols))
+    except Exception as exc:
+        logger.warning("indices_cache refresh_failed symbols=%s error=%s", len(symbols), exc)
+    finally:
+        _release_memory_refresh_lock(cache_key)
 
 @router.get("", response_model=Dict[str, PriceQuote])
 async def get_prices(
@@ -54,10 +227,10 @@ async def get_market_indices(
     )
 ):
     """
-    Get current prices for market indices without requiring them to be in the Asset table.
+    Get current prices for market indices using batch downloading to minimize API calls.
     
-    This endpoint directly fetches from Yahoo Finance and doesn't use the database cache,
-    making it suitable for general market data like S&P 500, DAX, Nikkei, etc.
+    This endpoint uses provider batch download to fetch all indices in a single API call,
+    making it much more efficient and less likely to trigger rate limits.
     
     Example: `/prices/indices?symbols=^GSPC,^DJI,^IXIC`
     """
@@ -68,49 +241,52 @@ async def get_market_indices(
     
     if len(symbol_list) > 50:
         raise InvalidPriceRequestError("Maximum 50 symbols per request")
+
+    cache_key = _build_indices_cache_key(symbol_list)
+    cached_indices = _read_indices_cache(cache_key)
+    if cached_indices:
+        cached_data, cached_at, cache_source = cached_indices
+        age = datetime.utcnow() - cached_at
+        if age < _INDICES_CACHE_TTL:
+            logger.debug("Market indices cache hit source=%s", cache_source)
+            return cached_data
+        if age < _INDICES_STALE_TTL:
+            logger.info(
+                "indices_cache stale_hit source=%s symbols=%s age_seconds=%.1f action=return_stale enqueue_refresh=true",
+                cache_source,
+                len(symbol_list),
+                age.total_seconds(),
+            )
+            asyncio.create_task(_refresh_indices_cache_async(cache_key, symbol_list))
+            return cached_data
     
-    def fetch_index_price(symbol: str) -> tuple[str, PriceQuote | None]:
-        """Fetch a single index price from yfinance"""
-        try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            
-            # Get current price
-            current_price = info.get('regularMarketPrice') or info.get('currentPrice')
-            if not current_price:
-                return (symbol, None)
-            
-            # Get previous close for daily change calculation
-            prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
-            daily_change_pct = None
-            if prev_close and prev_close > 0:
-                daily_change_pct = ((current_price - prev_close) / prev_close) * 100
-            
-            # Get currency
-            currency = info.get('currency', 'USD')
-            
-            return (symbol, PriceQuote(
-                symbol=symbol,
-                price=Decimal(str(current_price)),
-                asof=datetime.utcnow(),
-                currency=currency,
-                daily_change_pct=Decimal(str(daily_change_pct)) if daily_change_pct is not None else None
-            ))
-        except Exception as e:
-            print(f"Error fetching {symbol}: {e}")
-            return (symbol, None)
+    # Check circuit breaker
+    if is_rate_limited():
+        remaining = get_rate_limit_remaining()
+        logger.warning(f"Rate limit active for indices fetch, {remaining:.1f}s remaining")
+        if cached_indices:
+            logger.warning("provider=yahoo action=market_indices fallback=stale_%s_cache", cached_indices[2])
+            return cached_indices[0]
+        return {}  # Return empty rather than hitting rate limits more
     
-    # Fetch all prices concurrently using asyncio.to_thread
-    tasks = [asyncio.to_thread(fetch_index_price, symbol) for symbol in symbol_list]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Build response dict, excluding failed fetches
-    prices = {}
-    for result in results:
-        if isinstance(result, tuple) and result[1]:
-            symbol, price_quote = result
-            prices[symbol] = price_quote
-    
+    # Run batch fetch in thread pool
+    try:
+        prices = await asyncio.wait_for(
+            asyncio.to_thread(_batch_fetch_indices, symbol_list),
+            timeout=yahoo_timeout_seconds(default=15.0) + 5.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("provider=yahoo action=market_indices timeout=true fallback=stale_shared_cache")
+        if cached_indices:
+            return cached_indices[0]
+        return {}
+
+    if prices:
+        _write_indices_cache(cache_key, prices)
+    elif cached_indices:
+        logger.warning("provider=yahoo action=market_indices fallback=stale_%s_cache", cached_indices[2])
+        return cached_indices[0]
+
     return prices
 
 
@@ -129,17 +305,22 @@ async def get_price_quote(
     
     Example: `/prices/quote/BTC-USD` or `/prices/quote/ETH-EUR?target_currency=USD`
     """
-    from app.services.currency import CurrencyService
+    from app.services.market_data.currency import CurrencyService
     
     symbol = symbol.strip().upper()
     target_currency = target_currency.upper() if target_currency else None
     prices = await pricing_service.get_multiple_prices([symbol])
     
     if symbol not in prices or prices[symbol] is None:
-        # Try to fetch directly from yfinance
+        # Try to fetch directly from the market data provider
         try:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="2d")
+            provider = get_market_data_provider()
+            hist = provider.get_history(
+                symbol,
+                action="quote_history",
+                timeout_seconds=yahoo_timeout_seconds(),
+                period="2d",
+            )
             if not hist.empty:
                 current_price = float(hist["Close"].iloc[-1])
                 prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else current_price
@@ -147,7 +328,11 @@ async def get_price_quote(
                 
                 # Get actual currency from ticker info
                 try:
-                    info = ticker.info
+                    info = provider.get_info(
+                        symbol,
+                        action="quote_info",
+                        timeout_seconds=yahoo_timeout_seconds(),
+                    )
                     source_currency = info.get('currency', 'USD')
                 except:
                     source_currency = 'USD'

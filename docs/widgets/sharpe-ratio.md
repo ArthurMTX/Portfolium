@@ -1,92 +1,57 @@
-# Sharpe Ratio
+## Sharpe Ratio
 
-The **Sharpe Ratio** widget measures how much **excess return** your portfolio generates **per unit of risk**.  
-It tells you whether your returns compensate you enough for the volatility you are taking, compared to a risk-free investment.
+### What It Shows
 
----
+The Sharpe Ratio answers the question:
+> "Am I being properly paid for the risk I'm taking?"
 
-## What It Shows
+It measures how much **extra return** your portfolio earns above a safe, risk-free baseline, per unit of volatility endured to get there. Two portfolios can have the same return, but the one that got there with a smoother ride has the better Sharpe Ratio.
 
-The widget displays:
+Rough interpretation of the number:
 
-- Your portfolio's **Sharpe ratio** over a selected period (default: **1 year**)  
-- A **single numeric value** (e.g., `1.42`), rounded to two decimals  
-- A **higher value** indicates **better risk-adjusted performance**
+- **Below $0$** — your portfolio underperformed even a risk-free investment.
+- **$0$ to $1$** — modest risk-adjusted performance.
+- **$1$ to $2$** — good risk-adjusted performance.
+- **Above $2$** — excellent risk-adjusted performance.
 
-Rule-of-thumb interpretation:
+### How It's Calculated
 
-- **< 0** – returns worse than the risk-free rate  
-- **0 to 1** – low risk-adjusted performance  
-- **1 to 2** – good risk-adjusted performance  
-- **> 2** – excellent risk-adjusted performance  
-
-This metric answers the question:  
-> "Am I being properly compensated for the risk I'm taking?"
-
----
-
-## How It's Calculated
-
-The Sharpe ratio compares your portfolio's **excess return** (return minus risk-free rate) with its **volatility**.
-
-**Formula**
+Portfolium computes the Sharpe Ratio from your portfolio's **daily returns over the past year** (adjusted for deposits and withdrawals):
 
 $$
-\text{Sharpe Ratio} =
-\frac{R_p - R_f}{\sigma_p}
+\text{Sharpe Ratio} = \frac{R_p - R_f}{\sigma_p}
 $$
 
 Where:
 
-- $R_p$ = portfolio return  
-- $R_f$ = risk-free rate  
-- $\sigma_p$ = portfolio volatility (standard deviation of returns)  
+- $R_p$ = your portfolio's annualized return, calculated as the geometric (compounded) growth rate over the period;
+- $R_f$ = the assumed risk-free rate, fixed at $2\%$ per year;
+- $\sigma_p$ = your portfolio's annualized volatility (the same figure shown in the [Volatility](volatility.md) widget).
 
-In Portfolium:
+In other words: take your annualized return, subtract the $2\%$ risk-free baseline, then divide by how much your portfolio swings around on a typical year. If your portfolio's volatility is zero or too close to zero to divide by meaningfully, the ratio can't be computed and the widget shows **N/A**.
 
-- Daily returns are computed from **daily portfolio values**  
-- A **2% annual risk-free rate** is assumed  
-- Both volatility and excess return are **annualized** using 252 trading days  
+### Example
 
-Additional notes:
+| Step | Value |
+|---|---|
+| Annualized return | $8\%$ |
+| Risk-free rate | $2\%$ |
+| Annualized volatility | $4\%$ |
+| Sharpe Ratio | $\frac{0.08 - 0.02}{0.04} = 1.50$ |
 
-- If volatility is zero or too small, the ratio may appear as **N/A**  
+The widget would display **$1.50$**.
 
----
+### When To Use It
 
-## Example
+Use the Sharpe Ratio when you want to:
 
-Imagine your portfolio over the past year produced:
+- judge whether your returns actually justify the ups and downs you went through to get them;
+- compare portfolios or strategies that have different risk levels, not just different returns;
+- decide whether adding a volatile holding is worth the extra bumpiness it brings.
 
-- Annualized return: **8%**  
-- Risk-free rate: **2%**  
-- Annualized volatility: **4%**
+### Notes & Limitations
 
-Sharpe ratio:
-
-$$
-\text{Sharpe Ratio} = \frac{0.08 - 0.02}{0.04} = 1.50
-$$
-
-The widget would display:
-
-- **1.50**
-
----
-
-## When To Use It
-
-The Sharpe Ratio widget is useful for:
-
-- Evaluating **risk-adjusted performance**, not just raw returns  
-- Comparing strategies or portfolios with different risk levels  
-- Identifying whether higher returns are worth the added volatility  
-- Supporting long-term investment and rebalancing decisions  
-
----
-
-## Notes
-
-- Always based on **your portfolio's daily value history**  
-- Risk-free rate is fixed at **2%**  
-- Formatting follows your portfolio's display settings  
+- Based on the portfolio's own daily value history over the default $1$-year window.
+- The risk-free rate is a fixed assumption ($2\%$ annually), not pulled from a live market rate — treat comparisons across time periods with that in mind.
+- Volatility here counts both upside and downside swings; a portfolio with big positive surprises can still show a lower Sharpe Ratio than expected. For a downside-only view, see [Downside Deviation](downside-deviation.md).
+- Backward-looking, like all metrics on this page — past risk-adjusted performance doesn't guarantee future results.

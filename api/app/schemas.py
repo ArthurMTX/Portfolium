@@ -69,9 +69,10 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     preferred_language: Optional[str] = Field(None, pattern="^(en|fr)$")
     daily_change_notifications_enabled: Optional[bool] = None
-    daily_change_threshold_pct: Optional[Decimal] = Field(None, ge=0, le=100)
     transaction_notifications_enabled: Optional[bool] = None
     daily_report_enabled: Optional[bool] = None
+    ath_atl_notifications_enabled: Optional[bool] = None
+    push_notifications_enabled: Optional[bool] = None
 
     @field_validator('email')
     @classmethod
@@ -172,9 +173,10 @@ class User(UserBase):
     last_login: Optional[datetime] = None
     preferred_language: str = Field(default='en')
     daily_change_notifications_enabled: bool = True
-    daily_change_threshold_pct: Decimal = Field(default=Decimal("5.0"))
     transaction_notifications_enabled: bool = True
     daily_report_enabled: bool = False
+    ath_atl_notifications_enabled: bool = True
+    push_notifications_enabled: bool = True
     totp_enabled: bool = False  # Whether 2FA is enabled
     
     model_config = ConfigDict(from_attributes=True)
@@ -247,6 +249,15 @@ class AssetBase(BaseModel):
     industry: Optional[str] = None
     asset_type: Optional[str] = None  # 'EQUITY', 'ETF', 'CRYPTOCURRENCY', etc.
     country: Optional[str] = None
+    market_cap: Optional[Decimal] = None
+    market_cap_currency: Optional[str] = None
+    market_cap_usd: Optional[Decimal] = None
+    market_cap_fetched_at: Optional[datetime] = None
+    isin: Optional[str] = None
+    logo_provider: Optional[str] = None
+    logo_url: Optional[str] = None
+    logo_light_url: Optional[str] = None
+    logo_dark_url: Optional[str] = None
 
 
 class AssetCreate(AssetBase):
@@ -259,6 +270,141 @@ class AssetMetadataOverride(BaseModel):
     sector_override: Optional[str] = Field(None, description="Override for sector when Yahoo Finance doesn't provide data")
     industry_override: Optional[str] = Field(None, description="Override for industry when Yahoo Finance doesn't provide data")
     country_override: Optional[str] = Field(None, description="Override for country when Yahoo Finance doesn't provide data")
+
+
+class AssetInvestmentNoteUpdate(BaseModel):
+    """Schema for creating or updating a user's investment thesis for an asset."""
+    thesis: Optional[str] = None
+    conviction: Optional[str] = Field(None, pattern="^(low|medium|high)$")
+    risks: Optional[str] = None
+    target_price: Optional[Decimal] = Field(None, ge=0)
+    target_text: Optional[str] = None
+    invalidation_thesis: Optional[str] = None
+    horizon: Optional[str] = Field(None, pattern="^(short|medium|long)$")
+    horizon_date: Optional[date] = None
+
+
+class AssetInvestmentNote(AssetInvestmentNoteUpdate):
+    """User-specific investment thesis response."""
+    id: int
+    user_id: int
+    asset_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssetSubtheme(BaseModel):
+    """Specific business specialization under a global asset theme."""
+    label: str
+    confidence: float = Field(ge=0, le=1)
+    evidence: List[str] = Field(default_factory=list)
+
+
+class AssetTheme(BaseModel):
+    """Single global asset theme/exposure."""
+    label: str
+    confidence: float = Field(ge=0, le=1)
+    weight: Optional[float] = Field(default=None, ge=0, le=1)
+    evidence: List[str] = Field(default_factory=list)
+    tier: Optional[str] = Field(default=None, pattern="^(primary|secondary)$")
+    children: List[AssetSubtheme] = Field(default_factory=list)
+
+
+class AssetThemeClassification(BaseModel):
+    """Stored global theme/exposure classification for an asset."""
+    id: Optional[int] = None
+    asset_id: int
+    themes: List[AssetTheme] = Field(default_factory=list)
+    method: str = Field(default="gpt", pattern="^(keyword|gpt|manual)$")
+    model: Optional[str] = None
+    source: Optional[str] = Field(default=None, pattern="^(minilm|gemini|manual)$")
+    model_name: Optional[str] = None
+    source_hash: Optional[str] = None
+    generated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    current_classifier_mode: Optional[str] = Field(default=None, pattern="^(minilm|gemini)$")
+    provider_stale: Optional[bool] = None
+    classification_unavailable_reason: Optional[str] = None
+    reclassified_on_fetch: Optional[bool] = None
+    reclassification_error: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssetThemeTaxonomyGap(BaseModel):
+    """LLM-proposed taxonomy gap payload."""
+    hasGap: bool = False
+    reason: Optional[str] = None
+    suggestedTheme: Optional[str] = None
+    suggestedSubthemes: List[str] = Field(default_factory=list)
+    confidence: Optional[float] = Field(default=None, ge=0, le=1)
+
+
+class AssetThemeTaxonomySuggestion(BaseModel):
+    """Stored taxonomy gap suggestion for admin review."""
+    id: int
+    asset_id: int
+    symbol: str
+    company_name: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    summary_hash: str
+    summary_excerpt: Optional[str] = None
+    suggested_theme: str
+    suggested_subthemes: List[str] = Field(default_factory=list)
+    reason: str
+    confidence: float
+    status: str = Field(pattern="^(pending|accepted|rejected|ignored)$")
+    reviewer_note: Optional[str] = None
+    current_themes: List[AssetTheme] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssetThemeTaxonomySuggestionUpdate(BaseModel):
+    """Admin review update for a taxonomy suggestion."""
+    status: str = Field(pattern="^(accepted|rejected|ignored)$")
+    reviewer_note: Optional[str] = None
+
+
+class AssetThemeTaxonomySuggestionStats(BaseModel):
+    counts_by_status: Dict[str, int] = Field(default_factory=dict)
+    top_suggested_themes: List[Dict[str, Any]] = Field(default_factory=list)
+    top_suggested_subthemes: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AssetThemeClassifyRequest(BaseModel):
+    symbols: List[str] = Field(min_length=1, max_length=100)
+    force: bool = False
+    missing_only: bool = True
+
+
+class AssetInvalidProviderCleanupRequest(BaseModel):
+    dry_run: bool = True
+    symbols: Optional[List[str]] = None
+
+
+class AssetThemeClassifyResult(BaseModel):
+    symbol: str
+    status: str
+    company_name: Optional[str] = None
+    themes: List[AssetTheme] = Field(default_factory=list)
+    taxonomy_gap: Optional[AssetThemeTaxonomyGap] = None
+    failure_reason: Optional[str] = None
+    skipped_reason: Optional[str] = None
+
+
+class AssetThemeClassifyResponse(BaseModel):
+    total: int
+    classified: int
+    skipped: int
+    failed: int
+    results: List[AssetThemeClassifyResult] = Field(default_factory=list)
 
 
 class AssetWithOverrides(AssetBase):
@@ -281,10 +427,151 @@ class AssetWithOverrides(AssetBase):
 class Asset(AssetBase):
     """Asset response schema (without user-specific overrides)"""
     id: int
+    themes: List[AssetTheme] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
+
+
+class AssetResearchFundamentals(BaseModel):
+    """Asset-level fundamentals and valuation data."""
+    market_cap: Optional[float] = None
+    volume: Optional[float] = None
+    avg_volume: Optional[float] = None
+    pe_ratio: Optional[float] = None
+    eps: Optional[float] = None
+    price: Optional[float] = None
+    liquidity_score: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    earnings_growth: Optional[float] = None
+    profit_margins: Optional[float] = None
+    operating_margins: Optional[float] = None
+    return_on_equity: Optional[float] = None
+    net_cash: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    current_ratio: Optional[float] = None
+    quick_ratio: Optional[float] = None
+    recommendation_key: Optional[str] = None
+    recommendation_mean: Optional[float] = None
+    num_analysts: Optional[float] = None
+    target_mean: Optional[float] = None
+    target_high: Optional[float] = None
+    target_low: Optional[float] = None
+    implied_upside_pct: Optional[float] = None
+
+
+class AssetResearchBusiness(BaseModel):
+    """Compact company profile data from the market data provider."""
+    founded: Optional[int] = None
+    employees: Optional[int] = None
+    headquarters: Optional[str] = None
+    country: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+
+
+class AssetResearchOwnership(BaseModel):
+    """Compact ownership and short-interest metrics."""
+    institutional_ownership: Optional[float] = None
+    insider_ownership: Optional[float] = None
+    short_interest: Optional[float] = None
+
+
+class AssetResearchRisk(BaseModel):
+    """Asset-level risk metrics that do not require a portfolio position."""
+    volatility_30d: Optional[float] = None
+    volatility_90d: Optional[float] = None
+    beta: Optional[float] = None
+    beta_benchmark: Optional[str] = None
+    risk_score: Optional[float] = None
+    distance_to_ath_pct: Optional[float] = None
+
+
+class AssetResearchRelativePerformance(BaseModel):
+    """Asset performance compared to a market or sector benchmark."""
+    relative_perf_30d: Optional[float] = None
+    relative_perf_90d: Optional[float] = None
+    relative_perf_ytd: Optional[float] = None
+    relative_perf_1y: Optional[float] = None
+    asset_perf_30d: Optional[float] = None
+    asset_perf_90d: Optional[float] = None
+    asset_perf_ytd: Optional[float] = None
+    asset_perf_1y: Optional[float] = None
+    etf_perf_30d: Optional[float] = None
+    etf_perf_90d: Optional[float] = None
+    etf_perf_ytd: Optional[float] = None
+    etf_perf_1y: Optional[float] = None
+    sector_etf: Optional[str] = None
+
+
+class AssetResearchMetadata(BaseModel):
+    """Market metadata for an asset."""
+    ath_price: Optional[Decimal] = None
+    ath_date: Optional[datetime] = None
+    atl_price: Optional[Decimal] = None
+    atl_date: Optional[datetime] = None
+    asset_currency: Optional[str] = None
+
+
+class AssetEtfCompositionHolding(BaseModel):
+    """Single ETF holding row."""
+    symbol: str
+    name: str
+    weight: float
+
+
+class AssetEtfThemeExposure(BaseModel):
+    """Single theme exposure row aggregated from classified ETF holdings."""
+    theme: str
+    weight: float
+
+
+class AssetEtfPortfolioOverlapHolding(BaseModel):
+    """Single ETF holding that is also currently owned in the selected portfolio."""
+    symbol: str
+    name: str
+    weight: float
+
+
+class AssetEtfPortfolioOverlap(BaseModel):
+    """Overlap between ETF holdings and the selected user portfolio."""
+    portfolio_id: Optional[int] = None
+    overlap_weight: float = 0
+    overlapping_holdings_count: int = 0
+    largest_overlapping_holding: Optional[AssetEtfPortfolioOverlapHolding] = None
+    holdings: List[AssetEtfPortfolioOverlapHolding] = Field(default_factory=list)
+
+
+class AssetEtfCompositionSectorWeighting(BaseModel):
+    """Single sector allocation row."""
+    sector: str
+    weight: float
+
+
+class AssetEtfCompositionAssetClass(BaseModel):
+    """Single asset allocation row."""
+    name: str
+    weight: float
+
+
+class AssetEtfCompositionResponse(BaseModel):
+    """ETF composition payload derived from Yahoo Finance."""
+    available: bool
+    holdings_available: bool = False
+    sector_weightings_available: bool = False
+    asset_classes_available: bool = False
+    theme_exposure_available: bool = False
+    theme_coverage: float = 0
+    portfolio_overlap_available: bool = False
+    total_top10_weight: Optional[float] = None
+    largest_holding: Optional[AssetEtfCompositionHolding] = None
+    holdings: List[AssetEtfCompositionHolding] = Field(default_factory=list)
+    theme_exposure: List[AssetEtfThemeExposure] = Field(default_factory=list)
+    portfolio_overlap: Optional[AssetEtfPortfolioOverlap] = None
+    sector_weightings: List[AssetEtfCompositionSectorWeighting] = Field(default_factory=list)
+    asset_classes: List[AssetEtfCompositionAssetClass] = Field(default_factory=list)
 
 
 # ============================================================================
@@ -440,6 +727,10 @@ class PriceBase(BaseModel):
     asset_id: int
     asof: datetime
     price: Decimal
+    open_price: Optional[Decimal] = None
+    high_price: Optional[Decimal] = None
+    low_price: Optional[Decimal] = None
+    close_price: Optional[Decimal] = None
     volume: Optional[int] = None
     source: str = "yfinance"
 
@@ -464,6 +755,13 @@ class PriceQuote(BaseModel):
     asof: datetime
     currency: str
     daily_change_pct: Optional[Decimal] = None
+
+
+class AssetResearchSummaryResponse(BaseModel):
+    """Fast first payload for asset research pages."""
+    asset: Asset
+    quote: Optional[PriceQuote] = None
+    metadata: AssetResearchMetadata = Field(default_factory=AssetResearchMetadata)
 
 
 # ============================================================================
@@ -504,10 +802,25 @@ class Position(BaseModel):
     relative_perf_1y: Optional[Decimal] = None  # 1-year relative performance vs sector ETF
     sector: Optional[str] = None  # Asset sector for reference
     industry: Optional[str] = None  # Asset industry for reference
+    country: Optional[str] = None  # Asset country for reference
+    effective_sector: Optional[str] = None  # Sector with user override fallback
+    effective_industry: Optional[str] = None  # Industry with user override fallback
+    effective_country: Optional[str] = None  # Country with user override fallback
     sector_etf: Optional[str] = None  # Benchmark ETF symbol
     currency: str
     last_updated: Optional[datetime]
     asset_type: Optional[str] = None
+    themes: List[AssetTheme] = Field(default_factory=list)
+    realized_pnl: Decimal = Decimal(0)
+    realized_pnl_percent: Optional[Decimal] = None
+    realized_quantity: Decimal = Decimal(0)
+    realized_sell_count: int = 0
+    realized_cost_basis: Decimal = Decimal(0)
+    realized_sale_proceeds: Decimal = Decimal(0)
+    realized_fees: Decimal = Decimal(0)
+    lifetime_pnl: Optional[Decimal] = None
+    total_quantity_bought: Decimal = Decimal(0)
+    average_sell_price: Optional[Decimal] = None
 
 
 class PortfolioMetrics(BaseModel):
@@ -525,6 +838,27 @@ class PortfolioMetrics(BaseModel):
     daily_change_value: Optional[Decimal] = None
     daily_change_pct: Optional[Decimal] = None
     last_updated: datetime
+
+
+class TodayBriefItem(BaseModel):
+    """Single line item for the Today Brief dashboard widget"""
+    id: str
+    type: str
+    severity: str = Field(..., pattern="^(positive|negative|neutral|warning)$")
+    title: str
+    description: Optional[str] = None
+    symbol: Optional[str] = None
+    value: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    action_url: Optional[str] = None
+
+
+class TodayBriefResponse(BaseModel):
+    """Deterministic, compact dashboard brief"""
+    portfolio_id: int
+    generated_at: datetime
+    cached: bool = False
+    items: List[TodayBriefItem] = Field(default_factory=list)
 
 
 # ============================================================================
@@ -554,6 +888,32 @@ class CsvImportResult(BaseModel):
     warnings: List[str] = []
 
 
+class CsvImportPreviewIssue(BaseModel):
+    """Single issue found during CSV import preview"""
+    row_num: Optional[int] = None
+    message: str
+
+
+class CsvImportPreviewDuplicate(BaseModel):
+    """Potential duplicate found during CSV import preview"""
+    row_num: int
+    message: str
+    scope: str
+
+
+class CsvImportPreviewResult(BaseModel):
+    """Non-mutating CSV import preview"""
+    total_rows: int
+    valid_count: int
+    error_count: int
+    warning_count: int
+    duplicate_count: int
+    summary_by_type: Dict[str, int] = {}
+    errors: List[CsvImportPreviewIssue] = []
+    warnings: List[CsvImportPreviewIssue] = []
+    duplicates: List[CsvImportPreviewDuplicate] = []
+
+
 # ============================================================================
 # Health Check
 # ============================================================================
@@ -578,6 +938,7 @@ class PortfolioHistoryPoint(BaseModel):
     gain_pct: Optional[float] = None  # Percentage gain/loss vs. total invested (includes sold positions)
     cost_basis: Optional[float] = None  # Cost basis of current holdings only
     unrealized_pnl_pct: Optional[float] = None  # Unrealized P&L % of current holdings (matches Dashboard)
+    daily_cash_flow: Optional[float] = None  # Net cash flow on this day (buys - sells), for excluding from daily %
 
 
 # ============================================================================
@@ -682,6 +1043,7 @@ class WatchlistItemWithPrice(BaseModel):
     daily_change_pct: Optional[Decimal]
     currency: str
     asset_type: Optional[str]
+    themes: List[AssetTheme] = Field(default_factory=list)
     last_updated: Optional[datetime]
     created_at: datetime
     tags: List['WatchlistTagResponse'] = []
@@ -936,6 +1298,145 @@ class PortfolioInsights(BaseModel):
     diversification_score: Optional[Decimal]  # 0-100, higher is more diversified
 
 
+class PortfolioInsightsSummary(BaseModel):
+    """Small portfolio summary for progressive insights blocks."""
+    portfolio_id: int
+    portfolio_name: str
+    as_of_date: datetime
+    period: str
+    total_value: Decimal
+    total_cost: Decimal
+    total_return: Decimal
+    total_return_pct: Decimal
+    positions_count: int
+    diversification_score: Optional[Decimal]
+
+
+class ContributionItem(BaseModel):
+    """Deterministic contribution row for attribution and exposure blocks."""
+    name: str
+    value: Decimal
+    cost_basis: Decimal
+    unrealized_pnl: Decimal
+    unrealized_pnl_pct: Decimal
+    portfolio_weight: Decimal
+    contribution_to_return: Decimal
+    count: int = 1
+    symbol: Optional[str] = None
+    asset_type: Optional[str] = None
+
+
+class PortfolioMoveSummary(BaseModel):
+    """Explains portfolio movement from position-level daily changes."""
+    portfolio_id: int
+    total_value: Decimal
+    daily_change_value: Optional[Decimal]
+    daily_change_pct: Optional[Decimal]
+    explained_value: Decimal
+    unexplained_value: Decimal
+    movers: List[ContributionItem]
+    best_movers: List[ContributionItem] = Field(default_factory=list)
+    worst_movers: List[ContributionItem] = Field(default_factory=list)
+
+
+class ConcentrationMetrics(BaseModel):
+    """Portfolio concentration diagnostics."""
+    portfolio_id: int
+    positions_count: int
+    largest_position_weight: Decimal
+    top_3_weight: Decimal
+    top_5_weight: Decimal
+    herfindahl_index: Decimal
+    effective_positions: Decimal
+    diversification_score: Decimal
+    largest_position: Optional[ContributionItem] = None
+
+
+class ThemeEvolutionPoint(BaseModel):
+    """Theme exposure snapshot over time."""
+    date: str
+    exposures: Dict[str, Decimal]
+
+
+class PortfolioDNATrait(BaseModel):
+    """Deterministic style trait for the portfolio DNA block."""
+    label: str
+    value: str
+    score: Decimal
+
+
+class PortfolioDNA(BaseModel):
+    """Portfolio style summary built from deterministic exposures."""
+    portfolio_id: int
+    traits: List[PortfolioDNATrait]
+
+
+class DuplicateExposureItem(BaseModel):
+    """Potential duplicate exposure across holdings."""
+    label: str
+    exposure_type: str
+    portfolio_weight: Decimal
+    count: int
+    assets: List[str]
+
+
+class HiddenConcentrationItem(BaseModel):
+    """Non-obvious concentration by a grouped exposure."""
+    label: str
+    exposure_type: str
+    portfolio_weight: Decimal
+    count: int
+
+
+class ScenarioResult(BaseModel):
+    """Result of a deterministic predefined market scenario."""
+    name: str
+    description: str
+    estimated_impact_pct: Decimal
+    estimated_impact_value: Decimal
+
+
+class PerformanceInsightsDomain(BaseModel):
+    """Performance-tab payload for shared frontend cache reuse."""
+    summary: PortfolioInsightsSummary
+    performance: PerformanceMetrics
+    risk: RiskMetrics
+
+
+class AttributionInsights(BaseModel):
+    """Attribution-tab payload derived from one portfolio snapshot."""
+    move: PortfolioMoveSummary
+    top_contributors: List[ContributionItem]
+    top_detractors: List[ContributionItem]
+    asset_contribution: List[ContributionItem]
+    theme_contribution: List[ContributionItem]
+    sector_contribution: List[ContributionItem]
+    country_contribution: List[ContributionItem]
+    currency_contribution: List[ContributionItem]
+    concentration: ConcentrationMetrics
+
+
+class ExposureInsights(BaseModel):
+    """Exposure-tab payload derived from one portfolio snapshot."""
+    theme_exposure: List[ContributionItem]
+    sector_exposure: List[ContributionItem]
+    country_exposure: List[ContributionItem]
+    currency_exposure: List[ContributionItem]
+    market_cap_exposure: List[ContributionItem]
+    duplicate_exposure: List[DuplicateExposureItem]
+    hidden_concentration: List[HiddenConcentrationItem]
+    portfolio_dna: PortfolioDNA
+    theme_evolution: List[ThemeEvolutionPoint]
+
+
+class RiskInsights(BaseModel):
+    """Risk-tab payload for shared frontend cache reuse."""
+    risk: RiskMetrics
+    benchmark_comparison: BenchmarkComparison
+    scenarios: List[ScenarioResult]
+    stress_tests: List[ScenarioResult]
+
+
 # ============================================================================
 # Dashboard Layout Schemas
 # ============================================================================
@@ -990,11 +1491,12 @@ class DashboardLayoutUpdate(BaseModel):
 class DashboardLayoutResponse(DashboardLayoutBase):
     """Schema for dashboard layout response"""
     id: int
+    uuid: str
     user_id: int
     layout_config: LayoutConfigSchema
     created_at: datetime
     updated_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -1007,3 +1509,76 @@ class DashboardLayoutExport(BaseModel):
     exported_at: datetime = Field(default_factory=datetime.utcnow)
     
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# Pending Dividend Schemas
+# ============================================================================
+
+class PendingDividendBase(BaseModel):
+    """Base pending dividend schema"""
+    portfolio_id: int
+    asset_id: int
+    ex_dividend_date: date
+    payment_date: Optional[date] = None
+    dividend_per_share: Decimal
+    shares_held: Decimal
+    gross_amount: Decimal
+    currency: Optional[str] = None
+
+
+class PendingDividendCreate(PendingDividendBase):
+    """Schema for creating a pending dividend (internal use)"""
+    user_id: int
+    yfinance_raw_data: Optional[Dict[str, Any]] = None
+
+
+class PendingDividendResponse(PendingDividendBase):
+    """Schema for pending dividend response"""
+    id: int
+    user_id: int
+    status: str
+    fetched_at: datetime
+    processed_at: Optional[datetime] = None
+    transaction_id: Optional[int] = None
+    
+    # Include asset details for display
+    asset_symbol: Optional[str] = None
+    asset_name: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PendingDividendAccept(BaseModel):
+    """Schema for accepting a pending dividend"""
+    tax_amount: Decimal = Field(default=Decimal(0), ge=0, description="Withholding tax amount")
+    notes: Optional[str] = None
+    # Allow overriding values if needed
+    override_gross_amount: Optional[Decimal] = Field(None, ge=0, description="Override the calculated gross amount")
+    override_shares: Optional[Decimal] = Field(None, ge=0, description="Override the calculated shares held")
+
+
+class PendingDividendBulkAction(BaseModel):
+    """Schema for bulk accept/reject of pending dividends"""
+    dividend_ids: List[int]
+    tax_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="Tax rate percentage to apply to all")
+
+
+class PendingDividendStats(BaseModel):
+    """Statistics about pending dividends for a user"""
+    pending_count: int
+    pending_total_amount: Decimal
+    accepted_count: int
+    rejected_count: int
+    oldest_pending_date: Optional[date] = None
+
+
+class PortfolioPendingDividendStats(BaseModel):
+    """Statistics about pending dividends for a specific portfolio with currency conversion"""
+    pending_count: int
+    pending_total_amount: Decimal  # Sum of all pending dividends in their original currencies
+    converted_total_amount: Decimal  # Sum converted to portfolio base currency
+    target_currency: str  # The portfolio's base currency
+    accepted_count: int
+    rejected_count: int
+    oldest_pending_date: Optional[date] = None

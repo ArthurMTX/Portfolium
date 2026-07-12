@@ -1,175 +1,185 @@
 # Configuration
 
-Learn how to configure Portfolium for your needs.
+All configuration is done through environment variables, typically set in a `.env` file used by `docker-compose.yml`. This page mirrors `api/app/config.py`, the single source of truth for defaults.
 
-## Environment Variables
+## Database
 
-All configuration is done through environment variables in the `.env` file.
+| Variable | Default | Description |
+|---|---|---|
+| `POSTGRES_DB` | `portfolium` | Database name |
+| `POSTGRES_USER` | `portfolium` | Database user |
+| `POSTGRES_PASSWORD` | `portfolium` | Database password |
+| `POSTGRES_HOST` | `db` | Database host |
+| `POSTGRES_PORT` | `5432` | Database port |
 
-### Database Settings
+!!! danger "Change the default password"
+    `portfolium` is a placeholder default, not a secure production value. Always set a strong `POSTGRES_PASSWORD`.
 
-```env
-POSTGRES_DB=portfolium
-POSTGRES_USER=portfolium
-POSTGRES_PASSWORD=your_secure_password
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-```
+## API & Security
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `POSTGRES_DB` | Database name | `portfolium` |
-| `POSTGRES_USER` | Database user | `portfolium` |
-| `POSTGRES_PASSWORD` | Database password | `portfolium` |
-| `POSTGRES_HOST` | Database host | `db` |
-| `POSTGRES_PORT` | Database port | `5432` |
+| Variable | Default | Description |
+|---|---|---|
+| `API_HOST` | `0.0.0.0` | API bind host |
+| `API_PORT` | `8000` | API port |
+| `API_KEY` | `dev-key-12345` | Internal API key |
+| `SECRET_KEY` | *(placeholder)* | JWT signing key — must be at least 32 characters |
+| `ALGORITHM` | `HS256` | JWT signing algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | $10080$ ($7$ days) | Login session lifetime |
+| `ALLOW_REGISTRATION` | `true` | Allow new users to self-register |
 
-### Admin User
+!!! danger "Generate a real SECRET_KEY"
+    Never use the default in production — generate a strong random value and never commit it to version control.
 
-The admin user is automatically created on first startup if `ADMIN_AUTO_CREATE=true`.
+### Rate Limiting (Auth Endpoints)
 
-```env
-ADMIN_AUTO_CREATE=true
-ADMIN_EMAIL=admin@portfolium.local
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin123
-ADMIN_FULL_NAME=Administrator
-ADMIN_IS_ACTIVE=true
-ADMIN_IS_VERIFIED=true
-```
+| Variable | Default | Description |
+|---|---|---|
+| `AUTH_RATE_LIMIT_ENABLED` | `true` | Master switch for auth rate limiting |
+| `AUTH_LOGIN_RATE_LIMIT` / `AUTH_LOGIN_RATE_WINDOW_SECONDS` | $10$ / $300$s | Login attempts per window |
+| `AUTH_REGISTER_RATE_LIMIT` / `AUTH_REGISTER_RATE_WINDOW_SECONDS` | $5$ / $3600$s | Registrations per window |
+| `AUTH_RECOVERY_RATE_LIMIT` / `AUTH_RECOVERY_RATE_WINDOW_SECONDS` | $5$ / $3600$s | Password recovery requests per window |
+| `AUTH_TOKEN_RATE_LIMIT` / `AUTH_TOKEN_RATE_WINDOW_SECONDS` | $20$ / $3600$s | Token refresh calls per window |
+| `AUTH_2FA_RATE_LIMIT` / `AUTH_2FA_RATE_WINDOW_SECONDS` | $10$ / $600$s | 2FA verification attempts per window |
 
-!!! warning "Change Default Credentials"
-    Always change the default admin password in production!
+### Browser Security Headers
 
-### Security
+| Variable | Default | Description |
+|---|---|---|
+| `SECURITY_HEADERS_ENABLED` | `true` | Send CSP/HSTS/security headers |
+| `CONTENT_SECURITY_POLICY` | *(strict default policy)* | Full CSP header value |
+| `HSTS_MAX_AGE_SECONDS` | $31536000$ ($1$ year) | HSTS max-age |
 
-```env
-SECRET_KEY=your-secret-key-change-this-in-production-min-32-chars
-```
+### Reverse Proxy / Client IP
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SECRET_KEY` | JWT signing key (min 32 chars) | Yes |
+| Variable | Default | Description |
+|---|---|---|
+| `TRUSTED_PROXY_IPS` | *(empty)* | Comma-separated trusted proxy IPs/CIDRs — required before `X-Forwarded-For`/`X-Real-IP` are honored |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000,http://localhost:8080` | Allowed frontend origins |
 
-!!! danger "Secret Key Security"
-    Generate a strong random secret key for production. Never commit it to version control!
+See [Reverse Proxy & HTTPS](../operations/reverse-proxy-https.md) for deployment guidance.
 
-### API Configuration
+## Admin Bootstrap
 
-```env
-API_HOST=0.0.0.0
-API_PORT=8000
-API_KEY=dev-key-12345
-PRICE_CACHE_TTL_SECONDS=300
-```
+The first admin user is created automatically on startup by the `bootstrap` service.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `API_HOST` | API bind host | `0.0.0.0` |
-| `API_PORT` | API port | `8000` |
-| `API_KEY` | Internal API key | - |
-| `PRICE_CACHE_TTL_SECONDS` | Price cache duration | `300` |
+| Variable | Default | Description |
+|---|---|---|
+| `ADMIN_AUTO_CREATE` | `true` | Create the admin user automatically if missing |
+| `ADMIN_EMAIL` | *(none)* | Admin email address |
+| `ADMIN_USERNAME` | *(none)* | Admin username |
+| `ADMIN_PASSWORD` | *(none)* | Admin password |
+| `ADMIN_FULL_NAME` | *(none)* | Admin display name |
+| `ADMIN_IS_ACTIVE` / `ADMIN_IS_VERIFIED` | `true` / `true` | Initial account flags |
 
-### Email Configuration
+!!! warning "Change the default admin password"
+    Log in and change the admin password immediately after first setup.
 
-Enable email notifications and password resets:
+## Email (SMTP)
 
-```env
-ENABLE_EMAIL=true
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-FROM_EMAIL=noreply@example.com
-FROM_NAME=Portfolium
-```
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENABLE_EMAIL` | Enable email features | `false` |
-| `SMTP_HOST` | SMTP server host | `smtp.gmail.com` |
-| `SMTP_PORT` | SMTP server port | `587` |
-| `SMTP_USER` | SMTP username | - |
-| `SMTP_PASSWORD` | SMTP password/app password | - |
-| `FROM_EMAIL` | Sender email address | `noreply@example.com` |
-| `FROM_NAME` | Sender name | `Portfolium` |
+| Variable | Default | Description |
+|---|---|---|
+| `ENABLE_EMAIL` | `false` | Master switch for email sending |
+| `SMTP_HOST` | `smtp.gmail.com` | SMTP server host |
+| `SMTP_PORT` | `587` | SMTP server port |
+| `SMTP_USER` / `SMTP_PASSWORD` | *(empty)* | SMTP credentials |
+| `SMTP_TLS` | `true` | Use TLS |
+| `FROM_EMAIL` | `noreply@example.com` | Sender address |
+| `FROM_NAME` | `Portfolium` | Sender display name |
+| `FRONTEND_URL` | `http://localhost:5173` | Used to build links in emails |
 
 !!! tip "Gmail App Passwords"
     For Gmail, create an [App Password](https://support.google.com/accounts/answer/185833) instead of using your account password.
 
-### External APIs
+These can also be viewed and tested at runtime from [Admin → Email Configuration](../admin/email-configuration.md).
 
-```env
-BRANDFETCH_API_KEY=your_brandfetch_key
-```
+## Web Push Notifications (VAPID)
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `BRANDFETCH_API_KEY` | Brandfetch API key for company logos | No |
+| Variable | Default | Description |
+|---|---|---|
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | *(empty)* | Base64-encoded VAPID key pair |
+| `VAPID_CLAIMS_EMAIL` | `mailto:admin@example.com` | Contact email required by the VAPID spec |
 
-### Frontend
+Without valid VAPID keys, push notifications cannot be offered — see [Push Notifications](../technical/push-notifications.md).
 
-```env
-VITE_API_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:5173
-```
+## Market Data & Pricing
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_API_URL` | Backend API URL | `http://localhost:8000` |
-| `FRONTEND_URL` | Frontend URL (for emails) | `http://localhost:5173` |
+| Variable | Default | Description |
+|---|---|---|
+| `PRICE_CACHE_TTL_SECONDS` | $300$ | Base price cache TTL (market-hours-aware; see [Pricing](../technical/pricing.md)) |
+| `PRICE_BATCH_MIN_INTERVAL` | $2.0$s | Minimum interval between batched provider requests |
+| `PRICE_MAX_BACKOFF_SECONDS` | $120.0$s | Max backoff when rate-limited |
+| `YFINANCE_TZ_CACHE_DIR` | `/tmp/portfolium/py-yfinance` | Timezone cache directory used by the market data library |
+| `BRANDFETCH_API_KEY` | *(empty)* | Optional — enables Brandfetch as a logo fallback provider (see [Logo Fetching](../technical/logo-fetching.md)) |
 
-## Application Settings
+## Asset Theme Classification
 
-Configure application behavior through the Settings page in the UI:
+| Variable | Default | Description |
+|---|---|---|
+| `ASSET_THEME_CLASSIFIER_MODE` | `minilm` | `minilm` (local, free) or `gemini` (LLM-based) |
+| `GEMINI_API_KEY` | *(empty)* | Required only when mode is `gemini` |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Gemini model name |
+| `GEMINI_TIMEOUT_SECONDS` / `GEMINI_MAX_RETRIES` | $20$ / $2$ | Gemini request tuning |
+| `ASSET_THEME_GEMINI_STRATEGY` | `one_pass` | Classification strategy |
+| `ASSET_THEME_TWO_PASS_CLASSIFICATION` | `false` | Enable a second refinement pass |
+| `ASSET_THEME_SUBTHEME_GAP_SUGGESTIONS_ENABLED` | `false` | Let the classifier propose new subtheme taxonomy entries |
+| `THEME_MINILM_MODEL_PATH` | *(empty)* | Optional path to a local MiniLM model directory |
+| `THEME_MINILM_AUTO_DOWNLOAD` | `true` | Auto-download MiniLM assets if missing |
+| `THEME_MINILM_TOP_K` | $15$ | Candidate count used during MiniLM retrieval |
 
-### Price Updates
+See [Asset Themes](../technical/asset-themes.md) for how classification works.
 
-- **Auto-refresh interval**: Set how often prices update
-- **Market hours only**: Only update during market hours
+## Redis
 
-### Notifications
+| Variable | Default | Description |
+|---|---|---|
+| `REDIS_ENABLED` | `true` | Enable Redis-backed caching/queues |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB` | `redis` / `6379` / `0` | Connection target |
+| `REDIS_PASSWORD` | *(empty)* | Redis password |
+| `REDIS_MAX_CONNECTIONS` | $50$ | Connection pool size |
+| `REDIS_SOCKET_TIMEOUT` / `REDIS_SOCKET_CONNECT_TIMEOUT` | $5$s / $5$s | Socket timeouts |
 
-- **Daily summaries**: Receive daily portfolio reports
-- **Price alerts**: Get notified of significant price changes
-- **Transaction confirmations**: Email confirmations for transactions
+## Celery & Background Tasks
 
-### Display Preferences
+| Variable | Default | Description |
+|---|---|---|
+| `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` | *(derived from Redis settings)* | Override only for a non-default broker/backend |
+| `CELERY_TASK_ALWAYS_EAGER` | `false` | Run tasks synchronously — testing only |
+| `CELERY_TASK_TRACK_STARTED` | `true` | Track task start state |
+| `CELERY_TASK_TIME_LIMIT` | $300$s | Max time per task |
+| `CELERY_WORKER_PREFETCH_MULTIPLIER` | $4$ | Worker prefetch tuning |
+| `CELERY_WORKER_MAX_TASKS_PER_CHILD` | $1000$ | Worker recycling threshold |
+| `CELERY_METRICS_PORT` | $9809$ | Prometheus metrics port for Celery |
+| `ENABLE_BACKGROUND_TASKS` | `true` | Master switch for scheduled tasks |
+| `METRICS_REFRESH_INTERVAL_MINUTES` | $5$ | Portfolio metrics refresh cadence |
+| `INSIGHTS_REFRESH_INTERVAL_MINUTES` | $10$ | Insights refresh cadence |
+| `MARKET_HOURS_START` / `MARKET_HOURS_END` | $9$ / $16$ | Reference market hours (ET) used for scheduling heuristics |
 
-- **Currency**: Display currency (USD, EUR, etc.)
-- **Date format**: Preferred date format
-- **Theme**: Light or dark mode
+See [Background Jobs](../technical/background-jobs.md) for the full task/schedule reference.
 
-## Advanced Configuration
+## Notifications
 
-### Nginx Configuration
+| Variable | Default | Description |
+|---|---|---|
+| `NOTIFICATIONS_RETENTION_DAYS` | $30$ | Auto-delete notifications older than N days ($0$ disables cleanup) |
+| `VALIDATE_SELL_QUANTITY` | `true` | Prevent selling more shares than currently held |
 
-For production deployments, customize `web/nginx.conf`:
+## Observability
 
-```nginx
-# Caching settings
-proxy_cache_path /var/cache/nginx/brandfetch 
-  levels=1:2 
-  keys_zone=brandfetch_cache:10m 
-  max_size=200m 
-  inactive=30d;
+| Variable | Default | Description |
+|---|---|---|
+| `ENVIRONMENT` | `development` | Deployment environment label |
+| `TESTING` | `false` | Test-mode flag |
+| `LOG_LEVEL` | `INFO` | Log verbosity |
+| `LOG_FORMAT` | `auto` | `auto`, `json`, or `readable` |
+| `LOG_FILE_ENABLED` | `true` | Write logs to file in addition to stdout |
+| `LOG_FILE_PATH` | `logs/app.log` | Log file location |
+| `LOG_FILE_MAX_BYTES` / `LOG_FILE_BACKUP_COUNT` | $5$ MB / $5$ | Log rotation settings |
 
-# SSL configuration
-listen 443 ssl http2;
-ssl_certificate /path/to/cert.pem;
-ssl_certificate_key /path/to/key.pem;
-```
-
-### Database Tuning
-
-For large portfolios, optimize PostgreSQL in `docker-compose.yml`:
-
-```yaml
-command: postgres -c shared_buffers=256MB -c max_connections=200
-```
+See [Observability](../technical/observability.md) for what's exported to Prometheus/Grafana.
 
 ## Next Steps
 
-- [Deploy to Production](../deployment/docker.md)
-- [Environment Variables Reference](../deployment/environment.md)
-- [API Configuration](../api/overview.md)
+- [Installation](installation.md)
+- [Documentation Workflow](../development/documentation.md)
+- [API Overview](../api/overview.md)
+- [Operations: Troubleshooting](../operations/troubleshooting.md)

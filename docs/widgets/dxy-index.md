@@ -1,151 +1,67 @@
-# U.S. Dollar Index (DXY)
+## DXY Index
 
-The **DXY Index** widget shows the current value of the **U.S. Dollar Index (DXY)**, a benchmark that tracks the USD against a basket of major currencies.  
-It helps you understand whether the **U.S. dollar is weak, normal, or strong**, which can impact stocks, bonds, commodities, and international assets.
+### What It Shows
 
----
+The DXY widget shows the current level of the **U.S. Dollar Index** — a benchmark that tracks the U.S. dollar against a basket of major currencies (euro, yen, pound, and others). It's a quick read on one question:
 
-## What It Shows
+> "Is the U.S. dollar strong or weak right now, and which way is it moving?"
 
-The widget displays:
+The card shows:
 
-- The **current DXY level**, e.g. **106.25**  
-- The **percentage change vs previous close**, e.g. **+0.15%**  
-- A **strength label** describing the dollar environment, such as:
-  - *Very weak*
-  - *Weak*
-  - *Normal*
-  - *Strong*
-  - *Very strong*
+- the current index level, e.g. $106.25$;
+- the percentage change versus the previous close, e.g. $+0.15\%$ (green when the dollar is strengthening, red when it's weakening);
+- a strength label — **Very Weak**, **Weak**, **Normal**, **Strong**, or **Very Strong** — with matching color coding on the value itself.
 
-Visual cues:
+This is macro context, not something tied to your specific holdings — it applies the same way regardless of which portfolio you're viewing.
 
-- The main DXY value and icon background change color based on dollar strength:
-  - **Red** – very weak (< 90)  
-  - **Orange** – weak (90–95)  
-  - **Neutral/grey** – normal (95–105)  
-  - **Blue** – strong (105–115)  
-  - **Green** – very strong (> 115)  
+### How It's Calculated
 
-The daily change badge:
+Portfolium fetches live data for the ticker **`DX-Y.NYB`** from its market data provider (the same feed used for prices elsewhere in the app), refreshed roughly once a minute and cached briefly on the backend to avoid hammering the data source.
 
-- **Green** when DXY is **up** (USD strengthening)  
-- **Red** when DXY is **down** (USD weakening)
-
-If no data is available, the widget shows:
-
-- **N/A** and an **"Unknown"** strength label
-
-This widget answers the question:  
-> "How strong is the U.S. dollar right now, and is it getting stronger or weaker?"
-
----
-
-## How It Works
-
-### Data source
-
-Portfolium fetches the **U.S. Dollar Index** using `yfinance`:
-
-- Symbol: **`DX-Y.NYB`**  
-- Data is cached on the backend for a few minutes to avoid repeated external requests
-
-The backend returns:
-
-- `price` – current DXY level  
-- `change` – point change vs previous close  
-- `change_pct` – percentage change vs previous close  
-- `previous_close` – yesterday's DXY close  
-- `timestamp` – when the data was collected  
-
-If no current price is available, an error is raised and the widget falls back to an "Unknown" state.
-
-### Calculations
-
-Backend logic:
-
-1. Retrieve `current_price` and `previous_close` from the ticker info  
-2. If `previous_close > 0`, compute:
-
-   - **Point change**  
-     $$
-     \Delta = \text{current\_price} - \text{previous\_close}
-     $$
-   - **Percentage change**  
-     $$
-     \Delta\% = \frac{\Delta}{\text{previous\_close}} \times 100
-     $$
-
-3. Round `price`, `change`, and `change_pct` to **two decimals**.
-
-Dollar strength regimes:
-
-- `< 90` → **Very weak** (red)  
-- `90–95` → **Weak** (orange)  
-- `95–105` → **Normal** (neutral grey)  
-- `105–115` → **Strong** (blue)  
-- `> 115` → **Very strong** (green)  
-
-The label, text color, and background are chosen based on these ranges.
-
-The change badge:
-
-- **Green** if `dxyChange ≥ 0` → dollar strengthening  
-- **Red** if `dxyChange < 0` → dollar weakening  
-
----
-
-## Example
-
-Assume the DXY data is:
-
-- Current index level: **106.25**  
-- Previous close: **106.09**
-
-Point change:
+The point and percentage change are computed the standard way:
 
 $$
-\Delta = 106.25 - 106.09 = 0.16
+\Delta = \text{current price} - \text{previous close}
 $$
 
-Percentage change:
-
 $$
-\Delta\% = \frac{0.16}{106.09} \times 100 \approx 0.15\%
+\Delta\% = \frac{\Delta}{\text{previous close}} \times 100
 $$
 
-The widget would display:
+The strength label is assigned from fixed thresholds on the index level itself:
 
-- Main value: **106.25**  
-- Change badge: **+0.15%** (in green, USD getting stronger)  
-- Strength label: **Strong** (since DXY is between 105 and 115)  
-- Icon and label in **blue** to indicate a strong dollar environment
+| Range | Label |
+|---|---|
+| $< 90$ | Very Weak |
+| $90 \le \text{DXY} < 95$ | Weak |
+| $95 \le \text{DXY} < 105$ | Normal |
+| $105 \le \text{DXY} < 115$ | Strong |
+| $\ge 115$ | Very Strong |
 
----
+If the data source doesn't return a current price, the widget falls back to an "Unknown" state showing **N/A**.
 
-## When To Use It
+### Example
 
-The DXY Index widget is useful for:
+- Current index level: $106.25$
+- Previous close: $106.09$
 
-- Understanding the **global currency backdrop** for your portfolio  
-- Providing context for:
-  - **International equities and ETFs** (USD strength can hurt non-USD assets)  
-  - **Commodities** like gold and oil (often inversely related to USD strength)  
-  - **Emerging markets**, which can be sensitive to a strong U.S. dollar  
-- Interpreting moves in **multicurrency portfolios** and FX exposures  
+$$
+\Delta = 106.25 - 106.09 = 0.16, \qquad \Delta\% = \frac{0.16}{106.09}\times 100 \approx 0.15\%
+$$
 
-It works particularly well alongside:
+The widget would display **$106.25$**, a **$+0.15\%$** change badge in green, and the label **Strong** (since $106.25$ falls between $105$ and $115$).
 
-- **TNX Index** (interest rate regime)  
-- **VIX Index** (volatility regime)  
-- **Market Sentiment** and portfolio-level metrics (Volatility, Beta, Drawdown)
+### When To Use It
 
----
+Check the DXY widget when you want to:
 
-## Notes
+- get quick context on the currency backdrop behind your portfolio's moves;
+- understand headwinds or tailwinds for international holdings — a stronger dollar tends to pressure non-U.S. assets and commodities;
+- pair with the [VIX Index](vix-index.md) and [10-Year Treasury Yield](tnx-index.md) for a broader macro read.
 
-- DXY tracks the dollar against a basket of major currencies (EUR, JPY, GBP, CAD, SEK, CHF)  
-- Values are **index levels**, not percentages (e.g. **106.25**, not 106.25%)  
-- Data is **cached and periodically refreshed** for efficiency  
-- If the DXY data source is temporarily unavailable, the widget falls back to an **Unknown** state with **N/A**  
-- This widget is **macro/contextual** and does not depend on your current positions
+### Notes & Limitations
+
+- This is an index level, not a percentage — $106.25$ means $106.25$, not $106.25\%$.
+- Reflects the dollar against a basket of major currencies, not any single currency pair.
+- Purely contextual: it doesn't factor into your portfolio's own risk metrics or performance figures.
+- If the data provider is temporarily unavailable, the widget shows an "Unknown" state rather than a stale number.

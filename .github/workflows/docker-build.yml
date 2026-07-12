@@ -9,13 +9,19 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
+  quality:
+    name: Quality and Security Gate
+    uses: ./.github/workflows/quality.yml
+
   build-db:
     name: Build Database Image
+    needs: quality
     runs-on: ubuntu-latest
     
     steps:
@@ -60,6 +66,7 @@ jobs:
 
   build-api:
     name: Build API Image
+    needs: quality
     runs-on: ubuntu-latest
     
     steps:
@@ -104,6 +111,7 @@ jobs:
 
   build-web:
     name: Build Web Image
+    needs: quality
     runs-on: ubuntu-latest
     
     steps:

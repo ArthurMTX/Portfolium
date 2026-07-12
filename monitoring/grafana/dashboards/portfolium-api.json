@@ -1,0 +1,20 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {"type":"stat","title":"Request volume (1h)","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(increase(portfolium_http_requests_total[1h]))","refId":"A"}],"gridPos":{"h":5,"w":4,"x":0,"y":0}},
+    {"type":"stat","title":"Average latency","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"sum(rate(portfolium_http_request_duration_seconds_sum[5m])) / clamp_min(sum(rate(portfolium_http_request_duration_seconds_count[5m])), 0.001)","refId":"A"}],"gridPos":{"h":5,"w":4,"x":4,"y":0}},
+    {"type":"stat","title":"p50 latency","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"histogram_quantile(0.50, sum by (le) (rate(portfolium_http_request_duration_seconds_bucket[5m])))","refId":"A"}],"gridPos":{"h":5,"w":4,"x":8,"y":0}},
+    {"type":"stat","title":"p95 latency","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(portfolium_http_request_duration_seconds_bucket[5m])))","refId":"A"}],"gridPos":{"h":5,"w":4,"x":12,"y":0}},
+    {"type":"stat","title":"p99 latency","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"histogram_quantile(0.99, sum by (le) (rate(portfolium_http_request_duration_seconds_bucket[5m])))","refId":"A"}],"gridPos":{"h":5,"w":4,"x":16,"y":0}},
+    {"type":"stat","title":"Error percentage","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"percentunit"}},"targets":[{"expr":"sum(rate(portfolium_http_errors_total[5m])) / clamp_min(sum(rate(portfolium_http_requests_total[5m])), 0.001)","refId":"A"}],"gridPos":{"h":5,"w":4,"x":20,"y":0}},
+    {"type":"timeseries","title":"Request rate","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(rate(portfolium_http_requests_total[5m]))","legendFormat":"requests/sec","refId":"A"}],"gridPos":{"h":8,"w":12,"x":0,"y":5}},
+    {"type":"piechart","title":"Status code distribution","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (status_code) (increase(portfolium_http_requests_total[1h]))","legendFormat":"{{status_code}}","refId":"A","instant":true}],"gridPos":{"h":8,"w":12,"x":12,"y":5}},
+    {"type":"timeseries","title":"Requests by route","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (route) (rate(portfolium_http_requests_total[5m]))","legendFormat":"{{route}}","refId":"A"}],"gridPos":{"h":9,"w":12,"x":0,"y":13}},
+    {"type":"timeseries","title":"Requests by method","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (method) (rate(portfolium_http_requests_total[5m]))","legendFormat":"{{method}}","refId":"A"}],"gridPos":{"h":9,"w":12,"x":12,"y":13}},
+    {"type":"table","title":"Top 10 most called endpoints","datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"topk(10, sum by (route, method) (increase(portfolium_http_requests_total[1h])))","format":"table","instant":true,"refId":"A"}],"gridPos":{"h":10,"w":12,"x":0,"y":22}},
+    {"type":"table","title":"Top 10 slowest endpoints (p95)","datasource":{"type":"prometheus","uid":"prometheus"},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"topk(10, histogram_quantile(0.95, sum by (le, route, method) (rate(portfolium_http_request_duration_seconds_bucket[15m]))))","format":"table","instant":true,"refId":"A"}],"gridPos":{"h":10,"w":12,"x":12,"y":22}}
+  ],
+  "refresh":"30s","schemaVersion":41,"tags":["portfolium","api"],"templating":{"list":[]},"time":{"from":"now-6h","to":"now"},"timezone":"browser","title":"Portfolium API","uid":"portfolium-api","version":1
+}

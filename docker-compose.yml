@@ -1,16 +1,27 @@
+x-api-common: &api_common
+  restart: unless-stopped
+  env_file: [.env]
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [portfolium]
+  environment:
+    POSTGRES_HOST: db
+    REDIS_HOST: redis
+    REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
+    ENVIRONMENT: production
+    LOG_FORMAT: json
+    LOG_FILE_ENABLED: "false"
+    PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus-multiproc
+
 services:
   db:
-    image: arthurmtx/portfolium-db:latest
+    image: arthurmtx/portfolium-db:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-db
     restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
-      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
-    ports:
-      - "5432:5432"
+    env_file: [.env]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,155 +29,93 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - portfolium
+    networks: [portfolium]
 
   redis:
     image: redis:7-alpine
     container_name: portfolium-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    env_file: [.env]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - portfolium
+    networks: [portfolium]
 
   api:
-    image: arthurmtx/portfolium-api:latest
+    <<: *api_common
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-api
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
-      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_DB: ${REDIS_DB:-0}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      API_HOST: ${API_HOST:-0.0.0.0}
-      API_PORT: ${API_PORT:-8000}
-      ADMIN_AUTO_CREATE: ${ADMIN_AUTO_CREATE:-true}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@portfolium.local}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
-      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator}
-      ADMIN_IS_ACTIVE: ${ADMIN_IS_ACTIVE:-true}
-      ADMIN_IS_VERIFIED: ${ADMIN_IS_VERIFIED:-true}
-      PRICE_CACHE_TTL_SECONDS: ${PRICE_CACHE_TTL_SECONDS:-300}
-      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
-      API_KEY: ${API_KEY:-dev-key-12345}
-      BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
-      ENABLE_EMAIL: ${ENABLE_EMAIL:-false}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
-      FROM_NAME: ${FROM_NAME:-Portfolium}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-      ENABLE_BACKGROUND_TASKS: ${ENABLE_BACKGROUND_TASKS:-true}
-      METRICS_REFRESH_INTERVAL_MINUTES: ${METRICS_REFRESH_INTERVAL_MINUTES:-5}
-      INSIGHTS_REFRESH_INTERVAL_MINUTES: ${INSIGHTS_REFRESH_INTERVAL_MINUTES:-10}
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    networks:
-      - portfolium
 
   celery-worker:
-    image: arthurmtx/portfolium-api:latest
+    <<: *api_common
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-celery-worker
-    restart: unless-stopped
-    command: python -m celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
-      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_DB: ${REDIS_DB:-0}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      ENABLE_BACKGROUND_TASKS: ${ENABLE_BACKGROUND_TASKS:-true}
-      METRICS_REFRESH_INTERVAL_MINUTES: ${METRICS_REFRESH_INTERVAL_MINUTES:-5}
-      INSIGHTS_REFRESH_INTERVAL_MINUTES: ${INSIGHTS_REFRESH_INTERVAL_MINUTES:-10}
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
-      BRANDFETCH_API_KEY: ${BRANDFETCH_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - portfolium
+      bootstrap:
+        condition: service_completed_successfully
+    command: python -m celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,high,low
 
   celery-beat:
-    image: arthurmtx/portfolium-api:latest
+    <<: *api_common
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-celery-beat
-    restart: unless-stopped
-    command: python -m celery -A app.celery_app beat --loglevel=info
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-portfolium}
-      POSTGRES_USER: ${POSTGRES_USER:-portfolium}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolium}
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_DB: ${REDIS_DB:-0}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      ENABLE_BACKGROUND_TASKS: ${ENABLE_BACKGROUND_TASKS:-true}
-      METRICS_REFRESH_INTERVAL_MINUTES: ${METRICS_REFRESH_INTERVAL_MINUTES:-5}
-      INSIGHTS_REFRESH_INTERVAL_MINUTES: ${INSIGHTS_REFRESH_INTERVAL_MINUTES:-10}
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production-min-32-chars}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - portfolium
+      bootstrap:
+        condition: service_completed_successfully
+    command: python -m celery -A app.celery_app beat --loglevel=info
+
+  bootstrap:
+    <<: *api_common
+    image: arthurmtx/portfolium-api:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
+    container_name: portfolium-bootstrap
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m app.bootstrap
 
   web:
-    image: arthurmtx/portfolium-web:latest
+    image: arthurmtx/portfolium-web:${PORTFOLIUM_IMAGE_TAG:-0.3.2}
     container_name: portfolium-web
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
       - "80:80"
     depends_on:
       - api
-    networks:
-      - portfolium
+    networks: [portfolium]
 
 volumes:
   postgres_data:
@@ -174,4 +123,5 @@ volumes:
 
 networks:
   portfolium:
+    name: portfolium
     driver: bridge

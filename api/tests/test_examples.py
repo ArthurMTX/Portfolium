@@ -43,8 +43,7 @@ class TestPortfolioAPI:
     def test_list_portfolios_requires_auth(self, client: TestClient):
         """Test that listing portfolios requires authentication"""
         response = client.get("/portfolios")
-        # Depending on your auth setup, this might be 401
-        assert response.status_code in [401, 403, 200]
+        assert response.status_code == 401
     
     def test_create_portfolio(self, client: TestClient, auth_headers: dict, test_user):
         """Test creating a portfolio via API"""

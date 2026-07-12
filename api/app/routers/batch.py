@@ -17,7 +17,9 @@ from app.models import User, Portfolio as PortfolioModel
 from app.crud import portfolios as crud_portfolios
 from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
-from app.services.cache import CacheService
+from app.services.platform.cache import CacheService
+from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key
+from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +78,17 @@ def _make_json_serializable(obj, _seen=None):
         if isinstance(obj, (list, tuple)):
             return [_make_json_serializable(item, _seen) for item in obj]
         
-        # Handle SQLAlchemy models (have __table__ attribute)
+        # Handle SQLAlchemy models (have __table__ attribute).
+        # Read values via the mapped attribute key, not the column name:
+        # for renamed columns like Notification.meta_data = Column("metadata", ...),
+        # getattr(obj, column.name) would return Base.metadata (the SQLAlchemy
+        # MetaData registry, ~66KB serialized) instead of the column value.
         if hasattr(obj, '__table__'):
+            from sqlalchemy import inspect as sa_inspect
             result = {}
-            for column in obj.__table__.columns:
-                value = getattr(obj, column.name)
-                result[column.name] = _make_json_serializable(value, _seen)
+            for attr in sa_inspect(obj).mapper.column_attrs:
+                value = getattr(obj, attr.key)
+                result[attr.columns[0].name] = _make_json_serializable(value, _seen)
             return result
         
         # Handle dictionaries
@@ -158,6 +165,7 @@ WIDGET_DATA_MAP = {
     'worst-performers': {'positions'},
     'largest-holdings': {'positions'},
     'asset-allocation': {'asset_allocation', 'sector_allocation', 'country_allocation'},
+    'theme-allocation': {'theme_allocation'},
     'portfolio-heatmap': {'positions'},
     'performance-metrics': {'performance_history'},
     
@@ -255,7 +263,7 @@ async def _fetch_watchlist(user: User, db: Session) -> Optional[List]:
     """Fetch user watchlist with current prices"""
     try:
         from app.crud import watchlist as crud_watchlist
-        from app.services.pricing import PricingService
+        from app.services.market_data.pricing import PricingService
         
         pricing_service = PricingService(db)
         items = crud_watchlist.get_watchlist_items_by_user(db, user.id)
@@ -340,8 +348,6 @@ async def _fetch_market_vix() -> Optional[Dict]:
 async def _fetch_market_indices() -> Optional[Dict]:
     """Fetch all major market indices"""
     try:
-        import yfinance as yf
-        
         # Define major market indices
         indices = {
             'GSPC': '^GSPC',  # S&P 500
@@ -357,12 +363,15 @@ async def _fetch_market_indices() -> Optional[Dict]:
             '000001.SS': '000001.SS', # SSE Composite
             '^AXJO': '^AXJO',  # ASX 200
         }
+        provider = get_market_data_provider()
         
-        # Fetch all indices in parallel
-        async def fetch_index(key: str, symbol: str):
+        def fetch_index(symbol: str):
             try:
-                ticker = yf.Ticker(symbol)
-                info = ticker.info
+                info = provider.get_info(
+                    symbol,
+                    action="dashboard_market_index_info",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                )
                 
                 current_price = info.get("regularMarketPrice") or info.get("currentPrice")
                 previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
@@ -391,8 +400,8 @@ async def _fetch_market_indices() -> Optional[Dict]:
                 logger.warning(f"Failed to fetch {symbol}: {e}")
                 return None
         
-        # Fetch all indices concurrently
-        tasks = [fetch_index(key, symbol) for key, symbol in indices.items()]
+        # Fetch all indices concurrently in worker threads to avoid blocking the event loop.
+        tasks = [asyncio.to_thread(fetch_index, symbol) for symbol in indices.values()]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Build result dict with non-None values, keyed by symbol (with caret)
@@ -472,13 +481,28 @@ async def _fetch_country_allocation(portfolio_id: int, db: Session, metrics_serv
         return None
 
 
+async def _fetch_theme_allocation(portfolio_id: int, db: Session, metrics_service, current_user) -> Optional[Dict]:
+    """Fetch theme distribution"""
+    try:
+        from app.routers import assets as assets_router
+        return await assets_router.get_themes_distribution(
+            metrics_service=metrics_service,
+            portfolio_id=portfolio_id,
+            current_user=current_user,
+            db=db,
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch theme allocation: {e}", exc_info=True)
+        return None
+
+
 async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional[Dict]:
     """Fetch portfolio performance history for different periods"""
     try:
-        from app.services.metrics import MetricsService
+        from app.services.portfolio_analytics.metrics import MetricsService
         metrics_service = MetricsService(db)
         # Fetch multiple periods in parallel
-        periods = ['1W', '1M', 'YTD', '1Y']
+        periods = ['1W', '1M', '3M', 'YTD', '1Y', 'ALL']
         results = {}
         for period in periods:
             try:
@@ -578,9 +602,8 @@ async def get_dashboard_batch(
         from app.errors import UnauthorizedPortfolioAccessError
         raise UnauthorizedPortfolioAccessError(request.portfolio_id)
     
-    # Create cache key
-    widget_key = ','.join(sorted(request.visible_widgets))
-    cache_key = f"dashboard_batch:{request.portfolio_id}:{hash(widget_key)}"
+    # Create a stable cache key shared across API and Celery workers.
+    cache_key = build_dashboard_batch_cache_key(request.portfolio_id, request.visible_widgets)
     
     # Check Redis cache
     cache = CacheService()
@@ -641,6 +664,9 @@ async def get_dashboard_batch(
     
     if 'country_allocation' in required_data:
         tasks['country_allocation'] = _fetch_country_allocation(request.portfolio_id, db, metrics_service, current_user)
+
+    if 'theme_allocation' in required_data:
+        tasks['theme_allocation'] = _fetch_theme_allocation(request.portfolio_id, db, metrics_service, current_user)
     
     if 'performance_history' in required_data:
         tasks['performance_history'] = _fetch_performance_history(request.portfolio_id, db)
