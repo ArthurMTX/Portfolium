@@ -2900,7 +2900,7 @@
       "Body_import_csv_portfolios_import_csv_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -2914,7 +2914,7 @@
       "Body_import_csv_stream_portfolios_import_csv_stream_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -2928,7 +2928,7 @@
       "Body_import_watchlist_csv_stream_watchlist_import_csv_stream_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -2942,7 +2942,7 @@
       "Body_import_watchlist_csv_watchlist_import_csv_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -3015,7 +3015,7 @@
       "Body_preview_import_csv_portfolios_import_csv_preview_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -3567,7 +3567,46 @@
         "title": "DashboardLayoutCreate",
         "type": "object"
       },
-      "DashboardLayoutExport": {
+      "DashboardLayoutExport-Input": {
+        "description": "Schema for exporting/importing dashboard layouts",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "exported_at": {
+            "format": "date-time",
+            "title": "Exported At",
+            "type": "string"
+          },
+          "layout_config": {
+            "$ref": "#/components/schemas/LayoutConfigSchema"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "default": "1.0",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "layout_config"
+        ],
+        "title": "DashboardLayoutExport",
+        "type": "object"
+      },
+      "DashboardLayoutExport-Output": {
         "description": "Schema for exporting/importing dashboard layouts",
         "properties": {
           "description": {
@@ -7897,13 +7936,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
@@ -13614,7 +13646,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DashboardLayoutExport"
+                "$ref": "#/components/schemas/DashboardLayoutExport-Input"
               }
             }
           },
@@ -13878,7 +13910,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardLayoutExport"
+                  "$ref": "#/components/schemas/DashboardLayoutExport-Output"
                 }
               }
             },
