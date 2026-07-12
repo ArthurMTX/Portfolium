@@ -86,7 +86,7 @@ async function apiJson(method, path, body) {
 
 async function main() {
   browser = await chromium.launch()
-  context = await browser.newContext()
+  context = await browser.newContext({ locale: 'en-US' })
   page = await context.newPage()
   page.setDefaultTimeout(20000)
 
@@ -133,9 +133,7 @@ async function main() {
     if (!token) throw new Error('auth_token missing from localStorage after login')
   })
 
-  // Re-authenticate through the login form. Needed because the app's
-  // AuthContext logs out on any /auth/me failure (including transient aborts
-  // during rapid navigation), which can drop a fresh session mid-suite.
+  // Re-authenticate only if an endpoint explicitly invalidated the session.
   async function ensureLoggedIn() {
     if (!page.url().includes('/login')) return
     await page.fill('#email', USER.email)
@@ -181,12 +179,17 @@ async function main() {
   // 6-7. add a transaction, verify resulting position
   let asset, tx
   await step('add BUY transaction and verify position', async () => {
-    const search = await apiJson('GET', '/assets?query=AAPL')
-    asset = Array.isArray(search) ? search.find((a) => a.symbol === 'AAPL') : null
-    if (!asset) {
-      asset = await apiJson('POST', '/assets', {
-        symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD', class_: 'STOCK',
-      })
+    // The CI database is disposable and empty. Create deterministic asset data
+    // directly so this gate never needs Yahoo search or another provider.
+    const createAsset = await api('POST', '/assets', {
+      symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD', class_: 'STOCK',
+    }, token, [409])
+    if (createAsset.status === 409) {
+      const existing = await apiJson('GET', '/assets?query=AAPL')
+      asset = existing.find((candidate) => candidate.symbol === 'AAPL')
+      if (!asset) throw new Error('AAPL conflict reported but existing asset was not returned')
+    } else {
+      asset = await createAsset.json()
     }
     tx = await apiJson('POST', `/portfolios/${portfolioA.id}/transactions`, {
       asset_id: asset.id, tx_date: '2026-07-01', type: 'BUY',

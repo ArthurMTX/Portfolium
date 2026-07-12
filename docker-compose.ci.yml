@@ -1,0 +1,72 @@
+services:
+  db:
+    container_name: portfolium-ci-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: portfolium
+      POSTGRES_USER: portfolium
+      POSTGRES_PASSWORD: ci-only-postgres-password
+
+  redis:
+    container_name: portfolium-ci-redis
+    environment:
+      REDIS_PASSWORD: ci-only-redis-password-0123456789
+      REDISCLI_AUTH: ci-only-redis-password-0123456789
+
+  api:
+    container_name: portfolium-ci-api
+    image: portfolium-api:ci
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "18000:8000"
+    environment: &ci_api_environment
+      POSTGRES_DB: portfolium
+      POSTGRES_USER: portfolium
+      POSTGRES_PASSWORD: ci-only-postgres-password
+      SECRET_KEY: ci-only-secret-key-0123456789abcdef0123456789abcdef
+      REDIS_PASSWORD: ci-only-redis-password-0123456789
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      AUTH_RATE_LIMIT_ENABLED: "false"
+      ADMIN_AUTO_CREATE: "false"
+      ENABLE_EMAIL: "false"
+      ENABLE_BACKGROUND_TASKS: "false"
+      THEME_MINILM_AUTO_DOWNLOAD: "false"
+      LOG_FILE_ENABLED: "false"
+
+  bootstrap:
+    container_name: portfolium-ci-bootstrap
+    image: portfolium-api:ci
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment: *ci_api_environment
+
+  celery-worker:
+    container_name: portfolium-ci-celery-worker
+    image: portfolium-api:ci
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment: *ci_api_environment
+
+  celery-beat:
+    container_name: portfolium-ci-celery-beat
+    image: portfolium-api:ci
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment: *ci_api_environment
+
+  web:
+    container_name: portfolium-ci-web
+    image: portfolium-web:ci
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      target: production
+
+networks:
+  portfolium:
+    name: portfolium-ci

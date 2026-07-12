@@ -334,7 +334,7 @@ async def get_price_quote(
                         timeout_seconds=yahoo_timeout_seconds(),
                     )
                     source_currency = info.get('currency', 'USD')
-                except:
+                except (KeyError, TypeError, ValueError):
                     source_currency = 'USD'
                 
                 price = Decimal(str(current_price))

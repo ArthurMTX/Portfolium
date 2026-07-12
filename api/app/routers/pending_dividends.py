@@ -71,7 +71,7 @@ async def get_pending_dividends(
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid status. Must be one of: PENDING, ACCEPTED, REJECTED, EXPIRED"
+                detail="Invalid status. Must be one of: PENDING, ACCEPTED, REJECTED, EXPIRED"
             )
     
     pending_list = crud_pending.get_pending_dividends_by_user(
@@ -149,7 +149,7 @@ async def get_portfolio_pending_dividends(
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid status. Must be one of: PENDING, ACCEPTED, REJECTED, EXPIRED"
+                detail="Invalid status. Must be one of: PENDING, ACCEPTED, REJECTED, EXPIRED"
             )
     
     pending_list = crud_pending.get_pending_dividends_by_portfolio(

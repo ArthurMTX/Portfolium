@@ -90,3 +90,14 @@ Docker image builds depend on this quality gate.
 Prefer small tests that exercise the business rule directly. Add broader integration coverage when a change crosses routers, services, database models, or background tasks.
 
 Keep fixtures realistic enough to catch portfolio-specific edge cases: multiple currencies, partial sells, dividends, stock splits, missing prices, sold positions, ETFs, crypto, and assets with incomplete metadata.
+## Ruff scope
+
+Ruff is immediately blocking for Python syntax errors, invalid control flow,
+undefined names, duplicate definitions, malformed f-strings and bare `except`
+clauses (`E9`, `F63`, `F7`, `F82`, `F541`, `F811`, `E722`). New code must pass
+this gate.
+
+The audit for 0.4.0 also found pre-existing import-order and unused-import debt,
+plus modernization and framework-aware warnings. Those remain non-blocking to
+avoid a mass formatting/refactoring change. A future cleanup can enable `I`,
+the remainder of `F`, then selected `UP` and `B` rules in separate passes.

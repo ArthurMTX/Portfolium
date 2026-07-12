@@ -215,7 +215,7 @@ def _parse_split_ratio(split_str: str) -> Decimal:
             numerator = Decimal(parts[0])
             denominator = Decimal(parts[1])
             return numerator / denominator
-    except:
+    except (ArithmeticError, ValueError):
         pass
     return Decimal(1)
 
@@ -1999,7 +1999,6 @@ def resolve_logo(
     from app.services.market_data.logos import fetch_logo_with_source
     from app.services.market_data.logo_resolver import resolve_asset_logo
     from app.crud import assets as crud_assets
-    from fastapi.responses import Response
     import hashlib
 
     def image_response(logo_data: bytes, content_type: str, *, is_svg_fallback: bool = False) -> Response:
@@ -3214,7 +3213,7 @@ def _get_health_recommendations(status: str, coverage_pct: float, gap_count: int
     
     if status == "POOR" or coverage_pct < 60:
         recommendations.append("Price data coverage is low. Consider running a manual backfill.")
-        recommendations.append(f"Run: POST /portfolios/{{portfolio_id}}/backfill_history to fetch missing prices")
+        recommendations.append("Run: POST /portfolios/{portfolio_id}/backfill_history to fetch missing prices")
     
     if gap_count > 10:
         recommendations.append(f"📊 Found {gap_count} gaps in price history. This may affect chart accuracy.")

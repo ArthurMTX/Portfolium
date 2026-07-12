@@ -1,0 +1,14 @@
+.git
+.github/assets
+.env
+.venv
+api/.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+web/dist
+web/smoke-artifacts
+smoke-artifacts
+api/logs

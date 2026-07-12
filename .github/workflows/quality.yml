@@ -54,9 +54,7 @@ jobs:
           cache-dependency-path: api/pyproject.toml
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]" pip-audit
-      # The repository has pre-existing style debt; gate syntax/runtime-critical
-      # Ruff rules now and expand the baseline in a dedicated cleanup pass.
-      - run: ruff check app tests --select E9,F63,F7,F82
+      - run: ruff check app tests
       - run: python -m compileall -q app
       - run: timeout 15m pytest -q
       # PYSEC-2026-1325 affects python-ecdsa ECDSA signing.
@@ -152,6 +150,74 @@ jobs:
           cp .env.example .env
           docker compose -f docker-compose.yml config --quiet
           docker compose -f docker-compose.dev.yml config --quiet
+          WEB_PORT=18080 docker compose -f docker-compose.yml -f docker-compose.ci.yml config --quiet
+
+  release-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: portfolium-smoke
+      WEB_PORT: "18080"
+      SMOKE_BASE_URL: http://localhost:18080
+      SMOKE_ARTIFACTS: smoke-artifacts/playwright
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install deterministic frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Configure CI-only stack
+        run: cp .env.example .env
+      - name: Build and start production-like stack
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+      - name: Wait for PostgreSQL, Redis, bootstrap, API, nginx and Celery
+        run: |
+          timeout 5m sh -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U portfolium; do sleep 2; done'
+          timeout 5m sh -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml wait bootstrap
+          test "$(docker inspect portfolium-ci-bootstrap --format '{{.State.ExitCode}}')" = "0"
+          timeout 5m sh -c 'until curl --fail --silent http://localhost:18000/health >/dev/null; do sleep 2; done'
+          timeout 5m sh -c 'until curl --fail --silent http://localhost:18080/api/health >/dev/null; do sleep 2; done'
+          timeout 5m sh -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T celery-worker python -m celery -A app.celery_app inspect ping --timeout=5 | grep -q pong; do sleep 3; done'
+      - name: Validate metrics policy, public docs and trailing-slash redirects
+        run: |
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:18080/api/metrics)" = "403"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T api curl --fail --silent http://localhost:8000/metrics >/dev/null
+          for path in docs scalar openapi.json; do
+            test "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:18080/api/$path")" = "200"
+          done
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:18080/api/health)" = "200"
+          for proto in http https; do
+            location="$(curl --silent --output /dev/null --write-out '%header{location}' -H "X-Forwarded-Proto: $proto" -H 'Host: release.local:8443' http://localhost:18080/api/health/)"
+            test "$location" = "/api/health"
+          done
+      - name: Run release Playwright smoke test
+        run: node web/tests/smoke/release-smoke.mjs
+      - name: Collect stack diagnostics
+        if: always()
+        run: |
+          mkdir -p smoke-artifacts/logs
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps -a > smoke-artifacts/docker-compose-ps.txt 2>&1
+          for service in web api bootstrap celery-worker celery-beat redis db; do
+            docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color "$service" > "smoke-artifacts/logs/$service.log" 2>&1 || true
+          done
+      - name: Upload smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-smoke-diagnostics
+          path: smoke-artifacts
+          if-no-files-found: warn
+      - name: Stop and clean production-like stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes --remove-orphans
 
   docs:
     runs-on: ubuntu-latest
@@ -179,7 +245,7 @@ jobs:
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
-          scan-ref: docker-compose.yml
+          scan-ref: .
           scanners: misconfig
           severity: HIGH,CRITICAL
           ignore-unfixed: true

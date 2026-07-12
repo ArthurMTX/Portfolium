@@ -73,6 +73,12 @@ target-version = ['py311']
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint]
+# Immediate hardening gate: syntax/runtime-critical Pyflakes rules plus a few
+# unambiguous defects. Import ordering, modernization and broad style cleanup
+# remain tracked debt to avoid an unrelated mass rewrite in this release.
+select = ["E9", "F63", "F7", "F82", "F541", "F811", "E722"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
