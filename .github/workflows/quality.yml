@@ -59,7 +59,10 @@ jobs:
       - run: ruff check app tests --select E9,F63,F7,F82
       - run: python -m compileall -q app
       - run: timeout 15m pytest -q
-      - run: pip-audit
+      # PYSEC-2026-1325 affects python-ecdsa ECDSA signing.
+      # Portfolium uses HS256 only; ecdsa is a transitive dependency of python-jose.
+      - name: Audit Python dependencies
+        run: pip-audit --ignore-vuln PYSEC-2026-1325
 
   migrations:
     runs-on: ubuntu-latest

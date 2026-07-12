@@ -1,0 +1,894 @@
+version: 1
+updated: "2026-07-05"
+purpose: "Documentation content audit for the Portfolium refactor."
+
+status_values:
+  current: "Aligned enough with the current codebase."
+  partial: "Useful but incomplete or missing important current behavior."
+  stale: "Contains outdated paths, architecture, endpoints, or workflows."
+  needs_verification: "Likely useful but must be checked against implementation or formulas."
+  obsolete: "Should be removed, archived, merged, or rewritten from scratch."
+  planned: "Missing page that should be created."
+
+action_values:
+  keep: "Keep with routine maintenance."
+  revise: "Edit in place."
+  rewrite: "Rewrite from the code/product behavior."
+  merge: "Merge into another page."
+  rename: "Rename to match current implementation names."
+  remove_from_nav: "Remove from navigation until rewritten."
+  archive: "Keep as historical/internal material outside the primary docs path."
+  verify_against_code: "Check formulas, thresholds, routes, or UI against source."
+  add: "Create the page."
+
+source_roots:
+  frontend_routes: "web/src/app/App.tsx"
+  frontend_api: "web/src/api"
+  widgets_registry: "web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"
+  widget_constraints: "web/src/features/dashboard/components/utils/widgetConstraints.ts"
+  backend_routes: "api/app/routers"
+  backend_services: "api/app/services"
+  celery: "api/app/celery_app.py"
+  tasks: "api/app/tasks"
+  models: "api/app/models"
+  settings: "api/app/config.py"
+  migrations: "api/alembic/versions"
+  compose: "docker-compose.yml"
+  compose_dev: "docker-compose.dev.yml"
+  screenshots: ".github/assets"
+
+pages:
+  - path: "docs/index.md"
+    status: current
+    action: keep
+    owner: docs
+    source: ["mkdocs.yml", "README.md"]
+    notes: "Recently rewritten as the documentation entry point."
+
+  - path: "docs/admin/email-configuration.md"
+    status: current
+    action: keep
+    owner: admin
+    source: ["web/src/features/admin/components/AdminEmailTab.tsx", "api/app/routers/admin.py"]
+    notes: "Merged admin/email-configuration-ui.md and api/admin-email.md into one admin-facing guide with verified endpoints."
+
+  - path: "docs/api/authentication.md"
+    status: current
+    action: revise
+    owner: api
+    source: ["api/app/routers/auth.py", "api/app/auth.py", "api/app/services/security"]
+    notes: "Recently rewritten. Add examples for 2FA error payloads later."
+
+  - path: "docs/api/endpoints.md"
+    status: current
+    action: revise
+    owner: api
+    source: ["api/app/routers", "docs/api/openapi.json"]
+    notes: "Route map is current enough; exact schemas should remain generated."
+
+  - path: "docs/api/overview.md"
+    status: current
+    action: revise
+    owner: api
+    source: ["api/app/main.py", "docs/api/openapi.json"]
+    notes: "Recently rewritten. Keep narrative short and defer exact details to OpenAPI."
+
+  - path: "docs/design/Portfolium Visual Language.md"
+    status: current
+    action: archive
+    owner: design
+    source: ["web/src/shared/design", "web/src/shared/components", "web/src/features"]
+    notes: "Removed from mkdocs.yml nav (internal design spec, not relevant to end users or self-hosters). File kept on disk as internal reference; no longer reachable from the public site."
+
+  - path: "docs/development/architecture.md"
+    status: current
+    action: keep
+    owner: development
+    source: ["api/app/main.py", "api/app/celery_app.py", "web/src/app/App.tsx", "docker-compose.yml"]
+    notes: "Recently rewritten. Needs sequence diagrams later."
+
+  - path: "docs/development/contributing.md"
+    status: current
+    action: keep
+    owner: development
+    source: ["Makefile", ".github/workflows/quality.yml", "api/pyproject.toml", "web/package.json"]
+    notes: "Should include docs checks, OpenAPI regeneration, migrations, and frontend conventions."
+
+  - path: "docs/development/content-audit.md"
+    status: current
+    action: keep
+    owner: docs
+    source: ["docs/audit.yml", "scripts/check_docs_audit.py"]
+    notes: "Human-readable summary of the audit manifest."
+
+  - path: "docs/development/docs-coverage.md"
+    status: current
+    action: revise
+    owner: docs
+    source: ["docs/audit.yml"]
+    notes: "Keep as human summary generated from or aligned with this manifest."
+
+  - path: "docs/development/documentation.md"
+    status: current
+    action: keep
+    owner: docs
+    source: ["docs/requirements.txt", "scripts/export_openapi.py", "scripts/check_docs_health.py", "mkdocs.yml"]
+    notes: "Recently added workflow page."
+
+  - path: "docs/development/testing.md"
+    status: current
+    action: revise
+    owner: development
+    source: ["api/tests", "web/package.json", ".github/workflows/quality.yml"]
+    notes: "Recently rewritten. Add Playwright/manual smoke guidance if E2E is added."
+
+  - path: "docs/development/theme-minilm-benchmark.md"
+    status: current
+    action: keep
+    owner: development
+    source: ["api/app/services/asset_intelligence", "api/tests/test_asset_theme_minilm.py"]
+    notes: "Verified against real Celery volume config and test files; kept as a focused dev reference, cross-linked from technical/asset-themes.md."
+
+  - path: "docs/getting-started/configuration.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["api/app/config.py", ".env.example", "docker-compose.yml", "docker-compose.dev.yml"]
+    notes: "Rewritten as a complete settings table (94 variables) verified against api/app/config.py, grouped by category."
+
+  - path: "docs/getting-started/installation.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["README.md", "docker-compose.yml", "docker-compose.dev.yml", "web/Dockerfile", "api/Dockerfile"]
+    notes: "Rewritten around the real 7-service docker-compose.yml topology (db/redis/bootstrap/api/celery-worker/celery-beat/web) and single-port-80 access."
+
+  - path: "docs/getting-started/quick-start.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/app/App.tsx", "web/src/features/portfolios", "web/src/features/transactions"]
+    notes: "Corrected access URL (port 80, not 5173) to match production topology; onboarding flow content verified as accurate."
+
+  - path: "docs/technical/asset-metadata-overrides.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/models/asset.py", "api/app/routers/assets.py", "api/app/services/portfolio_analytics/insights.py"]
+    notes: "Verified fallback-only validation logic and endpoint against crud/assets.py; corrected an inaccurate country-code validation claim."
+
+  - path: "docs/technical/currency-conversion.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/market_data/currency.py", "api/app/routers/transactions.py", "api/app/services/portfolio_analytics"]
+    notes: "Rewritten around the real currency.py service and transaction FX helpers."
+
+  - path: "docs/technical/data-models.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/models", "api/alembic/versions", "db/init"]
+    notes: "Rewritten as an entity reference covering goals, public sharing, 2FA, pending dividends, push subscriptions, earnings cache, ISIN/Adanos, themes, and investment notes."
+
+  - path: "docs/technical/logo-fetching.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/market_data/logo_resolver.py", "api/app/services/market_data/trade_republic_logos.py", "api/app/routers/assets.py", "api/tests/test_logo_resolver.py"]
+    notes: "Rewritten around logo_resolver.py, Trade Republic variant caching, and the current provider order."
+
+  - path: "docs/technical/observability.md"
+    status: current
+    action: revise
+    owner: operations
+    source: ["api/app/observability", "monitoring", "api/app/celery_app.py"]
+    notes: "Mostly current. Add task schedule and health endpoint cross-links."
+
+  - path: "docs/technical/background-jobs.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/celery_app.py", "api/app/tasks"]
+
+  - path: "docs/technical/asset-themes.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/asset_intelligence", "api/app/routers/assets.py", "web/src/features/admin/pages/AdminThemeTaxonomy.tsx"]
+
+  - path: "docs/technical/reference-data-isin.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/reference_data/adanos_listings.py", "api/app/models/reference_data.py", "api/app/tasks/reference_data_tasks.py"]
+
+  - path: "docs/technical/push-notifications.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/routers/push.py", "api/app/services/communications/push_service.py", "api/app/models/push_subscription.py"]
+
+  - path: "docs/operations/backup-restore.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["docker-compose.yml", "db", "api/alembic/versions"]
+
+  - path: "docs/operations/reverse-proxy-https.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["web/nginx.conf", "docker-compose.yml"]
+
+  - path: "docs/operations/upgrades.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["docker-compose.yml", "api/app/bootstrap.py", "api/alembic/versions"]
+
+  - path: "docs/operations/troubleshooting.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["docker-compose.yml", "api/app/observability", "monitoring"]
+
+  - path: "docs/backup-and-restore.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["docker-compose.yml", "db", "api/alembic/versions"]
+
+  - path: "docs/operations-runbook.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["docker-compose.yml", "api/app/observability", "api/app/celery_app.py"]
+
+  - path: "docs/deployment-checklist.md"
+    status: current
+    action: keep
+    owner: operations
+    source: ["docker-compose.yml", ".github/workflows", "api/alembic/versions"]
+
+  - path: "docs/release-readiness.md"
+    status: current
+    action: keep
+    owner: operations
+    source: [".github/workflows", "docker-compose.yml", "api", "web"]
+
+  - path: "docs/technical/overview.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app", "web/src", "docker-compose.yml"]
+    notes: "Rewritten around the current FastAPI + Celery + Redis + PostgreSQL + React/Vite + Docker architecture."
+
+  - path: "docs/technical/pricing.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/market_data/pricing.py", "api/app/services/market_data/market_calendar.py", "api/app/tasks/cache_tasks.py"]
+    notes: "Merged price-fetching.md and pricing-service.md; rewritten against the real Redis-backed multi-level cache, market-aware TTL, and rate-limit circuit breaker (previous pages described a fictional simple TTL DB cache)."
+
+  - path: "docs/technical/stock-splits.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/portfolio_analytics/metrics.py", "api/app/routers/transactions.py", "api/tests/test_splits_and_metrics.py"]
+    notes: "Verified split ratio parsing logic matches metrics.py exactly; corrected a stale file path reference (app/services/metrics.py -> api/app/services/portfolio_analytics/metrics.py)."
+
+  - path: "docs/user-guide/assets.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/assets", "web/src/features/asset-research", "web/src/api/assets.ts", "web/src/api/assetResearch.ts"]
+    notes: "Split into Assets, Asset Research, Investment Notes, Metadata Overrides, and Asset Health."
+
+  - path: "docs/user-guide/charts.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/charts", "web/src/features/allocation"]
+    notes: "Needs separation between Charts and new Allocation page."
+
+  - path: "docs/user-guide/crypto-conversions.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/transactions/components/ConversionModal.tsx", "api/app/routers/transactions.py"]
+    notes: "Verify conversion UX and transaction payloads."
+
+  - path: "docs/user-guide/daily-reports.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["api/app/tasks/report_tasks.py", "api/app/services/communications/pdf_reports.py", "api/app/services/communications/email.py"]
+    notes: "Remove future enhancements or move to roadmap; align schedule with Celery beat."
+
+  - path: "docs/user-guide/dashboard.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/dashboard-overview", "web/src/features/dashboard", "web/src/api/dashboard.ts"]
+    notes: "Current app has Dashboard Overview at /dashboard and widget grid at /dashboard/widgets."
+
+  - path: "docs/user-guide/gallery.md"
+    status: current
+    action: keep
+    owner: docs
+    source: [".github/assets"]
+    notes: "Use current screenshots and remove emoji-heavy presentation if keeping in public docs."
+
+  - path: "docs/user-guide/insights.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/insights", "api/app/services/portfolio_analytics/insights.py", "web/src/api/insights.ts"]
+    notes: "Current Insights has domain tabs and newer exposure/risk/scenario concepts."
+
+  - path: "docs/user-guide/notifications.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/notifications", "api/app/routers/notifications.py", "api/app/routers/push.py", "api/app/tasks/maintenance_tasks.py"]
+    notes: "Add push notifications, ATH/ATL, VAPID, retention, and current notification types."
+
+  - path: "docs/user-guide/portfolios.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/portfolios", "api/app/routers/portfolios.py", "api/app/routers/goals.py", "api/app/routers/public.py"]
+    notes: "Add goals and public sharing."
+
+  - path: "docs/user-guide/settings.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/settings", "web/src/features/auth/components/TwoFactorSettings.tsx", "api/app/routers/settings.py", "api/app/routers/auth.py"]
+    notes: "Split profile/security from app settings; include 2FA and account deletion."
+
+  - path: "docs/user-guide/transactions.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/transactions", "api/app/routers/transactions.py", "api/app/services/workflows/import_csv.py"]
+    notes: "Add pending dividends, import preview/progress, conversions, metrics page."
+
+  - path: "docs/user-guide/watchlist.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/watchlist", "web/src/api/watchlist.ts", "api/app/routers/watchlist.py"]
+    notes: "Added tags section, verified against real watchlist_tags model/router."
+
+  - path: "docs/user-guide/calendar.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/calendar", "api/app/routers/calendar.py"]
+
+  - path: "docs/user-guide/allocation.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/allocation", "web/src/api/assets.ts"]
+
+  - path: "docs/user-guide/profile-security.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/settings/pages/Profile.tsx", "web/src/features/auth/components/TwoFactorSettings.tsx", "api/app/routers/auth.py"]
+
+  - path: "docs/user-guide/public-sharing.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/portfolios/pages/PublicPortfolio.tsx", "api/app/routers/public.py", "api/app/models/portfolio.py"]
+
+  - path: "docs/user-guide/asset-research.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/asset-research", "web/src/features/assets/pages/AssetResearch.tsx", "api/app/routers/assets.py"]
+
+  - path: "docs/detailed-metrics/index.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/portfolio_analytics", "web/src/features/portfolios/lib/positionDetailMetricBuilders.ts", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+    notes: "Overview likely useful but categories should match current UI."
+
+  - path: "docs/detailed-metrics/analyst-consensus.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+    notes: "Verify thresholds and data field names."
+
+  - path: "docs/detailed-metrics/avg-buy-zone.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["web/src/features/assets/lib/tradingPerformanceMetrics.ts", "web/src/features/portfolios/lib/positionDetailMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/beta.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/portfolio_analytics/risk_analysis.py", "api/app/services/portfolio_analytics/insights.py"]
+
+  - path: "docs/detailed-metrics/cost-to-average-down.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["web/src/features/assets/lib/tradingPerformanceMetrics.ts", "web/src/features/portfolios/lib/positionDetailMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/current-ratio.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/debt-to-equity.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/distance-to-ath.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/tasks/ath_tasks.py", "api/app/services/portfolio_analytics/position_details.py"]
+
+  - path: "docs/detailed-metrics/earnings-growth.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/eps.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/gain-to-breakeven.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["web/src/features/portfolios/lib/positionDetailMetricBuilders.ts", "api/app/services/portfolio_analytics/position_details.py"]
+
+  - path: "docs/detailed-metrics/implied-upside.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/liquidity-score.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py"]
+
+  - path: "docs/detailed-metrics/market-cap.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "api/app/models/asset.py"]
+
+  - path: "docs/detailed-metrics/net-cash.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/net-margin.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/operating-margin.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/pe-ratio.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/personal-drawdown.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/portfolio_analytics/position_details.py", "web/src/features/portfolios/lib/positionDetailMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/quick-ratio.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/relative-performance.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/portfolio_analytics/relative_performance.py", "api/app/services/portfolio_analytics/position_details.py"]
+
+  - path: "docs/detailed-metrics/revenue-growth.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/risk-score.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/portfolio_analytics/risk_analysis.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/roe.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/detailed-metrics/volatility.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/portfolio_analytics/risk_analysis.py", "api/app/services/portfolio_analytics/position_details.py"]
+
+  - path: "docs/detailed-metrics/volume.md"
+    status: current
+    action: keep
+    owner: metrics
+    source: ["api/app/services/market_data/fundamentals.py", "web/src/features/assets/lib/assetResearchMetricBuilders.ts"]
+
+  - path: "docs/widgets/index.md"
+    status: current
+    action: keep
+    owner: widgets
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+    notes: "Must list all 42 widget IDs from the registry."
+
+  - path: "docs/widgets/alpha.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "alpha"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts", "web/src/features/dashboard/components/widgets/metric/BenchmarkMetricWidget.tsx"]
+
+  - path: "docs/widgets/asset-allocation.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "asset-allocation"
+    source: ["web/src/features/dashboard/components/widgets/analysis/AssetAllocationWidget.tsx"]
+
+  - path: "docs/widgets/avg-holding-period.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "avg-holding-period"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+    notes: "Registry uses avg-holding-period."
+
+  - path: "docs/widgets/best-worst-today.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "best-worst-today"
+    source: ["web/src/features/dashboard/components/widgets/analysis/BestWorstTodayWidget.tsx"]
+
+  - path: "docs/widgets/beta-correlation.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "beta-correlation"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+
+  - path: "docs/widgets/bitcoin-pizza-index.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "bitcoin-pizza-index"
+    source: ["web/src/features/dashboard/components/widgets/metric/BitcoinPizzaWidget.tsx"]
+
+  - path: "docs/widgets/concentration-risk.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "concentration-risk"
+    source: ["web/src/features/dashboard/components/widgets/analysis/ConcentrationRiskWidget.tsx"]
+
+  - path: "docs/widgets/crypto-sentiment.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "crypto-sentiment"
+    source: ["web/src/features/dashboard/components/widgets/metric/SentimentWidget.tsx", "api/app/routers/market.py"]
+
+  - path: "docs/widgets/daily-gain.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "daily-gain"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+
+  - path: "docs/widgets/diversification-score.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "diversification-score"
+    source: ["web/src/features/dashboard/components/widgets/utils/metricsCalculations.ts"]
+
+  - path: "docs/widgets/dividends.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "dividends"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+
+  - path: "docs/widgets/downside-deviation.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "downside-deviation"
+    source: ["web/src/features/dashboard/components/widgets/metric/RiskMetricWidget.tsx"]
+
+  - path: "docs/widgets/dxy-index.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "dxy-index"
+    source: ["web/src/features/dashboard/components/widgets/metric/DXYWidget.tsx", "api/app/routers/market.py"]
+
+  - path: "docs/widgets/goal-tracker.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "goal-tracker"
+    source: ["web/src/features/dashboard/components/widgets/metric/GoalTrackerWidget.tsx", "api/app/routers/goals.py"]
+
+  - path: "docs/widgets/portfolio-heatmap.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "portfolio-heatmap"
+    source: ["web/src/features/dashboard/components/widgets/analysis/PortfolioHeatmapWidget.tsx"]
+
+  - path: "docs/widgets/hit-ratio.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "hit-ratio"
+    source: ["web/src/features/dashboard/components/widgets/utils/metricsCalculations.ts"]
+
+  - path: "docs/widgets/largest-holdings.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "largest-holdings"
+    source: ["web/src/features/dashboard/components/widgets/analysis/LargestHoldingsWidget.tsx"]
+
+  - path: "docs/widgets/market-indices.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "market-indices"
+    source: ["web/src/features/dashboard/components/widgets/market/MarketIndicesWidget.tsx", "web/src/api/market.ts"]
+
+  - path: "docs/widgets/market-sentiment.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "market-sentiment"
+    source: ["web/src/features/dashboard/components/widgets/metric/SentimentWidget.tsx", "api/app/routers/market.py"]
+
+  - path: "docs/widgets/market-status.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "market-status"
+    source: ["web/src/features/dashboard/components/widgets/market/MarketStatusWidget.tsx"]
+
+  - path: "docs/widgets/max-drawdown.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "max-drawdown"
+    source: ["web/src/features/dashboard/components/widgets/metric/RiskMetricWidget.tsx"]
+
+  - path: "docs/widgets/notifications.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "notifications"
+    source: ["web/src/features/dashboard/components/widgets/list/NotificationsWidget.tsx"]
+
+  - path: "docs/widgets/performance-metrics.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "performance-metrics"
+    source: ["web/src/features/dashboard/components/widgets/analysis/PerformanceMetricsWidget.tsx"]
+
+  - path: "docs/widgets/positions.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "positions"
+    source: ["web/src/features/dashboard/components/widgets/list/PositionsTableWidget.tsx"]
+
+  - path: "docs/widgets/r-squared.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "r-squared"
+    source: ["web/src/features/dashboard/components/widgets/metric/BenchmarkMetricWidget.tsx"]
+
+  - path: "docs/widgets/realized-pnl.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "realized-pnl"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+
+  - path: "docs/widgets/sharpe-ratio.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "sharpe-ratio"
+    source: ["web/src/features/dashboard/components/widgets/metric/RiskMetricWidget.tsx"]
+
+  - path: "docs/widgets/tnx-index.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "tnx-index"
+    source: ["web/src/features/dashboard/components/widgets/metric/TNXWidget.tsx", "api/app/routers/market.py"]
+
+  - path: "docs/widgets/top-performers.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "top-performers"
+    source: ["web/src/features/dashboard/components/widgets/analysis/TopPerformersWidget.tsx"]
+
+  - path: "docs/widgets/total-return.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "total-return"
+    source: ["web/src/features/dashboard/components/widgets/metric/TotalReturnWidget.tsx"]
+
+  - path: "docs/widgets/total-value.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "total-value"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+
+  - path: "docs/widgets/recent-transactions.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "recent-transactions"
+    source: ["web/src/features/dashboard/components/widgets/list/RecentTransactionsWidget.tsx"]
+
+  - path: "docs/widgets/unrealized-pnl.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "unrealized-pnl"
+    source: ["web/src/features/dashboard/components/widgets/registry/widgetDefinitions.ts"]
+
+  - path: "docs/widgets/value-at-risk.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "value-at-risk"
+    source: ["web/src/features/dashboard/components/widgets/metric/RiskMetricWidget.tsx"]
+
+  - path: "docs/widgets/vix-index.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "vix-index"
+    source: ["web/src/features/dashboard/components/widgets/metric/VIXWidget.tsx", "api/app/routers/market.py"]
+
+  - path: "docs/widgets/volatility.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "volatility"
+    source: ["web/src/features/dashboard/components/widgets/metric/RiskMetricWidget.tsx"]
+
+  - path: "docs/widgets/watchlist.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "watchlist"
+    source: ["web/src/features/dashboard/components/widgets/list/WatchlistWidget.tsx"]
+
+  - path: "docs/widgets/win-rate.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "win-rate"
+    source: ["web/src/features/dashboard/components/widgets/metric/WinRateWidget.tsx"]
+
+  - path: "docs/widgets/worst-performers.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "worst-performers"
+    source: ["web/src/features/dashboard/components/widgets/analysis/WorstPerformersWidget.tsx"]
+
+  - path: "docs/widgets/today-brief.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "today-brief"
+    source: ["web/src/features/dashboard/components/widgets/analysis/TodayBriefWidget.tsx", "api/app/routers/portfolios.py"]
+
+  - path: "docs/widgets/theme-allocation.md"
+    status: current
+    action: keep
+    owner: widgets
+    widget_id: "theme-allocation"
+    source: ["web/src/features/dashboard/components/widgets/analysis/ThemeAllocationWidget.tsx"]
+
+planned_pages:
+  - path: "docs/user-guide/pending-dividends.md"
+    status: planned
+    action: add
+    owner: user-guide
+    source: ["web/src/features/transactions/components/PendingDividends.tsx", "api/app/routers/pending_dividends.py", "api/app/services/workflows/dividends.py"]
+    notes: "Covered for now as an anchored section in user-guide/transactions.md#pending-dividends rather than a standalone page, to avoid duplicating content."
+
+priority_batches:
+  - id: p0-docs-foundation
+    title: "Make the docs information architecture match the app"
+    includes:
+      - "Remove or hide obsolete example layouts."
+      - "Add Operations section."
+      - "Split User Guide by actual frontend routes."
+      - "Merge duplicate pricing and admin email pages."
+
+  - id: p1-operator-and-developer-truth
+    title: "Rewrite operator and technical source-of-truth pages"
+    includes:
+      - "Configuration from api/app/config.py."
+      - "Background jobs from api/app/celery_app.py."
+      - "Data models from api/app/models and Alembic."
+      - "Pricing, currency, and logo docs from current services."
+
+  - id: p2-product-workflows
+    title: "Rewrite user-facing workflows"
+    includes:
+      - "Dashboard overview and widget grid."
+      - "Transactions, imports, conversions, pending dividends."
+      - "Portfolios, goals, and public sharing."
+      - "Assets, asset research, investment notes, and metadata."
+      - "Calendar, allocation, notifications, profile/security."
+
+  - id: p3-widgets-and-metrics
+    title: "Reconcile widgets and detailed metrics against implementation"
+    includes:
+      - "Rename stale widget pages to registry IDs."
+      - "Add missing widget pages."
+      - "Verify metric formulas against backend/frontend builders."
+
+  - id: p4-polish-and-screenshots
+    title: "Add current screenshots and improve presentation"
+    includes:
+      - "Use .github/assets screenshots on key pages."
+      - "Replace the gallery with a current, compact visual tour."
+      - "Reduce internal-only detail from public-facing pages."
