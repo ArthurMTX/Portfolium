@@ -8,6 +8,12 @@ How to safely upgrade a self-hosted Portfolium instance to a new version.
     downgrade recreates the empty table definition and indexes, but cannot
     recover deleted rows without a database backup.
 
+Before starting 0.4.0, set a dedicated `REDIS_PASSWORD`; production no longer
+falls back to `SECRET_KEY` and rejects missing/example Redis credentials.
+Existing JWTs do not contain the new password binding and users must sign in
+again once after deployment. New access tokens expire after 60 minutes by
+default.
+
 ## How Versioning Works
 
 Production images are pinned via the `PORTFOLIUM_IMAGE_TAG` variable in `docker-compose.yml` (for example `arthurmtx/portfolium-api:0.3.2`). Upgrading means changing this tag and pulling the new images — there's no in-place code update inside a running container.

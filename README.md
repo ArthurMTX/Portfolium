@@ -73,8 +73,7 @@ docker compose pull && docker compose up -d
 | Service | URL | Description |
 |---------|-----|-------------|
 | 🌐 Web App | `http://localhost:80` | Main application |
-| 📖 API Docs | `http://localhost:8000/docs` | Swagger UI |
-| 🌸 Flower | `http://localhost:5555` | Task monitoring |
+| 📖 API Docs | `http://localhost/api/docs` | Swagger UI (public by design) |
 
 ---
 
@@ -105,6 +104,8 @@ docker compose -f ./docker-compose.dev.yml up -d --build
 <details>
 <summary> <strong>Manual setup without Docker</strong></summary>
 
+The frontend requires Node.js 22 (`.nvmrc` is provided).
+
 ```bash
 # Backend
 cd api
@@ -115,7 +116,8 @@ uvicorn app.main:app --reload
 
 # Frontend
 cd web
-npm install
+nvm use
+npm ci
 npm run dev
 ```
 </details>

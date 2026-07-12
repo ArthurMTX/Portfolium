@@ -27,6 +27,7 @@ At minimum, review and change:
 
 ```env
 POSTGRES_PASSWORD=change-me
+REDIS_PASSWORD=generate-a-dedicated-redis-secret
 SECRET_KEY=generate-a-real-32+-char-secret   # openssl rand -hex 32
 ADMIN_EMAIL=you@example.com
 ADMIN_USERNAME=your-username
@@ -57,7 +58,10 @@ Only the `web` service exposes a port to the host — everything else communicat
 
 ### 4. Access Portfolium
 
-Open [http://localhost](http://localhost) (port $80$). The frontend, API (under `/api`), and this documentation (under `/docs`) are all served through the same `web` container.
+Open [http://localhost](http://localhost) (port $80$). The frontend, API (under
+`/api`), and project documentation (under `/docs`) are served through the same
+`web` container. Swagger, Scalar and OpenAPI remain public at `/api/docs`,
+`/api/scalar` and `/api/openapi.json`; `/api/metrics` is intentionally blocked.
 
 ### 5. Log In
 

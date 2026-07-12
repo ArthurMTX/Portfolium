@@ -22,6 +22,10 @@ export class ApiRequestError extends Error {
   }
 }
 
+export function shouldInvalidateSession(error: unknown): boolean {
+  return error instanceof ApiRequestError && (error.status === 401 || error.status === 403)
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('auth_token')
   return token ? { Authorization: `Bearer ${token}` } : {}

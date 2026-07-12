@@ -22,13 +22,19 @@ All configuration is done through environment variables, typically set in a `.en
 | `API_HOST` | `0.0.0.0` | API bind host |
 | `API_PORT` | `8000` | API port |
 | `API_KEY` | `dev-key-12345` | Internal API key |
+| `API_ROOT_PATH` | *(empty)* | External API prefix; production Compose sets `/api` |
 | `SECRET_KEY` | *(placeholder)* | JWT signing key — must be at least 32 characters |
 | `ALGORITHM` | `HS256` | JWT signing algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | $10080$ ($7$ days) | Login session lifetime |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | $60$ (1 hour) | Login session lifetime; development may override it |
 | `ALLOW_REGISTRATION` | `true` | Allow new users to self-register |
 
 !!! danger "Generate a real SECRET_KEY"
     Never use the default in production — generate a strong random value and never commit it to version control.
+
+Access tokens are also bound to the user's current password hash. Changing or
+resetting a password invalidates previously issued tokens. Network failures,
+timeouts and unrelated server errors do not clear the browser session; an
+explicit authentication rejection does.
 
 ### Rate Limiting (Auth Endpoints)
 
@@ -134,9 +140,14 @@ See [Asset Themes](../technical/asset-themes.md) for how classification works.
 |---|---|---|
 | `REDIS_ENABLED` | `true` | Enable Redis-backed caching/queues |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB` | `redis` / `6379` / `0` | Connection target |
-| `REDIS_PASSWORD` | *(empty)* | Redis password |
+| `REDIS_PASSWORD` | *(empty in development)* | Dedicated Redis password; required in production and never derived from `SECRET_KEY` |
 | `REDIS_MAX_CONNECTIONS` | $50$ | Connection pool size |
 | `REDIS_SOCKET_TIMEOUT` / `REDIS_SOCKET_CONNECT_TIMEOUT` | $5$s / $5$s | Socket timeouts |
+
+Production refuses to start with Redis enabled and a missing or known example
+password. Development Compose supports both an explicitly empty local password
+and authenticated Redis. Passwords containing URL-reserved characters are
+percent-encoded when the API builds cache, broker and result-backend URLs.
 
 ## Celery & Background Tasks
 

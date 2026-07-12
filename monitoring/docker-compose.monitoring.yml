@@ -36,7 +36,7 @@ services:
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required for Redis monitoring}
     networks: [portfolium]
 
   celery-exporter:
@@ -44,7 +44,9 @@ services:
     container_name: portfolium-celery-exporter
     restart: unless-stopped
     environment:
-      CE_BROKER_URL: ${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-${SECRET_KEY}}@redis:6379/0}
+      # The exporter accepts only a URL. Percent-encode special characters in
+      # the password (the API itself builds this URL safely from REDIS_PASSWORD).
+      CE_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL to the authenticated, URL-encoded Redis URL}
     networks: [portfolium]
 
   grafana:

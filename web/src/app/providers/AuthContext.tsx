@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { api } from '@/api'
-import { ApiRequestError } from '@/api/client'
+import { shouldInvalidateSession } from '@/api/client'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 
 export interface User {
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // token. Aborted or failed requests (page navigation while /auth/me is
       // in flight, brief network loss) must not log the user out — the next
       // load retries with the same token.
-      if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+      if (shouldInvalidateSession(error)) {
         logout()
       }
     } finally {

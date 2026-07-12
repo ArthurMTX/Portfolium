@@ -7,6 +7,8 @@ COPY init/*.sql /docker-entrypoint-initdb.d/
 # Set proper permissions
 RUN chmod -R 755 /docker-entrypoint-initdb.d/
 
+USER postgres
+
 # Metadata
 LABEL maintainer="ArthurMTX"
 LABEL description="PostgreSQL database for Portfolium with embedded migrations"

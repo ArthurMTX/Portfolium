@@ -60,7 +60,8 @@ app = FastAPI(
     title="Portfolium API",
     description="Investment portfolio tracking with real-time pricing",
     version=__version__,
-    lifespan=lifespan
+    lifespan=lifespan,
+    root_path=settings.API_ROOT_PATH,
 )
 
 # CORS middleware

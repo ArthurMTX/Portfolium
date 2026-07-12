@@ -35,7 +35,7 @@ docker compose --env-file .env -f monitoring/docker-compose.monitoring.yml up -d
 
 Set `GRAFANA_ADMIN_PASSWORD` before startup outside an isolated development machine.
 
-- Portfolium metrics: <http://localhost:8000/metrics>
+- Portfolium metrics: internal target `api:8000/metrics`
 - Celery worker metrics: <http://localhost:9809/metrics>
 - Prometheus: <http://localhost:9090>
 - Grafana: <http://localhost:3000>
@@ -44,9 +44,9 @@ Set `GRAFANA_ADMIN_PASSWORD` before startup outside an isolated development mach
 - Redis exporter: <http://localhost:9121/metrics>
 - Celery exporter: <http://localhost:9808/metrics>
 
-The monitoring Compose file reaches the published API port through
-`host.docker.internal`. On Linux this mapping is provisioned with Docker's
-`host-gateway`.
+Prometheus reaches the API directly over the private `portfolium` Docker
+network. The public nginx path `/api/metrics` returns `403`; `/api/docs`,
+`/api/scalar`, and `/api/openapi.json` intentionally remain public.
 
 Stop only the monitoring stack with:
 
@@ -57,8 +57,11 @@ docker compose -f monitoring/docker-compose.monitoring.yml down
 The monitoring stack provisions PostgreSQL, Redis, and Celery exporters. The
 PostgreSQL exporter reads `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and
 `POSTGRES_PORT` from the root `.env`. The Redis exporter reads `REDIS_PORT` and
-`REDIS_PASSWORD`. Set `CELERY_BROKER_URL` explicitly when the broker requires
-authentication or is not available at the default Redis address.
+`REDIS_PASSWORD`. Set `CELERY_BROKER_URL` to an authenticated Redis URL before
+starting the optional monitoring stack. Reserved password characters must be
+percent-encoded in that exporter URL. The API and its Celery workers instead
+build encoded URLs directly from `REDIS_PASSWORD` and never fall back to
+`SECRET_KEY`.
 
 ## Dashboards
 

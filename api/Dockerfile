@@ -5,7 +5,7 @@ WORKDIR /app
 ARG INSTALL_DEV=false
 
 # Install system dependencies including WeasyPrint requirements
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     postgresql-client \
     curl \
@@ -42,6 +42,15 @@ COPY web/public/favicon-96x96.png ./static/logo.png
 
 # Copy email templates
 COPY api/app/templates ./app/templates
+
+# Runtime processes do not need root. Keep writable runtime paths outside the
+# source tree so production and bind-mounted development both work.
+RUN groupadd --system --gid 10001 portfolium && \
+    useradd --system --uid 10001 --gid portfolium --create-home portfolium && \
+    mkdir -p /tmp/portfolium /home/portfolium/.cache/portfolium && \
+    chown -R portfolium:portfolium /app /tmp/prometheus-multiproc /tmp/portfolium /home/portfolium
+
+USER portfolium
 
 # Expose port
 EXPOSE 8000

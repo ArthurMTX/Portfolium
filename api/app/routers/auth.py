@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 from app.auth import (
     verify_password, 
     create_access_token, 
-    get_current_active_user
+    get_current_active_user,
+    password_fingerprint,
 )
 from app.config import settings
 from app.db import get_db
@@ -153,7 +154,8 @@ async def login(
         data={
             "user_id": user.id,
             "email": user.email,
-            "is_admin": user.is_admin
+            "is_admin": user.is_admin,
+            "pwd": password_fingerprint(user.hashed_password),
         },
         expires_delta=access_token_expires
     )
@@ -529,7 +531,8 @@ async def login_with_2fa(
         data={
             "user_id": user.id,
             "email": user.email,
-            "is_admin": user.is_admin
+            "is_admin": user.is_admin,
+            "pwd": password_fingerprint(user.hashed_password),
         },
         expires_delta=access_token_expires
     )

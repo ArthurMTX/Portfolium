@@ -1,6 +1,9 @@
 # Reverse Proxy & HTTPS
 
-Portfolium's production `web` container serves plain HTTP on port $80$ (see `docker-compose.yml`) and expects TLS termination to happen in front of it. This guide covers putting a reverse proxy in front for HTTPS.
+Portfolium's production `web` container serves plain HTTP on unprivileged
+container port $8080$ (published as host port $80$ by `docker-compose.yml`) and
+expects TLS termination to happen in front of it. This guide covers putting a
+reverse proxy in front for HTTPS.
 
 ## Why You Need This
 
@@ -8,7 +11,11 @@ Running Portfolium directly on port 80 without HTTPS exposes login credentials, 
 
 ## What's Already Handled Internally
 
-The bundled nginx config inside the `web` container (`web/nginx.conf`) already sets security headers on every response — `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`. Your reverse proxy doesn't need to duplicate these; it just needs to handle TLS and forward traffic to the `web` container's port 80.
+The bundled nginx config inside the `web` container (`web/nginx.conf`) already sets security headers on every response — `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`. Your reverse proxy doesn't need to duplicate these; it just needs to handle TLS and forward traffic to the published host port 80.
+
+It also preserves `/api` across FastAPI trailing-slash redirects and blocks the
+public `/api/metrics` route. Prometheus continues to scrape `api:8000/metrics`
+on the private Docker network. API documentation remains public.
 
 ## Example: Caddy
 
@@ -51,6 +58,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-Port $server_port;
     }
 }
 ```

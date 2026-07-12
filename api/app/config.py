@@ -2,6 +2,7 @@
 Application configuration
 """
 import os
+from urllib.parse import quote
 from typing import List, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator, model_validator
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     API_KEY: str = "dev-key-12345"
+    API_ROOT_PATH: str = ""
 
     # Observability
     ENVIRONMENT: str = "development"
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
     # JWT Authentication
     SECRET_KEY: str = "your-secret-key-change-this-in-production-min-32-chars"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # Sensitive endpoint rate limiting
     AUTH_RATE_LIMIT_ENABLED: bool = True
@@ -309,6 +311,26 @@ class Settings(BaseSettings):
                 "This is very long and may pose a security risk."
             )
 
+        # Production Redis is configured with requirepass by docker-compose.yml.
+        # Development may deliberately run an unauthenticated local Redis.
+        if self.ENVIRONMENT.lower() == "production" and self.REDIS_ENABLED:
+            redis_password = self.REDIS_PASSWORD.strip()
+            if not redis_password:
+                errors.append(
+                    "REDIS_PASSWORD is required in production when Redis is enabled; "
+                    "SECRET_KEY is never used as a Redis password fallback"
+                )
+            elif redis_password.lower() in {
+                "change-this",
+                "change-this-redis-password",
+                "redis",
+                "password",
+            }:
+                errors.append(
+                    "REDIS_PASSWORD is using a known example/weak value; "
+                    "set a unique Redis password for production"
+                )
+
         rate_limit_values = {
             "AUTH_LOGIN_RATE_LIMIT": self.AUTH_LOGIN_RATE_LIMIT,
             "AUTH_REGISTER_RATE_LIMIT": self.AUTH_REGISTER_RATE_LIMIT,
@@ -365,11 +387,8 @@ class Settings(BaseSettings):
     
     @property
     def redis_url(self) -> str:
-        """Construct Redis URL for Celery"""
-        if self.CELERY_BROKER_URL:
-            return self.CELERY_BROKER_URL
-        
-        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        """Construct a Redis URL without exposing or mis-parsing credentials."""
+        auth = f":{quote(self.REDIS_PASSWORD, safe='')}@" if self.REDIS_PASSWORD else ""
         return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
     @property

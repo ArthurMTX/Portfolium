@@ -10,8 +10,8 @@ RUN pip3 install --no-cache-dir -r /tmp/docs-requirements.txt --break-system-pac
 # Copy package files
 COPY web/package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install the exact locked dependency graph
+RUN npm ci
 
 # Copy source
 COPY web/ .
@@ -57,7 +57,9 @@ RUN cd /build && mkdocs build -d /app/public/docs
 RUN npx tsc && npx vite build
 
 # Production serve stage
-FROM nginx:alpine AS production
+FROM nginxinc/nginx-unprivileged:alpine AS production
+
+USER 101
 
 # Copy web app (includes docs)
 COPY --from=build /app/dist /usr/share/nginx/html
@@ -65,6 +67,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY web/nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -29,16 +29,9 @@ class RedisManager:
     def _initialize_connection(self) -> None:
         """Initialize Redis connection pool"""
         try:
-            # Build connection URL
-            password_part = f":{settings.REDIS_PASSWORD}@" if settings.REDIS_PASSWORD else ""
-            redis_url = (
-                f"redis://{password_part}{settings.REDIS_HOST}:{settings.REDIS_PORT}/"
-                f"{settings.REDIS_DB}"
-            )
-            
             # Create connection pool
             self._pool = ConnectionPool.from_url(
-                redis_url,
+                settings.redis_url,
                 max_connections=settings.REDIS_MAX_CONNECTIONS,
                 socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
                 socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,

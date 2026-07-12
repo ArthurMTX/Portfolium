@@ -10,7 +10,8 @@ x-api-common: &api_common
   environment:
     POSTGRES_HOST: db
     REDIS_HOST: redis
-    REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
+    REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required for production}
+    API_ROOT_PATH: /api
     ENVIRONMENT: production
     LOG_FORMAT: json
     LOG_FILE_ENABLED: "false"
@@ -37,7 +38,8 @@ services:
     restart: unless-stopped
     env_file: [.env]
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-${SECRET_KEY}}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required for production}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required for production}
     volumes:
       - redis_data:/data
     command:
@@ -45,7 +47,7 @@ services:
       - -c
       - exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD"
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -112,7 +114,7 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
-      - "80:80"
+      - "${WEB_PORT:-80}:8080"
     depends_on:
       - api
     networks: [portfolium]

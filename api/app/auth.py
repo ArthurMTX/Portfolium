@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import secrets
 import hashlib
+import hmac
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -60,6 +61,15 @@ def get_password_hash(password: str) -> str:
     return hashed.decode('utf-8')
 
 
+def password_fingerprint(hashed_password: str) -> str:
+    """Return a non-reversible token binding for password-change invalidation."""
+    return hmac.new(
+        settings.SECRET_KEY.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
@@ -93,7 +103,7 @@ def get_current_user(
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: int = payload.get("user_id")
         email: str = payload.get("email")
-        is_admin: bool = payload.get("is_admin", False)
+        password_binding: str | None = payload.get("pwd")
         if user_id is None or email is None:
             raise InvalidTokenError("Could not validate credentials")
         token_data = TokenData(user_id=user_id, email=email)
@@ -104,6 +114,12 @@ def get_current_user(
     
     if user is None:
         raise UserNotFoundError(user_id=token_data.user_id)
+
+    if not password_binding or not hmac.compare_digest(
+        password_binding,
+        password_fingerprint(user.hashed_password),
+    ):
+        raise InvalidTokenError("Token is no longer valid")
     
     if not user.is_active:
         raise InactiveUserError()

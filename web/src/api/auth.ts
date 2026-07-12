@@ -1,6 +1,11 @@
 import { request, API_BASE_URL } from '@/api/client'
 import type { LoginResponseDTO, TwoFactorSetupResponse, TwoFactorStatusResponse, UserDTO } from '@/api/types'
 
+export function normalizePreferredLanguage(language?: string): 'en' | 'fr' {
+  const baseLanguage = language?.trim().toLowerCase().split(/[-_@]/, 1)[0]
+  return baseLanguage === 'fr' ? 'fr' : 'en'
+}
+
 // Authentication
 export async function login(email: string, password: string) {
   const formData = new URLSearchParams()
@@ -31,7 +36,7 @@ export async function register(email: string, username: string, password: string
       username,
       password,
       full_name: fullName,
-      preferred_language: preferredLanguage || 'en',
+      preferred_language: normalizePreferredLanguage(preferredLanguage),
     }),
   })
 }

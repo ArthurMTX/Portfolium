@@ -4,7 +4,7 @@ When ENABLE_EMAIL is true, /auth/login requires a verified user, and the old
 auth_headers fixture silently returned empty headers when that login failed,
 turning one configuration problem into dozens of unrelated 401 assertions.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 
@@ -41,6 +41,9 @@ def test_fixture_token_uses_app_jwt_config(client, auth_headers):
     token = auth_headers["Authorization"].removeprefix("Bearer ")
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     assert payload["email"] == "test@example.com"
+    expires_in = datetime.fromtimestamp(payload["exp"], tz=timezone.utc) - datetime.now(timezone.utc)
+    expected = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    assert expected - timedelta(minutes=1) < expires_in <= expected
 
 
 def test_login_wrong_password_is_401(client, test_user):
@@ -93,3 +96,16 @@ def test_expired_token_is_401(client, test_user):
     )
     response = client.get("/portfolios", headers={"Authorization": f"Bearer {expired}"})
     assert response.status_code == 401
+
+
+def test_password_change_invalidates_existing_token(client, auth_headers):
+    changed = client.post(
+        "/auth/change-password",
+        headers=auth_headers,
+        json={
+            "current_password": "testpassword123",
+            "new_password": "replacement-password-456",
+        },
+    )
+    assert changed.status_code == 200
+    assert client.get("/auth/me", headers=auth_headers).status_code == 401

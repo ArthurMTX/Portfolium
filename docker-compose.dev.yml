@@ -16,14 +16,16 @@ x-api-common: &api_common
   environment:
     POSTGRES_HOST: db
     REDIS_HOST: redis
+    REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ENVIRONMENT: development
     LOG_FORMAT: readable
     LOG_FILE_ENABLED: "true"
+    LOG_FILE_PATH: /tmp/portfolium/app.log
     PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus-multiproc
   volumes:
     - ./api:/app
     - ./web/src/locales:/app/locales:ro
-    - theme_minilm_cache:/root/.cache/portfolium/theme-minilm
+    - theme_minilm_cache:/home/portfolium/.cache/portfolium/theme-minilm
 
 services:
   api-test:
@@ -70,11 +72,21 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-}
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command:
+      - /bin/sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,7 +106,7 @@ services:
       - "8000:8000"
     volumes:
       - ./web/public/favicon-96x96.png:/app/static/logo.png:ro
-      - theme_minilm_cache:/root/.cache/portfolium/theme-minilm
+      - theme_minilm_cache:/home/portfolium/.cache/portfolium/theme-minilm
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -137,19 +149,16 @@ services:
     command: python -m app.bootstrap
 
   flower:
-    image: mher/flower:2.0
+    <<: *api_common
     container_name: portfolium-flower
-    restart: unless-stopped
-    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    command: python -m celery -A app.celery_app flower --port=5555
     ports:
       - "5555:5555"
-    environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
     depends_on:
-      - redis
-      - celery-worker
-    networks: [portfolium]
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
 
   web:
     build:
