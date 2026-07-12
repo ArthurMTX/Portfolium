@@ -72,8 +72,7 @@ def run_migrations():
             ["alembic", "-c", str(alembic_ini), "upgrade", "head"],
             cwd=str(api_root),
             capture_output=True,
-            text=True,
-            timeout=30
+            text=True
         )
         
         # Log output
