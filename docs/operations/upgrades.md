@@ -2,6 +2,12 @@
 
 How to safely upgrade a self-hosted Portfolium instance to a new version.
 
+!!! warning "0.4.0 destructive migration"
+    Back up PostgreSQL before upgrading. Revision `20260712_1000` permanently
+    removes the unused legacy table `portfolio.asset_price_history`. Its
+    downgrade recreates the empty table definition and indexes, but cannot
+    recover deleted rows without a database backup.
+
 ## How Versioning Works
 
 Production images are pinned via the `PORTFOLIUM_IMAGE_TAG` variable in `docker-compose.yml` (for example `arthurmtx/portfolium-api:0.3.2`). Upgrading means changing this tag and pulling the new images — there's no in-place code update inside a running container.

@@ -25,11 +25,6 @@ from app.db import Base  # noqa: E402
 import app.models  # noqa: F401,E402  (registers every model on Base.metadata)
 
 ALLOWED_TABLES = {
-    # Legacy table created by the initial schema migration but never referenced
-    # by any application code in the project's history (empty in every
-    # deployment). Dropping it is tracked as a post-release follow-up; until
-    # then autogenerate wants to remove it.
-    "asset_price_history",
     # Email configuration table: intentionally has no ORM model. It lives in
     # the public schema and is read/written via raw SQL
     # (app/services/platform/admin.py, admin settings endpoints).
@@ -79,7 +74,7 @@ def main() -> int:
             print(f"  - {op}: {target}")
         return 1
 
-    print("No structural migration drift detected (allowlisted legacy tables ignored).")
+    print("No structural migration drift detected (intentional non-ORM tables ignored).")
     return 0
 
 
