@@ -137,7 +137,9 @@ services:
         condition: service_healthy
       bootstrap:
         condition: service_completed_successfully
-    command: celery -A app.celery_app beat --loglevel=info
+    # -s keeps the schedule shelve out of the bind-mounted source dir,
+    # which the non-root container user cannot write to
+    command: celery -A app.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
 
   bootstrap:
     <<: *api_common

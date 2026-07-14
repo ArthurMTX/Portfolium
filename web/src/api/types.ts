@@ -38,6 +38,8 @@ export interface TwoFactorStatusResponse {
 }
 
 // Types aligning with store shapes
+export type CashMode = 'untracked' | 'tracked_warn' | 'tracked_strict'
+
 export interface PortfolioDTO {
   id: number
   name: string
@@ -46,6 +48,8 @@ export interface PortfolioDTO {
   is_public: boolean
   share_token: string
   created_at: string
+  cash_mode: CashMode
+  cash_tracking_started_on?: string | null
 }
 
 export interface CsvImportPreviewIssueDTO {
@@ -69,6 +73,7 @@ export interface CsvImportPreviewResultDTO {
   errors: CsvImportPreviewIssueDTO[]
   warnings: CsvImportPreviewIssueDTO[]
   duplicates: CsvImportPreviewDuplicateDTO[]
+  cash_warnings?: CashWarningDTO[]
 }
 
 export interface PositionDTO {
@@ -330,6 +335,7 @@ export interface PortfolioMetricsDTO {
   daily_change_value?: number | null
   daily_change_pct?: number | null
   last_updated: string
+  cash?: CashSummaryDTO | null
 }
 
 export interface TodayBriefItemDTO {
@@ -358,6 +364,183 @@ export interface PortfolioHistoryPointDTO {
   gain_pct?: number  // Percentage gain/loss vs. total invested (includes sold positions)
   cost_basis?: number  // Cost basis of current holdings only
   unrealized_pnl_pct?: number  // Unrealized P&L % of current holdings (matches Dashboard)
+  cash_value?: number | null  // Cash in base currency (tracked portfolios; included in value)
+}
+
+// ============================================================================
+// Cash tracking
+// ============================================================================
+
+export type CashMovementType =
+  | 'opening_balance'
+  | 'deposit'
+  | 'withdrawal'
+  | 'buy'
+  | 'sell'
+  | 'dividend'
+  | 'interest'
+  | 'fee'
+  | 'tax'
+  | 'fx_debit'
+  | 'fx_credit'
+  | 'adjustment'
+
+export interface CashWarningDTO {
+  code: string
+  currency: string
+  date: string
+  projected_balance: string
+}
+
+export interface CashBalanceDTO {
+  currency: string
+  balance: string | number
+  balance_base?: string | number | null
+  rate?: string | number | null
+  rate_stale: boolean
+  rate_unavailable: boolean
+}
+
+export interface CashPnlBreakdownDTO {
+  interest_income: string | number
+  standalone_fees: string | number
+  standalone_taxes: string | number
+  fx_pnl: string | number | null
+  fx_pnl_status: 'unavailable' | string
+}
+
+export interface CashSummaryDTO {
+  base_currency: string
+  balances: CashBalanceDTO[]
+  total_base?: string | number | null
+  fx_status: 'ok' | 'partial' | 'unavailable' | string
+  pnl?: CashPnlBreakdownDTO | null
+  as_of: string
+}
+
+export interface CashBalancesResponseDTO {
+  portfolio_id: number
+  base_currency: string
+  balances: CashBalanceDTO[]
+  total_base?: string | number | null
+  fx_status: 'ok' | 'partial' | 'unavailable' | string
+  as_of: string
+}
+
+export interface CashMovementDTO {
+  id: number
+  portfolio_id: number
+  currency: string
+  type: CashMovementType
+  amount: string | number
+  occurred_on: string
+  transaction_id?: number | null
+  conversion_id?: string | null
+  activation_id?: string | null
+  base_exchange_rate?: string | number | null
+  base_currency_amount?: string | number | null
+  conversion_rate?: string | number | null
+  reason?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CashMovementListDTO {
+  items: CashMovementDTO[]
+  total: number
+}
+
+export interface CashMovementCreatePayload {
+  type: Exclude<CashMovementType, 'opening_balance' | 'buy' | 'sell' | 'dividend' | 'fx_debit' | 'fx_credit'>
+  currency: string
+  amount: string
+  occurred_on: string
+  direction?: 'credit' | 'debit'
+  reason?: string | null
+  notes?: string | null
+}
+
+export interface CashMovementUpdatePayload {
+  currency?: string
+  amount?: string
+  occurred_on?: string
+  direction?: 'credit' | 'debit'
+  reason?: string | null
+  notes?: string | null
+}
+
+export interface CashMovementResponseDTO {
+  movement: CashMovementDTO
+  warnings: CashWarningDTO[]
+}
+
+export interface FxConversionPayload {
+  source_currency: string
+  target_currency: string
+  source_amount: string
+  target_amount: string
+  occurred_on: string
+  fee_amount?: string | null
+  fee_currency?: string | null
+  notes?: string | null
+}
+
+export interface FxConversionResponseDTO {
+  conversion_id: string
+  conversion_rate: string | number
+  movements: CashMovementDTO[]
+  warnings: CashWarningDTO[]
+}
+
+export interface CashOpeningBalanceDTO {
+  currency: string
+  amount: string | number
+}
+
+export interface CashActivationPayload {
+  strategy: 'opening_balances' | 'replay'
+  start_date: string
+  target_mode: Exclude<CashMode, 'untracked'>
+  opening_balances: CashOpeningBalanceDTO[]
+  activation_id?: string
+}
+
+export interface CashActivationPreviewDTO {
+  strategy: string
+  start_date: string
+  target_mode: CashMode
+  derived_movement_count: number
+  opening_balances: CashOpeningBalanceDTO[]
+  proposed_opening_balances: CashOpeningBalanceDTO[]
+  projected_balances: { currency: string; balance: string | number }[]
+  negative_dips: { currency: string; date: string; projected_balance: string | number }[]
+  blocking_issues: string[]
+}
+
+export interface CashActivationResultDTO {
+  portfolio_id: number
+  cash_mode: CashMode
+  cash_tracking_started_on: string
+  activation_id: string
+  opening_balances: CashOpeningBalanceDTO[]
+  derived_movement_count: number
+  already_applied: boolean
+}
+
+/** Structured business error carried by cash endpoints (409/422) */
+export interface CashErrorDetail {
+  code: string
+  message: string
+  context: {
+    currency?: string
+    available?: string
+    required?: string
+    missing?: string
+    portfolio_id?: number
+    date?: string | null
+    [key: string]: unknown
+  }
 }
 
 // Batch Price Response
@@ -868,6 +1051,7 @@ export interface TransactionDTO {
   symbol: string
   asset_name: string | null
   created_at: string
+  cash_warnings?: CashWarningDTO[] | null
 }
 
 export interface PortfolioGoalDTO {

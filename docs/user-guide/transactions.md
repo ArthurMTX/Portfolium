@@ -251,6 +251,23 @@ If you can't record a stock split:
 - Verify the split ratio format (e.g., "2:1")
 - Check that you selected the correct asset
 
+## Cash Tracking and Transactions
+
+If the portfolio has [cash tracking](cash.md) enabled, every buy, sell,
+dividend and fee also moves the portfolio's cash:
+
+- the transaction form shows the settlement currency, the required cash, the
+  available balance and the projected balance after the operation;
+- in **warning** mode a purchase that exceeds the available cash succeeds
+  with a visible warning;
+- in **strict** mode it is rejected with the exact available, required and
+  missing amounts — validated at the transaction's date, so backdated
+  operations check the balance the portfolio had back then;
+- editing or deleting a transaction updates its cash movements atomically.
+
+Untracked portfolios (the default) behave exactly as described above in this
+page — no cash fields, no warnings, no rejections.
+
 ## Next Steps
 
 - [View Portfolio Performance](portfolios.md)

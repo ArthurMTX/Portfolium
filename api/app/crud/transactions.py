@@ -6,8 +6,21 @@ from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from app.models import Transaction, TransactionType
+from app.models import Portfolio, Transaction, TransactionType
 from app.schemas import TransactionCreate
+
+
+def bump_tx_change_seq(db: Session, portfolio_id: int, count: int = 1) -> None:
+    """Increment the portfolio's transaction-revision counter.
+
+    Bumped on every transaction create/update/delete regardless of cash
+    mode; compared against cash_ledger_synced_seq to detect a cash ledger
+    left stale while a portfolio was untracked. Does not commit.
+    """
+    db.query(Portfolio).filter(Portfolio.id == portfolio_id).update(
+        {Portfolio.tx_change_seq: Portfolio.tx_change_seq + count},
+        synchronize_session=False,
+    )
 
 
 def get_transaction(db: Session, transaction_id: int) -> Optional[Transaction]:
@@ -61,11 +74,17 @@ def get_transactions(
 
 
 def create_transaction(
-    db: Session, 
+    db: Session,
     portfolio_id: int,
-    transaction: TransactionCreate
+    transaction: TransactionCreate,
+    commit: bool = True
 ) -> Transaction:
-    """Create new transaction"""
+    """Create new transaction
+
+    With commit=False the row is only flushed: the caller owns the commit
+    and the cache invalidation (used by the cash ledger so a transaction
+    and its derived cash movements commit atomically).
+    """
     db_transaction = Transaction(
         portfolio_id=portfolio_id,
         asset_id=transaction.asset_id,
@@ -79,29 +98,40 @@ def create_transaction(
         notes=transaction.notes
     )
     db.add(db_transaction)
-    db.commit()
-    db.refresh(db_transaction)
+    bump_tx_change_seq(db, portfolio_id)
     from app.observability.metrics import TRANSACTIONS_CREATED
 
+    if not commit:
+        db.flush()
+        TRANSACTIONS_CREATED.inc()
+        return db_transaction
+
+    db.commit()
+    db.refresh(db_transaction)
     TRANSACTIONS_CREATED.inc()
-    
+
     # Invalidate position cache since transactions changed
     from app.services.platform.cache import invalidate_positions
     invalidate_positions(portfolio_id)
-    
+
     return db_transaction
 
 
 def update_transaction(
     db: Session,
     transaction_id: int,
-    transaction: TransactionCreate
+    transaction: TransactionCreate,
+    commit: bool = True
 ) -> Optional[Transaction]:
-    """Update existing transaction"""
+    """Update existing transaction
+
+    With commit=False the change is only flushed: the caller owns the
+    commit and the cache invalidation (see create_transaction).
+    """
     db_transaction = get_transaction(db, transaction_id)
     if not db_transaction:
         return None
-    
+
     db_transaction.asset_id = transaction.asset_id
     db_transaction.tx_date = transaction.tx_date
     db_transaction.type = transaction.type
@@ -111,31 +141,46 @@ def update_transaction(
     db_transaction.currency = transaction.currency
     db_transaction.meta_data = transaction.meta_data
     db_transaction.notes = transaction.notes
-    
+    bump_tx_change_seq(db, db_transaction.portfolio_id)
+
+    if not commit:
+        db.flush()
+        return db_transaction
+
     db.commit()
     db.refresh(db_transaction)
-    
+
     # Invalidate position cache since transactions changed
     from app.services.platform.cache import invalidate_positions
     invalidate_positions(db_transaction.portfolio_id)
-    
+
     return db_transaction
 
 
-def delete_transaction(db: Session, transaction_id: int) -> bool:
-    """Delete transaction"""
+def delete_transaction(db: Session, transaction_id: int, commit: bool = True) -> bool:
+    """Delete transaction
+
+    With commit=False the deletion is only flushed: the caller owns the
+    commit and the cache invalidation (see create_transaction).
+    """
     db_transaction = get_transaction(db, transaction_id)
     if not db_transaction:
         return False
-    
+
     portfolio_id = db_transaction.portfolio_id
     db.delete(db_transaction)
+    bump_tx_change_seq(db, portfolio_id)
+
+    if not commit:
+        db.flush()
+        return True
+
     db.commit()
-    
+
     # Invalidate position cache since transactions changed
     from app.services.platform.cache import invalidate_positions
     invalidate_positions(portfolio_id)
-    
+
     return True
 
 

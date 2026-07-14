@@ -25,6 +25,7 @@ import {
   Tags,
   TrendingUp,
   User,
+  Wallet,
   Wrench,
   X,
 } from 'lucide-react'
@@ -154,6 +155,12 @@ export default function Layout() {
       label: t('navigation.transactions'),
       icon: ArrowLeftRight,
       isActive: (pathname) => pathname.startsWith('/transactions'),
+    },
+    {
+      to: '/cash',
+      label: t('cash.nav'),
+      icon: Wallet,
+      isActive: (pathname) => pathname === '/cash',
     },
     {
       to: '/allocation',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { invalidatePortfolioQueries } from '@/features/portfolios/lib/invalidatePortfolioQueries'
 import api, { type CsvImportPreviewResultDTO } from '@/api'
@@ -30,10 +30,12 @@ import { formatCurrency, formatQuantity } from '@/shared/lib/formatUtils'
 import { Trans, useTranslation } from 'react-i18next'
 import { getFilteredSortedTransactions } from '@/features/transactions/lib/transactionSortUtils'
 import {
+  getTransactionCashDelta,
   getTransactionSummary,
   getTransactionWarnings,
   type PriceSource,
 } from '@/features/transactions/lib/transactionDerivedState'
+import { findBalance, parseCashErrorFromMessage, toAmount } from '@/features/cash/lib/cashDerivedState'
 import {
   buildAutoPricePayload,
   buildCreateTransactionPayload,
@@ -127,6 +129,15 @@ export default function Transactions() {
   const incrementDataVersion = usePortfolioStore((state) => state.incrementDataVersion)
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId)
   const portfolioCurrency = activePortfolio?.base_currency || 'EUR'
+  // Cash tracking: untracked portfolios fire no cash queries and keep the
+  // historical transaction workflow untouched
+  const cashMode = activePortfolio?.cash_mode ?? 'untracked'
+  const cashTracked = cashMode !== 'untracked'
+  const cashBalancesQuery = useQuery({
+    queryKey: ['cash-balances', activePortfolioId],
+    queryFn: () => api.getCashBalances(activePortfolioId!),
+    enabled: activePortfolioId != null && cashTracked,
+  })
 
   // Helper to invalidate the transaction-derived caches of this portfolio.
   // Targeted on purpose: the previous queryClient.removeQueries() dropped the
@@ -686,7 +697,18 @@ export default function Transactions() {
       closeModal()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Operation failed'
-      setFormError(message)
+      // Strict cash mode returns a structured insufficient-cash rejection
+      const cashDetail = err instanceof Error ? parseCashErrorFromMessage(err.message) : null
+      if (cashDetail?.code === 'insufficient_cash') {
+        setFormError(t('transactions.cash.insufficientCash', {
+          currency: cashDetail.context.currency,
+          available: cashDetail.context.available,
+          required: cashDetail.context.required,
+          missing: cashDetail.context.missing,
+        }))
+      } else {
+        setFormError(message)
+      }
     } finally {
       setFormLoading(false)
     }
@@ -1193,6 +1215,15 @@ export default function Transactions() {
     splitRatio,
     getTranslatedType,
   })
+  // Available cash in the settlement currency (tracked portfolios only)
+  const settlementBalance = cashTracked
+    ? findBalance(cashBalancesQuery.data?.balances, transactionSummary.currency)
+    : null
+  const availableCash = cashTracked && cashBalancesQuery.data
+    ? (settlementBalance ? toAmount(settlementBalance.balance) : 0)
+    : null
+  const transactionCashDelta = getTransactionCashDelta(transactionSummary, txType)
+
   const transactionWarnings = getTransactionWarnings({
     summary: transactionSummary,
     txType,
@@ -1203,6 +1234,8 @@ export default function Transactions() {
     priceInfo,
     portfolioCurrency,
     translate: (key, options) => t(key, options),
+    cashMode,
+    availableCash,
   })
 
   const hasHighRiskSellWarning = transactionWarnings.some((warning) => warning.key === 'sell-too-large')
@@ -1583,6 +1616,9 @@ export default function Transactions() {
           currentLocale={currentLocale}
           transactionSummary={transactionSummary}
           transactionWarnings={transactionWarnings}
+          cashMode={cashMode}
+          availableCash={availableCash}
+          cashDelta={transactionCashDelta}
           sellQuantityLoading={sellQuantityLoading}
           riskAcknowledged={riskAcknowledged}
           hasHighRiskSellWarning={hasHighRiskSellWarning}

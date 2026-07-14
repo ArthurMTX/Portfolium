@@ -116,6 +116,23 @@ log rather than failing the whole metrics calculation — a multi-currency
 portfolio metric can therefore occasionally show one position in its original
 currency if FX data is temporarily unavailable for that pair.
 
+## Cash valuation
+
+The [cash ledger](cash-ledger.md) reuses `CurrencyService` — there is no
+second FX subsystem:
+
+- current balances convert with `get_exchange_rate` (current rates);
+- the history series and the stored `base_exchange_rate` of each movement
+  use `get_historical_exchange_rate` (historical rates); the two are never
+  mixed;
+- `get_exchange_rate_fetched_at` / `is_exchange_rate_stale` expose rate
+  freshness so cash balances can be flagged as *stale* in the API;
+- for the stablecoin settlement units accepted by the cash ledger (USDT,
+  USDC) an allowlist-gated fallback tries the crypto pair symbol
+  (`USDT-EUR`) when no `=X` forex pair exists;
+- an unavailable rate makes the balance `rate_unavailable` and excludes it
+  from converted totals — cash is never silently converted at 1:1.
+
 ## Related documentation
 
 - [Pricing](pricing.md) — the shared Yahoo Finance provider and rate-limit circuit breaker.

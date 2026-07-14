@@ -959,3 +959,201 @@ class ConversionTransactionFailedError(PortfoliumException):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create conversion: {reason}"
         )
+
+
+# Cash tracking errors
+#
+# Unlike the string-detail convention used elsewhere, cash errors carry a
+# machine-readable dict detail: {"code": ..., "message": ..., "context": {...}}.
+# FastAPI serializes dict details as-is, so existing handlers are unaffected.
+# Decimal values inside context are serialized as strings to avoid float loss.
+class CashError(PortfoliumException):
+    """Base class for structured cash-ledger business errors"""
+
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        context: Optional[Dict] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ):
+        super().__init__(
+            status_code=status_code,
+            detail={"code": code, "message": message, "context": context or {}},
+            headers=headers,
+        )
+
+
+def _money(value) -> str:
+    """Serialize a Decimal amount as a string with 8 decimal places"""
+    from decimal import Decimal, ROUND_HALF_UP
+
+    return str(Decimal(value).quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP))
+
+
+class InsufficientCashError(CashError):
+    """Raised in strict mode when a movement would make a cash balance negative"""
+
+    def __init__(
+        self,
+        portfolio_id: int,
+        currency: str,
+        available,
+        required,
+        missing,
+        movement_date: Optional[date] = None,
+    ):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="insufficient_cash",
+            message=(
+                f"Insufficient {currency} cash in portfolio {portfolio_id}: "
+                f"available {_money(available)}, required {_money(required)}, "
+                f"missing {_money(missing)}"
+                + (f" as of {movement_date.isoformat()}" if movement_date else "")
+            ),
+            context={
+                "portfolio_id": portfolio_id,
+                "currency": currency,
+                "available": _money(available),
+                "required": _money(required),
+                "missing": _money(missing),
+                "date": movement_date.isoformat() if movement_date else None,
+            },
+        )
+
+
+class CashTrackingNotEnabledError(CashError):
+    """Raised when a cash endpoint is used on an untracked portfolio"""
+
+    def __init__(self, portfolio_id: int):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="cash_tracking_not_enabled",
+            message=f"Cash tracking is not enabled for portfolio {portfolio_id}",
+            context={"portfolio_id": portfolio_id},
+        )
+
+
+class CashMovementNotFoundError(CashError):
+    """Raised when a cash movement is not found in the portfolio"""
+
+    def __init__(self, portfolio_id: int, movement_id: int):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="cash_movement_not_found",
+            message=f"Cash movement {movement_id} not found in portfolio {portfolio_id}",
+            context={"portfolio_id": portfolio_id, "movement_id": movement_id},
+        )
+
+
+class DerivedMovementImmutableError(CashError):
+    """Raised when trying to edit/delete a movement derived from a transaction or conversion"""
+
+    def __init__(self, movement_id: int, source: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="derived_movement_immutable",
+            message=(
+                f"Cash movement {movement_id} is derived from a {source} and cannot be "
+                f"modified directly; modify the {source} instead"
+            ),
+            context={"movement_id": movement_id, "source": source},
+        )
+
+
+class FxConversionNotFoundError(CashError):
+    """Raised when a Forex conversion is not found in the portfolio"""
+
+    def __init__(self, portfolio_id: int, conversion_id: str):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="fx_conversion_not_found",
+            message=f"Forex conversion {conversion_id} not found in portfolio {portfolio_id}",
+            context={"portfolio_id": portfolio_id, "conversion_id": conversion_id},
+        )
+
+
+class AdjustmentReasonRequiredError(CashError):
+    """Raised when a cash adjustment is created without an explicit reason"""
+
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="adjustment_reason_required",
+            message="Cash adjustments require an explicit reason",
+            context={},
+        )
+
+
+class InvalidCurrencyCodeError(CashError):
+    """Raised for unknown or unsupported cash currency codes"""
+
+    def __init__(self, code: str, reason: Optional[str] = None):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="invalid_currency_code",
+            message=reason or f"Unsupported cash currency code: '{code}'",
+            context={"currency": code},
+        )
+
+
+class CashActivationConflictError(CashError):
+    """Raised when activating cash tracking on an already-tracked portfolio"""
+
+    def __init__(self, portfolio_id: int):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="cash_activation_conflict",
+            message=(
+                f"Cash tracking is already active for portfolio {portfolio_id}; "
+                "disable it before re-activating with a different configuration"
+            ),
+            context={"portfolio_id": portfolio_id},
+        )
+
+
+class CashModeTransitionError(CashError):
+    """Raised for invalid cash mode transitions"""
+
+    def __init__(self, portfolio_id: int, from_mode: str, to_mode: str, reason: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="cash_mode_transition_invalid",
+            message=f"Cannot change cash mode from {from_mode} to {to_mode}: {reason}",
+            context={
+                "portfolio_id": portfolio_id,
+                "from_mode": from_mode,
+                "to_mode": to_mode,
+                "reason": reason,
+            },
+        )
+
+
+class CashLedgerStaleError(CashError):
+    """Raised when re-enabling tracking over a ledger that no longer matches the transactions"""
+
+    def __init__(self, portfolio_id: int):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="cash_ledger_stale",
+            message=(
+                f"The cash ledger of portfolio {portfolio_id} no longer matches its "
+                "transactions (they changed while tracking was disabled); wipe the "
+                "ledger and re-activate"
+            ),
+            context={"portfolio_id": portfolio_id},
+        )
+
+
+class CashLedgerNotEmptyError(CashError):
+    """Raised when an operation requires an empty or disabled cash ledger"""
+
+    def __init__(self, portfolio_id: int, reason: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            code="cash_ledger_not_empty",
+            message=reason,
+            context={"portfolio_id": portfolio_id},
+        )

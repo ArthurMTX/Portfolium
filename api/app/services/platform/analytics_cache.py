@@ -16,10 +16,20 @@ logger = logging.getLogger(__name__)
 _CACHE_TTL = 3600  # 1 hour in seconds
 
 
-def _calculate_fingerprint(portfolio_id: int, positions: list, last_transaction_date: Optional[str]) -> str:
+def _calculate_fingerprint(
+    portfolio_id: int,
+    positions: list,
+    last_transaction_date: Optional[str],
+    cash_state: Optional[str] = None,
+) -> str:
     """
     Calculate a fingerprint of the data that affects analytics
     Changes when: positions change, new transaction added, prices update
+
+    cash_state: opaque cash-ledger revision (e.g. "tracked_warn:<synced_seq>")
+    for analytics that consume cash balances. The current consumers (risk
+    metrics, benchmark comparison) are asset-return based and pass None;
+    cash writes additionally invalidate all analytics keys directly.
     """
     # Helper to convert Decimal to float for JSON serialization
     def convert_value(val):
@@ -45,6 +55,7 @@ def _calculate_fingerprint(portfolio_id: int, positions: list, last_transaction_
         'positions_count': len(positions),
         'positions_snapshot': positions_snapshot,
         'last_transaction': last_transaction_date,
+        'cash_state': cash_state,
         'date': datetime.now().strftime('%Y-%m-%d'),  # Changes daily to catch price updates
     }
     
@@ -58,23 +69,27 @@ def get_cached_analytics(
     portfolio_id: int,
     positions: list,
     last_transaction_date: Optional[str],
-    calculator: Callable[[], Any]
+    calculator: Callable[[], Any],
+    cash_state: Optional[str] = None,
 ) -> Any:
     """
     Get cached analytics result or calculate if data changed (using Redis)
-    
+
     Args:
         cache_key: Base key for the cache (e.g., 'risk_metrics', 'benchmark_comparison')
         portfolio_id: Portfolio ID
         positions: Current positions list
         last_transaction_date: Date of last transaction
         calculator: Function to call if cache miss
-    
+        cash_state: Optional cash-ledger revision for cash-dependent analytics
+
     Returns:
         Cached or freshly calculated result
     """
     # Calculate data fingerprint
-    fingerprint = _calculate_fingerprint(portfolio_id, positions, last_transaction_date)
+    fingerprint = _calculate_fingerprint(
+        portfolio_id, positions, last_transaction_date, cash_state
+    )
     full_key = f"{CacheService.PREFIX_ANALYTICS}{cache_key}_{portfolio_id}_{fingerprint}"
     
     # Check Redis cache

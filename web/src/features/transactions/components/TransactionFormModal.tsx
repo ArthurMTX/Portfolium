@@ -5,7 +5,7 @@ import AssetLogo from '@/shared/components/AssetLogo'
 import { InlineLoading } from '@/shared/components/StatePrimitives'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { formatTransactionQuantity } from '@/features/transactions/lib/transactionFormUtils'
-import type { FormWarning, TransactionSummary } from '@/features/transactions/lib/transactionDerivedState'
+import type { CashTrackingMode, FormWarning, TransactionSummary } from '@/features/transactions/lib/transactionDerivedState'
 
 type ModalMode = 'add' | 'edit'
 
@@ -36,6 +36,12 @@ interface TransactionFormModalProps {
   currentLocale: string
   transactionSummary: TransactionSummary
   transactionWarnings: FormWarning[]
+  /** Cash tracking mode; 'untracked' hides all cash information */
+  cashMode?: CashTrackingMode
+  /** Available cash in the settlement currency (null while loading/unknown) */
+  availableCash?: number | null
+  /** Signed cash impact of this transaction in the settlement currency */
+  cashDelta?: number
   sellQuantityLoading: boolean
   riskAcknowledged: boolean
   hasHighRiskSellWarning: boolean
@@ -76,6 +82,9 @@ export default function TransactionFormModal({
   currentLocale,
   transactionSummary,
   transactionWarnings,
+  cashMode = 'untracked',
+  availableCash = null,
+  cashDelta = 0,
   sellQuantityLoading,
   riskAcknowledged,
   hasHighRiskSellWarning,
@@ -406,6 +415,41 @@ export default function TransactionFormModal({
                 <div>
                   <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.summary.netTotal')}</div>
                   <div className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCurrency(transactionSummary.netTotal, transactionSummary.currency, currentLocale, true)}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Cash impact (tracked portfolios only): settlement currency,
+                required cash, available cash, projected remaining balance */}
+            {cashMode !== 'untracked' && !transactionSummary.isSplit && cashDelta !== 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.cash.settlementCurrency')}</div>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-100">{transactionSummary.currency}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {cashDelta < 0 ? t('transactions.cash.requiredCash') : t('transactions.cash.cashCredited')}
+                  </div>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                    {formatCurrency(Math.abs(cashDelta), transactionSummary.currency, currentLocale, true)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.cash.availableCash')}</div>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                    {availableCash !== null
+                      ? formatCurrency(availableCash, transactionSummary.currency, currentLocale, true)
+                      : '-'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('transactions.cash.projectedBalance')}</div>
+                  <div className={`font-semibold ${availableCash !== null && availableCash + cashDelta < 0 ? 'text-red-600 dark:text-red-400' : 'text-neutral-900 dark:text-neutral-100'}`}>
+                    {availableCash !== null
+                      ? formatCurrency(availableCash + cashDelta, transactionSummary.currency, currentLocale, true)
+                      : '-'}
+                  </div>
                 </div>
               </div>
             )}

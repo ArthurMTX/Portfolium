@@ -2900,7 +2900,7 @@
       "Body_import_csv_portfolios_import_csv_post": {
         "properties": {
           "file": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
           }
@@ -2914,7 +2914,7 @@
       "Body_import_csv_stream_portfolios_import_csv_stream_post": {
         "properties": {
           "file": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
           }
@@ -2928,7 +2928,7 @@
       "Body_import_watchlist_csv_stream_watchlist_import_csv_stream_post": {
         "properties": {
           "file": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
           }
@@ -2942,7 +2942,7 @@
       "Body_import_watchlist_csv_watchlist_import_csv_post": {
         "properties": {
           "file": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
           }
@@ -3015,7 +3015,7 @@
       "Body_preview_import_csv_portfolios_import_csv_preview_post": {
         "properties": {
           "file": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
           }
@@ -3024,6 +3024,879 @@
           "file"
         ],
         "title": "Body_preview_import_csv_portfolios_import_csv_preview_post",
+        "type": "object"
+      },
+      "CashActivationPreview": {
+        "description": "Dry-run result of an activation request",
+        "properties": {
+          "blocking_issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocking Issues",
+            "type": "array"
+          },
+          "derived_movement_count": {
+            "title": "Derived Movement Count",
+            "type": "integer"
+          },
+          "negative_dips": {
+            "items": {
+              "$ref": "#/components/schemas/CashNegativeDip"
+            },
+            "title": "Negative Dips",
+            "type": "array"
+          },
+          "opening_balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashOpeningBalance-Output"
+            },
+            "title": "Opening Balances",
+            "type": "array"
+          },
+          "projected_balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashProjectedBalance"
+            },
+            "title": "Projected Balances",
+            "type": "array"
+          },
+          "proposed_opening_balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashOpeningBalance-Output"
+            },
+            "title": "Proposed Opening Balances",
+            "type": "array"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "target_mode": {
+            "$ref": "#/components/schemas/CashMode"
+          }
+        },
+        "required": [
+          "strategy",
+          "start_date",
+          "target_mode",
+          "derived_movement_count"
+        ],
+        "title": "CashActivationPreview",
+        "type": "object"
+      },
+      "CashActivationRequest": {
+        "description": "Enable cash tracking on a portfolio.\n\nstrategy='opening_balances': start from start_date with the given\nopening balances; earlier transactions never affect cash.\nstrategy='replay': reconstruct cash effects of historical transactions\nsince start_date; the preview proposes the opening balances needed to\navoid unexplained negative dips.",
+        "properties": {
+          "activation_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client-generated UUID; makes activation idempotent (required on apply)",
+            "title": "Activation Id"
+          },
+          "opening_balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashOpeningBalance-Input"
+            },
+            "title": "Opening Balances",
+            "type": "array"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "strategy": {
+            "pattern": "^(opening_balances|replay)$",
+            "title": "Strategy",
+            "type": "string"
+          },
+          "target_mode": {
+            "$ref": "#/components/schemas/CashMode"
+          }
+        },
+        "required": [
+          "strategy",
+          "start_date",
+          "target_mode"
+        ],
+        "title": "CashActivationRequest",
+        "type": "object"
+      },
+      "CashActivationResult": {
+        "description": "Activation apply response",
+        "properties": {
+          "activation_id": {
+            "title": "Activation Id",
+            "type": "string"
+          },
+          "already_applied": {
+            "default": false,
+            "title": "Already Applied",
+            "type": "boolean"
+          },
+          "cash_mode": {
+            "$ref": "#/components/schemas/CashMode"
+          },
+          "cash_tracking_started_on": {
+            "format": "date",
+            "title": "Cash Tracking Started On",
+            "type": "string"
+          },
+          "derived_movement_count": {
+            "title": "Derived Movement Count",
+            "type": "integer"
+          },
+          "opening_balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashOpeningBalance-Output"
+            },
+            "title": "Opening Balances",
+            "type": "array"
+          },
+          "portfolio_id": {
+            "title": "Portfolio Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "portfolio_id",
+          "cash_mode",
+          "cash_tracking_started_on",
+          "activation_id",
+          "derived_movement_count"
+        ],
+        "title": "CashActivationResult",
+        "type": "object"
+      },
+      "CashBalance": {
+        "description": "One currency balance, native plus base-currency conversion",
+        "properties": {
+          "balance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Balance",
+            "type": "string"
+          },
+          "balance_base": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Base"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "rate_stale": {
+            "default": false,
+            "title": "Rate Stale",
+            "type": "boolean"
+          },
+          "rate_unavailable": {
+            "default": false,
+            "title": "Rate Unavailable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "currency",
+          "balance"
+        ],
+        "title": "CashBalance",
+        "type": "object"
+      },
+      "CashBalancesResponse": {
+        "description": "GET /cash/balances response",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashBalance"
+            },
+            "title": "Balances",
+            "type": "array"
+          },
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "fx_status": {
+            "default": "ok",
+            "title": "Fx Status",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "title": "Portfolio Id",
+            "type": "integer"
+          },
+          "total_base": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Base"
+          }
+        },
+        "required": [
+          "portfolio_id",
+          "base_currency",
+          "as_of"
+        ],
+        "title": "CashBalancesResponse",
+        "type": "object"
+      },
+      "CashLedgerWipeRequest": {
+        "description": "Explicit confirmation body for the destructive ledger wipe",
+        "properties": {
+          "confirm": {
+            "pattern": "^DELETE$",
+            "title": "Confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm"
+        ],
+        "title": "CashLedgerWipeRequest",
+        "type": "object"
+      },
+      "CashMode": {
+        "description": "Per-portfolio cash tracking mode.\n\nUNTRACKED reproduces the historical Portfolium behavior: no cash ledger,\nno cash valuation, transactions are never rejected for insufficient cash.\nTRACKED_WARN maintains the ledger and surfaces warnings on negative\nbalances. TRACKED_STRICT rejects operations that would make a settlement\ncurrency balance negative at any date.",
+        "enum": [
+          "untracked",
+          "tracked_warn",
+          "tracked_strict"
+        ],
+        "title": "CashMode",
+        "type": "string"
+      },
+      "CashModeChangeRequest": {
+        "description": "Change the cash mode of a tracked portfolio",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/CashMode"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "CashModeChangeRequest",
+        "type": "object"
+      },
+      "CashMovementCreate": {
+        "description": "Manual cash operation.\n\nopening_balance is intentionally NOT accepted here: opening balances\nare created only by the activation/reconstruction workflows.",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "description": "Positive amount; the type determines the sign",
+            "title": "Amount"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "pattern": "^(credit|debit)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for adjustments: which side the correction goes",
+            "title": "Direction"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for adjustments",
+            "title": "Reason"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CashMovementType"
+          }
+        },
+        "required": [
+          "type",
+          "currency",
+          "amount",
+          "occurred_on"
+        ],
+        "title": "CashMovementCreate",
+        "type": "object"
+      },
+      "CashMovementListResponse": {
+        "description": "Paginated movement history",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CashMovementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "CashMovementListResponse",
+        "type": "object"
+      },
+      "CashMovementOut": {
+        "description": "Cash ledger movement response",
+        "properties": {
+          "activation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activation Id"
+          },
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "base_currency_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Currency Amount"
+          },
+          "base_exchange_rate": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Exchange Rate"
+          },
+          "conversion_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversion Id"
+          },
+          "conversion_rate": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversion Rate"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "title": "Portfolio Id",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CashMovementType"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "portfolio_id",
+          "currency",
+          "type",
+          "amount",
+          "occurred_on",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CashMovementOut",
+        "type": "object"
+      },
+      "CashMovementResponse": {
+        "description": "Movement mutation response with warn-mode warnings",
+        "properties": {
+          "movement": {
+            "$ref": "#/components/schemas/CashMovementOut"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/CashWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "movement"
+        ],
+        "title": "CashMovementResponse",
+        "type": "object"
+      },
+      "CashMovementType": {
+        "description": "Cash ledger movement type.\n\nopening_balance is reserved for activation/reconstruction workflows;\nbuy/sell/dividend movements are derived from asset transactions;\nfx_debit/fx_credit are the two legs of an explicit Forex conversion.",
+        "enum": [
+          "opening_balance",
+          "deposit",
+          "withdrawal",
+          "buy",
+          "sell",
+          "dividend",
+          "interest",
+          "fee",
+          "tax",
+          "fx_debit",
+          "fx_credit",
+          "adjustment"
+        ],
+        "title": "CashMovementType",
+        "type": "string"
+      },
+      "CashMovementUpdate": {
+        "description": "Partial update of a manual cash movement",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "pattern": "^(credit|debit)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "occurred_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred On"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "CashMovementUpdate",
+        "type": "object"
+      },
+      "CashNegativeDip": {
+        "description": "Earliest projected negative balance for one currency",
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "projected_balance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Projected Balance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "date",
+          "projected_balance"
+        ],
+        "title": "CashNegativeDip",
+        "type": "object"
+      },
+      "CashOpeningBalance-Input": {
+        "description": "Opening balance for one currency at activation",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "amount"
+        ],
+        "title": "CashOpeningBalance",
+        "type": "object"
+      },
+      "CashOpeningBalance-Output": {
+        "description": "Opening balance for one currency at activation",
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "amount"
+        ],
+        "title": "CashOpeningBalance",
+        "type": "object"
+      },
+      "CashPnlBreakdown": {
+        "description": "Cash-related PnL components, in the portfolio base currency.\n\nfx_pnl is deferred in this release: it is always None with\nfx_pnl_status='unavailable' (never a fabricated approximation).",
+        "properties": {
+          "fx_pnl": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Pnl"
+          },
+          "fx_pnl_status": {
+            "default": "unavailable",
+            "title": "Fx Pnl Status",
+            "type": "string"
+          },
+          "interest_income": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Interest Income",
+            "type": "string"
+          },
+          "standalone_fees": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Standalone Fees",
+            "type": "string"
+          },
+          "standalone_taxes": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Standalone Taxes",
+            "type": "string"
+          }
+        },
+        "title": "CashPnlBreakdown",
+        "type": "object"
+      },
+      "CashProjectedBalance": {
+        "description": "Projected balance for one currency in an activation preview",
+        "properties": {
+          "balance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Balance",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "balance"
+        ],
+        "title": "CashProjectedBalance",
+        "type": "object"
+      },
+      "CashSummary": {
+        "description": "Cash valuation of a tracked portfolio",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "balances": {
+            "items": {
+              "$ref": "#/components/schemas/CashBalance"
+            },
+            "title": "Balances",
+            "type": "array"
+          },
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "fx_status": {
+            "default": "ok",
+            "title": "Fx Status",
+            "type": "string"
+          },
+          "pnl": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CashPnlBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_base": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Base"
+          }
+        },
+        "required": [
+          "base_currency",
+          "as_of"
+        ],
+        "title": "CashSummary",
+        "type": "object"
+      },
+      "CashWarning": {
+        "description": "Projected negative cash balance (tracked_warn portfolios)",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "projected_balance": {
+            "title": "Projected Balance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "currency",
+          "date",
+          "projected_balance"
+        ],
+        "title": "CashWarning",
         "type": "object"
       },
       "ConcentrationMetrics": {
@@ -3291,6 +4164,20 @@
       "ConversionResponse": {
         "description": "Response for a conversion transaction",
         "properties": {
+          "cash_warnings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CashWarning"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Warnings"
+          },
           "conversion_id": {
             "description": "Unique ID linking the two transactions",
             "title": "Conversion Id",
@@ -3390,6 +4277,14 @@
       "CsvImportPreviewResult": {
         "description": "Non-mutating CSV import preview",
         "properties": {
+          "cash_warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CashWarning"
+            },
+            "title": "Cash Warnings",
+            "type": "array"
+          },
           "duplicate_count": {
             "title": "Duplicate Count",
             "type": "integer"
@@ -3567,46 +4462,7 @@
         "title": "DashboardLayoutCreate",
         "type": "object"
       },
-      "DashboardLayoutExport-Input": {
-        "description": "Schema for exporting/importing dashboard layouts",
-        "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "exported_at": {
-            "format": "date-time",
-            "title": "Exported At",
-            "type": "string"
-          },
-          "layout_config": {
-            "$ref": "#/components/schemas/LayoutConfigSchema"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "version": {
-            "default": "1.0",
-            "title": "Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "layout_config"
-        ],
-        "title": "DashboardLayoutExport",
-        "type": "object"
-      },
-      "DashboardLayoutExport-Output": {
+      "DashboardLayoutExport": {
         "description": "Schema for exporting/importing dashboard layouts",
         "properties": {
           "description": {
@@ -4094,6 +4950,132 @@
           "theme_evolution"
         ],
         "title": "ExposureInsights",
+        "type": "object"
+      },
+      "FxConversionCreate": {
+        "description": "Explicit Forex conversion between two cash currencies.\n\nRate convention (used everywhere in Portfolium): target-currency units\nreceived per 1 source-currency unit.",
+        "properties": {
+          "fee_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Amount"
+          },
+          "fee_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to the source currency",
+            "title": "Fee Currency"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "source_amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Source Amount"
+          },
+          "source_currency": {
+            "title": "Source Currency",
+            "type": "string"
+          },
+          "target_amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Target Amount"
+          },
+          "target_currency": {
+            "title": "Target Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_currency",
+          "target_currency",
+          "source_amount",
+          "target_amount",
+          "occurred_on"
+        ],
+        "title": "FxConversionCreate",
+        "type": "object"
+      },
+      "FxConversionResponse": {
+        "description": "Forex conversion response: all linked ledger legs",
+        "properties": {
+          "conversion_id": {
+            "title": "Conversion Id",
+            "type": "string"
+          },
+          "conversion_rate": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Conversion Rate",
+            "type": "string"
+          },
+          "movements": {
+            "items": {
+              "$ref": "#/components/schemas/CashMovementOut"
+            },
+            "title": "Movements",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/CashWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "conversion_id",
+          "conversion_rate"
+        ],
+        "title": "FxConversionResponse",
         "type": "object"
       },
       "GeographicAllocation": {
@@ -4928,6 +5910,22 @@
             "title": "Base Currency",
             "type": "string"
           },
+          "cash_mode": {
+            "$ref": "#/components/schemas/CashMode",
+            "default": "untracked"
+          },
+          "cash_tracking_started_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Tracking Started On"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -5359,6 +6357,17 @@
       },
       "PortfolioHistoryPoint": {
         "properties": {
+          "cash_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Value"
+          },
           "cost_basis": {
             "anyOf": [
               {
@@ -5624,6 +6633,16 @@
       "PortfolioMetrics": {
         "description": "Portfolio-level metrics",
         "properties": {
+          "cash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CashSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "daily_change_pct": {
             "anyOf": [
               {
@@ -7285,6 +8304,20 @@
             "title": "Asset Id",
             "type": "integer"
           },
+          "cash_warnings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CashWarning"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Warnings"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -7936,6 +8969,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -13646,7 +14686,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DashboardLayoutExport-Input"
+                "$ref": "#/components/schemas/DashboardLayoutExport"
               }
             }
           },
@@ -13910,7 +14950,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardLayoutExport-Output"
+                  "$ref": "#/components/schemas/DashboardLayoutExport"
                 }
               }
             },
@@ -17161,6 +18201,819 @@
         "summary": "Add Position Transaction",
         "tags": [
           "transactions"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/activation": {
+      "post": {
+        "description": "Enable cash tracking atomically and idempotently (re-POSTing the\nsame activation_id returns the stored result instead of duplicating).",
+        "operationId": "apply_cash_activation_portfolios__portfolio_id__cash_activation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashActivationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashActivationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Apply Cash Activation",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/activation/preview": {
+      "post": {
+        "description": "Dry-run of enabling cash tracking: projected balances per currency,\nearliest negative dips, and (for the replay strategy) the proposed\nopening balances that avoid unexplained negative cash. Writes nothing.",
+        "operationId": "preview_cash_activation_portfolios__portfolio_id__cash_activation_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashActivationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashActivationPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Preview Cash Activation",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/balances": {
+      "get": {
+        "description": "Per-currency cash balances with base-currency conversion and rate freshness",
+        "operationId": "get_cash_balances_portfolios__portfolio_id__cash_balances_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashBalancesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Cash Balances",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/fx-conversions": {
+      "post": {
+        "description": "Create an explicit Forex conversion (linked fx_debit/fx_credit legs\nplus an optional fee leg). Strict mode requires the source currency to\ncover the debit; there is never any automatic conversion.",
+        "operationId": "create_fx_conversion_portfolios__portfolio_id__cash_fx_conversions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxConversionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FxConversionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Fx Conversion",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/fx-conversions/{conversion_id}": {
+      "delete": {
+        "description": "Delete all legs of a conversion atomically",
+        "operationId": "delete_fx_conversion_portfolios__portfolio_id__cash_fx_conversions__conversion_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "conversion_id",
+            "required": true,
+            "schema": {
+              "title": "Conversion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Fx Conversion",
+        "tags": [
+          "cash"
+        ]
+      },
+      "put": {
+        "description": "Replace all legs of a conversion consistently",
+        "operationId": "update_fx_conversion_portfolios__portfolio_id__cash_fx_conversions__conversion_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "conversion_id",
+            "required": true,
+            "schema": {
+              "title": "Conversion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxConversionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FxConversionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Fx Conversion",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/ledger": {
+      "delete": {
+        "description": "Destructive, explicit wipe of all cash ledger data. Only allowed\nwhile the portfolio is untracked (disable tracking first).",
+        "operationId": "wipe_cash_ledger_portfolios__portfolio_id__cash_ledger_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashLedgerWipeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Wipe Cash Ledger",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/mode": {
+      "put": {
+        "description": "Change the cash mode. warn->strict validates historical\nnon-negativity; tracked->untracked keeps the ledger (excluded from\nvaluation); untracked->tracked requires the activation workflow.",
+        "operationId": "change_cash_mode_portfolios__portfolio_id__cash_mode_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashModeChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Change Cash Mode",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/movements": {
+      "get": {
+        "description": "Movement history, newest first",
+        "operationId": "list_cash_movements_portfolios__portfolio_id__cash_movements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 8,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CashMovementType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "skip",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Skip",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashMovementListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Cash Movements",
+        "tags": [
+          "cash"
+        ]
+      },
+      "post": {
+        "description": "Create a manual cash movement (deposit, withdrawal, adjustment,\ninterest, fee, tax). Amounts are positive; the backend assigns the\naccounting sign. opening_balance is reserved for activation.",
+        "operationId": "create_cash_movement_portfolios__portfolio_id__cash_movements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashMovementCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashMovementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Cash Movement",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/movements/{movement_id}": {
+      "delete": {
+        "description": "Delete a manual movement. Strict mode re-validates the remaining\nledger (removing a deposit can strand later spending).",
+        "operationId": "delete_cash_movement_portfolios__portfolio_id__cash_movements__movement_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "title": "Movement Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Cash Movement",
+        "tags": [
+          "cash"
+        ]
+      },
+      "put": {
+        "description": "Update a manual movement. Transaction/conversion-derived and\nopening-balance movements are immutable through this endpoint.",
+        "operationId": "update_cash_movement_portfolios__portfolio_id__cash_movements__movement_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "title": "Movement Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashMovementUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashMovementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Cash Movement",
+        "tags": [
+          "cash"
+        ]
+      }
+    },
+    "/portfolios/{portfolio_id}/cash/summary": {
+      "get": {
+        "description": "Cash valuation plus the cash PnL breakdown (fx_pnl deferred)",
+        "operationId": "get_cash_summary_portfolios__portfolio_id__cash_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Cash Summary",
+        "tags": [
+          "cash"
         ]
       }
     },

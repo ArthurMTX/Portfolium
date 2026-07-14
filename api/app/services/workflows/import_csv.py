@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Generator, Tuple
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
-from app.models import TransactionType, Transaction
+from app.models import CashMode, Portfolio, TransactionType, Transaction
 from app.schemas import (
     CsvImportPreviewDuplicate,
     CsvImportPreviewIssue,
@@ -19,8 +19,10 @@ from app.schemas import (
     CsvImportResult,
     TransactionCreate,
 )
-from app.crud import assets as crud_assets, transactions as crud_transactions
+from app.crud import assets as crud_assets, cash as crud_cash, transactions as crud_transactions
 from app.db import get_db
+from app.errors import InvalidCurrencyCodeError
+from app.services.cash import ledger as cash_ledger
 from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
 from app.observability.metrics import IMPORTED_TRANSACTIONS
 
@@ -62,8 +64,199 @@ class CsvImportService:
         
         return invalid_symbols
     
+    def _get_portfolio(self, portfolio_id: int) -> Portfolio:
+        return self.db.query(Portfolio).filter(Portfolio.id == portfolio_id).one()
+
+    def _row_movement_specs(self, import_row: CsvImportRow):
+        """Cash movements one CSV row would generate (tracked portfolios)"""
+        return cash_ledger.derive_movement_specs(
+            tx_type=import_row.type,
+            quantity=import_row.quantity,
+            price=import_row.price,
+            fees=import_row.fees,
+            currency=import_row.currency,
+            tx_date=import_row.date,
+        )
+
+    def _project_cash_warnings(
+        self, portfolio: Portfolio, import_rows: List[CsvImportRow]
+    ) -> Tuple[list, List[str]]:
+        """Projected negative balances if these rows were imported.
+
+        Returns (cash warnings, currency issues). Read-only: strict
+        violations are reported as warnings (force_warn), not raised.
+        """
+        specs = []
+        issues: List[str] = []
+        for import_row in import_rows:
+            try:
+                specs.extend(self._row_movement_specs(import_row))
+            except InvalidCurrencyCodeError:
+                issues.append(
+                    f"Unsupported settlement currency '{import_row.currency}' "
+                    f"({import_row.symbol} on {import_row.date.isoformat()})"
+                )
+        warnings = cash_ledger.validate_cash_impact(
+            self.db, portfolio, specs, force_warn=True
+        )
+        return warnings, issues
+
+    def _import_csv_strict(
+        self, portfolio: Portfolio, rows: List[dict]
+    ) -> CsvImportResult:
+        """All-or-nothing import for tracked_strict portfolios.
+
+        Pass 1 parses and validates every row (any error rejects the whole
+        file) and get-or-creates the assets (a harmless committed side
+        effect, matching the untracked import). Pass 2 creates all
+        transaction rows and their derived cash movements in ONE SQL
+        transaction with the cash accounts locked; an insufficient-cash
+        violation rejects the file with nothing persisted.
+        """
+        atomic_note = (
+            "Strict cash mode: the import is atomic; no rows were imported"
+        )
+        warnings: List[str] = []
+        parsed: List[Tuple[int, CsvImportRow]] = []
+        for row_num, row in enumerate(rows, start=2):
+            try:
+                import_row = self._parse_row(row)
+                self._validate_import_row(import_row)
+            except Exception as e:
+                return CsvImportResult(
+                    success=False,
+                    imported_count=0,
+                    errors=[f"Row {row_num}: {str(e)}", atomic_note],
+                    warnings=warnings,
+                )
+            parsed.append((row_num, import_row))
+
+        # Derive all cash movement specs up front (currency policy applies)
+        specs_by_row: Dict[int, list] = {}
+        all_specs = []
+        for row_num, import_row in parsed:
+            try:
+                row_specs = self._row_movement_specs(import_row)
+            except InvalidCurrencyCodeError as e:
+                return CsvImportResult(
+                    success=False,
+                    imported_count=0,
+                    errors=[f"Row {row_num}: {e.detail['message']}", atomic_note],
+                    warnings=warnings,
+                )
+            specs_by_row[row_num] = row_specs
+            all_specs.extend(row_specs)
+
+        # Assets first (their creation commits, like the untracked import)
+        assets: Dict[str, Any] = {}
+        for row_num, import_row in parsed:
+            if import_row.symbol in assets:
+                continue
+            asset = crud_assets.get_asset_by_symbol(self.db, import_row.symbol)
+            if not asset:
+                from app.schemas import AssetCreate
+                from app.models import AssetClass
+
+                asset_class = AssetClass.CRYPTO if "-USD" in import_row.symbol else AssetClass.STOCK
+                asset = crud_assets.create_asset(self.db, AssetCreate(
+                    symbol=import_row.symbol,
+                    name=import_row.symbol,
+                    currency=import_row.currency,
+                    class_=asset_class,
+                ))
+                warnings.append(f"Row {row_num}: Auto-created asset {import_row.symbol}")
+            assets[import_row.symbol] = asset
+
+        # One SQL transaction: lock accounts, validate, insert everything
+        from app.errors import InsufficientCashError
+
+        currencies = sorted({spec.currency for spec in all_specs})
+        try:
+            if currencies:
+                crud_cash.get_or_create_accounts(self.db, portfolio.id, currencies)
+                crud_cash.lock_accounts(self.db, portfolio.id, currencies)
+            cash_ledger.validate_cash_impact(self.db, portfolio, all_specs)
+
+            created: List[Tuple[CsvImportRow, Any]] = []
+            fx_memo: dict = {}
+            for row_num, import_row in parsed:
+                meta_data = {}
+                if import_row.type == TransactionType.SPLIT and import_row.split_ratio:
+                    meta_data["split"] = import_row.split_ratio
+                if import_row.conversion_id:
+                    meta_data["conversion_id"] = import_row.conversion_id
+                tx_create = TransactionCreate(
+                    asset_id=assets[import_row.symbol].id,
+                    tx_date=import_row.date,
+                    type=import_row.type,
+                    quantity=import_row.quantity,
+                    price=import_row.price,
+                    fees=import_row.fees,
+                    currency=import_row.currency,
+                    notes=import_row.notes,
+                    meta_data=meta_data,
+                )
+                tx = crud_transactions.create_transaction(
+                    self.db, portfolio.id, tx_create, commit=False
+                )
+                cash_ledger.insert_movements(
+                    self.db, portfolio, specs_by_row[row_num],
+                    transaction_id=tx.id, _fx_memo=fx_memo,
+                )
+                created.append((import_row, assets[import_row.symbol]))
+            cash_ledger.mark_ledger_synced(self.db, portfolio.id)
+            self.db.commit()
+        except InsufficientCashError as e:
+            self.db.rollback()
+            context = e.detail["context"]
+            return CsvImportResult(
+                success=False,
+                imported_count=0,
+                errors=[
+                    f"Insufficient {context['currency']} cash: available "
+                    f"{context['available']}, required {context['required']}, "
+                    f"missing {context['missing']} as of {context['date']}",
+                    atomic_note,
+                ],
+                warnings=warnings,
+            )
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Strict CSV import failed: {e}")
+            return CsvImportResult(
+                success=False,
+                imported_count=0,
+                errors=[f"Import failed: {str(e)}", atomic_note],
+                warnings=warnings,
+            )
+
+        # Post-commit bookkeeping (metrics, first-transaction dates, prices)
+        for import_row, asset in created:
+            IMPORTED_TRANSACTIONS.inc()
+            if import_row.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
+                if asset.first_transaction_date is None or import_row.date < asset.first_transaction_date:
+                    asset.first_transaction_date = import_row.date
+                    self.db.commit()
+                from app.services.market_data.pricing import PricingService
+
+                try:
+                    PricingService(self.db).ensure_historical_prices(
+                        asset,
+                        datetime.combine(import_row.date, datetime.min.time()),
+                        datetime.utcnow(),
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
+
+        return CsvImportResult(
+            success=True,
+            imported_count=len(created),
+            errors=[],
+            warnings=warnings,
+        )
+
     def import_csv_with_progress(
-        self, 
+        self,
         portfolio_id: int,
         csv_content: str,
         delimiter: str = ","
@@ -150,7 +343,30 @@ class CsvImportService:
                 "current": 0,
                 "total": total_rows
             }
-            
+
+            portfolio = self._get_portfolio(portfolio_id)
+            if portfolio.cash_mode == CashMode.TRACKED_STRICT:
+                # Strict cash tracking: delegate to the all-or-nothing path
+                yield {
+                    "type": "log",
+                    "message": "Strict cash mode: validating cash balances (atomic import)...",
+                    "current": 0,
+                    "total": total_rows
+                }
+                result = self._import_csv_strict(portfolio, rows)
+                yield {
+                    "type": "complete" if result.success else "error",
+                    "message": (
+                        f"Import complete: {result.imported_count} transactions imported"
+                        if result.success else (result.errors[0] if result.errors else "Import failed")
+                    ),
+                    "current": total_rows,
+                    "total": total_rows,
+                    "result": result.model_dump()
+                }
+                return
+            cash_tracked = portfolio.cash_mode != CashMode.UNTRACKED
+
             # Second pass: process rows
             for row_num, row in enumerate(rows, start=2):  # Start at 2 (header is 1)
                 try:
@@ -232,10 +448,30 @@ class CsvImportService:
                         meta_data=meta_data
                     )
                     
-                    crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
+                    if cash_tracked:
+                        # tracked_warn: movements created atomically with the
+                        # row; projected dips become import warnings
+                        _tx, row_cash_warnings = cash_ledger.create_transaction_with_cash(
+                            self.db, portfolio, tx_create
+                        )
+                        for w in row_cash_warnings:
+                            warning_msg = (
+                                f"Row {row_num}: projected negative {w.currency} cash "
+                                f"balance {w.projected_balance} on {w.occurred_on.isoformat()}"
+                            )
+                            warnings.append(warning_msg)
+                            yield {
+                                "type": "log",
+                                "message": warning_msg,
+                                "current": row_num - 1,
+                                "total": total_rows,
+                                "row_num": row_num
+                            }
+                    else:
+                        crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
                     IMPORTED_TRANSACTIONS.inc()
                     imported_count += 1
-                    
+
                     yield {
                         "type": "progress",
                         "message": f"Created transaction {imported_count}/{total_rows}",
@@ -384,18 +620,25 @@ class CsvImportService:
             
             # Validate symbols
             invalid_symbols = self._validate_symbols_in_provider(list(symbols_to_validate))
-            
+
             if invalid_symbols:
                 error_msg = f"The following symbols do not exist in the market data provider: {', '.join(sorted(invalid_symbols))}. Please check your CSV and correct the symbols before importing."
                 errors.append(error_msg)
-                
+
                 return CsvImportResult(
                     success=False,
                     imported_count=0,
                     errors=errors,
                     warnings=warnings
                 )
-            
+
+            portfolio = self._get_portfolio(portfolio_id)
+            if portfolio.cash_mode == CashMode.TRACKED_STRICT:
+                # Strict cash tracking: all-or-nothing import in one SQL
+                # transaction with cash validation
+                return self._import_csv_strict(portfolio, rows)
+            cash_tracked = portfolio.cash_mode != CashMode.UNTRACKED
+
             for row_num, row in enumerate(rows, start=2):  # Start at 2 (header is 1)
                 try:
                     # Parse row
@@ -443,10 +686,22 @@ class CsvImportService:
                         meta_data=meta_data
                     )
                     
-                    crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
+                    if cash_tracked:
+                        # tracked_warn: movements created atomically with the
+                        # row; projected dips become import warnings
+                        _tx, row_cash_warnings = cash_ledger.create_transaction_with_cash(
+                            self.db, portfolio, tx_create
+                        )
+                        for w in row_cash_warnings:
+                            warnings.append(
+                                f"Row {row_num}: projected negative {w.currency} cash "
+                                f"balance {w.projected_balance} on {w.occurred_on.isoformat()}"
+                            )
+                    else:
+                        crud_transactions.create_transaction(self.db, portfolio_id, tx_create)
                     IMPORTED_TRANSACTIONS.inc()
                     imported_count += 1
-                    
+
                     # Update first_transaction_date if this is earlier than the current value
                     if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
                         if asset.first_transaction_date is None or import_row.date < asset.first_transaction_date:
@@ -454,21 +709,21 @@ class CsvImportService:
                             self.db.commit()
                             self.db.refresh(asset)
                             logger.info(f"Updated first_transaction_date for {asset.symbol} to {import_row.date}")
-                    
+
                     # Auto-backfill historical prices for BUY/TRANSFER_IN transactions
                     if tx_create.type in [TransactionType.BUY, TransactionType.TRANSFER_IN]:
                         from app.services.market_data.pricing import PricingService
                         pricing_service = PricingService(self.db)
                         start_date = datetime.combine(import_row.date, datetime.min.time())
                         end_date = datetime.utcnow()
-                        
+
                         try:
                             count = pricing_service.ensure_historical_prices(asset, start_date, end_date)
                             if count > 0:
                                 logger.info(f"Auto-backfilled {count} historical prices for {asset.symbol}")
                         except Exception as e:
                             logger.warning(f"Failed to auto-backfill prices for {asset.symbol}: {e}")
-                    
+
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)}")
                     logger.error(f"Error importing row {row_num}: {e}")
@@ -531,6 +786,7 @@ class CsvImportService:
             invalid_symbols = set(self._validate_symbols_in_provider(list(symbols_to_validate)))
 
             seen_csv_keys: Dict[Tuple[Any, ...], int] = {}
+            parsed_rows: List[CsvImportRow] = []
 
             for row_num, row in rows:
                 try:
@@ -567,11 +823,25 @@ class CsvImportService:
                         seen_csv_keys[csv_key] = row_num
 
                     valid_count += 1
+                    parsed_rows.append(import_row)
                 except Exception as e:
                     errors.append(CsvImportPreviewIssue(
                         row_num=row_num,
                         message=str(e)
                     ))
+
+            # Cash projection for tracked portfolios (read-only): projected
+            # negative balances per currency; in strict mode these rows
+            # would make the (atomic) import fail
+            cash_warnings = []
+            portfolio = self._get_portfolio(portfolio_id)
+            if portfolio.cash_mode != CashMode.UNTRACKED and parsed_rows:
+                projected, currency_issues = self._project_cash_warnings(
+                    portfolio, parsed_rows
+                )
+                cash_warnings = [w.as_dict() for w in projected]
+                for issue in currency_issues:
+                    errors.append(CsvImportPreviewIssue(row_num=None, message=issue))
 
             return CsvImportPreviewResult(
                 total_rows=total_rows,
@@ -582,7 +852,8 @@ class CsvImportService:
                 summary_by_type=summary_by_type,
                 errors=errors,
                 warnings=warnings,
-                duplicates=duplicates
+                duplicates=duplicates,
+                cash_warnings=cash_warnings
             )
         except Exception as e:
             logger.error(f"CSV preview failed: {e}")

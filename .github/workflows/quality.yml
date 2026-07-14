@@ -123,6 +123,13 @@ jobs:
         run: |
           alembic downgrade -1
           alembic upgrade head
+      - name: Strict-mode cash concurrency test (real PostgreSQL row locks)
+        env:
+          CASH_PG_TEST_URL: postgresql://portfolium:ci-only-password@127.0.0.1:5432/cash_race_ci
+        run: |
+          pip install -e ".[dev]"
+          PGPASSWORD=ci-only-password psql -h 127.0.0.1 -U portfolium -d portfolium -c "CREATE DATABASE cash_race_ci;"
+          pytest tests/test_cash_concurrency.py::TestPostgresRace -q
       - name: Application startup smoke check
         run: |
           python - <<'EOF'

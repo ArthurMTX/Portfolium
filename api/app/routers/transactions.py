@@ -21,7 +21,8 @@ from app.errors import (
 from app.db import get_db
 from app.schemas import Transaction, TransactionCreate, CsvImportResult, CsvImportPreviewResult, ConversionCreate, ConversionResponse
 from app.crud import transactions as crud, portfolios as portfolio_crud
-from app.models import TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
+from app.models import CashMode, TransactionType, User, Portfolio as PortfolioModel, Transaction as TransactionModel
+from app.services.cash import ledger as cash_ledger
 from app.services.workflows.import_csv import get_csv_import_service, CsvImportService
 from app.services.communications.notifications import notification_service
 from app.auth import get_current_user, verify_portfolio_access
@@ -346,8 +347,11 @@ def add_position_transaction(
         notes=f"Auto price from yfinance for {tx_date}" + (f" (converted from {asset_currency})" if asset_currency != portfolio_currency else "")
     )
     from app.crud.transactions import create_transaction
-    transaction = create_transaction(db, portfolio_id, tx_data)
-    
+    if portfolio.cash_mode == CashMode.UNTRACKED:
+        transaction = create_transaction(db, portfolio_id, tx_data)
+    else:
+        transaction, _ = cash_ledger.create_transaction_with_cash(db, portfolio, tx_data)
+
     # Update first_transaction_date if this is earlier than the current value
     if asset.first_transaction_date is None or tx_date < asset.first_transaction_date:
         asset.first_transaction_date = tx_date
@@ -433,7 +437,9 @@ def create_conversion(
     """
     import uuid
     from decimal import Decimal
-    from app.errors import CannotConvertAssetToItselfError, ConversionTransactionFailedError
+    from app.errors import CannotConvertAssetToItselfError, CashError, ConversionTransactionFailedError
+
+    cash_warnings = []
     
     # Validate that source and target assets are different
     if conversion.from_asset_id == conversion.to_asset_id:
@@ -547,7 +553,25 @@ def create_conversion(
         )
         db.add(to_db_transaction)
         db.flush()  # Flush to get the ID without committing
-        
+
+        # Both conversion legs count as transaction mutations for the
+        # cash-ledger staleness revision counter, in every cash mode
+        crud.bump_tx_change_seq(db, portfolio_id, count=2)
+
+        if portfolio.cash_mode != CashMode.UNTRACKED:
+            # Asset swaps are cash-neutral except the fee on the OUT leg
+            from app.crud import cash as crud_cash
+            specs = cash_ledger.derive_movement_specs_for_transaction(from_db_transaction)
+            if specs:
+                currencies = sorted({s.currency for s in specs})
+                crud_cash.get_or_create_accounts(db, portfolio_id, currencies)
+                crud_cash.lock_accounts(db, portfolio_id, currencies)
+                cash_warnings = cash_ledger.validate_cash_impact(db, portfolio, specs)
+                cash_ledger.insert_movements(
+                    db, portfolio, specs, transaction_id=from_db_transaction.id
+                )
+            cash_ledger.mark_ledger_synced(db, portfolio_id)
+
         # Both transactions created successfully, commit the savepoint
         savepoint.commit()
         db.commit()
@@ -556,7 +580,12 @@ def create_conversion(
         
         from_transaction = from_db_transaction
         to_transaction = to_db_transaction
-        
+
+    except CashError:
+        # Structured cash rejection (e.g. strict-mode insufficient fee cash):
+        # roll back both legs and surface the business error as-is
+        db.rollback()
+        raise
     except Exception as e:
         # If anything fails, rollback both transactions
         db.rollback()
@@ -630,7 +659,8 @@ def create_conversion(
         conversion_id=conversion_id,
         conversion_rate=conversion_rate_str,
         from_transaction=from_transaction,
-        to_transaction=to_transaction
+        to_transaction=to_transaction,
+        cash_warnings=[w.as_dict() for w in cash_warnings] or None
     )
 
 
@@ -913,8 +943,17 @@ def create_transaction(
                 reason="Cannot add a dividend when shares held at that date are 0",
             )
     
-    created = crud.create_transaction(db, portfolio_id, transaction)
-    
+    if portfolio.cash_mode == CashMode.UNTRACKED:
+        created = crud.create_transaction(db, portfolio_id, transaction)
+    else:
+        # Tracked portfolio: lock cash accounts, validate cash impact
+        # (strict mode rejects with a structured 409), then persist the
+        # transaction and its derived cash movements atomically
+        created, cash_warnings = cash_ledger.create_transaction_with_cash(
+            db, portfolio, transaction
+        )
+        created.cash_warnings = [w.as_dict() for w in cash_warnings] or None
+
     # Auto-backfill historical prices from transaction date to today
     if transaction.type in [TransactionType.BUY, TransactionType.TRANSFER_IN, TransactionType.CONVERSION_IN]:
         from app.crud.assets import get_asset
@@ -1054,8 +1093,17 @@ def update_transaction(
                 reason="Cannot add a dividend when shares held at that date are 0",
             )
     
-    updated = crud.update_transaction(db, transaction_id, transaction)
-    
+    if portfolio.cash_mode == CashMode.UNTRACKED:
+        updated = crud.update_transaction(db, transaction_id, transaction)
+    else:
+        # Tracked portfolio: replace-on-edit of the derived cash movements,
+        # atomically with the transaction row
+        updated, cash_warnings = cash_ledger.update_transaction_with_cash(
+            db, portfolio, transaction_id, transaction
+        )
+        if updated is not None:
+            updated.cash_warnings = [w.as_dict() for w in cash_warnings] or None
+
     # Invalidate all caches since portfolio data changed
     from app.services.platform.analytics_cache import invalidate_portfolio_analytics
     from app.services.platform.cache import CacheService
@@ -1131,11 +1179,6 @@ def delete_transaction(
         transaction=existing,
         action="deleted"
     )
-    
-    # Delete the main transaction
-    crud.delete_transaction(db, transaction_id)
-    
-    # Delete the linked conversion transaction if it exists
     if linked_transaction:
         logger.info(f"Deleting linked conversion transaction {linked_transaction.id}")
         notification_service.create_transaction_notification(
@@ -1144,8 +1187,17 @@ def delete_transaction(
             transaction=linked_transaction,
             action="deleted"
         )
-        crud.delete_transaction(db, linked_transaction.id)
-    
+
+    to_delete = [existing] + ([linked_transaction] if linked_transaction else [])
+    if portfolio.cash_mode == CashMode.UNTRACKED:
+        for tx in to_delete:
+            crud.delete_transaction(db, tx.id)
+    else:
+        # Tracked portfolio: strict mode re-validates the ledger without the
+        # derived movements (removing a sell can strand later purchases);
+        # all legs and their movements are removed in one SQL transaction
+        cash_ledger.delete_transactions_with_cash(db, portfolio, to_delete)
+
     # Invalidate all caches since portfolio data changed
     from app.services.platform.analytics_cache import invalidate_portfolio_analytics
     from app.services.platform.cache import CacheService

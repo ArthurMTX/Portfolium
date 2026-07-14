@@ -212,3 +212,67 @@ const foreignDividendSummary = summaryFor({
   portfolioCurrency: 'EUR',
 })
 assert.ok(warningKeys(foreignDividendSummary, { txType: 'DIVIDEND' }).includes('dividend-currency'))
+
+// --- Cash tracking warnings ---
+import { getTransactionCashDelta, getTransactionWarnings as getWarningsFull } from '../../src/features/transactions/lib/transactionDerivedState'
+
+const cashWarnings = (
+  summary: TransactionSummary,
+  overrides: Partial<Parameters<typeof getWarningsFull>[0]> = {},
+) => getWarningsFull({
+  summary,
+  txType: 'BUY',
+  txDate: summary.date,
+  priceFetchFailed: false,
+  modalMode: 'add',
+  sellAvailableQuantity: null,
+  priceInfo: null,
+  portfolioCurrency: 'EUR',
+  translate,
+  ...overrides,
+})
+
+// Cash delta mirrors backend derivation
+const buySummary = summaryFor({ quantity: '10', price: '100', fees: '2' })
+assert.equal(getTransactionCashDelta(buySummary, 'BUY'), -1002)
+assert.equal(getTransactionCashDelta(buySummary, 'SELL'), 998)
+assert.equal(getTransactionCashDelta(buySummary, 'DIVIDEND'), 998)
+assert.equal(getTransactionCashDelta(buySummary, 'FEE'), -2)
+assert.equal(getTransactionCashDelta(buySummary, 'SPLIT'), 0)
+assert.equal(getTransactionCashDelta(buySummary, 'TRANSFER_IN'), 0)
+
+// Untracked portfolios never get cash warnings
+const untrackedWarnings = cashWarnings(buySummary, { cashMode: 'untracked', availableCash: 0 })
+assert.equal(untrackedWarnings.some((w) => w.key === 'cash-insufficient'), false)
+
+// Warn mode: over-budget buy produces a warning-level entry
+const warnEntry = cashWarnings(buySummary, { cashMode: 'tracked_warn', availableCash: 500 })
+  .find((w) => w.key === 'cash-insufficient')
+assert.ok(warnEntry)
+assert.equal(warnEntry?.level, 'warning')
+
+// Strict mode escalates to danger (the API will reject)
+const strictEntry = cashWarnings(buySummary, { cashMode: 'tracked_strict', availableCash: 500 })
+  .find((w) => w.key === 'cash-insufficient')
+assert.equal(strictEntry?.level, 'danger')
+
+// Covered buys and credit-side transactions never warn
+assert.equal(
+  cashWarnings(buySummary, { cashMode: 'tracked_strict', availableCash: 5000 })
+    .some((w) => w.key === 'cash-insufficient'),
+  false,
+)
+assert.equal(
+  cashWarnings(buySummary, { txType: 'SELL', cashMode: 'tracked_strict', availableCash: 0 })
+    .some((w) => w.key === 'cash-insufficient'),
+  false,
+)
+
+// Unknown balance (still loading): no speculative warning
+assert.equal(
+  cashWarnings(buySummary, { cashMode: 'tracked_strict', availableCash: null })
+    .some((w) => w.key === 'cash-insufficient'),
+  false,
+)
+
+console.log('transactionDerivedState cash tests passed')

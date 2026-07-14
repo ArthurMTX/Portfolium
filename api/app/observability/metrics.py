@@ -124,6 +124,28 @@ NOTIFICATIONS_CREATED = Counter(
     "portfolium_notifications_created_total",
     "In-app notifications created.",
 )
+# Cash ledger counters. Labels stay bounded: movement types, activation
+# strategies and cash modes are closed enums; never label with portfolio
+# ids or amounts.
+CASH_MOVEMENTS_CREATED = Counter(
+    "portfolium_cash_movements_created_total",
+    "Cash ledger movements created.",
+    ("type",),
+)
+CASH_STRICT_REJECTIONS = Counter(
+    "portfolium_cash_strict_rejections_total",
+    "Operations rejected by strict-mode insufficient-cash validation.",
+)
+CASH_ACTIVATIONS = Counter(
+    "portfolium_cash_activations_total",
+    "Cash tracking activations.",
+    ("strategy",),
+)
+CASH_MODE_TRANSITIONS = Counter(
+    "portfolium_cash_mode_transitions_total",
+    "Cash mode changes.",
+    ("from_mode", "to_mode"),
+)
 DB_QUERY_DURATION = Histogram(
     "portfolium_db_query_duration_seconds",
     "SQLAlchemy query duration without SQL text or identifier labels.",

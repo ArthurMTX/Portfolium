@@ -299,14 +299,53 @@ export default function Allocation() {
       .filter((id): id is number => id !== undefined),
   })), [assetBySymbol, themeItems])
 
+  // Cash allocation (tracked portfolios): positive converted balances form
+  // one aggregate "Cash" slice; negative balances never count as a positive
+  // weight and are surfaced separately instead.
+  const cashAllocation = useMemo(() => {
+    const summary = metrics?.cash
+    if (!summary) return { positive: 0, negativeCurrencies: [] as string[] }
+    let positive = 0
+    const negativeCurrencies: string[] = []
+    for (const balance of summary.balances) {
+      if (toNumber(balance.balance) < 0) {
+        negativeCurrencies.push(balance.currency)
+        continue
+      }
+      positive += toNumber(balance.balance_base)
+    }
+    return { positive, negativeCurrencies }
+  }, [metrics?.cash])
+
+  const assetClassWithCash = useMemo(() => {
+    const items = fromDistributionItems(assetClassItems, (label) => getTranslatedAssetType(label, t))
+    if (cashAllocation.positive <= 0) return items
+    const total = items.reduce((sum, item) => sum + item.value, 0) + cashAllocation.positive
+    const withCash = [
+      ...items,
+      {
+        key: 'cash',
+        label: t('cash.nav'),
+        value: cashAllocation.positive,
+        percentage: 0,
+        count: 0,
+        assetIds: [],
+      },
+    ]
+    return withCash.map((item) => ({
+      ...item,
+      percentage: total > 0 ? (item.value / total) * 100 : 0,
+    }))
+  }, [assetClassItems, cashAllocation.positive, t])
+
   const allocationByLens = useMemo<Record<AllocationLens, AllocationItem[]>>(() => ({
     sector: fromDistributionItems(sectorItems, (label) => getTranslatedSector(label, t)),
     country: fromDistributionItems(countryItems),
-    assetClass: fromDistributionItems(assetClassItems, (label) => getTranslatedAssetType(label, t)),
+    assetClass: assetClassWithCash,
     currency: currencyItems,
     theme: themeAllocationItems,
     marketCap: fromDistributionItems(marketCapItems, (label) => t(`assetsDistribution.marketCapBuckets.${label}`, label)),
-  }), [assetClassItems, countryItems, currencyItems, marketCapItems, sectorItems, t, themeAllocationItems])
+  }), [assetClassWithCash, countryItems, currencyItems, marketCapItems, sectorItems, t, themeAllocationItems])
 
   const activeItems = useMemo(
     () => [...allocationByLens[activeLens]].sort((a, b) => b.value - a.value),
@@ -416,6 +455,16 @@ export default function Allocation() {
           detail={largestSector ? `${largestSector.percentage.toFixed(1)}%` : '—'}
         />
       </PageMetricStrip>
+
+      {cashAllocation.negativeCurrencies.length > 0 && (
+        <StateBlock
+          tone="warning"
+          title={t('cash.warnings.negativeTitle')}
+          description={t('cash.warnings.negativeDescription', {
+            currencies: cashAllocation.negativeCurrencies.join(', '),
+          })}
+        />
+      )}
 
       <PageControls
         label={t('allocation.allocationLens')}

@@ -34,6 +34,48 @@ Run `python scripts/export_openapi.py` after changing FastAPI routes or Pydantic
 | Dividends | `/dividends` | Pending dividend fetch, accept/reject, bulk operations |
 | Calendar | `/calendar` | Events, earnings, daily performance, holidays, exchanges |
 
+## Cash Endpoints
+
+Cash tracking (optional per portfolio) lives under
+`/api/portfolios/{portfolio_id}/cash/`:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/cash/balances` | Per-currency balances with base-currency conversion and rate freshness |
+| GET | `/cash/summary` | Balances plus the cash PnL breakdown (`fx_pnl` is deferred and always `null`) |
+| GET | `/cash/movements` | Paginated movement history (`currency`, `type`, `date_from`, `date_to`, `skip`, `limit`) |
+| POST | `/cash/movements` | Manual movement: `deposit`, `withdrawal`, `adjustment` (requires `reason` and `direction`), `interest`, `fee`, `tax` |
+| PUT / DELETE | `/cash/movements/{id}` | Update/delete a manual movement (transaction-derived and opening-balance movements are immutable here) |
+| POST | `/cash/fx-conversions` | Explicit Forex conversion (linked debit/credit legs plus optional fee) |
+| PUT / DELETE | `/cash/fx-conversions/{conversion_id}` | Replace or delete all legs atomically |
+| POST | `/cash/activation/preview` | Dry-run of enabling cash tracking |
+| POST | `/cash/activation` | Enable cash tracking (idempotent via client-generated `activation_id`) |
+| PUT | `/cash/mode` | Change cash mode (`untracked` / `tracked_warn` / `tracked_strict`) |
+| DELETE | `/cash/ledger` | Destructive wipe; only while untracked, body `{"confirm": "DELETE"}` |
+
+Amounts in requests are positive; the backend assigns the accounting sign.
+Cash business errors use a structured detail object:
+
+```json
+{
+  "detail": {
+    "code": "insufficient_cash",
+    "message": "Insufficient USD cash in portfolio 7: ...",
+    "context": {
+      "portfolio_id": 7,
+      "currency": "USD",
+      "available": "500.00000000",
+      "required": "1002.00000000",
+      "missing": "502.00000000",
+      "date": "2026-05-15"
+    }
+  }
+}
+```
+
+Untracked portfolios answer `409 cash_tracking_not_enabled` on cash reads
+and writes. Public sharing never exposes cash data.
+
 ## Common Patterns
 
 ### Authentication

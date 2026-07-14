@@ -110,9 +110,13 @@ class CashMovement(Base):
     )
     currency = Column(String(8), nullable=False)
     type = Column(
+        # schema= must match the migration-created PG type so that
+        # multi-row inserts render a fully qualified ::portfolio.cash_movement_type
+        # cast (ignored on SQLite, where enums render as VARCHAR + CHECK)
         Enum(
             CashMovementType,
             name="cash_movement_type",
+            schema="portfolio",
             values_callable=lambda x: [e.value for e in x],
         ),
         nullable=False,

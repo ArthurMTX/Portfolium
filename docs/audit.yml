@@ -157,6 +157,12 @@ pages:
     source: ["api/app/models/asset.py", "api/app/routers/assets.py", "api/app/services/portfolio_analytics/insights.py"]
     notes: "Verified fallback-only validation logic and endpoint against crud/assets.py; corrected an inaccurate country-code validation claim."
 
+  - path: "docs/technical/cash-ledger.md"
+    status: current
+    action: keep
+    owner: technical
+    source: ["api/app/services/cash/ledger.py", "api/app/models/cash.py"]
+    notes: "Cash ledger schema, accounting rules, concurrency and activation."
   - path: "docs/technical/currency-conversion.md"
     status: current
     action: keep
@@ -268,6 +274,12 @@ pages:
     source: ["web/src/features/charts", "web/src/features/allocation"]
     notes: "Needs separation between Charts and new Allocation page."
 
+  - path: "docs/user-guide/cash.md"
+    status: current
+    action: keep
+    owner: user-guide
+    source: ["web/src/features/cash/pages/Cash.tsx", "api/app/routers/cash.py"]
+    notes: "Optional cash tracking: modes, activation, balances, FX conversions."
   - path: "docs/user-guide/crypto-conversions.md"
     status: current
     action: keep

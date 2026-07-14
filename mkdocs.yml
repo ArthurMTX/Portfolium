@@ -84,6 +84,7 @@ nav:
       - Calendar: user-guide/calendar.md
       - Allocation: user-guide/allocation.md
       - Transactions: user-guide/transactions.md
+      - Cash Management: user-guide/cash.md
       - Crypto Conversions: user-guide/crypto-conversions.md
       - Assets: user-guide/assets.md
       - Watchlist: user-guide/watchlist.md
@@ -208,6 +209,7 @@ nav:
       - Logo Fetching: technical/logo-fetching.md
       - Pricing: technical/pricing.md
       - Currency Conversion: technical/currency-conversion.md
+      - Cash Ledger: technical/cash-ledger.md
       - Data Models: technical/data-models.md
       - Background Jobs: technical/background-jobs.md
       - Reference Data & ISIN: technical/reference-data-isin.md

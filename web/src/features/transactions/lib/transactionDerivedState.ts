@@ -43,6 +43,8 @@ interface GetTransactionSummaryParams {
   getTranslatedType: (type: string) => string
 }
 
+export type CashTrackingMode = 'untracked' | 'tracked_warn' | 'tracked_strict'
+
 interface GetTransactionWarningsParams {
   summary: TransactionSummary
   txType: string
@@ -53,6 +55,34 @@ interface GetTransactionWarningsParams {
   priceInfo: { converted: boolean; asset_currency: string } | null
   portfolioCurrency: string
   translate: (key: string, options?: Record<string, unknown>) => string
+  /** Cash tracking mode of the portfolio; cash warnings only apply when tracked */
+  cashMode?: CashTrackingMode
+  /** Available cash in the settlement currency (null when unknown/still loading) */
+  availableCash?: number | null
+}
+
+/**
+ * Signed cash impact of the transaction being edited (settlement currency).
+ * Mirrors the backend derivation: buys debit gross+fees, sells credit net
+ * proceeds, dividends credit gross minus withholding tax, fees debit.
+ */
+export const getTransactionCashDelta = (
+  summary: TransactionSummary,
+  txType: string
+): number => {
+  switch (txType) {
+    case 'BUY':
+      return -(summary.grossTotal + summary.fees)
+    case 'SELL':
+      return summary.grossTotal - summary.fees
+    case 'DIVIDEND':
+      return summary.grossTotal - summary.fees
+    case 'FEE':
+      return -(summary.fees || summary.grossTotal)
+    default:
+      // SPLIT / TRANSFER_IN / TRANSFER_OUT / CONVERSION_* are cash-neutral
+      return 0
+  }
 }
 
 export const getTransactionSummary = ({
@@ -150,6 +180,8 @@ export const getTransactionWarnings = ({
   priceInfo,
   portfolioCurrency,
   translate,
+  cashMode = 'untracked',
+  availableCash = null,
 }: GetTransactionWarningsParams): FormWarning[] => {
   const warnings: FormWarning[] = []
   const typeNeedsPrice = ['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT'].includes(txType)
@@ -238,6 +270,27 @@ export const getTransactionWarnings = ({
         portfolioCurrency,
       }),
     })
+  }
+
+  // Cash tracking: warn when the transaction would push the settlement
+  // currency balance negative. Danger in strict mode (the API rejects it),
+  // warning otherwise. Untracked portfolios never get cash warnings.
+  if (cashMode !== 'untracked' && availableCash !== null) {
+    const cashDelta = getTransactionCashDelta(summary, txType)
+    const projected = availableCash + cashDelta
+    if (cashDelta < 0 && projected < 0) {
+      const strict = cashMode === 'tracked_strict'
+      warnings.push({
+        key: 'cash-insufficient',
+        level: strict ? 'danger' : 'warning',
+        message: translate(
+          strict
+            ? 'transactions.warnings.cashInsufficientStrict'
+            : 'transactions.warnings.cashProjectedNegative',
+          { currency: summary.currency },
+        ),
+      })
+    }
   }
 
   return warnings

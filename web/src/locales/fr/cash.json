@@ -1,0 +1,174 @@
+{
+  "cash": {
+    "kicker": "Liquidités",
+    "title": "Gestion des liquidités",
+    "description": "Suivez dépôts, retraits, soldes multidevises et conversions de devises aux côtés de vos investissements.",
+    "nav": "Liquidités",
+    "balancesTitle": "Soldes par devise",
+    "movementsTitle": "Historique des mouvements",
+    "movementsDescription": "Tous les mouvements de liquidités de ce portefeuille : opérations manuelles et mouvements dérivés des transactions.",
+    "pagination": "Page {{page}} / {{pages}}",
+    "metrics": {
+      "totalBase": "Liquidités totales ({{currency}})",
+      "currencies": "Devises",
+      "interestIncome": "Intérêts perçus",
+      "fxPnl": "P&L de change"
+    },
+    "modes": {
+      "untracked": "Suivi des liquidités désactivé",
+      "tracked_warn": "Suivi — avertissements",
+      "tracked_strict": "Suivi — strict"
+    },
+    "enable": {
+      "title": "Le suivi des liquidités est désactivé pour ce portefeuille",
+      "description": "Votre fonctionnement actuel reste inchangé : les achats ne nécessitent jamais de dépôt préalable. Activez le suivi pour enregistrer précisément dépôts, retraits, soldes et conversions.",
+      "button": "Activer le suivi des liquidités"
+    },
+    "actions": {
+      "addMovement": "Ajouter un mouvement",
+      "convert": "Convertir des devises"
+    },
+    "filters": {
+      "currency": "Devise",
+      "type": "Type",
+      "allTypes": "Tous les types"
+    },
+    "table": {
+      "date": "Date",
+      "type": "Type",
+      "amount": "Montant",
+      "details": "Détails",
+      "actions": "Actions",
+      "derived": "auto",
+      "derivedHint": "Généré depuis une transaction — modifiez la transaction directement",
+      "deleteConversion": "Supprimer la conversion"
+    },
+    "movementTypes": {
+      "opening_balance": "Solde d'ouverture",
+      "deposit": "Dépôt",
+      "withdrawal": "Retrait",
+      "buy": "Achat",
+      "sell": "Vente",
+      "dividend": "Dividende",
+      "interest": "Intérêts",
+      "fee": "Frais",
+      "tax": "Impôt",
+      "fx_debit": "Change (sortie)",
+      "fx_credit": "Change (entrée)",
+      "adjustment": "Ajustement"
+    },
+    "movementModal": {
+      "title": "Nouveau mouvement de liquidités",
+      "editTitle": "Modifier le mouvement",
+      "type": "Opération",
+      "direction": "Sens",
+      "directionCredit": "Crédit (ajout de liquidités)",
+      "directionDebit": "Débit (retrait de liquidités)",
+      "currency": "Devise",
+      "amount": "Montant",
+      "amountHelp": "Toujours positif — le type d'opération détermine le signe.",
+      "date": "Date",
+      "reason": "Motif",
+      "reasonPlaceholder": "ex. rapprochement courtier",
+      "notes": "Notes",
+      "availableBalance": "Disponible en {{currency}}",
+      "projectedBalance": "Solde projeté",
+      "submit": "Ajouter le mouvement"
+    },
+    "fxModal": {
+      "title": "Conversion de devises",
+      "youSend": "Vous envoyez",
+      "youReceive": "Vous recevez",
+      "sourceCurrency": "Devise source",
+      "sourceAmount": "Montant source",
+      "targetCurrency": "Devise cible",
+      "targetAmount": "Montant cible",
+      "available": "Disponible :",
+      "rate": "Taux : 1 {{source}} = {{rate}} {{target}}",
+      "date": "Date",
+      "fee": "Frais (optionnel)",
+      "feeCurrency": "Devise des frais",
+      "notes": "Notes",
+      "submit": "Convertir"
+    },
+    "activation": {
+      "title": "Activer le suivi des liquidités",
+      "intro": "Choisissez comment démarre l'historique de liquidités de ce portefeuille. Rien n'est enregistré avant votre confirmation de l'aperçu.",
+      "strategy": "Stratégie",
+      "strategyReplay": "Reconstruire depuis les transactions",
+      "strategyOpenings": "Démarrer à une date",
+      "strategyReplayHelp": "Les achats, ventes, dividendes et frais depuis la date de départ sont rejoués en mouvements de liquidités. Portfolium propose le solde d'ouverture nécessaire pour éviter un solde négatif inexpliqué.",
+      "strategyOpeningsHelp": "Les liquidités démarrent à la date choisie avec les soldes d'ouverture que vous indiquez. Les transactions antérieures n'affectent jamais les liquidités.",
+      "startDate": "Date de départ",
+      "mode": "Mode de validation",
+      "openingBalances": "Soldes d'ouverture",
+      "openingCurrency": "Devise",
+      "openingAmount": "Montant",
+      "addCurrency": "Ajouter une devise",
+      "previewTitle": "Aperçu",
+      "previewButton": "Aperçu",
+      "applyButton": "Activer le suivi",
+      "derivedCount": "{{count}} mouvements de liquidités seront dérivés des transactions existantes.",
+      "proposedIntro": "Soldes d'ouverture proposés pour éviter un solde négatif inexpliqué :",
+      "proposedConfirm": "Ils seront appliqués avec votre confirmation lors de l'activation.",
+      "dipsIntro": "Soldes négatifs projetés :",
+      "dipLine": "{{currency}} : {{balance}} le {{date}}",
+      "currencyColumn": "Devise",
+      "projectedColumn": "Solde projeté aujourd'hui"
+    },
+    "settings": {
+      "title": "Paramètres du suivi",
+      "description": "Le mode avertissement autorise les soldes négatifs en vous alertant ; le mode strict rejette les opérations sans liquidités suffisantes.",
+      "disable": "Désactiver le suivi",
+      "disableHint": "La désactivation conserve votre historique de liquidités ; il est simplement exclu de la valorisation. La suppression du grand livre est une action distincte et explicite."
+    },
+    "warnings": {
+      "negativeTitle": "Soldes de liquidités négatifs",
+      "negativeDescription": "Les devises suivantes sont négatives : {{currencies}}.",
+      "projectedNegative": "Cette opération rend le solde {{currency}} négatif.",
+      "strictWillReject": "Mode strict : cette opération sera rejetée — liquidités {{currency}} insuffisantes."
+    },
+    "fx": {
+      "stateTitle": "Taux de change",
+      "partialRates": "Certains soldes n'ont pas pu être convertis : leur taux de change est indisponible. Ils sont exclus du total converti (jamais supposés à 1:1).",
+      "staleRates": "Certains taux de change sont périmés (plus de 4 heures). Les valeurs se rafraîchiront dès que les taux seront de nouveau disponibles.",
+      "staleBadge": "périmé",
+      "noRateBadge": "sans taux",
+      "noConversion": "Aucun taux de change disponible",
+      "unavailableTotal": "Total converti indisponible",
+      "pnlUnavailable": "Indisponible",
+      "pnlDeferred": "Le P&L de change arrivera dans une prochaine version"
+    },
+    "empty": {
+      "balancesTitle": "Aucune liquidité",
+      "balancesDescription": "Enregistrez un dépôt pour commencer le suivi.",
+      "movementsTitle": "Aucun mouvement",
+      "movementsDescription": "Les mouvements de liquidités apparaîtront ici."
+    },
+    "toasts": {
+      "movementCreated": "Mouvement enregistré",
+      "movementUpdated": "Mouvement mis à jour",
+      "movementDeleted": "Mouvement supprimé",
+      "conversionCreated": "Conversion enregistrée",
+      "modeChanged": "Mode de suivi mis à jour",
+      "activated": "Suivi des liquidités activé"
+    },
+    "errors": {
+      "generic": "L'opération a échoué. Veuillez réessayer.",
+      "loadFailed": "Impossible de charger les données de liquidités",
+      "invalidAmount": "Saisissez un montant positif.",
+      "reasonRequired": "Les ajustements nécessitent un motif explicite.",
+      "currenciesRequired": "Les deux devises sont requises.",
+      "sameCurrency": "Les devises source et cible doivent être différentes.",
+      "insufficientCash": "Liquidités {{currency}} insuffisantes : disponible {{available}}, requis {{required}}, manquant {{missing}}.",
+      "deleteWouldStrand": "Supprimer ce mouvement rendrait le solde {{currency}} négatif à une date ultérieure.",
+      "strictNeedsNonNegative": "Le mode strict exige un historique de liquidités entièrement positif. Corrigez d'abord les soldes négatifs.",
+      "ledgerStale": "Des transactions ont changé pendant que le suivi était désactivé ; l'historique conservé ne correspond plus. Supprimez le grand livre puis réactivez le suivi.",
+      "strictActivationDip": "Le mode strict nécessite {{missing}} {{currency}} de plus au {{date}}. Augmentez le solde d'ouverture ou choisissez le mode avertissement."
+    },
+    "deleteMovementTitle": "Supprimer ce mouvement ?",
+    "deleteMovementMessage": "Le mouvement sera retiré du grand livre. En mode strict, la suppression est rejetée si des dépenses ultérieures ne seraient plus couvertes.",
+    "deleteConversionTitle": "Supprimer cette conversion ?",
+    "deleteConversionMessage": "Les deux jambes de la conversion (et ses frais) seront supprimées ensemble."
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "cash": {
+    "kicker": "Cash",
+    "title": "Cash management",
+    "description": "Track deposits, withdrawals, multi-currency balances and Forex conversions alongside your investments.",
+    "nav": "Cash",
+    "balancesTitle": "Balances by currency",
+    "movementsTitle": "Movement history",
+    "movementsDescription": "Every cash movement in this portfolio: manual operations and movements derived from transactions.",
+    "pagination": "Page {{page}} / {{pages}}",
+    "metrics": {
+      "totalBase": "Total cash ({{currency}})",
+      "currencies": "Currencies",
+      "interestIncome": "Interest income",
+      "fxPnl": "FX P&L"
+    },
+    "modes": {
+      "untracked": "Cash tracking disabled",
+      "tracked_warn": "Tracked — warnings",
+      "tracked_strict": "Tracked — strict"
+    },
+    "enable": {
+      "title": "Cash tracking is off for this portfolio",
+      "description": "Your current workflow stays unchanged: purchases never require a deposit. Enable cash tracking to record deposits, withdrawals, balances and conversions with precision.",
+      "button": "Enable cash tracking"
+    },
+    "actions": {
+      "addMovement": "Add movement",
+      "convert": "Convert currency"
+    },
+    "filters": {
+      "currency": "Currency",
+      "type": "Type",
+      "allTypes": "All types"
+    },
+    "table": {
+      "date": "Date",
+      "type": "Type",
+      "amount": "Amount",
+      "details": "Details",
+      "actions": "Actions",
+      "derived": "auto",
+      "derivedHint": "Generated from a transaction — edit the transaction instead",
+      "deleteConversion": "Delete conversion"
+    },
+    "movementTypes": {
+      "opening_balance": "Opening balance",
+      "deposit": "Deposit",
+      "withdrawal": "Withdrawal",
+      "buy": "Buy",
+      "sell": "Sell",
+      "dividend": "Dividend",
+      "interest": "Interest",
+      "fee": "Fee",
+      "tax": "Tax",
+      "fx_debit": "FX out",
+      "fx_credit": "FX in",
+      "adjustment": "Adjustment"
+    },
+    "movementModal": {
+      "title": "New cash movement",
+      "editTitle": "Edit cash movement",
+      "type": "Operation",
+      "direction": "Direction",
+      "directionCredit": "Credit (add cash)",
+      "directionDebit": "Debit (remove cash)",
+      "currency": "Currency",
+      "amount": "Amount",
+      "amountHelp": "Always positive — the operation type sets the sign.",
+      "date": "Date",
+      "reason": "Reason",
+      "reasonPlaceholder": "e.g. broker reconciliation",
+      "notes": "Notes",
+      "availableBalance": "Available {{currency}}",
+      "projectedBalance": "Projected balance",
+      "submit": "Add movement"
+    },
+    "fxModal": {
+      "title": "Forex conversion",
+      "youSend": "You send",
+      "youReceive": "You receive",
+      "sourceCurrency": "Source currency",
+      "sourceAmount": "Source amount",
+      "targetCurrency": "Target currency",
+      "targetAmount": "Target amount",
+      "available": "Available:",
+      "rate": "Rate: 1 {{source}} = {{rate}} {{target}}",
+      "date": "Date",
+      "fee": "Fee (optional)",
+      "feeCurrency": "Fee currency",
+      "notes": "Notes",
+      "submit": "Convert"
+    },
+    "activation": {
+      "title": "Enable cash tracking",
+      "intro": "Choose how the cash history of this portfolio starts. Nothing is written until you confirm the preview.",
+      "strategy": "Strategy",
+      "strategyReplay": "Reconstruct from transactions",
+      "strategyOpenings": "Start from a date",
+      "strategyReplayHelp": "Buys, sells, dividends and fees since the start date are replayed into cash movements. Portfolium proposes the opening balance needed to avoid unexplained negative cash.",
+      "strategyOpeningsHelp": "Cash starts at the chosen date with the opening balances you provide. Earlier transactions never affect cash.",
+      "startDate": "Start date",
+      "mode": "Validation mode",
+      "openingBalances": "Opening balances",
+      "openingCurrency": "Currency",
+      "openingAmount": "Amount",
+      "addCurrency": "Add a currency",
+      "previewTitle": "Preview",
+      "previewButton": "Preview",
+      "applyButton": "Enable tracking",
+      "derivedCount": "{{count}} cash movements will be derived from existing transactions.",
+      "proposedIntro": "Proposed opening balances to avoid unexplained negative cash:",
+      "proposedConfirm": "They will be applied with your confirmation when you enable tracking.",
+      "dipsIntro": "Projected negative balances:",
+      "dipLine": "{{currency}}: {{balance}} on {{date}}",
+      "currencyColumn": "Currency",
+      "projectedColumn": "Projected balance today"
+    },
+    "settings": {
+      "title": "Cash tracking settings",
+      "description": "Warning mode allows negative balances and warns you; strict mode rejects operations that lack cash.",
+      "disable": "Disable tracking",
+      "disableHint": "Disabling keeps your cash history; it is simply excluded from valuation. Deleting the ledger is a separate, explicit action."
+    },
+    "warnings": {
+      "negativeTitle": "Negative cash balances",
+      "negativeDescription": "The following currencies are negative: {{currencies}}.",
+      "projectedNegative": "This operation makes the {{currency}} balance negative.",
+      "strictWillReject": "Strict mode: this operation will be rejected — insufficient {{currency}} cash."
+    },
+    "fx": {
+      "stateTitle": "Exchange rates",
+      "partialRates": "Some balances could not be converted: their exchange rate is unavailable. They are excluded from the converted total (never assumed 1:1).",
+      "staleRates": "Some exchange rates are stale (older than 4 hours). Values will refresh when rates are available again.",
+      "staleBadge": "stale",
+      "noRateBadge": "no rate",
+      "noConversion": "No exchange rate available",
+      "unavailableTotal": "Converted total unavailable",
+      "pnlUnavailable": "Unavailable",
+      "pnlDeferred": "FX P&L will arrive in a future release"
+    },
+    "empty": {
+      "balancesTitle": "No cash yet",
+      "balancesDescription": "Record a deposit to start tracking cash.",
+      "movementsTitle": "No movements",
+      "movementsDescription": "Cash movements will appear here."
+    },
+    "toasts": {
+      "movementCreated": "Cash movement recorded",
+      "movementUpdated": "Cash movement updated",
+      "movementDeleted": "Cash movement deleted",
+      "conversionCreated": "Conversion recorded",
+      "modeChanged": "Cash mode updated",
+      "activated": "Cash tracking enabled"
+    },
+    "errors": {
+      "generic": "The operation failed. Please try again.",
+      "loadFailed": "Unable to load cash data",
+      "invalidAmount": "Enter a positive amount.",
+      "reasonRequired": "Adjustments require an explicit reason.",
+      "currenciesRequired": "Both currencies are required.",
+      "sameCurrency": "Source and target currencies must differ.",
+      "insufficientCash": "Insufficient {{currency}} cash: available {{available}}, required {{required}}, missing {{missing}}.",
+      "deleteWouldStrand": "Deleting this movement would make the {{currency}} balance negative at a later date.",
+      "strictNeedsNonNegative": "Strict mode requires the whole cash history to stay non-negative. Fix the negative balances first.",
+      "ledgerStale": "Transactions changed while tracking was off; the retained cash history no longer matches. Wipe the ledger and re-enable tracking.",
+      "strictActivationDip": "Strict mode needs {{missing}} more {{currency}} on {{date}}. Increase the opening balance or choose warning mode."
+    },
+    "deleteMovementTitle": "Delete this cash movement?",
+    "deleteMovementMessage": "The movement will be removed from the ledger. In strict mode the deletion is rejected if later spending would no longer be covered.",
+    "deleteConversionTitle": "Delete this conversion?",
+    "deleteConversionMessage": "Both legs of the conversion (and its fee) will be removed together."
+  }
+}

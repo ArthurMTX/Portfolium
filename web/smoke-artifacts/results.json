@@ -1,0 +1,142 @@
+[
+  {
+    "name": "anonymous visit to /dashboard redirects to login",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "anonymous API request is rejected with 401",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "register test account via UI",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "invalid login is rejected",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "log in via UI",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "dashboard renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "create two portfolios",
+    "ok": true,
+    "detail": "ids 5, 6"
+  },
+  {
+    "name": "both portfolios listed for switching",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "add BUY transaction and verify position",
+    "ok": true,
+    "detail": "tx 6, quantity 10.00000000"
+  },
+  {
+    "name": "edit transaction and verify recalculated position",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "delete transaction and verify empty position",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "re-add holding for page checks",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Portfolios (holdings) page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Allocation page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Charts page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Calendar page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Insights page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "cash: activation preview and strict apply",
+    "ok": true,
+    "detail": "opening 1000 USD, mode tracked_strict"
+  },
+  {
+    "name": "cash: strict mode rejects insufficient purchase",
+    "ok": true,
+    "detail": "available 1000.00000000, required 5000.00000000, missing 4000.00000000"
+  },
+  {
+    "name": "cash: deposit funds a covered purchase and updates balances",
+    "ok": true,
+    "detail": "USD balance 498.00000000"
+  },
+  {
+    "name": "cash: fx conversion produces linked legs",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "cash: Cash page renders without errors",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "asset search returns AAPL",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Asset Research page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Boards page renders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "representative dashboard widget data loads",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "cross-user portfolio access is rejected",
+    "ok": true,
+    "detail": "status 403"
+  },
+  {
+    "name": "logout clears client state",
+    "ok": true,
+    "detail": ""
+  }
+]

@@ -23,6 +23,10 @@ const PORTFOLIO_SCOPED_QUERY_NAMES = new Set([
   'research-positions',
   'asset-position-transactions',
   'asset-etf-composition',
+  // Cash ledger data moves with every transaction on tracked portfolios
+  'cash-balances',
+  'cash-movements',
+  'cash-summary',
 ])
 
 /**

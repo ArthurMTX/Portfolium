@@ -94,7 +94,7 @@ services:
         condition: service_healthy
       bootstrap:
         condition: service_completed_successfully
-    command: python -m celery -A app.celery_app beat --loglevel=info
+    command: python -m celery -A app.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule -s /tmp/celerybeat-schedule
 
   bootstrap:
     <<: *api_common

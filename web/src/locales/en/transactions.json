@@ -64,7 +64,9 @@
       "currencyConverted": "Price was converted from {{from}} to {{to}}.",
       "dividendCurrency": "Dividend is recorded in {{currency}}; portfolio currency is {{portfolioCurrency}}.",
       "checkingPosition": "Checking available position for this sell...",
-      "riskySellConfirmation": "High-risk sell detected. Click confirm again only if this is intentional."
+      "riskySellConfirmation": "High-risk sell detected. Click confirm again only if this is intentional.",
+      "cashProjectedNegative": "This transaction makes the {{currency}} cash balance negative.",
+      "cashInsufficientStrict": "Strict cash mode: this transaction will be rejected — insufficient {{currency}} cash."
     },
     "errors": {
       "invalidDate": "Enter a valid date.",
@@ -94,6 +96,14 @@
       "shareCountChanged": "Share count changed.",
       "cashAdded": "{{amount}} added to cash.",
       "cashPaid": "{{amount}} paid from cash."
+    },
+    "cash": {
+      "settlementCurrency": "Settlement currency",
+      "requiredCash": "Required cash",
+      "cashCredited": "Cash credited",
+      "availableCash": "Available cash",
+      "projectedBalance": "Projected balance",
+      "insufficientCash": "Insufficient {{currency}} cash: available {{available}}, required {{required}}, missing {{missing}}."
     }
   },
   "transactionHistory": {

@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 import re
 
-from app.models import AssetClass, TransactionType, NotificationType
+from app.models import AssetClass, TransactionType, NotificationType, CashMode, CashMovementType
 
 
 # ============================================================================
@@ -603,7 +603,10 @@ class Portfolio(PortfolioBase):
     share_token: str
     created_at: datetime
     updated_at: datetime
-    
+    # Cash tracking (additive; 'untracked' preserves the historical behavior)
+    cash_mode: CashMode = CashMode.UNTRACKED
+    cash_tracking_started_on: Optional[date] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -666,6 +669,14 @@ class TransactionCreate(TransactionBase):
         return v
 
 
+class CashWarning(BaseModel):
+    """Projected negative cash balance (tracked_warn portfolios)"""
+    code: str
+    currency: str
+    date: str
+    projected_balance: str
+
+
 class Transaction(TransactionBase):
     """Transaction response schema"""
     id: int
@@ -674,10 +685,14 @@ class Transaction(TransactionBase):
     updated_at: datetime
     # Read from meta_data attribute, serialize as 'metadata' in JSON
     meta_data: Dict[str, Any] = Field(default={}, serialization_alias="metadata")
-    
+
     # Include asset details
     asset: Optional[Asset] = None
-    
+
+    # Cash-impact warnings attached on create/update for tracked_warn
+    # portfolios; always None for untracked portfolios
+    cash_warnings: Optional[List[CashWarning]] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -714,7 +729,9 @@ class ConversionResponse(BaseModel):
     conversion_rate: str = Field(..., description="Conversion rate (from_quantity:to_quantity)")
     from_transaction: "Transaction"
     to_transaction: "Transaction"
-    
+    # Cash-impact warnings (tracked_warn portfolios; fee leg only)
+    cash_warnings: Optional[List[CashWarning]] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -838,6 +855,8 @@ class PortfolioMetrics(BaseModel):
     daily_change_value: Optional[Decimal] = None
     daily_change_pct: Optional[Decimal] = None
     last_updated: datetime
+    # Cash valuation (tracked portfolios only; None when untracked)
+    cash: Optional["CashSummary"] = None
 
 
 class TodayBriefItem(BaseModel):
@@ -912,6 +931,9 @@ class CsvImportPreviewResult(BaseModel):
     errors: List[CsvImportPreviewIssue] = []
     warnings: List[CsvImportPreviewIssue] = []
     duplicates: List[CsvImportPreviewDuplicate] = []
+    # Projected negative cash balances for tracked portfolios (empty when
+    # untracked). In strict mode these rows would make the import fail.
+    cash_warnings: List[CashWarning] = []
 
 
 # ============================================================================
@@ -939,6 +961,7 @@ class PortfolioHistoryPoint(BaseModel):
     cost_basis: Optional[float] = None  # Cost basis of current holdings only
     unrealized_pnl_pct: Optional[float] = None  # Unrealized P&L % of current holdings (matches Dashboard)
     daily_cash_flow: Optional[float] = None  # Net cash flow on this day (buys - sells), for excluding from daily %
+    cash_value: Optional[float] = None  # Cash in base currency (tracked portfolios; included in value)
 
 
 # ============================================================================
@@ -1582,3 +1605,240 @@ class PortfolioPendingDividendStats(BaseModel):
     accepted_count: int
     rejected_count: int
     oldest_pending_date: Optional[date] = None
+
+
+# ============================================================================
+# Cash Tracking Schemas
+# ============================================================================
+#
+# Money values in cash responses are serialized as strings (8 dp) to avoid
+# float precision loss; requests accept Decimals (positive amounts - the
+# backend assigns the accounting sign from the movement type).
+
+class CashBalance(BaseModel):
+    """One currency balance, native plus base-currency conversion"""
+    currency: str
+    balance: Decimal
+    balance_base: Optional[Decimal] = None  # None when the FX rate is unavailable
+    rate: Optional[Decimal] = None  # base-currency units per 1 unit of currency
+    rate_stale: bool = False
+    rate_unavailable: bool = False
+
+
+class CashPnlBreakdown(BaseModel):
+    """Cash-related PnL components, in the portfolio base currency.
+
+    fx_pnl is deferred in this release: it is always None with
+    fx_pnl_status='unavailable' (never a fabricated approximation).
+    """
+    interest_income: Decimal = Decimal(0)
+    standalone_fees: Decimal = Decimal(0)  # manual fee movements only (asset-transaction fees stay in asset PnL)
+    standalone_taxes: Decimal = Decimal(0)
+    fx_pnl: Optional[Decimal] = None
+    fx_pnl_status: str = "unavailable"
+
+
+class CashSummary(BaseModel):
+    """Cash valuation of a tracked portfolio"""
+    base_currency: str
+    balances: List[CashBalance] = Field(default_factory=list)
+    total_base: Optional[Decimal] = None  # sum of convertible balances; None when nothing is convertible
+    fx_status: str = "ok"  # ok | partial | unavailable
+    pnl: Optional[CashPnlBreakdown] = None
+    as_of: datetime
+
+
+class CashBalancesResponse(BaseModel):
+    """GET /cash/balances response"""
+    portfolio_id: int
+    base_currency: str
+    balances: List[CashBalance] = Field(default_factory=list)
+    total_base: Optional[Decimal] = None
+    fx_status: str = "ok"
+    as_of: datetime
+
+
+class CashMovementOut(BaseModel):
+    """Cash ledger movement response"""
+    id: int
+    portfolio_id: int
+    currency: str
+    type: CashMovementType
+    amount: Decimal
+    occurred_on: date
+    transaction_id: Optional[int] = None
+    conversion_id: Optional[str] = None
+    activation_id: Optional[str] = None
+    base_exchange_rate: Optional[Decimal] = None
+    base_currency_amount: Optional[Decimal] = None
+    conversion_rate: Optional[Decimal] = None
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CashMovementListResponse(BaseModel):
+    """Paginated movement history"""
+    items: List[CashMovementOut] = Field(default_factory=list)
+    total: int
+
+
+class CashMovementCreate(BaseModel):
+    """Manual cash operation.
+
+    opening_balance is intentionally NOT accepted here: opening balances
+    are created only by the activation/reconstruction workflows.
+    """
+    type: CashMovementType
+    currency: str
+    amount: Decimal = Field(gt=0, description="Positive amount; the type determines the sign")
+    occurred_on: date
+    direction: Optional[str] = Field(
+        default=None, pattern="^(credit|debit)$",
+        description="Required for adjustments: which side the correction goes",
+    )
+    reason: Optional[str] = Field(default=None, description="Required for adjustments")
+    notes: Optional[str] = None
+
+    @field_validator('type')
+    @classmethod
+    def validate_manual_type(cls, v: CashMovementType) -> CashMovementType:
+        allowed = {
+            CashMovementType.DEPOSIT,
+            CashMovementType.WITHDRAWAL,
+            CashMovementType.ADJUSTMENT,
+            CashMovementType.INTEREST,
+            CashMovementType.FEE,
+            CashMovementType.TAX,
+        }
+        if v not in allowed:
+            raise ValueError(
+                f"Movement type '{v.value}' cannot be created manually; "
+                "allowed types: deposit, withdrawal, adjustment, interest, fee, tax"
+            )
+        return v
+
+
+class CashMovementUpdate(BaseModel):
+    """Partial update of a manual cash movement"""
+    currency: Optional[str] = None
+    amount: Optional[Decimal] = Field(default=None, gt=0)
+    occurred_on: Optional[date] = None
+    direction: Optional[str] = Field(default=None, pattern="^(credit|debit)$")
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CashMovementResponse(BaseModel):
+    """Movement mutation response with warn-mode warnings"""
+    movement: CashMovementOut
+    warnings: List[CashWarning] = Field(default_factory=list)
+
+
+class FxConversionCreate(BaseModel):
+    """Explicit Forex conversion between two cash currencies.
+
+    Rate convention (used everywhere in Portfolium): target-currency units
+    received per 1 source-currency unit.
+    """
+    source_currency: str
+    target_currency: str
+    source_amount: Decimal = Field(gt=0)
+    target_amount: Decimal = Field(gt=0)
+    occurred_on: date
+    fee_amount: Optional[Decimal] = Field(default=None, ge=0)
+    fee_currency: Optional[str] = Field(
+        default=None, description="Defaults to the source currency"
+    )
+    notes: Optional[str] = None
+
+
+class FxConversionResponse(BaseModel):
+    """Forex conversion response: all linked ledger legs"""
+    conversion_id: str
+    conversion_rate: Decimal  # target units per 1 source unit
+    movements: List[CashMovementOut] = Field(default_factory=list)
+    warnings: List[CashWarning] = Field(default_factory=list)
+
+
+class CashOpeningBalance(BaseModel):
+    """Opening balance for one currency at activation"""
+    currency: str
+    amount: Decimal = Field(ge=0)
+
+
+class CashActivationRequest(BaseModel):
+    """Enable cash tracking on a portfolio.
+
+    strategy='opening_balances': start from start_date with the given
+    opening balances; earlier transactions never affect cash.
+    strategy='replay': reconstruct cash effects of historical transactions
+    since start_date; the preview proposes the opening balances needed to
+    avoid unexplained negative dips.
+    """
+    strategy: str = Field(pattern="^(opening_balances|replay)$")
+    start_date: date
+    target_mode: CashMode
+    opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
+    activation_id: Optional[str] = Field(
+        default=None,
+        max_length=36,
+        description="Client-generated UUID; makes activation idempotent (required on apply)",
+    )
+
+    @field_validator('target_mode')
+    @classmethod
+    def validate_target_mode(cls, v: CashMode) -> CashMode:
+        if v == CashMode.UNTRACKED:
+            raise ValueError("target_mode must be tracked_warn or tracked_strict")
+        return v
+
+
+class CashProjectedBalance(BaseModel):
+    """Projected balance for one currency in an activation preview"""
+    currency: str
+    balance: Decimal
+
+
+class CashNegativeDip(BaseModel):
+    """Earliest projected negative balance for one currency"""
+    currency: str
+    date: date
+    projected_balance: Decimal
+
+
+class CashActivationPreview(BaseModel):
+    """Dry-run result of an activation request"""
+    strategy: str
+    start_date: date
+    target_mode: CashMode
+    derived_movement_count: int
+    opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
+    proposed_opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
+    projected_balances: List[CashProjectedBalance] = Field(default_factory=list)
+    negative_dips: List[CashNegativeDip] = Field(default_factory=list)
+    blocking_issues: List[str] = Field(default_factory=list)
+
+
+class CashActivationResult(BaseModel):
+    """Activation apply response"""
+    portfolio_id: int
+    cash_mode: CashMode
+    cash_tracking_started_on: date
+    activation_id: str
+    opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
+    derived_movement_count: int
+    already_applied: bool = False
+
+
+class CashModeChangeRequest(BaseModel):
+    """Change the cash mode of a tracked portfolio"""
+    mode: CashMode
+
+
+class CashLedgerWipeRequest(BaseModel):
+    """Explicit confirmation body for the destructive ledger wipe"""
+    confirm: str = Field(pattern="^DELETE$")

@@ -32,7 +32,12 @@ class Portfolio(Base):
     last_accessed_at = Column(DateTime, default=datetime.utcnow, index=True)
     # Cash tracking (see docs/technical/cash-ledger.md)
     cash_mode = Column(
-        Enum(CashMode, name="cash_mode", values_callable=lambda x: [e.value for e in x]),
+        Enum(
+            CashMode,
+            name="cash_mode",
+            schema="portfolio",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=CashMode.UNTRACKED,
         server_default=CashMode.UNTRACKED.value,

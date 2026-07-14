@@ -134,7 +134,18 @@ class CurrencyService:
                         except ImportError:
                             pass
                     logger.warning(f"Failed to fetch inverse pair {inverse_symbol}: {inv_e}")
-                
+
+                # Stablecoin settlement units (USDT/USDC) have no =X forex
+                # pairs; Yahoo quotes them as crypto pairs (e.g. USDT-EUR).
+                # This fallback is allowlist-gated - never a generic crypto
+                # rate lookup.
+                crypto_rate = CurrencyService._get_supplemental_pair_rate(
+                    provider, from_currency, to_currency
+                )
+                if crypto_rate is not None:
+                    _exchange_rate_cache[cache_key] = (crypto_rate, datetime.utcnow())
+                    return crypto_rate
+
                 logger.error(f"No exchange rate data available for {from_currency} to {to_currency}")
                 if cached_rate is not None:
                     logger.warning(
@@ -174,9 +185,42 @@ class CurrencyService:
             return None
     
     @staticmethod
+    def _get_supplemental_pair_rate(
+        provider, from_currency: str, to_currency: str
+    ) -> Optional[Decimal]:
+        """Crypto-pair fallback for stablecoin settlement units only"""
+        from app.services.cash.currencies import CASH_SUPPLEMENTAL_CURRENCIES
+
+        if (
+            from_currency not in CASH_SUPPLEMENTAL_CURRENCIES
+            and to_currency not in CASH_SUPPLEMENTAL_CURRENCIES
+        ):
+            return None
+        for symbol, invert in (
+            (f"{from_currency}-{to_currency}", False),
+            (f"{to_currency}-{from_currency}", True),
+        ):
+            try:
+                info = provider.get_history(
+                    symbol,
+                    action="fx_rate_stablecoin",
+                    timeout_seconds=yahoo_timeout_seconds(),
+                    period="1d",
+                )
+                if not info.empty:
+                    rate = Decimal(str(info['Close'].iloc[-1]))
+                    if rate > 0:
+                        result = (Decimal(1) / rate) if invert else rate
+                        logger.info(f"Fetched stablecoin pair rate {symbol}: {result}")
+                        return result
+            except Exception as e:
+                logger.warning(f"Failed to fetch stablecoin pair {symbol}: {e}")
+        return None
+
+    @staticmethod
     def convert(
-        amount: Decimal, 
-        from_currency: str, 
+        amount: Decimal,
+        from_currency: str,
         to_currency: str
     ) -> Optional[Decimal]:
         """
@@ -354,7 +398,30 @@ class CurrencyService:
             return None
         
         return amount * rate
-    
+
+    @staticmethod
+    def get_exchange_rate_fetched_at(from_currency: str, to_currency: str) -> Optional[datetime]:
+        """When the cached rate for this pair was fetched (None if uncached).
+
+        Lets callers expose rate freshness (e.g. cash valuation flags a rate
+        as stale when it only survived thanks to the stale-cache fallback).
+        """
+        if from_currency == to_currency:
+            return datetime.utcnow()
+        cached = _exchange_rate_cache.get(f"{from_currency}{to_currency}")
+        if cached is None:
+            # get_exchange_rate may have served the inverse pair
+            cached = _exchange_rate_cache.get(f"{to_currency}{from_currency}")
+        return cached[1] if cached else None
+
+    @staticmethod
+    def is_exchange_rate_stale(from_currency: str, to_currency: str) -> bool:
+        """True when the cached rate for this pair is older than the cache TTL"""
+        fetched_at = CurrencyService.get_exchange_rate_fetched_at(from_currency, to_currency)
+        if fetched_at is None:
+            return False
+        return datetime.utcnow() - fetched_at >= _CACHE_DURATION
+
     @staticmethod
     def clear_cache():
         """Clear the exchange rate cache"""

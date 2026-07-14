@@ -64,7 +64,9 @@
       "currencyConverted": "Le prix a été converti de {{from}} en {{to}}.",
       "dividendCurrency": "Le dividende est enregistré en {{currency}} ; la devise du portefeuille est {{portfolioCurrency}}.",
       "checkingPosition": "Vérification de la position disponible pour cette vente...",
-      "riskySellConfirmation": "Vente à risque détectée. Confirmez à nouveau uniquement si c’est intentionnel."
+      "riskySellConfirmation": "Vente à risque détectée. Confirmez à nouveau uniquement si c’est intentionnel.",
+      "cashProjectedNegative": "Cette transaction rend le solde de liquidités {{currency}} négatif.",
+      "cashInsufficientStrict": "Mode strict : cette transaction sera rejetée — liquidités {{currency}} insuffisantes."
     },
     "errors": {
       "invalidDate": "Saisissez une date valide.",
@@ -94,6 +96,14 @@
       "shareCountChanged": "Nombre d’actions modifié.",
       "cashAdded": "{{amount}} ajouté à la trésorerie.",
       "cashPaid": "{{amount}} prélevé sur la trésorerie."
+    },
+    "cash": {
+      "settlementCurrency": "Devise de règlement",
+      "requiredCash": "Liquidités requises",
+      "cashCredited": "Liquidités créditées",
+      "availableCash": "Liquidités disponibles",
+      "projectedBalance": "Solde projeté",
+      "insufficientCash": "Liquidités {{currency}} insuffisantes : disponible {{available}}, requis {{required}}, manquant {{missing}}."
     }
   },
   "transactionHistory": {

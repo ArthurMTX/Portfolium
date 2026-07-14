@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from fastapi import Depends
 
-from app.models import Transaction, Asset, TransactionType, Price, Portfolio
+from app.models import Transaction, Asset, TransactionType, Price, Portfolio, CashMode
 from app.schemas import Position, PortfolioMetrics
 from app.crud import assets as crud_assets
 from app.crud import prices as crud_prices
@@ -311,12 +311,25 @@ class MetricsService:
         
         total_dividends = self._calculate_total_dividends(portfolio_id)
         total_fees = self._calculate_total_fees(portfolio_id)
-        
+
         # P&L percentage
         unrealized_pct = (
             (total_unrealized / total_cost * 100) if total_cost > 0 else Decimal(0)
         )
-        
+
+        # Cash valuation (tracked portfolios only). Convertible balances are
+        # added to total value; balances without an FX rate stay native-only
+        # and are flagged via cash.fx_status (never assumed 1:1). Daily gain
+        # above intentionally stays an asset-only metric: deposits and
+        # withdrawals are external flows, not performance.
+        cash_summary = None
+        if getattr(portfolio, "cash_mode", CashMode.UNTRACKED) != CashMode.UNTRACKED:
+            from app.services.cash import valuation as cash_valuation
+
+            cash_summary = cash_valuation.get_cash_summary(self.db, portfolio)
+            if cash_summary.total_base is not None:
+                total_value += cash_summary.total_base
+
         return PortfolioMetrics(
             portfolio_id=portfolio_id,
             portfolio_name=portfolio.name,
@@ -330,7 +343,8 @@ class MetricsService:
             positions_count=len(positions),
             daily_change_value=daily_change_value,
             daily_change_pct=daily_change_pct,
-            last_updated=datetime.utcnow()
+            last_updated=datetime.utcnow(),
+            cash=cash_summary
         )
 
     @observe_operation("daily_gain")
@@ -1688,6 +1702,22 @@ class MetricsService:
                 ratio = self._parse_split_ratio((tx.meta_data or {}).get("split", "1:1"))
                 asset_splits[tx.asset_id].append((tx.tx_date, ratio))
         
+        # Cash series (tracked portfolios only): base-currency cash value per
+        # day, derived from the ledger with historical FX rates. Added to the
+        # chart value but kept OUT of gain_pct / unrealized_pnl_pct, which
+        # stay asset-only: deposits and withdrawals are external flows, not
+        # performance.
+        cash_series: Dict[date, Decimal] = {}
+        if (
+            getattr(portfolio, "cash_mode", CashMode.UNTRACKED) != CashMode.UNTRACKED
+            and sorted_dates
+        ):
+            from app.services.cash import valuation as cash_valuation
+
+            cash_series = cash_valuation.get_cash_balance_series(
+                self.db, portfolio, sorted_dates[0], sorted_dates[-1]
+            )
+
         # Track holdings, applying splits AS they occur chronologically
         # Also track total invested amount (cash flow) AND cost basis of current holdings
         holdings: Dict[int, Decimal] = defaultdict(lambda: Decimal(0))
@@ -1852,14 +1882,19 @@ class MetricsService:
                 logger.warning(f"NEGATIVE cost_basis on {current_date}: {float(total_cost_basis):.2f}, value: {float(total_value):.2f}")
                 unrealized_pnl_pct = None
             
+            # Cash joins the chart value only; the percentage metrics above
+            # were computed from the asset-only value on purpose
+            cash_value = cash_series.get(current_date)
+
             point = PortfolioHistoryPoint(
                 date=current_date.isoformat(),
-                value=float(total_value),
+                value=float(total_value + cash_value) if cash_value is not None else float(total_value),
                 invested=float(total_invested),
                 gain_pct=gain_pct,
                 cost_basis=float(total_cost_basis),
                 unrealized_pnl_pct=unrealized_pnl_pct,
-                daily_cash_flow=float(daily_cash_flows.get(current_date, Decimal(0)))
+                daily_cash_flow=float(daily_cash_flows.get(current_date, Decimal(0))),
+                cash_value=float(cash_value) if cash_value is not None else None
             )
             history.append(point)
         

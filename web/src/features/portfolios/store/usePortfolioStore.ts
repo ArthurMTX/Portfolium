@@ -56,6 +56,8 @@ interface Portfolio {
   is_public: boolean
   share_token: string
   created_at: string
+  cash_mode?: 'untracked' | 'tracked_warn' | 'tracked_strict'
+  cash_tracking_started_on?: string | null
 }
 
 interface PortfolioStore {

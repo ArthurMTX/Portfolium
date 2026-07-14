@@ -1,0 +1,180 @@
+/* Cash page content internals (page structure comes from PageLayout) */
+
+.cash-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--pf-space-4, 1rem);
+}
+
+.cash-balance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.25rem;
+}
+
+.cash-balance-card.is-negative .cash-balance-card__amount {
+  color: var(--pf-color-danger, #dc2626);
+}
+
+.cash-balance-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cash-balance-card__currency {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cash-balance-card__amount {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-balance-card__converted {
+  min-height: 1.1em;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.cash-movements-table td.is-positive {
+  color: var(--pf-color-success, #16a34a);
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-movements-table td.is-negative {
+  color: var(--pf-color-danger, #dc2626);
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-movement-notes {
+  max-inline-size: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cash-movement-actions {
+  white-space: nowrap;
+  text-align: end;
+}
+
+.cash-derived-badge {
+  margin-inline-start: 0.4rem;
+}
+
+.cash-filter-input {
+  max-inline-size: 10rem;
+}
+
+.cash-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cash-mode-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Modal internals */
+
+.cash-projection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--pf-color-surface-muted, rgba(127, 127, 127, 0.08));
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-projection__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cash-projection__row.is-negative {
+  color: var(--pf-color-danger, #dc2626);
+  font-weight: 600;
+}
+
+.cash-fx-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.cash-fx-leg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.cash-fx-arrow {
+  align-self: center;
+  opacity: 0.6;
+}
+
+.cash-fx-rate {
+  margin-block: 0.5rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.cash-opening-row {
+  display: grid;
+  grid-template-columns: 7rem 1fr auto;
+  gap: 0.5rem;
+  margin-block-end: 0.5rem;
+}
+
+.cash-preview {
+  margin-block-start: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.cash-preview__title {
+  font-weight: 600;
+}
+
+.cash-preview__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-preview__table th,
+.cash-preview__table td {
+  padding: 0.35rem 0.5rem;
+  text-align: start;
+  border-block-end: 1px solid var(--pf-color-border, rgba(127, 127, 127, 0.2));
+}
+
+.cash-preview__table td.is-negative {
+  color: var(--pf-color-danger, #dc2626);
+}
+
+@media (max-width: 640px) {
+  .cash-fx-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cash-fx-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+}

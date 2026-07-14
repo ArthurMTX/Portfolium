@@ -21,6 +21,7 @@
  * created even when a step fails. Run it only against disposable stacks.
  */
 import { chromium } from 'playwright'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -254,6 +255,86 @@ async function main() {
       if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
     })
   }
+
+  // Cash tracking end-to-end. Fully deterministic: every amount asserted
+  // below comes from this scenario's own movements, never from a provider.
+  await step('cash: activation preview and strict apply', async () => {
+    const activation = {
+      strategy: 'opening_balances',
+      start_date: '2026-07-01',
+      target_mode: 'tracked_strict',
+      opening_balances: [{ currency: 'USD', amount: '1000' }],
+    }
+    const preview = await apiJson('POST', `/portfolios/${portfolioB.id}/cash/activation/preview`, activation)
+    if (preview.blocking_issues.length) {
+      throw new Error(`activation blocked: ${preview.blocking_issues.join('; ')}`)
+    }
+    const result = await apiJson('POST', `/portfolios/${portfolioB.id}/cash/activation`, {
+      ...activation,
+      activation_id: randomUUID(),
+    })
+    if (result.cash_mode !== 'tracked_strict') {
+      throw new Error(`expected tracked_strict after activation, got ${result.cash_mode}`)
+    }
+    return `opening 1000 USD, mode ${result.cash_mode}`
+  })
+
+  await step('cash: strict mode rejects insufficient purchase', async () => {
+    const res = await api('POST', `/portfolios/${portfolioB.id}/transactions`, {
+      asset_id: asset.id, tx_date: '2026-07-02', type: 'BUY',
+      quantity: '50', price: '100.00', fees: '0', currency: 'USD',
+    }, token, [409])
+    if (res.status !== 409) throw new Error(`expected 409, got ${res.status}`)
+    const body = await res.json()
+    if (body.detail?.code !== 'insufficient_cash') {
+      throw new Error(`expected insufficient_cash, got ${JSON.stringify(body.detail)}`)
+    }
+    const { available, required, missing } = body.detail.context
+    return `available ${available}, required ${required}, missing ${missing}`
+  })
+
+  await step('cash: deposit funds a covered purchase and updates balances', async () => {
+    await apiJson('POST', `/portfolios/${portfolioB.id}/cash/movements`, {
+      type: 'deposit', currency: 'USD', amount: '500', occurred_on: '2026-07-02',
+    })
+    await apiJson('POST', `/portfolios/${portfolioB.id}/transactions`, {
+      asset_id: asset.id, tx_date: '2026-07-03', type: 'BUY',
+      quantity: '10', price: '100.00', fees: '2.00', currency: 'USD',
+    })
+    const balances = await apiJson('GET', `/portfolios/${portfolioB.id}/cash/balances`)
+    const usd = balances.balances.find((b) => b.currency === 'USD')
+    // 1000 opening + 500 deposit - 1000 buy - 2 fee
+    if (!usd || Number(usd.balance) !== 498) {
+      throw new Error(`expected USD balance 498, got ${usd?.balance}`)
+    }
+    return `USD balance ${usd.balance}`
+  })
+
+  await step('cash: fx conversion produces linked legs', async () => {
+    const conversion = await apiJson('POST', `/portfolios/${portfolioB.id}/cash/fx-conversions`, {
+      source_currency: 'USD', target_currency: 'EUR',
+      source_amount: '100', target_amount: '92', occurred_on: '2026-07-04',
+    })
+    if (conversion.movements.length !== 2) {
+      throw new Error(`expected 2 conversion legs, got ${conversion.movements.length}`)
+    }
+    const balances = await apiJson('GET', `/portfolios/${portfolioB.id}/cash/balances`)
+    const eur = balances.balances.find((b) => b.currency === 'EUR')
+    if (!eur || Number(eur.balance) !== 92) {
+      throw new Error(`expected EUR balance 92, got ${eur?.balance}`)
+    }
+  })
+
+  await step('cash: Cash page renders without errors', async () => {
+    const errors = []
+    const onPageError = (err) => errors.push(err.message)
+    page.on('pageerror', onPageError)
+    await page.goto(`${BASE_URL}/cash`)
+    await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {})
+    page.off('pageerror', onPageError)
+    if (page.url().includes('/login')) throw new Error('bounced to login')
+    if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`)
+  })
 
   // 16. asset search
   await step('asset search returns AAPL', async () => {

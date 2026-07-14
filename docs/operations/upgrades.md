@@ -55,6 +55,26 @@ If an upgrade causes problems:
 !!! warning "Migrations Are Rarely Reversible"
     Alembic migrations in this project are written forward-only in typical use. Rolling back application code after a migration has altered the schema can break the older code. Always back up before upgrading so you have a clean restore point rather than relying on a migration downgrade.
 
+## Version-Specific Notes
+
+### v0.4.0 — Cash tracking
+
+- One new Alembic migration (`20260713_1000_add_cash_tracking`) creates the
+  `portfolio.cash_accounts` and `portfolio.cash_movements` tables, two
+  PostgreSQL enum types and six new columns on `portfolio.portfolios`. It
+  has a working downgrade.
+- Every existing portfolio is migrated to `cash_mode = 'untracked'`, which
+  preserves the historical behavior exactly: no cash movements are
+  generated for existing transactions, and values, performance and history
+  are unchanged until a user explicitly enables cash tracking.
+- API responses gain additive fields only (`cash_mode`,
+  `cash_tracking_started_on` on portfolios; nullable `cash`,
+  `cash_value`, `cash_warnings` fields elsewhere). No existing field
+  changed shape or meaning.
+- No new environment variables are required. The optional
+  `CASH_PG_TEST_URL` variable enables the real-PostgreSQL cash concurrency
+  test in development and CI.
+
 ## Related
 
 - [Backup & Restore](backup-restore.md)

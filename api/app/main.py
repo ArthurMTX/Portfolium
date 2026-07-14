@@ -14,7 +14,7 @@ from app.observability.logging import configure_logging
 from app.observability.metrics import metrics_payload
 from app.observability.middleware import ObservabilityMiddleware
 from app.security_headers import SecurityHeadersMiddleware
-from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public, pending_dividends, push, calendar
+from app.routers import assets, portfolios, transactions, prices, health, admin, settings as settings_router, logs, auth, watchlist, notifications, insights, version, dashboard_layouts, market, batch, tasks, goals, public, pending_dividends, push, calendar, cash
 from app.version import __version__, get_version_info
 
 
@@ -86,6 +86,7 @@ app.include_router(assets.router, prefix="/assets", tags=["assets"])
 app.include_router(portfolios.router, prefix="/portfolios", tags=["portfolios"])
 app.include_router(goals.router, tags=["goals"])
 app.include_router(transactions.router, prefix="/portfolios", tags=["transactions"])
+app.include_router(cash.router, prefix="/portfolios", tags=["cash"])
 app.include_router(prices.router, prefix="/prices", tags=["prices"])
 app.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 app.include_router(notifications.router, tags=["notifications"])

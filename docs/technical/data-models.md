@@ -56,6 +56,23 @@ Shared across all portfolios — one row per unique ticker, not per user.
 
 Cached current and historical price points per asset — see [Pricing](pricing.md) for how this table is populated and kept fresh.
 
+## Cash Ledger
+
+- **CashAccount** (`portfolio.cash_accounts`) — one row per portfolio and
+  currency; the row-level locking anchor for strict-mode validation. No
+  cached balance column exists.
+- **CashMovement** (`portfolio.cash_movements`) — the signed cash ledger;
+  balances are always `SUM(amount)` per portfolio and currency. Movements
+  derived from transactions carry `transaction_id`; Forex conversion legs
+  share a `conversion_id`; activation opening balances carry
+  `activation_id`. See [Cash Ledger](cash-ledger.md) for the full schema,
+  constraints and accounting rules.
+- **Portfolio** additions — `cash_mode` (`untracked` default,
+  `tracked_warn`, `tracked_strict`), `cash_tracking_started_on`,
+  `cash_activation_id`/`cash_activation_meta` (activation audit), and the
+  `tx_change_seq`/`cash_ledger_synced_seq` revision counters used to detect
+  a stale retained ledger.
+
 ## Asset Intelligence
 
 ### AssetMetadataOverride (`asset_metadata_overrides`)

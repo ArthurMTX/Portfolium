@@ -3,6 +3,7 @@ import * as assetResearch from './assetResearch'
 import * as assets from './assets'
 import * as auth from './auth'
 import * as calendar from './calendar'
+import * as cash from './cash'
 import * as dashboard from './dashboard'
 import * as dividends from './dividends'
 import * as insights from './insights'
@@ -28,6 +29,7 @@ export * from './insights'
 export * from './dashboard'
 export * from './dividends'
 export * from './calendar'
+export * from './cash'
 
 export const api = {
   ...admin,
@@ -44,6 +46,7 @@ export const api = {
   ...dashboard,
   ...dividends,
   ...calendar,
+  ...cash,
 }
 
 export default api

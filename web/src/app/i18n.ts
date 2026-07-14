@@ -14,6 +14,7 @@ import enSettings from '@/locales/en/settings.json'
 import enNotifications from '@/locales/en/notifications.json'
 import enAdmin from '@/locales/en/admin.json'
 import enBoards from '@/locales/en/boards.json'
+import enCash from '@/locales/en/cash.json'
 
 import frCommon from '@/locales/fr/common.json'
 import frAuth from '@/locales/fr/auth.json'
@@ -27,17 +28,18 @@ import frSettings from '@/locales/fr/settings.json'
 import frNotifications from '@/locales/fr/notifications.json'
 import frAdmin from '@/locales/fr/admin.json'
 import frBoards from '@/locales/fr/boards.json'
+import frCash from '@/locales/fr/cash.json'
 
 // Each locale is split across multiple files by domain (see src/locales/<lang>/*.json)
 // but merged here into a single `translation` namespace, so existing t('domain.key')
 // calls throughout the app keep working unchanged.
 const enTranslation = {
   ...enCommon, ...enAuth, ...enDashboard, ...enPortfolios, ...enAssets,
-  ...enTransactions, ...enCharts, ...enInsights, ...enSettings, ...enNotifications, ...enAdmin, ...enBoards,
+  ...enTransactions, ...enCharts, ...enInsights, ...enSettings, ...enNotifications, ...enAdmin, ...enBoards, ...enCash,
 }
 const frTranslation = {
   ...frCommon, ...frAuth, ...frDashboard, ...frPortfolios, ...frAssets,
-  ...frTransactions, ...frCharts, ...frInsights, ...frSettings, ...frNotifications, ...frAdmin, ...frBoards,
+  ...frTransactions, ...frCharts, ...frInsights, ...frSettings, ...frNotifications, ...frAdmin, ...frBoards, ...frCash,
 }
 
 // Initialize i18next
