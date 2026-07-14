@@ -435,6 +435,8 @@ export interface CashMovementDTO {
   amount: string | number
   occurred_on: string
   transaction_id?: number | null
+  /** Symbol of the asset behind a transaction-derived movement */
+  asset_symbol?: string | null
   conversion_id?: string | null
   activation_id?: string | null
   base_exchange_rate?: string | number | null
@@ -500,7 +502,8 @@ export interface CashOpeningBalanceDTO {
 
 export interface CashActivationPayload {
   strategy: 'opening_balances' | 'replay'
-  start_date: string
+  /** Omitted => the backend scans from the earliest transaction date */
+  start_date?: string
   target_mode: Exclude<CashMode, 'untracked'>
   opening_balances: CashOpeningBalanceDTO[]
   activation_id?: string

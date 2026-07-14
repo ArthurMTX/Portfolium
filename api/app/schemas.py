@@ -1667,6 +1667,8 @@ class CashMovementOut(BaseModel):
     amount: Decimal
     occurred_on: date
     transaction_id: Optional[int] = None
+    # Symbol of the asset behind a transaction-derived movement
+    asset_symbol: Optional[str] = None
     conversion_id: Optional[str] = None
     activation_id: Optional[str] = None
     base_exchange_rate: Optional[Decimal] = None
@@ -1778,9 +1780,13 @@ class CashActivationRequest(BaseModel):
     strategy='replay': reconstruct cash effects of historical transactions
     since start_date; the preview proposes the opening balances needed to
     avoid unexplained negative dips.
+
+    start_date omitted: resolved to the portfolio's earliest transaction
+    date (today when it has none), so a replay scans the whole history
+    without the client having to know it.
     """
     strategy: str = Field(pattern="^(opening_balances|replay)$")
-    start_date: date
+    start_date: Optional[date] = None
     target_mode: CashMode
     opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
     activation_id: Optional[str] = Field(

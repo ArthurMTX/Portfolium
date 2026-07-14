@@ -427,7 +427,9 @@ export default function Cash() {
                         <tr key={movement.id}>
                           <td>{movement.occurred_on}</td>
                           <td>
-                            <span className="pf-badge">{t(`cash.movementTypes.${movement.type}`)}</span>
+                            <span className={`pf-badge cash-type-badge cash-type-badge--${movement.type}`}>
+                              {t(`cash.movementTypes.${movement.type}`)}
+                            </span>
                             {derived && (
                               <span className="pf-badge pf-badge--accent cash-derived-badge" title={t('cash.table.derivedHint')}>
                                 {t('cash.table.derived')}
@@ -438,6 +440,9 @@ export default function Cash() {
                             {`${amount > 0 ? '+' : ''}${formatCurrency(amount, movement.currency, currentLocale, true)}`}
                           </td>
                           <td className="cash-movement-notes">
+                            {movement.asset_symbol && (
+                              <span className="cash-movement-asset">{movement.asset_symbol}</span>
+                            )}
                             {movement.reason || movement.notes || ''}
                           </td>
                           <td className="cash-movement-actions">

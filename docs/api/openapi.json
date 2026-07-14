@@ -2900,7 +2900,7 @@
       "Body_import_csv_portfolios_import_csv_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -2914,7 +2914,7 @@
       "Body_import_csv_stream_portfolios_import_csv_stream_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -2928,7 +2928,7 @@
       "Body_import_watchlist_csv_stream_watchlist_import_csv_stream_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -2942,7 +2942,7 @@
       "Body_import_watchlist_csv_watchlist_import_csv_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -3015,7 +3015,7 @@
       "Body_preview_import_csv_portfolios_import_csv_preview_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -3091,7 +3091,7 @@
         "type": "object"
       },
       "CashActivationRequest": {
-        "description": "Enable cash tracking on a portfolio.\n\nstrategy='opening_balances': start from start_date with the given\nopening balances; earlier transactions never affect cash.\nstrategy='replay': reconstruct cash effects of historical transactions\nsince start_date; the preview proposes the opening balances needed to\navoid unexplained negative dips.",
+        "description": "Enable cash tracking on a portfolio.\n\nstrategy='opening_balances': start from start_date with the given\nopening balances; earlier transactions never affect cash.\nstrategy='replay': reconstruct cash effects of historical transactions\nsince start_date; the preview proposes the opening balances needed to\navoid unexplained negative dips.\n\nstart_date omitted: resolved to the portfolio's earliest transaction\ndate (today when it has none), so a replay scans the whole history\nwithout the client having to know it.",
         "properties": {
           "activation_id": {
             "anyOf": [
@@ -3114,9 +3114,16 @@
             "type": "array"
           },
           "start_date": {
-            "format": "date",
-            "title": "Start Date",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
           },
           "strategy": {
             "pattern": "^(opening_balances|replay)$",
@@ -3129,7 +3136,6 @@
         },
         "required": [
           "strategy",
-          "start_date",
           "target_mode"
         ],
         "title": "CashActivationRequest",
@@ -3436,6 +3442,17 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount",
             "type": "string"
+          },
+          "asset_symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Symbol"
           },
           "base_currency_amount": {
             "anyOf": [
@@ -4462,7 +4479,46 @@
         "title": "DashboardLayoutCreate",
         "type": "object"
       },
-      "DashboardLayoutExport": {
+      "DashboardLayoutExport-Input": {
+        "description": "Schema for exporting/importing dashboard layouts",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "exported_at": {
+            "format": "date-time",
+            "title": "Exported At",
+            "type": "string"
+          },
+          "layout_config": {
+            "$ref": "#/components/schemas/LayoutConfigSchema"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "default": "1.0",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "layout_config"
+        ],
+        "title": "DashboardLayoutExport",
+        "type": "object"
+      },
+      "DashboardLayoutExport-Output": {
         "description": "Schema for exporting/importing dashboard layouts",
         "properties": {
           "description": {
@@ -8969,13 +9025,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
@@ -13936,7 +13985,7 @@
     },
     "/batch/dashboard": {
       "post": {
-        "description": "Batch fetch dashboard data based on visible widgets\n\nThis endpoint intelligently fetches only the data required for currently\nvisible widgets, reducing over-fetching and improving performance.\n\nReturns:\n    - data: Dict of requested data sections\n    - errors: Dict of any errors encountered (partial failures allowed)\n    - cached: Whether response was served from cache\n    - timestamp: When data was fetched",
+        "description": "Serve fresh/stale dashboard data and single-flight cold refreshes.",
         "operationId": "get_dashboard_batch_batch_dashboard_post",
         "requestBody": {
           "content": {
@@ -13982,8 +14031,19 @@
     },
     "/batch/dashboard/cache": {
       "delete": {
-        "description": "Clear dashboard batch cache (admin/debugging)",
+        "description": "Clear every dashboard digest/variant owned by one portfolio.",
         "operationId": "clear_dashboard_cache_batch_dashboard_cache_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -13992,6 +14052,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -14686,7 +14756,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DashboardLayoutExport"
+                "$ref": "#/components/schemas/DashboardLayoutExport-Input"
               }
             }
           },
@@ -14950,7 +15020,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardLayoutExport"
+                  "$ref": "#/components/schemas/DashboardLayoutExport-Output"
                 }
               }
             },

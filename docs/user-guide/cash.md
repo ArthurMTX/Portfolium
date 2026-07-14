@@ -20,21 +20,22 @@ your values, performance and history stay exactly the same until you opt in.
 
 ## Enabling cash tracking
 
-Open the **Cash** page and choose **Enable cash tracking**. Two strategies are
-available:
+Open the **Cash** page and choose **Enable cash tracking**. Two starting
+points are available:
 
-- **Start from a date** — you pick an activation date and the opening balance
-  of each currency. Transactions before that date never affect cash.
-- **Reconstruct from transactions** — Portfolium replays your buys, sells,
-  dividends, fees and taxes since the chosen date into cash movements. Because
-  historical deposits are usually not recorded, the preview proposes the
+- **Reconstruct from my transactions** (recommended) — Portfolium scans your
+  entire transaction history automatically (no date to choose) and replays
+  your buys, sells, dividends, fees and taxes into cash movements. Because
+  historical deposits are usually not recorded, the review step proposes the
   opening balance per currency needed to avoid unexplained negative cash. One
   opening balance is proposed — never one fake deposit per purchase — and
   nothing is applied without your explicit confirmation.
+- **Start fresh from a date** — you pick an activation date and the opening
+  balance of each currency. Transactions before that date never affect cash.
 
-The preview shows projected balances per currency, the earliest negative dip
-if any, and how many movements will be derived. Activation is atomic: either
-everything is applied or nothing is.
+The review step shows projected balances per currency, the earliest negative
+dip if any, and how many movements will be created. Activation is atomic:
+either everything is applied or nothing is.
 
 ## What moves cash
 

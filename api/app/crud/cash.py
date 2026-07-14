@@ -15,9 +15,9 @@ from typing import List, Optional, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.models import CashAccount, CashMovement, CashMovementType
+from app.models import CashAccount, CashMovement, CashMovementType, Transaction
 
 
 def get_or_create_accounts(
@@ -98,7 +98,13 @@ def get_movements(
     limit: Optional[int] = 100,
 ) -> tuple[List[CashMovement], int]:
     """List movements (display order: newest first) plus the total count"""
-    q = db.query(CashMovement).filter(CashMovement.portfolio_id == portfolio_id)
+    q = (
+        db.query(CashMovement)
+        # Display needs the asset behind derived movements; joinedload
+        # avoids an N+1 on transaction -> asset
+        .options(joinedload(CashMovement.transaction).joinedload(Transaction.asset))
+        .filter(CashMovement.portfolio_id == portfolio_id)
+    )
     if currency:
         q = q.filter(CashMovement.currency == currency)
     if movement_type:

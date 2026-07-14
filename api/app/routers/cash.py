@@ -128,7 +128,13 @@ def list_cash_movements(
         skip=skip,
         limit=limit,
     )
-    return schemas.CashMovementListResponse(items=movements, total=total)
+    items = []
+    for movement in movements:
+        item = schemas.CashMovementOut.model_validate(movement)
+        if movement.transaction is not None and movement.transaction.asset is not None:
+            item.asset_symbol = movement.transaction.asset.symbol
+        items.append(item)
+    return schemas.CashMovementListResponse(items=items, total=total)
 
 
 @router.post(

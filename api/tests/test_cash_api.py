@@ -196,7 +196,14 @@ class TestManualMovements:
         resp = client.get(
             f"/portfolios/{portfolio.id}/cash/movements", headers=auth_headers
         )
-        derived = [m for m in resp.json()["items"] if m["transaction_id"] == tx_id][0]
+        items = resp.json()["items"]
+        derived = [m for m in items if m["transaction_id"] == tx_id][0]
+        # Derived movements carry the symbol of the asset they settle;
+        # manual movements have no asset
+        assert derived["asset_symbol"] == asset.symbol
+        assert all(
+            m["asset_symbol"] is None for m in items if m["transaction_id"] is None
+        )
 
         resp = client.put(
             f"/portfolios/{portfolio.id}/cash/movements/{derived['id']}",

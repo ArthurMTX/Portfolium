@@ -71,6 +71,23 @@ def _lock_portfolio(db: Session, portfolio_id: int) -> Portfolio:
     )
 
 
+def _resolve_start_date(
+    db: Session, portfolio: Portfolio, requested: Optional[date]
+) -> date:
+    """An omitted start_date means "scan everything": the earliest
+    transaction date, or today for a portfolio with no transactions."""
+    if requested is not None:
+        return requested
+    earliest = (
+        db.query(Transaction.tx_date)
+        .filter(Transaction.portfolio_id == portfolio.id)
+        .order_by(Transaction.tx_date)
+        .limit(1)
+        .scalar()
+    )
+    return earliest or date.today()
+
+
 def _derive_specs_since(
     db: Session, portfolio: Portfolio, start_date: date
 ) -> Tuple[List[Tuple[Transaction, List[MovementSpec]]], List[str]]:
@@ -168,7 +185,8 @@ def preview_activation(
         raise CashActivationConflictError(portfolio.id)
 
     openings = _normalized_openings(request)
-    derived, issues = _derive_specs_since(db, portfolio, request.start_date)
+    start_date = _resolve_start_date(db, portfolio, request.start_date)
+    derived, issues = _derive_specs_since(db, portfolio, start_date)
     if db.query(CashMovement.id).filter(CashMovement.portfolio_id == portfolio.id).first():
         issues.append(
             "A retained cash ledger exists for this portfolio; wipe it "
@@ -180,7 +198,7 @@ def preview_activation(
     if request.strategy == "replay":
         # Propose, per currency, the opening balance that lifts the running
         # minimum (with the user-provided openings applied) back to zero
-        swept = _sweep(_merge_deltas(openings, request.start_date, derived))
+        swept = _sweep(_merge_deltas(openings, start_date, derived))
         for currency, (_final, minimum, _dip) in swept.items():
             if minimum < 0:
                 proposed[currency] = q8(-minimum)
@@ -189,7 +207,7 @@ def preview_activation(
     for currency, amount in proposed.items():
         effective_openings[currency] = effective_openings.get(currency, Decimal(0)) + amount
 
-    swept = _sweep(_merge_deltas(effective_openings, request.start_date, derived))
+    swept = _sweep(_merge_deltas(effective_openings, start_date, derived))
     projected = [
         schemas.CashProjectedBalance(currency=currency, balance=q8(final))
         for currency, (final, _minimum, _dip) in sorted(swept.items())
@@ -202,7 +220,7 @@ def preview_activation(
 
     return schemas.CashActivationPreview(
         strategy=request.strategy,
-        start_date=request.start_date,
+        start_date=start_date,
         target_mode=request.target_mode,
         derived_movement_count=sum(len(specs) for _tx, specs in derived),
         opening_balances=[
@@ -266,7 +284,8 @@ def apply_activation(
         )
 
     openings = _normalized_openings(request)
-    derived, issues = _derive_specs_since(db, portfolio, request.start_date)
+    start_date = _resolve_start_date(db, portfolio, request.start_date)
+    derived, issues = _derive_specs_since(db, portfolio, start_date)
     if issues:
         raise CashError(
             status_code=422,
@@ -275,7 +294,7 @@ def apply_activation(
         )
 
     if request.target_mode == CashMode.TRACKED_STRICT:
-        swept = _sweep(_merge_deltas(openings, request.start_date, derived))
+        swept = _sweep(_merge_deltas(openings, start_date, derived))
         for currency, (_final, _minimum, dip) in sorted(swept.items()):
             if dip is not None:
                 raise InsufficientCashError(
@@ -299,7 +318,7 @@ def apply_activation(
             currency=currency,
             type=CashMovementType.OPENING_BALANCE,
             amount=amount,
-            occurred_on=request.start_date,
+            occurred_on=start_date,
             activation_id=request.activation_id,
             reason=f"Opening balance ({request.strategy} activation)",
         )
@@ -319,7 +338,7 @@ def apply_activation(
         for currency, amount in sorted(openings.items())
     ]
     portfolio.cash_mode = request.target_mode
-    portfolio.cash_tracking_started_on = request.start_date
+    portfolio.cash_tracking_started_on = start_date
     portfolio.cash_activation_id = request.activation_id
     portfolio.cash_activation_meta = {
         "strategy": request.strategy,

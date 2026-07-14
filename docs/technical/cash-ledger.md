@@ -175,7 +175,10 @@ uniformly (deletes included) without per-row bookkeeping.
 ## Activation
 
 `POST /cash/activation/preview` is a pure dry-run; `POST /cash/activation`
-applies atomically in one SQL transaction (portfolio row locked). The
+applies atomically in one SQL transaction (portfolio row locked).
+`start_date` is optional: when omitted it resolves to the portfolio's
+earliest transaction date (today if it has none), so a replay scans the
+whole history without the client knowing it. The
 `replay` strategy computes, per currency, the running minimum of the
 replayed history and proposes `max(0, −minimum)` as the opening balance —
 one opening movement per currency, never a synthetic deposit per purchase.

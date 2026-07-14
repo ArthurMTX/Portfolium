@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Edit2, Globe, GlobeLock, Link2, PlusCircle, Trash2, X } from 'lucide-react'
-import api, { type PortfolioMetricsDTO } from '@/api'
+import api, { type CashMode, type PortfolioMetricsDTO } from '@/api'
 import usePortfolioStore from '@/features/portfolios/store/usePortfolioStore'
 import { formatCurrency } from '@/shared/lib/formatUtils'
 import { getTranslatedSector } from '@/shared/lib/translationUtils'
@@ -109,6 +109,7 @@ export default function Portfolios() {
   const [baseCurrency, setBaseCurrency] = useState('EUR')
   const [description, setDescription] = useState('')
   const [isPublic, setIsPublic] = useState(false)
+  const [cashMode, setCashMode] = useState<CashMode>('untracked')
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
@@ -238,6 +239,7 @@ export default function Portfolios() {
     setBaseCurrency('EUR')
     setDescription('')
     setIsPublic(false)
+    setCashMode('untracked')
     setFormError('')
   }
 
@@ -257,7 +259,27 @@ export default function Portfolios() {
       if (editingPortfolio) {
         await api.updatePortfolio(editingPortfolio.id, portfolioData)
       } else {
-        await api.createPortfolio(portfolioData)
+        const created = await api.createPortfolio(portfolioData)
+        if (cashMode !== 'untracked') {
+          // A new portfolio has no history: an empty replay activation is
+          // instant and keeps activation as the single entry point to
+          // cash tracking
+          try {
+            await api.applyCashActivation(created.id, {
+              strategy: 'replay',
+              target_mode: cashMode,
+              opening_balances: [],
+              activation_id: crypto.randomUUID(),
+            })
+          } catch {
+            // The portfolio exists but stayed untracked: switch the modal
+            // to edit mode so resubmitting can never create a duplicate
+            await fetchPortfolios()
+            setEditingPortfolio(created as unknown as Portfolio)
+            setFormError(t('portfolios.cashActivationFailed'))
+            return
+          }
+        }
       }
 
       await fetchPortfolios()
@@ -542,6 +564,24 @@ export default function Portfolios() {
                   placeholder={t('portfolios.descriptionPlaceholder')}
                 />
               </div>
+
+              {!editingPortfolio && (
+                <div>
+                  <label className="pf-modal-label">
+                    {t('portfolios.cashTracking')}
+                  </label>
+                  <select
+                    value={cashMode}
+                    onChange={(event) => setCashMode(event.target.value as CashMode)}
+                    className="pf-modal-select"
+                  >
+                    <option value="untracked">{t('portfolios.cashTrackingOff')}</option>
+                    <option value="tracked_warn">{t('portfolios.cashTrackingWarn')}</option>
+                    <option value="tracked_strict">{t('portfolios.cashTrackingStrict')}</option>
+                  </select>
+                  <p className="pf-modal-help">{t('portfolios.cashTrackingHint')}</p>
+                </div>
+              )}
 
               <div className="pf-modal-setting-row">
                 <div>

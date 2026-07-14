@@ -88,6 +88,40 @@ assert.deepEqual(buildBuyPayload({
   notes: null,
 })
 
+// Empty fields must serialize as 0, never NaN (JSON null -> API 422)
+assert.deepEqual(buildBuyPayload({
+  ...payloadBase,
+  fees: '',
+}), {
+  asset_id: 42,
+  tx_date: '2024-01-15',
+  type: 'BUY',
+  quantity: 10,
+  price: 25,
+  fees: 0,
+  currency: 'EUR',
+  metadata: {},
+  notes: 'note',
+})
+
+assert.deepEqual(buildFeePayload({
+  ...payloadBase,
+  txType: 'FEE',
+  quantity: '',
+  price: '',
+  fees: '12',
+}), {
+  asset_id: 42,
+  tx_date: '2024-01-15',
+  type: 'FEE',
+  quantity: 0,
+  price: 0,
+  fees: 12,
+  currency: 'EUR',
+  metadata: {},
+  notes: 'note',
+})
+
 assert.deepEqual(buildSellPayload({
   ...payloadBase,
   txType: 'SELL',
@@ -153,22 +187,13 @@ assert.deepEqual(buildFeePayload({
   asset_id: 42,
   tx_date: '2024-01-15',
   type: 'FEE',
-  quantity: Number.NaN,
+  quantity: 0,
   price: 7,
   fees: 0,
   currency: 'EUR',
   metadata: {},
   notes: 'note',
 })
-
-const feePayload = buildFeePayload({
-  ...payloadBase,
-  txType: 'FEE',
-  quantity: '',
-  price: '7',
-  fees: '0',
-})
-assert.equal(Number.isNaN(feePayload.quantity), true)
 
 assert.deepEqual(buildSplitPayload({
   ...payloadBase,

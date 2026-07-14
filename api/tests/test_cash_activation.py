@@ -93,6 +93,53 @@ class TestPreview:
         # Preview writes nothing
         assert test_db.query(CashMovement).count() == 0
 
+    def test_omitted_start_date_scans_from_earliest_transaction(
+        self, client, test_db, auth_headers, portfolio, asset
+    ):
+        _seed_history(portfolio, asset)
+        payload = _request()
+        del payload["start_date"]
+        resp = client.post(
+            f"/portfolios/{portfolio.id}/cash/activation/preview",
+            json=payload,
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        # Resolved to the earliest transaction date: the 2025-06-01 buy
+        # (excluded by the explicit START window) is now included
+        assert body["start_date"] == "2025-06-01"
+        assert body["derived_movement_count"] == 8
+        assert body["proposed_opening_balances"] == [
+            {"currency": "USD", "amount": "1253.00000000"}
+        ]
+
+        apply_payload = {
+            **payload,
+            "activation_id": str(uuid.uuid4()),
+            "opening_balances": body["proposed_opening_balances"],
+        }
+        resp = client.post(
+            f"/portfolios/{portfolio.id}/cash/activation",
+            json=apply_payload,
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["cash_tracking_started_on"] == "2025-06-01"
+
+    def test_omitted_start_date_defaults_to_today_without_transactions(
+        self, client, auth_headers, portfolio
+    ):
+        payload = _request()
+        del payload["start_date"]
+        resp = client.post(
+            f"/portfolios/{portfolio.id}/cash/activation/preview",
+            json=payload,
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["start_date"] == date.today().isoformat()
+
     def test_opening_balances_strategy_reports_dips(
         self, client, auth_headers, portfolio, asset
     ):

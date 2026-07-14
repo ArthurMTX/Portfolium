@@ -76,6 +76,13 @@ interface UpdatePayloadParams extends BasePayloadParams {
   splitRatio: string
 }
 
+// Empty or unparsable inputs become 0 rather than NaN: NaN serializes to
+// JSON null, which the API rejects for Decimal fields
+const parseOptionalAmount = (value: string) => {
+  const parsed = value && value.trim() !== '' ? parseFloat(value) : 0
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 const parseOptionalFee = (fees: string) => (
   fees && fees.trim() !== '' ? parseFloat(fees) : 0
 )
@@ -263,9 +270,9 @@ const buildStandardPayload = ({
   asset_id: assetId,
   tx_date: txDate,
   type: txType,
-  quantity: parseFloat(quantity),
-  price: parseFloat(price),
-  fees: parseFloat(fees),
+  quantity: parseOptionalAmount(quantity),
+  price: parseOptionalAmount(price),
+  fees: parseOptionalAmount(fees),
   currency,
   metadata,
   notes: notes || null,
