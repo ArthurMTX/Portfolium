@@ -3,30 +3,43 @@ Batch endpoint for dashboard data
 Intelligently fetches only the data needed for visible widgets
 """
 import asyncio
+from contextlib import suppress
 import logging
+import time
+import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple
-from fastapi import APIRouter, Depends
+from typing import Any, Dict, List, Optional, Set
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.errors import PortfolioNotFoundError
-from app.db import get_db
-from app.auth import get_current_verified_user, verify_portfolio_access
-from app.models import User, Portfolio as PortfolioModel
+from app.db import SessionLocal, get_db
+from app.auth import get_current_verified_user
+from app.models import User
 from app.crud import portfolios as crud_portfolios
 from app.routers import market
 from app.dependencies import MetricsServiceDep, InsightsServiceDep
 from app.services.platform.cache import CacheService
 from app.services.platform.dashboard_cache_keys import build_dashboard_batch_cache_key
 from app.services.market_data.yahoo_finance import get_market_data_provider, yahoo_timeout_seconds
+from app.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/batch", tags=["batch"])
 
-# Cache TTL for batch responses (5 minutes)
-_BATCH_CACHE_TTL = 300  # 300 seconds (5 minutes)
+# Dashboard entries live long enough to be useful as stale fallbacks.  Their
+# embedded timestamp determines the much shorter fresh window.
+_BATCH_FRESH_TTL = 300
+_BATCH_STALE_TTL = 3600
+_DASHBOARD_LOCK_TTL = 600
+_DASHBOARD_LOCK_RENEW_INTERVAL = 60.0
+_DASHBOARD_COLD_WAIT_SECONDS = 30.0
+_DASHBOARD_FOLLOWER_WAIT_SECONDS = 2.0
+_dashboard_refresh_tasks: set[asyncio.Task] = set()
 
 
 def _make_json_serializable(obj, _seen=None):
@@ -497,26 +510,60 @@ async def _fetch_theme_allocation(portfolio_id: int, db: Session, metrics_servic
 
 
 async def _fetch_performance_history(portfolio_id: int, db: Session) -> Optional[Dict]:
-    """Fetch portfolio performance history for different periods"""
+    """Calculate one canonical series and derive every dashboard period."""
+    del db  # History is isolated because SQLAlchemy sessions are not thread-safe.
     try:
         from app.services.portfolio_analytics.metrics import MetricsService
-        metrics_service = MetricsService(db)
-        # Fetch multiple periods in parallel
-        periods = ['1W', '1M', '3M', 'YTD', '1Y', 'ALL']
-        results = {}
-        for period in periods:
+
+        def calculate_canonical_history():
+            history_db = SessionLocal()
             try:
-                history = metrics_service.get_portfolio_history(portfolio_id, period)
-                results[period] = history
-                logger.debug(f"Fetched {period} history: {len(history) if history else 0} data points")
-            except Exception as period_error:
-                logger.error(f"Failed to fetch {period} history: {period_error}", exc_info=True)
-                results[period] = None
-        logger.info(f"Performance history fetch complete. Periods with data: {[k for k,v in results.items() if v]}")
+                return MetricsService(history_db).get_portfolio_history(portfolio_id, "ALL")
+            finally:
+                history_db.close()
+
+        # This method is synchronous and database-heavy.  Offloading it keeps the
+        # Uvicorn event loop available for lightweight endpoints during refresh.
+        canonical = await asyncio.to_thread(calculate_canonical_history)
+        results = _derive_performance_history_periods(canonical)
+        logger.info(
+            "dashboard_history canonical_points=%s derived_periods=%s",
+            len(canonical),
+            {period: len(points) for period, points in results.items()},
+            extra={"event": "dashboard_history_derived"},
+        )
         return results
     except Exception as e:
         logger.error(f"Failed to fetch performance history: {e}", exc_info=True)
         return None
+
+
+def _derive_performance_history_periods(
+    canonical: List[Any], today=None
+) -> Dict[str, List[Any]]:
+    """Derive dashboard periods from the exact canonical ALL calculation."""
+    today = today or datetime.utcnow().date()
+    starts = {
+        "1W": today - timedelta(days=7),
+        "1M": today - timedelta(days=30),
+        "3M": today - timedelta(days=90),
+        "YTD": today.replace(month=1, day=1),
+        "1Y": today - timedelta(days=365),
+    }
+
+    def point_date(point: Any):
+        value = point.get("date") if isinstance(point, dict) else point.date
+        return datetime.fromisoformat(value).date()
+
+    # ``ALL`` alone prepends a synthetic zero point. It must remain in the
+    # ALL chart but must not leak into a short period for a new portfolio.
+    slice_source = canonical[1:] if canonical else canonical
+    results = {
+        period: [point for point in slice_source if point_date(point) >= start]
+        for period, start in starts.items()
+    }
+    results["ALL"] = canonical
+    return results
 
 
 async def _fetch_risk_metrics(portfolio_id: int, insights_service, db: Session, period: str = '1y') -> Optional[Dict]:
@@ -574,154 +621,415 @@ async def _fetch_transactions(portfolio_id: int, db: Session) -> Optional[List]:
         return None
 
 
+def _dashboard_lock_key(cache_key: str) -> str:
+    return f"dashboard_refresh_lock:{cache_key}"
+
+
+def _acquire_dashboard_lock(cache_key: str) -> Optional[str]:
+    """Acquire a cross-process lock and return its ownership token."""
+    redis_client = get_redis()
+    if redis_client is None:
+        return None
+    token = uuid.uuid4().hex
+    try:
+        acquired = redis_client.set(
+            _dashboard_lock_key(cache_key), token, nx=True, ex=_DASHBOARD_LOCK_TTL
+        )
+        if acquired:
+            logger.info(
+                "dashboard_lock acquired ttl_seconds=%s renew_interval_seconds=%s",
+                _DASHBOARD_LOCK_TTL,
+                _DASHBOARD_LOCK_RENEW_INTERVAL,
+                extra={
+                    "event": "dashboard_lock_acquired",
+                    "lock_ttl_seconds": _DASHBOARD_LOCK_TTL,
+                    "renew_interval_seconds": _DASHBOARD_LOCK_RENEW_INTERVAL,
+                },
+            )
+        return token if acquired else None
+    except RedisError:
+        logger.warning("dashboard_lock acquire_failed", extra={"event": "dashboard_lock_failed"})
+        return None
+
+
+def _release_dashboard_lock(cache_key: str, token: str) -> None:
+    """Delete a lock only if it is still owned by this refresh."""
+    redis_client = get_redis()
+    if redis_client is None:
+        return
+    script = """
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+        return redis.call('del', KEYS[1])
+    end
+    return 0
+    """
+    try:
+        redis_client.eval(script, 1, _dashboard_lock_key(cache_key), token)
+    except RedisError:
+        # The TTL is the final safety net if Redis disappears during refresh.
+        logger.warning("dashboard_lock release_failed", extra={"event": "dashboard_lock_failed"})
+
+
+def _renew_dashboard_lock(cache_key: str, token: str) -> Optional[bool]:
+    """Extend the lease only while this refresh still owns the token."""
+    redis_client = get_redis()
+    if redis_client is None:
+        return None
+    script = """
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+        return redis.call('expire', KEYS[1], ARGV[2])
+    end
+    return 0
+    """
+    try:
+        return bool(redis_client.eval(
+            script, 1, _dashboard_lock_key(cache_key), token, _DASHBOARD_LOCK_TTL
+        ))
+    except RedisError:
+        logger.warning("dashboard_lock renew_failed", extra={"event": "dashboard_lock_failed"})
+        return None
+
+
+def _owns_dashboard_lock(cache_key: str, token: str) -> bool:
+    redis_client = get_redis()
+    if redis_client is None:
+        return False
+    try:
+        return redis_client.get(_dashboard_lock_key(cache_key)) == token
+    except RedisError:
+        return False
+
+
+async def _maintain_dashboard_lock(cache_key: str, token: str) -> None:
+    """Renew a legitimate long refresh well before its Redis lease expires."""
+    while True:
+        await asyncio.sleep(_DASHBOARD_LOCK_RENEW_INTERVAL)
+        renewed = _renew_dashboard_lock(cache_key, token)
+        if renewed is False:
+            logger.warning(
+                "dashboard_lock ownership_lost key=%s", cache_key,
+                extra={"event": "dashboard_lock_ownership_lost"},
+            )
+            return
+
+
+def _cache_age_seconds(cached_data: Dict[str, Any]) -> float:
+    try:
+        cached_at = datetime.fromisoformat(cached_data["timestamp"])
+        return max(0.0, (datetime.now(cached_at.tzinfo) - cached_at).total_seconds())
+    except (KeyError, TypeError, ValueError):
+        return float("inf")
+
+
+def _spawn_refresh(coro) -> asyncio.Task:
+    """Keep an uncancelled refresh alive after its initiating request ends."""
+    task = asyncio.create_task(coro)
+    _dashboard_refresh_tasks.add(task)
+    task.add_done_callback(_dashboard_refresh_tasks.discard)
+    return task
+
+
+async def _timed_dashboard_fetch(
+    section: str, awaitable, timings: Dict[str, float]
+) -> Any:
+    started = time.monotonic()
+    try:
+        return await awaitable
+    finally:
+        timings[section] = timings.get(section, 0.0) + (time.monotonic() - started) * 1000
+
+
+async def _compute_dashboard_response(
+    portfolio_id: int,
+    visible_widgets: List[str],
+    include_sold: bool,
+    user: User,
+    db: Session,
+) -> Dict[str, Any]:
+    """Compute a complete dashboard response without reading or writing cache."""
+    from app.services.portfolio_analytics.insights import InsightsService
+    from app.services.portfolio_analytics.metrics import MetricsService
+
+    started = time.monotonic()
+    required_data = _extract_required_data(visible_widgets)
+    metrics_service = MetricsService(db)
+    insights_service = InsightsService(db)
+    timings: Dict[str, float] = {}
+    tasks: Dict[str, Any] = {}
+
+    def add(key: str, awaitable, timing_section: Optional[str] = None) -> None:
+        tasks[key] = _timed_dashboard_fetch(timing_section or key, awaitable, timings)
+
+    if "metrics" in required_data:
+        add("metrics", _fetch_metrics(portfolio_id, metrics_service, db))
+    if "positions" in required_data:
+        add("positions", _fetch_positions(portfolio_id, metrics_service, db))
+    if "sold_positions" in required_data or include_sold:
+        add("sold_positions", _fetch_sold_positions(portfolio_id, metrics_service, db), "positions")
+    if "watchlist" in required_data:
+        add("watchlist", _fetch_watchlist(user, db))
+    if "notifications" in required_data:
+        add("notifications", _fetch_notifications(user, db))
+    if "market_tnx" in required_data:
+        add("market_tnx", _fetch_market_tnx())
+    if "market_dxy" in required_data:
+        add("market_dxy", _fetch_market_dxy())
+    if "market_vix" in required_data:
+        add("market_vix", _fetch_market_vix())
+    if "market_indices" in required_data:
+        add("market_indices", _fetch_market_indices())
+    if "sentiment_stock" in required_data:
+        add("sentiment_stock", _fetch_sentiment_stock())
+    if "sentiment_crypto" in required_data:
+        add("sentiment_crypto", _fetch_sentiment_crypto())
+    if "asset_allocation" in required_data:
+        add("asset_allocation", _fetch_asset_allocation(portfolio_id, db, metrics_service, user), "allocations")
+    if "sector_allocation" in required_data:
+        add("sector_allocation", _fetch_sector_allocation(portfolio_id, db, metrics_service, user), "allocations")
+    if "country_allocation" in required_data:
+        add("country_allocation", _fetch_country_allocation(portfolio_id, db, metrics_service, user), "allocations")
+    if "theme_allocation" in required_data:
+        add("theme_allocation", _fetch_theme_allocation(portfolio_id, db, metrics_service, user), "allocations")
+    if "performance_history" in required_data:
+        add("performance_history", _fetch_performance_history(portfolio_id, db))
+    if "risk_metrics" in required_data:
+        add("risk_metrics", _fetch_risk_metrics(portfolio_id, insights_service, db))
+    if "benchmark_comparison" in required_data:
+        add("benchmark_comparison", _fetch_benchmark_comparison(portfolio_id, insights_service, db))
+    if "transactions" in required_data:
+        add("transactions", _fetch_transactions(portfolio_id, db))
+
+    results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+    data: Dict[str, Any] = {}
+    errors: Dict[str, str] = {}
+    for key, result in zip(tasks, results):
+        if isinstance(result, Exception):
+            logger.error("dashboard section_failed section=%s error=%s", key, result)
+            errors[key] = str(result)
+        elif result is not None:
+            data[key] = result
+        else:
+            errors[key] = "No data returned"
+
+    total_ms = (time.monotonic() - started) * 1000
+    for section in ("metrics", "positions", "allocations", "transactions", "performance_history"):
+        duration_ms = timings.get(section, 0.0)
+        logger.info(
+            "dashboard_timing section=%s duration_ms=%.1f portfolio_id=%s",
+            section,
+            duration_ms,
+            portfolio_id,
+            extra={
+                "event": "dashboard_section_timing",
+                "section": section,
+                "duration_ms": round(duration_ms, 1),
+                "portfolio_id": portfolio_id,
+            },
+        )
+    logger.info(
+        "dashboard_timing section=total duration_ms=%.1f portfolio_id=%s",
+        total_ms,
+        portfolio_id,
+        extra={
+            "event": "dashboard_request_timing",
+            "section": "total",
+            "duration_ms": round(total_ms, 1),
+            "portfolio_id": portfolio_id,
+        },
+    )
+    return _make_json_serializable({
+        "data": data,
+        "errors": errors or None,
+        "cached": False,
+        "timestamp": datetime.now().isoformat(),
+        "widgets_requested": len(visible_widgets),
+        "data_fetched": len(data),
+    })
+
+
+async def _refresh_dashboard_cache(
+    cache_key: str,
+    lock_token: str,
+    portfolio_id: int,
+    visible_widgets: List[str],
+    include_sold: bool,
+    user_id: int,
+) -> Optional[Dict[str, Any]]:
+    """Refresh with a private session so request cancellation cannot abort it."""
+    db = SessionLocal()
+    lease_task = asyncio.create_task(_maintain_dashboard_lock(cache_key, lock_token))
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        portfolio = crud_portfolios.get_portfolio(db, portfolio_id)
+        if user is None or portfolio is None or portfolio.user_id != user_id:
+            return None
+        result = await _compute_dashboard_response(
+            portfolio_id, visible_widgets, include_sold, user, db
+        )
+        # Partial/error responses must never displace a known-good stale value.
+        if not result.get("errors") and _owns_dashboard_lock(cache_key, lock_token):
+            CacheService.set(cache_key, result, ttl=_BATCH_STALE_TTL)
+        return result
+    except Exception:
+        logger.exception(
+            "dashboard_refresh failed portfolio_id=%s", portfolio_id,
+            extra={"event": "dashboard_refresh_failed"},
+        )
+        return None
+    finally:
+        lease_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await lease_task
+        db.close()
+        _release_dashboard_lock(cache_key, lock_token)
+
+
+async def _wait_for_dashboard_cache(cache_key: str, timeout: float) -> Optional[Dict[str, Any]]:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        cached = CacheService.get(cache_key)
+        if cached:
+            return cached
+        await asyncio.sleep(0.1)
+    return None
+
+
+def _refreshing_response(request: DashboardBatchRequest) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        headers={"Retry-After": "5"},
+        content={
+            "data": {},
+            "errors": None,
+            "cached": False,
+            "refreshing": True,
+            "lock_ttl_seconds": _DASHBOARD_LOCK_TTL,
+            "timestamp": datetime.now().isoformat(),
+            "widgets_requested": len(request.visible_widgets),
+            "data_fetched": 0,
+        },
+    )
+
+
 @router.post("/dashboard")
 async def get_dashboard_batch(
     request: DashboardBatchRequest,
     metrics_service: MetricsServiceDep,
     insights_service: InsightsServiceDep,
     current_user: User = Depends(get_current_verified_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """
-    Batch fetch dashboard data based on visible widgets
-    
-    This endpoint intelligently fetches only the data required for currently
-    visible widgets, reducing over-fetching and improving performance.
-    
-    Returns:
-        - data: Dict of requested data sections
-        - errors: Dict of any errors encountered (partial failures allowed)
-        - cached: Whether response was served from cache
-        - timestamp: When data was fetched
-    """
-    # Verify user has access to portfolio
+    """Serve fresh/stale dashboard data and single-flight cold refreshes."""
+    del metrics_service, insights_service  # refreshes use an independent session
+    request_started = time.monotonic()
     portfolio = crud_portfolios.get_portfolio(db, request.portfolio_id)
     if not portfolio:
         raise PortfolioNotFoundError(request.portfolio_id)
     if portfolio.user_id != current_user.id:
         from app.errors import UnauthorizedPortfolioAccessError
         raise UnauthorizedPortfolioAccessError(request.portfolio_id)
-    
-    # Create a stable cache key shared across API and Celery workers.
-    cache_key = build_dashboard_batch_cache_key(request.portfolio_id, request.visible_widgets)
-    
-    # Check Redis cache
-    cache = CacheService()
-    cached_data = cache.get(cache_key)
-    
+
+    cache_key = build_dashboard_batch_cache_key(
+        request.portfolio_id, request.visible_widgets, request.include_sold
+    )
+    cached_data = CacheService.get(cache_key)
+    # Older deployments may have written partial payloads. Do not serve or
+    # extend them as stale fallbacks.
+    if cached_data and cached_data.get("errors"):
+        cached_data = None
+    cache_age = _cache_age_seconds(cached_data) if cached_data else None
+
+    if cached_data and cache_age is not None and cache_age <= _BATCH_FRESH_TTL:
+        result = {**cached_data, "cached": True, "cache_age_seconds": cache_age}
+        duration_ms = (time.monotonic() - request_started) * 1000
+        logger.info(
+            "dashboard_timing section=total duration_ms=%.1f cache_state=fresh",
+            duration_ms,
+            extra={
+                "event": "dashboard_request_timing",
+                "section": "total",
+                "duration_ms": round(duration_ms, 1),
+                "portfolio_id": request.portfolio_id,
+                "cache_state": "fresh",
+            },
+        )
+        return result
+
+    lock_token = _acquire_dashboard_lock(cache_key)
+    refresh_task: Optional[asyncio.Task] = None
+    if lock_token:
+        refresh_task = _spawn_refresh(_refresh_dashboard_cache(
+            cache_key,
+            lock_token,
+            request.portfolio_id,
+            list(request.visible_widgets),
+            request.include_sold,
+            current_user.id,
+        ))
+
     if cached_data:
-        logger.info(f"Batch cache hit for portfolio {request.portfolio_id}")
+        duration_ms = (time.monotonic() - request_started) * 1000
+        logger.info(
+            "dashboard_timing section=total duration_ms=%.1f cache_state=stale refresh_started=%s",
+            duration_ms,
+            bool(refresh_task),
+            extra={
+                "event": "dashboard_request_timing",
+                "section": "total",
+                "duration_ms": round(duration_ms, 1),
+                "portfolio_id": request.portfolio_id,
+                "cache_state": "stale",
+            },
+        )
         return {
             **cached_data,
             "cached": True,
+            "stale": True,
+            "refreshing": True,
+            "lock_ttl_seconds": _DASHBOARD_LOCK_TTL,
+            "cache_age_seconds": cache_age,
         }
-    
-    # Determine what data to fetch
-    required_data = _extract_required_data(request.visible_widgets)
-    logger.info(f"Fetching data for portfolio {request.portfolio_id}: {required_data}")
-    
-    # Build task list based on requirements
-    tasks = {}
-    
-    if 'metrics' in required_data:
-        tasks['metrics'] = _fetch_metrics(request.portfolio_id, metrics_service, db)
-    
-    if 'positions' in required_data:
-        tasks['positions'] = _fetch_positions(request.portfolio_id, metrics_service, db)
-    
-    if 'sold_positions' in required_data or request.include_sold:
-        tasks['sold_positions'] = _fetch_sold_positions(request.portfolio_id, metrics_service, db)
-    
-    if 'watchlist' in required_data:
-        tasks['watchlist'] = _fetch_watchlist(current_user, db)
-    
-    if 'notifications' in required_data:
-        tasks['notifications'] = _fetch_notifications(current_user, db)
-    
-    if 'market_tnx' in required_data:
-        tasks['market_tnx'] = _fetch_market_tnx()
-    
-    if 'market_dxy' in required_data:
-        tasks['market_dxy'] = _fetch_market_dxy()
-    
-    if 'market_vix' in required_data:
-        tasks['market_vix'] = _fetch_market_vix()
-    
-    if 'market_indices' in required_data:
-        tasks['market_indices'] = _fetch_market_indices()
-    
-    if 'sentiment_stock' in required_data:
-        tasks['sentiment_stock'] = _fetch_sentiment_stock()
-    
-    if 'sentiment_crypto' in required_data:
-        tasks['sentiment_crypto'] = _fetch_sentiment_crypto()
-    
-    if 'asset_allocation' in required_data:
-        tasks['asset_allocation'] = _fetch_asset_allocation(request.portfolio_id, db, metrics_service, current_user)
-    
-    if 'sector_allocation' in required_data:
-        tasks['sector_allocation'] = _fetch_sector_allocation(request.portfolio_id, db, metrics_service, current_user)
-    
-    if 'country_allocation' in required_data:
-        tasks['country_allocation'] = _fetch_country_allocation(request.portfolio_id, db, metrics_service, current_user)
 
-    if 'theme_allocation' in required_data:
-        tasks['theme_allocation'] = _fetch_theme_allocation(request.portfolio_id, db, metrics_service, current_user)
-    
-    if 'performance_history' in required_data:
-        tasks['performance_history'] = _fetch_performance_history(request.portfolio_id, db)
-    
-    if 'risk_metrics' in required_data:
-        tasks['risk_metrics'] = _fetch_risk_metrics(request.portfolio_id, insights_service, db)
-    
-    if 'benchmark_comparison' in required_data:
-        tasks['benchmark_comparison'] = _fetch_benchmark_comparison(request.portfolio_id, insights_service, db)
-    
-    if 'transactions' in required_data:
-        tasks['transactions'] = _fetch_transactions(request.portfolio_id, db)
-    
-    # Execute all tasks in parallel
-    results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-    
-    # Map results back to keys
-    data = {}
-    errors = {}
-    
-    for (key, _), result in zip(tasks.items(), results):
-        if isinstance(result, Exception):
-            logger.error(f"Error fetching {key}: {result}")
-            errors[key] = str(result)
-        elif result is not None:
-            data[key] = result
-        else:
-            errors[key] = "No data returned"
-    
-    # Build response
-    now = datetime.now()
-    response = {
-        "data": data,
-        "errors": errors if errors else None,
-        "cached": False,
-        "timestamp": now.isoformat(),
-        "widgets_requested": len(request.visible_widgets),
-        "data_fetched": len(data),
-    }
-    
-    # Ensure the entire response is JSON serializable before caching and returning
-    response = _make_json_serializable(response)
-    
-    # Cache the response in Redis (shared across workers)
-    cache.set(cache_key, response, ttl=_BATCH_CACHE_TTL)
-    
-    return response
+    if refresh_task:
+        try:
+            computed = await asyncio.wait_for(
+                asyncio.shield(refresh_task), timeout=_DASHBOARD_COLD_WAIT_SECONDS
+            )
+            if computed is not None:
+                return computed
+        except asyncio.TimeoutError:
+            pass
+    else:
+        cached_data = await _wait_for_dashboard_cache(
+            cache_key, _DASHBOARD_FOLLOWER_WAIT_SECONDS
+        )
+        if cached_data:
+            return {**cached_data, "cached": True, "cache_age_seconds": _cache_age_seconds(cached_data)}
+
+    return _refreshing_response(request)
 
 
 @router.delete("/dashboard/cache")
 async def clear_dashboard_cache(
+    portfolio_id: int,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user)
 ):
-    """Clear dashboard batch cache (admin/debugging)"""
-    cache = CacheService()
-    # Clear all dashboard batch cache keys
-    # Note: This is a simple implementation. For production, consider using Redis SCAN pattern
-    return {"message": "Dashboard cache cleared (individual keys will expire)", "timestamp": datetime.now().isoformat()}
+    """Clear every dashboard digest/variant owned by one portfolio."""
+    portfolio = crud_portfolios.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise PortfolioNotFoundError(portfolio_id)
+    if portfolio.user_id != current_user.id:
+        from app.errors import UnauthorizedPortfolioAccessError
+        raise UnauthorizedPortfolioAccessError(portfolio_id)
+
+    deleted = CacheService.delete_pattern(f"dashboard_batch:{portfolio_id}:*")
+    deleted += CacheService.delete_pattern(
+        f"dashboard_refresh_lock:dashboard_batch:{portfolio_id}:*"
+    )
+    return {
+        "message": "Dashboard cache cleared",
+        "portfolio_id": portfolio_id,
+        "deleted": deleted,
+        "timestamp": datetime.now().isoformat(),
+    }

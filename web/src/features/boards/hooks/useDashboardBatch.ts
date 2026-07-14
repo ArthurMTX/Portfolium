@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
-interface DashboardBatchData {
+export interface DashboardBatchData {
   data: {
     metrics?: {
       total_value: number
@@ -38,6 +38,128 @@ interface DashboardBatchData {
   widgets_requested: number
   data_fetched: number
   cache_age_seconds?: number
+  stale?: boolean
+}
+
+export interface DashboardRefreshPending {
+  data: Record<string, never>
+  errors: null
+  cached: false
+  refreshing: true
+  lock_ttl_seconds: number
+  timestamp: string
+  widgets_requested: number
+  data_fetched: 0
+}
+
+export const DASHBOARD_BATCH_QUERY_RETRY = false
+const DEFAULT_RETRY_AFTER_SECONDS = 5
+const MAX_RETRY_AFTER_SECONDS = 10
+const MAX_REFRESH_PENDING_RESPONSES = 12
+
+type DashboardFetch = typeof fetch
+type Delay = (milliseconds: number, signal?: AbortSignal) => Promise<void>
+
+function isRefreshPending(value: unknown): value is DashboardRefreshPending {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<DashboardRefreshPending>
+  return candidate.refreshing === true
+    && candidate.cached === false
+    && candidate.errors === null
+    && candidate.data_fetched === 0
+    && typeof candidate.lock_ttl_seconds === 'number'
+    && typeof candidate.timestamp === 'string'
+    && typeof candidate.widgets_requested === 'number'
+    && Boolean(candidate.data && typeof candidate.data === 'object')
+}
+
+function isDashboardBatchData(value: unknown): value is DashboardBatchData {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<DashboardBatchData>
+  return Boolean(candidate.data && typeof candidate.data === 'object')
+    && typeof candidate.cached === 'boolean'
+    && typeof candidate.timestamp === 'string'
+    && typeof candidate.widgets_requested === 'number'
+    && typeof candidate.data_fetched === 'number'
+}
+
+function retryAfterMilliseconds(response: Response): number {
+  const parsed = Number(response.headers.get('Retry-After'))
+  const seconds = Number.isFinite(parsed) && parsed >= 0
+    ? Math.min(parsed, MAX_RETRY_AFTER_SECONDS)
+    : DEFAULT_RETRY_AFTER_SECONDS
+  return seconds * 1000
+}
+
+const wait: Delay = (milliseconds, signal) => new Promise((resolve, reject) => {
+  if (signal?.aborted) {
+    reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+    return
+  }
+  const timeout = window.setTimeout(resolve, milliseconds)
+  signal?.addEventListener('abort', () => {
+    window.clearTimeout(timeout)
+    reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+  }, { once: true })
+})
+
+export async function fetchDashboardBatchUntilReady({
+  portfolioId,
+  visibleWidgets,
+  includeSold,
+  signal,
+  fetchImpl = fetch,
+  delay = wait,
+}: {
+  portfolioId: number
+  visibleWidgets: string[]
+  includeSold: boolean
+  signal?: AbortSignal
+  fetchImpl?: DashboardFetch
+  delay?: Delay
+}): Promise<DashboardBatchData> {
+  const token = localStorage.getItem('auth_token')
+
+  for (let pendingCount = 0; pendingCount <= MAX_REFRESH_PENDING_RESPONSES; pendingCount += 1) {
+    const response = await fetchImpl('/api/batch/dashboard', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        portfolio_id: portfolioId,
+        visible_widgets: visibleWidgets,
+        include_sold: includeSold,
+      }),
+      signal,
+    })
+    const payload: unknown = await response.json().catch(() => null)
+
+    if (response.status === 202) {
+      if (!isRefreshPending(payload)) {
+        throw new Error('Invalid dashboard refresh-pending response')
+      }
+      if (pendingCount === MAX_REFRESH_PENDING_RESPONSES) {
+        throw new Error('Dashboard refresh did not complete within the bounded polling window')
+      }
+      await delay(retryAfterMilliseconds(response), signal)
+      continue
+    }
+
+    if (!response.ok) {
+      const detail = payload && typeof payload === 'object' && 'detail' in payload
+        ? String(payload.detail)
+        : 'Failed to fetch dashboard batch'
+      throw new Error(detail)
+    }
+    if (!isDashboardBatchData(payload)) {
+      throw new Error('Invalid completed dashboard response')
+    }
+    return payload
+  }
+
+  throw new Error('Dashboard refresh polling exhausted')
 }
 
 interface UseDashboardBatchOptions {
@@ -81,38 +203,18 @@ export function useDashboardBatch({
 
   return useQuery<DashboardBatchData>({
     queryKey: ['dashboard-batch', portfolioId, widgetKey, includeSold],
-    queryFn: async () => {
-      // Use /api prefix (same as ApiClient) to go through proxy
-      const baseURL = '/api'
-      const token = localStorage.getItem('auth_token') 
-      const response = await fetch(`${baseURL}/batch/dashboard`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          portfolio_id: portfolioId,
-          visible_widgets: visibleWidgets,
-          include_sold: includeSold,
-        }),
-      })
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
-        console.error('[useDashboardBatch] Error response:', error)
-        throw new Error(error.detail || `Failed to fetch dashboard batch`)
-      }
-      
-      const data = await response.json() as DashboardBatchData
-      
-      return data
-    },
+    queryFn: ({ signal }) => fetchDashboardBatchUntilReady({
+      portfolioId,
+      visibleWidgets,
+      includeSold,
+      signal,
+    }),
     enabled: enabled && portfolioId > 0 && visibleWidgets.length > 0,
-    staleTime: 60 * 1000, // 1 minute - matches backend cache
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 60 * 1000, // Auto-refresh every minute
-    refetchIntervalInBackground: false, // CRITICAL: Stop refetching when component unmounts/page not visible
-    retry: 2,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    // The dashboard contains historical analytics. Prices and counters have
+    // dedicated lightweight queries; do not poll or retry this heavy POST.
+    refetchInterval: false,
+    retry: DASHBOARD_BATCH_QUERY_RETRY,
   })
 }

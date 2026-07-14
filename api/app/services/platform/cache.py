@@ -306,6 +306,9 @@ class CacheService:
             f"{CacheService.PREFIX_ANALYTICS}*_{portfolio_id}_*",
             f"{CacheService.PREFIX_INSIGHTS}{portfolio_id}:*",
             f"dashboard_batch:{portfolio_id}:*",  # Batch API cache
+            # Cancels ownership of in-flight refreshes so they cannot repopulate
+            # invalidated fresh/stale dashboard entries with pre-mutation data.
+            f"dashboard_refresh_lock:dashboard_batch:{portfolio_id}:*",
             f"portfolio_batch_prices:{portfolio_id}",  # Price batch cache
         ]
         

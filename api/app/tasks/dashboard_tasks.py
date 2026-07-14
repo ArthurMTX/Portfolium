@@ -39,8 +39,9 @@ from app.observability.metrics import observe_operation
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL for warmed dashboard data (5 minutes)
-_DASHBOARD_WARMUP_CACHE_TTL = 300
+# Keep the last complete warmup as a stale-while-revalidate fallback. Freshness
+# is still determined by the five-minute window in the HTTP batch handler.
+_DASHBOARD_WARMUP_CACHE_TTL = 3600
 
 
 @celery_app.task(bind=True, name="dashboard.warmup_user_dashboard")
@@ -207,7 +208,13 @@ def warmup_user_dashboard(self, user_id: int, portfolio_id: int, widget_ids: Opt
         # Cache the response in Redis using the same key format as the batch endpoint.
         cache = CacheService()
         cache_key = build_dashboard_batch_cache_key(portfolio_id, widget_ids)
-        cache.set(cache_key, response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
+        if not errors:
+            cache.set(cache_key, response, ttl=_DASHBOARD_WARMUP_CACHE_TTL)
+        else:
+            logger.warning(
+                "Dashboard warmup produced partial data; preserving existing cache key=%s",
+                cache_key,
+            )
         
         # ALSO warm up the price batch cache (used by auto-refresh)
         price_batch_warmed = False

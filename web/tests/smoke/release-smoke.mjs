@@ -230,6 +230,61 @@ async function main() {
     })
   })
 
+  await step('absolute cold dashboard shows loading, handles 202, then renders', async () => {
+    const widgets = [
+      'total-value', 'daily-gain', 'unrealized-pnl', 'realized-pnl', 'dividends',
+      'positions', 'asset-allocation', 'theme-allocation', 'performance-metrics',
+      'recent-transactions',
+    ]
+    await apiJson('DELETE', `/batch/dashboard/cache?portfolio_id=${portfolioA.id}`)
+    await page.evaluate((portfolioId) => {
+      const stored = JSON.parse(localStorage.getItem('portfolio-storage') || '{"state":{},"version":0}')
+      stored.state = { ...(stored.state || {}), activePortfolioId: portfolioId }
+      localStorage.setItem('portfolio-storage', JSON.stringify(stored))
+    }, portfolioA.id)
+
+    // Inject the exact server contract once, then let the bounded retry hit the
+    // real absolute-cold API/cache path. Cross-worker single-flight is covered
+    // independently by the real-Redis two-Uvicorn-worker regression.
+    let injectedPending = false
+    await page.route('**/api/batch/dashboard', async (route) => {
+      if (injectedPending) {
+        await route.continue()
+        return
+      }
+      injectedPending = true
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        headers: { 'Retry-After': '0.1' },
+        body: JSON.stringify({
+          data: {}, errors: null, cached: false, refreshing: true,
+          lock_ttl_seconds: 600, timestamp: new Date().toISOString(),
+          widgets_requested: widgets.length, data_fetched: 0,
+        }),
+      })
+    })
+    const statuses = []
+    const onResponse = (response) => {
+      if (response.url().endsWith('/api/batch/dashboard')) statuses.push(response.status())
+    }
+    page.on('response', onResponse)
+    await page.goto(`${BASE_URL}/dashboard`)
+    await page.waitForSelector('.pf-page-skeleton', { timeout: 10000 })
+    await page.waitForFunction(() => !document.querySelector('.pf-page-skeleton'), null, {
+      timeout: 45000,
+    })
+    await page.unroute('**/api/batch/dashboard')
+    page.off('response', onResponse)
+    if (!statuses.includes(202) || !statuses.includes(200)) {
+      throw new Error(`expected dashboard 202 then 200, got ${statuses.join(', ')}`)
+    }
+    if (await page.locator('.pf-state--error').count()) {
+      throw new Error('dashboard surfaced a generic error during refresh-pending flow')
+    }
+    return `statuses ${statuses.join(' -> ')}`
+  })
+
   // 11-15. core pages render without error state
   for (const [name, path] of [
     ['Portfolios (holdings)', '/portfolios'],

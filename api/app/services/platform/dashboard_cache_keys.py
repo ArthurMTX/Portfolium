@@ -18,9 +18,12 @@ def normalize_dashboard_widget_ids(widget_ids: Iterable[str]) -> Tuple[str, ...]
     return tuple(sorted(widget_ids))
 
 
-def build_dashboard_batch_cache_key(portfolio_id: int, widget_ids: Iterable[str]) -> str:
+def build_dashboard_batch_cache_key(
+    portfolio_id: int, widget_ids: Iterable[str], include_sold: bool = False
+) -> str:
     """Build a stable Redis cache key for dashboard batch payloads."""
     normalized_widget_ids = normalize_dashboard_widget_ids(widget_ids)
     widget_key = ",".join(normalized_widget_ids)
     digest = sha256(widget_key.encode("utf-8")).hexdigest()[:_DASHBOARD_WIDGET_DIGEST_LENGTH]
-    return f"{_DASHBOARD_BATCH_PREFIX}:{portfolio_id}:{digest}"
+    sold_suffix = ":sold" if include_sold else ""
+    return f"{_DASHBOARD_BATCH_PREFIX}:{portfolio_id}:{digest}{sold_suffix}"
