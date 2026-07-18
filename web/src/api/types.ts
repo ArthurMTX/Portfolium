@@ -444,6 +444,8 @@ export interface CashMovementDTO {
   conversion_rate?: string | number | null
   reason?: string | null
   notes?: string | null
+  /** Inferred deposits from a replay reconstruction carry { inferred: true } */
+  metadata?: { inferred?: boolean; [key: string]: unknown }
   created_at: string
   updated_at: string
 }
@@ -509,13 +511,26 @@ export interface CashActivationPayload {
   activation_id?: string
 }
 
+/** A minimum-funding deposit inferred by the replay reconstruction */
+export interface CashInferredDepositDTO {
+  currency: string
+  date: string
+  amount: string | number
+}
+
+export interface CashInferredDepositTotalDTO {
+  currency: string
+  amount: string | number
+  count: number
+}
+
 export interface CashActivationPreviewDTO {
   strategy: string
   start_date: string
   target_mode: CashMode
   derived_movement_count: number
   opening_balances: CashOpeningBalanceDTO[]
-  proposed_opening_balances: CashOpeningBalanceDTO[]
+  proposed_inferred_deposits: CashInferredDepositDTO[]
   projected_balances: { currency: string; balance: string | number }[]
   negative_dips: { currency: string; date: string; projected_balance: string | number }[]
   blocking_issues: string[]
@@ -527,6 +542,8 @@ export interface CashActivationResultDTO {
   cash_tracking_started_on: string
   activation_id: string
   opening_balances: CashOpeningBalanceDTO[]
+  inferred_deposit_count: number
+  inferred_deposit_totals: CashInferredDepositTotalDTO[]
   derived_movement_count: number
   already_applied: boolean
 }

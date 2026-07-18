@@ -24,6 +24,15 @@
       "description": "Votre fonctionnement actuel reste inchangé : les achats ne nécessitent jamais de dépôt préalable. Activez le suivi pour enregistrer précisément dépôts, retraits, soldes et conversions.",
       "button": "Activer le suivi des liquidités"
     },
+    "resume": {
+      "title": "Le suivi des liquidités est en pause",
+      "description": "Votre historique de liquidités a été conservé lors de la désactivation du suivi. Reprenez avec l'historique existant, ou repartez de zéro en le supprimant pour le reconstruire.",
+      "resumeButton": "Reprendre le suivi",
+      "startOverButton": "Repartir de zéro…",
+      "wipeTitle": "Supprimer l'historique de liquidités conservé ?",
+      "wipeMessage": "Tous les mouvements de liquidités de ce portefeuille seront définitivement supprimés, y compris les dépôts, retraits et ajustements saisis manuellement. Vos transactions d'actifs ne sont pas affectées. Vous pourrez ensuite reconfigurer le suivi depuis le début.",
+      "wipeConfirm": "Supprimer l'historique"
+    },
     "actions": {
       "addMovement": "Ajouter un mouvement",
       "convert": "Convertir des devises"
@@ -41,6 +50,8 @@
       "actions": "Actions",
       "derived": "auto",
       "derivedHint": "Généré depuis une transaction — modifiez la transaction directement",
+      "estimated": "estimé",
+      "estimatedHint": "Reconstruit par Portfolium comme le financement minimal requis par vos transactions — pas un dépôt vérifié. Modifiez-le pour le confirmer ou le corriger.",
       "deleteConversion": "Supprimer la conversion"
     },
     "movementTypes": {
@@ -117,7 +128,9 @@
       "nothingWritten": "Rien n'est encore enregistré — l'étape suivante affiche un aperçu que vous pouvez toujours annuler.",
       "reviewReplaySummary": "Vos transactions ont été analysées jusqu'au {{date}}. L'activation créera {{count}} mouvements de liquidités à partir d'elles.",
       "reviewOpeningsSummary": "Les liquidités démarreront le {{date}} avec les soldes saisis. {{count}} mouvements seront dérivés des transactions postérieures à cette date.",
-      "proposedIntro": "Ces dépôts d'ouverture seront ajoutés pour que vos soldes ne deviennent jamais négatifs :",
+      "inferredIntro": "Des dépôts estimés seront ajoutés aux dates où vos transactions enregistrées nécessitaient un financement :",
+      "inferredLine": "{{count}} dépôt(s) estimé(s) pour un total de {{total}}",
+      "inferredNote": "Les estimations supposent que vous n'avez apporté que le minimum nécessaire, au moment nécessaire. Elles sont signalées comme estimées dans la liste des mouvements et vous pouvez les modifier ou les remplacer à tout moment.",
       "dipsIntro": "Soldes négatifs projetés :",
       "dipLine": "{{currency}} : {{balance}} le {{date}}",
       "projectedTitle": "Vos soldes de départ",
@@ -159,7 +172,8 @@
       "movementDeleted": "Mouvement supprimé",
       "conversionCreated": "Conversion enregistrée",
       "modeChanged": "Mode de suivi mis à jour",
-      "activated": "Suivi des liquidités activé"
+      "activated": "Suivi des liquidités activé",
+      "ledgerWiped": "Historique de liquidités supprimé — vous pouvez reconfigurer le suivi"
     },
     "errors": {
       "generic": "L'opération a échoué. Veuillez réessayer.",

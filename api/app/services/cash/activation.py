@@ -5,10 +5,13 @@ Activation strategies:
 - opening_balances: cash starts at start_date with user-provided opening
   balances; earlier transactions never affect cash.
 - replay: the cash effects of historical transactions since start_date are
-  reconstructed; because historical deposits are usually missing, the
-  preview computes, per currency, the minimal opening balance that avoids
-  an unexplained negative dip (never one fake deposit per purchase). The
-  user must explicitly confirm the proposed openings on apply.
+  reconstructed with a minimum-funding model; because historical deposits
+  are usually missing, a deposit for the exact shortfall is inferred on
+  the day of each transaction the reconstructed balance cannot cover
+  (inflows such as sale proceeds stay available for later days). Inferred
+  deposits are persisted as regular deposit movements marked with
+  metadata.inferred = true; the user reviews them in the preview and
+  apply recomputes the same deterministic result.
 
 Apply is atomic (one SQL transaction, portfolio row locked) and idempotent
 (client-supplied activation_id; re-POSTing returns the stored result, and
@@ -162,6 +165,83 @@ def _sweep(
     return result
 
 
+def infer_funding_deposits(
+    deltas: DeltasByCurrency,
+) -> Dict[str, List[Tuple[date, Decimal]]]:
+    """Minimum-funding reconstruction: the deposits required for the given
+    history to never go negative, inferred transaction-by-transaction.
+
+    Per currency, the date boundaries are walked in accounting order with
+    a balance starting at zero; whenever a day's net delta would push the
+    balance below zero, a deposit for the exact shortfall is created on
+    that day (accounting-before the movements it funds — intra-day order
+    never changes a balance, see the ledger ordering rules). Inflows
+    (sells, dividends, explicit deposits, opening balances) stay available
+    for later days, no withdrawal is ever inferred, and nothing is created
+    when the running balance already covers the day.
+    """
+    inferred: Dict[str, List[Tuple[date, Decimal]]] = {}
+    for currency, per_date in deltas.items():
+        balance = Decimal(0)
+        deposits: List[Tuple[date, Decimal]] = []
+        for day in sorted(per_date):
+            net = per_date[day]
+            if balance + net < 0:
+                shortfall = q8(-(balance + net))
+                deposits.append((day, shortfall))
+                balance += shortfall
+            balance += net
+        if deposits:
+            inferred[currency] = deposits
+    return inferred
+
+
+def _apply_inferred_to_deltas(
+    deltas: DeltasByCurrency,
+    inferred: Dict[str, List[Tuple[date, Decimal]]],
+) -> DeltasByCurrency:
+    """Merge inferred deposits into a copy of the per-date deltas"""
+    merged: DeltasByCurrency = {c: dict(per) for c, per in deltas.items()}
+    for currency, deposits in inferred.items():
+        per = merged.setdefault(currency, {})
+        for day, amount in deposits:
+            per[day] = per.get(day, Decimal(0)) + amount
+    return merged
+
+
+def _inferred_deposit_specs(
+    inferred: Dict[str, List[Tuple[date, Decimal]]],
+    activation_id: Optional[str],
+) -> List[MovementSpec]:
+    """Movement specs for inferred deposits (marked as reconstructed)"""
+    return [
+        MovementSpec(
+            currency=currency,
+            type=CashMovementType.DEPOSIT,
+            amount=amount,
+            occurred_on=day,
+            activation_id=activation_id,
+            reason="Inferred deposit (minimum-funding reconstruction)",
+            meta_data={"inferred": True, "source": "replay_reconstruction"},
+        )
+        for currency, deposits in sorted(inferred.items())
+        for day, amount in deposits
+    ]
+
+
+def _inferred_totals(
+    inferred: Dict[str, List[Tuple[date, Decimal]]],
+) -> List[schemas.CashInferredDepositTotal]:
+    return [
+        schemas.CashInferredDepositTotal(
+            currency=currency,
+            amount=q8(sum((amount for _day, amount in deposits), Decimal(0))),
+            count=len(deposits),
+        )
+        for currency, deposits in sorted(inferred.items())
+    ]
+
+
 def _normalized_openings(request: schemas.CashActivationRequest) -> Dict[str, Decimal]:
     openings: Dict[str, Decimal] = {}
     for entry in request.opening_balances:
@@ -194,20 +274,15 @@ def preview_activation(
             "(PUT /cash/mode) instead of activating again"
         )
 
-    proposed: Dict[str, Decimal] = {}
+    deltas = _merge_deltas(openings, start_date, derived)
+    inferred: Dict[str, List[Tuple[date, Decimal]]] = {}
     if request.strategy == "replay":
-        # Propose, per currency, the opening balance that lifts the running
-        # minimum (with the user-provided openings applied) back to zero
-        swept = _sweep(_merge_deltas(openings, start_date, derived))
-        for currency, (_final, minimum, _dip) in swept.items():
-            if minimum < 0:
-                proposed[currency] = q8(-minimum)
+        # Minimum-funding reconstruction: infer a deposit for the exact
+        # shortfall of each day the running balance cannot cover (never
+        # one large opening balance at the deepest historical dip)
+        inferred = infer_funding_deposits(deltas)
 
-    effective_openings = dict(openings)
-    for currency, amount in proposed.items():
-        effective_openings[currency] = effective_openings.get(currency, Decimal(0)) + amount
-
-    swept = _sweep(_merge_deltas(effective_openings, start_date, derived))
+    swept = _sweep(_apply_inferred_to_deltas(deltas, inferred))
     projected = [
         schemas.CashProjectedBalance(currency=currency, balance=q8(final))
         for currency, (final, _minimum, _dip) in sorted(swept.items())
@@ -227,9 +302,10 @@ def preview_activation(
             schemas.CashOpeningBalance(currency=c, amount=a)
             for c, a in sorted(openings.items())
         ],
-        proposed_opening_balances=[
-            schemas.CashOpeningBalance(currency=c, amount=a)
-            for c, a in sorted(proposed.items())
+        proposed_inferred_deposits=[
+            schemas.CashInferredDeposit(currency=currency, date=day, amount=amount)
+            for currency, deposits in sorted(inferred.items())
+            for day, amount in deposits
         ],
         projected_balances=projected,
         negative_dips=dips,
@@ -245,9 +321,10 @@ def apply_activation(
 ) -> schemas.CashActivationResult:
     """Enable cash tracking atomically and idempotently.
 
-    Unlike the replay preview, apply never invents opening balances: the
-    request's opening_balances are what gets recorded (the UI passes the
-    confirmed proposals through).
+    For the replay strategy, apply recomputes the inferred minimum-funding
+    deposits with the same deterministic algorithm the preview used — the
+    client confirms the proposal but never sends it back. The request's
+    opening_balances only ever carry user-entered balances.
     """
     if not request.activation_id:
         raise CashError(
@@ -261,6 +338,7 @@ def apply_activation(
     if portfolio.cash_activation_id == request.activation_id:
         # Idempotent retry: return the stored result
         meta = portfolio.cash_activation_meta or {}
+        stored_inferred = meta.get("inferred_deposits") or {}
         return schemas.CashActivationResult(
             portfolio_id=portfolio.id,
             cash_mode=portfolio.cash_mode,
@@ -269,6 +347,11 @@ def apply_activation(
             opening_balances=[
                 schemas.CashOpeningBalance(**entry)
                 for entry in meta.get("opening_balances", [])
+            ],
+            inferred_deposit_count=stored_inferred.get("count", 0),
+            inferred_deposit_totals=[
+                schemas.CashInferredDepositTotal(**entry)
+                for entry in stored_inferred.get("totals", [])
             ],
             derived_movement_count=meta.get("derived_movement_count", 0),
             already_applied=True,
@@ -293,8 +376,15 @@ def apply_activation(
             message="; ".join(issues),
         )
 
+    deltas = _merge_deltas(openings, start_date, derived)
+    inferred: Dict[str, List[Tuple[date, Decimal]]] = {}
+    if request.strategy == "replay":
+        inferred = infer_funding_deposits(deltas)
+
     if request.target_mode == CashMode.TRACKED_STRICT:
-        swept = _sweep(_merge_deltas(openings, start_date, derived))
+        # A replay reconstruction is dip-free by construction; the sweep
+        # still guards the opening_balances strategy (and regressions)
+        swept = _sweep(_apply_inferred_to_deltas(deltas, inferred))
         for currency, (_final, _minimum, dip) in sorted(swept.items()):
             if dip is not None:
                 raise InsufficientCashError(
@@ -307,7 +397,9 @@ def apply_activation(
                 )
 
     currencies = sorted(
-        set(openings) | {spec.currency for _tx, specs in derived for spec in specs}
+        set(openings)
+        | set(inferred)
+        | {spec.currency for _tx, specs in derived for spec in specs}
     )
     if currencies:
         crud_cash.get_or_create_accounts(db, portfolio.id, currencies)
@@ -324,8 +416,10 @@ def apply_activation(
         )
         for currency, amount in sorted(openings.items())
     ]
+    inferred_specs = _inferred_deposit_specs(inferred, request.activation_id)
     fx_memo: dict = {}
     ledger.insert_movements(db, portfolio, opening_specs, _fx_memo=fx_memo)
+    ledger.insert_movements(db, portfolio, inferred_specs, _fx_memo=fx_memo)
     derived_count = 0
     for tx, specs in derived:
         ledger.insert_movements(
@@ -337,6 +431,15 @@ def apply_activation(
         {"currency": currency, "amount": str(amount)}
         for currency, amount in sorted(openings.items())
     ]
+    inferred_totals = _inferred_totals(inferred)
+    inferred_payload = {
+        "count": len(inferred_specs),
+        "totals": [
+            {"currency": t.currency, "amount": str(t.amount), "count": t.count}
+            for t in inferred_totals
+        ],
+    }
+    movement_count = derived_count + len(opening_specs) + len(inferred_specs)
     portfolio.cash_mode = request.target_mode
     portfolio.cash_tracking_started_on = start_date
     portfolio.cash_activation_id = request.activation_id
@@ -346,7 +449,8 @@ def apply_activation(
         "applied_by_user_id": user_id,
         "target_mode": request.target_mode.value,
         "opening_balances": opening_payload,
-        "derived_movement_count": derived_count + len(opening_specs),
+        "inferred_deposits": inferred_payload,
+        "derived_movement_count": movement_count,
     }
     ledger.mark_ledger_synced(db, portfolio.id)
     db.commit()
@@ -356,6 +460,8 @@ def apply_activation(
 
     CASH_ACTIVATIONS.labels(strategy=request.strategy).inc()
     for spec in opening_specs:
+        CASH_MOVEMENTS_CREATED.labels(type=spec.type.value).inc()
+    for spec in inferred_specs:
         CASH_MOVEMENTS_CREATED.labels(type=spec.type.value).inc()
     logger.info(
         "Cash tracking activated",
@@ -375,7 +481,9 @@ def apply_activation(
             schemas.CashOpeningBalance(currency=e["currency"], amount=Decimal(e["amount"]))
             for e in opening_payload
         ],
-        derived_movement_count=derived_count + len(opening_specs),
+        inferred_deposit_count=len(inferred_specs),
+        inferred_deposit_totals=inferred_totals,
+        derived_movement_count=movement_count,
         already_applied=False,
     )
 
@@ -453,6 +561,88 @@ def change_mode(db: Session, portfolio: Portfolio, target: CashMode) -> Portfoli
         },
     )
     return portfolio
+
+
+def migrate_replay_openings_to_inferred(db: Session) -> List[int]:
+    """One-time migration from the deepest-point model (pre-v0.4.0 dev
+    ledgers): replace the auto-generated opening balance of every replay
+    activation with progressive minimum-funding deposits recomputed from
+    the retained ledger movements.
+
+    Only opening_balance movements whose activation_id matches a portfolio
+    whose stored activation strategy is 'replay' are touched — genuine
+    user-entered opening balances (opening_balances strategy), manual
+    deposits/withdrawals/adjustments and transaction-derived movements are
+    never modified, and they all participate in the recomputation. Known
+    ambiguity: an API client could have mixed user-supplied openings into
+    a replay activation (the UI never does); those cannot be told apart
+    from the proposed portion and are conservatively treated as inferred.
+
+    Idempotent: once the openings are gone, later runs are no-ops.
+    FX enrichment is intentionally skipped (base amounts stay NULL rather
+    than fetched from a network provider inside a migration).
+    Returns the migrated portfolio ids. Flushes, never commits.
+    """
+    migrated: List[int] = []
+    portfolios = (
+        db.query(Portfolio).filter(Portfolio.cash_activation_id.isnot(None)).all()
+    )
+    for portfolio in portfolios:
+        meta = dict(portfolio.cash_activation_meta or {})
+        if meta.get("strategy") != "replay":
+            continue
+        stale_openings = (
+            db.query(CashMovement)
+            .filter(
+                CashMovement.portfolio_id == portfolio.id,
+                CashMovement.type == CashMovementType.OPENING_BALANCE,
+                CashMovement.activation_id == portfolio.cash_activation_id,
+            )
+            .all()
+        )
+        if not stale_openings:
+            continue
+        for movement in stale_openings:
+            db.delete(movement)
+        db.flush()
+
+        # Recompute from every retained movement (derived + manual): the
+        # same day-boundary walk the activation itself uses
+        deltas: DeltasByCurrency = {}
+        rows = (
+            db.query(CashMovement.currency, CashMovement.occurred_on, CashMovement.amount)
+            .filter(CashMovement.portfolio_id == portfolio.id)
+            .all()
+        )
+        for currency, day, amount in rows:
+            per = deltas.setdefault(currency, {})
+            per[day] = per.get(day, Decimal(0)) + Decimal(amount)
+        inferred = infer_funding_deposits(deltas)
+        inferred_specs = _inferred_deposit_specs(inferred, portfolio.cash_activation_id)
+        ledger.insert_movements(db, portfolio, inferred_specs, enrich=False)
+
+        inferred_totals = _inferred_totals(inferred)
+        meta["opening_balances"] = []
+        meta["inferred_deposits"] = {
+            "count": len(inferred_specs),
+            "totals": [
+                {"currency": t.currency, "amount": str(t.amount), "count": t.count}
+                for t in inferred_totals
+            ],
+        }
+        meta["migrated_from_deepest_point"] = True
+        portfolio.cash_activation_meta = meta
+        migrated.append(portfolio.id)
+        logger.info(
+            "Replay opening balance migrated to inferred deposits",
+            extra={
+                "event": "cash_replay_openings_migrated",
+                "portfolio_id": portfolio.id,
+                "inferred_deposit_count": len(inferred_specs),
+            },
+        )
+    db.flush()
+    return migrated
 
 
 def wipe_ledger(db: Session, portfolio: Portfolio) -> None:

@@ -155,6 +155,64 @@ class TestHistoryIntegration:
         for point in resp.json():
             assert point["cash_value"] is None
 
+    def test_history_grows_progressively_with_inferred_funding(
+        self, client, test_db, test_user, auth_headers, asset
+    ):
+        """A replay reconstruction funds each purchase on its own day: the
+        chart steps up as contributions occur instead of jumping to one
+        large opening balance, and inferred deposits never read as gains"""
+        import uuid
+
+        from app.models import Price, TransactionType
+
+        p = PortfolioFactory(user_id=test_user.id, base_currency="USD")
+        TransactionFactory(
+            portfolio_id=p.id, asset_id=asset.id, tx_date=date(2026, 5, 1),
+            type=TransactionType.BUY, quantity=D("10"), price=D("100"), fees=D("0"),
+            currency="USD",
+        )
+        TransactionFactory(
+            portfolio_id=p.id, asset_id=asset.id, tx_date=date(2026, 5, 4),
+            type=TransactionType.BUY, quantity=D("5"), price=D("100"), fees=D("0"),
+            currency="USD",
+        )
+        PriceFactory(asset_id=asset.id, price=D("100"))
+        for day in range(1, 6):
+            test_db.add(Price(
+                asset_id=asset.id, price=D("100"),
+                asof=datetime(2026, 5, day), source="yfinance_history",
+            ))
+        test_db.commit()
+
+        resp = client.post(
+            f"/portfolios/{p.id}/cash/activation",
+            json={
+                "strategy": "replay", "target_mode": "tracked_warn",
+                "opening_balances": [], "activation_id": str(uuid.uuid4()),
+            },
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        # One deposit per underfunded day, no single opening balance
+        assert resp.json()["inferred_deposit_count"] == 2
+
+        points = {pt["date"]: pt for pt in client.get(
+            f"/portfolios/{p.id}/history?period=ALL", headers=auth_headers
+        ).json()}
+        # The chart still starts from zero the day before the first trade
+        assert points["2026-04-30"]["value"] == 0.0
+        # Each purchase is funded the day it happens: value tracks the
+        # invested capital progressively (cash returns to 0 after funding)
+        assert points["2026-05-01"]["value"] == pytest.approx(1000.0)
+        assert points["2026-05-01"]["cash_value"] == pytest.approx(0.0)
+        assert points["2026-05-03"]["value"] == pytest.approx(1000.0)
+        assert points["2026-05-04"]["value"] == pytest.approx(1500.0)
+        assert points["2026-05-04"]["cash_value"] == pytest.approx(0.0)
+        # Inferred contributions are external flows, never performance:
+        # price never moved, so the gain stays 0 through both fundings
+        assert points["2026-05-01"]["gain_pct"] == pytest.approx(0.0)
+        assert points["2026-05-04"]["gain_pct"] == pytest.approx(0.0)
+
 
 class TestHistoricalFxSeries:
     def test_series_uses_historical_rates_per_day(self, test_db, test_user, monkeypatch):

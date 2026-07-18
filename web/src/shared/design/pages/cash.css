@@ -289,6 +289,12 @@
   color: var(--pf-color-danger, #dc2626);
 }
 
+.cash-resume-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 @media (max-width: 640px) {
   .cash-fx-grid {
     grid-template-columns: 1fr;

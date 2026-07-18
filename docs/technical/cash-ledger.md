@@ -41,8 +41,11 @@ Backend layout:
   such movements are immutable through the cash API and are deleted with
   their transaction (`ON DELETE CASCADE` plus explicit replace-on-edit).
 - `conversion_id` — UUID linking the legs of one Forex conversion.
-- `activation_id` — set on `opening_balance` movements created by an
-  activation (reserved for that workflow).
+- `activation_id` — set on `opening_balance` movements and inferred
+  `deposit` movements created by an activation (reserved for that
+  workflow). Inferred deposits additionally carry
+  `metadata.inferred = true` so they can never be confused with
+  user-entered deposits.
 - `base_exchange_rate` — portfolio base-currency units per **1 unit of the
   movement currency**, captured at write time with the historical rate of
   `occurred_on`; `base_currency_amount = amount × base_exchange_rate`. Both
@@ -178,15 +181,50 @@ uniformly (deletes included) without per-row bookkeeping.
 applies atomically in one SQL transaction (portfolio row locked).
 `start_date` is optional: when omitted it resolves to the portfolio's
 earliest transaction date (today if it has none), so a replay scans the
-whole history without the client knowing it. The
-`replay` strategy computes, per currency, the running minimum of the
-replayed history and proposes `max(0, −minimum)` as the opening balance —
-one opening movement per currency, never a synthetic deposit per purchase.
+whole history without the client knowing it.
+
+The `replay` strategy uses a **minimum-funding reconstruction**: cash
+starts at zero and the replayed history is walked in accounting order
+(date boundaries, all movements of one day netted together, so a same-day
+sell still funds a same-day buy). Whenever a day's net would push a
+currency's running balance below zero, an **inferred deposit** for the
+exact shortfall is created on that day, accounting-before the
+transactions it funds. Inflows (sells, dividends, user-supplied opening
+balances) stay available for later days, no withdrawal is ever inferred,
+and no deposit is created when the running balance already covers the
+day. The result models the assumption "the user contributed only the
+minimum required for the recorded transactions to execute without the
+balance going negative" — contributions therefore appear progressively
+through history instead of as one large opening balance at the deepest
+historical dip (the pre-v0.4 "deepest point" model). The preview returns
+the dated list as `proposed_inferred_deposits`; apply recomputes the same
+deterministic result server-side and persists each one as a `deposit`
+movement with `activation_id` set and `metadata.inferred = true`
+(summarised in `cash_activation_meta.inferred_deposits`). Editing an
+inferred deposit through the cash API clears the `inferred` flag — it
+becomes user-confirmed data.
+
 Apply is idempotent through the client-generated `activation_id`:
 re-POSTing the same id returns the stored result, a different id while
-tracked is a 409 conflict, and the partial unique index backstops races.
-A strict target mode re-runs the full sweep and rejects activation while
-any dip remains.
+tracked is a 409 conflict, the partial unique index backstops opening
+balance races, and the "ledger must be empty" guard makes re-running a
+reconstruction impossible without an explicit wipe — inferred deposits
+can never be duplicated. A strict target mode re-runs the full sweep and
+rejects activation while any dip remains; a replay reconstruction is
+dip-free by construction, so replay activations always satisfy strict
+mode.
+
+Ledgers created by the old deepest-point model are converted by the
+`replay opening balances → inferred deposits` data migration: the
+auto-generated `opening_balance` rows of `replay` activations (matched by
+`activation_id` + the stored strategy) are replaced by inferred deposits
+recomputed from the retained movements, and the change is recorded in
+`cash_activation_meta` (`migrated_from_deepest_point`). `opening_balances`
+-strategy activations, manual movements, and every other user-entered row
+are never touched. One documented ambiguity: an API client could mix
+user-supplied openings into a replay activation's `opening_balances`
+(the UI never does); the ledger cannot distinguish that portion, so the
+migration conservatively treats the whole replay opening as inferred.
 
 Unsupported settlement currencies on historical transactions are reported
 as blocking issues in the preview and reject the apply — cash effects are
@@ -200,7 +238,10 @@ convertible converted total in `total_value` for tracked portfolios
 remains an asset-only metric. `get_portfolio_history` adds a per-day cash
 series (historical FX per day, memoized) to the chart `value` and exposes
 it as `cash_value`; `gain_pct`/`unrealized_pnl_pct` stay asset-only so a
-deposit never reads as performance. Untracked portfolios execute none of
+deposit — user-entered or inferred — never reads as performance. Because
+inferred deposits occur on the days of the transactions they fund, the
+chart grows progressively as contributions happen instead of jumping to
+one large opening balance on day one. Untracked portfolios execute none of
 this — their metrics code path is unchanged.
 
 Analytics caching: every cash mutation invalidates the portfolio's caches

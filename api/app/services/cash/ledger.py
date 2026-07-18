@@ -509,6 +509,9 @@ def update_manual_movement(
         movement.reason = reason
     if notes is not None:
         movement.notes = notes
+    if (movement.meta_data or {}).get("inferred"):
+        # An edited inferred deposit becomes user-confirmed data
+        movement.meta_data = {**movement.meta_data, "inferred": False, "user_confirmed": True}
     rate, base_amount = enrich_base_amounts([spec], portfolio.base_currency)[0]
     movement.base_exchange_rate = rate
     movement.base_currency_amount = base_amount

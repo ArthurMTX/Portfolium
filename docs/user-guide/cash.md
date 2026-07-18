@@ -26,16 +26,31 @@ points are available:
 - **Reconstruct from my transactions** (recommended) — Portfolium scans your
   entire transaction history automatically (no date to choose) and replays
   your buys, sells, dividends, fees and taxes into cash movements. Because
-  historical deposits are usually not recorded, the review step proposes the
-  opening balance per currency needed to avoid unexplained negative cash. One
-  opening balance is proposed — never one fake deposit per purchase — and
-  nothing is applied without your explicit confirmation.
+  historical deposits are usually not recorded, Portfolium infers them:
+  cash starts at zero, and whenever a purchase (fees included) needs more
+  cash than the reconstruction has available, an **estimated deposit** for
+  the exact missing amount is added on that day. Money you received from
+  sales or dividends stays available for later purchases, so only the
+  minimum funding is ever inferred. The review step lists these estimated
+  deposits, and nothing is applied without your explicit confirmation.
 - **Start fresh from a date** — you pick an activation date and the opening
   balance of each currency. Transactions before that date never affect cash.
 
-The review step shows projected balances per currency, the earliest negative
-dip if any, and how many movements will be created. Activation is atomic:
-either everything is applied or nothing is.
+The review step shows projected balances per currency, the estimated
+deposits (reconstruction only), the earliest negative dip if any, and how
+many movements will be created. Activation is atomic: either everything is
+applied or nothing is.
+
+!!! note "Estimated deposits are an assumption, not a record"
+    The reconstruction assumes you contributed **only the minimum amount
+    needed** to execute each recorded transaction, exactly when it was
+    needed, and never withdrew anything — your real deposit and withdrawal
+    history was never recorded. Estimated deposits are labeled as such in
+    the movement list so they are never confused with deposits you entered
+    yourself. If your real funding history differed (for example you
+    withdrew sale proceeds over the years), edit or replace the estimated
+    deposits afterwards — editing one marks it as confirmed by you — or add
+    an adjustment to match your broker's actual cash balance.
 
 ## What moves cash
 

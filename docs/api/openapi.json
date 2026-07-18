@@ -3061,11 +3061,11 @@
             "title": "Projected Balances",
             "type": "array"
           },
-          "proposed_opening_balances": {
+          "proposed_inferred_deposits": {
             "items": {
-              "$ref": "#/components/schemas/CashOpeningBalance-Output"
+              "$ref": "#/components/schemas/CashInferredDeposit"
             },
-            "title": "Proposed Opening Balances",
+            "title": "Proposed Inferred Deposits",
             "type": "array"
           },
           "start_date": {
@@ -3091,7 +3091,7 @@
         "type": "object"
       },
       "CashActivationRequest": {
-        "description": "Enable cash tracking on a portfolio.\n\nstrategy='opening_balances': start from start_date with the given\nopening balances; earlier transactions never affect cash.\nstrategy='replay': reconstruct cash effects of historical transactions\nsince start_date; the preview proposes the opening balances needed to\navoid unexplained negative dips.\n\nstart_date omitted: resolved to the portfolio's earliest transaction\ndate (today when it has none), so a replay scans the whole history\nwithout the client having to know it.",
+        "description": "Enable cash tracking on a portfolio.\n\nstrategy='opening_balances': start from start_date with the given\nopening balances; earlier transactions never affect cash.\nstrategy='replay': reconstruct cash effects of historical transactions\nsince start_date; minimum-funding deposits are inferred whenever a\ntransaction would push the reconstructed balance negative (the preview\nlists them, apply recomputes the same deterministic result).\n\nstart_date omitted: resolved to the portfolio's earliest transaction\ndate (today when it has none), so a replay scans the whole history\nwithout the client having to know it.",
         "properties": {
           "activation_id": {
             "anyOf": [
@@ -3164,6 +3164,18 @@
           "derived_movement_count": {
             "title": "Derived Movement Count",
             "type": "integer"
+          },
+          "inferred_deposit_count": {
+            "default": 0,
+            "title": "Inferred Deposit Count",
+            "type": "integer"
+          },
+          "inferred_deposit_totals": {
+            "items": {
+              "$ref": "#/components/schemas/CashInferredDepositTotal"
+            },
+            "title": "Inferred Deposit Totals",
+            "type": "array"
           },
           "opening_balances": {
             "items": {
@@ -3288,6 +3300,57 @@
           "as_of"
         ],
         "title": "CashBalancesResponse",
+        "type": "object"
+      },
+      "CashInferredDeposit": {
+        "description": "One minimum-funding deposit inferred by a replay reconstruction.\n\nCreated on the day of (accounting-before) the transaction it funds,\nfor the exact shortfall of that day.",
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "date",
+          "amount"
+        ],
+        "title": "CashInferredDeposit",
+        "type": "object"
+      },
+      "CashInferredDepositTotal": {
+        "description": "Per-currency summary of the inferred deposits of an activation",
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "amount",
+          "count"
+        ],
+        "title": "CashInferredDepositTotal",
         "type": "object"
       },
       "CashLedgerWipeRequest": {
@@ -3513,6 +3576,12 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Metadata",
+            "type": "object"
           },
           "notes": {
             "anyOf": [

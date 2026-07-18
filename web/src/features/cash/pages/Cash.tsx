@@ -58,6 +58,7 @@ export default function Cash() {
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
   const [activeModal, setActiveModal] = useState<ActiveModal>(null)
   const [deleteTarget, setDeleteTarget] = useState<CashMovementDTO | null>(null)
+  const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false)
   const [currencyFilter, setCurrencyFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [page, setPage] = useState(0)
@@ -140,6 +141,23 @@ export default function Cash() {
     },
   })
 
+  const wipeMutation = useMutation({
+    mutationFn: () => api.wipeCashLedger(portfolioId!),
+    onSuccess: async () => {
+      setWipeConfirmOpen(false)
+      setToast({ type: 'success', message: t('cash.toasts.ledgerWiped') })
+      await refreshPortfolios()
+      await refreshCash()
+      // Straight into a fresh activation: that is what "start over" means
+      setActiveModal({ kind: 'activation' })
+    },
+    onError: (error: Error) => {
+      const detail = parseCashErrorFromMessage(error.message)
+      setWipeConfirmOpen(false)
+      setToast({ type: 'error', message: detail?.message ?? error.message })
+    },
+  })
+
   const balances = useMemo(() => balancesQuery.data?.balances ?? [], [balancesQuery.data])
   const totalBase = balancesQuery.data?.total_base
   const fxStatus = balancesQuery.data?.fx_status ?? 'ok'
@@ -165,28 +183,59 @@ export default function Cash() {
     )
   }
 
-  // Untracked portfolio: the page is a single enable call-to-action.
+  // Untracked portfolio: a single enable call-to-action — unless a
+  // previously configured ledger was retained (tracking disabled without a
+  // wipe), in which case activation would be refused and the real choices
+  // are resuming the retained configuration or starting over.
   // The existing transaction workflow stays exactly as it is.
   if (!tracked) {
+    const hasRetainedLedger = activePortfolio.cash_tracking_started_on != null
     return (
       <PageShell>
         <PageHeader>
           <PageTitleBlock kicker={t('cash.kicker')} title={t('cash.title')} description={t('cash.description')} />
         </PageHeader>
         <PageSection>
-          <StateBlock
-            tone="info"
-            title={t('cash.enable.title')}
-            description={t('cash.enable.description')}
-          >
-            <button
-              type="button"
-              className="pf-button pf-button--primary"
-              onClick={() => setActiveModal({ kind: 'activation' })}
+          {hasRetainedLedger ? (
+            <StateBlock
+              tone="info"
+              title={t('cash.resume.title')}
+              description={t('cash.resume.description')}
             >
-              <Wallet size={16} /> {t('cash.enable.button')}
-            </button>
-          </StateBlock>
+              <div className="cash-resume-actions">
+                <button
+                  type="button"
+                  className="pf-button pf-button--primary"
+                  onClick={() => modeMutation.mutate('tracked_warn')}
+                  disabled={modeMutation.isPending}
+                >
+                  <Wallet size={16} /> {t('cash.resume.resumeButton')}
+                </button>
+                <button
+                  type="button"
+                  className="pf-button pf-button--ghost"
+                  onClick={() => setWipeConfirmOpen(true)}
+                  disabled={modeMutation.isPending || wipeMutation.isPending}
+                >
+                  {t('cash.resume.startOverButton')}
+                </button>
+              </div>
+            </StateBlock>
+          ) : (
+            <StateBlock
+              tone="info"
+              title={t('cash.enable.title')}
+              description={t('cash.enable.description')}
+            >
+              <button
+                type="button"
+                className="pf-button pf-button--primary"
+                onClick={() => setActiveModal({ kind: 'activation' })}
+              >
+                <Wallet size={16} /> {t('cash.enable.button')}
+              </button>
+            </StateBlock>
+          )}
         </PageSection>
         {activeModal?.kind === 'activation' && (
           <CashActivationWizard
@@ -202,6 +251,17 @@ export default function Cash() {
             }}
           />
         )}
+        <ConfirmModal
+          isOpen={wipeConfirmOpen}
+          onClose={() => setWipeConfirmOpen(false)}
+          onConfirm={() => wipeMutation.mutate()}
+          title={t('cash.resume.wipeTitle')}
+          message={t('cash.resume.wipeMessage')}
+          confirmText={t('cash.resume.wipeConfirm')}
+          cancelText={t('common.cancel')}
+          variant="danger"
+          loading={wipeMutation.isPending}
+        />
         {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
       </PageShell>
     )
@@ -433,6 +493,11 @@ export default function Cash() {
                             {derived && (
                               <span className="pf-badge pf-badge--accent cash-derived-badge" title={t('cash.table.derivedHint')}>
                                 {t('cash.table.derived')}
+                              </span>
+                            )}
+                            {movement.metadata?.inferred === true && (
+                              <span className="pf-badge cash-derived-badge" title={t('cash.table.estimatedHint')}>
+                                {t('cash.table.estimated')}
                               </span>
                             )}
                           </td>

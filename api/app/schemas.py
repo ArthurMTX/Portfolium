@@ -1676,6 +1676,10 @@ class CashMovementOut(BaseModel):
     conversion_rate: Optional[Decimal] = None
     reason: Optional[str] = None
     notes: Optional[str] = None
+    # Read from the meta_data attribute, serialize as 'metadata' in JSON.
+    # Inferred deposits created by a replay reconstruction carry
+    # {"inferred": true} so clients can label them as estimated.
+    meta_data: Dict[str, Any] = Field(default={}, serialization_alias="metadata")
     created_at: datetime
     updated_at: datetime
 
@@ -1778,8 +1782,9 @@ class CashActivationRequest(BaseModel):
     strategy='opening_balances': start from start_date with the given
     opening balances; earlier transactions never affect cash.
     strategy='replay': reconstruct cash effects of historical transactions
-    since start_date; the preview proposes the opening balances needed to
-    avoid unexplained negative dips.
+    since start_date; minimum-funding deposits are inferred whenever a
+    transaction would push the reconstructed balance negative (the preview
+    lists them, apply recomputes the same deterministic result).
 
     start_date omitted: resolved to the portfolio's earliest transaction
     date (today when it has none), so a replay scans the whole history
@@ -1816,6 +1821,24 @@ class CashNegativeDip(BaseModel):
     projected_balance: Decimal
 
 
+class CashInferredDeposit(BaseModel):
+    """One minimum-funding deposit inferred by a replay reconstruction.
+
+    Created on the day of (accounting-before) the transaction it funds,
+    for the exact shortfall of that day.
+    """
+    currency: str
+    date: date
+    amount: Decimal
+
+
+class CashInferredDepositTotal(BaseModel):
+    """Per-currency summary of the inferred deposits of an activation"""
+    currency: str
+    amount: Decimal
+    count: int
+
+
 class CashActivationPreview(BaseModel):
     """Dry-run result of an activation request"""
     strategy: str
@@ -1823,7 +1846,7 @@ class CashActivationPreview(BaseModel):
     target_mode: CashMode
     derived_movement_count: int
     opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
-    proposed_opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
+    proposed_inferred_deposits: List[CashInferredDeposit] = Field(default_factory=list)
     projected_balances: List[CashProjectedBalance] = Field(default_factory=list)
     negative_dips: List[CashNegativeDip] = Field(default_factory=list)
     blocking_issues: List[str] = Field(default_factory=list)
@@ -1836,6 +1859,8 @@ class CashActivationResult(BaseModel):
     cash_tracking_started_on: date
     activation_id: str
     opening_balances: List[CashOpeningBalance] = Field(default_factory=list)
+    inferred_deposit_count: int = 0
+    inferred_deposit_totals: List[CashInferredDepositTotal] = Field(default_factory=list)
     derived_movement_count: int
     already_applied: bool = False
 

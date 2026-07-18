@@ -1897,10 +1897,10 @@ class MetricsService:
                 cash_value=float(cash_value) if cash_value is not None else None
             )
             history.append(point)
-        
+
         if history:
             logger.info(f"Portfolio history final value: €{history[-1].value:.2f} on {history[-1].date}")
-        
+
         # For "ALL" interval, prepend a zero point before the first transaction
         # This makes the chart start at 0 visually
         if interval == "ALL" and history and transactions:
@@ -1916,7 +1916,7 @@ class MetricsService:
                 unrealized_pnl_pct=0.0
             )
             history.insert(0, zero_point)
-        
+
         return history
 
 

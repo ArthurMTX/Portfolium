@@ -24,6 +24,15 @@
       "description": "Your current workflow stays unchanged: purchases never require a deposit. Enable cash tracking to record deposits, withdrawals, balances and conversions with precision.",
       "button": "Enable cash tracking"
     },
+    "resume": {
+      "title": "Cash tracking is paused",
+      "description": "Your cash history was kept when tracking was disabled. Resume with the existing history, or start over to delete it and rebuild from scratch.",
+      "resumeButton": "Resume tracking",
+      "startOverButton": "Start over…",
+      "wipeTitle": "Delete the retained cash history?",
+      "wipeMessage": "All cash movements of this portfolio will be permanently deleted, including deposits, withdrawals and adjustments you entered manually. Your asset transactions are not affected. You can then set up cash tracking again from scratch.",
+      "wipeConfirm": "Delete cash history"
+    },
     "actions": {
       "addMovement": "Add movement",
       "convert": "Convert currency"
@@ -41,6 +50,8 @@
       "actions": "Actions",
       "derived": "auto",
       "derivedHint": "Generated from a transaction — edit the transaction instead",
+      "estimated": "estimated",
+      "estimatedHint": "Reconstructed by Portfolium as the minimum funding your transactions required — not a verified deposit. Edit it to confirm or correct it.",
       "deleteConversion": "Delete conversion"
     },
     "movementTypes": {
@@ -117,7 +128,9 @@
       "nothingWritten": "Nothing is written yet — the next step shows a preview you can still cancel.",
       "reviewReplaySummary": "Your transactions were scanned back to {{date}}. Enabling tracking will create {{count}} cash movements from them.",
       "reviewOpeningsSummary": "Cash will start on {{date}} with the balances you entered. {{count}} cash movements will be derived from transactions after that date.",
-      "proposedIntro": "These opening deposits will be added so your balances never go negative:",
+      "inferredIntro": "Estimated deposits will be added on the days your recorded transactions needed funding:",
+      "inferredLine": "{{count}} estimated deposit(s) totalling {{total}}",
+      "inferredNote": "Estimates assume you contributed only the minimum needed, exactly when needed. They are labeled as estimated in your movement list and you can edit or replace them at any time.",
       "dipsIntro": "Projected negative balances:",
       "dipLine": "{{currency}}: {{balance}} on {{date}}",
       "projectedTitle": "Your starting balances",
@@ -159,7 +172,8 @@
       "movementDeleted": "Cash movement deleted",
       "conversionCreated": "Conversion recorded",
       "modeChanged": "Cash mode updated",
-      "activated": "Cash tracking enabled"
+      "activated": "Cash tracking enabled",
+      "ledgerWiped": "Cash history deleted — you can set up tracking again"
     },
     "errors": {
       "generic": "The operation failed. Please try again.",

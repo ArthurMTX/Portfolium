@@ -51,31 +51,35 @@ export default function CashActivationWizard({
     [openings]
   )
 
-  const buildPayload = (withProposals: boolean) => {
-    const proposalRows = withProposals && preview
-      ? preview.proposed_opening_balances.map((entry) => ({
-        currency: entry.currency,
-        amount: String(entry.amount),
-      }))
-      : []
-    return {
-      strategy,
-      // Replay scans the whole transaction history: the backend resolves
-      // the start date to the earliest transaction automatically
-      ...(strategy === 'opening_balances' ? { start_date: startDate } : {}),
-      target_mode: targetMode,
-      opening_balances: [
-        ...(strategy === 'opening_balances' ? payloadOpenings : []),
-        ...proposalRows,
-      ],
+  // Per-currency totals of the estimated (inferred) deposits in the preview
+  const inferredTotals = useMemo(() => {
+    if (!preview) return []
+    const byCurrency = new Map<string, { currency: string; total: number; count: number }>()
+    for (const entry of preview.proposed_inferred_deposits) {
+      const row = byCurrency.get(entry.currency) ?? { currency: entry.currency, total: 0, count: 0 }
+      row.total += toAmount(entry.amount)
+      row.count += 1
+      byCurrency.set(entry.currency, row)
     }
-  }
+    return [...byCurrency.values()]
+  }, [preview])
+
+  // The inferred deposits shown in the review are recomputed
+  // deterministically by the backend on apply; they are never sent back
+  const buildPayload = () => ({
+    strategy,
+    // Replay scans the whole transaction history: the backend resolves
+    // the start date to the earliest transaction automatically
+    ...(strategy === 'opening_balances' ? { start_date: startDate } : {}),
+    target_mode: targetMode,
+    opening_balances: strategy === 'opening_balances' ? payloadOpenings : [],
+  })
 
   const runPreview = async () => {
     setError('')
     setLoading(true)
     try {
-      setPreview(await api.previewCashActivation(portfolioId, buildPayload(false)))
+      setPreview(await api.previewCashActivation(portfolioId, buildPayload()))
       setStep('review')
     } catch (err) {
       const detail = err instanceof Error ? parseCashErrorFromMessage(err.message) : null
@@ -90,7 +94,7 @@ export default function CashActivationWizard({
     setLoading(true)
     try {
       await api.applyCashActivation(portfolioId, {
-        ...buildPayload(true),
+        ...buildPayload(),
         activation_id: activationId,
       })
       onActivated(t('cash.toasts.activated'))
@@ -285,16 +289,20 @@ export default function CashActivationWizard({
                   })}
               </p>
 
-              {preview.proposed_opening_balances.length > 0 && (
+              {inferredTotals.length > 0 && (
                 <div className="cash-preview__proposals">
-                  <p>{t('cash.activation.proposedIntro')}</p>
+                  <p>{t('cash.activation.inferredIntro')}</p>
                   <ul>
-                    {preview.proposed_opening_balances.map((entry) => (
+                    {inferredTotals.map((entry) => (
                       <li key={entry.currency}>
-                        {formatCurrency(toAmount(entry.amount), entry.currency, currentLocale, true)}
+                        {t('cash.activation.inferredLine', {
+                          count: entry.count,
+                          total: formatCurrency(entry.total, entry.currency, currentLocale, true),
+                        })}
                       </li>
                     ))}
                   </ul>
+                  <p className="pf-modal-help">{t('cash.activation.inferredNote')}</p>
                 </div>
               )}
 
